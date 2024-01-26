@@ -11,8 +11,5 @@ class Predictor(Protocol):
     def evaluate(self, data):
         pass
 
-    def save(self, path):
-        pass
-
-    def load(self, path):
+    def train(self, data):
         pass

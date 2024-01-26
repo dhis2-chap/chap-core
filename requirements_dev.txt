@@ -8,3 +8,5 @@ hypothesis
 coverage
 pytest-cov
 build
+scikit-learn
+numpy
