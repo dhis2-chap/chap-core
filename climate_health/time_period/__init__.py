@@ -7,8 +7,14 @@ class TimePeriod:
 
     @classmethod
     def from_string(cls, time_string):
-        year, month = time_string.split('-')
-        return Month(year=year, month=month)
+        split = time_string.split('-')
+
+        if len(split) == 2:
+            year, month = split
+            return Month(year=year, month=month)
+        elif len(split) == 3:
+            year, month, day = split
+            return Day(int(year), int(month), int(day))
 
 
 class Month:
@@ -39,4 +45,8 @@ class Month:
 
 
 class Day:
-    pass
+    def __init__(self, year: Union[int, str], month: Union[int, str], day: Union[int, str]) -> None:
+        self.year = int(year)
+        self.month = int(month)
+        self.day = int(day)
+

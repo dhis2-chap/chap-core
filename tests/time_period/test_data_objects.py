@@ -9,7 +9,6 @@ def test_time_period_month():
     assert str(month) == 'January 2013'
 
 
-@pytest.mark.skip(reason='Not implemented yet')
 def test_time_period_day():
     day = TimePeriod.from_string('2013-01-02')
     assert isinstance(day, Day)
