@@ -50,3 +50,7 @@ class Day:
         self.month = int(month)
         self.day = int(day)
 
+
+
+def get_number_of_days():
+    return None

@@ -1,6 +1,6 @@
 import pytest
 
-from climate_health.time_period import TimePeriod, Month, Day
+from climate_health.time_period import TimePeriod, Month, Day, get_number_of_days
 
 
 def test_time_period_month():
@@ -15,4 +15,14 @@ def test_time_period_day():
     assert day.year == 2013
     assert day.month == 1
     assert day.day == 2
+
+
+@pytest.mark.skip
+def test_number_of_days():
+    assert get_number_of_days(2013, 1) == 31
+    assert get_number_of_days(2013, 2) == 28
+    assert get_number_of_days(2004, 2) == 29
+    assert get_number_of_days(2000, 2) == 29
+    assert get_number_of_days(1900, 2) == 28
+
     # assert str(day) == '1. January 2013'
