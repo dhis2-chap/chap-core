@@ -11,5 +11,5 @@ class Simulator:
         """Simulate the model for the given parameters."""
         ...
 
-class RandomNoise
+
 
