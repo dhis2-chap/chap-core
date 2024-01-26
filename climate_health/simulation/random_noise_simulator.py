@@ -1,5 +1,6 @@
 from climate_health.datatypes import ClimateHealthTimeSeries
 import numpy as np
+from climate_health.simulation.simulator import Simulator
 
 
 class RandomNoiseSimulator(Simulator):
@@ -13,7 +14,8 @@ class RandomNoiseSimulator(Simulator):
     def simulate(self) -> ClimateHealthTimeSeries:
         """Simulate the model for the given parameters."""
         return ClimateHealthTimeSeries(
-            time_period=[],
+            time_period=[str(i) for i in range(self.n_time_points)],
             rainfall=np.random.randn(self.n_time_points),
-            mean_temperature=[]
+            mean_temperature=np.random.randn(self.n_time_points),
+            disease_cases=np.random.poisson(10, self.n_time_points)
         )
