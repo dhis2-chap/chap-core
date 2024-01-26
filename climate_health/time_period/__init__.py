@@ -1,6 +1,10 @@
+from typing import Union
+
+
 class TimePeriod:
     def __init__(self):
         pass
+
     @classmethod
     def from_string(cls, time_string):
         year, month = time_string.split('-')
@@ -8,14 +12,13 @@ class TimePeriod:
 
 
 class Month:
-    def __init__(self, year: int|str, month: int|str) -> None:
+    def __init__(self, year: Union[int, str], month: Union[int, str]) -> None:
         """
         :param year:
         :param month: Starting from 1
         """
         self.year = int(year)
         self.month = int(month)
-
 
     def __str__(self) -> str:
         dict_month = {
@@ -33,3 +36,7 @@ class Month:
             12: 'December',
         }
         return f'{dict_month[self.month]} {self.year}'
+
+
+class Day:
+    pass
