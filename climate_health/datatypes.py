@@ -1,7 +1,7 @@
 import bionumpy as bnp
 
 
-@bnp.bnpdataclass
+@bnp.bnpdataclass.bnpdataclass
 class ClimateHealthTimeSeries:
     time_period: str
     rainfall: float
@@ -9,7 +9,7 @@ class ClimateHealthTimeSeries:
     disease_cases: int
 
 
-@bnp.bnpdataclass
+@bnp.bnpdataclass.bnpdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
     time_period: str
     rainfall: float
