@@ -45,6 +45,12 @@ Once you have a copy of the source, you can install it with:
 
     $ pip install -e .
 
+To install dev requirements:
+
+.. code-block:: console
+
+    $ pip install -r requirements_dev.tzt
+
 
 .. _Github repo: https://github.com/sandvelab/climate_health
 .. _tarball: https://github.com/sandvelab/climate_health/tarball/master

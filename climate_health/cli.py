@@ -20,6 +20,7 @@ def main_function():
 
 def main():
     typer.run(main_function)
+    print("Yay! You managed to run the main function!")
 
 
 if __name__ == "__main__":
