@@ -51,6 +51,15 @@ class Day:
         self.day = int(day)
 
 
-
-def get_number_of_days():
-    return None
+def get_number_of_days(tp: TimePeriod):
+    assert isinstance(tp, Month)
+    month = tp.month
+    year = tp.year
+    if month in [1, 3, 5, 7, 8, 10, 12]:
+        return 31
+    elif month in [4, 6, 9, 11]:
+        return 30
+    elif (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+        return 29
+    else:
+        return 28
