@@ -10,7 +10,7 @@ with open('README.md') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['typer', 'numpy', 'bionumpy', 'pandas']
+requirements = ['typer', 'numpy', 'bionumpy', 'pandas', 'omnipy']
 
 test_requirements = ['pytest>=3', "hypothesis"]
 
