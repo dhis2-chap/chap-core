@@ -22,6 +22,5 @@ def test_load_separated_data():
                                      'separated_temp_data')
 
 
-@pytest.mark.skip
-def test_standardize_separated_data():
-    ...
+#def test_standardize_separated_data():
+#    ...
