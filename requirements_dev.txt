@@ -3,7 +3,7 @@ bump2version
 wheel
 Sphinx
 typer
-pytest
+pytest<8  # something weird with version 8 of pytest
 hypothesis
 coverage
 pytest-cov
