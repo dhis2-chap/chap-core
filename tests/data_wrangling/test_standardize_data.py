@@ -6,7 +6,8 @@ from climate_health.data_wrangling.separated_data import load_separated_data
 import pytest
 
 
-@pytest.mark.xfail(reason="Seems to fail due to missing example data")
+# Seems to fail due to missing example data
+@pytest.mark.xfail
 def test_load_separated_data():
     example_data_path = Path(__file__).parent.parent.parent / 'example_data'
     data_files = (str(example_data_path / filename) for filename in
@@ -21,5 +22,6 @@ def test_load_separated_data():
                                      'separated_temp_data')
 
 
+@pytest.mark.skip
 def test_standardize_separated_data():
     ...
