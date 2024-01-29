@@ -9,7 +9,7 @@ import pytest
 # Seems to fail due to missing example data
 @pytest.mark.xfail
 def test_load_separated_data():
-    example_data_path = Path(__file__).parent.parent.parent / 'example_data'
+    example_data_path = Path(__file__).parent.parent.parent / 'example_data' / 'nonstandard_separate'
     data_files = (str(example_data_path / filename) for filename in
                   ('separated_disease_data.csv',
                    'separated_rain_data.csv',
