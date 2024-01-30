@@ -17,7 +17,7 @@ test_requirements = ['pytest>=3', "hypothesis"]
 setup(
     author="Sandvelab",
     author_email='sandvelab',
-    python_requires='>=3.10',
+    python_requires='>=3.10,<3.12',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
