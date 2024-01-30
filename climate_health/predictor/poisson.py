@@ -7,7 +7,7 @@ class Poisson():
         self.model = lm.PoissonRegressor(alpha=alpha, fit_intercept=fit_intercept)
 
     def predict(self, data):
-        ## Dara: data will be of format (X, Y) where X has shape (n_samples, n_features)
+        # Dara: data will be of format (X, Y) where X has shape (n_samples, n_features)
         self.model.predict(data)
 
     def evaluate(self, data):
