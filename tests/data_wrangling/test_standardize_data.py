@@ -61,7 +61,7 @@ def test_standardize_separated_data(separated_data_renamed: Annotated[StrDataset
 
     PerRegionRecordModel = create_pydantic_model_for_region_data('PerRegionRecordModel',
                                                                  region_col_names=table_renamed_colnames_cleaned_ds.col_names[1:],
-                                                                 region_data_type=float)
+                                                                 region_data_type=int | float)
 
     table_colnames_datatypes_ds = TableOfPydanticRecordsDataset[PerRegionRecordModel](table_renamed_colnames_cleaned_ds)
     pandas_ds = PandasDataset(table_colnames_datatypes_ds)
