@@ -1,19 +1,15 @@
 import os
-from functools import reduce
-from operator import add
 from pathlib import Path
-from types import MethodType
-from typing import Annotated, Generator, TypeVar
+from typing import Annotated, Generator
 
-from omnipy import StrDataset, SplitToLinesDataset, SplitLinesToColumnsDataset, PandasDataset, Dataset, Model
-from omnipy.compute.task import TaskTemplate
+from omnipy import StrDataset, SplitToLinesDataset, SplitLinesToColumnsDataset, PandasDataset
 
-from climate_health.data_wrangling.helpers import load_data_as_clean_strings
+from climate_health.data_wrangling.helpers import load_data_as_clean_strings, strip_commas
 import pytest
 
 from pytest import fixture
 
-from climate_health.data_wrangling.models import TableWithColNamesInFirstRowDataset, TableWithColNamesInFirstRowModel, \
+from climate_health.data_wrangling.models import TableWithColNamesInFirstRowDataset, \
     TableWithColNamesDataset
 
 
@@ -58,9 +54,7 @@ def test_standardize_separated_data(separated_data_renamed: Annotated[StrDataset
     table_colnames_first_row_ds = TableWithColNamesInFirstRowDataset(items_ds)
     table_colnames_ds = TableWithColNamesDataset(table_colnames_first_row_ds)
 
-    for datafile in table_colnames_ds.keys():
-        table_colnames_ds[datafile] = [{k: v.rstrip(',') for k, v in tuple(row.items())}
-                                       for row in table_colnames_ds[datafile]]
+    strip_commas(table_colnames_ds)
 
     # table_colnames_ds[:, :, 1:, :] = table_colnames_ds[:, :, 1:, :-1]
     # table_colnames_ds[:, :, 1:] = table_colnames_ds[:, :, 1:].for_item(lambda k, v: (k, v.rstrip(',')))
@@ -68,6 +62,7 @@ def test_standardize_separated_data(separated_data_renamed: Annotated[StrDataset
     p = PandasDataset(table_colnames_ds)
     print(p['disease'])
     # tt = TableWithHeaderInFirstRowModel([['sdf', 'sd', 'd'], [1, 2, 3]])
+
 #     standardized_data = join_and_pivot_separated_data(separated_data_renamed, delimiter=';',
 #                                                       join_col='periodname', datafile_prefix='joined_')
 #     assert isinstance(standardized_data, PandasDataset)
