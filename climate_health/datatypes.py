@@ -1,5 +1,6 @@
 import bionumpy as bnp
 import pandas as pd
+from pydantic import BaseModel
 
 
 @bnp.bnpdataclass.bnpdataclass
@@ -34,3 +35,17 @@ class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
     location: str
     disease_cases: int
 
+
+class ClimateHealthTimeSeriesModel(BaseModel):
+    time_period: str
+    rainfall: float
+    mean_temperature: float
+    disease_cases: int
+
+
+class LocatedClimateHealthTimeSeriesModel(BaseModel):
+    time_period: str
+    rainfall: float
+    mean_temperature: float
+    location: str
+    disease_cases: int
