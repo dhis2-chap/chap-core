@@ -59,7 +59,12 @@ def test_standardize_separated_data(separated_data_renamed: Annotated[StrDataset
     table_colnames_cleaned_ds = strip_commas.run(table_colnames_ds)
     table_renamed_colnames_cleaned_ds = rename_col_names.run(table_colnames_cleaned_ds, dict(periodname='time_period'))
 
-    pandas_ds = PandasDataset(table_renamed_colnames_cleaned_ds)
+    PerRegionRecordModel = create_pydantic_model_for_region_data('PerRegionRecordModel',
+                                                                 region_col_names=table_renamed_colnames_cleaned_ds.col_names[1:],
+                                                                 region_data_type=float)
+
+    table_colnames_datatypes_ds = TableOfPydanticRecordsDataset[PerRegionRecordModel](table_renamed_colnames_cleaned_ds)
+    pandas_ds = PandasDataset(table_colnames_datatypes_ds)
     print(pandas_ds['disease'])
     # tt = TableWithHeaderInFirstRowModel([['sdf', 'sd', 'd'], [1, 2, 3]])
 

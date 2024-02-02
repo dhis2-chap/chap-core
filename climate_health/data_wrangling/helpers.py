@@ -34,3 +34,13 @@ def rename_col_names(data_file: TableWithColNamesModel, prev2new_keymap: dict[st
     return TableWithColNamesModel([{prev2new_keymap[key] if key in prev2new_keymap else key: val
                                     for key, val in row.items()}
                                    for row in data_file])
+
+
+def create_pydantic_model_for_region_data(model_name: str,
+                                          region_col_names: tuple[str],
+                                          region_data_type: type):
+    fields = dict(time_period=(str, ...))
+    for name in region_col_names:
+        fields[name] = (region_data_type, ...)
+
+    return create_model(model_name, **fields)
