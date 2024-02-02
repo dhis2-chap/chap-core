@@ -4,13 +4,15 @@ from typing import Annotated, Generator
 
 from omnipy import StrDataset, SplitToLinesDataset, SplitLinesToColumnsDataset, PandasDataset
 
-from climate_health.data_wrangling.helpers import load_data_as_clean_strings, strip_commas
+from climate_health.data_wrangling.helpers import (load_data_as_clean_strings, strip_commas,
+                                                   rename_col_names,
+                                                   create_pydantic_model_for_region_data)
 import pytest
 
 from pytest import fixture
 
 from climate_health.data_wrangling.models import TableWithColNamesInFirstRowDataset, \
-    TableWithColNamesDataset
+    TableWithColNamesDataset, TableOfPydanticRecordsDataset
 
 
 @fixture(scope="module")
@@ -51,16 +53,13 @@ def test_load_separated_data(separated_data: Annotated[Generator[StrDataset, Non
 def test_standardize_separated_data(separated_data_renamed: Annotated[StrDataset, pytest.fixture]):
     lines_ds = SplitToLinesDataset(separated_data_renamed)
     items_ds = SplitLinesToColumnsDataset(lines_ds, delimiter=';')
+
     table_colnames_first_row_ds = TableWithColNamesInFirstRowDataset(items_ds)
     table_colnames_ds = TableWithColNamesDataset(table_colnames_first_row_ds)
+    table_colnames_cleaned_ds = strip_commas.run(table_colnames_ds)
 
-    strip_commas(table_colnames_ds)
-
-    # table_colnames_ds[:, :, 1:, :] = table_colnames_ds[:, :, 1:, :-1]
-    # table_colnames_ds[:, :, 1:] = table_colnames_ds[:, :, 1:].for_item(lambda k, v: (k, v.rstrip(',')))
-    # table_colnames_ds[:, :, 1:] = table_colnames_ds[:, :, 1:].for_val(lambda v: v.rstrip(','))
-    p = PandasDataset(table_colnames_ds)
-    print(p['disease'])
+    pandas_ds = PandasDataset(table_colnames_cleaned_ds)
+    print(pandas_ds['disease'])
     # tt = TableWithHeaderInFirstRowModel([['sdf', 'sd', 'd'], [1, 2, 3]])
 
 #     standardized_data = join_and_pivot_separated_data(separated_data_renamed, delimiter=';',

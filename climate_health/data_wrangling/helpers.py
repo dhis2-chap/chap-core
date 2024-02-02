@@ -1,4 +1,8 @@
 from omnipy import BytesDataset, StrDataset
+from omnipy.compute.task import TaskTemplate
+from pydantic import create_model
+
+from climate_health.data_wrangling.models import TableWithColNamesDataset, TableWithColNamesModel
 
 
 def load_data_as_clean_strings(path_or_url: str) -> StrDataset:
@@ -11,8 +15,15 @@ def load_data_as_clean_strings(path_or_url: str) -> StrDataset:
     return StrDataset(bytes_dataset, encoding='utf-8-sig')
 
 
-def strip_commas(table_colnames_ds):
-    for datafile in table_colnames_ds.keys():
-        table_colnames_ds[datafile] = [
-            {k: v.rstrip(',') if v is not None else None for k, v in tuple(row.items())}
-            for row in table_colnames_ds[datafile]]
+@TaskTemplate(iterate_over_data_files=True, return_dataset_cls=TableWithColNamesDataset)
+def strip_commas(data_file: TableWithColNamesModel) -> TableWithColNamesModel:
+    # Possible alternative implementations based on future universal indexing functionality
+    #
+    # table_colnames_ds[:, :, 1:, :] = table_colnames_ds[:, :, 1:, :-1]
+    # table_colnames_ds[:, :, 1:] = \
+    #   table_colnames_ds[:, :, 1:].for_item(lambda k, v: (k, v.rstrip(',')))
+    # table_colnames_ds[:, :, 1:] = table_colnames_ds[:, :, 1:].for_val(lambda v: v.rstrip(','))
+
+    return TableWithColNamesModel([{k: v.rstrip(',') if v is not None else None
+                                    for k, v in tuple(row.items())}
+                                   for row in data_file])
