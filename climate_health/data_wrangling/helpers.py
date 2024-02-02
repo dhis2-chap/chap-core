@@ -27,3 +27,10 @@ def strip_commas(data_file: TableWithColNamesModel) -> TableWithColNamesModel:
     return TableWithColNamesModel([{k: v.rstrip(',') if v is not None else None
                                     for k, v in tuple(row.items())}
                                    for row in data_file])
+
+
+@TaskTemplate(iterate_over_data_files=True, return_dataset_cls=TableWithColNamesDataset)
+def rename_col_names(data_file: TableWithColNamesModel, prev2new_keymap: dict[str, str]) -> TableWithColNamesModel:
+    return TableWithColNamesModel([{prev2new_keymap[key] if key in prev2new_keymap else key: val
+                                    for key, val in row.items()}
+                                   for row in data_file])

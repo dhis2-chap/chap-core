@@ -29,10 +29,23 @@ class TableWithColNamesModel(Model[JsonListOfDictsOfScalarsModel | TableWithColN
 
         return data
 
+    @property
+    def col_names(self) -> tuple[str]:
+        col_names = {}
+        for row in self:
+            col_names.update(dict.fromkeys(row.keys()))
+        return tuple(col_names.keys())
+
 
 class TableWithColNamesInFirstRowDataset(Dataset[TableWithColNamesInFirstRowModel]):
     ...
 
 
 class TableWithColNamesDataset(Dataset[TableWithColNamesModel]):
-    ...
+
+    @property
+    def col_names(self) -> tuple[str]:
+        col_names = {}
+        for data_file in self.values():
+            col_names.update(dict.fromkeys(data_file.col_names))
+        return tuple(col_names.keys())

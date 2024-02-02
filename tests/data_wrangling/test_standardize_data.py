@@ -57,8 +57,9 @@ def test_standardize_separated_data(separated_data_renamed: Annotated[StrDataset
     table_colnames_first_row_ds = TableWithColNamesInFirstRowDataset(items_ds)
     table_colnames_ds = TableWithColNamesDataset(table_colnames_first_row_ds)
     table_colnames_cleaned_ds = strip_commas.run(table_colnames_ds)
+    table_renamed_colnames_cleaned_ds = rename_col_names.run(table_colnames_cleaned_ds, dict(periodname='time_period'))
 
-    pandas_ds = PandasDataset(table_colnames_cleaned_ds)
+    pandas_ds = PandasDataset(table_renamed_colnames_cleaned_ds)
     print(pandas_ds['disease'])
     # tt = TableWithHeaderInFirstRowModel([['sdf', 'sd', 'd'], [1, 2, 3]])
 
