@@ -1,15 +1,22 @@
 import bionumpy as bnp
 import pandas as pd
 from pydantic import BaseModel
+
+from .file_io import parse_periods_strings
 from .time_period.dataclasses import Period
 
 
 @bnp.bnpdataclass.bnpdataclass
 class ClimateHealthTimeSeries:
-    time_period: str
+    time_period: Period
     rainfall: float
     mean_temperature: float
     disease_cases: int
+
+    def todict(self):
+        d = super().todict()
+        d['time_period'] = self.time_period.topandas()
+        return d
 
     @classmethod
     def from_csv(cls, csv_file: str, **kwargs):
@@ -19,12 +26,13 @@ class ClimateHealthTimeSeries:
 
     @classmethod
     def from_pandas(cls, data):
-        return cls(data.Time, data.Rain, data.Temperature, data.Disease)
+        time = parse_periods_strings(data.Time)
+        return cls(time, data.Rain, data.Temperature, data.Disease)
 
     def to_csv(self, csv_file: str, **kwargs):
         """Write data to a csv file."""
         data = pd.DataFrame({
-            "Time": self.time_period,
+            "Time": self.time_period.topandas(),
             "Rain": self.rainfall,
             "Temperature": self.mean_temperature,
             "Disease": self.disease_cases,

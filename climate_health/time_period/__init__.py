@@ -1,5 +1,7 @@
 from typing import Union
 
+import dataclasses
+
 
 class TimePeriod:
     def __init__(self):
@@ -8,14 +10,20 @@ class TimePeriod:
     @classmethod
     def from_string(cls, time_string):
         split = time_string.split('-')
-
+        if len(split) == 1:
+            year = split[0]
+            return Year(int(year))
         if len(split) == 2:
             year, month = split
-            return Month(year=year, month=month)
+            return Month(year=int(year), month=int(month))
         elif len(split) == 3:
             year, month, day = split
             return Day(int(year), int(month), int(day))
 
+
+@dataclasses.dataclass
+class Year:
+    year: int
 
 class Month:
     def __init__(self, year: Union[int, str], month: Union[int, str]) -> None:

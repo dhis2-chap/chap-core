@@ -1,13 +1,18 @@
 import numpy as np
+import pandas as pd
 from bionumpy.bnpdataclass import bnpdataclass
 
 @bnpdataclass
 class Period:
     ...
 
+
 @bnpdataclass
 class Year(Period):
     year: int
+
+    def topandas(self):
+        return pd.Series([pd.Period(year=y, freq='Y') for y in self.year])
 
     def __array_function__(self, func, types, args, kwargs):
         if func == np.argsort:
