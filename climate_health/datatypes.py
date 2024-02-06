@@ -14,6 +14,10 @@ class ClimateHealthTimeSeries:
     def from_csv(cls, csv_file: str, **kwargs):
         """Read data from a csv file."""
         data = pd.read_csv(csv_file, dtype={'Time': str}, **kwargs)
+        return cls.from_pandas(data)
+
+    @classmethod
+    def from_pandas(cls, data):
         return cls(data.Time, data.Rain, data.Temperature, data.Disease)
 
     def to_csv(self, csv_file: str, **kwargs):
