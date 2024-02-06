@@ -6,10 +6,10 @@ class TestClass:
     period: Year
     cases: int
 
+
 def test_year():
     years = Year([2013, 2014, 2015])
     assert years.year[0] == 2013
-
 
 
 def test_indataclass():

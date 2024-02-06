@@ -2,7 +2,11 @@ import numpy as np
 from bionumpy.bnpdataclass import bnpdataclass
 
 @bnpdataclass
-class Year:
+class Period:
+    ...
+
+@bnpdataclass
+class Year(Period):
     year: int
 
     def __array_function__(self, func, types, args, kwargs):

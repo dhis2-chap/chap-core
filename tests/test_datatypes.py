@@ -18,7 +18,8 @@ def test_climate_health_time_series_from_csv(tmp_path):
     csv_file = tmp_path / "test.csv"
     data.to_csv(csv_file, index=False)
     ts = ClimateHealthTimeSeries.from_csv(csv_file)
-    bnp_ragged_array = bnp.as_encoded_array(["2010", "2011", "2012"])
+    true_periods = bnp.as_encoded_array(["2010", "2011", "2012"])
+    bnp_ragged_array = true_periods
     assert ts.time_period == bnp_ragged_array
     np.testing.assert_array_equal(ts.rainfall, np.array([1.0, 2.0, 3.0]))
     np.testing.assert_array_equal(ts.mean_temperature, np.array([1.0, 2.0, 3.0]))

@@ -1,6 +1,7 @@
 import bionumpy as bnp
 import pandas as pd
 from pydantic import BaseModel
+from .time_period.dataclasses import Period
 
 
 @bnp.bnpdataclass.bnpdataclass
