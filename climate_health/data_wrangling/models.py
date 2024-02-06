@@ -1,30 +1,31 @@
 from typing import TypeVar, Generic
 
 from omnipy import JsonListOfListsOfScalarsModel, Dataset, JsonListOfDictsOfScalarsModel, Model
-from omnipy.modules.json.models import JsonListM, JsonDictM
+from omnipy.modules.json.models import JsonListM, JsonDictM, JsonCustomListModel
 from pydantic import BaseModel
 
+#
+# class TableWithColNamesInFirstRowModel(JsonListOfListsOfScalarsModel):
+#     @classmethod
+#     def _parse_data(cls, data: JsonListOfListsOfScalarsModel):
+#         if len(data) > 0:
+#             if len(data[0]) > 0:
+#                 for item in data[0]:
+#                     assert isinstance(item.contents, str)
+#             else:
+#                 return []
+#         return data
 
 # These are prototype implementations that will be moved to omnipy and improved
 
-class TableWithColNamesInFirstRowModel(JsonListOfListsOfScalarsModel):
-    @classmethod
-    def _parse_data(cls, data: JsonListOfListsOfScalarsModel):
-        if len(data) > 0:
-            if len(data[0]) > 0:
-                for item in data[0]:
-                    assert isinstance(item.contents, str)
-            else:
-                return []
-        return data
 
-
-class TableWithColNamesModel(Model[JsonListOfDictsOfScalarsModel | TableWithColNamesInFirstRowModel]):
+class TableWithColNamesModel(Model[JsonListOfListsOfScalarsModel | JsonListOfDictsOfScalarsModel]):
     @classmethod
-    def _parse_data(cls, data: JsonListOfDictsOfScalarsModel | TableWithColNamesInFirstRowModel):
+    def _parse_data(cls, data: 'JsonListOfListsOfScalarsModel | JsonListOfDictsOfScalarsModel | TableWithColNamesModel'):
         if len(data) > 0:
             if isinstance(data[0], JsonListM):
-                return [{col_name.contents: row[i] if i < len(row) else None for i, col_name in enumerate(data[0])}
+                first_row_as_colnames = JsonCustomListModel[str](data[0])
+                return [{col_name: row[i] if i < len(row) else None for i, col_name in enumerate(first_row_as_colnames)}
                         for row in data[1:]]
             else:
                 assert isinstance(data[0], JsonDictM)
@@ -39,9 +40,9 @@ class TableWithColNamesModel(Model[JsonListOfDictsOfScalarsModel | TableWithColN
             col_names.update(dict.fromkeys(row.keys()))
         return tuple(col_names.keys())
 
-
-class TableWithColNamesInFirstRowDataset(Dataset[TableWithColNamesInFirstRowModel]):
-    ...
+#
+# class TableWithColNamesInFirstRowDataset(Dataset[TableWithColNamesInFirstRowModel]):
+#     ...
 
 
 class TableWithColNamesDataset(Dataset[TableWithColNamesModel]):

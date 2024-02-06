@@ -11,8 +11,8 @@ import pytest
 
 from pytest import fixture
 
-from climate_health.data_wrangling.models import TableWithColNamesInFirstRowDataset, \
-    TableWithColNamesDataset, TableOfPydanticRecordsDataset
+from climate_health.data_wrangling.models import TableOfPydanticRecordsDataset
+from climate_health.data_wrangling.models import TableWithColNamesDataset
 
 
 @fixture(scope="module")
@@ -54,8 +54,8 @@ def test_standardize_separated_data(separated_data_renamed: Annotated[StrDataset
     lines_ds = SplitToLinesDataset(separated_data_renamed)
     items_ds = SplitLinesToColumnsDataset(lines_ds, delimiter=';')
 
-    table_colnames_first_row_ds = TableWithColNamesInFirstRowDataset(items_ds)
-    table_colnames_ds = TableWithColNamesDataset(table_colnames_first_row_ds)
+   # table_colnames_first_row_ds = TableWithColNamesInFirstRowDataset(items_ds)
+    table_colnames_ds = TableWithColNamesDataset(items_ds)
     table_colnames_cleaned_ds = strip_commas.run(table_colnames_ds)
     table_renamed_colnames_cleaned_ds = rename_col_names.run(table_colnames_cleaned_ds, dict(periodname='time_period'))
 
