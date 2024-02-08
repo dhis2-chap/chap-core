@@ -16,17 +16,20 @@ class Year(Period):
 
     def __array_function__(self, func, types, args, kwargs):
         if func == np.argsort:
-            return self.__argsort__()
+            return self.argsort()
         return super().__array_function__(func, types, args, kwargs)
 
-    def __argsort__(self):
+    def argsort(self):
         return np.argsort(self.year)
 
 @bnpdataclass
 class Month(Year):
     month: int
 
-    def __argsort__(self):
+    def topandas(self):
+        return pd.Series([pd.Period(year=y, month=m, freq='M') for y,m  in zip(self.year, self.month)])
+
+    def argsort(self):
         return np.lexsort((self.month, self.year))
 
 
@@ -34,5 +37,18 @@ class Month(Year):
 class Day(Month):
     day: int
 
-    def __argsort__(self):
+    def argsort(self):
         return np.lexsort((self.day, self.month, self.year))
+
+    def topandas(self):
+        return pd.Series([pd.Period(year=y, month=m, day=d, freq='D') for y,m, d  in zip(self.year, self.month, self.day)])
+
+
+class Week(Year):
+    week: int
+
+    def argsort(self):
+        return np.lexsort((self.week, self.year))
+
+    def topandas(self):
+        return pd.Series([f'{y}-W{w}' for y, w in zip(self.year, self.week)])
