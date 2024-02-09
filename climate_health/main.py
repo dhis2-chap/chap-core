@@ -53,7 +53,6 @@ class AssessmentReport:
 def make_assessment_report(prediction_dict, truth_dict) -> AssessmentReport:
     return AssessmentReport("Good job!")
 
-
 def assess_model_on_csv_data(data_file_name: str, split_fraction: float,
                            model: PlaceholderModel) -> AssessmentReport:
     data = ClimateHealthTimeSeries.from_csv(data_file_name)  # real data or simulated data
@@ -63,7 +62,8 @@ def assess_model_on_csv_data(data_file_name: str, split_fraction: float,
     truth_dict = defaultdict(lambda: defaultdict(int))
     for lag_ahead in range(1, 10):
         rowbased_data = lagged_rows(data, lag_rows=[3], lag=lag_ahead)
-        X_train, Y_train, X_test, Y_test = split_to_train_test_truth_fixed_ahead_lag(rowbased_data, split_fraction)
+        X_train, Y_train, X_test, Y_test = (
+            split_to_train_test_truth_fixed_ahead_lag(rowbased_data, split_fraction))
         model.fit(X_train, Y_train)
         for test_time_offset, (single_X_test, single_Y_test) in enumerate(zip(X_test, Y_test)):
             prediction_dict[lag_ahead][test_time_offset] = model.predict(single_X_test)
