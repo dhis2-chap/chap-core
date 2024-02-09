@@ -1,3 +1,6 @@
+"""
+Script for full run of training a model and assessing it on a dataset.
+"""
 import pandas as pd
 from collections import defaultdict
 from climate_health.datatypes import ClimateHealthTimeSeries
@@ -27,7 +30,6 @@ def split_to_train_test_truth_fixed_ahead_lag(data, split_fraction):
     return X_train, Y_train, X_test, Y_test
 
 
-# %%
 class PlaceholderModel:
 
     def __init__(self):
@@ -40,26 +42,24 @@ class PlaceholderModel:
         return 0
 
 
-# %%
 class AssessmentReport:
     def __init__(self, text):
         self.text = text
         return
 
 
-# %%
 def make_assessment_report(prediction_dict, truth_dict) -> AssessmentReport:
     return AssessmentReport("Good job!")
 
 
-def main_with_outer_lagged(fn: str, split_fraction: float,
+def main(fn: str, split_fraction: float,
                            model: PlaceholderModel) -> AssessmentReport:
     data = ClimateHealthTimeSeries.from_csv(fn)  # real data or simulated data
     data = data.topandas()
 
     prediction_dict = defaultdict(lambda: defaultdict(int))
     truth_dict = defaultdict(lambda: defaultdict(int))
-    for lag_ahead in range(1, 2):
+    for lag_ahead in range(1, 10):
         rowbased_data = lagged_rows(data, lag_rows=[3], lag=lag_ahead)
         X_train, Y_train, X_test, Y_test = split_to_train_test_truth_fixed_ahead_lag(rowbased_data, split_fraction)
         model.fit(X_train, Y_train)
@@ -71,5 +71,5 @@ def main_with_outer_lagged(fn: str, split_fraction: float,
 
 
 if __name__ == "__main__":
-    report = main_with_outer_lagged("../example_data/data.csv", 0.5, PlaceholderModel())
+    report = main("../example_data/data.csv", 0.5, PlaceholderModel())
     print(report.text)
