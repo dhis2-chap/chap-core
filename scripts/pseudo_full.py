@@ -39,19 +39,23 @@ def make_assessment_report(prediction_dict: dict[int,dict[int,float]], truth_dic
 
 from collections import defaultdict
 
-def main_with_outer_lagged(fn : str, now_timepoint: int, method: ChPredictionMethodWithSpecificFeatureConfig) -> AssessmentReport:
-    data = ClimateHealthTimeSeries.from_csv(fn)
+
+def main_with_outer_lagged(fn: str, now_timepoint: int, method: ChPredictionMethodWithSpecificFeatureConfig) -> AssessmentReport:
+    data = ClimateHealthTimeSeries.from_csv(fn)  # real data or simulated data
     prediction_dict = defaultdict(dict)
     truth_dict = {}
     for lag_ahead in range(1, 10):
-        rowbased_data = make_data_rowbased_specific_feature_config(data, lag_ahead)
+        rowbased_data = make_data_rowbased_specific_version(data, lag_ahead)
         train, tests, truths = split_to_train_test_truth_fixed_ahead_lag(rowbased_data, now_timepoint, lag_ahead)
         model = method.fit(train)
         for test_time_offset, (test, truth) in enumerate(zip(tests, truths)):
             prediction_dict[lag_ahead][test_time_offset] = model.predict(test)
-            truth_dict[lag_ahead][test_time_offset] = truth
+            truth_dict[lag_ahead][test_time_offset] = truth   
     report = make_assessment_report(prediction_dict, truth_dict)
     return report
+
+
+
 
 
 class ChTrustedPredictionMultiModelManager:
