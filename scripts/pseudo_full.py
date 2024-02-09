@@ -45,12 +45,13 @@ def main_with_outer_lagged(fn: str, now_timepoint: int, method: ChPredictionMeth
     prediction_dict = defaultdict(dict)
     truth_dict = {}
     for lag_ahead in range(1, 10):
-        rowbased_data = make_data_rowbased_specific_version(data, lag_ahead)
-        train, tests, truths = split_to_train_test_truth_fixed_ahead_lag(rowbased_data, now_timepoint, lag_ahead)
-        model = method.fit(train)
-        for test_time_offset, (test, truth) in enumerate(zip(tests, truths)):
+        rowbased_data = make_data_rowbased_specific_feature_config(data, lag_ahead)
+        x_train, y_train, x_tests, y_tests = split_to_train_test_truth_fixed_ahead_lag(rowbased_data, now_timepoint)
+        model = method.fit(x_train, y_train)
+        # predict one time point individually to avoid leaking of truth
+        for test_time_offset, (test, truth) in enumerate(zip(x_tests, y_tests)):
             prediction_dict[lag_ahead][test_time_offset] = model.predict(test)
-            truth_dict[lag_ahead][test_time_offset] = truth   
+            truth_dict[lag_ahead][test_time_offset] = truth
     report = make_assessment_report(prediction_dict, truth_dict)
     return report
 
