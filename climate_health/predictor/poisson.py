@@ -6,15 +6,20 @@ class Poisson():
     def __init__(self, alpha=1, fit_intercept=True):
         self.model = lm.PoissonRegressor(alpha=alpha, fit_intercept=fit_intercept)
 
-    def predict(self, data):
-        # Dara: data will be of format (X, Y) where X has shape (n_samples, n_features)
-        self.model.predict(data)
-
-    def evaluate(self, data):
-        self.model.score(data, data)
+    def predict(self, X):
+        """X has shape (n_samples, n_features)"""
+        return self.model.predict(X)
 
     def train(self, data):
-        self.model.fit(data)
-
-# def evaluate(predictor: Predictor, data):
-#     return predictor.evaluate(data)
+        """Train the model on a dataframe that has the column Disease, plus other features.
+        sample_data = pd.DataFrame({
+            "Disease": [1, 2, 3, 4, 5],
+            "Disease1": [1, 2, 3, 4, 5],
+            "Disease2": [1, 2, 3, 4, 5],
+            "Rain": [1, 2, 3, 4, 5],
+            "Temperature": [1, 2, 3, 4, 5],
+        })
+        """
+        y = data.Disease
+        X = data.drop(columns="Disease")
+        self.model.fit(X, y)
