@@ -42,22 +42,18 @@ class ClimateHealthTimeSeries:
 
 @bnp.bnpdataclass.bnpdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
-    time_period: str
-    rainfall: float
-    mean_temperature: float
     location: str
-    disease_cases: int
 
 
 class ClimateHealthTimeSeriesModel(BaseModel):
-    time_period: str
+    time_period: Period
     rainfall: float
     mean_temperature: float
     disease_cases: int
 
 
 class LocatedClimateHealthTimeSeriesModel(BaseModel):
-    time_period: str
+    time_period: Period
     rainfall: float
     mean_temperature: float
     location: str
