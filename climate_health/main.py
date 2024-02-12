@@ -2,10 +2,10 @@
 Contains function for running full analysis (e.g from data to prediction assesment report)
 """
 
-
 import pandas as pd
 from collections import defaultdict
 from climate_health.datatypes import ClimateHealthTimeSeries
+from sklearn.metrics import root_mean_squared_error
 
 
 def assess_model_on_csv_data(data_file_name: str, split_fraction: float,
@@ -73,10 +73,14 @@ class PlaceholderModel:
 
 
 class AssessmentReport:
-    def __init__(self, text):
-        self.text = text
+    def __init__(self, rmse_dict):
+        self.rmse_dict = rmse_dict
         return
 
 
 def make_assessment_report(prediction_dict, truth_dict) -> AssessmentReport:
-    return AssessmentReport("Good job!")
+    rmse_dict = {}
+    for (prediction_key, prediction_value) in prediction_dict.items():
+        rmse_dict[prediction_key] = root_mean_squared_error(list(truth_dict[prediction_key].values()),
+                                                            list(prediction_value.values()))
+    return AssessmentReport(rmse_dict)
