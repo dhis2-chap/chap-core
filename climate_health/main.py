@@ -78,4 +78,3 @@ class AssessmentReport:
 
 def make_assessment_report(prediction_dict, truth_dict) -> AssessmentReport:
     return AssessmentReport("Good job!")
-
