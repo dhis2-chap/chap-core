@@ -39,6 +39,8 @@ class ClimateHealthTimeSeries:
         })
         return data
 
+    to_pandas = topandas
+
     def to_csv(self, csv_file: str, **kwargs):
         """Write data to a csv file."""
         data = self.to_pandas()
