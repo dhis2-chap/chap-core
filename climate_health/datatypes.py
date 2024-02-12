@@ -3,6 +3,7 @@ import pandas as pd
 from pydantic import BaseModel
 
 from .file_io import parse_periods_strings
+import dataclasses
 from .time_period.dataclasses import Period
 
 
@@ -45,6 +46,12 @@ class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
     location: str
 
 
+@bnp.bnpdataclass.bnpdataclass
+class ClimateData:
+    time_period: Period
+    rainfall: float
+    mean_temperature: float
+
 class ClimateHealthTimeSeriesModel(BaseModel):
     time_period: Period
     rainfall: float
@@ -58,3 +65,12 @@ class LocatedClimateHealthTimeSeriesModel(BaseModel):
     mean_temperature: float
     location: str
     disease_cases: int
+
+
+class Shape:
+    pass
+
+@dataclasses.dataclass
+class Location(Shape):
+    latitude: float
+    longitude: float

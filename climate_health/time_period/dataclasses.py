@@ -52,3 +52,5 @@ class Week(Year):
 
     def topandas(self):
         return pd.Series([f'{y}-W{w}' for y, w in zip(self.year, self.week)])
+
+
