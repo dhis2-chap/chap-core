@@ -24,7 +24,9 @@ def assess_model_on_csv_data(data_file_name: str, split_fraction: float,
         x_train, y_train, x_test, y_test = (
             split_to_train_test_truth_fixed_ahead_lag(rowbased_data, split_fraction))
         model.fit(x_train, y_train)
-        for test_time_offset, (single_X_test, single_Y_test) in enumerate(zip(x_test, y_test)):
+        x_rows = x_test.iterrows()
+        for test_time_offset, (single_X_test, single_Y_test) in enumerate(zip(x_rows, y_test)):
+            single_X_test = single_X_test[1]
             prediction_dict[lag_ahead][test_time_offset] = model.predict(single_X_test)
             truth_dict[lag_ahead][test_time_offset] = single_Y_test
     report = make_assessment_report(prediction_dict, truth_dict)

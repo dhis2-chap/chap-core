@@ -30,14 +30,18 @@ class ClimateHealthTimeSeries:
         time = parse_periods_strings(data.Time)
         return cls(time, data.Rain, data.Temperature, data.Disease)
 
-    def to_csv(self, csv_file: str, **kwargs):
-        """Write data to a csv file."""
+    def topandas(self):
         data = pd.DataFrame({
             "Time": self.time_period.topandas(),
             "Rain": self.rainfall,
             "Temperature": self.mean_temperature,
             "Disease": self.disease_cases,
         })
+        return data
+
+    def to_csv(self, csv_file: str, **kwargs):
+        """Write data to a csv file."""
+        data = self.to_pandas()
         data.to_csv(csv_file, index=False, **kwargs)
 
 
