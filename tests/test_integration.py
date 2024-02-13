@@ -1,8 +1,8 @@
 from climate_health.main import assess_model_on_csv_data, PlaceholderModel
+from climate_health.predictor.poisson import Poisson
 
 
 def test_full_run():
     data_file = "../example_data/data.csv"
-    report = assess_model_on_csv_data(data_file, 0.5, PlaceholderModel())
+    report = assess_model_on_csv_data(data_file, 0.5, Poisson())
     print(report.rmse_dict)
-
