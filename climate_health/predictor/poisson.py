@@ -6,12 +6,14 @@ class Poisson():
     def __init__(self, alpha=1, fit_intercept=True):
         self.model = lm.PoissonRegressor(alpha=alpha, fit_intercept=fit_intercept)
 
-    def predict(self, X):
+    def predict(self, x):
         """X has shape (n_samples, n_features)"""
-        return self.model.predict(X)
+        return self.model.predict(x)
 
-    def train(self, data):
-        """Train the model on a dataframe that has the column Disease, plus other features.
+    def train(self, x, y):
+        """Train the model on a dataframe that has the column Disease, plus other features. The feature order is
+         expected to be the same between training and prediction without explicit feature names.
+
         sample_data = pd.DataFrame({
             "Disease": [1, 2, 3, 4, 5],
             "Disease1": [1, 2, 3, 4, 5],
@@ -20,6 +22,4 @@ class Poisson():
             "Temperature": [1, 2, 3, 4, 5],
         })
         """
-        y = data.Disease
-        X = data.drop(columns="Disease")
-        self.model.fit(X, y)
+        self.model.fit(x, y)
