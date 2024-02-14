@@ -59,7 +59,7 @@ class ClimateData:
     mean_temperature: float
 
 class ClimateHealthTimeSeriesModel(BaseModel):
-    time_period: Period
+    time_period: str
     rainfall: float
     mean_temperature: float
     disease_cases: int
