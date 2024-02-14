@@ -5,8 +5,8 @@ class Predictor(Protocol):
     def __init__(self):
         pass
 
-    def predict(self, data):
+    def predict(self, x):
         pass
 
-    def train(self, data):
+    def train(self, x, y):
         pass
