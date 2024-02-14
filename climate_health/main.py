@@ -6,7 +6,6 @@ import pandas as pd
 from collections import defaultdict
 from .datatypes import ClimateHealthTimeSeries
 from climate_health.single_assessment.prediction_evaluator import AssessmentReport, make_assessment_report
-from sklearn.metrics import root_mean_squared_error
 from .predictor.protocol import Predictor
 
 
@@ -72,17 +71,3 @@ class PlaceholderModel:
         Takes a single test data point and returns prediction
         """
         return 0
-
-
-class AssessmentReport:
-    def __init__(self, rmse_dict):
-        self.rmse_dict = rmse_dict
-        return
-
-
-def make_assessment_report(prediction_dict, truth_dict) -> AssessmentReport:
-    rmse_dict = {}
-    for (prediction_key, prediction_value) in prediction_dict.items():
-        rmse_dict[prediction_key] = root_mean_squared_error(list(truth_dict[prediction_key].values()),
-                                                            list(prediction_value.values()))
-    return AssessmentReport(rmse_dict)
