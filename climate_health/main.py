@@ -6,7 +6,6 @@ import pandas as pd
 from collections import defaultdict
 from .datatypes import ClimateHealthTimeSeries
 from climate_health.single_assessment.prediction_evaluator import AssessmentReport, make_assessment_report
-from climate_health.predictor.poisson import Poisson
 from sklearn.metrics import root_mean_squared_error
 from .predictor.protocol import Predictor
 
