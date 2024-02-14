@@ -10,8 +10,8 @@ import pytest
 
 from pytest import fixture
 
+from .. import EXAMPLE_DATA_PATH
 
-EXAMPLE_DATA_PATH = Path(__file__).parent.parent.parent / 'example_data'
 
 @fixture(scope="module")
 def separated_data() -> Annotated[Generator[StrDataset, None, None], pytest.fixture]:
