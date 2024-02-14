@@ -6,11 +6,11 @@ import pandas as pd
 from collections import defaultdict
 from .datatypes import ClimateHealthTimeSeries
 from sklearn.metrics import root_mean_squared_error
-from climate_health.predictor.poisson import Poisson
+from .predictor.protocol import Predictor
 
 
 def assess_model_on_csv_data(data_file_name: str, split_fraction: float,
-                             model: Poisson) -> 'AssessmentReport':
+                             model: Predictor) -> 'AssessmentReport':
     """
     Wraps together all necessary steps for reading data from file, assessing a model on different lags ahead
     and generating a report with results.
