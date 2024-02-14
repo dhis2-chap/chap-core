@@ -11,3 +11,4 @@ build
 scikit-learn
 numpy
 pandas
+pytest-mock

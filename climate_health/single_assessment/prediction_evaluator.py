@@ -1,4 +1,4 @@
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, root_mean_squared_error
+from sklearn.metrics import  root_mean_squared_error
 import plotly.express as px
 
 class AssessmentReport:
