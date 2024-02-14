@@ -10,10 +10,10 @@ def test_climate_health_time_series_from_csv(tmp_path):
     """Test the from_csv method."""
     data = pd.DataFrame(
         {
-            "Time": ["2010", "2011", "2012"],
-            "Rain": [1.0, 2.0, 3.0],
-            "Temperature": [1.0, 2.0, 3.0],
-            "Disease": [1, 2, 3],
+            "time_period": ["2010", "2011", "2012"],
+            "rainfall": [1.0, 2.0, 3.0],
+            "mean_temperature": [1.0, 2.0, 3.0],
+            "disease_cases": [1, 2, 3],
         }
     )
     csv_file = tmp_path / "test.csv"

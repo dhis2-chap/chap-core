@@ -27,15 +27,15 @@ class ClimateHealthTimeSeries:
 
     @classmethod
     def from_pandas(cls, data):
-        time = parse_periods_strings(data.Time)
-        return cls(time, data.Rain, data.Temperature, data.Disease)
+        time = parse_periods_strings(data.time_period.astype(str))
+        return cls(time, data.rainfall, data.mean_temperature, data.disease_cases)
 
     def topandas(self):
         data = pd.DataFrame({
-            "Time": self.time_period.topandas(),
-            "Rain": self.rainfall,
-            "Temperature": self.mean_temperature,
-            "Disease": self.disease_cases,
+            "time_period": self.time_period.topandas(),
+            "rainfall": self.rainfall,
+            "mean_temperature": self.mean_temperature,
+            "disease_cases": self.disease_cases,
         })
         return data
 

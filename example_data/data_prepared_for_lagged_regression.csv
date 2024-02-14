@@ -1,4 +1,4 @@
-Time,Rain,Temperature,Disease,Disease-lag1,Disease-lag2,Temperature-lag1
+time_period,rainfall,mean_temperature,disease_cases,Disease-lag1,Disease-lag2,Temperature-lag1
 01/01/2003,0.0,20.400000000000002,87.99999999999999,NaN,NaN,NaN
 08/01/2003,0.0,18.96,83.19999999999999,87.99999999999999,NaN,20.400000000000002
 15/01/2003,0.0,17.664,84.87999999999998,83.19999999999999,87.99999999999999,18.96
