@@ -1,10 +1,16 @@
-from omnipy import BytesDataset, StrDataset, JsonListOfDictsDataset, SplitToLinesDataset, \
-    SplitLinesToColumnsDataset, PandasDataset
-from omnipy.compute.task import TaskTemplate
+from omnipy import (BytesDataset,
+                    StrDataset,
+                    SplitToLinesDataset,
+                    SplitLinesToColumnsDataset,
+                    PandasDataset,
+                    TableOfPydanticRecordsDataset,
+                    TableWithColNamesDataset,
+                    TableWithColNamesModel,
+                    TaskTemplate,
+                    rename_col_names,
+                    transpose_columns_with_data_files)
 from pydantic import create_model
 
-from climate_health.data_wrangling.models import TableWithColNamesDataset, TableWithColNamesModel, \
-    TableOfPydanticRecordsDataset
 from climate_health.datatypes import ClimateHealthTimeSeriesModel
 
 
@@ -47,13 +53,6 @@ def strip_commas(data_file: TableWithColNamesModel) -> TableWithColNamesModel:
                                    for row in data_file])
 
 
-@TaskTemplate(iterate_over_data_files=True, return_dataset_cls=TableWithColNamesDataset)
-def rename_col_names(data_file: TableWithColNamesModel, prev2new_keymap: dict[str, str]) -> TableWithColNamesModel:
-    return TableWithColNamesModel([{prev2new_keymap[key] if key in prev2new_keymap else key: val
-                                    for key, val in row.items()}
-                                   for row in data_file])
-
-
 def create_pydantic_model_for_region_data(model_name: str,
                                           region_col_names: tuple[str],
                                           region_data_type: type):
@@ -63,25 +62,3 @@ def create_pydantic_model_for_region_data(model_name: str,
 
     return create_model(model_name, **fields)
 
-
-@TaskTemplate()
-def transpose_columns_with_data_files(dataset: TableWithColNamesDataset, exclude_cols: tuple[str]) -> None:
-    output_dataset = JsonListOfDictsDataset()
-
-    max_len = max(len(data_file) for data_file in dataset.values())
-
-    # TODO: Make Dataset behave like a defaultDict, possibly also with auto-expanding lists?
-    for column_name in dataset.col_names:
-        if column_name not in exclude_cols:
-            output_dataset[column_name] = [{}] * max_len
-
-    for data_file_name, data_file in dataset.items():
-        for row_i, el in enumerate(data_file):
-            for key, val in el.items():
-                if key in exclude_cols:
-                    for data_file in output_dataset.values():
-                        data_file[row_i][key] = val
-                else:
-                    output_dataset[key][row_i][data_file_name] = val
-
-    return output_dataset
