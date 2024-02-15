@@ -51,14 +51,3 @@ def strip_commas(data_file: TableWithColNamesModel) -> TableWithColNamesModel:
     return TableWithColNamesModel([{k: v.rstrip(',') if v is not None else None
                                     for k, v in tuple(row.items())}
                                    for row in data_file])
-
-
-def create_pydantic_model_for_region_data(model_name: str,
-                                          region_col_names: tuple[str],
-                                          region_data_type: type):
-    fields = dict(time_period=(str, ...))
-    for name in region_col_names:
-        fields[name] = (region_data_type, ...)
-
-    return create_model(model_name, **fields)
-

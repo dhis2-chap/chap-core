@@ -48,11 +48,3 @@ def test_load_separated_data(separated_data: Annotated[Generator[StrDataset, Non
 def test_standardize_separated_data(separated_data_renamed: Annotated[StrDataset, pytest.fixture]):
     standardized_table_ds = standardize_separated_data(separated_data_renamed)
     standardized_table_ds.save(str(EXAMPLE_DATA_PATH / 'nonstandard_separate_standardized'))
-
-
-
-    # PerRegionRecordModel = create_pydantic_model_for_region_data('PerRegionRecordModel',
-    #                                                              region_col_names=table_renamed_colnames_cleaned_ds.col_names[1:],
-    #                                                              region_data_type=int | float)
-    #
-    # table_colnames_datatypes_ds = TableOfPydanticRecordsDataset[PerRegionRecordModel](table_renamed_colnames_cleaned_ds)
