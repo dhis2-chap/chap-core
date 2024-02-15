@@ -19,6 +19,7 @@ def separated_data() -> Annotated[Generator[StrDataset, None, None], pytest.fixt
     yield ds
     os.unlink(f'{separate_data_path}.tar.gz')
 
+
 def test_load_separated_data(separated_data: Annotated[Generator[StrDataset, None, None], pytest.fixture]) -> None:
     assert isinstance(separated_data, StrDataset)
     assert len(separated_data) == 3
@@ -36,4 +37,19 @@ def test_standardize_separated_data(separated_data: Annotated[StrDataset, pytest
         temp_data_file_name='separated_temp_data',
         disease_data_file_name='separated_disease_data'
     )
+    standardized_table_ds.save(str(EXAMPLE_DATA_PATH / 'nonstandard_separate_standardized'))
+
+
+def test_standardize_separated_data_refined_variant(separated_data: Annotated[StrDataset, pytest.fixture]):
+    refined_standardize_separated_data = standardize_separated_data.refine(
+        name='refined_standardize_separated_data',
+        fixed_params=dict(
+            time_period_col_name='periodname',
+            rain_data_file_name='separated_rain_data',
+            temp_data_file_name='separated_temp_data',
+            disease_data_file_name='separated_disease_data',
+        )
+    )
+
+    standardized_table_ds = refined_standardize_separated_data.run(separated_data)
     standardized_table_ds.save(str(EXAMPLE_DATA_PATH / 'nonstandard_separate_standardized'))
