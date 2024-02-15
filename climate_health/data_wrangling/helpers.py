@@ -22,10 +22,13 @@ def standardize_separated_data(separated_data: StrDataset) -> PandasDataset:
     table_colnames_cleaned_ds = strip_commas.run(table_colnames_ds)
 
     table_transposed_ds = transpose_columns_with_data_files.run(table_colnames_cleaned_ds, exclude_cols=('periodname',))
-    table_transposed_renamed_colnames_ds = rename_col_names.run(table_transposed_ds,
-                                                             dict(periodname='time_period', rain='rainfall',
-                                                                  temperature='mean_temperature',
-                                                                  disease='disease_cases'))
+    table_transposed_renamed_colnames_ds = rename_col_names.run(
+        table_transposed_ds,
+        dict(periodname='time_period',
+             rain='rainfall',
+             temperature='mean_temperature',
+             disease='disease_cases')
+    )
     table_values_parsed_ds = TableOfPydanticRecordsDataset[ClimateHealthTimeSeriesModel](table_transposed_renamed_colnames_ds)
     return PandasDataset(table_values_parsed_ds)
 

@@ -1,14 +1,11 @@
 import os
-from pathlib import Path
-from typing import Annotated, Generator
-
-from omnipy import StrDataset
-
-from climate_health.data_wrangling.helpers import (load_data_as_clean_strings, standardize_separated_data,
-                                                   )
 import pytest
 
+from typing import Annotated, Generator
+from omnipy import StrDataset
 from pytest import fixture
+
+from climate_health.data_wrangling.helpers import (load_data_as_clean_strings, standardize_separated_data)
 
 from .. import EXAMPLE_DATA_PATH
 
