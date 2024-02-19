@@ -34,4 +34,5 @@ class ERA5DataBase:
         variable_dicts = {name: np.array([f['properties'][name] for f in info['features']]) for name in variable_names}
         years, months = zip(*((int(v['id'][:4]), int(v['id'][5:7])) for v in info['features']))
         periods = MonthDataclass(years, months)
-        return ClimateData(periods, rainfall=variable_dicts['total_precipitation_sum'], mean_temperature=variable_dicts['temperature_2m'], max_temperature=variable_dicts['temperature_2m_max'])
+        celcius_offset = 273.15
+        return ClimateData(periods, rainfall=variable_dicts['total_precipitation_sum'], mean_temperature=variable_dicts['temperature_2m']-celcius_offset, max_temperature=variable_dicts['temperature_2m_max']-celcius_offset)

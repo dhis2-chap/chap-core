@@ -12,3 +12,5 @@ def test_era5():
     assert len(mocked_data) == 7
     mocked_data = ERA5DataBase().get_data(location, start_month, Month(2013, 7))
     assert len(mocked_data) == 19
+    full_data = ERA5DataBase().get_data(location, Month(2010, 1), Month(2024, 1))
+    full_data.to_csv('climate_data.csv')
