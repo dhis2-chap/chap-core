@@ -21,6 +21,7 @@ def assess_model_on_csv_data(data_file_name: str, split_fraction: float,
 
     prediction_dict = defaultdict(lambda: defaultdict(int))
     truth_dict = defaultdict(lambda: defaultdict(int))
+
     for lag_ahead in range(1, 10):
         rowbased_data = lagged_rows(data, lag_rows=[2], lag=lag_ahead)
         x_train, y_train, x_test, y_test = (
