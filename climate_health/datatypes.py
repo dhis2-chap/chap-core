@@ -10,27 +10,8 @@ from .time_period.dataclasses import Period
 
 
 @bnp.bnpdataclass.bnpdataclass
-class ClimateHealthTimeSeries:
+class TimeSeriesData:
     time_period: Period
-    rainfall: float
-    mean_temperature: float
-    disease_cases: int
-
-    def todict(self):
-        d = super().todict()
-        d['time_period'] = self.time_period.topandas()
-        return d
-
-    @classmethod
-    def from_csv(cls, csv_file: str, **kwargs):
-        """Read data from a csv file."""
-        data = pd.read_csv(csv_file, dtype={'Time': str}, **kwargs)
-        return cls.from_pandas(data)
-
-    @classmethod
-    def from_pandas(cls, data):
-        time = parse_periods_strings(data.time_period.astype(str))
-        return cls(time, data.rainfall, data.mean_temperature, data.disease_cases)
 
     def topandas(self):
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
@@ -44,6 +25,31 @@ class ClimateHealthTimeSeries:
         data = self.to_pandas()
         data.to_csv(csv_file, index=False, **kwargs)
 
+    @classmethod
+    def from_pandas(cls, data):
+        time = parse_periods_strings(data.time_period.astype(str))
+        variable_names = [field.name for field in dataclasses.fields(cls) if field.name != 'time_period']
+
+        return cls(time, **{name: data[name] for name in variable_names})
+
+    @classmethod
+    def from_csv(cls, csv_file: str, **kwargs):
+        """Read data from a csv file."""
+        data = pd.read_csv(csv_file, **kwargs)
+        return cls.from_pandas(data)
+
+
+@bnp.bnpdataclass.bnpdataclass
+class ClimateHealthTimeSeries(TimeSeriesData):
+    rainfall: float
+    mean_temperature: float
+    disease_cases: int
+
+    def todict(self):
+        d = super().todict()
+        d['time_period'] = self.time_period.topandas()
+        return d
+
 
 @bnp.bnpdataclass.bnpdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
@@ -51,8 +57,7 @@ class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
 
 
 @bnp.bnpdataclass.bnpdataclass
-class ClimateData:
-    time_period: Period
+class ClimateData(TimeSeriesData):
     rainfall: float
     mean_temperature: float
     max_temperature: float
