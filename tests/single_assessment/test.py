@@ -10,7 +10,7 @@ def test_make_assessment_report(mocker):
 
     mock_plot_rmse = mocker.patch('climate_health.single_assessment.prediction_evaluator.plot_rmse')
 
-    result = make_assessment_report(prediction_dict, truth_dict)
+    result = make_assessment_report(prediction_dict, truth_dict, do_show=False)
 
     assert isinstance(result, AssessmentReport), "The result should be an instance of AssessmentReport"
     assert result.rmse_dict == expected_rmse, "The RMSE dict in the result does not match the expected values"
@@ -23,7 +23,7 @@ def test_plot_rmse(mocker):
 
     rmse_dict = {'1': 0.1, '2': 0.2, '3': 0.3}
 
-    plot_rmse(rmse_dict)
+    plot_rmse(rmse_dict, do_show=False)
 
     mock_px_line.assert_called_once_with(
         x=list(rmse_dict.keys()),
