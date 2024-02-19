@@ -15,5 +15,5 @@ class ClimateDataBaseMock:
         # generate periodic monthly temperature
         temperature = 20 + 5 * np.sin(2 * np.pi * period.month / 12)
         rainfall = 100 + 50 * np.sin(2 * np.pi * period.month / 12)
-        return ClimateData(period, rainfall, temperature)
+        return ClimateData(period, rainfall, temperature, temperature)
 

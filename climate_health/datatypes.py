@@ -33,13 +33,9 @@ class ClimateHealthTimeSeries:
         return cls(time, data.rainfall, data.mean_temperature, data.disease_cases)
 
     def topandas(self):
-        data = pd.DataFrame({
-            "time_period": self.time_period.topandas(),
-            "rainfall": self.rainfall,
-            "mean_temperature": self.mean_temperature,
-            "disease_cases": self.disease_cases,
-        })
-        return data
+        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
+        data_dict['time_period'] = self.time_period.topandas()
+        return pd.DataFrame(data_dict)
 
     to_pandas = topandas
 
@@ -59,6 +55,7 @@ class ClimateData:
     time_period: Period
     rainfall: float
     mean_temperature: float
+    max_temperature: float
 
 class ClimateHealthTimeSeriesModel(BaseModel):
     time_period: str | pd.Period
