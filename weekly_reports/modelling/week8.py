@@ -101,7 +101,7 @@ class SimpleSampler:
                                                     self._param_names}
         lp = self._log_prob(time_series.disease_cases, time_series.mean_temperature)
         self._sample_key, key = jax.random.split(self._sample_key)
-        self._param_samples = nuts_sample(lp, key, init_dict, 50, 1000)
+        self._param_samples = nuts_sample(lp, key, init_dict, 50, 2000)
 
     def sample(self, climate_data: ClimateData) -> HealthData:
         T = len(climate_data) + 1
