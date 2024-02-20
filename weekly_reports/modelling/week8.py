@@ -16,6 +16,12 @@ from probabilistic_machine_learning.cases.diff_encoded_mosquito import diff_enco
 from probabilistic_machine_learning.adaptors.jax_nuts import sample as nuts_sample
 import matplotlib.pyplot as plt
 from report_tests import get_markdown
+from climate_health.datatypes import ClimateData, HealthData, ClimateHealthTimeSeries
+import plotly.express as px
+
+from climate_health.plotting import plot_timeseries_data
+from climate_health.plotting.prediction_plot import prediction_plot
+
 
 def test_estimate_single_parameter():
     '''Samples data from a simple SEIR model and estimates the beta parameter using NUTS. Includes a time varying temperature parameter.'''
@@ -28,10 +34,11 @@ def test_estimate_single_parameter():
     init_dict = {'logits_array': init_diffs} | {'beta': 0.0}
     lp = log_prob(observed, temperature)
     samples = nuts_sample(lp, jax.random.PRNGKey(0),
-                          init_dict, 50, 50)
+                          init_dict, 100, 100)
 
     model_evaluation_plot(sample, real_params, samples, temperature)
     return plt.gcf()
+
 
 def test_run_with_climate_health_data():
     '''Runs the model with ClimateHealthTimeSeries data
@@ -40,9 +47,89 @@ def test_run_with_climate_health_data():
     - Run model on climatehealth data set
     - Plot model evaluation
     '''
+    climate_data = ClimateData.from_csv('../../example_data/climate_data.csv')
+    T = len(climate_data) + 1
+    sample, log_prob, reconstruct_state = simple_model()
+    real_params = {'beta': 0.001}
 
-    
+    class Simulator:
+        def simulate(self, climate_data: ClimateData):
+            samples = sample(T, jax.random.PRNGKey(0), real_params, climate_data.max_temperature)
+            return HealthData(time_period=climate_data.time_period, disease_cases=samples)
 
-md = get_markdown(test_estimate_single_parameter)
-with open('week8.md', 'w') as f:
-    f.write(md)
+    health_data = Simulator().simulate(climate_data)
+    init_diffs = np.random.normal(0, 1, (T - 1))
+    init_dict = {'logits_array': init_diffs} | {'beta': 0.0}
+    lp = log_prob(health_data.disease_cases, climate_data.max_temperature)
+    samples = nuts_sample(lp, jax.random.PRNGKey(0),
+                          init_dict, 50, 50)
+    model_evaluation_plot(sample, real_params, samples, climate_data.max_temperature)
+    return plt.gcf()
+
+
+def get_simulator(sample, real_params):
+
+    class Simulator:
+        def simulate(self, climate_data: ClimateData):
+            T = len(climate_data) + 1
+            samples = sample(T, jax.random.PRNGKey(0), real_params, climate_data.max_temperature)
+            return HealthData(time_period=climate_data.time_period, disease_cases=samples)
+
+    simulator = Simulator()
+    return simulator
+
+
+class SimpleSampler:
+    def __init__(self, key,  log_prob: callable, sample_func: callable,  param_names: list[str]):
+        self._log_prob = log_prob
+        self._param_names = param_names
+        self._param_samples = None
+        self._sample_key= key
+        self._sample_func = sample_func
+
+    @property
+    def n_samples(self):
+        return len(self._param_samples[list(self._param_samples)[0]])
+
+
+    def train(self, time_series: ClimateHealthTimeSeries)-> HealthData:
+        T = len(time_series) + 1
+        init_diffs = np.random.normal(0, 1, (T - 1))
+        init_dict = {'logits_array': init_diffs} | {param_name: np.random.normal(0, 10) for param_name in self._param_names}
+        lp = self._log_prob(time_series.disease_cases, time_series.mean_temperature)
+        self._sample_key, key  = jax.random.split(self._sample_key)
+        self._param_samples = nuts_sample(lp, key, init_dict, 50, 50)
+
+    def sample(self, climate_data: ClimateData) -> HealthData:
+        T = len(climate_data) + 1
+        self._sample_key, key1, key2 = jax.random.split(self._sample_key, 3)
+
+        param_nr = jax.random.randint(key2, (1,), 0, self.n_samples)[0]
+        params = {param_name: self._param_samples[param_name][param_nr] for param_name in self._param_names}
+        return self._sample_func(T, key1, params, climate_data.mean_temperature)
+
+
+def test_simplified_interface():
+    '''
+    Automate boilerplate code
+    '''
+
+    sample, log_prob, reconstruct_state = simple_model()
+    param_names = ['beta']
+    real_params = {name: np.random.normal(0, 10) for name in param_names}
+    climate_data = ClimateData.from_csv('../../example_data/climate_data.csv')
+    simulator = get_simulator(sample, real_params)
+    health_data = simulator.simulate(climate_data)
+    sampler = SimpleSampler(jax.random.PRNGKey(0), log_prob, sample, param_names)
+    data_set = ClimateHealthTimeSeries.combine(health_data, climate_data)
+    sampler.train(data_set)
+    figure = prediction_plot(health_data, sampler, climate_data, 10)
+    return figure.show()
+
+
+if __name__ == '__main__':
+    mds = [get_markdown(f) for f in (estimate_single_parameter, run_with_climate_health_data)]
+    print(mds)
+    md = '\n'.join(mds)
+    with open('week8.md', 'w') as f:
+        f.write(md)

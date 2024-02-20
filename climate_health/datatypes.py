@@ -38,12 +38,26 @@ class TimeSeriesData:
         data = pd.read_csv(csv_file, **kwargs)
         return cls.from_pandas(data)
 
+@bnp.bnpdataclass.bnpdataclass
+class ClimateData(TimeSeriesData):
+    rainfall: float
+    mean_temperature: float
+    max_temperature: float
+
+@bnp.bnpdataclass.bnpdataclass
+class HealthData(TimeSeriesData):
+    disease_cases: int
+
 
 @bnp.bnpdataclass.bnpdataclass
 class ClimateHealthTimeSeries(TimeSeriesData):
     rainfall: float
     mean_temperature: float
     disease_cases: int
+
+    @classmethod
+    def combine(cls, health_data: HealthData, climate_data: ClimateData):
+        return ClimateHealthTimeSeries(time_period=health_data.time_period, rainfall=climate_data.rainfall, mean_temperature=climate_data.mean_temperature, disease_cases=health_data.disease_cases)
 
     def todict(self):
         d = super().todict()
@@ -56,11 +70,6 @@ class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
     location: str
 
 
-@bnp.bnpdataclass.bnpdataclass
-class ClimateData(TimeSeriesData):
-    rainfall: float
-    mean_temperature: float
-    max_temperature: float
 
 class ClimateHealthTimeSeriesModel(BaseModel):
     time_period: str | pd.Period

@@ -1,5 +1,6 @@
 from typing import Protocol
-from ..datatypes import ClimateData, ClimateHealthTimeSeries
+from ..datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
+
 
 class Predictor(Protocol):
     def __init__(self):
@@ -18,5 +19,5 @@ class Sampler(Protocol):
     def train(self, time_series: ClimateHealthTimeSeries):
         ...
 
-    def sample(self, weather_data: ClimateData, n_samples: int=1) -> ClimateHealthTimeSeries:
+    def sample(self, weather_data: ClimateData, n_samples: int=1) -> HealthData:
         ...
