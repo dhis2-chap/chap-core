@@ -12,14 +12,11 @@ Goals for this week:
 import numpy as np
 import jax
 from probabilistic_machine_learning.cases.diff_encoded_mosquito import diff_encoded_model, simple_model, \
-    model_evaluation_plot, debug_logprob, advancing_model
+    model_evaluation_plot, seir_model, mosquito_model
 from probabilistic_machine_learning.adaptors.jax_nuts import sample as nuts_sample
 import matplotlib.pyplot as plt
 from report_tests import get_markdown
 from climate_health.datatypes import ClimateData, HealthData, ClimateHealthTimeSeries
-import plotly.express as px
-
-from climate_health.plotting import plot_timeseries_data
 from climate_health.plotting.prediction_plot import prediction_plot
 
 
@@ -37,7 +34,7 @@ def test_estimate_single_parameter():
                           init_dict, 100, 100)
 
     model_evaluation_plot(sample, real_params, samples, temperature)
-    return plt.gcf()
+    return plt.gcf().show()
 
 
 def test_run_with_climate_health_data():
@@ -64,7 +61,7 @@ def test_run_with_climate_health_data():
     samples = nuts_sample(lp, jax.random.PRNGKey(0),
                           init_dict, 50, 500)
     model_evaluation_plot(sample, real_params, samples, climate_data.max_temperature)
-    return plt.gcf()
+    return plt.gcf().show()
 
 
 def get_simulator(sample, real_params):
@@ -126,7 +123,16 @@ def test_mored_advanced_model():
     '''
     Check model_capacity for full SEIR model
     '''
-    model = advancing_model
+    model = seir_model
+    return check_model_capacity(model).show()
+
+
+def test_mosquito_model():
+    '''
+    Check model capacity when mosquito populations
+    are mediators from weather to disease
+    '''
+    model = mosquito_model
     return check_model_capacity(model).show()
 
 
