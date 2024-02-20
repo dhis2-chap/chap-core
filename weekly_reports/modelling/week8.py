@@ -62,7 +62,7 @@ def test_run_with_climate_health_data():
     init_dict = {'logits_array': init_diffs} | {'beta': 0.0}
     lp = log_prob(health_data.disease_cases, climate_data.max_temperature)
     samples = nuts_sample(lp, jax.random.PRNGKey(0),
-                          init_dict, 50, 50)
+                          init_dict, 50, 500)
     model_evaluation_plot(sample, real_params, samples, climate_data.max_temperature)
     return plt.gcf()
 
@@ -101,7 +101,7 @@ class SimpleSampler:
                                                     self._param_names}
         lp = self._log_prob(time_series.disease_cases, time_series.mean_temperature)
         self._sample_key, key = jax.random.split(self._sample_key)
-        self._param_samples = nuts_sample(lp, key, init_dict, 50, 500)
+        self._param_samples = nuts_sample(lp, key, init_dict, 50, 1000)
 
     def sample(self, climate_data: ClimateData) -> HealthData:
         T = len(climate_data) + 1
