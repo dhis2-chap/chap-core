@@ -101,7 +101,7 @@ class SimpleSampler:
                                                     self._param_names}
         lp = self._log_prob(time_series.disease_cases, time_series.mean_temperature)
         self._sample_key, key = jax.random.split(self._sample_key)
-        self._param_samples = nuts_sample(lp, key, init_dict, 50, 2000)
+        self._param_samples = nuts_sample(lp, key, init_dict, 50, 3000)
 
     def sample(self, climate_data: ClimateData) -> HealthData:
         T = len(climate_data) + 1
@@ -132,7 +132,7 @@ def test_mored_advanced_model():
 
 def check_model_capacity(model):
     (sample, log_prob, reconstruct_state), (param_names, n_states) = model()
-    real_params = {name: np.random.normal(0, 10) for name in param_names}
+    real_params = {name: np.random.normal(0, 3) for name in param_names}
     climate_data = ClimateData.from_csv('../../example_data/climate_data.csv')
     simulator = get_simulator(sample, real_params)
     health_data = simulator.simulate(climate_data)
