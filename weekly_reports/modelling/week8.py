@@ -82,6 +82,7 @@ def get_simulator(sample, real_params):
     return simulator
 
 
+
 class SimpleSampler:
     def __init__(self, key, log_prob: callable, sample_func: callable, param_names: list[str], n_states=None,
                  n_warmup_samples=1000, n_samples=100):
@@ -94,6 +95,10 @@ class SimpleSampler:
         self._n_warmup_samples = n_warmup_samples
         self._n_samples = n_samples
 
+    @classmethod
+    def from_model(cls, model, key):
+        return cls(key, model.lp_func, model.sampler, model.param_names, model.n_states)
+
     @property
     def n_samples(self):
         return len(self._param_samples[list(self._param_samples)[0]])
@@ -105,10 +110,11 @@ class SimpleSampler:
         else:
             init_diffs = np.random.normal(logit(0.05), 1, (T - 1, self._n_states)).reshape((T - 1, self._n_states))
         init_params = {param_name: np.random.normal(0, 10) for param_name in self._param_names}
+        init_dict = {'logits_array': init_diffs} | init_params
         if init_values is not None:
             for key, value in init_values.items():
-                init_params[key] = value
-        init_dict = {'logits_array': init_diffs} | init_params
+                init_dict[key] = value
+
         lp = self._log_prob(time_series.disease_cases, time_series.mean_temperature)
         self._sample_key, key = jax.random.split(self._sample_key)
         self._param_samples = nuts_sample(lp, key, init_dict, self._n_samples, self._n_warmup_samples)
