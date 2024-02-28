@@ -96,8 +96,8 @@ class SimpleSampler:
         self._n_samples = n_samples
 
     @classmethod
-    def from_model(cls, model, key):
-        return cls(key, model.lp_func, model.sampler, model.param_names, model.n_states)
+    def from_model(cls, model, key, *args, **kwargs) -> 'SimpleSampler':
+        return cls(key, model.lp_func, model.sampler, model.param_names, model.n_states, *args, **kwargs)
 
     @property
     def n_samples(self):

@@ -9,15 +9,17 @@ Should get the mosquito model incorporated into the human model.
 import numpy as np
 from matplotlib import pyplot as plt
 from probabilistic_machine_learning.cases.diff_model import MosquitoModelSpec, DiffModel
+from probabilistic_machine_learning.cases.hybrid_model import HybridModel
 from report_tests import show
 
 import jax
+import jax.numpy as jnp
 from probabilistic_machine_learning.cases.diff_encoded_mosquito import pure_mosquito_model, full_model
 # from probabilistic_machine_learning.cases.hybrid_model import simple_hybrid_model
 from scipy.special import logit, expit
 
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
-from climate_health.plotting.prediction_plot import prediction_plot
+from climate_health.plotting.prediction_plot import prediction_plot, forecast_plot
 from tests import EXAMPLE_DATA_PATH
 from .week8 import check_model_capacity, get_parameterized_mosquito_model, SimpleSampler, get_simulator
 
@@ -131,8 +133,57 @@ def test_refactor_mosquito_model():
                                                        exogenous=climate_data.max_temperature)})
     return show(prediction_plot(health_data, sampler, climate_data, 10))
 
+def test_scan_with_fixed_values():
+    '''Find out how to use scan over 2d array with init values'''
+    init_values = jnp.array([0.9, 0.7, 0.2])
+    diffs = jnp.array([[0.1, 0.3, 0.1], [0.2, 0.1, 0.1], [0.1, 0.1, 0.1]])
+
+    def transition(state, diff):
+        new_state = state + diff
+        return new_state, new_state
+    val = jax.lax.scan(transition, init_values, diffs)[1]
+    print(val)
+
+
+def test_scan_with_fixed_values_3d():
+    '''Find out how to use scan over 2d array with init values, n_states=2, n_fixed=3, T=9'''
+    init_values = jnp.array([[0.9, 0.1],
+                             [0.7, 0.1],
+                             [0.7, 0.2]])
+    diffs = jnp.array([[[0.1, 0.2], [0.3, 0.4], [0.1, 0.3], [0.5, 0.5]],
+                       [[0.2, 0.2], [0.1, 0.1], [0.1, 0.1], [0.5, 0.5]],
+                       [[0.1, 0.1], [0.1, 0.1], [0.1, 0.1], [0.5, 0.5]]])
+    diffs = jnp.swapaxes(diffs, 0, 1)
+
+    def transition(state, diff):
+        new_state = state + diff
+        return new_state, new_state
+    val = jax.lax.scan(transition, init_values, diffs)[1]
+    val = jnp.swapaxes(val, 0, 1).reshape(-1, init_values.shape[-1])
+    print(val)
+
 
 def test_hybrid_central_noncentral_model():
     '''
+    This seems to maybe work, but requires alot of warmup samples to get the right parameters.
+    Might need to speed up the sampling, but promising results.
     '''
+
+    T = 400
+    model_spec = MosquitoModelSpec
+    model = HybridModel(model_spec)
+    simulator = SimpleSimulator.from_model(model)
+    climate_data = ClimateData.from_csv(EXAMPLE_DATA_PATH / 'climate_data_daily.csv')[:T]
+    health_data = simulator.simulate(climate_data)
+    data_set = ClimateHealthTimeSeries.combine(health_data, climate_data)
+    sampler = SimpleSampler.from_model(model, jax.random.PRNGKey(40), n_warmup_samples=1000, n_samples=1000)
+    transformed_states = jnp.array([model_spec.state_transform(model_spec.init_state)]*(T//100))
+    sampler.train(data_set,
+                  init_values=model_spec.good_params | {
+                      'init_diffs': model.sample_diffs(transition_key=jax.random.PRNGKey(10000),
+                                                       params=model_spec.good_params,
+                                                       exogenous=climate_data.max_temperature),
+                      'transformed_states': transformed_states})
+
+    return show(forecast_plot(health_data, sampler, climate_data, 10))
     # (sample, log_prob, reconstruct_state, sample_diffs), (real_params, n_states) = simple_hybrid_model()
