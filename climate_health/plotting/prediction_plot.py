@@ -21,7 +21,7 @@ def forecast_plot(true_data: HealthData, predicition_sampler: Sampler, climate_d
     samples = np.array([predicition_sampler.sample(climate_data) for _ in range(n_samples)])
     quantiles = np.quantile(samples, [0.1, 0.5, 0.9], axis=0)
     plt.plot(quantiles[1], label='50th percentile', color='grey')
-    x = np.arange(len(true_data))
+    x = np.arange(len(true_data.disease_cases))
     plt.fill_between(x, quantiles[0], quantiles[2], color='grey', alpha=0.5)
     plt.plot(quantiles[0], label='10th percentile', color='grey')
     plt.plot(quantiles[2], label='90th percentile', color='grey')

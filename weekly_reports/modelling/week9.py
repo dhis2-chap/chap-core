@@ -10,6 +10,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from probabilistic_machine_learning.cases.diff_model import MosquitoModelSpec, DiffModel
 from probabilistic_machine_learning.cases.hybrid_model import HybridModel
+from probabilistic_machine_learning.cases.multilevel_model import MultiLevelModelSpec, MultiLevelModelSpecFactory
 from report_tests import show
 
 import jax
@@ -169,21 +170,31 @@ def test_hybrid_central_noncentral_model():
     Might need to speed up the sampling, but promising results.
     '''
 
-    T = 400
+    return check_hybrid_model_capacity(T=400)
+    # (sample, log_prob, reconstruct_state, sample_diffs), (real_params, n_states) = simple_hybrid_model()
+
+
+def check_hybrid_model_capacity(T = 400, periods_lengths = None, n_warmup_samples=1000, n_samples=1000):
     model_spec = MosquitoModelSpec
+    if periods_lengths is not None:
+        model_spec = MultiLevelModelSpecFactory.from_period_lengths(model_spec, periods_lengths)
     model = HybridModel(model_spec)
     simulator = SimpleSimulator.from_model(model)
     climate_data = ClimateData.from_csv(EXAMPLE_DATA_PATH / 'climate_data_daily.csv')[:T]
     health_data = simulator.simulate(climate_data)
     data_set = ClimateHealthTimeSeries.combine(health_data, climate_data)
-    sampler = SimpleSampler.from_model(model, jax.random.PRNGKey(40), n_warmup_samples=1000, n_samples=1000)
-    transformed_states = jnp.array([model_spec.state_transform(model_spec.init_state)]*(T//100))
+    sampler = SimpleSampler.from_model(model, jax.random.PRNGKey(40), n_warmup_samples=n_warmup_samples, n_samples=n_samples)
+    transformed_states = jnp.array([model_spec.state_transform(model_spec.init_state)] * (T // 100))
     sampler.train(data_set,
                   init_values=model_spec.good_params | {
                       'init_diffs': model.sample_diffs(transition_key=jax.random.PRNGKey(10000),
                                                        params=model_spec.good_params,
                                                        exogenous=climate_data.max_temperature),
                       'transformed_states': transformed_states})
-
     return show(forecast_plot(health_data, sampler, climate_data, 10))
-    # (sample, log_prob, reconstruct_state, sample_diffs), (real_params, n_states) = simple_hybrid_model()
+
+
+def test_multilevel_model():
+    '''Test functionality with monthly disease observations and daily weather data'''
+    return check_hybrid_model_capacity(T=200, periods_lengths=jnp.full(20, 10), n_warmup_samples=400, n_samples=200)
+

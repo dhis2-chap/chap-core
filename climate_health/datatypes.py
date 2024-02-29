@@ -8,8 +8,13 @@ import dataclasses
 from .time_period import TimePeriod, Day, Month, Year
 from .time_period.dataclasses import Period
 
+#tsdataclass = bnp.bnpdataclass.bnpdataclass
+def tsdataclass(cls):
+    dc = bnp.bnpdataclass.bnpdataclass(cls)
+    dc._assert_same_lens = lambda self: None
+    return dc
 
-@bnp.bnpdataclass.bnpdataclass
+@tsdataclass
 class TimeSeriesData:
     time_period: Period
 
@@ -38,18 +43,18 @@ class TimeSeriesData:
         data = pd.read_csv(csv_file, **kwargs)
         return cls.from_pandas(data)
 
-@bnp.bnpdataclass.bnpdataclass
+@tsdataclass
 class ClimateData(TimeSeriesData):
     rainfall: float
     mean_temperature: float
     max_temperature: float
 
-@bnp.bnpdataclass.bnpdataclass
+@tsdataclass
 class HealthData(TimeSeriesData):
     disease_cases: int
 
 
-@bnp.bnpdataclass.bnpdataclass
+@tsdataclass
 class ClimateHealthTimeSeries(TimeSeriesData):
     rainfall: float
     mean_temperature: float
@@ -65,7 +70,7 @@ class ClimateHealthTimeSeries(TimeSeriesData):
         return d
 
 
-@bnp.bnpdataclass.bnpdataclass
+@tsdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
     location: str
 
