@@ -8,11 +8,13 @@ import dataclasses
 from .time_period import TimePeriod, Day, Month, Year
 from .time_period.dataclasses import Period
 
-#tsdataclass = bnp.bnpdataclass.bnpdataclass
+
+# tsdataclass = bnp.bnpdataclass.bnpdataclass
 def tsdataclass(cls):
     dc = bnp.bnpdataclass.bnpdataclass(cls)
     dc._assert_same_lens = lambda self: None
     return dc
+
 
 @tsdataclass
 class TimeSeriesData:
@@ -43,11 +45,13 @@ class TimeSeriesData:
         data = pd.read_csv(csv_file, **kwargs)
         return cls.from_pandas(data)
 
+
 @tsdataclass
 class ClimateData(TimeSeriesData):
     rainfall: float
     mean_temperature: float
     max_temperature: float
+
 
 @tsdataclass
 class HealthData(TimeSeriesData):
@@ -62,7 +66,9 @@ class ClimateHealthTimeSeries(TimeSeriesData):
 
     @classmethod
     def combine(cls, health_data: HealthData, climate_data: ClimateData):
-        return ClimateHealthTimeSeries(time_period=health_data.time_period, rainfall=climate_data.rainfall, mean_temperature=climate_data.mean_temperature, disease_cases=health_data.disease_cases)
+        return ClimateHealthTimeSeries(time_period=health_data.time_period, rainfall=climate_data.rainfall,
+                                       mean_temperature=climate_data.mean_temperature,
+                                       disease_cases=health_data.disease_cases)
 
     def todict(self):
         d = super().todict()
@@ -73,7 +79,6 @@ class ClimateHealthTimeSeries(TimeSeriesData):
 @tsdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
     location: str
-
 
 
 class ClimateHealthTimeSeriesModel(BaseModel):
@@ -103,6 +108,7 @@ class LocatedClimateHealthTimeSeriesModel(BaseModel):
 
 class Shape:
     pass
+
 
 @dataclasses.dataclass
 class Location(Shape):
