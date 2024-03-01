@@ -84,8 +84,7 @@ def get_simulator(sample, real_params):
 
 
 class SimpleSampler:
-    def __init__(self, key, log_prob: callable, sample_func: callable, param_names: list[str], n_states=None,
-                 n_warmup_samples=1000, n_samples=100):
+    def __init__(self, key, log_prob: callable, sample_func: callable, param_names: list[str], n_states=None, n_warmup_samples=1000, n_samples=100):
         self._log_prob = log_prob
         self._param_names = param_names
         self._param_samples = None
@@ -123,6 +122,7 @@ class SimpleSampler:
         if any(np.any(np.isnan(value)) for value in last_grad.values()):
             lp(last_params)
             logging.warning('Nans in gradient')
+        np.savez('params.npz', **self._param_samples)
 
     def sample(self, climate_data: ClimateData) -> HealthData:
         T = len(climate_data) + 1

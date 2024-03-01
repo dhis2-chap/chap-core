@@ -6,6 +6,8 @@ Should get the mosquito model incorporated into the human model.
 - Use data from multiple locations
 - Use weather data on finer resolution than health data (i.e. daily weather data and monthly health data)
 '''
+import time
+
 import numpy as np
 from matplotlib import pyplot as plt
 from probabilistic_machine_learning.cases.diff_model import MosquitoModelSpec, DiffModel
@@ -196,5 +198,22 @@ def check_hybrid_model_capacity(T = 400, periods_lengths = None, n_warmup_sample
 
 def test_multilevel_model():
     '''Test functionality with monthly disease observations and daily weather data'''
-    return check_hybrid_model_capacity(T=200, periods_lengths=jnp.full(20, 10), n_warmup_samples=400, n_samples=200)
+    return check_hybrid_model_capacity(T=400, periods_lengths=jnp.full(40, 10), n_warmup_samples=1000, n_samples=500)
 
+def test_speedup_transitions():
+    '''
+    Check if we can get significant speedup by leveraging jax.jit
+    '''
+    T = 400
+    model_spec = MosquitoModelSpec
+    model = HybridModel(model_spec)
+    climate_data = ClimateData.from_csv(EXAMPLE_DATA_PATH / 'climate_data_daily.csv')[:T]
+    diffs = model.sample_diffs(transition_key=jax.random.PRNGKey(10000),
+                                                       params=model_spec.good_params,
+                                                       exogenous=climate_data.max_temperature)
+    transformed_states = jnp.array([model_spec.state_transform(model_spec.init_state)] * (T // 100))
+    t = time.time()
+    print(transformed_states.shape)
+    print(diffs.shape)
+    model.recontstruct_state(diffs, transformed_states, params=model_spec.good_params)
+    print(time.time()-t)
