@@ -136,6 +136,7 @@ def test_refactor_mosquito_model():
                                                        exogenous=climate_data.max_temperature)})
     return show(prediction_plot(health_data, sampler, climate_data, 10))
 
+
 def test_scan_with_fixed_values():
     '''Find out how to use scan over 2d array with init values'''
     init_values = jnp.array([0.9, 0.7, 0.2])
@@ -144,6 +145,7 @@ def test_scan_with_fixed_values():
     def transition(state, diff):
         new_state = state + diff
         return new_state, new_state
+
     val = jax.lax.scan(transition, init_values, diffs)[1]
     print(val)
 
@@ -161,6 +163,7 @@ def test_scan_with_fixed_values_3d():
     def transition(state, diff):
         new_state = state + diff
         return new_state, new_state
+
     val = jax.lax.scan(transition, init_values, diffs)[1]
     val = jnp.swapaxes(val, 0, 1).reshape(-1, init_values.shape[-1])
     print(val)
@@ -172,11 +175,11 @@ def test_hybrid_central_noncentral_model():
     Might need to speed up the sampling, but promising results.
     '''
 
-    return check_hybrid_model_capacity(T=400)
+    return check_hybrid_model_capacity(T=400, n_warmup_samples=100, n_samples=100)
     # (sample, log_prob, reconstruct_state, sample_diffs), (real_params, n_states) = simple_hybrid_model()
 
 
-def check_hybrid_model_capacity(T = 400, periods_lengths = None, n_warmup_samples=1000, n_samples=1000):
+def check_hybrid_model_capacity(T=400, periods_lengths=None, n_warmup_samples=1000, n_samples=1000):
     model_spec = MosquitoModelSpec
     if periods_lengths is not None:
         model_spec = MultiLevelModelSpecFactory.from_period_lengths(model_spec, periods_lengths)
@@ -185,7 +188,8 @@ def check_hybrid_model_capacity(T = 400, periods_lengths = None, n_warmup_sample
     climate_data = ClimateData.from_csv(EXAMPLE_DATA_PATH / 'climate_data_daily.csv')[:T]
     health_data = simulator.simulate(climate_data)
     data_set = ClimateHealthTimeSeries.combine(health_data, climate_data)
-    sampler = SimpleSampler.from_model(model, jax.random.PRNGKey(40), n_warmup_samples=n_warmup_samples, n_samples=n_samples)
+    sampler = SimpleSampler.from_model(model, jax.random.PRNGKey(40), n_warmup_samples=n_warmup_samples,
+                                       n_samples=n_samples)
     transformed_states = jnp.array([model_spec.state_transform(model_spec.init_state)] * (T // 100))
     sampler.train(data_set,
                   init_values=model_spec.good_params | {
@@ -200,6 +204,7 @@ def test_multilevel_model():
     '''Test functionality with monthly disease observations and daily weather data'''
     return check_hybrid_model_capacity(T=400, periods_lengths=jnp.full(40, 10), n_warmup_samples=1000, n_samples=500)
 
+
 def test_speedup_transitions():
     '''
     Check if we can get significant speedup by leveraging jax.jit
@@ -209,11 +214,11 @@ def test_speedup_transitions():
     model = HybridModel(model_spec)
     climate_data = ClimateData.from_csv(EXAMPLE_DATA_PATH / 'climate_data_daily.csv')[:T]
     diffs = model.sample_diffs(transition_key=jax.random.PRNGKey(10000),
-                                                       params=model_spec.good_params,
-                                                       exogenous=climate_data.max_temperature)
+                               params=model_spec.good_params,
+                               exogenous=climate_data.max_temperature)
     transformed_states = jnp.array([model_spec.state_transform(model_spec.init_state)] * (T // 100))
     t = time.time()
     print(transformed_states.shape)
     print(diffs.shape)
     model.recontstruct_state(diffs, transformed_states, params=model_spec.good_params)
-    print(time.time()-t)
+    print(time.time() - t)
