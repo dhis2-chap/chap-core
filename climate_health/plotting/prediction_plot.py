@@ -6,9 +6,10 @@ from climate_health.datatypes import ClimateData, HealthData
 from climate_health.predictor.protocol import Sampler
 
 
-def prediction_plot(true_data: HealthData, predicition_sampler: Sampler, climate_data: ClimateData, n_samples)-> Figure:
+def prediction_plot(true_data: HealthData, predicition_sampler: Sampler, climate_data: ClimateData,
+                    n_samples) -> Figure:
     reporting_rate = 10000
-    T = len(true_data)+1
+    T = len(true_data) + 1
     for i in range(n_samples):
         new_observed = predicition_sampler.sample(climate_data)
         plt.plot(new_observed, label='predicted', color='grey')
@@ -17,8 +18,7 @@ def prediction_plot(true_data: HealthData, predicition_sampler: Sampler, climate
     plt.title('Prdicted path using estimated parameters vs real path')
     return plt.gcf()
 
-def forecast_plot(true_data: HealthData, predicition_sampler: Sampler, climate_data: ClimateData,
-    n_samples) -> Figure:
+def forecast_plot(true_data: HealthData, predicition_sampler: Sampler, climate_data: ClimateData, n_samples) -> Figure:
     samples = np.array([predicition_sampler.sample(climate_data) for _ in range(n_samples)])
     quantiles = np.quantile(samples, [0.1, 0.5, 0.9], axis=0)
     plt.plot(quantiles[1], label='50th percentile', color='grey')
