@@ -17,6 +17,7 @@ def prediction_plot(true_data: HealthData, predicition_sampler: Sampler, climate
     plt.title('Prdicted path using estimated parameters vs real path')
     return plt.gcf()
 
+
 def forecast_plot(true_data: HealthData, predicition_sampler: Sampler, climate_data: ClimateData, n_samples)-> Figure:
     samples = np.array([predicition_sampler.sample(climate_data) for _ in range(n_samples)])
     quantiles = np.quantile(samples, [0.1, 0.5, 0.9], axis=0)
