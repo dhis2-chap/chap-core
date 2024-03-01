@@ -14,14 +14,16 @@ def get_image_collection(period='MONTHLY', dataset='ERA5'):
     ic = ee.ImageCollection(name)
     return ic
 
+
 class ERA5DataBase:
     def __init__(self):
-        #ee.Authenticate()
+        # ee.Authenticate()
         ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')
         self._monthly_ic = get_image_collection('MONTHLY', 'ERA5')
         self._daily_ic = get_image_collection('DAILY', 'ERA5')
 
-    def get_data(self, region: Shape, start_period: TimePeriod, end_period: TimePeriod, exclusive_end=True) -> ClimateData:
+    def get_data(self, region: Shape, start_period: TimePeriod, end_period: TimePeriod,
+                 exclusive_end=True) -> ClimateData:
         assert isinstance(region, Location), f'Expected Location, got {type(region)}'
         assert isinstance(start_period, (Month, Day)), f'Expected Month, got {type(start_period)}, {start_period}'
         is_daily = hasattr(start_period, 'day')
@@ -44,7 +46,9 @@ class ERA5DataBase:
             periods = DayDataclass(years, months, days)
 
         celcius_offset = 273.15
-        return ClimateData(periods, rainfall=variable_dicts['total_precipitation_sum'], mean_temperature=variable_dicts['temperature_2m']-celcius_offset, max_temperature=variable_dicts['temperature_2m_max']-celcius_offset)
+        return ClimateData(periods, rainfall=variable_dicts['total_precipitation_sum'],
+                           mean_temperature=variable_dicts['temperature_2m'] - celcius_offset,
+                           max_temperature=variable_dicts['temperature_2m_max'] - celcius_offset)
 
     def _get_end_date(self, end_period, exclusive_end):
         end_add = 0 if exclusive_end else 1
