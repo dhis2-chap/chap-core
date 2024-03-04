@@ -179,8 +179,7 @@ def test_hybrid_central_noncentral_model():
     # (sample, log_prob, reconstruct_state, sample_diffs), (real_params, n_states) = simple_hybrid_model()
 
 
-def check_hybrid_model_capacity(T=400, periods_lengths=None, n_warmup_samples=1000, n_samples=1000):
-    model_spec = MosquitoModelSpec
+def check_hybrid_model_capacity(T=400, periods_lengths=None, n_warmup_samples=1000, n_samples=1000, model_spec = MosquitoModelSpec):
     if periods_lengths is not None:
         model_spec = MultiLevelModelSpecFactory.from_period_lengths(model_spec, periods_lengths)
     model = HybridModel(model_spec)
@@ -191,18 +190,18 @@ def check_hybrid_model_capacity(T=400, periods_lengths=None, n_warmup_samples=10
     sampler = SimpleSampler.from_model(model, jax.random.PRNGKey(40), n_warmup_samples=n_warmup_samples,
                                        n_samples=n_samples)
     transformed_states = jnp.array([model_spec.state_transform(model_spec.init_state)] * (T // 100))
+    init_diffs = model.sample_diffs(transition_key=jax.random.PRNGKey(10000), params=model_spec.good_params,
+                               exogenous=climate_data.max_temperature)
     sampler.train(data_set,
                   init_values=model_spec.good_params | {
-                      'init_diffs': model.sample_diffs(transition_key=jax.random.PRNGKey(10000),
-                                                       params=model_spec.good_params,
-                                                       exogenous=climate_data.max_temperature),
+                      'logits_array': init_diffs,
                       'transformed_states': transformed_states})
     return show(forecast_plot(health_data, sampler, climate_data, 10))
 
 
 def test_multilevel_model():
     '''Test functionality with monthly disease observations and daily weather data'''
-    return check_hybrid_model_capacity(T=400, periods_lengths=jnp.full(40, 10), n_warmup_samples=1000, n_samples=500)
+    return check_hybrid_model_capacity(T=1200, periods_lengths=jnp.full(40, 30), n_warmup_samples=1000, n_samples=500)
 
 
 def test_speedup_transitions():
