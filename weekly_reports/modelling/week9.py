@@ -175,7 +175,7 @@ def test_hybrid_central_noncentral_model():
     Might need to speed up the sampling, but promising results.
     '''
 
-    return check_hybrid_model_capacity(T=100, n_warmup_samples=100, n_samples=100)
+    return check_hybrid_model_capacity(T=100, n_warmup_samples=200, n_samples=100)
     # (sample, log_prob, reconstruct_state, sample_diffs), (real_params, n_states) = simple_hybrid_model()
 
 
@@ -207,7 +207,8 @@ def test_multilevel_model():
 
 def test_speedup_transitions():
     '''
-    Check if we can get significant speedup by leveraging jax.jit
+    Check if we can get significant speedup by leveraging jax.jit:
+    Did not manage to speed it up. Will try to reparameterize ot make state reconstruction faster.
     '''
     T = 400
     model_spec = MosquitoModelSpec
@@ -218,8 +219,6 @@ def test_speedup_transitions():
                                exogenous=climate_data.max_temperature)
     transformed_states = jnp.array([model_spec.init_state] * (T // 100))
     t = time.time()
-    # print(transformed_states.shape)
-    #print(diffs.shape)
-    #with jax.profiler.trace("/tmp/jax-trace", create_perfetto_link=True):
-    #    model.recontstruct_state(diffs, transformed_states, params=model_spec.good_params)
-    #print(time.time() - t) # 0.21
+    model.recontstruct_state(diffs, transformed_states, params=model_spec.good_params)
+    print(time.time() - t) #0.20 seconds
+    # Did not manage to speed it up with jit
