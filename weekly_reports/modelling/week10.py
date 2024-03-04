@@ -9,10 +9,11 @@ from jax.scipy.special import expit, logit
 
 
 def _new_transition(P, logits, states):
-    full_human_diffs, full_mosquito_diffs, human_state, mosquito_state_after_deaths = _get_full_diffs(P, logits, states)
-    new_mosquito_state = [a + b for a, b in zip(mosquito_state_after_deaths, full_mosquito_diffs)]
-    new_human_state = human_state + full_human_diffs
-    new_state = jnp.array([new_human_state[..., 0], new_human_state[..., 1], new_human_state[..., 2], new_human_state[..., 3]] + new_mosquito_state).T
+    full_diffs = _get_full_diffs(P, logits, states)
+    # new_mosquito_state = [a + b for a, b in zip(full_mosquito_diffs, states.T[4:])]
+    # new_human_state = human_state + full_human_diffs
+    #new_state = jnp.array([new_human_state[..., 0], new_human_state[..., 1], new_human_state[..., 2], new_human_state[..., 3]] + new_mosquito_state).T
+    new_state = jnp.array([s+d for s, d in zip(states.T, full_diffs)]).T
     return new_state, new_state
 
 
@@ -31,7 +32,8 @@ def _get_full_diffs(P, logits, states):
     full_mosquito_diffs = [new_eggs - mosquito_diffs[0]] + [mosquito_diffs[i - 1] - mosquito_diffs[i] for i in
                                                             range(1, 5)] + [mosquito_diffs[4]]
     full_mosquito_diffs = [d-death for d, death in zip(full_mosquito_diffs, mosquito_deaths)]
-    return full_human_diffs, full_mosquito_diffs, human_state, mosquito_state.T
+    return list(full_human_diffs.T)+full_mosquito_diffs
+
 
 
 class StateSpaceDiffMosquitoModelSpec(MosquitoModelSpec):
