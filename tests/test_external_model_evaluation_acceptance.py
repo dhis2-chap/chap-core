@@ -44,5 +44,4 @@ def test_external_model_evaluation(python_script_file_name, data_set_filename, o
     results = evaluator.get_results()
     report = HTMLReport.from_results(results).save(output_filename)
     report.save(output_filename)
-
 # Add test-validation-train split
