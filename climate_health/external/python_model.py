@@ -1,4 +1,6 @@
-from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
+from ..datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
+from ..dataset import SpatioTemporalDataSet
+
 from climate_health.time_period import Month
 
 
@@ -8,5 +10,8 @@ class ExternalPythonModel:
         self.lead_time = lead_time
         self.adaptors = adaptors
 
-    def get_predictions(self, train_data: ClimateHealthTimeSeries, future_climate_data: ClimateData) -> HealthData:
+    def get_predictions(self, train_data: SpatioTemporalDataSet[ClimateHealthTimeSeries],
+                        future_climate_data: SpatioTemporalDataSet[ClimateData]) -> SpatioTemporalDataSet[HealthData]:
         pass
+
+

@@ -1,11 +1,11 @@
 import pytest
 from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health import ExternalModel
+from climate_health.file_io.load import load_data_set
+
 from climate_health.predictor.naive_predictor import NaivePredictor
 from climate_health.time_period import Month
 from . import EXAMPLE_DATA_PATH, TMP_DATA_PATH, TEST_PATH
 from climate_health.external.python_model import ExternalPythonModel
-# from .external.r_model import ExternalRModel
 
 
 class MockExternalModel:
@@ -27,17 +27,21 @@ def python_script_file_name() -> ClimateHealthTimeSeries:
 def output_file_name() -> str:
     return TMP_DATA_PATH / 'output.md'
 
+
+class MultiLocationEvaluator:
+    pass
+
+
 @pytest.mark.skip
 def test_external_model_evaluation(python_script_file_name, data_set_filename, output_filename):
     external_model = ExternalPythonModel(python_script_file_name, lead_time=Month, adaptors=None)
-    data_set = SpatioTemporalDataSet.from_csv(data_set_filename)
-    results_per_year = []
-    naive_results = []
-    for train_data, future_climate_data, future_truth in split_test_train_years(data_set):
+    data_set = load_data_set(data_set_filename)
+    evaluator = MultiLocationEvaluator(names=['external_model', 'naive_model'], truth=data_set)
+    for split_time, (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set):
         predictions = external_model.get_predictions(train_data, future_climate_data)
-        results_per_year.append(report(future_truth, predictions))
+        evaluator.add_predictions('external_model', predictions)
         naive_predictions = NaivePredictor(lead_time=Month).train(train_data).predict(future_climate_data)
-        naive_results.append(naive_predictions)
+        evaluator.add_predictions('naive_model', naive_predictions)
     result: Dashboard = report_results_against_naive(results_per_year, naive_predictions)
     result.save(output_filename)
 

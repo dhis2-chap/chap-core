@@ -75,6 +75,7 @@ class ClimateHealthTimeSeries(TimeSeriesData):
         d['time_period'] = self.time_period.topandas()
         return d
 
+ClimateHealthData = ClimateHealthTimeSeries
 
 @tsdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
