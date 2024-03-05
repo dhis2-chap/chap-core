@@ -12,24 +12,24 @@ T = TypeVar('T')
 class SpatioTemporalDataSet(Protocol, Generic[T]):
     dataclass = ...
 
-    def get_data_for_locations(self, location: Iterable[Location]) -> Self:
+    def get_data_for_locations(self, location: Iterable[Location]) -> 'SpatioTemporalDataSet[T]':
         ...
 
     def get_data_for_location(self, location: Location) -> T:
         ...
 
-    def restrict_time_period(self, period_range: temporal_index_type) -> Self:
+    def restrict_time_period(self, period_range: temporal_index_type) -> 'SpatioTemporalDataSet[T]':
         ...
 
 class SpatioTemporalDict(Generic[T]):
     def __init__(self, data_dict: dict[Location, T]):
         self._data_dict = data_dict
 
-    def get_locations(self, location: Iterable[Location]) -> Self:
+    def get_locations(self, location: Iterable[Location]) -> 'SpatioTemporalDict[T]':
         return self.__class__({loc: self._data_dict[loc] for loc in location})
 
     def get_location(self, location: Location) -> T:
         return self._data_dict[location]
 
-    def restrict_time_period(self, period_range: temporal_index_type) -> Self:
+    def restrict_time_period(self, period_range: temporal_index_type) -> 'SpatioTemporalDict[T]':
         return NotImplemented

@@ -36,7 +36,7 @@ def test_external_model_evaluation(python_script_file_name, data_set_filename, o
     external_model = ExternalPythonModel(python_script_file_name, lead_time=Month, adaptors=None)
     data_set = load_data_set(data_set_filename)
     evaluator = MultiLocationEvaluator(names=['external_model', 'naive_model'], truth=data_set)
-    for split_time, (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set):
+    for (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set):
         predictions = external_model.get_predictions(train_data, future_climate_data)
         evaluator.add_predictions('external_model', predictions)
         naive_predictions = NaivePredictor(lead_time=Month).train(train_data).predict(future_climate_data)
