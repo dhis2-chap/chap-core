@@ -34,3 +34,21 @@ Might need to be handled separately. hydromet_dengue/output/preds/0x_leave_month
 # Running R scripts that follow an interface.
 Give training data as csv file and future weather as csv file and receive csv file with predictions back. Wrapping of this should maybe be done in python 
 # Caching of simulated data and downloaded data and processed data
+
+
+# Meeting Agenda
+* Going through acceptance tests
+* Discussing interfaces:
+- Datastructure to store data over several locations and time scales
+- Multilocation training interface
+- Report output
+* Time commitment and worksession scheduling
+* Assignment of tasks
+* Rules for code review:
+- What is important for good code for us
+* Work
+
+
+
+
+
