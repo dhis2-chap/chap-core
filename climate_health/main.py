@@ -5,7 +5,7 @@ Contains function for running full analysis (e.g from data to prediction assesme
 import pandas as pd
 from collections import defaultdict
 from .datatypes import ClimateHealthTimeSeries
-from climate_health.single_assessment.prediction_evaluator import AssessmentReport, make_assessment_report
+from climate_health.assessment.prediction_evaluator import AssessmentReport, make_assessment_report
 from .predictor.protocol import Predictor
 
 
