@@ -1,7 +1,12 @@
 import pytest
 from climate_health.datatypes import ClimateHealthTimeSeries
 from climate_health import ExternalModel
-from . import EXAMPLE_DATA_PATH
+from climate_health.predictor.naive_predictor import NaivePredictor
+from climate_health.time_period import Month
+from . import EXAMPLE_DATA_PATH, TMP_DATA_PATH
+from .external.r_model import ExternalRModel
+
+
 class MockExternalModel:
     pass
 
@@ -14,11 +19,13 @@ def data_set_filename():
 def r_script_file_name() -> ClimateHealthTimeSeries:
     return EXAMPLE_DATA_PATH / 'example_r_script.r'
 
+def output_file_name() -> str:
+    return TMP_DATA_PATH / 'output.md'
+
 @pytest.mark.skip
 def test_external_model_evaluation(r_script_file_name, data_set_filename):
-    external_model = ExternalRModel(r_script, lead_time=Month, adaptors=None)
+    external_model = ExternalRModel(r_script_file_name, lead_time=Month, adaptors=None)
     results_per_year = []
-    our_naive_model = NaivePredictor(lead_time=Month)
     naive_results = []
     for train_data, future_climate_data, future_truth in split_test_train_years():
         predictions = external_model.get_predictions(train_data, future_climate_data)
