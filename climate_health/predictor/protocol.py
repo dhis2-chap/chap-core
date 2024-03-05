@@ -23,3 +23,10 @@ class Sampler(Protocol):
 
     def sample(self, weather_data: ClimateData, n_samples: int = 1) -> HealthData:
         ...
+
+class MultiRegionPredictor(Protocol):
+    def train(self, spatio_temporal_climate_health_data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
+        ...
+
+    def predict(self, future_weather: SpatioTemporalDataSet[ClimateData])->SpatioTemporalDataSet[HealthData]:
+        ...
