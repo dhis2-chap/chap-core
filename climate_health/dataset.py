@@ -1,4 +1,4 @@
-from typing import Protocol, Union, Iterable, TypeVar, Generic, Self
+from typing import Protocol, Union, Iterable, TypeVar, Generic, Self, Tuple
 
 from climate_health.datatypes import Location
 from climate_health.time_period.dataclasses import Period
@@ -12,14 +12,24 @@ T = TypeVar('T')
 class SpatioTemporalDataSet(Protocol, Generic[T]):
     dataclass = ...
 
-    def get_data_for_locations(self, location: Iterable[Location]) -> 'SpatioTemporalDataSet[T]':
+    def get_data_for_locations(self, location: Iterable[spatial_index_type]) -> 'SpatioTemporalDataSet[T]':
         ...
 
-    def get_data_for_location(self, location: Location) -> T:
+    def get_data_for_location(self, location: spatial_index_type) -> T:
         ...
 
     def restrict_time_period(self, period_range: temporal_index_type) -> 'SpatioTemporalDataSet[T]':
         ...
+
+    def keys(self) -> Iterable[spatial_index_type]:
+        ...
+
+    def values(self) -> Iterable[T]:
+        ...
+
+    def items(self) -> Iterable[Tuple[spatial_index_type, T]]:
+        ...
+
 
 class SpatioTemporalDict(Generic[T]):
     def __init__(self, data_dict: dict[Location, T]):

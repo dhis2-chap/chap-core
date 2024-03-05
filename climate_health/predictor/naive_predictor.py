@@ -1,5 +1,6 @@
 import numpy as np
 
+from climate_health.dataset import SpatioTemporalDataSet, SpatioTemporalDict
 from climate_health.datatypes import HealthData, ClimateHealthTimeSeries, ClimateData
 
 
@@ -15,6 +16,21 @@ class NaivePredictor:
     def predict(self, future_climate_data: ClimateData) -> HealthData:
         return HealthData(future_climate_data.time_period, np.full(len(future_climate_data), self._average_cases))
 
+
+class MultiRegionNaivePredictor:
+    '''TODO: This should be a linear regression of prev cases and season for each location.'''
+
+    def __init__(self, lead_time=1):
+        self._average_cases = None
+
+    def train(self, data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
+        self._average_cases = {location: data.disease_cases.mean() for location, data in data.items()}
+
+    def predict(self, future_weather: SpatioTemporalDataSet[ClimateData]) -> HealthData:
+        prediction_dict = {HealthData(future_weather[location].time_period,
+                                      np.full(len(future_weather[location]), self._average_cases[location])) for
+                           location in future_weather.keys()}
+        return SpatioTemporalDict(prediction_dict)
 
 class NaiveForecastSampler:
     def __init__(self):
