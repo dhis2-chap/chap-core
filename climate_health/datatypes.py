@@ -115,3 +115,6 @@ class Shape:
 class Location(Shape):
     latitude: float
     longitude: float
+
+
+ResultType = pd.DataFrame
