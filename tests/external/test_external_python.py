@@ -3,7 +3,7 @@ import pytest
 from climate_health.external.python_model import ExternalPythonModel
 from climate_health.time_period import delta
 from .. import TEST_PATH
-from .data_fixtures import train_data, future_climate_data
+from ..data_fixtures import train_data, future_climate_data
 
 
 @pytest.fixture()
