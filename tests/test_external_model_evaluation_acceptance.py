@@ -30,9 +30,10 @@ def output_file_name() -> str:
 @pytest.mark.skip
 def test_external_model_evaluation(python_script_file_name, data_set_filename, output_filename):
     external_model = ExternalPythonModel(python_script_file_name, lead_time=Month, adaptors=None)
+    data_set = SpatioTemporalClimateHealthData.from_csv(data_set_filename)
     results_per_year = []
     naive_results = []
-    for train_data, future_climate_data, future_truth in split_test_train_years():
+    for train_data, future_climate_data, future_truth in split_test_train_years(data_set):
         predictions = external_model.get_predictions(train_data, future_climate_data)
         results_per_year.append(report(future_truth, predictions))
         naive_predictions = NaivePredictor(lead_time=Month).train(train_data).predict(future_climate_data)
