@@ -39,3 +39,5 @@ def test_external_model_evaluation(python_script_file_name, data_set_filename, o
         naive_results.append(naive_predictions)
     result: Dashboard = report_results_against_naive(results_per_year, naive_predictions)
     result.save(output_filename)
+
+# Add test-validation-train split
