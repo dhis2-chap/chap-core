@@ -50,5 +50,3 @@ Give training data as csv file and future weather as csv file and receive csv fi
 
 
 
-
-

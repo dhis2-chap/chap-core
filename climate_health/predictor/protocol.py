@@ -1,4 +1,6 @@
 from typing import Protocol
+
+from ..dataset import SpatioTemporalDataSet
 from ..datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 
 

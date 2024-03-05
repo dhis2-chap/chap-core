@@ -5,7 +5,7 @@ from climate_health.datatypes import HealthData
 from climate_health.predictor.naive_predictor import NaiveForecastSampler
 from climate_health.time_period import Day
 from .mocks import ClimateDataBaseMock
-from omnipy import MultiModelDataset
+# from omnipy import MultiModelDataset
 
 @pytest.mark.xfail
 def test_model_building_acceptance(health_data_set_filename: str, output_file_name: str):
