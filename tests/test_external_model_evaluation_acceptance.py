@@ -4,8 +4,8 @@ from climate_health import ExternalModel
 from climate_health.predictor.naive_predictor import NaivePredictor
 from climate_health.time_period import Month
 from . import EXAMPLE_DATA_PATH, TMP_DATA_PATH, TEST_PATH
-from .external.python_model import ExternalPythonModel
-from .external.r_model import ExternalRModel
+from climate_health.external.python_model import ExternalPythonModel
+# from .external.r_model import ExternalRModel
 
 
 class MockExternalModel:
@@ -30,7 +30,7 @@ def output_file_name() -> str:
 @pytest.mark.skip
 def test_external_model_evaluation(python_script_file_name, data_set_filename, output_filename):
     external_model = ExternalPythonModel(python_script_file_name, lead_time=Month, adaptors=None)
-    data_set = SpatioTemporalClimateHealthData.from_csv(data_set_filename)
+    data_set = SpatioTemporalDataSet.from_csv(data_set_filename)
     results_per_year = []
     naive_results = []
     for train_data, future_climate_data, future_truth in split_test_train_years(data_set):
