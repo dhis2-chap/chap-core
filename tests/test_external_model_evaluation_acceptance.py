@@ -19,23 +19,26 @@ class MockExternalModel:
 def data_set_filename():
     return EXAMPLE_DATA_PATH / 'data.csv'
 
+
 @pytest.fixture()
-def r_script_file_name() -> ClimateHealthTimeSeries:
+def r_script_filename() -> str:
     return EXAMPLE_DATA_PATH / 'example_r_script.r'
 
 @pytest.fixture()
-def python_script_file_name() -> ClimateHealthTimeSeries:
+def python_script_filename() -> str:
     return TEST_PATH / 'mock_predictor_script.py'
 
-def output_file_name() -> str:
+
+@pytest.fixture()
+def output_filename() -> str:
     return TMP_DATA_PATH / 'output.md'
 
 
 @pytest.mark.skip
-def test_external_model_evaluation(python_script_file_name, data_set_filename, output_filename):
-    external_model = ExternalPythonModel(python_script_file_name, lead_time=Month, adaptors=None)
+def test_external_model_evaluation(python_script_filename, data_set_filename, output_filename):
+    external_model = ExternalPythonModel(python_script_filename, lead_time=Month, adaptors=None)
     data_set = load_data_set(data_set_filename)
-    evaluator = MultiLocationEvaluator(names=['external_model', 'naive_model'], truth=data_set)
+    evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
     for (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set):
         predictions = external_model.get_predictions(train_data, future_climate_data)
         evaluator.add_predictions('external_model', predictions)
