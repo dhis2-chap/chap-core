@@ -1,4 +1,4 @@
-from typing import Protocol, Union, Iterable, TypeVar, Generic, Self, Tuple
+from typing import Protocol, Union, Iterable, TypeVar, Generic, Tuple
 
 from climate_health.datatypes import Location
 from climate_health.time_period.dataclasses import Period
