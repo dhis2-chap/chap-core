@@ -10,7 +10,7 @@ from climate_health.time_period.period_range import period_range
 def test_pack_to_period():
     day_range = period_range(Day.single_entry(2020, 0, 0), Day.single_entry(2020, 1, 28))
     month_range = period_range(Month.single_entry(2020, 0), Month.single_entry(2020, 1))
-    data = np.arange(31+28)*2
+    data = np.arange(31+29)*2
     new_index, new_data = pack_to_period(day_range, data, Month)
     assert_bnpdataclass_equal(new_index, month_range)
     assert_array_equal(new_data.ravel(), data)
