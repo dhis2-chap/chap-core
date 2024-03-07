@@ -41,15 +41,6 @@ def day_range(start_period, end_period, exclusive_end):
     period_range = pd.period_range(start=pd_start, end=pd_end, freq='D')
     return Day(year=period_range.year, month=period_range.month-1, day=period_range.day-1)
 
-    n_days_in_years = [get_n_days_in_year(year) for year in range(start_period.year, end_period.year + 1)]
-    n_days_in_months = [get_n_days_in_month(month, year) for year in range(start_period.year, end_period.year + 1) for
-                        month in range(12)]
-    n_days_in_months = n_days_in_months[start_period.month:end_period.month+1]
-    n_days = sum(n_days_in_months)
-    days = np.arange(n_days)
-
-    days = np.arange(start_period.day, start_period.day + sum(n_days_in_months))
-
 
 def period_range(start_period, end_period, exclusive_end=False):
     if hasattr(start_period, 'day') or hasattr(end_period, 'day'):

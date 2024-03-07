@@ -19,3 +19,7 @@ def test_period_range_day():
     true_range = Day([2020]*len(days), [0, 0, 0, 1, 1], days)
     result = period_range(start, end)
     assert_bnpdataclass_equal(result, true_range)
+
+def test_wierd_period_range():
+    day_range = period_range(Day.single_entry(2020, 0, 0), Day.single_entry(2020, 1, 28))
+    assert len(day_range) == 31+29
