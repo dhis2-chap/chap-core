@@ -35,6 +35,10 @@ class SpatioTemporalDict(Generic[T]):
     def __init__(self, data_dict: dict[Location, T]):
         self._data_dict = data_dict
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self._data_dict})'
+
+
     def get_locations(self, location: Iterable[Location]) -> 'SpatioTemporalDict[T]':
         return self.__class__({loc: self._data_dict[loc] for loc in location})
 
