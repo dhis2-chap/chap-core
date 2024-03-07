@@ -19,5 +19,5 @@ def period_range(start_period, end_period, exclusive_end=False):
     if not hasattr(start_period, 'month') or not hasattr(end_period, 'month'):
         raise NotImplementedError(f'Only monthly data is available, {start_period}, {end_period}')
 
-    return month_range(start_period, end_period)
+    return month_range(start_period, end_period, exclusive_end)
 
