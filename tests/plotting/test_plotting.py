@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from climate_health.datatypes import ClimateData, HealthData
-from climate_health.plotting import plot_timeseries_data
+from climate_health.plotting import plot_timeseries_data, plot_multiperiod
 from climate_health.plotting.prediction_plot import forecast_plot
 from climate_health.simulation.random_noise_simulator import RandomNoiseSimulator
 from climate_health.time_period import Month
@@ -37,13 +37,9 @@ def create_monthly_health_data_for_time(daily_data):
     return period_range(start_month, end_month, exclusive_end=False)
 
 
-
-@pytest.mark.xfail()
 def test_multiperiod_plot(daily_climate_data: ClimateData):
     monthly_range = create_monthly_health_data_for_time(daily_climate_data)
     monthly_health_data = HealthData(monthly_range, np.arange(len(monthly_range)))
-    print(monthly_health_data.time_period)
-    print(daily_climate_data.time_period)
     plot_multiperiod(daily_climate_data, monthly_health_data)
 
 
