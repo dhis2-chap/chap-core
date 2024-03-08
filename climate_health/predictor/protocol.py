@@ -26,9 +26,22 @@ class Sampler(Protocol):
     def sample(self, weather_data: ClimateData, n_samples: int = 1) -> HealthData:
         ...
 
+
+class MultiRegionForecastSampler(Protocol):
+    '''
+    Model that can sample forward for multiple locations in time given a set of weather data.
+    '''
+
+    def train(self, data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
+        ...
+
+    def sample(self, future_weather: SpatioTemporalDataSet[ClimateData], n_samples: int = 1) -> SpatioTemporalDataSet[HealthData]:
+        ...
+
+
 class MultiRegionPredictor(Protocol):
     def train(self, spatio_temporal_climate_health_data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
         ...
 
-    def predict(self, future_weather: SpatioTemporalDataSet[ClimateData])->SpatioTemporalDataSet[HealthData]:
+    def predict(self, future_weather: SpatioTemporalDataSet[ClimateData]) -> SpatioTemporalDataSet[HealthData]:
         ...
