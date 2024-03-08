@@ -28,6 +28,7 @@ def test_era5_daily():
     full_data.to_csv('climate_data_daily.csv')
 
 
+@pytest.mark.skip('ee not supported')
 def test_get_data(mocker):
     mocker.patch('climate_health.climate_data.gee.ee.Initialize')
     mocker.patch('climate_health.climate_data.gee.ee.Authenticate')
