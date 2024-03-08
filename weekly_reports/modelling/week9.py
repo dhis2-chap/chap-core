@@ -24,7 +24,8 @@ from scipy.special import logit, expit
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
 from climate_health.plotting.prediction_plot import prediction_plot, forecast_plot
 from tests import EXAMPLE_DATA_PATH
-from .week8 import  SimpleSampler, get_simulator
+from .week8 import get_simulator
+from climate_health.external.models.jax_models.state_space_model import SimpleSampler
 
 
 def test_human_mosquito_model():
