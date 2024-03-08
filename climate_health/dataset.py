@@ -1,5 +1,7 @@
 from typing import Protocol, Union, Iterable, TypeVar, Generic, Tuple
 
+import pandas as pd
+
 from climate_health.datatypes import Location
 from climate_health.time_period.dataclasses import Period
 
@@ -21,6 +23,12 @@ class SpatioTemporalDataSet(Protocol, Generic[T]):
     def restrict_time_period(self, period_range: temporal_index_type) -> 'SpatioTemporalDataSet[T]':
         ...
 
+    def start_time(self) -> Period:
+        ...
+
+    def end_time(self) -> Period:
+        ...
+
     def locations(self) -> Iterable[spatial_index_type]:
         ...
 
@@ -28,6 +36,9 @@ class SpatioTemporalDataSet(Protocol, Generic[T]):
         ...
 
     def items(self) -> Iterable[Tuple[spatial_index_type, T]]:
+        ...
+
+    def to_tidy_dataframe(self) -> pd.DataFrame:
         ...
 
 
