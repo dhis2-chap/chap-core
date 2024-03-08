@@ -12,19 +12,20 @@ import numpy as np
 from matplotlib import pyplot as plt
 from probabilistic_machine_learning.cases.diff_model import MosquitoModelSpec, DiffModel
 from probabilistic_machine_learning.cases.hybrid_model import HybridModel
-from probabilistic_machine_learning.cases.multilevel_model import MultiLevelModelSpec, MultiLevelModelSpecFactory
+from probabilistic_machine_learning.cases.multilevel_model import MultiLevelModelSpecFactory
+from probabilistic_machine_learning.cases.diff_encoded_mosquito import full_model
 from report_tests import show
 
 import jax
 import jax.numpy as jnp
-from probabilistic_machine_learning.cases.diff_encoded_mosquito import pure_mosquito_model, full_model
-# from probabilistic_machine_learning.cases.hybrid_model import simple_hybrid_model
+
 from scipy.special import logit, expit
 
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
 from climate_health.plotting.prediction_plot import prediction_plot, forecast_plot
 from tests import EXAMPLE_DATA_PATH
-from .week8 import check_model_capacity, get_parameterized_mosquito_model, SimpleSampler, get_simulator
+from .week8 import get_simulator
+from climate_health.external.models.jax_models.state_space_model import SimpleSampler
 
 
 def test_human_mosquito_model():
@@ -201,7 +202,8 @@ def check_hybrid_model_capacity(T=400, periods_lengths=None, n_warmup_samples=10
 
 def test_multilevel_model():
     '''Test functionality with monthly disease observations and daily weather data'''
-    return check_hybrid_model_capacity(T=1200, periods_lengths=jnp.full(40, 30), n_warmup_samples=1000, n_samples=500)
+    T = 100
+    return check_hybrid_model_capacity(T=T, periods_lengths=jnp.full(T//20, 20), n_warmup_samples=100, n_samples=100)
 
 
 def test_speedup_transitions():

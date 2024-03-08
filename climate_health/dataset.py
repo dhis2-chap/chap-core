@@ -21,10 +21,10 @@ class SpatioTemporalDataSet(Protocol, Generic[T]):
     def restrict_time_period(self, period_range: temporal_index_type) -> 'SpatioTemporalDataSet[T]':
         ...
 
-    def keys(self) -> Iterable[spatial_index_type]:
+    def locations(self) -> Iterable[spatial_index_type]:
         ...
 
-    def values(self) -> Iterable[T]:
+    def data(self) -> Iterable[T]:
         ...
 
     def items(self) -> Iterable[Tuple[spatial_index_type, T]]:
@@ -35,6 +35,10 @@ class SpatioTemporalDict(Generic[T]):
     def __init__(self, data_dict: dict[Location, T]):
         self._data_dict = data_dict
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self._data_dict})'
+
+
     def get_locations(self, location: Iterable[Location]) -> 'SpatioTemporalDict[T]':
         return self.__class__({loc: self._data_dict[loc] for loc in location})
 
@@ -43,3 +47,12 @@ class SpatioTemporalDict(Generic[T]):
 
     def restrict_time_period(self, period_range: temporal_index_type) -> 'SpatioTemporalDict[T]':
         return NotImplemented
+
+    def locations(self) -> Iterable[Location]:
+        return self._data_dict.keys()
+
+    def data(self) -> Iterable[T]:
+        return self._data_dict.values()
+
+    def items(self) -> Iterable[Tuple[Location, T]]:
+        return self._data_dict.items()
