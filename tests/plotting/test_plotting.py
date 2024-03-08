@@ -60,8 +60,8 @@ def test_forecast_plot():
     tp = period_range(Month(2010, 1), Month(2020, 1))
     time = np.arange(len(tp))
     real_cases = np.sin(time*2*np.pi/12)*20+100
-    health_data=HealthData(tp, real_cases)
+    health_data = HealthData(tp, real_cases)
     sampler = MockSampler(health_data)
     climate_data = tp
-    forecast_plot(health_data, sampler, climate_data, 100)
-
+    forecast_plot(health_data, sampler, climate_data, 100)#.show()
+    
