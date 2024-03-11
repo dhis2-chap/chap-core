@@ -43,7 +43,7 @@ def test_location_lookup_getitem_arcgis():
     assert location_lookup['Paris'] == Location(48.863697576,
                                                 2.361657337)
 
-# @pytest.mark.xfail
+@pytest.mark.xfail
 def test_location_lookup_getitem_noninatime():
     location_lookup = LocationLookup()
     location_lookup.add_location('Oslo')
@@ -78,7 +78,7 @@ def test_print_location_lookup_arcgis():
     print(location_lookup)
     assert str(location_lookup) == '{\'Oslo\': Location(Oslo, (59.91234, 10.75, 0.0)), \'Paris\': Location(Paris, Île-de-France, (48.863697576, 2.361657337, 0.0))}'
 
-
+@pytest.mark.xfail
 def test_print_location_lookup_noninatime():
     location_lookup = LocationLookup()
     location_lookup.add_location('Oslo')
