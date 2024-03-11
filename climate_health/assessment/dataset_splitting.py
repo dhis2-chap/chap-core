@@ -20,7 +20,7 @@ class TimeDelta(Protocol):
 
 
 def split_test_train_on_period(data_set: SpatioTemporalDataSet, split_points: Iterable[Period],
-                               future_length: TimeDelta):
+                               future_length: Optional[TimeDelta] = None):
     return (train_test_split(data_set, period, future_length) for period in split_points)
 
 

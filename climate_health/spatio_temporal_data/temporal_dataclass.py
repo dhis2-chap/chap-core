@@ -1,7 +1,6 @@
 from typing import Generic, Iterable, Tuple
 
 import numpy as np
-from bionumpy.bnpdataclass import BNPDataClass
 
 from ..dataset import temporal_index_type, Features
 from ..datatypes import Location
