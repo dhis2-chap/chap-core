@@ -22,6 +22,9 @@ class Year(Period):
     def argsort(self):
         return np.argsort(self.year)
 
+    def __le__(self, other):
+        return self.year <= other.year
+
 @bnpdataclass
 class Month(Year):
     month: int
@@ -32,6 +35,11 @@ class Month(Year):
     def argsort(self):
         return np.lexsort((self.month, self.year))
 
+    def __le__(self, other):
+        return np.where(self.year == other.year, self.month <= other.month, self.year < other.year)
+
+    def __ge__(self, other):
+        return np.where(self.year == other.year, self.month >= other.month, self.year > other.year)
 
 @bnpdataclass
 class Day(Month):

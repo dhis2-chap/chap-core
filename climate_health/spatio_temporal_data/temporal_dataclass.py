@@ -7,27 +7,32 @@ from ..dataset import temporal_index_type, Features
 from ..datatypes import Location
 
 
-class TemporalDataclass:
-    def __init__(self, data: BNPDataClass):
+class TemporalDataclass(Generic[Features]):
+    '''
+    Wraps a dataclass in a object that is can be sliced by time period.
+    Call .data() to get the data back.
+    '''
+
+    def __init__(self, data: Features):
         self._data = data
 
-    def restrict_time_period(self, period_range: temporal_index_type) -> 'TemporalDataclass':
+    def restrict_time_period(self, period_range: temporal_index_type) -> 'TemporalDataclass[Features]':
         assert isinstance(period_range, slice)
         assert period_range.step is None
-        mask = np.full_like(self._data.time_period, True)
+        mask = np.full(len(self._data.time_period), True)
         if period_range.start is not None:
             mask = mask & (self._data.time_period >= period_range.start)
         if period_range.stop is not None:
-            mask = mask & (self._data.time_period < period_range.stop)
+            mask = mask & (self._data.time_period <= period_range.stop)
         return TemporalDataclass(self._data[mask])
 
-    def data(self):
+    def data(self) -> Iterable[Features]:
         return self._data
 
 
 class SpatioTemporalDict(Generic[Features]):
     def __init__(self, data_dict: dict[Features]):
-        self._data_dict = data_dict
+        self._data_dict = {loc: TemporalDataclass(data) if not isinstance(data, TemporalDataclass) else data for loc, data in data_dict.items()}
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self._data_dict})'

@@ -8,7 +8,8 @@ from climate_health.time_period.period_range import period_range
 
 @pytest.fixture()
 def full_data() -> SpatioTemporalDict[ClimateHealthData]:
-    time_period = period_range(Month(2012, 1), Month(2012, 12))
+    time_period = period_range(Month(2012, 1),
+                               Month(2012, 12))
     T = len(time_period)
     d = {'oslo': ClimateHealthData(time_period, [1] * T, [1] * T, [20] * T),
          'bergen': ClimateHealthData(time_period, [100] * T, [1] * T, [1] * T)}

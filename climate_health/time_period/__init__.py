@@ -20,12 +20,25 @@ class TimePeriod:
             year, month, day = split
             return Day(int(year), int(month), int(day))
 
+    def __leq__(self, other):
+        if self.year != other.year:
+            return self.year < other.year
+        if not hasattr(self, 'month'):
+            return True
+        if self.month != other.month:
+            return self.month < other.month
+        if not hasattr(self, 'day'):
+            return True
+        return self.day <= other.day
+
+    def __geq__(self, other):
+        return other.__leq__(self)
 
 @dataclasses.dataclass
-class Year:
+class Year(TimePeriod):
     year: int
 
-class Month:
+class Month(TimePeriod):
     def __init__(self, year: Union[int, str], month: Union[int, str]) -> None:
         """
         :param year:
@@ -52,7 +65,7 @@ class Month:
         return f'{dict_month[self.month]} {self.year}'
 
 
-class Day:
+class Day(TimePeriod):
     def __init__(self, year: Union[int, str], month: Union[int, str], day: Union[int, str]) -> None:
         self.year = int(year)
         self.month = int(month)
