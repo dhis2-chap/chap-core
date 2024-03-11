@@ -1,6 +1,55 @@
+from datetime import datetime
+from typing import TypeVar, Generic, Iterable, Union
+
+import pandas as pd
+
+from climate_health.datatypes import Location
+
+TemporalIndex = Union[datetime, pd.Timestamp, slice]
+SpatialIndex = Union[str, Location]
+T = TypeVar('T')
 
 
+class TemporalData(Generic[T]):
+    def __getitem__(self, item: TemporalIndex) -> 'TemporalData':
+        ...
 
+    def get_values(self) -> Iterable[T]:
+        ...
+
+    @property
+    def start_time(self) -> datetime:
+        ...
+
+    @property
+    def end_time(self) -> datetime:
+        ...
+
+
+class FixedResolutionTemporalData(TemporalData):
+    def get_values(self) -> Iterable[T]:
+        ...
+
+    @property
+    def start_time(self) -> datetime:
+        ...
+
+    @property
+    def end_time(self) -> datetime:
+        ...
+
+    def topandas(self) -> pd.DataFrame:
+        ...
+
+
+class SpatialData(Generic[T]):
+    def __getitem__(self, item: SpatialIndex) -> Union['SpatialData[T]', T]:
+        ...
+
+
+class SpatioTemporalData(Generic[T]):
+    def __getitem__(self, item: Tuple[TemporalIndex, SpatialIndex]) -> Union['SpatioTemporalData[T]', T]:
+        ...
 
 
 class SpatioTemporalDataSet(Protocol, Generic[T]):
@@ -12,7 +61,8 @@ class SpatioTemporalDataSet(Protocol, Generic[T]):
     def get_data_for_location(self, location: spatial_index_type) -> T:
         ...
 
-    def restrict_time_period(self, start_period: Period=None, end_period: Period=None) -> 'SpatioTemporalDataSet[T]':
+    def restrict_time_period(self, start_period: Period = None,
+                             end_period: Period = None) -> 'SpatioTemporalDataSet[T]':
         ...
 
     def start_time(self) -> Period:
