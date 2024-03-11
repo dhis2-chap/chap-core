@@ -15,6 +15,9 @@ class TemporalDataclass(Generic[Features]):
     def __init__(self, data: Features):
         self._data = data
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self._data})'
+
     def restrict_time_period(self, period_range: temporal_index_type) -> 'TemporalDataclass[Features]':
         assert isinstance(period_range, slice)
         assert period_range.step is None

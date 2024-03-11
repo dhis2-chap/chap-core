@@ -24,19 +24,18 @@ class NaivePredictor:
 class MultiRegionNaivePredictor:
     '''TODO: This should be a linear regression of prev cases and season for each location.'''
 
-    def __init__(self, lead_time=1, resolution=1):
+    def __init__(self, *args, **kwargs):
         self._training_stop = None
         self._average_cases = None
-        self._resolution = resolution
+
 
     def train(self, data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
-        self._average_cases = {location: data.disease_cases.mean() for location, data in data.items()}
-        self._training_stop = data.stop_time()
+        self._average_cases = {location: data.data().disease_cases.mean() for location, data in data.items()}
+        #self._buffer = next(iter(data.values())).time_period[-1]
 
     def predict(self, future_weather: SpatioTemporalDataSet[ClimateData]) -> HealthData:
-
-        prediction_dict = {HealthData(self.prediction_period, np.full(len(future_weather[location]), self._average_cases[location])) for
-                           location in future_weather.keys()}
+        prediction_dict = {location: HealthData(entry.data().time_period[:1], np.full(len(entry.data()), self._average_cases[location])) for
+                           location, entry in future_weather.items()}
         return SpatioTemporalDict(prediction_dict)
 
     @property
