@@ -2,11 +2,13 @@ import pytest
 
 from climate_health.assessment.dataset_splitting import split_test_train_on_period
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
+from climate_health.dataset import SpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries
 from climate_health.file_io.load import load_data_set
 from climate_health.reports import HTMLReport
 from climate_health.predictor.naive_predictor import NaivePredictor
 from climate_health.time_period import Month
+from climate_health.time_period.dataclasses import Period
 from . import EXAMPLE_DATA_PATH, TMP_DATA_PATH, TEST_PATH
 from climate_health.external.python_model import ExternalPythonModel
 
@@ -37,13 +39,14 @@ def output_filename() -> str:
 
 # Discussion points:
 # Should we index on split-timestamp, first time period, or complete time?
-def get_split_points_for_data_set(data_set, max_splits):
-    return data_set.lowest_resolution()*max_splits
+def get_split_points_for_data_set(data_set: SpatioTemporalDataSet, max_splits: int) -> list[Period]:
+    periods = next(iter(data_set.data())).data().time_period # Uses the time for the first location, assumes it to be the same for all!
+    return periods[::len(periods) // max_splits].to_list()
 
 
 @pytest.mark.skip
 def test_external_model_evaluation(python_script_filename, data_set_filename, output_filename):
-    external_model = ExternalPythonModel(python_script_filename, lead_time=Month, required_resolution=MonthDelta, adaptors=None)
+    external_model = ExternalPythonModel(python_script_filename, adaptors=None)
     data_set = load_data_set(data_set_filename)
     evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=5)

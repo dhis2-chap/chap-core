@@ -1,6 +1,7 @@
 from typing import Generic, Iterable, Tuple
 
 import numpy as np
+import pandas as pd
 
 from ..dataset import temporal_index_type, Features
 from ..datatypes import Location
@@ -31,6 +32,9 @@ class TemporalDataclass(Generic[Features]):
     def data(self) -> Iterable[Features]:
         return self._data
 
+    def to_pandas(self):
+        return self._data.to_pandas()
+
 
 class SpatioTemporalDict(Generic[Features]):
     def __init__(self, data_dict: dict[Features]):
@@ -57,3 +61,12 @@ class SpatioTemporalDict(Generic[Features]):
 
     def items(self) -> Iterable[Tuple[Location, Features]]:
         return self._data_dict.items()
+
+    def _add_location_to_dataframe(self, df, location):
+        df['location'] = location
+        return df
+
+    def to_pandas(self):
+        ''' Join the pandas frame for all locations with locations as column'''
+        tables = [self._add_location_to_dataframe(data.to_pandas(), location) for location, data in self._data_dict.items()]
+        return pd.concat(tables)

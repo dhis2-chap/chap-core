@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TypeVar, Generic, Iterable, Union
+from typing import TypeVar, Generic, Iterable, Union, Tuple
 
 import pandas as pd
 

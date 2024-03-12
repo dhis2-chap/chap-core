@@ -1,0 +1,13 @@
+from climate_health.file_io.external_file import get_file, urls, fetch_and_clean
+
+
+def test_fetch_data():
+    url = 'https://github.com/drrachellowe/hydromet_dengue/raw/main/data/data_2000_2019.csv'
+    file = get_file(url)
+
+
+def test_fetch_and_clean():
+    dataset = fetch_and_clean('hydromet')
+    assert dataset is not None
+    df = dataset.to_pandas()
+    print(df)
