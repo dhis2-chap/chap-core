@@ -1,7 +1,9 @@
 import numpy as np
 
-from climate_health.dataset import SpatioTemporalDataSet, SpatioTemporalDict
+from climate_health.dataset import SpatioTemporalDataSet
+from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.datatypes import HealthData, ClimateHealthTimeSeries, ClimateData
+from climate_health.time_period.dataclasses import Period
 
 
 class NaivePredictor:
@@ -17,20 +19,28 @@ class NaivePredictor:
         return HealthData(future_climate_data.time_period, np.full(len(future_climate_data), self._average_cases))
 
 
+
+
 class MultiRegionNaivePredictor:
     '''TODO: This should be a linear regression of prev cases and season for each location.'''
 
-    def __init__(self, lead_time=1):
+    def __init__(self, *args, **kwargs):
+        self._training_stop = None
         self._average_cases = None
 
+
     def train(self, data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
-        self._average_cases = {location: data.disease_cases.mean() for location, data in data.items()}
+        self._average_cases = {location: data.data().disease_cases.mean() for location, data in data.items()}
+        #self._buffer = next(iter(data.values())).time_period[-1]
 
     def predict(self, future_weather: SpatioTemporalDataSet[ClimateData]) -> HealthData:
-        prediction_dict = {HealthData(future_weather[location].time_period,
-                                      np.full(len(future_weather[location]), self._average_cases[location])) for
-                           location in future_weather.keys()}
+        prediction_dict = {location: HealthData(entry.data().time_period[:1], np.full(len(entry.data()), self._average_cases[location])) for
+                           location, entry in future_weather.items()}
         return SpatioTemporalDict(prediction_dict)
+
+    @property
+    def prediction_period(self):
+        return Period(self._training_stop+self._lead_time, self._resolution)
 
 class NaiveForecastSampler:
     def __init__(self):

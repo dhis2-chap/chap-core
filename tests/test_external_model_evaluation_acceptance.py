@@ -34,15 +34,24 @@ def output_filename() -> str:
     return TMP_DATA_PATH / 'output.md'
 
 
+
+# Discussion points:
+# Should we index on split-timestamp, first time period, or complete time?
+def get_split_points_for_data_set(data_set, max_splits):
+    return data_set.lowest_resolution()*max_splits
+
+
 @pytest.mark.skip
 def test_external_model_evaluation(python_script_filename, data_set_filename, output_filename):
-    external_model = ExternalPythonModel(python_script_filename, lead_time=Month, adaptors=None)
+    external_model = ExternalPythonModel(python_script_filename, lead_time=Month, required_resolution=MonthDelta, adaptors=None)
     data_set = load_data_set(data_set_filename)
     evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
-    for (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set):
+    split_points = get_split_points_for_data_set(data_set, max_splits=5)
+
+    for (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set, split_points, future_length=external_model.lead_time, include_future_weather=True):
         predictions = external_model.get_predictions(train_data, future_climate_data)
         evaluator.add_predictions('external_model', predictions)
-        naive_predictions = NaivePredictor(lead_time=Month).train(train_data).predict(future_climate_data)
+        naive_predictions = NaivePredictor(lead_time=external_model.lead_time, resolution=required_resolution).train(train_data).predict(future_climate_data)
         evaluator.add_predictions('naive_model', naive_predictions)
     results = evaluator.get_results()
     report = HTMLReport.from_results(results).save(output_filename)

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from climate_health.dataset import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.datatypes import HealthData, ClimateHealthData
 from climate_health.time_period import Month
 from climate_health.time_period.period_range import period_range

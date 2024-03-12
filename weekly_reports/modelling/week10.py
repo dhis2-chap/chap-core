@@ -13,7 +13,7 @@ from weekly_reports.modelling.week9 import check_hybrid_model_capacity
 
 def _new_transition(P, logits, states):
     full_diffs = _get_full_diffs(P, logits, states)
-    new_state = jnp.array([s + d for s, d in zip(states.T, full_diffs)]).T
+    new_state = jnp.array([s + d for s, d in zip(states.Features, full_diffs)]).T
     return new_state, new_state
 
 
@@ -24,11 +24,11 @@ def _get_full_diffs(P, logits, states):
     full_human_diffs = -human_diffs + jnp.roll(human_diffs, 1, axis=-1)
     mosquito_death_rate = _get_mosquito_death_rate(mosquito_state, P)
     death_rates = mosquito_death_rate
-    mosquito_deaths = tuple(s * expit(d) for s, d in zip(mosquito_state.T, death_rates))
-    mosquito_state_after_deaths = tuple(s - d for s, d in zip(mosquito_state.T, mosquito_deaths))
+    mosquito_deaths = tuple(s * expit(d) for s, d in zip(mosquito_state.Features, death_rates))
+    mosquito_state_after_deaths = tuple(s - d for s, d in zip(mosquito_state.Features, mosquito_deaths))
     mosquito_logits = logits[..., 4:]
-    mosquito_diffs = tuple(ms * expit(lg) for ms, lg in zip(mosquito_state_after_deaths, mosquito_logits.T))
-    new_eggs = jnp.exp(P['log_eggrate']) * sum(mosquito_state_after_deaths[3:]) * expit(mosquito_logits.T[-1])
+    mosquito_diffs = tuple(ms * expit(lg) for ms, lg in zip(mosquito_state_after_deaths, mosquito_logits.Features))
+    new_eggs = jnp.exp(P['log_eggrate']) * sum(mosquito_state_after_deaths[3:]) * expit(mosquito_logits.Features[-1])
     full_mosquito_diffs = [new_eggs - mosquito_diffs[0]] + [mosquito_diffs[i - 1] - mosquito_diffs[i] for i in
                                                             range(1, 5)] + [mosquito_diffs[4]]
     full_mosquito_diffs = [d - death for d, death in zip(full_mosquito_diffs, mosquito_deaths)]
