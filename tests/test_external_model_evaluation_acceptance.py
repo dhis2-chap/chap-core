@@ -1,12 +1,14 @@
+import pandas as pd
 import pytest
 
 from climate_health.assessment.dataset_splitting import split_test_train_on_period
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
 from climate_health.dataset import SpatioTemporalDataSet
-from climate_health.datatypes import ClimateHealthTimeSeries
+from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
 from climate_health.file_io.load import load_data_set
 from climate_health.reports import HTMLReport
-from climate_health.predictor.naive_predictor import NaivePredictor
+from climate_health.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor
+from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period import Month
 from climate_health.time_period.dataclasses import Period
 from . import EXAMPLE_DATA_PATH, TMP_DATA_PATH, TEST_PATH
@@ -21,6 +23,9 @@ class MockExternalModel:
 def data_set_filename():
     return EXAMPLE_DATA_PATH / 'data.csv'
 
+@pytest.fixture
+def dataset_name():
+    return 'hydro_met_subset'
 
 @pytest.fixture()
 def r_script_filename() -> str:
@@ -41,20 +46,43 @@ def output_filename() -> str:
 # Should we index on split-timestamp, first time period, or complete time?
 def get_split_points_for_data_set(data_set: SpatioTemporalDataSet, max_splits: int) -> list[Period]:
     periods = next(iter(data_set.data())).data().time_period # Uses the time for the first location, assumes it to be the same for all!
-    return periods[::len(periods) // max_splits].to_list()
+    return periods[::len(periods) // max_splits].tolist()
+
+@pytest.fixture
+def load_data_func(data_path):
+    def load_data_set(data_set_filename: str) -> SpatioTemporalDataSet:
+        assert data_set_filename == 'hydro_met_subset'
+        file_name = (data_path / data_set_filename).with_suffix('.csv')
+        return SpatioTemporalDict.from_pandas(pd.read_csv(file_name), ClimateHealthTimeSeries)
+    return load_data_set
+
+
+class ExternalModelMock:
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def get_predictions(self, train_data: SpatioTemporalDataSet[ClimateHealthTimeSeries],
+                        future_climate_data: SpatioTemporalDataSet[ClimateHealthTimeSeries]) -> SpatioTemporalDataSet[ClimateData]:
+
+        period = next(iter(future_climate_data.data())).data().time_period[:1]
+        new_dict = {loc: HealthData(period, data.data().disease_cases[-1:]) for loc, data in future_climate_data.items()}
+        return SpatioTemporalDict(new_dict)
 
 
 @pytest.mark.skip
-def test_external_model_evaluation(python_script_filename, data_set_filename, output_filename):
-    external_model = ExternalPythonModel(python_script_filename, adaptors=None)
-    data_set = load_data_set(data_set_filename)
+def test_external_model_evaluation(python_script_filename, dataset_name, output_filename, load_data_func):
+    external_model = ExternalModelMock(python_script_filename, adaptors=None)
+    data_set = load_data_func(dataset_name)
     evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=5)
 
-    for (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set, split_points, future_length=external_model.lead_time, include_future_weather=True):
+    for (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set, split_points, future_length=None, include_future_weather=True):
         predictions = external_model.get_predictions(train_data, future_climate_data)
         evaluator.add_predictions('external_model', predictions)
-        naive_predictions = NaivePredictor(lead_time=external_model.lead_time, resolution=required_resolution).train(train_data).predict(future_climate_data)
+        naive_predictor = MultiRegionNaivePredictor()
+        naive_predictor.train(train_data)
+        naive_predictions = naive_predictor.predict(future_climate_data)
         evaluator.add_predictions('naive_model', naive_predictions)
     results = evaluator.get_results()
     report = HTMLReport.from_results(results).save(output_filename)

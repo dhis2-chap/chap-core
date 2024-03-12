@@ -1,3 +1,5 @@
+import pandas as pd
+
 from climate_health.file_io.external_file import get_file, urls, fetch_and_clean
 
 
@@ -6,8 +8,8 @@ def test_fetch_data():
     file = get_file(url)
 
 
-def test_fetch_and_clean():
+def test_fetch_and_clean(data_path):
     dataset = fetch_and_clean('hydromet')
     assert dataset is not None
-    df = dataset.to_pandas()
-    print(df)
+    df: pd.DataFrame = dataset.to_pandas()
+    # df.to_csv(data_path / 'hydromet.csv')

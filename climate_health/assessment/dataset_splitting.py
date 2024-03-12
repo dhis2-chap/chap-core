@@ -22,7 +22,7 @@ class TimeDelta(Protocol):
 
 def split_test_train_on_period(data_set: SpatioTemporalDataSet, split_points: Iterable[Period],
                                future_length: Optional[TimeDelta] = None, include_future_weather: bool = False):
-    func = split_train_test_with_future_weather if include_future_weather else train_test_split
+    func = train_test_split_with_weather if include_future_weather else train_test_split
     return (func(data_set, period, future_length) for period in split_points)
 
 

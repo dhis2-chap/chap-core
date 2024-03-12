@@ -1,4 +1,4 @@
-from typing import Generic, Iterable, Tuple
+from typing import Generic, Iterable, Tuple, Type
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,7 @@ class TemporalDataclass(Generic[Features]):
     def data(self) -> Iterable[Features]:
         return self._data
 
-    def to_pandas(self):
+    def to_pandas(self)->pd.DataFrame:
         return self._data.to_pandas()
 
 
@@ -66,7 +66,15 @@ class SpatioTemporalDict(Generic[Features]):
         df['location'] = location
         return df
 
-    def to_pandas(self):
+    def to_pandas(self)->pd.DataFrame:
         ''' Join the pandas frame for all locations with locations as column'''
         tables = [self._add_location_to_dataframe(data.to_pandas(), location) for location, data in self._data_dict.items()]
         return pd.concat(tables)
+
+    @classmethod
+    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[Features]) -> 'SpatioTemporalDict[Features]':
+        ''' Split a pandas frame into a SpatioTemporalDict'''
+        data_dict = {}
+        for location, data in df.groupby('location'):
+            data_dict[location] = TemporalDataclass(dataclass.from_pandas(data))
+        return cls(data_dict)
