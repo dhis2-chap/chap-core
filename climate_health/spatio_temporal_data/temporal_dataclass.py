@@ -3,7 +3,7 @@ from typing import Generic, Iterable, Tuple, Type
 import numpy as np
 import pandas as pd
 
-from ..dataset import temporal_index_type, FeaturesT
+from ..dataset import TemporalIndexType, FeaturesT
 from ..datatypes import Location
 
 
@@ -19,7 +19,7 @@ class TemporalDataclass(Generic[FeaturesT]):
     def __repr__(self):
         return f'{self.__class__.__name__}({self._data})'
 
-    def restrict_time_period(self, period_range: temporal_index_type) -> 'TemporalDataclass[FeaturesT]':
+    def restrict_time_period(self, period_range: TemporalIndexType) -> 'TemporalDataclass[FeaturesT]':
         assert isinstance(period_range, slice)
         assert period_range.step is None
         mask = np.full(len(self._data.time_period), True)
@@ -49,7 +49,7 @@ class SpatioTemporalDict(Generic[FeaturesT]):
     def get_location(self, location: Location) -> FeaturesT:
         return self._data_dict[location]
 
-    def restrict_time_period(self, period_range: temporal_index_type) -> 'SpatioTemporalDict[FeaturesT]':
+    def restrict_time_period(self, period_range: TemporalIndexType) -> 'SpatioTemporalDict[FeaturesT]':
         return self.__class__(
             {loc: data.restrict_time_period(period_range) for loc, data in self._data_dict.items()})
 

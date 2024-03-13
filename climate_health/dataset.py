@@ -1,4 +1,4 @@
-from typing import Protocol, Union, Iterable, TypeVar, Generic, Tuple
+from typing import Protocol, TypeAlias, Union, Iterable, TypeVar, Generic, Tuple
 
 import pandas as pd
 from pydantic import BaseModel
@@ -6,8 +6,9 @@ from pydantic import BaseModel
 from climate_health.datatypes import Location
 from climate_health.time_period.dataclasses import Period
 
-spatial_index_type = Union[str, Location]
-temporal_index_type = Union[Period, Iterable[Period], slice]
+SpatialIndexType: TypeAlias = Union[str, Location]
+TemporalIndexType: TypeAlias = Union[Period, Iterable[Period], slice]
+
 
 FeaturesT = TypeVar('FeaturesT')
 
@@ -46,19 +47,19 @@ class TemporalArray:
 
 
 class IsSpatialDataSet(Protocol[FeaturesT]):
-    def get_locations(self, location: Iterable[spatial_index_type]) -> 'IsSpatialDataSet[FeaturesT]':
+    def get_locations(self, location: Iterable[SpatialIndexType]) -> 'IsSpatialDataSet[FeaturesT]':
         ...
 
-    def get_location(self, location: spatial_index_type) -> FeaturesT:
+    def get_location(self, location: SpatialIndexType) -> FeaturesT:
         ...
 
-    def locations(self) -> Iterable[spatial_index_type]:
+    def locations(self) -> Iterable[SpatialIndexType]:
         ...
 
     def data(self) -> Iterable[FeaturesT]:
         ...
 
-    def location_items(self) -> Iterable[Tuple[spatial_index_type, FeaturesT]]:
+    def location_items(self) -> Iterable[Tuple[SpatialIndexType, FeaturesT]]:
         ...
 
     def to_tidy_dataframe(self) -> pd.DataFrame:
@@ -72,10 +73,10 @@ class IsSpatialDataSet(Protocol[FeaturesT]):
 class IsSpatioTemporalDataSet(Protocol[FeaturesT]):
     dataclass = ...
 
-    def get_data_for_locations(self, location: Iterable[spatial_index_type]) -> 'IsSpatioTemporalDataSet[FeaturesT]':
+    def get_data_for_locations(self, location: Iterable[SpatialIndexType]) -> 'IsSpatioTemporalDataSet[FeaturesT]':
         ...
 
-    def get_data_for_location(self, location: spatial_index_type) -> FeaturesT:
+    def get_data_for_location(self, location: SpatialIndexType) -> FeaturesT:
         ...
 
     def restrict_time_period(self, start_period: Period = None,
@@ -88,13 +89,13 @@ class IsSpatioTemporalDataSet(Protocol[FeaturesT]):
     def end_time(self) -> Period:
         ...
 
-    def locations(self) -> Iterable[spatial_index_type]:
+    def locations(self) -> Iterable[SpatialIndexType]:
         ...
 
     def data(self) -> Iterable[FeaturesT]:
         ...
 
-    def location_items(self) -> Iterable[Tuple[spatial_index_type, IsTemporalDataSet[FeaturesT]]]:
+    def location_items(self) -> Iterable[Tuple[SpatialIndexType, IsTemporalDataSet[FeaturesT]]]:
         ...
 
     def to_tidy_dataframe(self) -> pd.DataFrame:
