@@ -68,9 +68,18 @@ def test_divide_timedelta():
     assert delta_year // delta_month == 12
 
 
-def test_period_range(period1, period3):
-    period_range = PeriodRange(start_period=period1, end_period=period3)
+@pytest.fixture
+def period_range(period1, period3):
+    return PeriodRange.from_time_periods(start_period=period1, end_period=period3)
+
+
+def test_period_range(period_range):
     assert len(period_range) == 14
 
-#def period_range_ge():
+
+def test_period_range_slice(period_range):
+    assert len(period_range[1:3]) == 2
+    assert len(period_range[1:-2]) == 11
+
+# def period_range_ge():
 #    period_range = PeriodRange(start_period=period1, end_period=period3)

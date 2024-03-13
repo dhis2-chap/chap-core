@@ -88,7 +88,7 @@ class TimePeriod:
         return super().__getattribute__(item)
 
     @property
-    def time_delta(self):
+    def time_delta(self) -> 'TimeDelta':
         return TimeDelta(self._extension)
 
     @classmethod
@@ -144,6 +144,17 @@ class TimeDelta(DateUtilWrapper):
     def __radd__(self, other: Union[TimeStamp, TimePeriod]):
         return self.__add__(other)
 
+    def __sub__(self, other: Union[TimeStamp, TimePeriod]):
+        if not isinstance(other, (TimeStamp, TimePeriod)):
+            return NotImplemented
+        return other.__class__(other._date - self._relative_delta)
+
+    def __rsub__(self, other: Union[TimeStamp, TimePeriod]):
+        return self.__sub__(other)
+
+    def __mul__(self, other: int):
+        return self.__class__(self._relative_delta * other)
+
     def _n_months(self):
         return self._relative_delta.months + 12 * self._relative_delta.years
 
@@ -157,19 +168,39 @@ class TimeDelta(DateUtilWrapper):
 
 
 class PeriodRange:
-    def __init__(self, start_period: TimePeriod, end_period: TimePeriod, inclusive=True):
-        assert inclusive
+
+    def __init__(self, start_timestamp: TimeStamp, end_timestamp: TimeStamp, time_delta: TimeDelta):
+        self._start_timestamp = start_timestamp
+        self._end_timestamp = end_timestamp
+        self._time_delta = time_delta
+
+    @classmethod
+    def from_time_periods(cls, start_period: TimePeriod, end_period: TimePeriod):
         assert start_period.time_delta == end_period.time_delta
-        self._start_period = start_period
-        self._end_period = end_period
-        self._time_delta = start_period.time_delta
-        self._inclusive = inclusive
+        return cls(TimeStamp(start_period._date), TimeStamp(end_period._exclusive_end()), start_period.time_delta)
+
+    @classmethod
+    def from_timestamps(cls, start_timestamp: TimeStamp, end_timestamp: TimeStamp, time_delta: TimeDelta):
+        return cls(start_timestamp, end_timestamp, time_delta)
 
     def __len__(self):
-        delta = relativedelta(
-            self._end_period._exclusive_end(), # We consider the module the encapsulation here, could maybe be done more elegant
-            self._start_period._date)
+        delta = relativedelta(self._end_timestamp._date, self._start_timestamp._date)
         return TimeDelta(delta) // self._time_delta
+
+    def __getitem__(self, item: slice):
+        ''' Slice by numeric index in the period range'''
+        assert item.step is None
+        start = self._start_timestamp
+        if item.start is not None:
+            start += self._time_delta * item.start
+        end = self._end_timestamp
+        if item.stop is not None:
+            if item.stop < 0:
+                end -= self._time_delta * abs(item.stop)
+            else:
+                end = start + self._time_delta * (item.stop-1) # Not sure about the logic here, test more
+        return PeriodRange(start, end, self._time_delta)
+
 
 
 
