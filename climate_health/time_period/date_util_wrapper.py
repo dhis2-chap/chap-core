@@ -10,6 +10,9 @@ from dateutil.relativedelta import relativedelta
 class DateUtilWrapper:
     _used_attributes = []
 
+    def __init__(self, date: datetime):
+        self._date = date
+
     def __getattr__(self, item: str):
         if item in self._used_attributes:
             return getattr(self._date, item)
@@ -49,6 +52,9 @@ class TimePeriod:
         self._date = None
         self._extension = None
 
+    def __eq__(self, other):
+        return (self._date == other._date) and (self._extension == other._extension)
+
     def __le__(self, other: 'TimePeriod'):
         if isinstance(other, TimeStamp):
             return TimeStamp(self._date) <= other
@@ -80,6 +86,10 @@ class TimePeriod:
         if item in self._used_attributes:
             return getattr(self._date, item)
         return super().__getattribute__(item)
+
+    @property
+    def time_delta(self):
+        return TimeDelta(self._extension)
 
     @classmethod
     def parse(cls, text_repr: str):
@@ -116,3 +126,53 @@ class Year(TimePeriod):
     def __init__(self, date: datetime):
         self._date = date
         self._extension = relativedelta(years=1)
+
+
+class TimeDelta(DateUtilWrapper):
+    def __init__(self, relative_delta: relativedelta):
+        self._relative_delta = relative_delta
+        self._date = None
+
+    def __eq__(self, other):
+        return self._relative_delta == other._relative_delta
+
+    def __add__(self, other: Union[TimeStamp, TimePeriod]):
+        if not isinstance(other, (TimeStamp, TimePeriod)):
+            return NotImplemented
+        return other.__class__(other._date + self._relative_delta)
+
+    def __radd__(self, other: Union[TimeStamp, TimePeriod]):
+        return self.__add__(other)
+
+    def _n_months(self):
+        return self._relative_delta.months + 12 * self._relative_delta.years
+
+    def __floordiv__(self, divident: 'TimeDelta'):
+        assert divident._relative_delta.days == 0
+        return self._n_months() // divident._n_months()
+
+    def __mod__(self, other: 'TimeDelta'):
+        assert other._relative_delta.days == 0
+        return self.__class__(relativedelta(months=self._n_months() % other._n_months()))
+
+
+class PeriodRange:
+    def __init__(self, start_period: TimePeriod, end_period: TimePeriod, inclusive=True):
+        assert inclusive
+        assert start_period.time_delta == end_period.time_delta
+        self._start_period = start_period
+        self._end_period = end_period
+        self._time_delta = start_period.time_delta
+        self._inclusive = inclusive
+
+    def __len__(self):
+        delta = relativedelta(
+            self._end_period._exclusive_end(), # We consider the module the encapsulation here, could maybe be done more elegant
+            self._start_period._date)
+        return TimeDelta(delta) // self._time_delta
+
+
+
+delta_month = TimeDelta(relativedelta(months=1))
+delta_year = TimeDelta(relativedelta(years=1))
+delta_day = TimeDelta(relativedelta(days=1))
