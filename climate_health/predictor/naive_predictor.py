@@ -28,7 +28,6 @@ class MultiRegionNaivePredictor:
         self._training_stop = None
         self._average_cases = None
 
-
     def train(self, data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
         self._average_cases = {location: data.data().disease_cases.mean() for location, data in data.items()}
         #self._buffer = next(iter(data.values())).time_period[-1]
@@ -38,9 +37,6 @@ class MultiRegionNaivePredictor:
                            location, entry in future_weather.items()}
         return SpatioTemporalDict(prediction_dict)
 
-    @property
-    def prediction_period(self):
-        return Period(self._training_stop+self._lead_time, self._resolution)
 
 class NaiveForecastSampler:
     def __init__(self):

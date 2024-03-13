@@ -84,6 +84,7 @@ def test_external_model_evaluation(python_script_filename, dataset_name, output_
         naive_predictor.train(train_data)
         naive_predictions = naive_predictor.predict(future_climate_data)
         evaluator.add_predictions('naive_model', naive_predictions)
+
     results = evaluator.get_results()
     report = HTMLReport.from_results(results).save(output_filename)
     report.save(output_filename)

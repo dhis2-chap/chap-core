@@ -32,7 +32,7 @@ class TemporalDataclass(Generic[Features]):
     def data(self) -> Iterable[Features]:
         return self._data
 
-    def to_pandas(self)->pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
         return self._data.to_pandas()
 
 
@@ -66,7 +66,7 @@ class SpatioTemporalDict(Generic[Features]):
         df['location'] = location
         return df
 
-    def to_pandas(self)->pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
         ''' Join the pandas frame for all locations with locations as column'''
         tables = [self._add_location_to_dataframe(data.to_pandas(), location) for location, data in self._data_dict.items()]
         return pd.concat(tables)
