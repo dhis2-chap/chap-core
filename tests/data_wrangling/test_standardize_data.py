@@ -16,13 +16,13 @@ from climate_health.data_wrangling.flows import standardize_separated_data_func_
 from .. import EXAMPLE_DATA_PATH
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope='module')
 def tmp_dir_path() -> Generator[str, None, None]:
     with tempfile.TemporaryDirectory() as _tmp_dir_path:
         yield _tmp_dir_path
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope='module')
 def runtime(
     tmp_dir_path: Annotated[str, pytest.fixture],
 ) -> Generator[IsRuntime, None, None]:
@@ -36,7 +36,9 @@ def runtime(
 
 
 @fixture(scope="module")
-def separated_data() -> Annotated[Generator[StrDataset, None, None], pytest.fixture]:
+def separated_data(
+        runtime: Annotated[Generator[IsRuntime, None, None], pytest.fixture],
+) -> Annotated[Generator[StrDataset, None, None], pytest.fixture]:
     separate_data_path = EXAMPLE_DATA_PATH / 'nonstandard_separate'
 
     ds = load_data_as_clean_strings.run(str(separate_data_path))
@@ -51,7 +53,7 @@ def separate_standardized_path() -> Annotated[Generator[str, None, None], pytest
     os.unlink(f'{separate_standardized_path}.tar.gz')
 
 
-def test_load_separated_data(separated_data: Annotated[Generator[StrDataset, None, None], pytest.fixture]) -> None:
+def test_load_separated_data(separated_data: Annotated[Generator[StrDataset, None, None], pytest.fixture]):
     assert isinstance(separated_data, StrDataset)
     assert len(separated_data) == 3
     assert tuple(separated_data.keys()) == ('separated_disease_data',
@@ -63,7 +65,6 @@ def test_load_separated_data(separated_data: Annotated[Generator[StrDataset, Non
 @pytest.mark.skip(reason='Management of keyword arguments for linear flows in Omnipy are suboptimal, needs to be '
                          'improved. In any case redundant with FuncFlow')
 def test_standardize_separated_data_linear_flow(
-        runtime: Annotated[Generator[IsRuntime, None, None], pytest.fixture],
         separated_data: Annotated[StrDataset, pytest.fixture],
         separate_standardized_path: Annotated[str, pytest.fixture]
 ):
@@ -81,7 +82,6 @@ def test_standardize_separated_data_linear_flow(
 @pytest.mark.skip(reason='Depends on planned modifiers that are not yet implemented in Omnipy. '
                          'In any case redundant with FuncFlow')
 def test_standardize_separated_data_dag_flow(
-        runtime: Annotated[Generator[IsRuntime, None, None], pytest.fixture],
         separated_data: Annotated[StrDataset, pytest.fixture],
         separate_standardized_path: Annotated[str, pytest.fixture]
 ):
@@ -97,7 +97,6 @@ def test_standardize_separated_data_dag_flow(
 
 
 def test_standardize_separated_data_func_flow(
-        runtime: Annotated[Generator[IsRuntime, None, None], pytest.fixture],
         separated_data: Annotated[StrDataset, pytest.fixture],
         separate_standardized_path: Annotated[str, pytest.fixture]
 ):
