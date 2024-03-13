@@ -2,7 +2,7 @@ import logging
 import subprocess
 
 from ..datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
-from ..dataset import SpatioTemporalDataSet
+from ..dataset import IsSpatioTemporalDataSet
 
 from climate_health.time_period import Month
 import tempfile
@@ -23,8 +23,8 @@ class ExternalCommandLineModel:
     def _get_command(self, train_data, future_climate_):
         return self.command_template.format(train_data=train_data, future_climate=future_climate_)
 
-    def get_predictions(self, train_data: SpatioTemporalDataSet[ClimateHealthTimeSeries],
-                        future_climate_data: SpatioTemporalDataSet[ClimateData]) -> SpatioTemporalDataSet[HealthData]:
+    def get_predictions(self, train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
+                        future_climate_data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
         # call command, read output results
         pass
 
@@ -48,8 +48,8 @@ class ExternalPythonModel:
         self._lead_time = lead_time
         self._adaptors = adaptors
 
-    def get_predictions(self, train_data: SpatioTemporalDataSet[ClimateHealthTimeSeries],
-                        future_climate_data: SpatioTemporalDataSet[ClimateData]) -> SpatioTemporalDataSet[HealthData]:
+    def get_predictions(self, train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
+                        future_climate_data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
 
         with tempfile.NamedTemporaryFile() as out_file:
             command = f"python {self._script} {train_data} {future_climate_data} {out_file.name}"

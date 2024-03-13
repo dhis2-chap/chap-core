@@ -6,10 +6,10 @@ from plotly.graph_objs import Figure
 import plotly.graph_objects as go
 
 from climate_health.datatypes import ClimateData, HealthData
-from climate_health.predictor.protocol import Sampler
+from climate_health.predictor.protocol import IsSampler
 
 
-def prediction_plot(true_data: HealthData, predicition_sampler: Sampler, climate_data: ClimateData,
+def prediction_plot(true_data: HealthData, predicition_sampler: IsSampler, climate_data: ClimateData,
                     n_samples) -> Figure:
     reporting_rate = 10000
     T = len(true_data) + 1
@@ -22,7 +22,7 @@ def prediction_plot(true_data: HealthData, predicition_sampler: Sampler, climate
     return plt.gcf()
 
 
-def forecast_plot(true_data: HealthData, predicition_sampler: Sampler, climate_data: ClimateData, n_samples) -> Figure:
+def forecast_plot(true_data: HealthData, predicition_sampler: IsSampler, climate_data: ClimateData, n_samples) -> Figure:
     samples = np.array([predicition_sampler.sample(climate_data) for _ in range(n_samples)])
     quantiles = np.quantile(samples, [0.1, 0.5, 0.9], axis=0)
     x = ["-".join([str(x.year), str(x.month+1).zfill(2)]) for x in true_data.time_period]

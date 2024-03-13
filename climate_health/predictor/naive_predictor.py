@@ -1,6 +1,6 @@
 import numpy as np
 
-from climate_health.dataset import SpatioTemporalDataSet
+from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.datatypes import HealthData, ClimateHealthTimeSeries, ClimateData
 from climate_health.time_period.dataclasses import Period
@@ -28,11 +28,11 @@ class MultiRegionNaivePredictor:
         self._training_stop = None
         self._average_cases = None
 
-    def train(self, data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
+    def train(self, data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]):
         self._average_cases = {location: data.data().disease_cases.mean() for location, data in data.items()}
         #self._buffer = next(iter(data.values())).time_period[-1]
 
-    def predict(self, future_weather: SpatioTemporalDataSet[ClimateData]) -> HealthData:
+    def predict(self, future_weather: IsSpatioTemporalDataSet[ClimateData]) -> HealthData:
         prediction_dict = {location: HealthData(entry.data().time_period[:1], np.full(len(entry.data()), self._average_cases[location])) for
                            location, entry in future_weather.items()}
         return SpatioTemporalDict(prediction_dict)

@@ -6,11 +6,11 @@ import pandas as pd
 from collections import defaultdict
 from .datatypes import ClimateHealthTimeSeries
 from climate_health.assessment.prediction_evaluator import AssessmentReport, make_assessment_report
-from .predictor.protocol import Predictor
+from .predictor.protocol import IsPredictor
 
 
 def assess_model_on_csv_data(data_file_name: str, split_fraction: float,
-                             model: Predictor) -> 'AssessmentReport':
+                             model: IsPredictor) -> 'AssessmentReport':
     """
     Wraps together all necessary steps for reading data from file, assessing a model on different lags ahead
     and generating a report with results.

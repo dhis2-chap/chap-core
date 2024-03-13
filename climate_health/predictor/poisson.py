@@ -1,4 +1,4 @@
-from climate_health.predictor.protocol import Predictor
+from climate_health.predictor.protocol import IsPredictor
 import sklearn.linear_model as lm
 
 

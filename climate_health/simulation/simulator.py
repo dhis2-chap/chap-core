@@ -11,7 +11,7 @@ class Simulator:
         """Simulate the model for the given parameters."""
         ...
 
-class DiseaseCaseSimulator(Protocol):
+class IsDiseaseCaseSimulator(Protocol):
     def simulate(self, climate_data: ClimateData) -> HealthData:
         ...
 
