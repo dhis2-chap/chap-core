@@ -1,10 +1,10 @@
 from typing import Protocol
 
-from ..dataset import SpatioTemporalDataSet
+from ..dataset import IsSpatioTemporalDataSet
 from ..datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 
 
-class Predictor(Protocol):
+class IsPredictor(Protocol):
     def __init__(self):
         pass
 
@@ -15,7 +15,7 @@ class Predictor(Protocol):
         pass
 
 
-class Sampler(Protocol):
+class IsSampler(Protocol):
     '''
     Model that can sample forward in time given a set of weather data.
     '''
@@ -27,21 +27,21 @@ class Sampler(Protocol):
         ...
 
 
-class MultiRegionForecastSampler(Protocol):
+class IsMultiRegionForecastSampler(Protocol):
     '''
     Model that can sample forward for multiple locations in time given a set of weather data.
     '''
 
-    def train(self, data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
+    def train(self, data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]):
         ...
 
-    def sample(self, future_weather: SpatioTemporalDataSet[ClimateData], n_samples: int = 1) -> SpatioTemporalDataSet[HealthData]:
+    def sample(self, future_weather: IsSpatioTemporalDataSet[ClimateData], n_samples: int = 1) -> IsSpatioTemporalDataSet[HealthData]:
         ...
 
 
-class MultiRegionPredictor(Protocol):
-    def train(self, spatio_temporal_climate_health_data: SpatioTemporalDataSet[ClimateHealthTimeSeries]):
+class IsMultiRegionPredictor(Protocol):
+    def train(self, spatio_temporal_climate_health_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]):
         ...
 
-    def predict(self, future_weather: SpatioTemporalDataSet[ClimateData]) -> SpatioTemporalDataSet[HealthData]:
+    def predict(self, future_weather: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
         ...

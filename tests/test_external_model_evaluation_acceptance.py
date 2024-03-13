@@ -3,7 +3,7 @@ import pytest
 
 from climate_health.assessment.dataset_splitting import split_test_train_on_period
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
-from climate_health.dataset import SpatioTemporalDataSet
+from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
 from climate_health.file_io.load import load_data_set
 from climate_health.reports import HTMLReport
@@ -44,13 +44,13 @@ def output_filename() -> str:
 
 # Discussion points:
 # Should we index on split-timestamp, first time period, or complete time?
-def get_split_points_for_data_set(data_set: SpatioTemporalDataSet, max_splits: int) -> list[Period]:
+def get_split_points_for_data_set(data_set: IsSpatioTemporalDataSet, max_splits: int) -> list[Period]:
     periods = next(iter(data_set.data())).data().time_period # Uses the time for the first location, assumes it to be the same for all!
     return periods[::len(periods) // max_splits].tolist()
 
 @pytest.fixture
 def load_data_func(data_path):
-    def load_data_set(data_set_filename: str) -> SpatioTemporalDataSet:
+    def load_data_set(data_set_filename: str) -> IsSpatioTemporalDataSet:
         assert data_set_filename == 'hydro_met_subset'
         file_name = (data_path / data_set_filename).with_suffix('.csv')
         return SpatioTemporalDict.from_pandas(pd.read_csv(file_name), ClimateHealthTimeSeries)
@@ -62,8 +62,8 @@ class ExternalModelMock:
     def __init__(self, *args, **kwargs):
         pass
 
-    def get_predictions(self, train_data: SpatioTemporalDataSet[ClimateHealthTimeSeries],
-                        future_climate_data: SpatioTemporalDataSet[ClimateHealthTimeSeries]) -> SpatioTemporalDataSet[ClimateData]:
+    def get_predictions(self, train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
+                        future_climate_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]) -> IsSpatioTemporalDataSet[ClimateData]:
 
         period = next(iter(future_climate_data.data())).data().time_period[:1]
         new_dict = {loc: HealthData(period, data.data().disease_cases[-1:]) for loc, data in future_climate_data.items()}

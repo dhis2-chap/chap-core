@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TypeVar, Generic, Iterable, Union, Tuple
+from typing import Protocol, TypeVar, Generic, Iterable, Union, Tuple
 
 import pandas as pd
 
@@ -52,17 +52,17 @@ class SpatioTemporalData(Generic[T]):
         ...
 
 
-class SpatioTemporalDataSet(Protocol, Generic[T]):
+class IsSpatioTemporalDataSet(Protocol[T]):
     dataclass = ...
 
-    def get_data_for_locations(self, location: Iterable[spatial_index_type]) -> 'SpatioTemporalDataSet[T]':
+    def get_data_for_locations(self, location: Iterable[spatial_index_type]) -> 'IsSpatioTemporalDataSet[T]':
         ...
 
     def get_data_for_location(self, location: spatial_index_type) -> T:
         ...
 
     def restrict_time_period(self, start_period: Period = None,
-                             end_period: Period = None) -> 'SpatioTemporalDataSet[T]':
+                             end_period: Period = None) -> 'IsSpatioTemporalDataSet[T]':
         ...
 
     def start_time(self) -> Period:
@@ -84,5 +84,5 @@ class SpatioTemporalDataSet(Protocol, Generic[T]):
         ...
 
     @classmethod
-    def from_tidy_dataframe(cls, df: pd.DataFrame) -> 'SpatioTemporalDataSet[T]':
+    def from_tidy_dataframe(cls, df: pd.DataFrame) -> 'IsSpatioTemporalDataSet[T]':
         ...

@@ -1,49 +1,49 @@
 from typing import Protocol, Union
 
 
-class TimeDelta(Protocol):
+class IsTimeDelta(Protocol):
     years: int
     months: int
     days: int
 
 
-class TimeStamp(Protocol):
+class IsTimeStamp(Protocol):
     year: int
     month: int
     day: int
 
-    def __le__(self, other: 'TimeStamp') -> bool:
+    def __le__(self, other: 'IsTimeStamp') -> bool:
         ...
 
-    def __ge__(self, other: 'TimeStamp') -> bool:
+    def __ge__(self, other: 'IsTimeStamp') -> bool:
         ...
 
-    def __lt__(self, other: 'TimeStamp') -> bool:
+    def __lt__(self, other: 'IsTimeStamp') -> bool:
         ...
 
-    def __gt__(self, other: 'TimeStamp') -> bool:
+    def __gt__(self, other: 'IsTimeStamp') -> bool:
         ...
 
-    def __add__(self, other: TimeDelta) -> 'TimeStamp':
+    def __add__(self, other: IsTimeDelta) -> 'IsTimeStamp':
         ...
 
 
-class TimePeriod:
-    start_time: TimeStamp
-    end_time: TimeStamp
+class IsTimePeriod(Protocol):
+    start_time: IsTimeStamp
+    end_time: IsTimeStamp
     freqstr: str
 
-    def __le__(self, other: Union['TimePeriod', TimeStamp]) -> bool:
+    def __le__(self, other: Union['IsTimePeriod', IsTimeStamp]) -> bool:
         ...
 
-    def __ge__(self, other: Union['TimePeriod', TimeStamp]) -> bool:
+    def __ge__(self, other: Union['IsTimePeriod', IsTimeStamp]) -> bool:
         ...
 
-    def __lt__(self, other: Union['TimePeriod', TimeStamp]) -> bool:
+    def __lt__(self, other: Union['IsTimePeriod', IsTimeStamp]) -> bool:
         ...
 
-    def __gt__(self, other: Union['TimePeriod', TimeStamp]) -> bool:
+    def __gt__(self, other: Union['IsTimePeriod', IsTimeStamp]) -> bool:
         ...
 
-    def __add__(self, other: TimeDelta) -> 'TimePeriod':
+    def __add__(self, other: IsTimeDelta) -> 'IsTimePeriod':
         ...
