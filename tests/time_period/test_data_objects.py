@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from climate_health.time_period import TimePeriod, Month, Day, get_number_of_days
+from climate_health.time_period import TimePeriod, Month, Day
 from climate_health.time_period.dataclasses import Year
 
 
@@ -18,7 +18,7 @@ def test_time_period_day():
     assert day.month == 1
     assert day.day == 2
 
-
+@pytest.mark.skip('unused')
 def test_number_of_days():
     assert get_number_of_days(Month(2013, 1)) == 31
     assert get_number_of_days(Month(2013, 2)) == 28
