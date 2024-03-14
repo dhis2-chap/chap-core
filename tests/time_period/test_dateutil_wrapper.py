@@ -88,5 +88,42 @@ def test_period_range_iter(period_range, period1, period3):
     assert l[0] == period1
     assert l[-1] == period3
 
+def test_period_range_eq(period_range, period2):
+    mask = period_range == period2
+    assert len(mask) == len(period_range)
+    assert mask[1]
+    assert mask.sum() ==1
+
+def test_period_range_ne(period_range, period2):
+    mask = period_range != period2
+    assert len(mask) == len(period_range)
+    assert not mask[1]
+    assert mask.sum() == 13
+
+
+def test_period_range_lt(period_range, period2):
+    mask = period_range < period2
+    assert len(mask) == len(period_range)
+    assert mask[0]
+    assert mask.sum() == 1
+
+def test_period_range_le(period_range, period2):
+    mask = period_range <= period2
+    assert len(mask) == len(period_range)
+    assert mask[0] and mask[1]
+    assert mask.sum() == 2
+
+def test_period_range_gt(period_range, period2):
+    mask = period_range > period2
+    assert len(mask) == len(period_range)
+    assert (not mask[0]) and (not mask[1])
+    assert mask.sum() == 12
+
+def test_period_range_ge(period_range, period2):
+    mask = period_range >= period2
+    assert len(mask) == len(period_range)
+    assert (not mask[0])
+    assert mask.sum() == 13
+
 # def period_range_ge():
 #    period_range = PeriodRange(start_period=period1, end_period=period3)

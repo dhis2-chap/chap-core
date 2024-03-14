@@ -199,6 +199,24 @@ class PeriodRange:
         delta = relativedelta(self._end_timestamp._date, self._start_timestamp._date)
         return TimeDelta(delta) // self._time_delta
 
+    def __eq__(self, other: TimePeriod) -> np.ndarray[bool]:
+        ''' Check each period in the range for equality to the given period'''
+        return self._vectorize('__eq__', other)
+
+    def _vectorize(self, funcname, other):
+        return np.array([getattr(period, funcname)(other) for period in self])
+
+    def __ne__(self, other: TimePeriod) -> np.ndarray[bool]:
+        ''' Check each period in the range for inequality to the given period'''
+        return self._vectorize('__ne__', other)
+
+    __lt__ = functools.partialmethod(_vectorize, '__lt__')
+    __le__ = functools.partialmethod(_vectorize, '__le__')
+    __gt__ = functools.partialmethod(_vectorize, '__gt__')
+    __ge__ = functools.partialmethod(_vectorize, '__ge__')
+
+
+
     @property
     def _period_class(self):
         if self._time_delta == delta_month:
