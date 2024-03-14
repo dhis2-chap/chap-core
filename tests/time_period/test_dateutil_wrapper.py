@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pandas as pd
 import pytest
 
 from climate_health.time_period.date_util_wrapper import TimePeriod, TimeStamp, delta_month, PeriodRange, delta_year, \
@@ -141,3 +142,9 @@ def test_period_range_ge(period_range, period2):
 
 # def period_range_ge():
 #    period_range = PeriodRange(start_period=period1, end_period=period3)
+def test_topandas(period_range):
+    pd_series = period_range.topandas()
+    assert pd_series[0] == pd.Period('2020-01')
+    assert pd_series[1] == pd.Period('2020-02')
+    assert pd_series[13] == pd.Period('2021-02')
+    assert len(pd_series) == 14

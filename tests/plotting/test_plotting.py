@@ -8,7 +8,7 @@ from climate_health.plotting import plot_timeseries_data, plot_multiperiod
 from climate_health.plotting.prediction_plot import forecast_plot
 from climate_health.simulation.random_noise_simulator import RandomNoiseSimulator
 from climate_health.time_period import Month
-from climate_health.time_period.period_range import period_range
+from climate_health.time_period import get_period_range as period_range
 from tests import EXAMPLE_DATA_PATH
 
 
@@ -34,7 +34,7 @@ def create_monthly_health_data_for_time(daily_data):
     start_month = Month(start_day.year, start_day.month)
     end_day = daily_data.time_period[-1]
     end_month = Month(end_day.year, end_day.month)
-    return period_range(start_month, end_month, exclusive_end=False)
+    return period_range(start_month, end_month)# , exclusive_end=False)
 
 
 def test_multiperiod_plot(daily_climate_data: ClimateData):

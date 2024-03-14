@@ -5,6 +5,7 @@ from numbers import Number
 from typing import Union
 
 import numpy as np
+import pandas as pd
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 
@@ -55,13 +56,13 @@ class TimePeriod:
     _extension = None
 
     def __init__(self, date: datetime | Number, *args, **kwargs):
-        if isinstance(date, Number):
+        if not isinstance(date, datetime):
             date = self.__date_from_numbers(date, *args, **kwargs)
         self._date = date
 
     @classmethod
     def __date_from_numbers(cls, year: int, month: int=1, day: int=1):
-        return datetime(year, month, day)
+        return datetime(int(year), int(month), int(day))
 
     def __eq__(self, other):
         return (self._date == other._date) and (self._extension == other._extension)
@@ -101,6 +102,11 @@ class TimePeriod:
 
     @classmethod
     def parse(cls, text_repr: str):
+        try:
+            year = int(text_repr)
+            return Year(year)
+        except ValueError:
+            pass
         default_dates = [datetime(2010, 1, 1), datetime(2009, 11, 10)]
         dates = [parse(text_repr, default=default_date) for default_date in default_dates]
         date = dates[0]
@@ -241,6 +247,10 @@ class PeriodRange:
             else:
                 end = start + self._time_delta * (item.stop - 1)  # Not sure about the logic here, test more
         return PeriodRange(start, end, self._time_delta)
+
+    def topandas(self):
+        assert self._time_delta == delta_month
+        return pd.Series([pd.Period(year=p.year, month=p.month, freq='M') for p in self])
 
 
 delta_month = TimeDelta(relativedelta(months=1))

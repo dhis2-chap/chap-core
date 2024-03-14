@@ -30,7 +30,7 @@ class Month(Year):
     month: int
 
     def topandas(self):
-        return pd.Series([pd.Period(year=y, month=m, freq='M') for y,m  in zip(self.year, self.month)])
+        return pd.Series([pd.Period(year=y, month=m, freq='M') for y, m in zip(self.year, self.month)])
 
     def argsort(self):
         return np.lexsort((self.month, self.year))

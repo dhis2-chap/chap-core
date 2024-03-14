@@ -5,7 +5,7 @@ from climate_health.time_period import TimePeriod, Month, Day, Year
 
 
 def parse_period_string(time_string: str) -> TimePeriod:
-    period = TimePeriod.from_string(time_string)
+    period = TimePeriod.parse(time_string)
     return period
 
 

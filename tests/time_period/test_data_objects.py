@@ -6,13 +6,13 @@ from climate_health.time_period.dataclasses import Year
 
 
 def test_time_period_month():
-    month = TimePeriod.from_string('2013-01')
+    month = TimePeriod.parse('2013-01')
     assert isinstance(month, Month)
-    assert str(month) == 'January 2013'
+    assert str(month) == 'Month(2013-1)'
 
 
 def test_time_period_day():
-    day = TimePeriod.from_string('2013-01-02')
+    day = TimePeriod.parse('2013-01-02')
     assert isinstance(day, Day)
     assert day.year == 2013
     assert day.month == 1
