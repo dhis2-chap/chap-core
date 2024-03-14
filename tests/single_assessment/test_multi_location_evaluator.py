@@ -9,4 +9,6 @@ def test_multi_location_evaluator(full_data, good_predictions, bad_predictions):
     evaluator.add_predictions('good_model', good_predictions)
     evaluator.add_predictions('bad_model', bad_predictions)
     results = evaluator.get_results()
-    assert results['good_model']['mae'] < results['bad_model']['mae']  # Output here should be synched up with plotting
+
+    for i in range(len(results['good_model']['mae'])):
+        assert results['good_model']['mae'][i] < results['bad_model']['mae'][i]
