@@ -160,6 +160,7 @@ def test_from_pandas(period_range):
     assert period_range[1] == Month(2020, 2)
     assert period_range[2] == Month(2020, 3)
 
+
 def test_from_pandas_inconsecutive(period_range):
     series = pd.Series([pd.Period('2020-01'), pd.Period('2020-03')])
     with pytest.raises(ValueError):

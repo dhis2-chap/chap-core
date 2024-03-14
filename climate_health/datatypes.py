@@ -5,7 +5,7 @@ from pydantic import BaseModel, validator
 from .file_io import parse_periods_strings
 import dataclasses
 
-from .time_period import TimePeriod, Day, Month, Year
+from .time_period import TimePeriod, Day, Month, Year, PeriodRange
 from .time_period.dataclasses import Period
 
 
@@ -33,8 +33,9 @@ class TimeSeriesData:
         data.to_csv(csv_file, index=False, **kwargs)
 
     @classmethod
-    def from_pandas(cls, data):
-        time = parse_periods_strings(data.time_period.astype(str))
+    def from_pandas(cls, data: pd.DataFrame) -> 'TimeSeriesData':
+        time = PeriodRange.from_strings(data.time_period.astype(str))
+        # time = parse_periods_strings(data.time_period.astype(str))
         variable_names = [field.name for field in dataclasses.fields(cls) if field.name != 'time_period']
 
         return cls(time, **{name: data[name] for name in variable_names})

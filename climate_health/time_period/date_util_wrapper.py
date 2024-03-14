@@ -200,6 +200,10 @@ class PeriodRange:
         return cls(start_timestamp, end_timestamp, time_delta)
 
     def __len__(self):
+        if self._time_delta._relative_delta.days != 0:
+            assert self._time_delta._relative_delta.months == 0 and self._time_delta._relative_delta.years == 0
+            days = (self._end_timestamp._date - self._start_timestamp._date).days
+            return days // self._time_delta._relative_delta.days
         delta = relativedelta(self._end_timestamp._date, self._start_timestamp._date)
         return TimeDelta(delta) // self._time_delta
 
@@ -207,7 +211,10 @@ class PeriodRange:
         ''' Check each period in the range for equality to the given period'''
         return self._vectorize('__eq__', other)
 
-    def _vectorize(self, funcname, other):
+    def _vectorize(self, funcname: str, other: TimePeriod):
+        if isinstance(other, PeriodRange):
+            assert len(self)== len(other)
+            return np.array([getattr(period, funcname)(other_period) for period, other_period in zip(self, other)])
         return np.array([getattr(period, funcname)(other) for period in self])
 
     def __ne__(self, other: TimePeriod) -> np.ndarray[bool]:
@@ -235,6 +242,8 @@ class PeriodRange:
     def __getitem__(self, item: slice | int):
         ''' Slice by numeric index in the period range'''
         if isinstance(item, Number):
+            if item < 0:
+                item += len(self)
             return self._period_class((self._start_timestamp + self._time_delta * item)._date)
         assert item.step is None
         start = self._start_timestamp
@@ -249,8 +258,14 @@ class PeriodRange:
         return PeriodRange(start, end, self._time_delta)
 
     def topandas(self):
-        assert self._time_delta == delta_month
-        return pd.Series([pd.Period(year=p.year, month=p.month, freq='M') for p in self])
+        if self._time_delta == delta_month:
+            return pd.Series([pd.Period(year=p.year, month=p.month, freq='M') for p in self])
+        elif self._time_delta == delta_year:
+            return pd.Series([pd.Period(year=p.year, freq='Y') for p in self])
+        elif self._time_delta == delta_day:
+            return pd.Series([pd.Period(year=p.year, month=p.month, day=p.day, freq='D') for p in self])
+        else:
+            raise ValueError(f'Cannot convert period range with time delta {self._time_delta} to pandas')
 
     @classmethod
     def from_pandas(cls, periods: Iterable[pd.Period]):
@@ -262,10 +277,34 @@ class PeriodRange:
         time_delta = time_deltas[frequency]
         assert all(p.freqstr == frequency for p in periods), f'All periods must have the same frequency {periods}'
         time_periods = [TimePeriod.parse(str(period)) for period in periods]
-        if not all(p2==p1+time_delta for p1, p2 in zip(time_periods, time_periods[1:]) ):
-            raise ValueError(f'Periods must be consecutive: {time_periods}')
+        cls._check_consequtive(time_delta, time_periods)
         return cls.from_time_periods(time_periods[0], time_periods[-1])
 
+    @classmethod
+    def _check_consequtive(cls, time_delta, time_periods):
+        if not all(p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])):
+            raise ValueError(f'Periods must be consecutive: {time_periods}')
+
+    @classmethod
+    def _get_delta(cls, periods: list[TimePeriod]):
+        delta = periods[0].time_delta
+        if not all(period.time_delta == delta for period in periods):
+            raise ValueError(f'All periods must have the same time delta {periods}')
+        return delta
+
+    @classmethod
+    def from_strings(cls, period_strings: Iterable[str]):
+        periods = [TimePeriod.parse(period_string) for period_string in period_strings]
+        delta = cls._get_delta(periods)
+        cls._check_consequtive(delta, periods)
+        return cls.from_time_periods(periods[0], periods[-1])
+
+    @property
+    def shape(self):
+        return (len(self),)
+
+    def __repr__(self):
+        return f'PeriodRange({self._start_timestamp}, {self._end_timestamp}, {self._time_delta})'
 
 delta_month = TimeDelta(relativedelta(months=1))
 delta_year = TimeDelta(relativedelta(years=1))
