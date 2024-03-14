@@ -105,3 +105,9 @@ class IsSpatioTemporalDataSet(Protocol[FeaturesT]):
     def from_tidy_dataframe(cls, df: pd.DataFrame) -> 'IsSpatioTemporalDataSet[FeaturesT]':
         ...
 
+    def to_csv(self, file_name: str):
+        ...
+
+    @classmethod
+    def from_csv(self, file_name: str) -> 'IsSpatioTemporalDataSet[FeaturesT]':
+        ...

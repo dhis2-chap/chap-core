@@ -78,3 +78,11 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         for location, data in df.groupby('location'):
             data_dict[location] = TemporalDataclass(dataclass.from_pandas(data))
         return cls(data_dict)
+
+    def to_csv(self, file_name: str):
+        self.to_pandas().to_csv(file_name)
+
+    @classmethod
+    def from_csv(cls, file_name: str, dataclass: Type[FeaturesT]) -> 'SpatioTemporalDict[FeaturesT]':
+        return cls.from_pandas(pd.read_csv(file_name), dataclass)
+
