@@ -81,5 +81,12 @@ def test_period_range_slice(period_range):
     assert len(period_range[1:3]) == 2
     assert len(period_range[1:-2]) == 11
 
+def test_period_range_iter(period_range, period1, period3):
+    assert len(period_range) == 14
+    l = list(period_range)
+    assert len(l) == 14
+    assert l[0] == period1
+    assert l[-1] == period3
+
 # def period_range_ge():
 #    period_range = PeriodRange(start_period=period1, end_period=period3)

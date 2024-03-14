@@ -1,8 +1,10 @@
 import functools
 from dataclasses import dataclass
 from datetime import datetime
+from numbers import Number
 from typing import Union
 
+import numpy as np
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 
@@ -41,6 +43,9 @@ class TimeStamp(DateUtilWrapper):
     def __lt__(self, other: 'TimeStamp'):
         return self._comparison(other, '__lt__')
 
+    def __repr__(self):
+        return f'TimeStamp({self.year}-{self.month}-{self.day})'
+
     def _comparison(self, other: 'TimeStamp', func_name: str):
         return getattr(self._date, func_name)(other._date)
 
@@ -76,9 +81,6 @@ class TimePeriod:
             return TimeStamp(self._exclusive_end()) <= other
         return self._exclusive_end() <= other._date
 
-    def __repr__(self):
-        return f'Month({self.year}-{self.month})'
-
     def _exclusive_end(self):
         return self._date + self._extension
 
@@ -111,6 +113,9 @@ class Day(TimePeriod):
         self.month = date.month
         self._extension = relativedelta(days=1)
 
+    def __repr__(self):
+        return f'Day({self.year}-{self.month}-{self.day})'
+
 
 class Month(TimePeriod):
     _used_attributes = ['year', 'month']
@@ -118,6 +123,9 @@ class Month(TimePeriod):
     def __init__(self, date: datetime):
         self._date = date
         self._extension = relativedelta(months=1)
+
+    def __repr__(self):
+        return f'Month({self.year}-{self.month})'
 
 
 class Year(TimePeriod):
@@ -127,6 +135,8 @@ class Year(TimePeriod):
         self._date = date
         self._extension = relativedelta(years=1)
 
+    def __repr__(self):
+        return f'Year({self.year})'
 
 class TimeDelta(DateUtilWrapper):
     def __init__(self, relative_delta: relativedelta):
@@ -166,6 +176,8 @@ class TimeDelta(DateUtilWrapper):
         assert other._relative_delta.days == 0
         return self.__class__(relativedelta(months=self._n_months() % other._n_months()))
 
+    def __repr__(self):
+        return f'TimeDelta({self._relative_delta})'
 
 class PeriodRange:
 
@@ -187,8 +199,23 @@ class PeriodRange:
         delta = relativedelta(self._end_timestamp._date, self._start_timestamp._date)
         return TimeDelta(delta) // self._time_delta
 
-    def __getitem__(self, item: slice):
+    @property
+    def _period_class(self):
+        if self._time_delta == delta_month:
+            return Month
+        elif self._time_delta == delta_year:
+            return Year
+        elif self._time_delta == delta_day:
+            return Day
+        raise ValueError(f'Unknown time delta {self._time_delta}')
+
+    def __iter__(self):
+        return (self._period_class((self._start_timestamp + self._time_delta * i)._date) for i in range(len(self)))
+
+    def __getitem__(self, item: slice | int):
         ''' Slice by numeric index in the period range'''
+        if isinstance(item, Number):
+            return self._period_class(self._start_timestamp + self._time_delta * item)
         assert item.step is None
         start = self._start_timestamp
         if item.start is not None:
@@ -198,10 +225,8 @@ class PeriodRange:
             if item.stop < 0:
                 end -= self._time_delta * abs(item.stop)
             else:
-                end = start + self._time_delta * (item.stop-1) # Not sure about the logic here, test more
+                end = start + self._time_delta * (item.stop - 1)  # Not sure about the logic here, test more
         return PeriodRange(start, end, self._time_delta)
-
-
 
 
 delta_month = TimeDelta(relativedelta(months=1))

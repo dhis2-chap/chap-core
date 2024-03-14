@@ -5,7 +5,7 @@ import dataclasses
 
 class TimePeriod:
     def __init__(self):
-        pass
+        self._date = None
 
     @classmethod
     def from_string(cls, time_string):
@@ -84,3 +84,4 @@ def get_number_of_days(tp: TimePeriod):
         return 29
     else:
         return 28
+
