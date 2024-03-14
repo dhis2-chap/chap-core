@@ -33,6 +33,7 @@ def test_init_with_numbers(period2):
     assert Day(2020, 2, 3) == Day(datetime(2020, 2, 3))
     assert Year(2020) == TimePeriod.parse('2020')
 
+
 def test_parse(period1):
     assert period1.year == 2020
     assert period1.month == 1
@@ -140,6 +141,7 @@ def test_period_range_ge(period_range, period2):
     assert (not mask[0])
     assert mask.sum() == 13
 
+
 # def period_range_ge():
 #    period_range = PeriodRange(start_period=period1, end_period=period3)
 def test_topandas(period_range):
@@ -148,3 +150,17 @@ def test_topandas(period_range):
     assert pd_series[1] == pd.Period('2020-02')
     assert pd_series[13] == pd.Period('2021-02')
     assert len(pd_series) == 14
+
+
+def test_from_pandas(period_range):
+    series = pd.Series([pd.Period('2020-01'), pd.Period('2020-02'), pd.Period('2020-03')])
+    period_range = PeriodRange.from_pandas(series)
+    assert len(period_range) == 3
+    assert period_range[0] == Month(2020, 1)
+    assert period_range[1] == Month(2020, 2)
+    assert period_range[2] == Month(2020, 3)
+
+def test_from_pandas_inconsecutive(period_range):
+    series = pd.Series([pd.Period('2020-01'), pd.Period('2020-03')])
+    with pytest.raises(ValueError):
+        period_range = PeriodRange.from_pandas(series)

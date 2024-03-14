@@ -2,7 +2,7 @@ import functools
 from dataclasses import dataclass
 from datetime import datetime
 from numbers import Number
-from typing import Union
+from typing import Union, Iterable
 
 import numpy as np
 import pandas as pd
@@ -235,7 +235,7 @@ class PeriodRange:
     def __getitem__(self, item: slice | int):
         ''' Slice by numeric index in the period range'''
         if isinstance(item, Number):
-            return self._period_class(self._start_timestamp + self._time_delta * item)
+            return self._period_class((self._start_timestamp + self._time_delta * item)._date)
         assert item.step is None
         start = self._start_timestamp
         if item.start is not None:
@@ -251,6 +251,20 @@ class PeriodRange:
     def topandas(self):
         assert self._time_delta == delta_month
         return pd.Series([pd.Period(year=p.year, month=p.month, freq='M') for p in self])
+
+    @classmethod
+    def from_pandas(cls, periods: Iterable[pd.Period]):
+        time_deltas = {'M': delta_month, 'Y': delta_year, 'D': delta_day}
+        periods = list(periods)
+        if not len(periods):
+            raise ValueError('Cannot create a period range from an empty list')
+        frequency = periods[0].freqstr
+        time_delta = time_deltas[frequency]
+        assert all(p.freqstr == frequency for p in periods), f'All periods must have the same frequency {periods}'
+        time_periods = [TimePeriod.parse(str(period)) for period in periods]
+        if not all(p2==p1+time_delta for p1, p2 in zip(time_periods, time_periods[1:]) ):
+            raise ValueError(f'Periods must be consecutive: {time_periods}')
+        return cls.from_time_periods(time_periods[0], time_periods[-1])
 
 
 delta_month = TimeDelta(relativedelta(months=1))
