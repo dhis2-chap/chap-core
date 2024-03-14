@@ -52,10 +52,16 @@ class TimeStamp(DateUtilWrapper):
 
 class TimePeriod:
     _used_attributes = []
+    _extension = None
 
-    def __init__(self):
-        self._date = None
-        self._extension = None
+    def __init__(self, date: datetime | Number, *args, **kwargs):
+        if isinstance(date, Number):
+            date = self.__date_from_numbers(date, *args, **kwargs)
+        self._date = date
+
+    @classmethod
+    def __date_from_numbers(cls, year: int, month: int=1, day: int=1):
+        return datetime(year, month, day)
 
     def __eq__(self, other):
         return (self._date == other._date) and (self._extension == other._extension)
@@ -102,16 +108,12 @@ class TimePeriod:
             return Day(date)
         elif dates[0].month == dates[1].month:
             return Month(date)
+        return Year(date)
 
 
 class Day(TimePeriod):
     _used_attributes = ['year', 'month', 'day']
-
-    def __init__(self, date):
-        self._date = date
-        self.year = date.year
-        self.month = date.month
-        self._extension = relativedelta(days=1)
+    _extension = relativedelta(days=1)
 
     def __repr__(self):
         return f'Day({self.year}-{self.month}-{self.day})'
@@ -119,10 +121,7 @@ class Day(TimePeriod):
 
 class Month(TimePeriod):
     _used_attributes = ['year', 'month']
-
-    def __init__(self, date: datetime):
-        self._date = date
-        self._extension = relativedelta(months=1)
+    _extension = relativedelta(months=1)
 
     def __repr__(self):
         return f'Month({self.year}-{self.month})'
@@ -130,10 +129,7 @@ class Month(TimePeriod):
 
 class Year(TimePeriod):
     _used_attributes = ['year']
-
-    def __init__(self, date: datetime):
-        self._date = date
-        self._extension = relativedelta(years=1)
+    _extension = relativedelta(years=1)
 
     def __repr__(self):
         return f'Year({self.year})'

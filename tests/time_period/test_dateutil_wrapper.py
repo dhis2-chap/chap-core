@@ -1,6 +1,9 @@
+from datetime import datetime
+
 import pytest
 
-from climate_health.time_period.date_util_wrapper import TimePeriod, TimeStamp, delta_month, PeriodRange, delta_year
+from climate_health.time_period.date_util_wrapper import TimePeriod, TimeStamp, delta_month, PeriodRange, delta_year, \
+    Month, Day, Year
 
 
 @pytest.fixture
@@ -23,6 +26,11 @@ def edge_timestamps():
     texts = ['2019-12-31', '2020-1-1', '2020-1-31', '2020-2-1']
     return [TimeStamp.parse(text) for text in texts]
 
+
+def test_init_with_numbers(period2):
+    assert Month(2020, 2) == period2
+    assert Day(2020, 2, 3) == Day(datetime(2020, 2, 3))
+    assert Year(2020) == TimePeriod.parse('2020')
 
 def test_parse(period1):
     assert period1.year == 2020

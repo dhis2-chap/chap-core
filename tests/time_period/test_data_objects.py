@@ -18,6 +18,7 @@ def test_time_period_day():
     assert day.month == 1
     assert day.day == 2
 
+
 @pytest.mark.skip('unused')
 def test_number_of_days():
     assert get_number_of_days(Month(2013, 1)) == 31
