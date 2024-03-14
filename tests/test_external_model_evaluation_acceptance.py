@@ -23,13 +23,16 @@ class MockExternalModel:
 def data_set_filename():
     return EXAMPLE_DATA_PATH / 'data.csv'
 
+
 @pytest.fixture
 def dataset_name():
     return 'hydro_met_subset'
 
+
 @pytest.fixture()
 def r_script_filename() -> str:
     return EXAMPLE_DATA_PATH / 'example_r_script.r'
+
 
 @pytest.fixture()
 def python_script_filename() -> str:
@@ -41,12 +44,13 @@ def output_filename() -> str:
     return TMP_DATA_PATH / 'output.md'
 
 
-
 # Discussion points:
 # Should we index on split-timestamp, first time period, or complete time?
 def get_split_points_for_data_set(data_set: IsSpatioTemporalDataSet, max_splits: int) -> list[Period]:
-    periods = next(iter(data_set.data())).data().time_period # Uses the time for the first location, assumes it to be the same for all!
-    return periods[::len(periods) // max_splits].tolist()
+    periods = next(iter(
+        data_set.data())).data().time_period  # Uses the time for the first location, assumes it to be the same for all!
+    return list(periods)[::len(periods) // max_splits]
+
 
 @pytest.fixture
 def load_data_func(data_path):
@@ -54,6 +58,7 @@ def load_data_func(data_path):
         assert data_set_filename == 'hydro_met_subset'
         file_name = (data_path / data_set_filename).with_suffix('.csv')
         return SpatioTemporalDict.from_pandas(pd.read_csv(file_name), ClimateHealthTimeSeries)
+
     return load_data_set
 
 
@@ -63,10 +68,11 @@ class ExternalModelMock:
         pass
 
     def get_predictions(self, train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
-                        future_climate_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]) -> IsSpatioTemporalDataSet[ClimateData]:
-
+                        future_climate_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]) -> \
+    IsSpatioTemporalDataSet[ClimateData]:
         period = next(iter(future_climate_data.data())).data().time_period[:1]
-        new_dict = {loc: HealthData(period, data.data().disease_cases[-1:]) for loc, data in future_climate_data.items()}
+        new_dict = {loc: HealthData(period, data.data().disease_cases[-1:]) for loc, data in
+                    future_climate_data.items()}
         return SpatioTemporalDict(new_dict)
 
 
@@ -77,7 +83,9 @@ def test_external_model_evaluation(python_script_filename, dataset_name, output_
     evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=5)
 
-    for (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set, split_points, future_length=None, include_future_weather=True):
+    for (train_data, future_climate_data, future_truth) in split_test_train_on_period(data_set, split_points,
+                                                                                      future_length=None,
+                                                                                      include_future_weather=True):
         predictions = external_model.get_predictions(train_data, future_climate_data)
         evaluator.add_predictions('external_model', predictions)
         naive_predictor = MultiRegionNaivePredictor()

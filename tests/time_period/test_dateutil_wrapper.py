@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -165,3 +166,10 @@ def test_from_pandas_inconsecutive(period_range):
     series = pd.Series([pd.Period('2020-01'), pd.Period('2020-03')])
     with pytest.raises(ValueError):
         period_range = PeriodRange.from_pandas(series)
+
+def test_searchsorted(period_range, period2):
+    array_comparison = np.arange(len(period_range))
+    assert period_range.searchsorted(period2) == array_comparison.searchsorted(1)
+    assert period_range.searchsorted(period2, side='right') == array_comparison.searchsorted(1, side='right')
+    assert period_range.searchsorted(period2, side='left') == array_comparison.searchsorted(1, side='left')
+

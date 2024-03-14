@@ -306,6 +306,17 @@ class PeriodRange:
     def __repr__(self):
         return f'PeriodRange({self._start_timestamp}, {self._end_timestamp}, {self._time_delta})'
 
+    def searchsorted(self, period: TimePeriod, side='left'):
+        ''' Find the index where the period would be inserted to maintain order'''
+        if side not in ('left', 'right'):
+            raise ValueError(f'Invalid side {side}')
+        assert period.time_delta == self._time_delta
+        n_steps = TimeDelta(relativedelta(period._date,self._start_timestamp._date)) // self._time_delta
+        if side == 'right':
+            n_steps += 1
+        return n_steps
+
+
 delta_month = TimeDelta(relativedelta(months=1))
 delta_year = TimeDelta(relativedelta(years=1))
 delta_day = TimeDelta(relativedelta(days=1))

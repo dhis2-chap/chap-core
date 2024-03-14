@@ -19,9 +19,21 @@ class TemporalDataclass(Generic[FeaturesT]):
     def __repr__(self):
         return f'{self.__class__.__name__}({self._data})'
 
+    def _restrict_by_slice(self, period_range: slice):
+        assert period_range.step is None
+        mask = np.full(len(self._data.time_period), True)
+        start, stop = (None, None)
+        if period_range.start is not None:
+            start = self._data.time_period.searchsorted(period_range.start)
+        if period_range.stop is not None:
+            stop = self._data.time_period.searchsorted(period_range.stop)
+        return self._data[start:stop]
+
     def restrict_time_period(self, period_range: TemporalIndexType) -> 'TemporalDataclass[FeaturesT]':
         assert isinstance(period_range, slice)
         assert period_range.step is None
+        if hasattr(self._data.time_period, 'searchsorted'):
+            return TemporalDataclass(self._restrict_by_slice(period_range))
         mask = np.full(len(self._data.time_period), True)
         if period_range.start is not None:
             mask = mask & (self._data.time_period >= period_range.start)
