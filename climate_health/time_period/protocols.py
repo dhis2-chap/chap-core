@@ -47,3 +47,7 @@ class IsTimePeriod(Protocol):
 
     def __add__(self, other: IsTimeDelta) -> 'IsTimePeriod':
         ...
+
+
+class IsPeriodRange(Protocol):
+    ...

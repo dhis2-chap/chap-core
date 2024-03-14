@@ -138,6 +138,7 @@ class Year(TimePeriod):
     def __repr__(self):
         return f'Year({self.year})'
 
+
 class TimeDelta(DateUtilWrapper):
     def __init__(self, relative_delta: relativedelta):
         self._relative_delta = relative_delta
@@ -179,6 +180,7 @@ class TimeDelta(DateUtilWrapper):
     def __repr__(self):
         return f'TimeDelta({self._relative_delta})'
 
+
 class PeriodRange:
 
     def __init__(self, start_timestamp: TimeStamp, end_timestamp: TimeStamp, time_delta: TimeDelta):
@@ -214,8 +216,6 @@ class PeriodRange:
     __le__ = functools.partialmethod(_vectorize, '__le__')
     __gt__ = functools.partialmethod(_vectorize, '__gt__')
     __ge__ = functools.partialmethod(_vectorize, '__ge__')
-
-
 
     @property
     def _period_class(self):
