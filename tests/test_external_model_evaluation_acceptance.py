@@ -94,6 +94,6 @@ def test_external_model_evaluation(python_script_filename, dataset_name, output_
         evaluator.add_predictions('naive_model', naive_predictions)
 
     results = evaluator.get_results()
-    report = HTMLReport.from_results(results).save(output_filename)
+    report = HTMLReport.from_results(results)
     report.save(output_filename)
 # Add test-validation-train split
