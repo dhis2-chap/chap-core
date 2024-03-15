@@ -21,7 +21,6 @@ class TemporalDataclass(Generic[FeaturesT]):
 
     def _restrict_by_slice(self, period_range: slice):
         assert period_range.step is None
-        mask = np.full(len(self._data.time_period), True)
         start, stop = (None, None)
         if period_range.start is not None:
             start = self._data.time_period.searchsorted(period_range.start)

@@ -49,7 +49,7 @@ def train_test_split_with_weather(data_set: IsSpatioTemporalDataSet, prediction_
                                   extension: Optional[IsTimeDelta] = None):
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)
     tmp_values: Iterable[Tuple[str, ClimateHealthData]] = ((loc, temporal_data.data()) for loc, temporal_data in
-                                                           train_set.items())
+                                                           test_set.items())
     future_weather = SpatioTemporalDict(
         {loc: ClimateData(values.time_period, values.rainfall,
                           values.mean_temperature,

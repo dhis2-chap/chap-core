@@ -49,7 +49,7 @@ def output_filename(tmp_path) -> str:
 def get_split_points_for_data_set(data_set: IsSpatioTemporalDataSet, max_splits: int) -> list[Period]:
     periods = next(iter(
         data_set.data())).data().time_period  # Uses the time for the first location, assumes it to be the same for all!
-    return list(periods)[::len(periods) // max_splits]
+    return list(periods)[1::(len(periods)-1) // max_splits]
 
 
 @pytest.fixture

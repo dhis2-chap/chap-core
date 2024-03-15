@@ -91,6 +91,8 @@ def test_period_range(period_range):
 # @pytest.mark.xfail
 def test_period_range_slice(period_range):
     assert len(period_range[:1]) == 1
+    assert len(period_range[1:]) == len(period_range)-1
+    assert period_range[1:][0] == period_range[1]
     assert len(period_range[1:3]) == 2
     assert len(period_range[1:-2]) == 11
 
