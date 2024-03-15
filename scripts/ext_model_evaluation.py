@@ -38,7 +38,7 @@ def main(
         evaluator.add_predictions('naive_model', naive_predictions)
 
     results = evaluator.get_results()
-    report = HTMLReport.from_results(results).save(output_filename)
+    report = HTMLReport.from_results(results)
     report.save(output_filename)
 
 
