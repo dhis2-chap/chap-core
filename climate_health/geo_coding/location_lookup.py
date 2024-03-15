@@ -19,7 +19,6 @@ class LocationLookup:
 
         elif geolocator == 'Nominatim':
             self.geolocator = Nominatim(user_agent="climate_health")
-        self.geolocator.geocode('Oslo')
 
 
     def add_location(self, location_name: str) -> None:

@@ -35,7 +35,7 @@ def future_climate_data() -> SpatioTemporalDict[ClimateData]:
 
 @pytest.fixture()
 def bad_predictions():
-    time_period = period_range(Month(2012, 8), Month(2012, 8))
+    time_period = PeriodRange.from_time_periods(Month(2012, 8), Month(2012, 8))
     T = len(time_period)
     d = {'oslo': HealthData(time_period, [2] * T),
          'bergen': HealthData(time_period, [19] * T)}
@@ -44,7 +44,7 @@ def bad_predictions():
 
 @pytest.fixture()
 def good_predictions():
-    time_period = period_range(Month(2012, 8), Month(2012, 8))
+    time_period = PeriodRange.from_time_periods(Month(2012, 8), Month(2012, 8))
     T = len(time_period)
     d = {'oslo': HealthData(time_period, [19] * T),
          'bergen': HealthData(time_period, [2] * T)}

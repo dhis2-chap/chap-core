@@ -3,7 +3,6 @@ from climate_health.geo_coding.location_lookup import LocationLookup
 import pytest
 
 
-
 @pytest.fixture()
 def arcgis_lookup():
     try:

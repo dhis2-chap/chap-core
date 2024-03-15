@@ -123,10 +123,15 @@ class Day(TimePeriod):
     def __repr__(self):
         return f'Day({self.year}-{self.month}-{self.day})'
 
+    def topandas(self):
+        return pd.Period(year=self.year, month=self.month, day=self.day, freq='D')
 
 class Month(TimePeriod):
     _used_attributes = ['year', 'month']
     _extension = relativedelta(months=1)
+
+    def topandas(self):
+        return pd.Period(year=self.year, month=self.month, freq='M')
 
     def __repr__(self):
         return f'Month({self.year}-{self.month})'
@@ -139,6 +144,8 @@ class Year(TimePeriod):
     def __repr__(self):
         return f'Year({self.year})'
 
+    def topandas(self):
+        return pd.Period(year=self.year, freq='Y')
 
 class TimeDelta(DateUtilWrapper):
     def __init__(self, relative_delta: relativedelta):

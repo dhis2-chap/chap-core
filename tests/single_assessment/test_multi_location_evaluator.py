@@ -2,7 +2,7 @@ from climate_health.assessment.multi_location_evaluator import MultiLocationEval
 from ..data_fixtures import full_data, train_data, future_climate_data, good_predictions, bad_predictions
 import pytest
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_multi_location_evaluator(full_data, good_predictions, bad_predictions):
     evaluator = MultiLocationEvaluator(model_names=['bad_model', 'good_model'],
                                        truth=full_data)

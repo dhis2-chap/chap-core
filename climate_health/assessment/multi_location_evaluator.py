@@ -27,22 +27,23 @@ class MultiLocationEvaluator:
                 for location in prediction.locations():
 
                     pred = prediction.get_location(location).data()
-                    pred_time = pred.time_period
+                    pred_time = next(iter(pred.time_period))
 
-                    start_time = f"{pred_time._start_timestamp.year}-{str(pred_time._start_timestamp.month).zfill(2)}" # add method to dataclass for string conversion?
-                    end_time = f"{pred_time._end_timestamp.year}-{str(pred_time._end_timestamp.month).zfill(2)}"
-                    assert start_time == end_time # check that time range for prediction is one month
+                    # start_time = f"{pred_time._start_timestamp.year}-{str(pred_time._start_timestamp.month).zfill(2)}" # add method to dataclass for string conversion?
+                    # end_time = f"{pred_time._end_timestamp.year}-{str(pred_time._end_timestamp.month).zfill(2)}"
+                    #assert start_time == end_time # check that time range for prediction is one month
 
-                    true = truth_df.loc[(truth_df['location'] == location) &
-                                        (truth_df['time_period'] == start_time)]
+                    true = truth_df.loc[(truth_df['location'] == location) & (truth_df['time_period'] == pred_time.topandas())]
+                    #true = truth_df.loc[(truth_df['location'] == location) &
+                    #                    (truth_df['time_period'] == start_time)]
 
                     # check for NaN values
                     if np.isnan(true.disease_cases).any() or np.isnan(pred.disease_cases).any():
                         continue
                     else:
-                        assert len(true.disease_cases) == len(pred.disease_cases)
+                        assert len(true.disease_cases) == len(pred.disease_cases), (true.disease_cases, pred.disease_cases)
                         mae = mean_absolute_error(true.disease_cases, pred.disease_cases)
-                        model_results.append([location, start_time, mae])
+                        model_results.append([location, pred_time, mae])
 
             results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae'])
 
