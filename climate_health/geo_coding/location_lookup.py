@@ -16,9 +16,10 @@ class LocationLookup:
         self.dict_location: dict = {}
         if geolocator == 'ArcGIS':
             self.geolocator = ArcGIS()
+
         elif geolocator == 'Nominatim':
             self.geolocator = Nominatim(user_agent="climate_health")
-
+        self.geolocator.geocode('Oslo')
 
 
     def add_location(self, location_name: str) -> None:
