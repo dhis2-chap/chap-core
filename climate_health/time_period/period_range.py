@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from .dataclasses import Period, Year, Month, Day, Week
-from . import TimePeriod, Month as sMonth
+from . import TimePeriod, Month as sMonth, PeriodRange
 
 
 def month_range(start_period: Month, end_period: Month, exclusive_end=False):
@@ -43,6 +43,7 @@ def day_range(start_period, end_period, exclusive_end):
 
 
 def period_range(start_period, end_period, exclusive_end=False):
+    #    return PeriodRange.from_time_periods(start_period, end_period)
     if hasattr(start_period, 'day') or hasattr(end_period, 'day'):
         return day_range(start_period, end_period, exclusive_end)
     if not hasattr(start_period, 'month') or not hasattr(end_period, 'month'):
