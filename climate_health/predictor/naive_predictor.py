@@ -19,8 +19,6 @@ class NaivePredictor:
         return HealthData(future_climate_data.time_period, np.full(len(future_climate_data), self._average_cases))
 
 
-
-
 class MultiRegionNaivePredictor:
     '''TODO: This should be a linear regression of prev cases and season for each location.'''
 
@@ -33,7 +31,7 @@ class MultiRegionNaivePredictor:
         #self._buffer = next(iter(data.values())).time_period[-1]
 
     def predict(self, future_weather: IsSpatioTemporalDataSet[ClimateData]) -> HealthData:
-        prediction_dict = {location: HealthData(entry.data().time_period[:1], np.full(len(entry.data()), self._average_cases[location])) for
+        prediction_dict = {location: HealthData(entry.data().time_period[:1], np.full(1, self._average_cases[location])) for
                            location, entry in future_weather.items()}
         return SpatioTemporalDict(prediction_dict)
 

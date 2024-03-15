@@ -19,7 +19,7 @@ class HTMLReport:
     def save(self, filename: str):
         if not os.path.exists(os.path.dirname(filename)):
             os.makedirs(os.path.dirname(filename))
-        with open(filename, 'a') as f:
+        with open(filename, 'w') as f:
             for fig in self.report:
                 f.write(fig.to_html(full_html=False, include_plotlyjs='cdn'))
 

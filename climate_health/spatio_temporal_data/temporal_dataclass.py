@@ -26,7 +26,7 @@ class TemporalDataclass(Generic[FeaturesT]):
         if period_range.start is not None:
             start = self._data.time_period.searchsorted(period_range.start)
         if period_range.stop is not None:
-            stop = self._data.time_period.searchsorted(period_range.stop)
+            stop = self._data.time_period.searchsorted(period_range.stop, side='right')
         return self._data[start:stop]
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> 'TemporalDataclass[FeaturesT]':

@@ -1,5 +1,4 @@
 import functools
-from dataclasses import dataclass
 from datetime import datetime
 from numbers import Number
 from typing import Union, Iterable
@@ -124,10 +123,15 @@ class Day(TimePeriod):
     def __repr__(self):
         return f'Day({self.year}-{self.month}-{self.day})'
 
+    def topandas(self):
+        return pd.Period(year=self.year, month=self.month, day=self.day, freq='D')
 
 class Month(TimePeriod):
     _used_attributes = ['year', 'month']
     _extension = relativedelta(months=1)
+
+    def topandas(self):
+        return pd.Period(year=self.year, month=self.month, freq='M')
 
     def __repr__(self):
         return f'Month({self.year}-{self.month})'
@@ -140,6 +144,8 @@ class Year(TimePeriod):
     def __repr__(self):
         return f'Year({self.year})'
 
+    def topandas(self):
+        return pd.Period(year=self.year, freq='Y')
 
 class TimeDelta(DateUtilWrapper):
     def __init__(self, relative_delta: relativedelta):
@@ -247,14 +253,15 @@ class PeriodRange:
             return self._period_class((self._start_timestamp + self._time_delta * item)._date)
         assert item.step is None
         start = self._start_timestamp
-        if item.start is not None:
-            start += self._time_delta * item.start
         end = self._end_timestamp
         if item.stop is not None:
             if item.stop < 0:
                 end -= self._time_delta * abs(item.stop)
             else:
-                end = start + self._time_delta * (item.stop - 1)  # Not sure about the logic here, test more
+                end = start + self._time_delta * item.stop  # Not sure about the logic here, test more
+
+        if item.start is not None:
+            start = start+ self._time_delta * item.start
         return PeriodRange(start, end, self._time_delta)
 
     def topandas(self):

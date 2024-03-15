@@ -1,6 +1,7 @@
 from typing import List
 import pandas as pd
 import numpy as np
+from ruamel.yaml.timestamp import TimeStamp
 from sklearn.metrics import mean_absolute_error
 
 from climate_health.dataset import IsSpatioTemporalDataSet
@@ -27,23 +28,23 @@ class MultiLocationEvaluator:
                 for location in prediction.locations():
 
                     pred = prediction.get_location(location).data()
-                    pred_time = pred.time_period
-
-                    start_time = f"{pred_time._start_timestamp.year}-{str(pred_time._start_timestamp.month).zfill(2)}" # add method to dataclass for string conversion?
-                    end_time = f"{pred_time._end_timestamp.year}-{str(pred_time._end_timestamp.month).zfill(2)}"
-                    assert start_time == end_time # check that time range for prediction is one month
-
-                    true = truth_df.loc[(truth_df['location'] == location) &
-                                        (truth_df['time_period'] == start_time)]
-
-                    # check for NaN values
-                    if np.isnan(true.disease_cases).any() or np.isnan(pred.disease_cases).any():
-                        continue
-                    else:
-                        assert len(true.disease_cases) == len(pred.disease_cases)
+                    prediction_time = self.time_to_string(pred.time_period._start_timestamp) # fix if multi-period pred
+                    pred_time = next(iter(pred.time_period))
+                    true = truth_df.loc[(truth_df['location'] == location) & (truth_df['time_period'] == pred_time.topandas())]
+                    if self.check_data(true.disease_cases, pred.disease_cases):
                         mae = mean_absolute_error(true.disease_cases, pred.disease_cases)
-                        model_results.append([location, start_time, mae])
+                        model_results.append([location, pred_time.topandas(), mae])
 
             results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae'])
 
         return results
+
+    def time_to_string(self, time_stamp: TimeStamp) -> str:
+        return f"{time_stamp.year}-{str(time_stamp.month).zfill(2)}"
+
+    def check_data(self, true, pred) -> bool:
+        if np.isnan(true).any() or np.isnan(pred).any() or len(true) != len(pred):
+            return False
+        else:
+            return True
+

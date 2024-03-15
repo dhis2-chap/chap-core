@@ -3,6 +3,7 @@ from bionumpy.util.testing import assert_bnpdataclass_equal
 
 from climate_health.time_period.period_range import period_range
 from climate_health.time_period.dataclasses import Month, Day, Year
+# from climate_health.time_period import Month, Day, Year
 
 
 def test_period_range():
@@ -16,10 +17,11 @@ def test_period_range_day():
     start = Day.single_entry(2020, 0, 28)
     end = Day.single_entry(2020, 1, 1)
     days = [28, 29, 30, 0, 1]
-    true_range = Day([2020]*len(days), [0, 0, 0, 1, 1], days)
+    true_range = Day([2020] * len(days), [0, 0, 0, 1, 1], days)
     result = period_range(start, end)
     assert_bnpdataclass_equal(result, true_range)
 
+
 def test_wierd_period_range():
     day_range = period_range(Day.single_entry(2020, 0, 0), Day.single_entry(2020, 1, 28))
-    assert len(day_range) == 31+29
+    assert len(day_range) == 31 + 29

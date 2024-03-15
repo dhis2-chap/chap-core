@@ -16,17 +16,17 @@ def result_dict():
 
 
 @pytest.fixture
-def tmp_path():
-    path = TMP_DATA_PATH / 'output.html'
+def result_path(tmp_path):
+    path = tmp_path / 'output.html'
     assert not path.exists()
     return path
 
 
-def test_from_results(result_dict, tmp_path):
+def test_from_results(result_dict, result_path):
     report = HTMLReport.from_results(result_dict)
     assert report is not None
-    report.save(tmp_path)
-    assert tmp_path.exists()
+    report.save(result_path)
+    assert result_path.exists()
     # delete the file
-    tmp_path.unlink()
+    #result.unlink()
 
