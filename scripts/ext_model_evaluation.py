@@ -3,11 +3,11 @@ import typer
 from climate_health.assessment.dataset_splitting import split_test_train_on_period
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
 from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.external.external_model import ExternalModel
+# from climate_health.external.external_model import ExternalModel
 from climate_health.predictor.naive_predictor import MultiRegionNaivePredictor
 from climate_health.reports import HTMLReport
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from tests.test_external_model_evaluation_acceptance import get_split_points_for_data_set
+from tests.test_external_model_evaluation_acceptance import get_split_points_for_data_set, ExternalModelMock
 from climate_health.dataset import IsSpatioTemporalDataSet
 
 
@@ -22,7 +22,7 @@ def main(
         data_set_filename: str,
         output_filename: str
 ):
-    external_model = ExternalModel(python_script_filename, adaptors=None)
+    external_model = ExternalModelMock(python_script_filename, adaptors=None)
     data_set = load_data_set(data_set_filename)
     evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=5)
@@ -44,3 +44,5 @@ def main(
 
 if __name__ == "__main__":
     typer.run(main)
+    # test CLI from project root:
+    # python3 scripts/ext_model_evaluation.py tests/mock_predictor_script.py my_cool_data example_data/hydro_met_subset.csv tests/tmp_report.html
