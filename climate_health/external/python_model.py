@@ -7,6 +7,8 @@ from ..dataset import IsSpatioTemporalDataSet
 from climate_health.time_period import Month
 import tempfile
 
+from ..spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+
 
 class ExternalCommandLineModel:
     """
@@ -42,6 +44,7 @@ def run_command(command: str):
 
     return output
 
+
 class ExternalPythonModel:
     def __init__(self, script: str, lead_time=Month, adaptors=None):
         self._script = script
@@ -51,8 +54,19 @@ class ExternalPythonModel:
     def get_predictions(self, train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
                         future_climate_data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
 
-        with tempfile.NamedTemporaryFile() as out_file:
-            command = f"python {self._script} {train_data} {future_climate_data} {out_file.name}"
-            output = run_command(command)
+        train_data_file = tempfile.NamedTemporaryFile()
+        future_climate_data_file = tempfile.NamedTemporaryFile()
+        output_file = tempfile.NamedTemporaryFile()
+        train_data.to_csv(train_data_file.name)
+        future_climate_data.to_csv(future_climate_data_file.name)
 
+        command = (f"python {self._script} {train_data_file.name} "
+                    f"{future_climate_data_file.name} {output_file.name}")
+        output = run_command(command)
+        results = SpatioTemporalDict.from_csv(output_file.name, HealthData)
+
+        train_data_file.close()
+        future_climate_data_file.close()
+        output_file.close()
+        return results
 

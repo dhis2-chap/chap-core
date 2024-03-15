@@ -254,7 +254,7 @@ class PeriodRange:
             if item.stop < 0:
                 end -= self._time_delta * abs(item.stop)
             else:
-                end = start + self._time_delta * (item.stop - 1)  # Not sure about the logic here, test more
+                end = start + self._time_delta * item.stop  # Not sure about the logic here, test more
         return PeriodRange(start, end, self._time_delta)
 
     def topandas(self):
