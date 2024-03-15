@@ -1,5 +1,4 @@
 import functools
-from dataclasses import dataclass
 from datetime import datetime
 from numbers import Number
 from typing import Union, Iterable
@@ -247,14 +246,15 @@ class PeriodRange:
             return self._period_class((self._start_timestamp + self._time_delta * item)._date)
         assert item.step is None
         start = self._start_timestamp
-        if item.start is not None:
-            start += self._time_delta * item.start
         end = self._end_timestamp
         if item.stop is not None:
             if item.stop < 0:
                 end -= self._time_delta * abs(item.stop)
             else:
                 end = start + self._time_delta * item.stop  # Not sure about the logic here, test more
+
+        if item.start is not None:
+            start = start+ self._time_delta * item.start
         return PeriodRange(start, end, self._time_delta)
 
     def topandas(self):
