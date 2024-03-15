@@ -3,15 +3,6 @@ from climate_health.geo_coding.location_lookup import LocationLookup
 import pytest
 
 
-def test_location_lookup_add_location():
-    location_lookup = LocationLookup()
-    location_lookup.add_location('Oslo')
-    location_lookup.add_location('Paris')
-    assert 'Oslo' in location_lookup
-    assert 'Paris' in location_lookup
-    assert 'MadeUpLocation' not in location_lookup
-
-
 # @pytest.mark.xfail
 def test_location_lookup_contains_arcgis():
     location_lookup = LocationLookup('ArcGIS')
@@ -40,19 +31,16 @@ def test_location_lookup_same_city():
 # @pytest.mark.xfail
 def test_location_lookup_getitem_arcgis():
     location_lookup = LocationLookup('ArcGIS')
-    location_lookup.add_location('Oslo')
-    location_lookup.add_location('Paris')
     assert location_lookup['Oslo'] == Location(59.91234,
                                                10.75)
     assert location_lookup['Paris'] == Location(48.863697576,
                                                 2.361657337)
 
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_location_lookup_getitem_noninatime():
     location_lookup = LocationLookup()
-    location_lookup.add_location('Oslo')
-    location_lookup.add_location('Paris')
+
     assert location_lookup['Oslo'] == Location(59.9133301,
                                                10.7389701)
     assert location_lookup['Paris'] == Location(48.8534951,
@@ -79,8 +67,6 @@ def nominatim_lookup():
     return lookup
 
 
-
-
 def test_nominatim_geolocator(nominatim_lookup):
     location_lookup = nominatim_lookup
     #location_lookup = LocationLookup('Nominatim')
@@ -91,7 +77,6 @@ def test_print_location_lookup_arcgis():
     location_lookup = LocationLookup('ArcGIS')
     location_lookup.add_location('Oslo')
     location_lookup.add_location('Paris')
-    print(location_lookup)
     assert str(
         location_lookup) == '{\'Oslo\': Location(Oslo, (59.91234, 10.75, 0.0)), \'Paris\': Location(Paris, Île-de-France, (48.863697576, 2.361657337, 0.0))}'
 

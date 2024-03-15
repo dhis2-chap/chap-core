@@ -37,26 +37,11 @@ class LocationLookup:
         if location_name in self.dict_location:
             return True
 
-        cache = get_cache()
-        cache_key = self._generate_cache_key(self.geolocator, location_name)
-        cached_data = cache.get(cache_key)
-
-        if cached_data is not None:
-            self.dict_location[location_name] = cached_data
+        if self._get_cache_location(location_name):
             return True
 
-        # TODO: add more error handling
-        # try:
-
-        location = self.geolocator.geocode(location_name)
-        if location is not None:
-            self.dict_location[location_name] = location
-            cache.set(cache_key, location)
+        if self._fetch_location(location_name):
             return True
-
-        # except Exception as e:
-        #     print(e)
-        #     return False
 
         return False
 
@@ -65,7 +50,16 @@ class LocationLookup:
         """
         Returns the Location object for the given location_name.
         """
-        return Location(self.dict_location[location_name].latitude, self.dict_location[location_name].longitude)
+        if location_name in self.dict_location:
+            return Location(self.dict_location[location_name].latitude, self.dict_location[location_name].longitude)
+
+        if self._get_cache_location(location_name):
+            return Location(self.dict_location[location_name].latitude, self.dict_location[location_name].longitude)
+
+        if self._get_cache_location(location_name):
+            return Location(self.dict_location[location_name].latitude, self.dict_location[location_name].longitude)
+
+        raise KeyError(location_name)
 
 
     def __str__(self) -> str:
@@ -74,12 +68,50 @@ class LocationLookup:
         """
         return f'{self.dict_location}'
 
-    # def __repr__(self) -> str:
-    #     """
-    #     Returns a string representation of the LocationLookup object.
-    #     """
-    #     return f'{self.dict_location}'
 
 
-    def _generate_cache_key(self, geolocator, region):
-        return f"{geolocator.domain}_{region}"
+    def _generate_cache_key(self, geolocator, location_name: str) -> str:
+        """
+        Return a key form the cache from the location name and the geolocator used.
+        """
+        return f"{geolocator.domain}_{location_name}"
+
+
+    def _add_cache_location(self, location_name: str, location: Location) -> None:
+        """
+        Add location to the cache.
+        """
+        cache = get_cache()
+        cache_key = self._generate_cache_key(self.geolocator, location_name)
+        cache[cache_key] = location
+
+
+    def _get_cache_location(self, location_name: str) -> bool:
+        """
+        If location data was previously cached, add it to the location dictionary and resturn true.
+        Else return false.
+        """
+        cache = get_cache()
+        cache_key = self._generate_cache_key(self.geolocator, location_name)
+        cached_data = cache.get(cache_key)
+
+
+        if cached_data is not None:
+            self.dict_location[location_name] = cached_data
+            return cached_data
+        else:
+            return False
+
+    def _fetch_location(self, location_name: str) -> bool:
+        location = self.geolocator.geocode(location_name)
+        if location is not None:
+            self.dict_location[location_name] = location
+            self._add_cache_location(location_name, location)
+            return True
+        else:
+            return False
+
+
+
+
+
