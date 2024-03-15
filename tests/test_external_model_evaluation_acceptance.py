@@ -41,7 +41,7 @@ def python_script_filename() -> str:
 
 @pytest.fixture()
 def output_filename() -> str:
-    return TMP_DATA_PATH / 'output.md'
+    return TMP_DATA_PATH / 'output.html'
 
 
 # Discussion points:
