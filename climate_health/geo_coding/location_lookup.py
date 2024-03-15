@@ -20,7 +20,6 @@ class LocationLookup:
         elif geolocator == 'Nominatim':
             self.geolocator = Nominatim(user_agent="climate_health")
 
-
     def add_location(self, location_name: str) -> None:
         """
         Adds the location to the location lookup.
@@ -28,7 +27,6 @@ class LocationLookup:
         if location_name not in self.dict_location:
             location = self.geolocator.geocode(location_name)
         self.dict_location[location_name] = location
-
 
     def __contains__(self, location_name: str) -> bool:
         """
@@ -60,13 +58,11 @@ class LocationLookup:
 
         return False
 
-
     def __getitem__(self, location_name: str) -> Location:
         """
         Returns the Location object for the given location_name.
         """
         return Location(self.dict_location[location_name].latitude, self.dict_location[location_name].longitude)
-
 
     def __str__(self) -> str:
         """
@@ -79,7 +75,6 @@ class LocationLookup:
     #     Returns a string representation of the LocationLookup object.
     #     """
     #     return f'{self.dict_location}'
-
 
     def _generate_cache_key(self, geolocator, region):
         return f"{geolocator.domain}_{region}"

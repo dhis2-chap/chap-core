@@ -72,14 +72,14 @@ class ExternalModelMock:
     IsSpatioTemporalDataSet[ClimateData]:
         period = next(iter(future_climate_data.data())).data().time_period[:1]
         new_dict = {loc: HealthData(period, data.data().disease_cases[-1:]) for loc, data in
-                    future_climate_data.items()}
+                    train_data.items()}
         return SpatioTemporalDict(new_dict)
 
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_external_model_evaluation(python_script_filename, dataset_name, output_filename, load_data_func):
-    #external_model = ExternalModelMock(python_script_filename, adaptors=None)
-    external_model = ExternalPythonModel(python_script_filename, adaptors=None)
+    external_model = ExternalModelMock(python_script_filename, adaptors=None)
+    # external_model = ExternalPythonModel(python_script_filename, adaptors=None)
     data_set = load_data_func(dataset_name)
     evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=5)
