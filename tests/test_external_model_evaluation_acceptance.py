@@ -40,8 +40,8 @@ def python_script_filename() -> str:
 
 
 @pytest.fixture()
-def output_filename() -> str:
-    return TMP_DATA_PATH / 'output.html'
+def output_filename(tmp_path) -> str:
+    return tmp_path / 'output.html'
 
 
 # Discussion points:
