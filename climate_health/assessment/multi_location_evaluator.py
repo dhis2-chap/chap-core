@@ -1,6 +1,7 @@
 from typing import List
 import pandas as pd
 import numpy as np
+from ruamel.yaml.timestamp import TimeStamp
 from sklearn.metrics import mean_absolute_error
 
 from climate_health.dataset import IsSpatioTemporalDataSet
@@ -29,21 +30,10 @@ class MultiLocationEvaluator:
                     pred = prediction.get_location(location).data()
                     prediction_time = self.time_to_string(pred.time_period._start_timestamp) # fix if multi-period pred
                     pred_time = next(iter(pred.time_period))
-
-                    # start_time = f"{pred_time._start_timestamp.year}-{str(pred_time._start_timestamp.month).zfill(2)}" # add method to dataclass for string conversion?
-                    # end_time = f"{pred_time._end_timestamp.year}-{str(pred_time._end_timestamp.month).zfill(2)}"
-                    #assert start_time == end_time # check that time range for prediction is one month
-
-                    true = truth_df.loc[(truth_df['location'] == location) &
-                                        (truth_df['time_period'] == prediction_time)]
                     true = truth_df.loc[(truth_df['location'] == location) & (truth_df['time_period'] == pred_time.topandas())]
-                    #true = truth_df.loc[(truth_df['location'] == location) &
-                    #                    (truth_df['time_period'] == start_time)]
-
                     if self.check_data(true.disease_cases, pred.disease_cases):
                         mae = mean_absolute_error(true.disease_cases, pred.disease_cases)
-                        model_results.append([location, prediction_time, mae])
-                        model_results.append([location, pred_time, mae])
+                        model_results.append([location, pred_time.topandas(), mae])
 
             results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae'])
 

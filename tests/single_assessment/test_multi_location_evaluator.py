@@ -1,5 +1,5 @@
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
-from ..data_fixtures import full_data, train_data, future_climate_data, good_predictions, bad_predictions
+from ..data_fixtures import full_data, good_predictions, bad_predictions
 import pytest
 
 # @pytest.mark.xfail
