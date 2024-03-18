@@ -28,7 +28,6 @@ class MultiLocationEvaluator:
                 for location in prediction.locations():
 
                     pred = prediction.get_location(location).data()
-                    # prediction_time = self.time_to_string(pred.time_period._start_timestamp) # fix if multi-period pred
                     pred_time = next(iter(pred.time_period))
                     location_mask = (truth_df['location'] == location)
                     time_mask = truth_df['time_period'] == pred_time.topandas()
@@ -40,9 +39,6 @@ class MultiLocationEvaluator:
             results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae'])
 
         return results
-
-    def time_to_string(self, time_stamp: TimeStamp) -> str:
-        return f"{time_stamp.year}-{str(time_stamp.month).zfill(2)}"
 
     def check_data(self, true, pred) -> bool:
         if np.isnan(true).any() or np.isnan(pred).any() or len(true) != len(pred):
