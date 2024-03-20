@@ -1,11 +1,11 @@
 import datetime
+from pathlib import Path
 from typing import Annotated, TypeAlias
 
 import pytest
 from omnipy.modules.json.typedefs import (
     JsonScalar,
 )
-from pydantic import BaseModel
 
 from climate_health.spatio_temporal_data.omnipy_spatio_temporal_dataset import (
     SpatioTemporalDataOmnipyDataset,
@@ -89,30 +89,44 @@ class ClimateFeatures(TemporalDataPydanticModel):
 
 
 class MyTemporalDataModel(SpatioTemporalDataPydanticModel):
-    disease: MultiResolutionTemporalDataOmnipyModel[DiseaseFeatures]
-    weather: MultiResolutionTemporalDataOmnipyModel[ClimateFeatures]
+    disease: MultiResolutionTemporalDataOmnipyModel[DiseaseFeatures] = (
+        MultiResolutionTemporalDataOmnipyModel[DiseaseFeatures]()
+    )
+    weather: MultiResolutionTemporalDataOmnipyModel[ClimateFeatures] = (
+        MultiResolutionTemporalDataOmnipyModel[ClimateFeatures]()
+    )
 
 
 def test_spatio_temporal_dataset(
-    simple_test_data: Annotated[JsonTestDataType, pytest.fixture]
+    tmp_path: Annotated[Path, pytest.fixture],
+    simple_test_data: Annotated[JsonTestDataType, pytest.fixture],
 ):
-    dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataModel](simple_test_data)
+    persist_path = str(tmp_path / "simple_test_data")
 
-    assert len(dataset) == 2
-    for region, spatio_temp_data in dataset.items():
-        # Usage of inner data objects is currently inconsistent with the outer dataset (which uses dict syntax) due to
-        # switching between Omnipy datasets and Pydantic models explicitly wrapped as Omnipy models. Will be harmonised
-        # in a newer version of Omnipy
+    init_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataModel](
+        simple_test_data
+    )
+    init_dataset.save(persist_path)
 
-        assert hasattr(spatio_temp_data, "disease")
-        assert hasattr(spatio_temp_data, "weather")
+    loaded_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataModel]()
+    loaded_dataset.load(persist_path, by_file_suffix=True)
 
-        for category, multi_res_temp_data in spatio_temp_data:
-            assert hasattr(multi_res_temp_data, "days")
-            assert hasattr(multi_res_temp_data, "weeks")
-            assert hasattr(multi_res_temp_data, "months")
-            assert hasattr(multi_res_temp_data, "inconsistent")
+    for dataset in (init_dataset, loaded_dataset):
+        assert len(dataset) == 2
+        for region, spatio_temp_data in dataset.items():
+            # Usage of inner data objects is currently inconsistent with the outer dataset (which uses dict syntax) due to
+            # switching between Omnipy datasets and Pydantic models explicitly wrapped as Omnipy models. Will be harmonised
+            # in a newer version of Omnipy
 
-            for resolution, temp_data in multi_res_temp_data:
-                for record in temp_data:
-                    assert isinstance(record.start_date, datetime.date)
+            assert hasattr(spatio_temp_data, "disease")
+            assert hasattr(spatio_temp_data, "weather")
+
+            for category, multi_res_temp_data in spatio_temp_data:
+                assert hasattr(multi_res_temp_data, "days")
+                assert hasattr(multi_res_temp_data, "weeks")
+                assert hasattr(multi_res_temp_data, "months")
+                assert hasattr(multi_res_temp_data, "inconsistent")
+
+                for resolution, temp_data in multi_res_temp_data:
+                    for record in temp_data:
+                        assert isinstance(record.start_date, datetime.date)

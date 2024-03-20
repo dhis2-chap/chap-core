@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from omnipy import Dataset, Model
 from omnipy.modules.json.models import JsonListM
@@ -25,7 +25,11 @@ TemporalDataPydanticModelT = TypeVar(
 
 class TemporalDataOmnipyModel(
     Model[TemporalDataPydanticModelT], Generic[TemporalDataPydanticModelT]
-): ...
+):
+    def to_data(self) -> Any:
+        data = super().to_data()
+        data["start_date"] = data["start_date"].isoformat()
+        return data
 
 
 class MultiResolutionTemporalDataPydanticModel(
