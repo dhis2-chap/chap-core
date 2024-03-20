@@ -100,8 +100,10 @@ def test_spatio_temporal_dataset(
 
     assert len(dataset) == 2
     for region, spatio_temp_data in dataset.items():
-        # Use of inner data objects are currently inconsistent with the outer dataset (which uses dict syntax) due to
-        # switching between Omnipy datasets and Pydantic models. Will be harmonised in a newer version of Omnipy
+        # Usage of inner data objects is currently inconsistent with the outer dataset (which uses dict syntax) due to
+        # switching between Omnipy datasets and Pydantic models explicitly wrapped as Omnipy models. Will be harmonised
+        # in a newer version of Omnipy
+
         assert hasattr(spatio_temp_data, "disease")
         assert hasattr(spatio_temp_data, "weather")
 
