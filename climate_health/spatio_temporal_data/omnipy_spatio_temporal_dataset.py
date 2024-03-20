@@ -2,6 +2,7 @@ from datetime import date
 from typing import Any, Generic, TypeVar
 
 from omnipy import Dataset, Model
+from omnipy.data.dataset import MultiModelDataset
 from omnipy.modules.json.models import JsonListM
 from pydantic import BaseModel, root_validator, validator
 from pydantic.generics import GenericModel
@@ -47,7 +48,7 @@ class MultiResolutionTemporalDataOmnipyModel(
 ): ...
 
 
-class SpatioTemporalDataPydanticModel(BaseModel):
+class TemporalSubDatasetsPydanticModel(BaseModel):
     @root_validator
     def check_all_field_types_are_temporal_omnipy_models(cls, values):
         for field in cls.__fields__.values():
@@ -55,12 +56,12 @@ class SpatioTemporalDataPydanticModel(BaseModel):
         return values
 
 
-SpatioTemporalDataPydanticModelT = TypeVar(
-    "SpatioTemporalDataPydanticModelT", bound=SpatioTemporalDataPydanticModel
+TemporalSubDatasetsPydanticModelT = TypeVar(
+    "TemporalSubDatasetsPydanticModelT", bound=TemporalSubDatasetsPydanticModel
 )
 
 
 class SpatioTemporalDataOmnipyDataset(
-    Dataset[Model[SpatioTemporalDataPydanticModelT]],
-    Generic[SpatioTemporalDataPydanticModelT],
+    Dataset[Model[TemporalSubDatasetsPydanticModelT]],
+    Generic[TemporalSubDatasetsPydanticModelT],
 ): ...

@@ -10,7 +10,7 @@ from omnipy.modules.json.typedefs import (
 from climate_health.spatio_temporal_data.omnipy_spatio_temporal_dataset import (
     SpatioTemporalDataOmnipyDataset,
     TemporalDataPydanticModel,
-    SpatioTemporalDataPydanticModel,
+    TemporalSubDatasetsPydanticModel,
     MultiResolutionTemporalDataOmnipyModel,
 )
 
@@ -88,7 +88,7 @@ class ClimateFeatures(TemporalDataPydanticModel):
     category: str
 
 
-class MyTemporalDataModel(SpatioTemporalDataPydanticModel):
+class MyTemporalSubDatasetsModel(TemporalSubDatasetsPydanticModel):
     disease: MultiResolutionTemporalDataOmnipyModel[DiseaseFeatures] = (
         MultiResolutionTemporalDataOmnipyModel[DiseaseFeatures]()
     )
@@ -103,12 +103,12 @@ def test_spatio_temporal_dataset(
 ):
     persist_path = str(tmp_path / "simple_test_data")
 
-    init_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataModel](
+    init_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalSubDatasetsModel](
         simple_test_data
     )
     init_dataset.save(persist_path)
 
-    loaded_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataModel]()
+    loaded_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalSubDatasetsModel]()
     loaded_dataset.load(persist_path, by_file_suffix=True)
 
     for dataset in (init_dataset, loaded_dataset):
