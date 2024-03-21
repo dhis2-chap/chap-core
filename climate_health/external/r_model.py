@@ -1,3 +1,4 @@
+import tempfile
 from pathlib import Path
 from typing import TypeVar, Generic
 
@@ -18,6 +19,8 @@ class ExternalRModel:
 
     def get_predictions(self, train_data: ClimateHealthTimeSeries, future_climate_data: ClimateData) -> HealthData:
         pass
+
+
 
 
 FeatureType = TypeVar('FeatureType')
@@ -46,3 +49,4 @@ class ExternalLaggedRModel(Generic[FeatureType]):
         output_file = self._tmp_dir / 'output.csv'
         self._run_predict_script(self._script_file_name, self._model_filename, full_data_path, output_file)
         return self._read_output(output_file)
+

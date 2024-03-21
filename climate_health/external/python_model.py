@@ -1,6 +1,4 @@
-import logging
-import subprocess
-
+from .external_model import run_command
 from ..datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
 from ..dataset import IsSpatioTemporalDataSet
 
@@ -29,20 +27,6 @@ class ExternalCommandLineModel:
                         future_climate_data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
         # call command, read output results
         pass
-
-
-def run_command(command: str):
-    """Runs a unix command using subprocess"""
-    command = command.split()
-    try:
-        output = subprocess.check_output(command)
-        logging.info(output)
-    except subprocess.CalledProcessError as e:
-        error = e.output.decode()
-        logging.info(error)
-        raise e
-
-    return output
 
 
 class ExternalPythonModel:
