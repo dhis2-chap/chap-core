@@ -21,23 +21,23 @@ packages <- c("data.table", "tidyverse", "sf", "sp", "spdep",
               "ggpubr", "ggthemes")
 
 # install.packages
-lapply(packages, install.packages, character.only = TRUE)
+#lapply(packages, install.packages, character.only = TRUE)
 
 # load packages
 lapply(packages, library, character.only = TRUE)
 
 # load shape file for Brazil
-map <- read_sf("data/shape_brazil.shp")
+#map <- read_sf("data/shape_brazil.shp")
 # dim(map)
 
 # Create adjacency matrix
-nb.map <- poly2nb(as_Spatial(map$geometry))
-g.file <- "output/map.graph"
-if (!file.exists(g.file)) nb2INLA(g.file, nb.map)
+#nb.map <- poly2nb(as_Spatial(map$geometry))
+#g.file <- "output/map.graph"
+#if (!file.exists(g.file)) nb2INLA(g.file, nb.map)
 
 # load pre-defined grid of Brazilian states for geofacet plots
 # note: could use pre-loaded grid = "br_states_grid1" in geofacet package, would need match state names
-grid <- read.csv("data/br_states_grid.csv")
+#grid <- read.csv("data/br_states_grid.csv")
 # head(grid)
 
 # load data

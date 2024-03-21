@@ -1,4 +1,5 @@
 import functools
+import logging
 from datetime import datetime
 from numbers import Number
 from typing import Union, Iterable
@@ -67,7 +68,11 @@ class TimePeriod:
         return datetime(int(year), int(month), int(day))
 
     def __eq__(self, other):
-        return (self._date == other._date) and (self._extension == other._extension)
+        r = (self._date == other._date)
+        r2 = (self._extension == other._extension)
+        if not r or not r2:
+            pass
+        return r and r2
 
     def __le__(self, other: 'TimePeriod'):
         if isinstance(other, TimeStamp):
@@ -295,8 +300,13 @@ class PeriodRange:
 
     @classmethod
     def _check_consequtive(cls, time_delta, time_periods):
-        if not all(p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])):
-            raise ValueError(f'Periods must be consecutive: {time_periods}')
+        is_consec = (p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:]))
+        if not all(is_consec):
+            print(f'Periods {time_periods}')
+            for wrong in np.where(is_consec)[0]:
+                print(f'Wrong period {time_periods[wrong], time_periods[wrong+1]} with time delta {time_delta}')
+                print(time_periods[wrong] + time_delta, time_periods[wrong+1])
+            raise ValueError(f'Periods must be consecutive.')
 
     @classmethod
     def _get_delta(cls, periods: list[TimePeriod]):

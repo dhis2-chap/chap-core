@@ -1,4 +1,4 @@
-from typing import Iterable, Tuple, Protocol, Optional
+from typing import Iterable, Tuple, Protocol, Optional, Type
 
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthData, ClimateData, HealthData
@@ -6,7 +6,7 @@ from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTempora
 from climate_health.time_period import Year, Month
 from climate_health.time_period.dataclasses import Period
 from climate_health.time_period.relationships import previous
-
+import dataclasses
 
 def split_period_on_resolution(param, param1, resolution) -> Iterable[Month]:
     pass
@@ -21,8 +21,12 @@ class IsTimeDelta(Protocol):
 
 
 def split_test_train_on_period(data_set: IsSpatioTemporalDataSet, split_points: Iterable[Period],
-                               future_length: Optional[IsTimeDelta] = None, include_future_weather: bool = False):
+                               future_length: Optional[IsTimeDelta] = None, include_future_weather: bool = False,
+                               future_weather_class: Type[ClimateData] = ClimateData):
     func = train_test_split_with_weather if include_future_weather else train_test_split
+
+    if include_future_weather:
+        return (train_test_split_with_weather(data_set, period, future_length, future_weather_class) for period in split_points)
     return (func(data_set, period, future_length) for period in split_points)
 
 
@@ -46,13 +50,13 @@ def train_test_split(data_set: IsSpatioTemporalDataSet, prediction_start_period:
 
 
 def train_test_split_with_weather(data_set: IsSpatioTemporalDataSet, prediction_start_period: Period,
-                                  extension: Optional[IsTimeDelta] = None):
+                                  extension: Optional[IsTimeDelta] = None,
+                                  future_weather_class: Type[ClimateData] = ClimateData):
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)
     tmp_values: Iterable[Tuple[str, ClimateHealthData]] = ((loc, temporal_data.data()) for loc, temporal_data in
                                                            test_set.items())
     future_weather = SpatioTemporalDict(
-        {loc: ClimateData(values.time_period, values.rainfall,
-                          values.mean_temperature,
-                          values.mean_temperature)
+        {loc: future_weather_class(
+            *[getattr(values, field.name) if hasattr(values, field.name) else values.mean_temperature for field in dataclasses.fields(future_weather_class)])
          for loc, values in tmp_values})
     return train_set, test_set, future_weather
