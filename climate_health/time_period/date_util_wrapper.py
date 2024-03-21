@@ -46,6 +46,9 @@ class TimeStamp(DateUtilWrapper):
     def __repr__(self):
         return f'TimeStamp({self.year}-{self.month}-{self.day})'
 
+    def __eq__(self, other):
+        return self._date == other._date
+
     def _comparison(self, other: 'TimeStamp', func_name: str):
         return getattr(self._date, func_name)(other._date)
 
@@ -261,7 +264,10 @@ class PeriodRange:
                 end = start + self._time_delta * item.stop  # Not sure about the logic here, test more
 
         if item.start is not None:
-            start = start+ self._time_delta * item.start
+            offset = item.start if item.start >= 0 else len(self) + item.start
+            start = start+ self._time_delta * offset
+        if start > end:
+            raise ValueError(f'Invalid slice {item} for period range {self} of length {len(self)}')
         return PeriodRange(start, end, self._time_delta)
 
     def topandas(self):
@@ -321,7 +327,19 @@ class PeriodRange:
         n_steps = TimeDelta(relativedelta(period._date,self._start_timestamp._date)) // self._time_delta
         if side == 'right':
             n_steps += 1
+        n_steps = min(max(0, n_steps), len(self))  # if period is outside
         return n_steps
+
+    def concatenate(self, other: 'PeriodRange') -> 'PeriodRange':
+        assert self._time_delta == other._time_delta
+        assert other._start_timestamp == self._end_timestamp, "Can only concnatenate when other starts where self ends"
+        return PeriodRange(self._start_timestamp, other._end_timestamp, self._time_delta)
+
+    def __array_function__(self, func, types, args, kwargs):
+        if func.__name__ == 'concatenate':
+            assert len(args[0]) == 2
+            return self.concatenate(args[0][1])
+        return NotImplemented
 
 
 delta_month = TimeDelta(relativedelta(months=1))

@@ -95,6 +95,7 @@ def test_period_range_slice(period_range):
     assert period_range[1:][0] == period_range[1]
     assert len(period_range[1:3]) == 2
     assert len(period_range[1:-2]) == 11
+    assert len(period_range[-10:10]) == 6
 
 
 def test_period_range_iter(period_range, period1, period3):
