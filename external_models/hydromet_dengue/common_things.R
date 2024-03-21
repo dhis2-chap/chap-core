@@ -6,7 +6,10 @@
 # R script to prepare data and lagged variables for INLA-DLNM modelling
 
 # install INLA
-# install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
+r = getOption("repos")
+r["CRAN"] = "http://cran.us.r-project.org"
+options(repos = r)
+#install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
 
 # load INLA
 library(INLA)
@@ -14,10 +17,11 @@ library(INLA)
 #  select other packages
 packages <- c("data.table", "tidyverse", "sf", "sp", "spdep",
               "dlnm", "tsModel", "hydroGOF","RColorBrewer",
-              "geofacet", "ggpubr", "ggthemes")
+              #"geofacet",
+              "ggpubr", "ggthemes")
 
 # install.packages
-# lapply(packages, install.packages, character.only = TRUE)
+lapply(packages, install.packages, character.only = TRUE)
 
 # load packages
 lapply(packages, library, character.only = TRUE)

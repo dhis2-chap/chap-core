@@ -9,11 +9,11 @@ from .time_period import TimePeriod, Day, Month, Year, PeriodRange
 from .time_period.dataclasses import Period
 
 
-# tsdataclass = bnp.bnpdataclass.bnpdataclass
-def tsdataclass(cls):
-    dc = bnp.bnpdataclass.bnpdataclass(cls)
-    dc._assert_same_lens = lambda self: None
-    return dc
+tsdataclass = bnp.bnpdataclass.bnpdataclass
+#def tsdataclass(cls):
+#    dc = bnp.bnpdataclass.bnpdataclass(cls)
+#    dc._assert_same_lens = lambda self: None
+#    return dc
 
 
 @tsdataclass

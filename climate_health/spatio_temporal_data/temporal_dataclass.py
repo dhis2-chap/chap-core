@@ -46,6 +46,9 @@ class TemporalDataclass(Generic[FeaturesT]):
     def to_pandas(self) -> pd.DataFrame:
         return self._data.to_pandas()
 
+    def join(self, other):
+        return TemporalDataclass(np.concatenate([self._data, other._data]))
+
 
 class SpatioTemporalDict(Generic[FeaturesT]):
     def __init__(self, data_dict: dict[FeaturesT]):
@@ -97,3 +100,8 @@ class SpatioTemporalDict(Generic[FeaturesT]):
     def from_csv(cls, file_name: str, dataclass: Type[FeaturesT]) -> 'SpatioTemporalDict[FeaturesT]':
         return cls.from_pandas(pd.read_csv(file_name), dataclass)
 
+    def join_on_time(self, other: 'SpatioTemporalDict[FeaturesT]') -> 'SpatioTemporalDict[Tuple[FeaturesT, FeaturesT]]':
+        ''' Join two SpatioTemporalDicts on time. Returns a new SpatioTemporalDict.
+        Assumes other is later in time.
+        '''
+        return self.__class__({loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()})
