@@ -7,7 +7,6 @@ from climate_health.geo_coding.location_lookup import LocationLookup
 
 
 
-#TODO: Simplify the class
 class ClimateDataMeteoStat:
     """
     Look up weather date from start, end date delta and location
