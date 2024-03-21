@@ -69,7 +69,6 @@ class LocationLookup:
         return f'{self.dict_location}'
 
 
-
     def _generate_cache_key(self, geolocator, location_name: str) -> str:
         """
         Return a key form the cache from the location name and the geolocator used.
@@ -111,7 +110,8 @@ class LocationLookup:
         else:
             return False
 
-
+    def try_connection(self):
+        self.geolocator.geocode('Oslo')
 
 
 
