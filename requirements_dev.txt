@@ -9,4 +9,5 @@ coverage
 pytest-cov
 build
 geopy
+meteostat
 pytest-mock
