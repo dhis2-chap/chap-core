@@ -261,7 +261,10 @@ class PeriodRange:
                 end = start + self._time_delta * item.stop  # Not sure about the logic here, test more
 
         if item.start is not None:
-            start = start+ self._time_delta * item.start
+            offset = item.start if item.start >= 0 else len(self) + item.start
+            start = start+ self._time_delta * offset
+        if start > end:
+            raise ValueError(f'Invalid slice {item} for period range {self} of length {len(self)}')
         return PeriodRange(start, end, self._time_delta)
 
     def topandas(self):
