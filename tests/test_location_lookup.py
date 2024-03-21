@@ -28,7 +28,6 @@ def test_location_lookup_same_city():
     assert 'MadeUpLocation' not in location_lookup
 
 
-
 def test_location_lookup_getitem_arcgis():
     location_lookup = LocationLookup('ArcGIS')
     assert location_lookup['Oslo'] == Location(59.91234,
@@ -58,6 +57,7 @@ def test_arcgis_geolocator():
     location_lookup = LocationLookup('ArcGIS')
     assert location_lookup.geolocator.__class__.__name__ == 'ArcGIS'
 
+
 @pytest.fixture()
 def nominatim_lookup():
     try:
@@ -69,17 +69,18 @@ def nominatim_lookup():
 
 def test_nominatim_geolocator(nominatim_lookup):
     location_lookup = nominatim_lookup
-    #location_lookup = LocationLookup('Nominatim')
+    # location_lookup = LocationLookup('Nominatim')
     assert location_lookup.geolocator.__class__.__name__ == 'Nominatim'
 
 
 def test_print_location_lookup_arcgis():
     location_lookup = LocationLookup('ArcGIS')
     location_lookup.add_location('Oslo')
+
+    
     location_lookup.add_location('Paris')
     assert str(
         location_lookup) == '{\'Oslo\': Location(Oslo, (59.91234, 10.75, 0.0)), \'Paris\': Location(Paris, Île-de-France, (48.863697576, 2.361657337, 0.0))}'
-
 
 @pytest.mark.xfail
 def test_print_location_lookup_noninatime():
