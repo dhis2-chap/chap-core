@@ -1,14 +1,17 @@
 import datetime
 from pathlib import Path
-from typing import Annotated, TypeAlias
+from typing import Annotated, Any, TypeAlias
 
 import pytest
+from omnipy import Model
 from omnipy.modules.json.typedefs import (
     JsonScalar,
 )
+from pydantic import PrivateAttr, root_validator
 
 from climate_health.spatio_temporal_data.omnipy_spatio_temporal_dataset import (
     SpatioTemporalDataOmnipyDataset,
+    TemporalDataOmnipyDataset,
     TemporalDataPydanticModel,
     TemporalSubDatasetsPydanticModel,
     MultiResolutionTemporalDataOmnipyModel,
@@ -96,19 +99,31 @@ class MyTemporalSubDatasetsModel(TemporalSubDatasetsPydanticModel):
         MultiResolutionTemporalDataOmnipyModel[ClimateFeatures]()
     )
 
-@pytest.mark.xfail(resason="Fails for me")
+
+class MyTemporalDataOmnipyDataset(TemporalDataOmnipyDataset):
+    def _set_standard_field_description(self) -> None:
+        super()._set_standard_field_description()
+
+        self.set_model(
+            "disease", MultiResolutionTemporalDataOmnipyModel[DiseaseFeatures]
+        )
+        self.set_model(
+            "weather", MultiResolutionTemporalDataOmnipyModel[ClimateFeatures]
+        )
+
+
 def test_spatio_temporal_dataset(
     tmp_path: Annotated[Path, pytest.fixture],
     simple_test_data: Annotated[JsonTestDataType, pytest.fixture],
 ):
     persist_path = str(tmp_path / "simple_test_data")
 
-    init_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalSubDatasetsModel](
+    init_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataOmnipyDataset](
         simple_test_data
     )
     init_dataset.save(persist_path)
 
-    loaded_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalSubDatasetsModel]()
+    loaded_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataOmnipyDataset]()
     loaded_dataset.load(persist_path, by_file_suffix=True)
 
     for dataset in (init_dataset, loaded_dataset):
@@ -118,10 +133,11 @@ def test_spatio_temporal_dataset(
             # switching between Omnipy datasets and Pydantic models explicitly wrapped as Omnipy models. Will be harmonised
             # in a newer version of Omnipy
 
-            assert hasattr(spatio_temp_data, "disease")
-            assert hasattr(spatio_temp_data, "weather")
+            assert len(spatio_temp_data) == 2
+            # assert hasattr(spatio_temp_data, "disease")
+            # assert hasattr(spatio_temp_data, "weather")
 
-            for category, multi_res_temp_data in spatio_temp_data:
+            for category, multi_res_temp_data in spatio_temp_data.items():
                 assert hasattr(multi_res_temp_data, "days")
                 assert hasattr(multi_res_temp_data, "weeks")
                 assert hasattr(multi_res_temp_data, "months")

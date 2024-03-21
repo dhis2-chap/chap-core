@@ -4,12 +4,15 @@ from typing import Any, Generic, TypeVar
 from omnipy import Dataset, Model
 from omnipy.data.dataset import MultiModelDataset
 from omnipy.modules.json.models import JsonListM
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, PrivateAttr, root_validator, validator
 from pydantic.generics import GenericModel
 
 
 class TemporalDataPydanticModel(BaseModel):
     start_date: str | date = date.fromisoformat("1970-01-01")
+
+    class Config:
+        extra = "allow"
 
     @validator("start_date")
     def parse_start_date(cls, data: str | date) -> date:
@@ -61,7 +64,19 @@ TemporalSubDatasetsPydanticModelT = TypeVar(
 )
 
 
+class TemporalDataOmnipyDataset(
+    MultiModelDataset[
+        MultiResolutionTemporalDataOmnipyModel[TemporalDataPydanticModel]
+    ],
+): ...
+
+
+TemporalDataOmnipyDatasetT = TypeVar(
+    "TemporalDataOmnipyDatasetT", bound=TemporalDataOmnipyDataset
+)
+
+
 class SpatioTemporalDataOmnipyDataset(
-    Dataset[Model[TemporalSubDatasetsPydanticModelT]],
-    Generic[TemporalSubDatasetsPydanticModelT],
+    Dataset[Model[TemporalDataOmnipyDatasetT]],
+    Generic[TemporalDataOmnipyDatasetT],
 ): ...
