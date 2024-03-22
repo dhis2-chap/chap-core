@@ -1,19 +1,15 @@
 import pandas as pd
 import pytest
 
-from climate_health.assessment.dataset_splitting import split_test_train_on_period
+from climate_health.assessment.dataset_splitting import split_test_train_on_period, get_split_points_for_data_set
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
 from climate_health.dataset import IsSpatioTemporalDataSet
-from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
+from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
 from climate_health.external.external_model import ExternalCommandLineModel
-from climate_health.file_io.load import load_data_set
 from climate_health.reports import HTMLReport
-from climate_health.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor, MultiRegionPoissonModel
+from climate_health.predictor.naive_predictor import MultiRegionPoissonModel
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from climate_health.time_period import Month
-from climate_health.time_period.dataclasses import Period
-from . import EXAMPLE_DATA_PATH, TMP_DATA_PATH, TEST_PATH
-from climate_health.external.python_model import ExternalPythonModel
+from . import EXAMPLE_DATA_PATH, TEST_PATH
 
 
 class MockExternalModel:
@@ -55,14 +51,6 @@ def output_filename(tmp_path) -> str:
     return tmp_path / 'output.html'
 
 
-# Discussion points:
-# Should we index on split-timestamp, first time period, or complete time?
-def get_split_points_for_data_set(data_set: IsSpatioTemporalDataSet, max_splits: int, start_offset = 1) -> list[Period]:
-    periods = next(iter(
-        data_set.data())).data().time_period  # Uses the time for the first location, assumes it to be the same for all!
-    return list(periods)[start_offset::(len(periods)-1) // max_splits]
-
-
 @pytest.fixture
 def load_data_func(data_path):
     def load_data_set(data_set_filename: str) -> IsSpatioTemporalDataSet:
@@ -88,13 +76,8 @@ class ExternalModelMock:
 
 
 # @pytest.mark.xfail
-def test_external_model_evaluation(python_model_train_command, python_model_predict_command,
-                                   dataset_name, output_filename, load_data_func):
-    external_model = ExternalCommandLineModel("external_model",
-                                              python_model_train_command,
-                                              python_model_predict_command,
-                                              HealthData)
-
+def test_external_model_evaluation(dataset_name, output_filename, load_data_func, external_predictive_model):
+    external_model = external_predictive_model
     data_set = load_data_func(dataset_name)
     evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=5, start_offset=19)
@@ -114,3 +97,11 @@ def test_external_model_evaluation(python_model_train_command, python_model_pred
     results = evaluator.get_results()
     report = HTMLReport.from_results(results)
     report.save(output_filename)
+
+@pytest.fixture()
+def external_predictive_model(python_model_predict_command, python_model_train_command):
+    external_model = ExternalCommandLineModel("external_model",
+                                              python_model_train_command,
+                                              python_model_predict_command,
+                                              HealthData)
+    return external_model

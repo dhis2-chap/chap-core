@@ -60,3 +60,9 @@ def train_test_split_with_weather(data_set: IsSpatioTemporalDataSet, prediction_
             *[getattr(values, field.name) if hasattr(values, field.name) else values.mean_temperature for field in dataclasses.fields(future_weather_class)])
          for loc, values in tmp_values})
     return train_set, test_set, future_weather
+
+
+def get_split_points_for_data_set(data_set: IsSpatioTemporalDataSet, max_splits: int, start_offset = 1) -> list[Period]:
+    periods = next(iter(
+        data_set.data())).data().time_period  # Uses the time for the first location, assumes it to be the same for all!
+    return list(periods)[start_offset::(len(periods)-1) // max_splits]
