@@ -8,7 +8,7 @@ from ..datatypes import ResultType
 class HTMLReport:
     """A class to generate and save an HTML report from a dictionary of results."""
     def __init__(self, report: tuple[go.Figure]):
-        self.report = report
+        self.report = tuple(report)
 
     @classmethod
     def from_results(cls, results: dict[str, ResultType]) -> 'HTMLReport':

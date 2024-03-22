@@ -90,8 +90,6 @@ class ExternalModelMock:
 # @pytest.mark.xfail
 def test_external_model_evaluation(python_model_train_command, python_model_predict_command,
                                    dataset_name, output_filename, load_data_func):
-    #external_model = ExternalModelMock(python_script_filename, adaptors=None)
-    #external_model = ExternalPythonModel(python_script_filename, adaptors=None)
     external_model = ExternalCommandLineModel("external_model",
                                               python_model_train_command,
                                               python_model_predict_command,
@@ -107,8 +105,6 @@ def test_external_model_evaluation(python_model_train_command, python_model_pred
         external_model.setup()
         external_model.train(train_data)
         predictions = external_model.predict(future_climate_data)
-        #predictions = external_model.get_predictions(train_data, future_climate_data)
-
         evaluator.add_predictions('external_model', predictions)
         naive_predictor = MultiRegionPoissonModel()
         naive_predictor.train(train_data)
@@ -118,5 +114,3 @@ def test_external_model_evaluation(python_model_train_command, python_model_pred
     results = evaluator.get_results()
     report = HTMLReport.from_results(results)
     report.save(output_filename)
-
-# Add test-validation-train split
