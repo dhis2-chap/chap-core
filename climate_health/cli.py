@@ -1,17 +1,25 @@
 """Console script for climate_health."""
-from climate_health.file_io.load import load_data_set
-from climate_health.predictor import get_model
+from typing import Literal
+from cyclopts import App
+from climate_health.predictor import get_model, models
+from climate_health.file_io.example_data_set import datasets
 from .assessment.prediction_evaluator import evaluate_model
 
 import typer
 
+app = App()
 
-def evaluate(model_name: str, dataset_name: str):
+@app.command()
+def evaluate(model_name: Literal[*models], dataset_name: Literal[*datasets.keys()]):
     '''
     Evaluate a model on a dataset using forecast cross validation
     '''
-    dataset = load_data_set(dataset_name)
-    model = get_model(model_name)
+    dataset = datasets[dataset_name].load()
+    model = get_model(model_name)()
+    results = evaluate_model(dataset, model)
+    output_filename= f'./{model_name}_{dataset_name}_results.html'
+    print(output_filename)
+    results.save(output_filename)
 
 
 def main_function():
@@ -27,9 +35,10 @@ def main_function():
 
 
 def main():
-    typer.run(main_function)
+    app()
+    # typer.run(evaluate)
     print("Yay! You managed to run the main function!")
 
 
 if __name__ == "__main__":
-    main()
+    app()

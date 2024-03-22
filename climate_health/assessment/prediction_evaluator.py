@@ -39,7 +39,8 @@ def evaluate_model(data_set, external_model):
     for (train_data, future_truth, future_climate_data) in split_test_train_on_period(data_set, split_points,
                                                                                       future_length=None,
                                                                                       include_future_weather=True):
-        external_model.setup()
+        if hasattr(external_model, 'setup'):
+            external_model.setup()
         external_model.train(train_data)
         predictions = external_model.predict(future_climate_data)
         evaluator.add_predictions('external_model', predictions)
