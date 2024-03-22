@@ -36,7 +36,17 @@ def r_script_filename() -> str:
 
 @pytest.fixture()
 def python_script_filename() -> str:
-    return TEST_PATH / 'mock_predictor_script.py'
+    return TEST_PATH / 'mock_predictor_script.py predict-values '
+
+
+@pytest.fixture()
+def python_model_train_command() -> str:
+    return TEST_PATH / 'mock_predictor_script.py train'
+
+
+@pytest.fixture()
+def python_model_predict_command() -> str:
+    return TEST_PATH / 'mock_predictor_script.py predict'
 
 
 @pytest.fixture()
@@ -97,4 +107,5 @@ def test_external_model_evaluation(python_script_filename, dataset_name, output_
     results = evaluator.get_results()
     report = HTMLReport.from_results(results)
     report.save(output_filename)
+
 # Add test-validation-train split
