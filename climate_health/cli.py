@@ -1,9 +1,17 @@
 """Console script for climate_health."""
-# todo
-# GKS was here
-
+from climate_health.file_io.load import load_data_set
+from climate_health.predictor import get_model
+from .assessment.prediction_evaluator import evaluate_model
 
 import typer
+
+
+def evaluate(model_name: str, dataset_name: str):
+    '''
+    Evaluate a model on a dataset using forecast cross validation
+    '''
+    dataset = load_data_set(dataset_name)
+    model = get_model(model_name)
 
 
 def main_function():
