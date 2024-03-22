@@ -4,7 +4,7 @@ import pytest
 from climate_health.assessment.dataset_splitting import split_test_train_on_period
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
 from climate_health.dataset import IsSpatioTemporalDataSet
-from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, TimeSeriesData, tsdataclass
+from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
 from climate_health.file_io.load import load_data_set
 from climate_health.reports import HTMLReport
 from climate_health.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor, MultiRegionPoissonModel
@@ -36,7 +36,17 @@ def r_script_filename() -> str:
 
 @pytest.fixture()
 def python_script_filename() -> str:
-    return TEST_PATH / 'mock_predictor_script.py'
+    return TEST_PATH / 'mock_predictor_script.py predict-values '
+
+
+@pytest.fixture()
+def python_model_train_command() -> str:
+    return "python " + str(TEST_PATH / 'mock_predictor_script.py train {train_data} {model}')
+
+
+@pytest.fixture()
+def python_model_predict_command() -> str:
+    return "python " + str(TEST_PATH / 'mock_predictor_script.py predict {future_data} {model} {out_file}')
 
 
 @pytest.fixture()
@@ -62,8 +72,6 @@ def load_data_func(data_path):
     return load_data_set
 
 
-
-
 class ExternalModelMock:
 
     def __init__(self, *args, **kwargs):
@@ -79,9 +87,15 @@ class ExternalModelMock:
 
 
 # @pytest.mark.xfail
-def test_external_model_evaluation(python_script_filename, dataset_name, output_filename, load_data_func):
+def test_external_model_evaluation(python_model_train_command, python_model_predict_command,
+                                   dataset_name, output_filename, load_data_func):
     #external_model = ExternalModelMock(python_script_filename, adaptors=None)
-    external_model = ExternalPythonModel(python_script_filename, adaptors=None)
+    #external_model = ExternalPythonModel(python_script_filename, adaptors=None)
+    external_model = ExternalCommandLineModel("external_model",
+                                              python_model_train_command,
+                                              python_model_predict_command,
+                                              HealthData)
+
     data_set = load_data_func(dataset_name)
     evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=5, start_offset=19)
@@ -89,7 +103,11 @@ def test_external_model_evaluation(python_script_filename, dataset_name, output_
     for (train_data, future_truth, future_climate_data) in split_test_train_on_period(data_set, split_points,
                                                                                       future_length=None,
                                                                                       include_future_weather=True):
-        predictions = external_model.get_predictions(train_data, future_climate_data)
+        external_model.setup()
+        external_model.train(train_data)
+        predictions = external_model.predict(future_climate_data)
+        #predictions = external_model.get_predictions(train_data, future_climate_data)
+
         evaluator.add_predictions('external_model', predictions)
         naive_predictor = MultiRegionPoissonModel()
         naive_predictor.train(train_data)
@@ -98,5 +116,6 @@ def test_external_model_evaluation(python_script_filename, dataset_name, output_
 
     results = evaluator.get_results()
     report = HTMLReport.from_results(results)
-    return
+    report.save(output_filename)
+
 # Add test-validation-train split

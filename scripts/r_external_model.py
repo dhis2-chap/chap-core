@@ -87,10 +87,10 @@ predict_command = "Rscript external_models/hydromet_dengue/predict.R {future_dat
 
 model = ExternalCommandLineModel(
     name='r_env',
-    setup_command=setup_command,
     train_command=train_command,
     predict_command=predict_command,
     data_type=None,
+    setup_command=setup_command,
     conda_env_file="external_models/hydromet_dengue/env.yml"
 )
 

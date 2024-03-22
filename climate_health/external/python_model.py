@@ -8,32 +8,14 @@ import tempfile
 from ..spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
 
-class ExternalCommandLineModel:
-    """
-    Represents a model that can be run on the command line
-    Optionally takes a path to a yaml file that defines a conda environment that
-    will be created and used when running the model.
-    """
-
-    def __init__(self, command_template: str, conda_environment_yaml: str = None, lead_time=Month, adaptors=None):
-        self.command_template = command_template
-        self.lead_time = lead_time
-        self.adaptors = adaptors
-
-    def _get_command(self, train_data, future_climate_):
-        return self.command_template.format(train_data=train_data, future_climate=future_climate_)
-
-    def get_predictions(self, train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
-                        future_climate_data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
-        # call command, read output results
-        pass
-
-
 class ExternalPythonModel:
     def __init__(self, script: str, lead_time=Month, adaptors=None):
         self._script = script
         self._lead_time = lead_time
         self._adaptors = adaptors
+
+    def train(self):
+        pass
 
     def get_predictions(self, train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
                         future_climate_data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
