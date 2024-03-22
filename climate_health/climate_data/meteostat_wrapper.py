@@ -4,7 +4,7 @@ import pandas as pd
 from meteostat import Point, Daily, Monthly
 
 from climate_health.geo_coding.location_lookup import LocationLookup
-
+from climate_health.services.cache_manager import get_cache
 
 
 class ClimateDataMeteoStat:
@@ -20,78 +20,83 @@ class ClimateDataMeteoStat:
         self._delta: str = None
 
 
-    def get_climate(self, location: str, start_date: str, end_date: str) -> pd.DataFrame:
+    def get_climate(self, location: str, start_date_string: str, end_date_string: str) -> pd.DataFrame:
         """
         Get the climate data for the given location, start date, end date and time period
         """
 
         # Format date
-        start_date = self._format_start_date(start_date)
-        end_date = self._format_end_date(end_date)
+        start_date = self._format_start_date(start_date_string)
+        end_date = self._format_end_date(end_date_string)
+
+        cache_data = self._get_cache_climate(location, start_date_string, end_date_string)
+        if cache_data is not None:
+            return cache_data
 
 
         # Fetch location
-        location = self._fetch_location(location)
+        location_point = self._fetch_location(location)
+
+        climate_dataframe = self._fetch_climate_data(location_point, start_date, end_date)
+        climate_dataframe = self._aggregate_climate_data(climate_dataframe)
+        climate_dataframe = self._format_index(climate_dataframe)
+
+        self._add_cache_climate(location, climate_dataframe)
+
+        return climate_dataframe
 
 
-        # Fetch climate data
-        self.data = self._fetch_climate_data(location, start_date, end_date)
-
-        self._aggregate_climate_data()
-
-        self._format_index()
 
 
 
-
-
-    def _format_index(self):
+    def _format_index(self, climate_dataframe: pd.DataFrame) -> pd.DataFrame:
         """
         Format the index of the dataframe
         """
         if self._delta == 'day':
-            self.data = self.data.rename_axis('time_period').reset_index()
-            self.data['time_period'] = self.data['time_period'].dt.strftime('%Y-%m-%d').str.replace('-0', '-')
+            climate_dataframe = climate_dataframe.rename_axis('time_period').reset_index()
+            climate_dataframe['time_period'] = climate_dataframe['time_period'].dt.strftime('%Y-%m-%d').str.replace('-0', '-')
 
         elif self._delta == 'week':
-            self.data['time_period'] = self.data.index.to_series().apply(lambda x: x.strftime('%G-W%V'))
-            self.data['time_period'] = self.data['time_period'].str.replace('-W0', '-W')
+            climate_dataframe['time_period'] = climate_dataframe.index.to_series().apply(lambda x: x.strftime('%G-W%V'))
+            climate_dataframe['time_period'] = climate_dataframe['time_period'].str.replace('-W0', '-W')
 
             # Set 'Year-Week' as new index
-            self.data.set_index('time_period', inplace=True)
-            self.data.reset_index(inplace=True)
+            climate_dataframe.set_index('time_period', inplace=True)
+            climate_dataframe.reset_index(inplace=True)
 
         elif self._delta == 'month':
-            self.data = self.data.rename_axis('time_period').reset_index()
-            self.data['time_period'] = self.data['time_period'].dt.strftime('%Y-%m').str.replace('-0', '-')
+            climate_dataframe = climate_dataframe.rename_axis('time_period').reset_index()
+            climate_dataframe['time_period'] = climate_dataframe['time_period'].dt.strftime('%Y-%m').str.replace('-0', '-')
 
         elif self._delta == 'year':
-            self.data = self.data.rename_axis('time_period').reset_index()
-            self.data['time_period'] = self.data['time_period'].astype(str)
+            climate_dataframe = climate_dataframe.rename_axis('time_period').reset_index()
+            climate_dataframe['time_period'] = climate_dataframe['time_period'].astype(str)
+
+        return climate_dataframe
 
 
-
-
-    def _aggregate_climate_data(self):
+    def _aggregate_climate_data(self, climate_dataframe: pd.DataFrame) -> pd.DataFrame:
         """
         Aggregate the climate data based on the time period for weekly and yearly data
         """
         if self._delta == 'week':
-            self.data = self.data.resample('W').agg({
+            climate_dataframe = climate_dataframe.resample('W').agg({
                 'rainfall': 'sum',  # Sum for precipitation
                 'mean_temperature': 'mean',  # Mean for average temperature
                 'max_temperature': 'max'  # Max for maximum temperature
             })
 
         elif self._delta == 'year':
-            self.data = self.data.groupby(self.data.index.year).agg({
+            climate_dataframe = climate_dataframe.groupby(climate_dataframe.index.year).agg({
                 'rainfall': 'sum',  # Sum the precipitation values
                 'mean_temperature': 'mean',  # Average the average temperature values
                 'max_temperature': 'max'  # Maximum of the maximum temperature values
             })
 
-        self.data = self.data.round(1)
+        climate_dataframe = climate_dataframe.round(1)
 
+        return climate_dataframe
 
 
     def _fetch_climate_data(self, location: Point, start_date: datetime, end_date: datetime):
@@ -158,17 +163,53 @@ class ClimateDataMeteoStat:
         return datetime.strptime(date, date_format)
 
 
-    def __str__(self):
-        return str(self.data)
+    def _generate_cache_key(self, location):
+        return f"{location}_{self._delta}"
 
 
-
-    def equals(self, other):
+    def _add_cache_climate(self, location: str, data: pd.DataFrame) -> None:
         """
-        Define equality as the .data attribute being equal to the provided DataFrame with a rounding error of 0.01
+        Add the climate data to the cache. If key already exists only add missing rows
         """
-        try:
-            pd.testing.assert_frame_equal(self.data, other, check_exact=False, atol=0.01)
-            return True
-        except AssertionError:
-            return False
+        cache = get_cache()
+        cache_key = self._generate_cache_key(location)
+        cache_data = cache.get(cache_key)
+        # If there are already values for the key merge the new data with the old data
+        if cache_data is not None:
+            data = pd.concat([cache_data, data]).drop_duplicates(subset='time_period')
+        cache.set(cache_key, data)
+
+
+    def _get_cache_climate(self, location: str, start_date: str, end_date: str) -> pd.DataFrame|None:
+        """
+        Get the climate data from the cache only if all date from start to end are present
+        """
+        cache = get_cache()
+        cache_key = self._generate_cache_key(location)
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            date_list = self._make_date_range(start_date, end_date)
+            time_period_set = set(cached_data['time_period'])
+            if all(date in time_period_set for date in date_list):
+                return cached_data[cached_data['time_period'].isin(date_list)]
+        return None
+
+
+    def _make_date_range(self, start_date: str, end_date: str) -> list:
+        """
+        Get list of dates between start and end date
+        """
+        if self._delta == 'day':
+            date_range = pd.date_range(start=start_date, end=end_date)
+            return [date.strftime('%Y-%m-%d').replace('-0', '-') for date in date_range]
+        elif self._delta == 'week':
+            start_week = pd.to_datetime(start_date + '-1', format='%Y-W%W-%w')
+            end_week = pd.to_datetime(end_date + '-1', format='%Y-W%W-%w')
+            date_range = pd.date_range(start=start_week, end=end_week, freq='W-MON')
+            return [f'{date.isocalendar()[0]}-W{date.isocalendar()[1]}' for date in date_range]
+        elif self._delta == 'month':
+            date_range = pd.date_range(start=start_date, end=end_date, freq='MS')
+            return [date.strftime('%Y-%m').replace('-0', '-') for date in date_range]
+        elif self._delta == 'year':
+            return [str(year) for year in range(int(start_date), int(end_date) + 1)]
+
