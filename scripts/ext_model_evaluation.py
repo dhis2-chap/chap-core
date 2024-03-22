@@ -1,13 +1,13 @@
 import pandas as pd
 import typer
-from climate_health.assessment.dataset_splitting import split_test_train_on_period
+from climate_health.assessment.dataset_splitting import split_test_train_on_period, get_split_points_for_data_set
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
 from climate_health.datatypes import ClimateHealthTimeSeries
 # from climate_health.external.external_model import ExternalModel
 from climate_health.predictor.naive_predictor import MultiRegionNaivePredictor
 from climate_health.reports import HTMLReport
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from tests.test_external_model_evaluation_acceptance import get_split_points_for_data_set, ExternalModelMock
+from tests.test_external_model_evaluation_acceptance import ExternalModelMock
 from climate_health.dataset import IsSpatioTemporalDataSet
 
 
