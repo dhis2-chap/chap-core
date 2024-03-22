@@ -7,5 +7,6 @@ models = __all__
 
 ModelType = Literal['MultiRegionPoissonModel', 'MultiRegionNaivePredictor']
 
-def get_model(model_name: Literal[*models]):
+
+def get_model(model_name: ModelType):
     return globals()[model_name]
