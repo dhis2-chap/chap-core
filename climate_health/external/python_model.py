@@ -48,9 +48,7 @@ class ExternalPythonModel:
                     f"{future_climate_data_file.name} {output_file.name}")
         output = run_command(command)
         results = SpatioTemporalDict.from_csv(output_file.name, HealthData)
-
         train_data_file.close()
         future_climate_data_file.close()
         output_file.close()
         return results
-

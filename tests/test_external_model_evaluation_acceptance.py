@@ -78,8 +78,8 @@ class ExternalModelMock:
 
 # @pytest.mark.xfail
 def test_external_model_evaluation(python_script_filename, dataset_name, output_filename, load_data_func):
-    external_model = ExternalModelMock(python_script_filename, adaptors=None)
-    # external_model = ExternalPythonModel(python_script_filename, adaptors=None)
+    #external_model = ExternalModelMock(python_script_filename, adaptors=None)
+    external_model = ExternalPythonModel(python_script_filename, adaptors=None)
     data_set = load_data_func(dataset_name)
     evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=5)

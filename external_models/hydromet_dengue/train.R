@@ -1,15 +1,19 @@
 args = commandArgs(trailingOnly=TRUE)
 data_filename = args[1]
 output_model_filename = args[2]
+map_graph_file = args[3]
 #data_filename = 'training_data_til_2005.csv'
 #output_model_filename = "output/model1_config.RData"
-source("common_things.R")
+source("external_models/hydromet_dengue/common_things.R")
 
 inla.setOption(num.threads = "4:1")
 formula <- Y ~ 1 +
   f(T1, replicate = S2, model = "rw1", scale.model = TRUE, cyclic = TRUE,
     constr = TRUE, hyper = precision.prior) +
-  f(S1, model = "bym2", replicate = T2, graph = "output/map.graph",
+  f(S1, model = "bym2", replicate = T2,
+   #graph = "output/map.graph",
+   graph = map_graph_file,
+
     scale.model = TRUE, hyper = precision.prior) +
   basis_tmin + basis_pdsi + urban_basis1_pdsi + Vu
 
