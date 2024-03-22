@@ -186,3 +186,26 @@ def test_make_test_range_yearly():
     date_range = climate_lookup._make_date_range(start_date, end_date)
 
     assert date_range == ['2010', '2011', '2012']
+
+
+def test_fetch_climate_data():
+    location = Point(48.8534, 2.3488, 0)
+    start_date = datetime(2010, 1, 1, 0, 0)
+    end_date = datetime(2010, 1, 3, 0, 0)
+
+    climate_data = ClimateDataMeteoStat()
+    climate_data._delta = 'day'
+    climate_dataframe = climate_data._fetch_climate_data(location, start_date, end_date)
+
+    print(climate_dataframe)
+    data = pd.DataFrame(
+        {
+            "rainfall": [0.3, 0.0, 0.0],
+            "mean_temperature": [1.4, 1.4, 0.8],
+            "max_temperature": [3.0, 4.0, 5.2],
+        }
+    )
+
+    data = data.set_index(pd.date_range(start_date, end_date, freq='D'))
+
+    assert climate_dataframe.equals(data)
