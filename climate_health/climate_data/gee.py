@@ -1,5 +1,6 @@
 from .external import ee
-from ..datatypes import ClimateData, Location, TimePeriod, Shape
+from ..datatypes import ClimateData, Location, Shape
+from ..time_period import TimePeriod
 from ..services.cache_manager import get_cache
 from ..time_period import Month, Day
 from ..time_period.dataclasses import Month as MonthDataclass, Day as DayDataclass
