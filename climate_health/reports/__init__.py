@@ -12,9 +12,17 @@ class HTMLReport:
 
     @classmethod
     def from_results(cls, results: dict[str, ResultType]) -> 'HTMLReport':
-        plotting_data = pd.concat(results.values(), keys=results.keys(), names=['model']).reset_index()
+        plotting_data = cls._prepare_plotting_data(results)
         figs = cls._make_charts(plotting_data=plotting_data)
         return cls(figs)
+
+    @classmethod
+    def _prepare_plotting_data(cls, results: dict[str, ResultType]) -> pd.DataFrame:
+        plotting_data = pd.concat(results.values(), keys=results.keys(), names=['model']).reset_index()
+        plotting_data["period"] = pd.to_datetime(plotting_data["period"])
+        plotting_data["month"] = plotting_data["period"].dt.month
+        plotting_data["week"] = plotting_data["period"].dt.isocalendar().week
+        return plotting_data
 
     def save(self, filename: str):
         if not os.path.exists(os.path.dirname(filename)):
@@ -25,8 +33,10 @@ class HTMLReport:
 
     @staticmethod
     def _make_charts(plotting_data: pd.DataFrame):
-        across_time_periods_report = px.violin(plotting_data, x='period', y='mae', color='model', box=True,
-                                               points="all", title="MAE across time periods")
-        across_locations_report = px.violin(plotting_data, x='location', y='mae', color='model', box=True,
-                                            points="all", title="MAE across locations")
-        return across_time_periods_report, across_locations_report
+        for category in ['period', 'location', 'month', 'week']:
+            yield HTMLReport._make_violin_plot(plotting_data, category)
+        
+    @classmethod
+    def _make_violin_plot(cls, plotting_data: pd.DataFrame, category: str) -> go.Figure:
+        return px.violin(plotting_data, x=category, y='mae', color='model', box=True, points="all",
+                         title=f"MAE across {category}")
