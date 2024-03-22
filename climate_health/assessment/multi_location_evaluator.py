@@ -1,20 +1,19 @@
 from typing import List
 import pandas as pd
 import numpy as np
-from ruamel.yaml.timestamp import TimeStamp
 from sklearn.metrics import mean_absolute_error
 
 from climate_health.dataset import IsSpatioTemporalDataSet
-from climate_health.datatypes import HealthData, ResultType
+from climate_health.datatypes import HealthData, ResultType, SummaryStatistics
 
 
 class MultiLocationEvaluator:
-    def __init__(self, model_names: List[str], truth: IsSpatioTemporalDataSet[HealthData]):
+    def __init__(self, model_names: List[str], truth: IsSpatioTemporalDataSet):
         self.model_names = model_names
         self.truth = truth
         self.predictions = {model_name: [] for model_name in model_names}
 
-    def add_predictions(self, model_name: str, predictions: IsSpatioTemporalDataSet[HealthData]):
+    def add_predictions(self, model_name: str, predictions: IsSpatioTemporalDataSet):
         self.predictions[model_name].append(predictions)
         return self
 
@@ -32,11 +31,21 @@ class MultiLocationEvaluator:
                     location_mask = (truth_df['location'] == location)
                     time_mask = truth_df['time_period'] == pred_time.topandas()
                     true = truth_df.loc[location_mask & time_mask]
-                    if self.check_data(true.disease_cases, pred.disease_cases):
-                        mae = mean_absolute_error(true.disease_cases, pred.disease_cases)
-                        model_results.append([location, str(pred_time.topandas()), mae])
 
-            results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae'])
+                    if isinstance(pred, SummaryStatistics):
+                        if self.check_data(true.disease_cases, pred.median):
+                            mae = mean_absolute_error(true.disease_cases, pred.median)
+                            model_results.append([location, str(pred_time.topandas()), mae] + [float(x) for x in [pred.mean, pred.std, pred.median, pred.min, pred.max, pred.quantile_low, pred.quantile_high]])
+
+                    elif isinstance(pred, HealthData):
+                        if self.check_data(true.disease_cases, pred.disease_cases):
+                            mae = mean_absolute_error(true.disease_cases, pred.disease_cases)
+                            model_results.append([location, str(pred_time.topandas()), mae])
+
+            if isinstance(pred, SummaryStatistics):
+                results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae', 'mean', 'std', 'median', 'min', 'max', 'quantile_low', 'quantile_high'])
+            elif isinstance(pred, HealthData):
+                results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae'])
 
         return results
 
