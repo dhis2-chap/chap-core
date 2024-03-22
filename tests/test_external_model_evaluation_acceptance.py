@@ -5,6 +5,7 @@ from climate_health.assessment.dataset_splitting import split_test_train_on_peri
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
+from climate_health.external.external_model import ExternalCommandLineModel
 from climate_health.file_io.load import load_data_set
 from climate_health.reports import HTMLReport
 from climate_health.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor, MultiRegionPoissonModel
