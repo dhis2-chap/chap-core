@@ -56,7 +56,7 @@ class LocationLookup:
         if self._get_cache_location(location_name):
             return Location(self.dict_location[location_name].latitude, self.dict_location[location_name].longitude)
 
-        if self._get_cache_location(location_name):
+        if self._fetch_location(location_name):
             return Location(self.dict_location[location_name].latitude, self.dict_location[location_name].longitude)
 
         raise KeyError(location_name)
