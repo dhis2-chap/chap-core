@@ -84,7 +84,6 @@ train_command = "Rscript external_models/hydromet_dengue/train.R {train_data} {m
 setup_command = "Rscript external_models/hydromet_dengue/setup.R"
 predict_command = "Rscript external_models/hydromet_dengue/predict.R {future_data} {model}"
 
-
 model = ExternalCommandLineModel(
     name='r_env',
     train_command=train_command,
