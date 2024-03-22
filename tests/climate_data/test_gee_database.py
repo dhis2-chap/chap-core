@@ -28,7 +28,6 @@ def test_era5_daily():
     full_data.to_csv('climate_data_daily.csv')
 
 
-@pytest.mark.skip('ee not supported')
 def test_get_data(mocker):
     mocker.patch('climate_health.climate_data.gee.ee.Initialize')
     mocker.patch('climate_health.climate_data.gee.ee.Authenticate')
@@ -54,8 +53,8 @@ def test_get_data(mocker):
     database = ERA5DataBase()
 
     test_region = Location(longitude=123.45, latitude=54.321)
-    test_start = TimePeriod.from_string("2020-03-15")
-    test_end = TimePeriod.from_string("2021-03-15")
+    test_start = TimePeriod.parse("2020-03-15")
+    test_end = TimePeriod.parse("2021-03-15")
 
     result = database.get_data(test_region, test_start, test_end)
 
