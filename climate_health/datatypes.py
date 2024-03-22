@@ -118,4 +118,15 @@ class Location(Shape):
     longitude: float
 
 
+
+@tsdataclass
+class SummaryStatistics(TimeSeriesData):
+    mean: float
+    median: float
+    std: float
+    min: float
+    max: float
+    quantile_low: float
+    quantile_high: float
+
 ResultType = pd.DataFrame
