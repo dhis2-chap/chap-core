@@ -1,7 +1,10 @@
 import os
+import shutil
 from pathlib import Path
 
 import pytest
+
+from climate_health.services.cache_manager import get_cache
 
 
 @pytest.fixture
@@ -14,3 +17,6 @@ def use_test_cache():
     os.environ['TEST_ENV'] = 'true'
     yield
     del os.environ['TEST_ENV']
+    cache = get_cache()
+    cache.close()
+    shutil.rmtree(cache.directory, ignore_errors=True)
