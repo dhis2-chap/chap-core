@@ -1,13 +1,10 @@
 import pandas as pd
 import pytest
 
-from climate_health.assessment.dataset_splitting import split_test_train_on_period, get_split_points_for_data_set
-from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
+from climate_health.assessment.prediction_evaluator import evaluate_model
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
 from climate_health.external.external_model import ExternalCommandLineModel
-from climate_health.reports import HTMLReport
-from climate_health.predictor.naive_predictor import MultiRegionPoissonModel
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from . import EXAMPLE_DATA_PATH, TEST_PATH
 
@@ -79,24 +76,9 @@ class ExternalModelMock:
 def test_external_model_evaluation(dataset_name, output_filename, load_data_func, external_predictive_model):
     external_model = external_predictive_model
     data_set = load_data_func(dataset_name)
-    evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
-    split_points = get_split_points_for_data_set(data_set, max_splits=5, start_offset=19)
-
-    for (train_data, future_truth, future_climate_data) in split_test_train_on_period(data_set, split_points,
-                                                                                      future_length=None,
-                                                                                      include_future_weather=True):
-        external_model.setup()
-        external_model.train(train_data)
-        predictions = external_model.predict(future_climate_data)
-        evaluator.add_predictions('external_model', predictions)
-        naive_predictor = MultiRegionPoissonModel()
-        naive_predictor.train(train_data)
-        naive_predictions = naive_predictor.predict(future_climate_data)
-        evaluator.add_predictions('naive_model', naive_predictions)
-
-    results = evaluator.get_results()
-    report = HTMLReport.from_results(results)
+    report = evaluate_model(data_set, external_model)
     report.save(output_filename)
+
 
 @pytest.fixture()
 def external_predictive_model(python_model_predict_command, python_model_train_command):
