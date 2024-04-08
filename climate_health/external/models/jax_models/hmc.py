@@ -1,5 +1,4 @@
-import blackjax
-import jax
+from .jax import jax, blackjax
 
 
 def inference_loop(rng_key, kernel, initial_state, num_samples):

@@ -23,7 +23,7 @@ def jax():
 def pm():
     try:
         import pymc3 as pm
-    except ImportError:
+    except:
         pytest.skip("pymc3 is not installed")
     return pm
 
