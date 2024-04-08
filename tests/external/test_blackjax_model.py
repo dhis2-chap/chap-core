@@ -50,6 +50,7 @@ def init_values(jax):
 def model(simple_priors, init_values):
     return RegressionModel(simple_priors, init_values, num_warmup=100, num_samples=100)
 
+
 @pytest.fixture()
 def hierarchical_model(simple_priors, init_values):
     return HierarchicalRegressionModel(num_warmup=100, num_samples=100)
@@ -70,16 +71,19 @@ def test_blackjax_model_predict(model, train_data, test_data):
     model.train(train_data)
     model.predict(future_data)
 
+
 def test_hierarchical_model_predict(hierarchical_model, train_data, test_data):
     truth, future_data = test_data
     hierarchical_model.train(train_data)
     hierarchical_model.predict(future_data)
 
-def test_ssm_train(train_data, test_data):
+
+def test_ssm_train(train_data, test_data, jax, blackjax):
     model = SSM()
     model.train(train_data)
 
-def test_ssm_test(train_data, test_data):
+
+def test_ssm_test(train_data, test_data, jax, blackjax):
     truth, future_data = test_data
     model = SSM()
     model.train(train_data)
