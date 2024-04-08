@@ -33,8 +33,12 @@ def plot_rmse(rmse_dict, do_show=True):
     return fig
 
 
-def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, return_table=False):
-    evaluator = MultiLocationEvaluator(model_names=['external_model', 'naive_model'], truth=data_set)
+def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, return_table=False, naive_model_cls=None):
+    if naive_model_cls is None:
+        naive_model_cls = MultiRegionPoissonModel
+    model_name = external_model.__class__.__name__
+    naive_model_name = naive_model_cls.__name__
+    evaluator = MultiLocationEvaluator(model_names=[model_name, naive_model_name], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=max_splits, start_offset=start_offset)
     for (train_data, future_truth, future_climate_data) in split_test_train_on_period(data_set, split_points,
                                                                                       future_length=None,
@@ -44,11 +48,11 @@ def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, retu
         external_model.train(train_data)
         predictions = external_model.predict(future_climate_data)
         print(predictions)
-        evaluator.add_predictions('external_model', predictions)
-        naive_predictor = MultiRegionPoissonModel()
+        evaluator.add_predictions(model_name, predictions)
+        naive_predictor = naive_model_cls()
         naive_predictor.train(train_data)
         naive_predictions = naive_predictor.predict(future_climate_data)
-        evaluator.add_predictions('naive_model', naive_predictions)
+        evaluator.add_predictions(naive_model_name, naive_predictions)
     results = evaluator.get_results()
     HTMLReport.error_measure = 'mle'
     report = HTMLReport.from_results(results)
