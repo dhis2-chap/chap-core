@@ -1,6 +1,6 @@
 from functools import partial
 
-from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData
+from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from .hmc import sample
 from .jax import jax, PRNGKey, stats, jnp
@@ -46,8 +46,16 @@ class SSM:
         assert not jnp.isnan(last_pdf)
 
     def predict(self, data: SpatioTemporalDict[ClimateData]):
-        pass
+        last_params = extract_last(self._sampled_params)
+        predictions = {}
+        for location, local_data in data.items():
+            time_period = data.get_location(location).data().time_period[:1]
+            log_infected = last_params['log_infected'][location]
+            log_observation_rate = last_params['log_observation_rate'][location]
+            rate = jnp.exp(log_infected[-1:] + log_observation_rate)
+            predictions[location] = HealthData(time_period, jnp.exp(rate))
 
+        return SpatioTemporalDict(predictions)
 
 
 def extract_last(samples):

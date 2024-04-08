@@ -78,3 +78,9 @@ def test_hierarchical_model_predict(hierarchical_model, train_data, test_data):
 def test_ssm_train(train_data, test_data):
     model = SSM()
     model.train(train_data)
+
+def test_ssm_test(train_data, test_data):
+    truth, future_data = test_data
+    model = SSM()
+    model.train(train_data)
+    model.predict(future_data)
