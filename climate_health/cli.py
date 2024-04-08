@@ -6,7 +6,7 @@ from cyclopts import App
 from climate_health.predictor import get_model, models, ModelType
 from climate_health.file_io.example_data_set import datasets, DataSetType
 from .assessment.prediction_evaluator import evaluate_model
-
+import logging
 app = App()
 
 
@@ -15,6 +15,7 @@ def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int):
     '''
     Evaluate a model on a dataset using forecast cross validation
     '''
+    logging.basicConfig(level=logging.INFO)
     dataset = datasets[dataset_name].load()
     model = get_model(model_name)()
     results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True)

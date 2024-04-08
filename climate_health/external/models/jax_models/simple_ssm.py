@@ -14,6 +14,8 @@ class SSM:
 
     def __init__(self):
         self._initial_params = {'infected_decay': 0.9, 'beta_temp': 0.1}
+        self._prior = {'infected_decay': partial(stats.norm.logpdf, loc=0.9, scale=0.1),
+                       'beta_temp': partial(stats.norm.logpdf, loc=0.1, scale=0.1)}
 
     def _log_infected_dist(self, params, prev_log_infected, mean_temp):
         mu = prev_log_infected * params['infected_decay'] + params['beta_temp'] * mean_temp
@@ -44,7 +46,7 @@ class SSM:
             return sum(obs_pdf)
 
         logpdf(self._initial_params)
-        self._sampled_params = sample(logpdf, PRNGKey(0), init_params, 10, 10)
+        self._sampled_params = sample(logpdf, PRNGKey(0), init_params, 10, 100)
         print(self._sampled_params)
         last_pdf = logpdf(extract_last(self._sampled_params))
         assert not jnp.isnan(last_pdf)
