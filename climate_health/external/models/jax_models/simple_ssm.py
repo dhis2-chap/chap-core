@@ -5,6 +5,9 @@ from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTempora
 from .hmc import sample
 from .jax import jax, PRNGKey, stats, jnp
 from .regression_model import remove_nans
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SSM:
@@ -13,10 +16,11 @@ class SSM:
         self._initial_params = {'infected_decay': 0.9, 'beta_temp': 0.1}
 
     def _log_infected_dist(self, params, prev_log_infected, mean_temp):
-        mu = prev_log_infected*params['infected_decay'] + params['beta_temp']*mean_temp
+        mu = prev_log_infected * params['infected_decay'] + params['beta_temp'] * mean_temp
         return partial(stats.norm.logpdf, loc=mu, scale=1)
 
     def train(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]):
+        logger.info(f"Training model with {len(data)} locations")
         data = {name: remove_nans(data.data())
                 for name, data in data.items()}
         init_params = self._initial_params
@@ -32,7 +36,7 @@ class SSM:
                 obs_pdf.append(
                     stats.poisson.logpmf(local_data.disease_cases, rate).sum())
                 infected_dist = self._log_infected_dist(params, params['log_infected'][location][:-1],
-                                               local_data.mean_temperature[:-1])
+                                                        local_data.mean_temperature[:-1])
                 infected_pdf = infected_dist(params['log_infected'][location][1:]).sum()
 
                 state_pdf.append(infected_pdf)
