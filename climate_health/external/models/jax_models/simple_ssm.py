@@ -1,6 +1,6 @@
 from functools import partial
 
-from climate_health.datatypes import ClimateHealthTimeSeries
+from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from .hmc import sample
 from .jax import jax, PRNGKey, stats, jnp
@@ -44,6 +44,10 @@ class SSM:
         print(self._sampled_params)
         last_pdf = logpdf(extract_last(self._sampled_params))
         assert not jnp.isnan(last_pdf)
+
+    def predict(self, data: SpatioTemporalDict[ClimateData]):
+        pass
+
 
 
 def extract_last(samples):
