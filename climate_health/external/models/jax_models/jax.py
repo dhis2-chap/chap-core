@@ -6,4 +6,4 @@ try:
     import jax
     import blackjax
 except ImportError as e:
-    jax, jnp, stats, PRNGKey = (None, None, None, None)
+    jax, jnp, stats, PRNGKey, blackjax = (None, None, None, None, None)

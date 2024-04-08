@@ -40,12 +40,13 @@ class MultiLocationEvaluator:
                     elif isinstance(pred, HealthData):
                         if self.check_data(true.disease_cases, pred.disease_cases):
                             mae = mean_absolute_error(true.disease_cases, pred.disease_cases)
-                            model_results.append([location, str(pred_time.topandas()), mae])
+                            mle = np.log(pred.disease_cases)-np.log(true.disease_cases)
+                            model_results.append([location, str(pred_time.topandas()), mae, mle])
 
             if isinstance(pred, SummaryStatistics):
                 results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae', 'mean', 'std', 'median', 'min', 'max', 'quantile_low', 'quantile_high'])
             elif isinstance(pred, HealthData):
-                results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae'])
+                results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae', 'mle'])
 
         return results
 
