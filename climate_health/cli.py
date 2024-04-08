@@ -9,6 +9,7 @@ from .assessment.prediction_evaluator import evaluate_model
 
 app = App()
 
+
 @app.command()
 def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int):
     '''
@@ -17,11 +18,12 @@ def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int):
     dataset = datasets[dataset_name].load()
     model = get_model(model_name)()
     results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True)
-    output_filename= PurePath(f'./{model_name}_{dataset_name}_results.html')
-    table_filename = output_filename.with_suffix('.csv')
+    output_filename = f'./{model_name}_{dataset_name}_results.html'
+    table_filename = PurePath(output_filename).with_suffix('.csv')
     results.save(output_filename)
     table.to_csv(table_filename)
     webbrowser.open(output_filename)
+
 
 def main_function():
     '''
@@ -37,8 +39,6 @@ def main_function():
 
 def main():
     app()
-    # typer.run(evaluate)
-    print("Yay! You managed to run the main function!")
 
 
 if __name__ == "__main__":

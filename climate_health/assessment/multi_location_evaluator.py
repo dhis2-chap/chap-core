@@ -17,6 +17,9 @@ class MultiLocationEvaluator:
         self.predictions[model_name].append(predictions)
         return self
 
+    def _mle(self, true, pred):
+        return np.log(pred+1)-np.log(true+1)
+
     def get_results(self) -> dict[str, ResultType]:
         truth_df = self.truth.to_pandas()
         results = {}
@@ -35,16 +38,17 @@ class MultiLocationEvaluator:
                     if isinstance(pred, SummaryStatistics):
                         if self.check_data(true.disease_cases, pred.median):
                             mae = mean_absolute_error(true.disease_cases, pred.median)
-                            model_results.append([location, str(pred_time.topandas()), mae] + [float(x) for x in [pred.mean, pred.std, pred.median, pred.min, pred.max, pred.quantile_low, pred.quantile_high]])
+                            mle = self._mle(true.disease_cases, pred.median)
+                            model_results.append([location, str(pred_time.topandas()), mae, mle] + [float(x) for x in [pred.mean, pred.std, pred.median, pred.min, pred.max, pred.quantile_low, pred.quantile_high]])
 
                     elif isinstance(pred, HealthData):
                         if self.check_data(true.disease_cases, pred.disease_cases):
                             mae = mean_absolute_error(true.disease_cases, pred.disease_cases)
-                            mle = np.log(pred.disease_cases)-np.log(true.disease_cases)
+                            mle = np.log(pred.disease_cases[0] + 1) - np.log(true.disease_cases.values[0] + 1)
                             model_results.append([location, str(pred_time.topandas()), mae, mle])
 
             if isinstance(pred, SummaryStatistics):
-                results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae', 'mean', 'std', 'median', 'min', 'max', 'quantile_low', 'quantile_high'])
+                results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae', 'mle', 'mean', 'std', 'median', 'min', 'max', 'quantile_low', 'quantile_high'])
             elif isinstance(pred, HealthData):
                 results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae', 'mle'])
 

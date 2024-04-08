@@ -1,6 +1,6 @@
 from sklearn.metrics import  root_mean_squared_error
+import pandas as pd
 import plotly.express as px
-
 from climate_health.assessment.dataset_splitting import get_split_points_for_data_set, split_test_train_on_period
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
 from climate_health.predictor.naive_predictor import MultiRegionPoissonModel
@@ -50,7 +50,11 @@ def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, retu
         naive_predictions = naive_predictor.predict(future_climate_data)
         evaluator.add_predictions('naive_model', naive_predictions)
     results = evaluator.get_results()
+    HTMLReport.error_measure = 'mle'
     report = HTMLReport.from_results(results)
     if return_table:
+        for name, t in results.items():
+            t['model'] = name
+        results = pd.concat(results.values())
         return report, results
     return report
