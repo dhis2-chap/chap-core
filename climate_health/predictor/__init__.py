@@ -5,7 +5,7 @@ from ..external.models import models as external_models
 __all__ = ['MultiRegionPoissonModel', 'MultiRegionNaivePredictor']
 models = __all__
 
-ModelType = Literal['MultiRegionPoissonModel', 'MultiRegionNaivePredictor', 'RegressionModel']
+ModelType = Literal['MultiRegionPoissonModel', 'MultiRegionNaivePredictor', 'RegressionModel', 'HierarchicalRegressionModel']
 
 
 def get_model(model_name: ModelType):

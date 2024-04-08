@@ -17,7 +17,7 @@ def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int):
     '''
     dataset = datasets[dataset_name].load()
     model = get_model(model_name)()
-    results = evaluate_model(dataset, model, max_splits)
+    results = evaluate_model(dataset, model, max_splits, start_offset=24)
     output_filename= f'./{model_name}_{dataset_name}_results.html'
     print(output_filename)
     results.save(output_filename)

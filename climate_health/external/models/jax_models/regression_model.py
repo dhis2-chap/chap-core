@@ -29,7 +29,7 @@ def init_values():
 
 class RegressionModel:
 
-    def __init__(self, priors: Optional[dict]= None, initial_params=None, num_warmup=100, num_samples=300):
+    def __init__(self, priors: Optional[dict] = None, initial_params=None, num_warmup=100, num_samples=300):
 
         self._param_samples = None
         if priors is None:
@@ -41,11 +41,17 @@ class RegressionModel:
         self._num_warmup = num_warmup
         self._num_samples = num_samples
 
-    def _get_rate(self, params, data, season, disease_cases):
+    def _default_prior(self):
+        return simple_priors()
+
+    def _default_init_values(self):
+        return init_values()
+
+    def _get_rate(self, params, data, season, disease_cases, location=None):
         temp_part = params['beta_temp'] * data.mean_temperature
-        lag_part = params['beta_lag'] * disease_cases
+        lag_part = params['beta_lag'] * jnp.log(disease_cases)
         season_part = params['beta_season'][season]
-        return temp_part + lag_part + season_part
+        return jnp.exp(temp_part + lag_part + season_part)
 
     def train(self, st_data: SpatioTemporalDict):
 
@@ -61,7 +67,7 @@ class RegressionModel:
             prior_pdf = [jnp.sum(self._priors[name](params[name])) for name in self._priors]
             for i, (data, season) in enumerate(zip(data_list, seasons)):
                 rate = self._get_rate(params, data[1:], season[1:],
-                                      data.disease_cases[:-1])  # temp_part + lag_part + season_part
+                                      data.disease_cases[:-1], i)  # temp_part + lag_part + season_part
                 obs_pdf = stats.poisson.logpmf(
                     data.disease_cases[1:], rate).sum()
             return sum(prior_pdf) + obs_pdf
@@ -78,9 +84,27 @@ class RegressionModel:
         data_list = [location_data.data()[:1] for location_data in st_data.data()]
         seasons = [np.array([period.month for period in data.time_period]) for data in data_list]
         predictions = []
-        for location, data, season in zip(location_names, data_list, seasons):
-            rate = self._get_rate(params, data, season, self._state[location])
+        for i, (location, data, season) in enumerate(zip(location_names, data_list, seasons)):
+            rate = self._get_rate(params, data, season, self._state[location], i)
             predictions.append(HealthData(data.time_period, rate))
         print(predictions)
         return SpatioTemporalDict(
             {location: prediction for location, prediction in zip(st_data.locations(), predictions)})
+
+
+class HierarchicalRegressionModel(RegressionModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._priors['location_offset']= partial(jax.scipy.stats.norm.logpdf, 0, 1)
+
+    def train(self, st_data: SpatioTemporalDict):
+        self._initial_params['location_offset'] = jnp.zeros(len(st_data.locations()))
+        super().train(st_data)
+
+    def _get_rate(self, params, data, season, disease_cases, location=None):
+        temp_part = params['beta_temp'] * data.mean_temperature
+        lag_part = params['beta_lag'] * jnp.log(disease_cases)
+        season_part = params['beta_season'][season]
+        location_part = params['location_offset'][location]
+        return jnp.exp(temp_part + lag_part + season_part+location_part)
+

@@ -5,7 +5,7 @@ import pytest
 
 from climate_health.assessment.dataset_splitting import train_test_split_with_weather
 from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.external.models.jax_models.regression_model import RegressionModel
+from climate_health.external.models.jax_models.regression_model import RegressionModel, HierarchicalRegressionModel
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period import Month
 
@@ -35,6 +35,10 @@ def test_blackjax_model_train(blackjax, jax, train_data, model):
     model.train(train_data)
 
 
+def test_hierarchical_model_train(blackjax, jax, train_data, hierarchical_model):
+    hierarchical_model.train(train_data)
+
+
 @pytest.fixture()
 def init_values(jax):
     jnp = jax.numpy
@@ -44,6 +48,10 @@ def init_values(jax):
 @pytest.fixture()
 def model(simple_priors, init_values):
     return RegressionModel(simple_priors, init_values, num_warmup=100, num_samples=100)
+
+@pytest.fixture()
+def hierarchical_model(simple_priors, init_values):
+    return HierarchicalRegressionModel(num_warmup=100, num_samples=100)
 
 
 @pytest.fixture()
@@ -60,3 +68,8 @@ def test_blackjax_model_predict(model, train_data, test_data):
     truth, future_data = test_data
     model.train(train_data)
     model.predict(future_data)
+
+def test_hierarchical_model_predict(hierarchical_model, train_data, test_data):
+    truth, future_data = test_data
+    hierarchical_model.train(train_data)
+    hierarchical_model.predict(future_data)
