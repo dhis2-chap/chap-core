@@ -2,15 +2,12 @@ from functools import partial
 from typing import Optional
 
 import numpy as np
-from jax.scipy import stats
-from jax.random import PRNGKey
-import jax.numpy as jnp
 
 from climate_health.dataset import ClimateData
 from climate_health.datatypes import HealthData
 from .hmc import sample
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-import jax
+from .jax import jax, PRNGKey, stats, jnp
 
 
 def simple_priors():
