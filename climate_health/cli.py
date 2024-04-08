@@ -1,4 +1,5 @@
 """Console script for climate_health."""
+import webbrowser
 from typing import Literal
 from cyclopts import App
 from climate_health.predictor import get_model, models, ModelType
@@ -10,17 +11,17 @@ import typer
 app = App()
 
 @app.command()
-def evaluate(model_name: ModelType, dataset_name: DataSetType):
+def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int):
     '''
     Evaluate a model on a dataset using forecast cross validation
     '''
     dataset = datasets[dataset_name].load()
     model = get_model(model_name)()
-    results = evaluate_model(dataset, model)
+    results = evaluate_model(dataset, model, max_splits)
     output_filename= f'./{model_name}_{dataset_name}_results.html'
     print(output_filename)
     results.save(output_filename)
-
+    webbrowser.open(output_filename)
 
 def main_function():
     '''

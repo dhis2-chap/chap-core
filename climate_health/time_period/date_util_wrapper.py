@@ -300,10 +300,12 @@ class PeriodRange:
 
     @classmethod
     def _check_consequtive(cls, time_delta, time_periods):
-        is_consec = (p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:]))
+        is_consec = [p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])]
         if not all(is_consec):
             print(f'Periods {time_periods}')
-            for wrong in np.where(is_consec)[0]:
+            mask = ~np.array(list(is_consec))
+            print(mask)
+            for wrong in np.flatnonzero(mask):
                 print(f'Wrong period {time_periods[wrong], time_periods[wrong+1]} with time delta {time_delta}')
                 print(time_periods[wrong] + time_delta, time_periods[wrong+1])
             raise ValueError(f'Periods must be consecutive.')
