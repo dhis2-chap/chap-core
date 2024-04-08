@@ -20,7 +20,7 @@ class SSM:
         return partial(stats.norm.logpdf, loc=mu, scale=1)
 
     def train(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]):
-        logger.info(f"Training model with {len(data)} locations")
+        logger.info(f"Training model with {len(data.locations())} locations")
         data = {name: remove_nans(data.data())
                 for name, data in data.items()}
         init_params = self._initial_params
