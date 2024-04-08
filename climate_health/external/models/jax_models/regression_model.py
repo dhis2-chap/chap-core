@@ -24,6 +24,13 @@ def init_values():
     return {'beta_temp': 0.1, 'beta_lag': 0.1, 'beta_season': jnp.full(12, 0.1)}
 
 
+def remove_nans(data):
+    nans = np.isnan(data.disease_cases)
+    first_non_nan = np.where(~nans)[0][0]
+    non_nan = data[first_non_nan:]
+    return non_nan
+
+
 class RegressionModel:
 
     def __init__(self, priors: Optional[dict] = None, initial_params=None, num_warmup=100, num_samples=300):
@@ -55,9 +62,8 @@ class RegressionModel:
         tmp_data_list = [location_data.data() for location_data in st_data.data()]
         data_list = []
         for data in tmp_data_list:
-            nans = np.isnan(data.disease_cases)
-            first_non_nan = np.where(~nans)[0][0]
-            data_list.append(data[first_non_nan:])
+            non_nan = remove_nans(data)
+            data_list.append(non_nan)
         seasons = [np.array([period.month for period in data.time_period]) for data in data_list]
 
         def logpdf(params):
