@@ -2,6 +2,8 @@
 import webbrowser
 from pathlib import PurePath
 from typing import Literal
+
+import pandas as pd
 from cyclopts import App
 from climate_health.predictor import get_model, models, ModelType
 from climate_health.file_io.example_data_set import datasets, DataSetType
@@ -9,6 +11,8 @@ from .assessment.prediction_evaluator import evaluate_model
 import logging
 app = App()
 
+def append_to_csv(file_object, data_frame: pd.DataFrame):
+    data_frame.to_csv(file_object, mode='a', header=False)
 
 @app.command()
 def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int, other_model: ModelType = None):
@@ -18,7 +22,9 @@ def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int, 
     logging.basicConfig(level=logging.INFO)
     dataset = datasets[dataset_name].load()
     model = get_model(model_name)()
-    results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True, naive_model_cls=get_model(other_model) if other_model else None)
+    f = open('debug.csv', 'w')
+    callback = lambda name, data: append_to_csv(f, data.to_pandas())
+    results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True, naive_model_cls=get_model(other_model) if other_model else None, callback=callback)
     output_filename = f'./{model_name}_{dataset_name}_results.html'
     table_filename = PurePath(output_filename).with_suffix('.csv')
     results.save(output_filename)
