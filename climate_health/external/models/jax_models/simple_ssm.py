@@ -106,7 +106,21 @@ class NaiveSSM:
         rate = jnp.exp(log_infected[-1:] + log_observation_rate)
         return rate
 
-    def prediction_summary(self, data: SpatioTemporalDict, num_samples: int=100):
+    def prediction_summary(self, data: SpatioTemporalDict, num_samples: int = 100):
+        self._key, param_key, sample_key = jax.random.split(self._key, 3)
+        n_sampled_params = array_tree_length(self._sampled_params)
+        param_idxs = jax.random.randint(param_key, (num_samples,), 0, n_sampled_params)
+        samples = defaultdict(list)
+        for i, key in zip(param_idxs, jax.random.split(sample_key, num_samples)):
+            param = extract_sample(i, self._sampled_params)
+            for location, local_data in data.items():
+                rate = self._get_rate(param, location)
+                samples[location].append(jax.random.poisson(key, rate))
+        time_period = next(iter(data.data())).data().time_period[:1]
+        summaries = {k: get_summary(time_period, s) for k, s in samples.items()}
+        return SpatioTemporalDict(summaries)
+
+    def forecast(self, data: SpatioTemporalDict[ClimateData], num_samples: int = 100):
         self._key, param_key, sample_key = jax.random.split(self._key, 3)
         n_sampled_params = array_tree_length(self._sampled_params)
         param_idxs = jax.random.randint(param_key, (num_samples,), 0, n_sampled_params)

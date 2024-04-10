@@ -58,9 +58,13 @@ class HTMLSummaryReport(HTMLReport):
     @classmethod
     def _prepare_plotting_data(cls, plotting_data) -> pd.DataFrame:
         plotting_data["period"] = pd.to_datetime(plotting_data["period"])
-        return cls._tidy_summary_table(plotting_data)
+        return plotting_data
+        # return cls._tidy_summary_table(plotting_data)
 
 
     @classmethod
     def _make_charts(cls, plotting_data: pd.DataFrame):
-        yield px.violin(plotting_data, x='period', y='value', color='model', facet_row='location', title='Summary statistics', points='all')
+        # mask = plotting_data['statistic'].isin(['quantile_low', 'quantile_high', 'true_value'])
+        plotting_data['error_minus'] = plotting_data['median'] - plotting_data['quantile_low']
+        plotting_data['error_plus'] = plotting_data['quantile_high'] - plotting_data['median']
+        yield px.scatter(plotting_data, x='location', y='median', error_y_minus='error_minus', error_y='error_plus', color='model', facet_row='period', title='Summary statistics')
