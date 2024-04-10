@@ -3,7 +3,7 @@ from functools import partial
 
 import numpy as np
 
-from climate_health.time_period.date_util_wrapper import TimeDelta
+from climate_health.time_period.date_util_wrapper import TimeDelta, delta_month
 from .util import extract_last, extract_sample, array_tree_length
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
@@ -146,7 +146,7 @@ class NaiveSSM:
         return SpatioTemporalDict(summaries)
 
     def forecast(self, data: SpatioTemporalDict[ClimateData], num_samples: int = 100,
-                 forecast_delta=TimeDelta) -> SpatioTemporalDict:
+                 forecast_delta: TimeDelta=3*delta_month) -> SpatioTemporalDict:
         self._key, param_key, sample_key = jax.random.split(self._key, 3)
         time_period = next(iter(data.data())).data().time_period
         n_periods = forecast_delta // time_period.delta

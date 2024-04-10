@@ -82,7 +82,8 @@ def test_external_model_evaluation(dataset_name, output_filename, load_data_func
     report.save(output_filename)
 
 
-def test_summary_model_evaluation(dataset_name, output_filename, load_data_func):
+@pytest.mark.parametrize('mode', ['forecast'])
+def test_summary_model_evaluation(dataset_name, output_filename, load_data_func, mode):
     summary_model = SSM()
     model_class = SSMWithLinearEffect
     SSM.n_warmup = 10
@@ -90,11 +91,10 @@ def test_summary_model_evaluation(dataset_name, output_filename, load_data_func)
     data_set = load_data_func(dataset_name)
     report, table = evaluate_model(data_set, summary_model,
                                    max_splits=2, naive_model_cls=model_class,
-                                   mode='prediction_summary', return_table=True)
+                                   mode=mode, return_table=True)
     table.to_csv('tmp.csv')
     for report in report.report:
         report.show()
-    # report.save(output_filename)
 
 
 @pytest.fixture()
