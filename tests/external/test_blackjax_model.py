@@ -9,6 +9,7 @@ from climate_health.external.models.jax_models.regression_model import Regressio
 from climate_health.external.models.jax_models.simple_ssm import SSM
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period import Month
+from climate_health.time_period.date_util_wrapper import delta_month
 
 
 @pytest.fixture()
@@ -89,10 +90,24 @@ def test_ssm_predict(train_data, test_data, jax, blackjax):
     model.train(train_data)
     model.predict(future_data)
 
-def test_ssm_summary(train_data,test_data, jax, blackjax):
+def test_ssm_summary(trained_model, test_data, jax, blackjax):
     truth, future_data = test_data
-    model = SSM()
-    model.n_warmup = 20
-    model.train(train_data)
-    summaries = model.prediction_summary(future_data, 10)
+    trained_model
+    summaries = trained_model.prediction_summary(future_data, 10)
     assert isinstance(summaries, SpatioTemporalDict)
+
+def test_ssm_forecast(trained_model, test_data, jax, blackjax):
+    truth, future_data = test_data
+    forecasts = trained_model.forecast(future_data, 10, forecast_delta = 2*delta_month)
+    for location, forecast in forecasts.items():
+        assert len(forecast.data().time_period) == 2
+
+
+
+
+@pytest.fixture()
+def trained_model(train_data) -> SSM:
+    model = SSM()
+    model.n_warmup = 10
+    model.train(train_data)
+    return model

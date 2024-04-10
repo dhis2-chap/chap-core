@@ -182,6 +182,9 @@ class TimeDelta(DateUtilWrapper):
     def __mul__(self, other: int):
         return self.__class__(self._relative_delta * other)
 
+    def __rmul__(self, other: int):
+        return self.__mul__(other)
+
     def _n_months(self):
         return self._relative_delta.months + 12 * self._relative_delta.years
 
@@ -203,6 +206,10 @@ class PeriodRange:
         self._start_timestamp = start_timestamp
         self._end_timestamp = end_timestamp
         self._time_delta = time_delta
+
+    @property
+    def delta(self):
+        return self._time_delta
 
     @classmethod
     def from_time_periods(cls, start_period: TimePeriod, end_period: TimePeriod):
