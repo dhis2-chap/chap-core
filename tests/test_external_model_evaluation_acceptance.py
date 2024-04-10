@@ -6,6 +6,7 @@ from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
 from climate_health.external.external_model import ExternalCommandLineModel
 from climate_health.external.models import SSM
+from climate_health.external.models.jax_models.simple_ssm import SSMWithLinearEffect
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from . import EXAMPLE_DATA_PATH, TEST_PATH
 
@@ -66,7 +67,7 @@ class ExternalModelMock:
 
     def get_predictions(self, train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
                         future_climate_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]) -> \
-    IsSpatioTemporalDataSet[HealthData]:
+            IsSpatioTemporalDataSet[HealthData]:
         period = next(iter(future_climate_data.data())).data().time_period[:1]
         new_dict = {loc: HealthData(period, data.data().disease_cases[-1:]) for loc, data in
                     train_data.items()}
@@ -83,11 +84,18 @@ def test_external_model_evaluation(dataset_name, output_filename, load_data_func
 
 def test_summary_model_evaluation(dataset_name, output_filename, load_data_func):
     summary_model = SSM()
-    model_class = SSM
-    SSM.n_warmup=10
+    model_class = SSMWithLinearEffect
+    SSM.n_warmup = 10
+    model_class.n_warmup = 10
     data_set = load_data_func(dataset_name)
-    report = evaluate_model(data_set, summary_model, max_splits=1, naive_model_cls=model_class, mode='prediction_summary')
-    report.save(output_filename)
+    report, table = evaluate_model(data_set, summary_model,
+                                   max_splits=2, naive_model_cls=model_class,
+                                   mode='prediction_summary', return_table=True)
+    table.to_csv('tmp.csv')
+    for report in report.report:
+        report.show()
+    # report.save(output_filename)
+
 
 @pytest.fixture()
 def external_predictive_model(python_model_predict_command, python_model_train_command):

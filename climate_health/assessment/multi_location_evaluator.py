@@ -38,7 +38,7 @@ class MultiLocationEvaluator:
                     if isinstance(pred, SummaryStatistics):
                         if self.check_data(true.disease_cases, pred.median):
                             mae = mean_absolute_error(true.disease_cases, pred.median)
-                            mle = self._mle(true.disease_cases, pred.median)
+                            mle = self._mle(true.disease_cases.values[0]+1, pred.median[0]+1)
                             new_entry = [location, str(pred_time.topandas()), mae, mle] + [float(x) for x in
                                                                                        [pred.mean, pred.std,
                                                                                         pred.median, pred.min, pred.max,
