@@ -39,13 +39,19 @@ class MultiLocationEvaluator:
                         if self.check_data(true.disease_cases, pred.median):
                             mae = mean_absolute_error(true.disease_cases, pred.median)
                             mle = self._mle(true.disease_cases, pred.median)
-                            model_results.append([location, str(pred_time.topandas()), mae, mle] + [float(x) for x in [pred.mean, pred.std, pred.median, pred.min, pred.max, pred.quantile_low, pred.quantile_high]])
+                            new_entry = [location, str(pred_time.topandas()), mae, mle] + [float(x) for x in
+                                                                                       [pred.mean, pred.std,
+                                                                                        pred.median, pred.min, pred.max,
+                                                                                        pred.quantile_low,
+                                                                                        pred.quantile_high]]
+                            model_results.append(new_entry)
 
                     elif isinstance(pred, HealthData):
                         if self.check_data(true.disease_cases, pred.disease_cases):
                             mae = mean_absolute_error(true.disease_cases, pred.disease_cases)
                             mle = np.log(pred.disease_cases[0] + 1) - np.log(true.disease_cases.values[0] + 1)
-                            model_results.append([location, str(pred_time.topandas()), mae, mle])
+                            new_entry = [location, str(pred_time.topandas()), mae, mle]
+                            model_results.append(new_entry)
 
             if isinstance(pred, SummaryStatistics):
                 results[model_name] = pd.DataFrame(model_results, columns=['location', 'period', 'mae', 'mle', 'mean', 'std', 'median', 'min', 'max', 'quantile_low', 'quantile_high'])

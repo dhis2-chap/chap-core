@@ -1,6 +1,10 @@
+from collections import defaultdict
 from functools import partial
-from .util import extract_last
-from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
+
+import numpy as np
+
+from .util import extract_last, extract_sample, array_tree_length
+from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from .hmc import sample
 from .jax import jax, PRNGKey, stats, jnp
@@ -10,8 +14,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def get_summary(time_period, samples):
+    statistics = (np.mean(samples),
+                  np.median(samples),
+                  np.std(samples),
+                  np.min(samples),
+                  np.max(samples),
+                  np.percentile(samples, 2.5),
+                  np.percentile(samples, 97.5))
+
+    return SummaryStatistics(time_period, *(np.atleast_1d(d) for d in statistics))
+
+
 class NaiveSSM:
+    n_warmup = 200
+
     def __init__(self):
+        self._key = PRNGKey(124)
         self._sampled_params = None
         self._initial_params = {'infected_decay': 0.9, 'alpha': 0.1}
         self._prior = self._get_priors(self._initial_params.keys())
@@ -60,18 +79,15 @@ class NaiveSSM:
 
         first_pdf = logpdf(init_params)
         if jnp.isnan(first_pdf):
-            print(prior_pdf_func(init_params))
-            print([obs_pdf_func(init_params, local_data, location) for location, local_data in data.items()])
-            print([infected_pdf_func(init_params, local_data, location) for location, local_data in data.items()])
+            logger.error(prior_pdf_func(init_params))
+            logger.error([obs_pdf_func(init_params, local_data, location) for location, local_data in data.items()])
+            logger.error(
+                [infected_pdf_func(init_params, local_data, location) for location, local_data in data.items()])
         assert not jnp.isnan(first_pdf)
-        print('first_pdf', first_pdf)
         first_grad = jax.grad(logpdf)(init_params)
-        print('first_grad', first_grad)
-        self._sampled_params = sample(logpdf, PRNGKey(0), init_params, 10, 100)
+        self._sampled_params = sample(logpdf, PRNGKey(0), init_params, 10, self.n_warmup)
         last_params = extract_last(self._sampled_params)
         last_pdf = logpdf(last_params)
-        print(last_pdf)
-        print(last_params)
         assert not jnp.isnan(last_pdf)
 
     def predict(self, data: SpatioTemporalDict[ClimateData]):
@@ -79,12 +95,30 @@ class NaiveSSM:
         predictions = {}
         for location, local_data in data.items():
             time_period = data.get_location(location).data().time_period[:1]
-            log_infected = last_params['log_infected'][location]
-            log_observation_rate = last_params['log_observation_rate'][location]
-            rate = jnp.exp(log_infected[-1:] + log_observation_rate)
+            rate = self._get_rate(last_params, location)
             predictions[location] = HealthData(time_period, rate)
 
         return SpatioTemporalDict(predictions)
+
+    def _get_rate(self, last_params, location):
+        log_infected = last_params['log_infected'][location]
+        log_observation_rate = last_params['log_observation_rate'][location]
+        rate = jnp.exp(log_infected[-1:] + log_observation_rate)
+        return rate
+
+    def prediction_summary(self, data: SpatioTemporalDict, num_samples: int=100):
+        self._key, param_key, sample_key = jax.random.split(self._key, 3)
+        n_sampled_params = array_tree_length(self._sampled_params)
+        param_idxs = jax.random.randint(param_key, (num_samples,), 0, n_sampled_params)
+        samples = defaultdict(list)
+        for i, key in zip(param_idxs, jax.random.split(sample_key, num_samples)):
+            param = extract_sample(i, self._sampled_params)
+            for location, local_data in data.items():
+                rate = self._get_rate(param, location)
+                samples[location].append(jax.random.poisson(key, rate))
+        time_period = next(iter(data.data())).data().time_period[:1]
+        summaries = {k: get_summary(time_period, s) for k, s in samples.items()}
+        return SpatioTemporalDict(summaries)
 
 
 class SeasonalSSM(NaiveSSM):
@@ -99,6 +133,7 @@ class SeasonalSSM(NaiveSSM):
 
 class SSM(NaiveSSM):
     def __init__(self):
+        self._key = PRNGKey(124)
         self._initial_params = {'infected_decay': 0.9, 'beta_temp': 0.1}
         self._prior = self._get_priors(self._initial_params.keys())
 
@@ -107,7 +142,7 @@ class SSM(NaiveSSM):
 
 
 class SSMWithLinearEffect(SSM):
-    ''' SSM where the temperature effect is modelled as a sigmoid function of temperature. '''
+    """ SSM where the temperature effect is modelled as a sigmoid function of temperature. """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -119,7 +154,7 @@ class SSMWithLinearEffect(SSM):
 
 
 class SSMWithSigmoidEffect(SSM):
-    ''' SSM where the temperature effect is modelled as a sigmoid function of temperature. '''
+    ''' SSM where the temperature effect is modelled as a sigmoid function of temperature.'''
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

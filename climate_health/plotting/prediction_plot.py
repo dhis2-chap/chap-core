@@ -5,7 +5,7 @@ import plotly.express as px
 from plotly.graph_objs import Figure
 import plotly.graph_objects as go
 
-from climate_health.datatypes import ClimateData, HealthData
+from climate_health.datatypes import ClimateData, HealthData, SummaryStatistics
 from climate_health.predictor.protocol import IsSampler
 
 
@@ -43,3 +43,13 @@ def forecast_plot(true_data: HealthData, predicition_sampler: IsSampler, climate
 
     return fig
 
+def summary_plot(true_data: HealthData, summary_data: SummaryStatistics):
+    reporting_rate = 10000
+    T = len(true_data) + 1
+    for i in range(n_samples):
+        new_observed = predicition_sampler.sample(climate_data)
+        plt.plot(new_observed, label='predicted', color='grey')
+    plt.plot(true_data.disease_cases, label='real', color='blue')
+    plt.legend()
+    plt.title('Prdicted path using estimated parameters vs real path')
+    return plt.gcf()

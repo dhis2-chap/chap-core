@@ -1,8 +1,20 @@
+from .jax import jax, blackjax
+
 
 def extract_last(samples):
-    last_sample = {key: value[-1] if not hasattr(value, 'items') else extract_last(value) for key, value in samples.items()}
-    if 'log_observation_rate' in last_sample:
-        print('-------------------------------')
-        print(last_sample['log_observation_rate'])
-        print(samples['log_observation_rate'])
-    return last_sample
+    i = -1
+    return extract_sample(i, samples)
+
+
+def extract_sample(i, samples):
+    return {key: value[i] if not hasattr(value, 'items') else extract_last(value) for key, value in
+                   samples.items()}
+
+
+def array_tree_length(tree):
+    if isinstance(tree, jax.Array):
+        return len(tree)
+    elif hasattr(tree, 'items'):
+        return array_tree_length(next(iter(tree.values())))
+    else:
+        return array_tree_length(next(iter(tree)))

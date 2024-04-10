@@ -5,6 +5,7 @@ from climate_health.assessment.prediction_evaluator import evaluate_model
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
 from climate_health.external.external_model import ExternalCommandLineModel
+from climate_health.external.models import SSM
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from . import EXAMPLE_DATA_PATH, TEST_PATH
 
@@ -79,6 +80,14 @@ def test_external_model_evaluation(dataset_name, output_filename, load_data_func
     report = evaluate_model(data_set, external_model)
     report.save(output_filename)
 
+
+def test_summary_model_evaluation(dataset_name, output_filename, load_data_func):
+    summary_model = SSM()
+    model_class = SSM
+    SSM.n_warmup=10
+    data_set = load_data_func(dataset_name)
+    report = evaluate_model(data_set, summary_model, max_splits=1, naive_model_cls=model_class, mode='prediction_summary')
+    report.save(output_filename)
 
 @pytest.fixture()
 def external_predictive_model(python_model_predict_command, python_model_train_command):

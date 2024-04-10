@@ -83,8 +83,16 @@ def test_ssm_train(train_data, test_data, jax, blackjax):
     model.train(train_data)
 
 
-def test_ssm_test(train_data, test_data, jax, blackjax):
+def test_ssm_predict(train_data, test_data, jax, blackjax):
     truth, future_data = test_data
     model = SSM()
     model.train(train_data)
     model.predict(future_data)
+
+def test_ssm_summary(train_data,test_data, jax, blackjax):
+    truth, future_data = test_data
+    model = SSM()
+    model.n_warmup = 20
+    model.train(train_data)
+    summaries = model.prediction_summary(future_data, 10)
+    assert isinstance(summaries, SpatioTemporalDict)

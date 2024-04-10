@@ -37,7 +37,7 @@ def plot_rmse(rmse_dict, do_show=True):
     return fig
 
 
-def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, return_table=False, naive_model_cls=None, callback=None):
+def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, return_table=False, naive_model_cls=None, callback=None, mode = 'predict'):
     '''
     Evaluate a model on a dataset using forecast cross validation
     '''
@@ -54,14 +54,14 @@ def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, retu
         if hasattr(external_model, 'setup'):
             external_model.setup()
         external_model.train(train_data)
-        predictions = external_model.predict(future_climate_data)
+        predictions = getattr(external_model, mode)(future_climate_data)
         logger.info(f'Predictions: {predictions}')
         if callback:
             callback('predictions', predictions)
         evaluator.add_predictions(model_name, predictions)
         naive_predictor = naive_model_cls()
         naive_predictor.train(train_data)
-        naive_predictions = naive_predictor.predict(future_climate_data)
+        naive_predictions = getattr(naive_predictor, mode)(future_climate_data)
         evaluator.add_predictions(naive_model_name, naive_predictions)
     results = evaluator.get_results()
     HTMLReport.error_measure = 'mle'

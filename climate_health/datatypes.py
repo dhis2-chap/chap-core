@@ -6,8 +6,8 @@ import dataclasses
 from .time_period import PeriodRange
 from .time_period.dataclasses import Period
 
-
 tsdataclass = bnp.bnpdataclass.bnpdataclass
+
 
 @tsdataclass
 class TimeSeriesData:
@@ -69,7 +69,9 @@ class ClimateHealthTimeSeries(TimeSeriesData):
         d['time_period'] = self.time_period.topandas()
         return d
 
+
 ClimateHealthData = ClimateHealthTimeSeries
+
 
 @tsdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
@@ -111,7 +113,6 @@ class Location(Shape):
     longitude: float
 
 
-
 @tsdataclass
 class SummaryStatistics(TimeSeriesData):
     mean: float
@@ -121,5 +122,6 @@ class SummaryStatistics(TimeSeriesData):
     max: float
     quantile_low: float
     quantile_high: float
+
 
 ResultType = pd.DataFrame
