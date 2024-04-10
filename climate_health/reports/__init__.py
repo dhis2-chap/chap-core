@@ -67,4 +67,5 @@ class HTMLSummaryReport(HTMLReport):
         # mask = plotting_data['statistic'].isin(['quantile_low', 'quantile_high', 'true_value'])
         plotting_data['error_minus'] = plotting_data['median'] - plotting_data['quantile_low']
         plotting_data['error_plus'] = plotting_data['quantile_high'] - plotting_data['median']
-        yield px.scatter(plotting_data, x='location', y='median', error_y_minus='error_minus', error_y='error_plus', color='model', facet_row='period', title='Summary statistics')
+        plotting_data['median_p1'] = plotting_data['median'] + 1
+        yield px.scatter(plotting_data, x='location', y='median_p1', error_y_minus='error_minus', error_y='error_plus', color='model', facet_row='period', title='Summary statistics', log_y=True)
