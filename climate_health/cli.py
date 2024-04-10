@@ -24,7 +24,7 @@ def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int, 
     model = get_model(model_name)()
     f = open('debug.csv', 'w')
     callback = lambda name, data: append_to_csv(f, data.to_pandas())
-    results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True, naive_model_cls=get_model(other_model) if other_model else None, callback=callback)
+    results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True, naive_model_cls=get_model(other_model) if other_model else None, callback=callback, mode='prediction_summary')
     output_filename = f'./{model_name}_{dataset_name}_results.html'
     table_filename = PurePath(output_filename).with_suffix('.csv')
     results.save(output_filename)

@@ -4,7 +4,7 @@ import plotly.express as px
 from climate_health.assessment.dataset_splitting import get_split_points_for_data_set, split_test_train_on_period
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
 from climate_health.predictor.naive_predictor import MultiRegionPoissonModel
-from climate_health.reports import HTMLReport
+from climate_health.reports import HTMLReport, HTMLSummaryReport
 import logging
 
 logger = logging.getLogger(__name__)
@@ -64,8 +64,10 @@ def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, retu
         naive_predictions = getattr(naive_predictor, mode)(future_climate_data)
         evaluator.add_predictions(naive_model_name, naive_predictions)
     results = evaluator.get_results()
-    HTMLReport.error_measure = 'mle'
-    report = HTMLReport.from_results(results)
+    report_class = HTMLReport if mode == 'predict' else HTMLSummaryReport
+
+    report_class.error_measure = 'mle'
+    report = report_class.from_results(results)
     if return_table:
         for name, t in results.items():
             t['model'] = name

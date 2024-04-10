@@ -46,3 +46,21 @@ class HTMLReport:
     def _make_violin_plot(cls, plotting_data: pd.DataFrame, category: str) -> go.Figure:
         return px.violin(plotting_data, x=category, y=cls.error_measure, color='model', box=True, points="all",
                          title=f"{cls.error_measure.capitalize()} across {category}")
+
+
+class HTMLSummaryReport(HTMLReport):
+
+    @staticmethod
+    def _tidy_summary_table(table: pd.DataFrame) -> pd.DataFrame:
+        '''Make one row each for mean, median, std, min, max, quantile_low, quantile_high'''
+        return table.melt(id_vars=['location', 'period', 'mae', 'mle', 'model'], var_name='statistic', value_name='value')
+
+    @classmethod
+    def _prepare_plotting_data(cls, plotting_data) -> pd.DataFrame:
+        plotting_data["period"] = pd.to_datetime(plotting_data["period"])
+        return cls._tidy_summary_table(plotting_data)
+
+
+    @classmethod
+    def _make_charts(cls, plotting_data: pd.DataFrame):
+        yield px.violin(plotting_data, x='period', y='value', color='model', facet_row='location', title='Summary statistics', points='all')
