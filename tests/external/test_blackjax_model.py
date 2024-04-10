@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from climate_health.assessment.dataset_splitting import train_test_split_with_weather
+from climate_health.assessment.forecast import forecast
 from climate_health.datatypes import ClimateHealthTimeSeries
 from climate_health.external.models.jax_models.regression_model import RegressionModel, HierarchicalRegressionModel
 from climate_health.external.models.jax_models.simple_ssm import SSM
@@ -90,19 +91,26 @@ def test_ssm_predict(train_data, test_data, jax, blackjax):
     model.train(train_data)
     model.predict(future_data)
 
+
 def test_ssm_summary(trained_model, test_data, jax, blackjax):
     truth, future_data = test_data
     trained_model
     summaries = trained_model.prediction_summary(future_data, 10)
     assert isinstance(summaries, SpatioTemporalDict)
 
+
 def test_ssm_forecast(trained_model, test_data, jax, blackjax):
     truth, future_data = test_data
-    forecasts = trained_model.forecast(future_data, 10, forecast_delta = 2*delta_month)
+    forecasts = trained_model.forecast(future_data, 10, forecast_delta=2 * delta_month)
     for location, forecast in forecasts.items():
         assert len(forecast.data().time_period) == 2
 
 
+def test_ssm_forecast_plot(data):
+    data = data.restrict_time_period(slice(None, Month(2016, 1)))
+    model = SSM()
+    model.n_warmup = 300
+    forecast(model, data, 36 * delta_month)
 
 
 @pytest.fixture()

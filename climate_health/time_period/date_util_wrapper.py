@@ -59,8 +59,10 @@ class TimePeriod:
     _extension = None
 
     def __init__(self, date: datetime | Number, *args, **kwargs):
-        if not isinstance(date, datetime):
+        if not isinstance(date, (datetime, TimeStamp)):
             date = self.__date_from_numbers(date, *args, **kwargs)
+        if isinstance(date, TimeStamp):
+            date = date._date
         self._date = date
 
     @classmethod
@@ -123,6 +125,13 @@ class TimePeriod:
             return Month(date)
         return Year(date)
 
+    @property
+    def start_timestamp(self):
+        return TimeStamp(self._date)
+
+    @property
+    def end_timestamp(self):
+        return TimeStamp(self._exclusive_end())
 
 class Day(TimePeriod):
     _used_attributes = ['year', 'month', 'day']

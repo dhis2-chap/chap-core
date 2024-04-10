@@ -31,12 +31,16 @@ def forecast_plot(true_data: HealthData, predicition_sampler: IsSampler, climate
 
 
 def plot_forecast_from_summaries(summaries: SummaryStatistics, true_data: HealthData) -> Figure:
-    return plot_forecast([summaries.quantile_low, summaries.median, summaries.quantile_high], true_data)
+    return plot_forecast([summaries.quantile_low, summaries.median, summaries.quantile_high], true_data, x_pred=summaries.time_period.topandas())
 
 
-def plot_forecast(quantiles: np.ndarray, true_data: HealthData) -> Figure:
-    x = [str(p) for p in true_data.time_period.topandas()]
-    df = pd.DataFrame({'x': x, '10th': quantiles[0], '50th': quantiles[1], '90th': quantiles[2]})
+def plot_forecast(quantiles: np.ndarray, true_data: HealthData, x_pred=None) -> Figure:
+    x_true = [str(p) for p in true_data.time_period.topandas()]
+    if x_pred is None:
+        x_pred = x_true
+    else:
+        x_pred = [str(p) for p in x_pred]
+    df = pd.DataFrame({'x': x_pred, '10th': quantiles[0], '50th': quantiles[1], '90th': quantiles[2]})
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df["x"], y=df["90th"], mode="lines", line=dict(color='lightgrey'),
                              name="95th perctile"), )
@@ -45,7 +49,7 @@ def plot_forecast(quantiles: np.ndarray, true_data: HealthData) -> Figure:
                              mode="lines", line=dict(color='lightgrey'), fill="tonexty",
                              fillcolor='rgba(68, 68, 68, 0.3)',
                              name="5th percentile"))
-    fig.add_scatter(x=x, y=true_data.disease_cases, mode='lines', name='real', line=dict(color='blue'))
+    fig.add_scatter(x=x_true, y=true_data.disease_cases, mode='lines', name='real', line=dict(color='blue'))
     fig.add_scatter(x=df["x"], y=df["50th"], mode="lines", line=dict(color='grey'), name="Median")
 
     fig.update_layout(

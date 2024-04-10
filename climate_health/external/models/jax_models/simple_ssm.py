@@ -28,20 +28,20 @@ def get_summary(time_period, samples):
 
 
 class NaiveSSM:
-    n_warmup = 200
+    n_warmup = 300
 
     def __init__(self):
         self._last_temperature = None
         self._key = PRNGKey(124)
         self._sampled_params = None
-        self._initial_params = {'infected_decay': 0.9, 'alpha': 0.1}
+        self._initial_params = {'logit_infected_decay': jax.scipy.special.logit(0.9), 'alpha': 0.1}
         self._prior = self._get_priors(self._initial_params.keys())
 
     def _get_priors(self, param_names):
         return {name: partial(stats.norm.logpdf, loc=0.1, scale=1) for name in param_names}
 
     def _log_infected_dist(self, params, prev_log_infected, mean_temp, scale=1.0):
-        mu = prev_log_infected * params['infected_decay'] + self._temperature_effect(mean_temp, params)
+        mu = prev_log_infected * jax.scipy.special.expit(params['logit_infected_decay']) + self._temperature_effect(mean_temp, params)
         return partial(stats.norm.logpdf, loc=mu, scale=scale), lambda key, shape: jax.random.normal(key,
                                                                                                      shape) * scale + mu
 
@@ -178,7 +178,7 @@ class SeasonalSSM(NaiveSSM):
 class SSM(NaiveSSM):
     def __init__(self):
         self._key = PRNGKey(124)
-        self._initial_params = {'infected_decay': 0.9, 'beta_temp': 0.1}
+        self._initial_params = {'logit_infected_decay': jax.scipy.special.logit(0.9), 'beta_temp': 0.1}
         self._prior = self._get_priors(self._initial_params.keys())
 
     def _temperature_effect(self, mean_temp, params):
