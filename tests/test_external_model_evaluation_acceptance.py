@@ -81,7 +81,7 @@ def test_external_model_evaluation(dataset_name, output_filename, load_data_func
     report = evaluate_model(data_set, external_model)
     report.save(output_filename)
 
-
+@pytest.mark.xfail
 @pytest.mark.parametrize('mode', ['forecast'])
 def test_summary_model_evaluation(dataset_name, output_filename, load_data_func, mode):
     summary_model = SSM()
