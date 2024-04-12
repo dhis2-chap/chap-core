@@ -122,6 +122,14 @@ class SummaryStatistics(TimeSeriesData):
     max: float
     quantile_low: float
     quantile_high: float
+    # quantile_size: -> Maybe add this later
+
+
+@dataclasses.dataclass
+class Quantile:
+    low: float
+    high: float
+    size: float
 
 
 ResultType = pd.DataFrame
