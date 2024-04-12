@@ -49,13 +49,30 @@ class TemporalDataclass(Generic[FeaturesT]):
     def join(self, other):
         return TemporalDataclass(np.concatenate([self._data, other._data]))
 
+    @property
+    def start_timestamp(self) -> pd.Timestamp:
+        return self._data.time_period[0].start_timestamp
+
+    @property
+    def end_timestamp(self) -> pd.Timestamp:
+        return self._data.time_period[-1].end_timestamp
+
 
 class SpatioTemporalDict(Generic[FeaturesT]):
     def __init__(self, data_dict: dict[FeaturesT]):
-        self._data_dict = {loc: TemporalDataclass(data) if not isinstance(data, TemporalDataclass) else data for loc, data in data_dict.items()}
+        self._data_dict = {loc: TemporalDataclass(data) if not isinstance(data, TemporalDataclass) else data for
+                           loc, data in data_dict.items()}
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self._data_dict})'
+
+    @property
+    def start_timestamp(self) -> pd.Timestamp:
+        return min(data.start_timestamp for data in self.data())
+
+    @property
+    def end_timestamp(self) -> pd.Timestamp:
+        return max(data.end_timestamp for data in self.data())
 
     def get_locations(self, location: Iterable[Location]) -> 'SpatioTemporalDict[FeaturesT]':
         return self.__class__({loc: self._data_dict[loc] for loc in location})
@@ -82,7 +99,8 @@ class SpatioTemporalDict(Generic[FeaturesT]):
 
     def to_pandas(self) -> pd.DataFrame:
         ''' Join the pandas frame for all locations with locations as column'''
-        tables = [self._add_location_to_dataframe(data.to_pandas(), location) for location, data in self._data_dict.items()]
+        tables = [self._add_location_to_dataframe(data.to_pandas(), location) for location, data in
+                  self._data_dict.items()]
         return pd.concat(tables)
 
     @classmethod

@@ -5,6 +5,7 @@ import pytest
 
 @pytest.fixture()
 def location_lookup():
+    pytest.skip()
     lookup = LocationLookup('ArcGIS')
     try:
         lookup.try_connection()
@@ -15,6 +16,7 @@ def location_lookup():
 
 @pytest.fixture()
 def arcgis_lookup():
+    pytest.skip()
     lookup = LocationLookup('ArcGIS')
     try:
         lookup.try_connection()

@@ -59,8 +59,10 @@ class TimePeriod:
     _extension = None
 
     def __init__(self, date: datetime | Number, *args, **kwargs):
-        if not isinstance(date, datetime):
+        if not isinstance(date, (datetime, TimeStamp)):
             date = self.__date_from_numbers(date, *args, **kwargs)
+        if isinstance(date, TimeStamp):
+            date = date._date
         self._date = date
 
     @classmethod
@@ -123,6 +125,13 @@ class TimePeriod:
             return Month(date)
         return Year(date)
 
+    @property
+    def start_timestamp(self):
+        return TimeStamp(self._date)
+
+    @property
+    def end_timestamp(self):
+        return TimeStamp(self._exclusive_end())
 
 class Day(TimePeriod):
     _used_attributes = ['year', 'month', 'day']
@@ -182,6 +191,9 @@ class TimeDelta(DateUtilWrapper):
     def __mul__(self, other: int):
         return self.__class__(self._relative_delta * other)
 
+    def __rmul__(self, other: int):
+        return self.__mul__(other)
+
     def _n_months(self):
         return self._relative_delta.months + 12 * self._relative_delta.years
 
@@ -203,6 +215,10 @@ class PeriodRange:
         self._start_timestamp = start_timestamp
         self._end_timestamp = end_timestamp
         self._time_delta = time_delta
+
+    @property
+    def delta(self):
+        return self._time_delta
 
     @classmethod
     def from_time_periods(cls, start_period: TimePeriod, end_period: TimePeriod):
@@ -300,10 +316,12 @@ class PeriodRange:
 
     @classmethod
     def _check_consequtive(cls, time_delta, time_periods):
-        is_consec = (p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:]))
+        is_consec = [p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])]
         if not all(is_consec):
             print(f'Periods {time_periods}')
-            for wrong in np.where(is_consec)[0]:
+            mask = ~np.array(list(is_consec))
+            print(mask)
+            for wrong in np.flatnonzero(mask):
                 print(f'Wrong period {time_periods[wrong], time_periods[wrong+1]} with time delta {time_delta}')
                 print(time_periods[wrong] + time_delta, time_periods[wrong+1])
             raise ValueError(f'Periods must be consecutive.')
