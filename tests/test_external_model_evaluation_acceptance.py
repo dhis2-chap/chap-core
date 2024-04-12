@@ -118,5 +118,6 @@ def test_external_model_evaluation(python_model_train_command, python_model_pred
     results = evaluator.get_results()
     report = HTMLReport.from_results(results)
     report.save(output_filename)
+    return output_filename
 
 # Add test-validation-train split

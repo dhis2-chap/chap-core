@@ -73,7 +73,6 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
         with tempfile.NamedTemporaryFile() as train_datafile:
             train_file_name = train_datafile.name
-        #train_file_name = "tmp_train.csv"
             with open(train_file_name, "w") as train_datafile:
                 train_data.to_csv(train_file_name)
                 command = self._train_command.format(train_data=train_file_name, model=self._model_file_name)
