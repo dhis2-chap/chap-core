@@ -93,7 +93,6 @@ model = ExternalCommandLineModel(
 
 model.setup()
 
-
 all_data = hydromet_from_pandas(pd.read_csv('example_data/masked_data_til_2005.csv'))
 split_points = get_split_points_for_data_set(all_data, max_splits=2)
 
@@ -104,3 +103,14 @@ split = list(splits)[-1]
 train_data, future_truth, future_climate_data = split
 
 model.train(train_data)
+
+
+""""
+1: Try to get the initial r script to run without crashing (does not need to give anything correct out)
+  - The model might give you some data or instructions to give data on its format
+2: Try to split the code into setup, train and predict that takes our data in our format as input and output
+3: Try to get the above to run within a conda environment (can be a test environment you have locally)
+4: Make a conda env file from that environment (make the minimal version), try to get it running with that
+5: Try to run it through the ExternalCommandLineModel class above (this might not work yet)
+"""
+
