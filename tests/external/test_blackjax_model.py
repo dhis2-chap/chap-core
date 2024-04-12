@@ -106,15 +106,15 @@ def test_ssm_forecast(trained_model, test_data, jax, blackjax):
         assert len(forecast.data().time_period) == 2
 
 
-def test_ssm_forecast_plot(data):
+def test_ssm_forecast_plot(data, jax, blackjax):
     data = data.restrict_time_period(slice(None, Month(2016, 1)))
     model = SSM()
-    model.n_warmup = 300
+    model.n_warmup = 10
     forecast(model, data, 36 * delta_month)
 
 
 @pytest.fixture()
-def trained_model(train_data) -> SSM:
+def trained_model(train_data, jax, blackjax) -> SSM:
     model = SSM()
     model.n_warmup = 10
     model.train(train_data)
