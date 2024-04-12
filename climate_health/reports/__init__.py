@@ -69,3 +69,11 @@ class HTMLSummaryReport(HTMLReport):
         plotting_data['error_plus'] = plotting_data['quantile_high'] - plotting_data['median']
         plotting_data['median_p1'] = plotting_data['median'] + 1
         yield px.scatter(plotting_data, x='location', y='median_p1', error_y_minus='error_minus', error_y='error_plus', color='model', facet_row='period', title='Summary statistics', log_y=True)
+
+
+class HTMLForecastReport:
+    '''
+    Take in dataframe with multiple observations per spilt point and
+    make a forecast report with forecasted values from multiple points in one plot
+    '''
+    ...

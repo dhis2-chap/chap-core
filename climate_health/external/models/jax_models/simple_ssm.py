@@ -21,8 +21,8 @@ def get_summary(time_period, samples):
                   np.std(samples, axis=0),
                   np.min(samples, axis=0),
                   np.max(samples, axis=0),
-                  np.percentile(samples, 2.5, axis=0),
-                  np.percentile(samples, 97.5, axis=0))
+                  np.percentile(samples, 5, axis=0),
+                  np.percentile(samples, 95, axis=0))
 
     return SummaryStatistics(time_period, *(np.atleast_1d(d) for d in statistics))
 
@@ -38,7 +38,7 @@ class NaiveSSM:
         self._prior = self._get_priors(self._initial_params.keys())
 
     def _get_priors(self, param_names):
-        return {name: partial(stats.norm.logpdf, loc=0.1, scale=1) for name in param_names}
+        return {name: partial(stats.norm.logpdf, loc=0.1, scale=10) for name in param_names}
 
     def _log_infected_dist(self, params, prev_log_infected, mean_temp, scale=1.0):
         mu = prev_log_infected * jax.scipy.special.expit(params['logit_infected_decay']) + self._temperature_effect(mean_temp, params)
@@ -211,11 +211,11 @@ class SSMWithSigmoidEffect(SSM):
             'c_temp']
 
 
-class SSMWithScaleParam(SSM):
+class SSMWithScaleParam(SSMWithSigmoidEffect):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._initial_params['log_scale'] = 0.1
-        self._prior['log_scale'] = partial(stats.norm.logpdf, loc=0.1, scale=0.1)
+        self._prior['log_scale'] = partial(stats.norm.logpdf, loc=0.1, scale=10)
 
     def _log_infected_dist(self, params, prev_log_infected, mean_temp, scale=1.0):
         return super()._log_infected_dist(params, prev_log_infected, mean_temp, scale=jnp.exp(params['log_scale']))

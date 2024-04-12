@@ -21,6 +21,8 @@ class MultiLocationEvaluator:
         return np.log(pred+1)-np.log(true+1)
 
     def get_results(self) -> dict[str, ResultType]:
+        # TODO: add split point to dataframe
+        # allow multiple observations for each split point
         truth_df = self.truth.to_pandas()
         results = {}
 

@@ -63,7 +63,7 @@ def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, retu
         naive_predictor.train(train_data)
         naive_predictions = getattr(naive_predictor, mode)(future_climate_data)
         evaluator.add_predictions(naive_model_name, naive_predictions)
-    results = evaluator.get_results()
+    results: dict[str, pd.DataFrame] = evaluator.get_results()
     report_class = HTMLReport if mode == 'predict' else HTMLSummaryReport
 
     report_class.error_measure = 'mle'
