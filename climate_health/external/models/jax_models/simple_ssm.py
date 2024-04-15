@@ -204,7 +204,7 @@ class SSM(NaiveSSM):
         self._initial_params = {'logit_infected_decay': jax.scipy.special.logit(0.9), 'beta_temp': 0.1}
         self._prior = self._get_priors(self._initial_params.keys())
 
-    def _temperature_effect(self, mean_temp, params):
+    def _temperature_effect(self, mean_temp: float, params):
         return params['beta_temp'] * mean_temp
 
 

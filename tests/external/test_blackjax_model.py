@@ -6,6 +6,7 @@ import pytest
 from climate_health.assessment.dataset_splitting import train_test_split_with_weather
 from climate_health.assessment.forecast import forecast
 from climate_health.datatypes import ClimateHealthTimeSeries
+from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NaiveSSM
 from climate_health.external.models.jax_models.regression_model import RegressionModel, HierarchicalRegressionModel
 from climate_health.external.models.jax_models.simple_ssm import SSM
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
@@ -84,6 +85,10 @@ def test_ssm_train(train_data, test_data, jax, blackjax):
     model = SSM()
     model.train(train_data)
 
+def test_ssmspe_train(train_data, test_data, jax, blackjax):
+    spec = NaiveSSM()
+    model = SSMForecasterNuts(spec)
+    model.train(train_data)
 
 def test_ssm_predict(train_data, test_data, jax, blackjax):
     truth, future_data = test_data

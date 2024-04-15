@@ -12,5 +12,3 @@
  - New database
  - Original database / subset of variable / new org units / who aggregations
  - Install data import tool
-
-#
