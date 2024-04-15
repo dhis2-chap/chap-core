@@ -100,9 +100,7 @@ def test_summary_model_evaluation(dataset_name, output_filename, load_data_func,
 
 @pytest.fixture()
 def external_predictive_model(python_model_predict_command, python_model_train_command):
-    external_model = ExternalCommandLineModel("external_model",
-                                              python_model_train_command,
-                                              python_model_predict_command,
-                                              HealthData)
+    external_model = ExternalCommandLineModel("external_model", python_model_train_command,
+                                              python_model_predict_command, HealthData)
 
     return external_model

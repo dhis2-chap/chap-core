@@ -1,9 +1,11 @@
 import logging
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import Protocol, Generic, TypeVar
 
 import pandas.errors
+import yaml
 
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
@@ -31,13 +33,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     that everything will be run inside
 
     """
-    def __init__(self,
-                 name: str,
-                 train_command: str,
-                 predict_command: str,
-                 data_type: type[FeatureType],
-                 setup_command: str=None,
-                 conda_env_file: str=None):
+    def __init__(self, name: str, train_command: str, predict_command: str, data_type: type[FeatureType],
+                 setup_command: str = None, conda_env_file: str = None,
+                 working_dir="./"):
         self._name = name
         self._conda_env_name = "climate_health_" + self._name
         self._setup_command = setup_command
@@ -46,27 +44,30 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._data_type = data_type
         self._conda_env_file = conda_env_file
         self._model = None
+        self._working_dir = working_dir
 
     def run_through_conda(self, command: str):
         if self._conda_env_file:
             return f'conda run -n {self._conda_env_name} {command}'
-        return run_command(command)
+        return run_command(command, self._working_dir)
 
     def setup(self):
+        if self._setup_command is None:
+            return
         if self._conda_env_file:
             try:
-                run_command(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}')
+                run_command(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}', self._working_dir)
             except subprocess.CalledProcessError:
                 logging.info("Ignoring error when creating conda environment")
                 pass
 
             self.run_through_conda(self._setup_command)
         elif self._setup_command is not None:
-            run_command(self._setup_command)
+            run_command(self._setup_command, self._working_dir)
 
     def deactivate(self):
         if self._conda_env_file:
-            run_command(f'conda deactivate')
+            run_command(f'conda deactivate', self._working_dir)
 
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType]):
         self._model_file_name = self._name + ".model"
@@ -92,17 +93,17 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 except pandas.errors.EmptyDataError:
                     # todo: Probably deal with this in an other way, throw an exception istead
                     logging.warning("No data returned from model (empty file from predictions)")
-                    return SpatioTemporalDict({})
+                    raise ValueError(f"No prediction data writtn to file {out_file.name}")
 
 
-def run_command(command: str):
+def run_command(command: str, working_directory="./"):
 
     """Runs a unix command using subprocess"""
     logging.info(f"Running command: {command}")
     command = command.split()
 
     try:
-        output = subprocess.check_output(command)
+        output = subprocess.check_output(command, cwd=working_directory)
         logging.info(output)
     except subprocess.CalledProcessError as e:
         error = e.output.decode()
@@ -110,3 +111,31 @@ def run_command(command: str):
         raise e
 
     return output
+
+
+def get_model_from_yaml_file(yaml_file: str) -> ExternalCommandLineModel:
+
+    # read yaml file into a dict
+    with open(yaml_file, 'r') as file:
+        data = yaml.load(file, Loader=yaml.FullLoader)
+
+    name = data['name']
+    train_command = data['train_command']
+    predict_command = data['predict_command']
+    setup_command = data.get('setup_command', None)
+    conda_env_file = data['conda'] if 'conda' in data else None
+    data_type = data.get('data_type', None)
+    allowed_data_types = {'HealthData': HealthData}
+    data_type = allowed_data_types.get(data_type, None)
+
+    model = ExternalCommandLineModel(
+        name=name,
+        train_command=train_command,
+        predict_command=predict_command,
+        data_type=data_type,
+        setup_command=setup_command,
+        conda_env_file=conda_env_file,
+        working_dir=Path(yaml_file).parent
+    )
+
+    return model

@@ -15,4 +15,4 @@ packages <- c("data.table", "tidyverse", "sf", "sp", "spdep",
               "ggpubr", "ggthemes")
 
 # install.packages
-#lapply(packages, install.packages, character.only = TRUE)
+lapply(packages, install.packages, character.only = TRUE)

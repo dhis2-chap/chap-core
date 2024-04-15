@@ -1,14 +1,9 @@
-import tempfile
 from pathlib import Path
 from typing import TypeVar, Generic
-
-from pydantic import BaseModel
-
 from climate_health.assessment.dataset_splitting import IsTimeDelta
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
 from climate_health.time_period import Month
-from climate_health.time_period.date_util_wrapper import TimeDelta
 
 
 class ExternalRModel:
@@ -19,8 +14,6 @@ class ExternalRModel:
 
     def get_predictions(self, train_data: ClimateHealthTimeSeries, future_climate_data: ClimateData) -> HealthData:
         pass
-
-
 
 
 FeatureType = TypeVar('FeatureType')
