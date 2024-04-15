@@ -123,7 +123,7 @@ nlag <<- input$nlags
 
 alarm_vars<-input$alarm_indicators_New_model
 
-all_basis_vars<<-foreach(a=alarm_vars,.combine =c)%do% get_cross_basis(a,"data_augmented")
+all_basis_vars<<-foreach(a=alarm_vars,.combine =c) %do% get_cross_basis(a,"data_augmented")
 
 #cat("got here..\n")
 data_augmented<-data_augmented %>% 
@@ -174,9 +174,9 @@ df1<<-df
 #cat("am here oga ..")
 
 names(df)
-baseformula <- Y ~ 1 + f(T1,replicate = S1, model = "rw1", cyclic = TRUE, constr = TRUE,
+baseformula <- Y ~ 1 + f(T1 ,replicate = S1, model = "rw1", cyclic = TRUE, constr = TRUE,
                          scale.model = TRUE,  hyper = precision.prior) +
-  f(S1,replicate=T2, model = "iid") 
+  f(S1 , replicate=T2, model = "iid")
 
 #base_model <- mymodel(baseformula,df)
 
@@ -188,7 +188,7 @@ basis_var_n<-paste0('all_basis_vars$',names(all_basis_vars))
 
 
 
-formula0.1 <- eval(parse(text=paste0("update.formula(baseformula, ~. +",paste(alarm_vars,collapse ='+'),')')))
+formula0.1 <- eval(parse(text=paste0("update.formula(baseformula, ~. +",paste(alarm_vars, collapse ='+'),')')))
 
 if(length(add.var)>0){
   formula0.2 <- eval(parse(text=paste0("update.formula(baseformula, ~. +",paste(add.var,collapse ='+'),'+',paste(basis_var_n,collapse ='+'),')')))
@@ -201,7 +201,7 @@ if(length(add.var)>0){
 #res<-mymodel(formula0.2,df)
 global_Objects<-c("mymodel","formula0.2","df","precision.prior","all_basis_vars")
 
-res_promise<-future_promise({
+res_promise <- future_promise({
   pkgload::load_all(paste0(getwd(),"/INLA"))
   
   inla.dynload.workaround()

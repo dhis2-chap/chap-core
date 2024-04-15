@@ -218,7 +218,7 @@ case.Input<-column(12,offset =0,selectInput("number_of_cases_New_model",
 
 alarm.Input<-column(12,offset =0,selectInput("alarm_indicators_New_model", selected =c("rainsum","meantemperature"),
             "Alarm indicator(s)",
-            choices=c("rainsum","meantemperature"),multiple =T,
+            choices=c("rainsum", "meantemperature"),multiple =T,
             width='70%'))
 
 alarm_Spline.Input<-column(12,offset =0,selectInput("other_alarm_indicators_New_model", selected =c("rainsum","meantemperature"),
