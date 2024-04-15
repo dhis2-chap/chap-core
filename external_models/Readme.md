@@ -36,3 +36,35 @@ results = model.predict(future_climate_data)
 
 ### Testing
 If you want to include the model in the automatic tests, add it to the list above the test `test_all_external_models_acceptance` in `tests/external/test_external_models.py`.
+
+
+
+### Recommended approach for adding external R models
+
+1: Make a local conda environment with R. Make a yaml file with this content and start from that:
+
+```yaml
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-essentials
+  - r-base
+  - conda-forge::r-fmesher
+  - ca-certificates
+  - certifi
+  - openssl
+```
+
+If you store this file as 'env.yaml' you can make an environment with `conda env create --name NAME --file=env.yml`
+
+2: Try to get the initial r script to run without crashing (does not need to give anything correct out)
+
+  - The model might give you some data or instructions to give data on its format
+
+3: Try to split the code into setup, train and predict that takes our data in our format as input and output
+
+4: Make a conda env file from the final environment you have created (if you had to install anything else). Make sure things work if you create a new environment from that yml file. Note: You can create a yml file by dumping your current environment, but make sure you make a minimal file (google this).
+
+5: Try to run it through the ExternalCommandLineModel class by following the instructions in the beginning of this document by following the instructions in the beginning of this document.
