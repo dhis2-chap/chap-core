@@ -2,4 +2,7 @@
 
 Main repository for the joint programming project on climate health.
 
-Documentation is available for project members on Teams for now.
+
+Documentation:
+
+- [How to add an external model](external_models/README.md)

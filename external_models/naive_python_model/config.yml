@@ -1,0 +1,6 @@
+
+
+name: naive_python_model
+train_command: "python mock_predictor_script.py train {train_data} {model}"
+predict_command: "python mock_predictor_script.py predict {future_data} {model} {out_file}"
+data_type: HealthData
