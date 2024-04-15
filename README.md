@@ -5,4 +5,4 @@ Main repository for the joint programming project on climate health.
 
 Documentation:
 
-- [How to add an external model](external_models/README.md)
+- [How to add an external model](external_models/Readme.md)
