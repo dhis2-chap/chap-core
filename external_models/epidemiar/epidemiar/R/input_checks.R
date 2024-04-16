@@ -498,7 +498,7 @@ input_check <- function(epi_data,
   #is batchapply installed & available?
   batchbam_ok <- if (requireNamespace("clusterapply", quietly = TRUE)) {TRUE} else {FALSE}
   #if batchapply is installed then default is thin plate
-  default_splines <- {'modbs'}
+  default_splines <- if (batchbam_ok) {'tp'} else {'modbs'}
 
   #check input
   if (!is.null(raw_settings[["fc_splines"]])) {
