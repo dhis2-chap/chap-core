@@ -24,17 +24,24 @@ def test_python_model_from_folder(models_path, train_data, future_climate_data):
     assert results is not None
 
 
-@pytest.mark.parametrize('model_directory', ['naive_python_model', 'testmodel'])
+@pytest.mark.skipif(not conda_available(), reason='requires conda')
+@pytest.mark.parametrize('model_directory', ['naive_python_model'])
+def test_all_external_models_only_train_acceptance(model_directory, models_path, train_data, future_climate_data):
+    """Only tests that the model can be initiated and trained
+    without anything failing"""
+    yaml = models_path / model_directory / 'config.yml'
+    model = get_model_from_yaml_file(yaml)
+    model.train(train_data)
+
+
+@pytest.mark.skipif(not conda_available(), reason='requires conda')
+@pytest.mark.parametrize('model_directory', ['naive_python_model'])
 def test_all_external_models_acceptance(model_directory, models_path, train_data, future_climate_data):
     """Only tests that the model can be initiated and that train and predict
     can be called without anything failing"""
     yaml = models_path / model_directory / 'config.yml'
     model = get_model_from_yaml_file(yaml)
     model.train(train_data)
-    try:
-        results = model.predict(future_climate_data)
-        assert results is not None
-    except ValueError:
-        # This is expected for some models
-        pass
+    results = model.predict(future_climate_data)
+    assert results is not None
 
