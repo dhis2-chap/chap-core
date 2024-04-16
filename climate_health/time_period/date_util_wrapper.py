@@ -289,6 +289,8 @@ class PeriodRange:
             return Year
         elif self._time_delta == delta_day:
             return Day
+        elif self._time_delta == delta_week:
+            return Week
         raise ValueError(f'Unknown time delta {self._time_delta}')
 
     def __iter__(self):
@@ -323,6 +325,8 @@ class PeriodRange:
             return pd.Series([pd.Period(year=p.year, freq='Y') for p in self])
         elif self._time_delta == delta_day:
             return pd.Series([pd.Period(year=p.year, month=p.month, day=p.day, freq='D') for p in self])
+        elif self._time_delta == delta_week:
+            return pd.Series([p.topandas() for p in self])
         else:
             raise ValueError(f'Cannot convert period range with time delta {self._time_delta} to pandas')
 
@@ -398,3 +402,4 @@ class PeriodRange:
 delta_month = TimeDelta(relativedelta(months=1))
 delta_year = TimeDelta(relativedelta(years=1))
 delta_day = TimeDelta(relativedelta(days=1))
+delta_week = TimeDelta(relativedelta(weeks=1))

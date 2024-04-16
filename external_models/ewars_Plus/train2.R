@@ -53,6 +53,7 @@ convert.data.set <- function(df) {
 
 model = mymodel(formula0.1, df)
 model = inla.rerun(model)
-inla.save(model, file = output_model_filename)
+save(model, file = output_model_filename)
+
 
 # formula0.2 <- eval(parse(text=paste0("update.formula(baseformula, ~. +",paste(basis_var_n,collapse ='+'),')')))

@@ -119,7 +119,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 except pandas.errors.EmptyDataError:
                     # todo: Probably deal with this in an other way, throw an exception istead
                     logging.warning("No data returned from model (empty file from predictions)")
-                    raise ValueError(f"No prediction data writtn to file {out_file.name}")
+                    raise ValueError(f"No prediction data written to file {out_file.name}")
 
 
 def run_command(command: str, working_directory="./"):
