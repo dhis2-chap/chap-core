@@ -1,0 +1,6 @@
+name: ewars_Plus
+train_command: 'Rscript train2.R {train_data} {model}'
+predict_command: 'echo "Not implemented"'
+data_type: HealthData
+conda: ../hydromet_dengue/env.yml
+adapters: {'Y': 'disease_cases', 'E': 'population', 'T1': 'week', 'T2': 'year', 'S1': 'location'}

@@ -30,6 +30,7 @@ def test_all_external_models_acceptance(model_directory, models_path, train_data
     can be called without anything failing"""
     yaml = models_path / model_directory / 'config.yml'
     model = get_model_from_yaml_file(yaml)
+    model.setup()
     model.train(train_data)
     try:
         results = model.predict(future_climate_data)
