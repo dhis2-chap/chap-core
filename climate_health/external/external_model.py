@@ -52,12 +52,11 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         return run_command(command, self._working_dir)
 
     def setup(self):
-        if self._setup_command is None:
-            return
         if self._conda_env_file:
             try:
                 run_command(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}', self._working_dir)
             except subprocess.CalledProcessError:
+                #TODO: This logic is not sound since new entries in env file will not be added to the environment if it exists
                 logging.info("Ignoring error when creating conda environment")
                 pass
 
