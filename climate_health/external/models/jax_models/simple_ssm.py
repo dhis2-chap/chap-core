@@ -24,7 +24,7 @@ def plot_diagnostics(params: dict, name: str):
         for i, sub_params in enumerate(params):
             plot_diagnostics(sub_params, f'{name}.{i}')
     elif params.ndim == 1:
-        px.line(params, title=f'{name}').show()
+        px.line(params, title=f'{name}')
 
 
 

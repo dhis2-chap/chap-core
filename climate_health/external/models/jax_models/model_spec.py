@@ -1,12 +1,14 @@
 from dataclasses import dataclass
 from typing import Protocol, Any
 
-from climate_health.datatypes import ClimateHealthTimeSeries
+import numpy as np
+
+from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from .hmc import sample
 from .jax import jax, stats, jnp, PRNGKey
 from .regression_model import remove_nans
-from .util import extract_last
+from .util import extract_last, index_tree
 
 expit = jax.scipy.special.expit
 logit = jax.scipy.special.logit
@@ -56,8 +58,9 @@ class IsSSMSpec(Protocol):
     def observation_distribution(self, params: dict[str, Any]) -> IsDistribution:
         ...
 
-    def state_distribtion(self, params: dict[str, Any]) -> IsDistribution:
+    def state_distribution(self, previous_state: dict, params: dict[str, Any], observed: dict) -> IsDistribution:
         ...
+
 
 
 class NaiveSSM:
@@ -81,6 +84,9 @@ class NaiveSSM:
 class DictDist:
     def __init__(self, dist):
         self.dist = dist
+
+    def __getitem__(self, item):
+        return self.dist
 
     def log_prob(self, x):
         return sum(self.dist.log_prob(value) for value in x.values())
@@ -109,12 +115,17 @@ class NutsParams:
     n_samples: int = 100
     n_warmup: int = 100
 
+
 class SSMForecasterNuts:
     def __init__(self, model_spec: IsSSMSpec, training_params: dict[str, Any] = None):
         self._model_spec = model_spec
         if training_params is None:
             training_params = NutsParams()
         self._training_params = training_params
+
+    def _get_local_params(self, params, location):
+        return {name: params[name] for name in self._model_spec.global_params} | {param_name: params[param_name][location] for param_name in self._model_spec.location_params}
+
 
     def train(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]):
         orig_data = data
@@ -125,15 +136,9 @@ class SSMForecasterNuts:
         prior = self._get_prior()
         prior_pdf_func = prior.log_prob
 
-        # obs_pdf_func = self._model_spec.observation_distribution.log_prob
-
         def obs_pdf_func(states, local_params, local_data):
             return self._model_spec.observation_distribution(states, local_params).log_prob(
                 local_data.disease_cases).sum()
-
-            # rate = jnp.exp(params['log_infected'][location] + params['log_observation_rate'][location])
-            # obs_p = stats.poisson.logpmf(local_data.disease_cases, rate).sum()
-            # return obs_p
 
         def infected_pdf_func(states, params, local_data):
             previous_state = {param_name: states[param_name][:-1] for param_name in self._model_spec.state_params}
@@ -144,15 +149,14 @@ class SSMForecasterNuts:
 
             return dist.log_prob(new_state).sum()
 
+
         def logpdf(params):
             obs_pdf = []
             state_pdf = []
-            print(params)
             prior_pdf = prior_pdf_func(params)
             for location, local_data in data.items():
-                local_params = {name: params[name] for name in self._model_spec.global_params} | {
-                    param_name: params[param_name][location] for param_name in self._model_spec.location_params}
-                states = {param_name: params[param_name][location] for param_name in self._model_spec.state_params}
+                local_params = self._get_local_params(params, location)
+                states = self._get_state_params(params, location)
                 obs_p = obs_pdf_func(states, local_params, local_data)
                 obs_pdf.append(obs_p)
                 infected_pdf = infected_pdf_func(states, local_params, local_data)
@@ -167,7 +171,8 @@ class SSMForecasterNuts:
                 [infected_pdf_func(init_params, local_data, location) for location, local_data in data.items()])
         assert not jnp.isnan(first_pdf)
         jax.grad(logpdf)(init_params)
-        self._sampled_params = sample(logpdf, PRNGKey(0), init_params, self._training_params.n_samples, self._training_params.n_warmup)
+        self._sampled_params = sample(logpdf, PRNGKey(0), init_params, self._training_params.n_samples,
+                                      self._training_params.n_warmup)
         self._last_temperature = {location: data.data().mean_temperature[-1]
                                   for location, data in orig_data.items()}
 
@@ -176,7 +181,19 @@ class SSMForecasterNuts:
         assert not jnp.isnan(last_pdf)
 
     def predict(self, data: dict[str, Any]) -> dict[str, Any]:
-        ...
+        last_params = extract_last(self._sampled_params)
+        predictions = {}
+        for location, local_data in data.items():
+            location_params = self._get_local_params(last_params, location)
+            new_state = self._model_spec.state_distribution(index_tree(self._get_state_params(last_params, location), -1),
+                                                            location_params,
+                                                            {'mean_temperature': self._last_temperature[location]})['logit_infected'].mu
+            rate = self._model_spec.observation_distribution(new_state, location_params).rate
+            time_period = data.get_location(location).data().time_period[:1]
+            predictions[location] = HealthData(time_period, np.atleast_1d(rate))
+
+        return SpatioTemporalDict(predictions)
+
 
     def sample(self, key, n: int) -> dict[str, Any]:
         ...
@@ -198,6 +215,9 @@ class SSMForecasterNuts:
             Normal(0, 1).log_prob(value) for name in self._model_spec.location_params for value in
             params[name].values())
         return PriorDistribution(log_pdf)
+
+    def _get_state_params(self, params, location):
+        return {param_name: params[param_name][location] for param_name in self._model_spec.state_params}
 
 
 class PriorDistribution:
