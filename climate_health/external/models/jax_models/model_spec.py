@@ -188,11 +188,14 @@ class SSMForecasterNuts:
             new_state = self._model_spec.state_distribution(index_tree(self._get_state_params(last_params, location), -1),
                                                             location_params,
                                                             {'mean_temperature': self._last_temperature[location]})['logit_infected'].mu
-            rate = self._model_spec.observation_distribution(new_state, location_params).rate
+            rate = self._model_spec.observation_distribution({'logit_infected': new_state}, location_params).rate
             time_period = data.get_location(location).data().time_period[:1]
             predictions[location] = HealthData(time_period, np.atleast_1d(rate))
 
         return SpatioTemporalDict(predictions)
+
+    def prediction_summary(self, data: dict[str, Any], n: int) -> dict[str, Any]:
+        ...
 
 
     def sample(self, key, n: int) -> dict[str, Any]:

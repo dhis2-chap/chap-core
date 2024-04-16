@@ -38,20 +38,10 @@ formula0.1 <- eval(parse(text=paste0("update.formula(baseformula, ~. +",paste(al
 
 # TODO: add
 df = read.table(data_filename, sep=',', header=TRUE)
-convert.data.set <- function(df) {
-  df$Y = df$dengue_cases
-  df$E = df$population / 10^5
-  df$T1 = df$month
-  df$T2 = df$year_index
-  df$S1 = df$micro_index
-  df$S2 = df$state_index
-  df$Vu = df$urban
-  df$Vw = df$water_shortage
-  return(df)
-}
 
 
-model = mymodel(formula0.1, df)
+
+model = mymodel(formula0.1, df, config = TRUE)
 model = inla.rerun(model)
 save(model, file = output_model_filename)
 

@@ -85,17 +85,26 @@ def test_ssm_train(train_data, test_data, jax, blackjax):
     model = SSM()
     model.train(train_data)
 
+
 def test_ssmspe_train(train_data, test_data, jax, blackjax):
     spec = NaiveSSM()
     model = SSMForecasterNuts(spec, NutsParams(n_samples=10, n_warmup=10))
     model.train(train_data)
 
-@pytest.mark.skip
+
+
 def test_ssmspe_predict(train_data, test_data, jax, blackjax):
     spec = NaiveSSM()
     model = SSMForecasterNuts(spec, NutsParams(n_samples=10, n_warmup=10))
     model.train(train_data)
     model.predict(test_data[1])
+
+@pytest.mark.skip(reason="This test is flaky")
+def test_ssmspe_summary(train_data, test_data, jax, blackjax):
+    spec = NaiveSSM()
+    model = SSMForecasterNuts(spec, NutsParams(n_samples=10, n_warmup=10))
+    model.train(train_data)
+    assert isinstance(model.prediction_summary(test_data[1], 10), SpatioTemporalDict)
 
 
 def test_ssm_predict(train_data, test_data, jax, blackjax):
