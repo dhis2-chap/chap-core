@@ -111,6 +111,8 @@ class TimePeriod:
 
     @classmethod
     def parse(cls, text_repr: str):
+        if 'W' in text_repr:
+            return cls.parse_week(text_repr)
         try:
             year = int(text_repr)
             return Year(year)
@@ -124,6 +126,11 @@ class TimePeriod:
         elif dates[0].month == dates[1].month:
             return Month(date)
         return Year(date)
+
+    @classmethod
+    def parse_week(cls, week: str):
+        year, weeknr = week.split('W')
+        return Week(int(year), int(weeknr))
 
     @property
     def start_timestamp(self):
@@ -142,6 +149,24 @@ class Day(TimePeriod):
 
     def topandas(self):
         return pd.Period(year=self.year, month=self.month, day=self.day, freq='D')
+
+class Week(TimePeriod):
+    _used_attributes = ['year']
+    _extension = relativedelta(weeks=1)
+    def __init__(self, date, *args, **kwargs):
+        if args or kwargs:
+            year = date
+            week_nr = args[0] if args else kwargs['week']
+            self._date = self.__date_from_numbers(year, week_nr)
+            self.week = week_nr
+        else:
+            self._date = date
+
+    def __date_from_numbers(cls, year: int, week_nr: int):
+        return datetime.strptime(f'{year}-W{week_nr}-1', "%Y-W%W-%w")
+
+    def topandas(self):
+        return pd.Period(self._date, freq='W-MON')
 
 class Month(TimePeriod):
     _used_attributes = ['year', 'month']

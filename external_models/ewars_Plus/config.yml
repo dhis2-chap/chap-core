@@ -4,3 +4,10 @@ predict_command: 'echo "Not implemented"'
 data_type: HealthData
 conda: ../hydromet_dengue/env.yml
 adapters: {'Y': 'disease_cases', 'E': 'population', 'T1': 'week', 'T2': 'year', 'S1': 'location'}
+demo_data: 'Demo_data/Demo.Data.Prospective.csv'
+demo_data_adapter: {'time_period': '{year:0.0f}W{week:0.0f}',
+                    'location': 'district',
+                    'disease_cases': 'weekly_hospitalised_cases',
+                    'population': 'population',
+                    'mean_temperature': 'meantemperature',
+                    'rainfall': 'rainsum'}

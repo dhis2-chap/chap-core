@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from climate_health.time_period.date_util_wrapper import TimePeriod, TimeStamp, delta_month, PeriodRange, delta_year, \
-    Month, Day, Year
+    Month, Day, Year, Week
 
 
 @pytest.fixture
@@ -33,6 +33,13 @@ def test_init_with_numbers(period2):
     assert Month(2020, 2) == period2
     assert Day(2020, 2, 3) == Day(datetime(2020, 2, 3))
     assert Year(2020) == TimePeriod.parse('2020')
+
+
+def test_init_week_with_numbers():
+    week = Week(2023, 2)
+    assert isinstance(week, Week)
+    assert week.start_timestamp == TimeStamp.parse('2023-01-09')
+    assert week.topandas() == pd.Period('2023-01-09', freq='W-MON')
 
 
 def test_parse(period1):
@@ -91,7 +98,7 @@ def test_period_range(period_range):
 # @pytest.mark.xfail
 def test_period_range_slice(period_range):
     assert len(period_range[:1]) == 1
-    assert len(period_range[1:]) == len(period_range)-1
+    assert len(period_range[1:]) == len(period_range) - 1
     assert period_range[1:][0] == period_range[1]
     assert len(period_range[1:3]) == 2
     assert len(period_range[1:-2]) == 11
@@ -172,9 +179,9 @@ def test_from_pandas_inconsecutive(period_range):
     with pytest.raises(ValueError):
         period_range = PeriodRange.from_pandas(series)
 
+
 def test_searchsorted(period_range, period2):
     array_comparison = np.arange(len(period_range))
     assert period_range.searchsorted(period2) == array_comparison.searchsorted(1)
     assert period_range.searchsorted(period2, side='right') == array_comparison.searchsorted(1, side='right')
     assert period_range.searchsorted(period2, side='left') == array_comparison.searchsorted(1, side='left')
-
