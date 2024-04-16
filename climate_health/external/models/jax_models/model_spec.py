@@ -1,14 +1,16 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Protocol, Any
 
 import numpy as np
 
-from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
+from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, SummaryStatistics
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from .hmc import sample
 from .jax import jax, stats, jnp, PRNGKey
 from .regression_model import remove_nans
-from .util import extract_last, index_tree
+from .simple_ssm import get_summary
+from .util import extract_last, index_tree, array_tree_length, extract_sample
 
 expit = jax.scipy.special.expit
 logit = jax.scipy.special.logit
@@ -43,7 +45,7 @@ class Normal:
 class Poisson:
     rate: float
 
-    def sample(self, key, shape: int) -> Any:
+    def sample(self, key, shape: int = ()) -> Any:
         return jax.random.poisson(key, self.rate, shape)
 
     def log_prob(self, x: Any) -> Any:
@@ -78,19 +80,21 @@ class NaiveSSM:
     def state_distribution(self, previous_state: dict, params: dict[str, Any], observed: dict) -> IsDistribution:
         mu = previous_state['logit_infected'] * expit(params['logit_infected_decay']) + self._temperature_effect(
             observed['mean_temperature'], params)
-        return DictDist(Normal(mu, 1.0))
+        return DictDist({'logit_infected': Normal(mu, 1.0)})
 
 
 class DictDist:
-    def __init__(self, dist):
-        self.dist = dist
+    def __init__(self, dist_dict):
+        self.dist_dict = dist_dict
 
     def __getitem__(self, item):
-        return self.dist
+        return self.dist_dict[item]
 
     def log_prob(self, x):
-        return sum(self.dist.log_prob(value) for value in x.values())
+        return sum(self.dist_dict[name].log_prob(x[name]) for name in self.dist_dict.keys())
 
+    def sample(self, key, shape=()):
+        return {name: dist.sample(key, shape) for name,dist in self.dist_dict.items()}
 
 class IsSSMForecaster(Protocol):
 
@@ -117,15 +121,15 @@ class NutsParams:
 
 
 class SSMForecasterNuts:
-    def __init__(self, model_spec: IsSSMSpec, training_params: dict[str, Any] = None):
+    def __init__(self, model_spec: IsSSMSpec, training_params: dict[str, Any] = None, key: PRNGKey = PRNGKey(0)):
         self._model_spec = model_spec
         if training_params is None:
             training_params = NutsParams()
         self._training_params = training_params
+        self._key = key
 
     def _get_local_params(self, params, location):
         return {name: params[name] for name in self._model_spec.global_params} | {param_name: params[param_name][location] for param_name in self._model_spec.location_params}
-
 
     def train(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]):
         orig_data = data
@@ -194,8 +198,27 @@ class SSMForecasterNuts:
 
         return SpatioTemporalDict(predictions)
 
-    def prediction_summary(self, data: dict[str, Any], n: int) -> dict[str, Any]:
-        ...
+    def prediction_summary(self, data: SpatioTemporalDict, num_samples: int = 100) -> SpatioTemporalDict[SummaryStatistics]:
+        self._key, param_key, sample_key = jax.random.split(self._key, 3)
+        n_sampled_params = array_tree_length(self._sampled_params)
+        param_idxs = jax.random.randint(param_key, (num_samples,), 0, n_sampled_params)
+        samples = defaultdict(list)
+        for i, key in zip(param_idxs, jax.random.split(sample_key, num_samples)):
+            state_key, obs_key = jax.random.split(key)
+            param = extract_sample(i, self._sampled_params)
+            for location, local_data in data.items():
+                location_params = self._get_local_params(param, location)
+                last_state = index_tree(self._get_state_params(param, location), -1)
+                new_state = self._model_spec.state_distribution(
+                    last_state, location_params,
+                    {'mean_temperature': self._last_temperature[location]}).sample(state_key)
+                samples[location].append(self._model_spec.observation_distribution(new_state, location_params).sample(obs_key))
+                #rate = self._get_rate(param, location, self._last_temperature[location])
+                #samples[location].append(jax.random.poisson(key, rate))
+        time_period = next(iter(data.data())).data().time_period[:1]
+        summaries = {k: get_summary(time_period, s) for k, s in samples.items()}
+        return SpatioTemporalDict(summaries)
+
 
 
     def sample(self, key, n: int) -> dict[str, Any]:
