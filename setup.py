@@ -10,15 +10,15 @@ with open('README.md') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['typer', 'numpy', 'bionumpy', 'pandas', 'omnipy>=0.15.10', 'plotly', 'scikit-learn', 'matplotlib', 'diskcache', 'geopy', 'pooch',
-                'python-dateutil', 'meteostat', 'cyclopts']
+requirements = ['typer', 'numpy', 'bionumpy', 'pandas',  'plotly', 'scikit-learn', 'matplotlib', 'diskcache', 'geopy', 'pooch',
+                'python-dateutil', 'meteostat', 'cyclopts', 'requests']
 
 test_requirements = ['pytest>=3', "hypothesis"]
 
 setup(
     author="Sandvelab",
     author_email='sandvelab',
-    python_requires='>=3.10,<3.12',
+    python_requires='>=3.10',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
