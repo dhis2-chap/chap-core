@@ -1,0 +1,160 @@
+---
+title: "Modeling Data and Parameters"
+author: |
+  | Dawn M. Nekorchuk, Michael C. Wimberly, and EPIDEMIA Team Members
+  | Department of Geography and Environmental Sustainability, University of Oklahoma
+  | dawn.nekorchuk@ou.edu; mcwimberly@ou.edu
+date: "Updated `r format(Sys.time(), '%B %d, %Y')`"
+output:
+  rmarkdown::html_vignette:
+    fig_caption: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '2'
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+vignette: |
+  %\VignetteIndexEntry{Modeling Data and Parameters} 
+  %\VignetteEncoding{UTF-8} 
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+# Input Data Formats, Model Specifications, and Event Detection Parameters
+
+
+## Data & Data Formats
+
+The epidemiar modeling and code requires 3 main sets of data: 
+
+* epidemiological data, 
+* daily environmental data, and 
+* historical environmental reference data, 
+
+plus several information/reference/specification inputs. 
+
+### Epidemiology Data, `epi_data`
+
+For the epidemiology data, you will need weekly case counts of the disease/illness per the geographic unit (group) with population values (to calculate incidence). 
+
+When calling the epidemiar function:
+
+* `epi_data`:  Data table/tibble of epidemiological data with case numbers per week, with date field labeled as `obs_date`. The date should be the _last_ day of the epidemiological week. Must contain columns for `{casefield}`, `{populationfield}`, and `{groupfield}`. It may contain other variables/columns, but these are ignored. 
+* `casefield`: Give the field name for the case counts.
+* `populationfield`:  Give the population field to give population numbers over time. It is used to calculated incidence, and also optionally used in Farrington method for populationOffset.
+* `groupfield`:  Give the field name for districts or area divisions of epidemiological AND environmental data. If there are no groupings (all one area), user should give a field with the same value throughout the entire datasets. 
+
+In the `report_settings` there is an additional parameters for epidemiological settings:
+
+* `report_settings$epi_date_type`: For the `obs_date` in `epi_data`, you need to specify if you are using "weekCDC" epiweeks, or ISO-8601 ("weekISO") standard weeks of the year (what WHO uses). The default setting is "weekISO". The date should be the _last_ day of the epidemiological week. 
+
+
+#### Missing Data
+
+There should be a line for each week and geographic grouping, even for missing data (i.e. explicit missing data). 
+Any missing data has the option of being filled in by linear interpolation inside of the epidemiar modeling function by using `report_settings$epi_interpolate = TRUE` (default is FALSE).
+
+### Environmental Data, `env_data`
+
+For the environmental data, daily data is expected for each environmental variable for each geographic unit. Based on the lag length (`report_settings$env_lag_length`, default 180 days) chosen, you must have at least that number of days _before_ the first epidemiology data date.  
+
+When calling the epidemiar function:
+
+* `env_data`:  Data table/tibble of environmental data values for each geographic grouping, with date field labeled as "obs_date".
+* `groupfield`:  Give the field name for districts or area divisions of epidemiological AND environmental data. If there are no groupings (all one area), user should provide a field with the same value throughout the entire datasets. 
+* `obsfield`: Give the field name of the environmental data observation types.
+* `valuefield`: Give the field name of the value of the environmental data observations.
+
+#### Non-daily or Missing Data
+
+If you do not have daily data (e.g. weekly, or irregular data), or have implicit missing data, you can use the `data_to_daily()` function to add any missing rows. This function will also use linear interpolation to fill in values if possible (default 'interpolate = TRUE').  It is not recommended if you have a lot of missing/non-daily data. It will group on every field in the dataset that is not `obs_date`, or the user-given `{valuefield}`. Note: this will not fill out ragged data (different end dates of environmental variable data), but that will be handled inside of epidemiar. 
+
+
+### Environmental Reference / Weekly Climate Data, `env_ref_data`
+
+The environmental reference / climate data should contain a reference value (column "ref_value") of the environmental variable per geographic group for each week of the year. For example, this could be the historical mean for that week of the year. 
+
+* `{groupfield}`: Geographic grouping field, and must match the field names in the environmental & epidemiological datasets.
+* `{obsfield}`: Environmental variable field, and must match the field names in the environmental dataset.
+* `week_epidemiar`: Week of the year (1 to 52 for CDC, or 1 to 52 or 53 for WHO/ISO).
+* `ref_value`: Historical mean, or other reference value, for that week of the year for that `groupfield` for that `obsfield`. 
+* `ref_*`: You can have other field(s) in here that begin with `ref_`. These fields will propogate through to the `environ_timeseries` dataset in the ouput, which you can then use for plotting or other uses. 
+
+If you have `env_data`, but do not yet have a reference/climatology built from it, you can use the `env_daily_to_ref()` function to create one in the format accepted by `run_epidemiar()` for `env_ref_data`. Because of processing time (especially for long histories), it is recommended that you run this infrequently to generate a reference dataset that is then saved to be read in later, rather than regenerated each time. The `week_type` of this function defaults to "ISO" for ISO8601/WHO standard week of year. This function also requires the `env_info` data, see below.  
+
+### Reference Data
+
+1. Environmental variables, `env_info`
+This file lists the environmental variables and their aggregation method for to create weekly environmental data from daily data, e.g. rainfall could be the 'sum' of the daily values while LST would be the 'mean' value.
+
+* `{obsfield}`: Give the field name of the environmental data variables, should match the environmental and environmental reference data.
+* `reference_method`: 'sum' or 'mean', the aggregation method for to create weekly environmental data from daily data.
+* `report_label`: Label to be used in creating the formatted report graphs. This column is not used until the formatting Rnw script, so depending on your setup and how you are have formatting reports after the report data is generated, you may not need this column. 
+
+2. Shapefiles
+In order to create summaries from Google Earth Engine, you will need to upload assets of the shapefile of your study area. If you are not using GEE and have some other way of obtaining environmental data, you may not need this. 
+
+If you are creating a formatted report later and wish to have maps of the results, you may need shapefiles for this. 
+
+
+## Setting up the Report and Model
+
+
+### Report level and epidemiological settings
+
+Many of the settings are bundled into the named list `report_settings` argument. These all have defaults, but they are not likely the correct defaults for your dataset and modeling.
+
+* `report_settings$report_period`: Total number of weeks for the report to include, including the number of future forecast weeks, `report_settings$fc_future_period`, see forecasting section below. Default for total report period is 26 weeks.
+* `report_settings$report_value_type`: How to report the results, either in terms of "cases" (default) or "incidence". If 'incidence', population data must be supplied in the `epi_data` under `{populationfield}`.
+* `report_settings$report_inc_per`: If reporting incidence, what should be denominator be? Default is per 1000 persons, and ignored if `report_settings$report_value_type = "cases"`.
+* `report_settings$epi_date_type`: What type of weekly dates are the epidemiological data (and environmental reference data) in? This would be a string indicating the standard used: "weekISO" for WHO ISO-8601 weeks (default), or "weekCDC" for CDC epi weeks. Required: epidemiological observation dates listed are LAST day of the given week.
+* `report_settings$epi_interpolate`: Should the epidemiological data be linearly interpolated for any missing values? Boolean value, default is FALSE. 
+* `report_settings$epi_transform`: Should the case counts be transformed before creating the regression model and then back-transformed after predicting? Default is "none". Current option is for "log_plus_one": where log(cases + 1) is modeled and back-transformed by exp(pred) - 1 (though pmax(exp(pred) - 1, 0) is used in case of small predicted values).
+
+
+### Setting up for Forecasting
+
+*`fc_model_family`: The modeling utilizes `mgcv::bam()`, so the model form can be any accepted by it - any quadractically penalized GLM with the extended families in family.mgcv also being available. This is user set with the `fc_model_family` parameter. For example, you can run regression with a Poisson distribution (`fc_model_family = "poisson()"`) or Gaussian (`fc_model_family = "gaussian()"` and note that you may also want to set `epi_transform = "log_plus_one`). This is required, with no default.
+
+Besides `fc_model_family`, the rest of the forecasting controls (along with other settings) are bundled into the named list `report_settings`:
+
+* `report_settings$fc_start_date`: Option to set a custom date for when forecasting (i.e. `report_settings$fc_future_period`) begins. Default is one week past the last known/observed epidemiological data date. Note that model accuracy decreases without recent epidemiological data, and that there may be no known data (and therefore results) for 'early detection' in the event detection section if the `report_settings$fc_start_date` is more than `report_settings$ed_summary_period` weeks after known/observed epidemiological data.
+* `report_settings$fc_future_period`: The number of weeks to forecast into the future. As the future values of the environmental variables are being imputed based on recent and historical values, it is not recommended to extend the forecast very far into the future, probably no longer than 12 weeks without known environmental data. 
+* `report_settings$fc_clusters`: Geographic grouping clusters. This is a two-column list matching the geographic group to its cluster number. There must be an entry for each geographic group included in the epidemiological data. The fields are: the geographic group field, `groupfield`, and "cluster_id", the numeric ID number for each geographic group. The default is a global model (one cluster), which is the equivalent to `fc_clusters` having each entry for the geographic group contains the same "cluster_id" value. If you only have one geographic group, this would contain one row for that geographic group with a "cluster_id" (1, for example). If you want each geographic group to be in its own cluster (individual model), then each entry should contain a unique value (e.g. 1 to the number of geographic groups). Neither global model or individual model are recommended for large numbers of geographic groups, or for geographic groups in different environmental contexts. See overview vignette for more discussion.
+* `report_settings$fc_splines`: The type of splines that will be used to handle long-term trends and lagged environmental variables. If supplemental package `clusterapply` is installed, the default 'tp' uses thin plate splines. This creates a model per `cluster_id`, so may be slower depending on the number of clusters in your model. If the package is not installed, or if the user sets `fc_splines` to "modbs", then it uses modified b-splines. For thin plate splines, the long term trend is frozen at the end of known data to prevent spline edge effects.  
+* `report_settings$fc_cyclicals`: Boolean on whether to include a cyclical cubic regression spline smooth term based on day of year per geographic group. Defaults to FALSE (no cyclicals). 
+* `report_settings$fc_cyclicals_by`: Unit to run the `fc_cyclicals` terms by. Either by 'cluster' (default; clusters given by `fc_clusters`) or by 'group' (per geogroup in `groupfield`)
+* `report_settings$fc_ncores`: The number of physical CPU cores on the machine. Default is to use this number minus 1 as available to use for parallel processing for modelling. If not set, it will attempt to detect this on its own. 
+
+Environmental data-related forecasting settings:
+
+* `report_settings$env_var`: Environmental variables. This informs the modeling system which environmental variables to actually use. (You can therefore have extra variables or data in the environmental dataset.) This is just a simple 1 column tibble with the variable names to use - `obsfield` - same field name as in the environmental data and environmental reference datasets, with entries for which variables to use in the modeling. The default will be all the environmental variables that are present in all three environmental-related input data: `env_data`, `env_info`, and `env_ref`.
+* `report_settings$env_lag_length`: The number of days of past environmental data to include for the lagged effects, default is 181 days.
+* `report_settings$env_anomalies`: Boolean argument indicating if the environmental variables should be replaced with their anomalies. The variables were transformed by taking the residuals from a GAM with geographic unit and cyclical cubic regression spline on day of year per geographic group. Default is FALSE (no anomalization).
+
+
+### Setting up for Event Detection
+
+The event detection settings are also bundled into the named list `report_settings`:
+
+* `report_settings$ed_method`: At the moment, the only choices are "farrington" for the Farrington improved algorithm as implemented in the `surveillance` package, or "none".  
+* `report_settings$ed_summary_period`: The last n weeks of known epidemiological data that will be considered the early detection period for alert summaries. The algorithm will run over the entire report length for each geographic group and mark alerts for all weeks, but it will create the early detection summary alerts only during the `report_settings$ed_summary_period` weeks. The early detection summary alerts are recorded in the `summary_data` item in the output. Default is 4 weeks. 
+* `report_settings$ed_control`: This is a list of parameters that are handed to the `farringtonFlexible()` function from the `surveillance` package as the `control` argument for "farrington" option. It is unused for the "none" option. See the help for `surveillance::farringtonFlexible()` for more details. In our use of the function, the user can leave `b`, the number of past years to include in the creation of the thresholds, as NULL (not set) and epidemiar will calculate the maximum possible value to use, based on what data is available in `epi_data`, per geogroup. If the other parameters are not set, the defaults from the surveillance package will be used.
+
+
+## Setting up Model Input (Optional)
+
+* `report_settings$model_run`: This is a boolean indicating if it should ONLY generate and return the regression object (`model_obj`) and metadata (`model_info`) on the model. (Default is FALSE)
+* `report_settings$model_cached`: Once a model (and metadata) has been generated, it can be fed into `run_epidemiar()` using this argument. This should be the exact object that was returned by a `report_settings$model_run = TRUE`. This will skip the model building portion of forecasting, and will continue start into generating predictions. Using a prebuilt model saves on processing time, but will need to be updated periodically. If using a cached model, also set `fc_model_family = "cached"`, though it will override as necessary. The cached model will also override the `fc_splines` setting.
+
+Pre-generating a model can save substantial processing time, and users can expect faster report data generation time. The trade-off of potential hits to model accuracy in the age of the model versus the time range of the requested predictions should be examined, which would vary depending on the situation/datasets. 
