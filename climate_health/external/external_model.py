@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Protocol, Generic, TypeVar
 
+import pandas as pd
 import pandas.errors
 import yaml
 
@@ -11,10 +12,13 @@ from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
+logger = logging.getLogger(__name__)
+
 
 class IsExternalModel(Protocol):
     def get_predictions(self, train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
-                        future_climate_data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
+                        future_climate_data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[
+        HealthData]:
         ...
 
 
@@ -33,9 +37,10 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     that everything will be run inside
 
     """
+
     def __init__(self, name: str, train_command: str, predict_command: str, data_type: type[FeatureType],
                  setup_command: str = None, conda_env_file: str = None,
-                 working_dir="./"):
+                 working_dir="./", adapters=None):
         self._name = name
         self._conda_env_name = "climate_health_" + self._name
         self._setup_command = setup_command
@@ -45,6 +50,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._conda_env_file = conda_env_file
         self._model = None
         self._working_dir = working_dir
+        self._adapters = adapters
 
     def _run(self, command):
         return run_command(command, working_directory=self._working_dir)
@@ -57,26 +63,45 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     def setup(self):
         if self._conda_env_file:
             try:
-                run_command(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}', self._working_dir)
+                run_command(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}',
+                            self._working_dir)
             except subprocess.CalledProcessError:
-                #TODO: This logic is not sound since new entries in env file will not be added to the environment if it exists
+                # TODO: This logic is not sound since new entries in env file will not be added to the environment if it exists
                 logging.info("Ignoring error when creating conda environment")
                 pass
 
         elif self._setup_command is not None:
-            self.run_through_conda(self._setup_command, self._working_dir)
+            self.run_through_conda(self._setup_command)
 
     def deactivate(self):
         if self._conda_env_file:
             run_command(f'conda deactivate', self._working_dir)
 
+    def _adapt_data(self, data: pd.DataFrame):
+        if self._adapters is None:
+            return data
+        for to_name, from_name in self._adapters.items():
+            if from_name == 'week':
+                data[to_name] = data['time_period'].dt.week
+            elif from_name == 'month':
+                data[to_name] = data['time_period'].dt.month
+            elif from_name == 'year':
+                data[to_name] = data['time_period'].dt.year
+            elif from_name == 'population':
+                data[to_name] = 200000  # HACK: This is a placeholder for the population data
+                logger.warning("Population data is not available, using placeholder value")
+            else:
+                data[to_name] = data[from_name]
+        return data
+
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType]):
         self._model_file_name = self._name + ".model"
-
         with tempfile.NamedTemporaryFile() as train_datafile:
             train_file_name = train_datafile.name
             with open(train_file_name, "w") as train_datafile:
-                train_data.to_csv(train_file_name)
+                pd = train_data.to_pandas()
+                new_pd = self._adapt_data(pd)
+                new_pd.to_csv(train_file_name)
                 command = self._train_command.format(train_data=train_file_name, model=self._model_file_name)
                 response = self.run_through_conda(command)
                 print(response)
@@ -98,7 +123,6 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
 
 def run_command(command: str, working_directory="./"):
-
     """Runs a unix command using subprocess"""
     logging.info(f"Running command: {command}")
     command = command.split()
@@ -115,7 +139,6 @@ def run_command(command: str, working_directory="./"):
 
 
 def get_model_from_yaml_file(yaml_file: str) -> ExternalCommandLineModel:
-
     # read yaml file into a dict
     with open(yaml_file, 'r') as file:
         data = yaml.load(file, Loader=yaml.FullLoader)
@@ -136,7 +159,8 @@ def get_model_from_yaml_file(yaml_file: str) -> ExternalCommandLineModel:
         data_type=data_type,
         setup_command=setup_command,
         conda_env_file=conda_env_file,
-        working_dir=Path(yaml_file).parent
+        working_dir=Path(yaml_file).parent,
+        adapters=data.get('adapters', None)
     )
 
     return model
