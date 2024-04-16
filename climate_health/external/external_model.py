@@ -46,10 +46,13 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._model = None
         self._working_dir = working_dir
 
+    def _run(self, command):
+        return run_command(command, working_directory=self._working_dir)
+
     def run_through_conda(self, command: str):
         if self._conda_env_file:
-            return run_command(f'conda run -n {self._conda_env_name} {command}')
-        return run_command(command, self._working_dir)
+            return self._run(f'conda run -n {self._conda_env_name} {command}')
+        return self._run(command)
 
     def setup(self):
         if self._conda_env_file:
@@ -60,9 +63,8 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 logging.info("Ignoring error when creating conda environment")
                 pass
 
-            self.run_through_conda(self._setup_command)
         elif self._setup_command is not None:
-            run_command(self._setup_command, self._working_dir)
+            self.run_through_conda(self._setup_command, self._working_dir)
 
     def deactivate(self):
         if self._conda_env_file:
