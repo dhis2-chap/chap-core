@@ -2,7 +2,8 @@ from collections import defaultdict
 from functools import partial
 
 import numpy as np
-
+import pandas as pd
+import plotly.express as px
 from climate_health.time_period.date_util_wrapper import TimeDelta, delta_month
 from .util import extract_last, extract_sample, array_tree_length
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
@@ -13,6 +14,18 @@ from .regression_model import remove_nans
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def plot_diagnostics(params: dict, name: str):
+    if isinstance(params, dict):
+        for sub_name, sub_params in params.items():
+            plot_diagnostics(sub_params, f'{name}.{sub_name}')
+    elif isinstance(params, tuple):
+        for i, sub_params in enumerate(params):
+            plot_diagnostics(sub_params, f'{name}.{i}')
+    elif params.ndim == 1:
+        px.line(params, title=f'{name}')
+
 
 
 def get_summary(time_period, samples):
@@ -29,6 +42,10 @@ def get_summary(time_period, samples):
 
 class NaiveSSM:
     n_warmup = 300
+    n_samples = 100
+
+    def diagnose(self):
+        plot_diagnostics(self._sampled_params, self.__class__.__name__)
 
     def __init__(self):
         self._last_temperature = None
@@ -37,11 +54,16 @@ class NaiveSSM:
         self._initial_params = {'logit_infected_decay': jax.scipy.special.logit(0.9), 'alpha': 0.1}
         self._prior = self._get_priors(self._initial_params.keys())
 
+    def set_estimation_params(self, n_warmup: int = 300, n_samples=100):
+        self.n_warmup = n_warmup
+        self.n_samples = n_samples
+
     def _get_priors(self, param_names):
         return {name: partial(stats.norm.logpdf, loc=0.1, scale=10) for name in param_names}
 
     def _log_infected_dist(self, params, prev_log_infected, mean_temp, scale=1.0):
-        mu = prev_log_infected * jax.scipy.special.expit(params['logit_infected_decay']) + self._temperature_effect(mean_temp, params)
+        mu = prev_log_infected * jax.scipy.special.expit(params['logit_infected_decay']) + self._temperature_effect(
+            mean_temp, params)
         return partial(stats.norm.logpdf, loc=mu, scale=scale), lambda key, shape: jax.random.normal(key,
                                                                                                      shape) * scale + mu
 
@@ -65,7 +87,8 @@ class NaiveSSM:
             return obs_p
 
         def infected_pdf_func(params, local_data, location):
-            infected_dist, _ = self._log_infected_dist(params, params['log_infected'][location][:-1],
+            infected_dist, _ = self._log_infected_dist(params,
+                                                       params['log_infected'][location][:-1],
                                                        local_data.mean_temperature[:-1])
             return infected_dist(params['log_infected'][location][1:]).sum()
 
@@ -89,8 +112,8 @@ class NaiveSSM:
                 [infected_pdf_func(init_params, local_data, location) for location, local_data in data.items()])
         assert not jnp.isnan(first_pdf)
         jax.grad(logpdf)(init_params)
-        self._sampled_params = sample(logpdf, PRNGKey(0), init_params, 100, self.n_warmup)
-        self._last_temperature = {location:  data.data().mean_temperature[-1]
+        self._sampled_params = sample(logpdf, PRNGKey(0), init_params, self.n_samples, self.n_warmup)
+        self._last_temperature = {location: data.data().mean_temperature[-1]
                                   for location, data in orig_data.items()}
 
         last_params = extract_last(self._sampled_params)
@@ -122,13 +145,13 @@ class NaiveSSM:
         state = log_infected
         temp = self._last_temperature[location]
         log_observation_rate = last_params['log_observation_rate'][location]
-        states=[]
+        states = []
         for i, key in enumerate(jax.random.split(key, n_periods)):
             _, sampler = self._log_infected_dist(last_params, state, temp)
             state = sampler(key, ())
             temp = climate_data.mean_temperature[i]
             states.append(state)
-        return np.exp(np.array(states)+log_observation_rate)
+        return np.exp(np.array(states) + log_observation_rate)
 
     def prediction_summary(self, data: SpatioTemporalDict, num_samples: int = 100) -> SpatioTemporalDict[
         SummaryStatistics]:
@@ -146,7 +169,7 @@ class NaiveSSM:
         return SpatioTemporalDict(summaries)
 
     def forecast(self, data: SpatioTemporalDict[ClimateData], num_samples: int = 100,
-                 forecast_delta: TimeDelta=3*delta_month) -> SpatioTemporalDict:
+                 forecast_delta: TimeDelta = 3 * delta_month) -> SpatioTemporalDict:
         self._key, param_key, sample_key = jax.random.split(self._key, 3)
         time_period = next(iter(data.data())).data().time_period
         n_periods = forecast_delta // time_period.delta
@@ -158,7 +181,7 @@ class NaiveSSM:
         for i, key in zip(param_idxs, jax.random.split(sample_key, num_samples)):
             param = extract_sample(i, self._sampled_params)
             for location, local_data in data.items():
-                rates = self._get_rates_forwards(param, location, local_data.data(),  n_periods)
+                rates = self._get_rates_forwards(param, location, local_data.data(), n_periods)
                 samples[location].append(jax.random.poisson(key, rates))
         summaries = {k: get_summary(time_period, s)
                      for k, s in samples.items()}
@@ -181,7 +204,7 @@ class SSM(NaiveSSM):
         self._initial_params = {'logit_infected_decay': jax.scipy.special.logit(0.9), 'beta_temp': 0.1}
         self._prior = self._get_priors(self._initial_params.keys())
 
-    def _temperature_effect(self, mean_temp, params):
+    def _temperature_effect(self, mean_temp: float, params):
         return params['beta_temp'] * mean_temp
 
 
