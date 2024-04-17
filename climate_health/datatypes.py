@@ -114,7 +114,7 @@ class ClimateHealthTimeSeriesModel(BaseModel):
         else:
             return pd.Period(data)
 
-
+@tsdataclass
 class HealthPopulationData(HealthData):
     population: int
 

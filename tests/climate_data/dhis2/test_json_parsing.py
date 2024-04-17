@@ -3,7 +3,8 @@ import json
 import pandas as pd
 import pytest
 
-from climate_health.dhis2_interface.json_parsing import parse_disease_data, parse_population_data
+from climate_health.datatypes import HealthPopulationData
+from climate_health.dhis2_interface.json_parsing import parse_disease_data, parse_population_data, join_data
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
 
@@ -27,3 +28,9 @@ def test_parse_population_data(population_data):
     assert 'VWGSudnonm5' in lookup
     assert lookup['VWGSudnonm5'] == 272115
 
+
+def test_join_population_and_health(population_data, json_data):
+    joined = join_data(json_data, population_data)
+    assert isinstance(joined, SpatioTemporalDict)
+    for location, data in joined.items():
+        assert isinstance(data.data(), HealthPopulationData)

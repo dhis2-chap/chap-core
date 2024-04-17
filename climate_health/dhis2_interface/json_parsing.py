@@ -1,6 +1,7 @@
+import numpy as np
 import pandas as pd
 
-from climate_health.datatypes import HealthData
+from climate_health.datatypes import HealthData, HealthPopulationData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
 
@@ -47,3 +48,17 @@ def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected ca
     df['week_id'] = [_get_week_id(row) for row in df['time_period']]
     df.sort_values(by=['location', 'week_id'], inplace=True)
     return SpatioTemporalDict.from_pandas(df, dataclass=HealthData, fill_missing=True)
+
+def join_data(json_data, population_data):
+    population_lookup = parse_population_data(population_data)
+    disease_data = parse_disease_data(json_data)
+    return add_population_data(disease_data, population_lookup)
+
+
+def add_population_data(disease_data, population_lookup):
+    new_dict = {location: HealthPopulationData(data.data().time_period,
+                                               data.data().disease_cases,
+                                               np.full(len(data.data()), population_lookup[location])
+                                               )
+                for location, data in disease_data.items()}
+    return SpatioTemporalDict(new_dict)
