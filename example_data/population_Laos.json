@@ -1,0 +1,264 @@
+{
+    "headers": [
+        {
+            "name": "dx",
+            "column": "Data",
+            "valueType": "TEXT",
+            "type": "java.lang.String",
+            "hidden": false,
+            "meta": true
+        },
+        {
+            "name": "pe",
+            "column": "Period",
+            "valueType": "TEXT",
+            "type": "java.lang.String",
+            "hidden": false,
+            "meta": true
+        },
+        {
+            "name": "ou",
+            "column": "Organisation unit",
+            "valueType": "TEXT",
+            "type": "java.lang.String",
+            "hidden": false,
+            "meta": true
+        },
+        {
+            "name": "value",
+            "column": "Value",
+            "valueType": "NUMBER",
+            "type": "java.lang.Double",
+            "hidden": false,
+            "meta": false
+        }
+    ],
+    "metaData": {
+        "items": {
+            "20240417": {
+                "name": "2024-04-17"
+            },
+            "vBWtCmNNnCG": {
+                "name": "11 Bolikhamxai"
+            },
+            "sv6c7CpPcrc": {
+                "name": "16 Champasak"
+            },
+            "dx": {
+                "name": "Data"
+            },
+            "hdeC7uX9Cko": {
+                "name": "07 Houaphan"
+            },
+            "VWGSudnonm5": {
+                "name": "09 Xiangkhouang"
+            },
+            "qpXLDdXT3po": {
+                "uid": "qpXLDdXT3po",
+                "name": "Province"
+            },
+            "quFXhkOJGB4": {
+                "name": "10 Vientiane"
+            },
+            "pFCZqWnXtoU": {
+                "name": "13 Savannakhet"
+            },
+            "MBZYTqkEgwf": {
+                "name": "06 Louangphabang"
+            },
+            "c4HrGRJoarj": {
+                "name": "12 Khammouan"
+            },
+            "XKGgynPS1WZ": {
+                "name": "03 Louangnamtha"
+            },
+            "TODAY": {
+                "name": "Today"
+            },
+            "YvLOmtTQD6b": {
+                "name": "02 Phongsali"
+            },
+            "FRmrFTE63D0": {
+                "name": "05 Bokeo"
+            },
+            "ou": {
+                "name": "Organisation unit"
+            },
+            "hRQsZhmvqgS": {
+                "name": "17 Attapu"
+            },
+            "RdNV4tTRNEo": {
+                "name": "08 Xainyabouli"
+            },
+            "K27JzTKmBKh": {
+                "name": "18 Xaisomboun"
+            },
+            "DkmMEcubiPv": {
+                "name": "GEN - Population"
+            },
+            "pe": {
+                "name": "Period"
+            },
+            "TOgZ99Jv0bN": {
+                "name": "14 Salavan"
+            },
+            "HllvX50cXC0": {
+                "name": "default"
+            },
+            "rO2RVJWHpCe": {
+                "name": "04 Oudomxai"
+            },
+            "dOhqCNenSjS": {
+                "name": "15 Xekong"
+            },
+            "W6sNfkJcXGC": {
+                "name": "01 Vientiane Capital"
+            }
+        },
+        "dimensions": {
+            "dx": [
+                "DkmMEcubiPv"
+            ],
+            "pe": [
+                "20240417"
+            ],
+            "ou": [
+                "W6sNfkJcXGC",
+                "YvLOmtTQD6b",
+                "XKGgynPS1WZ",
+                "rO2RVJWHpCe",
+                "FRmrFTE63D0",
+                "MBZYTqkEgwf",
+                "hdeC7uX9Cko",
+                "RdNV4tTRNEo",
+                "VWGSudnonm5",
+                "quFXhkOJGB4",
+                "vBWtCmNNnCG",
+                "c4HrGRJoarj",
+                "pFCZqWnXtoU",
+                "TOgZ99Jv0bN",
+                "dOhqCNenSjS",
+                "sv6c7CpPcrc",
+                "hRQsZhmvqgS",
+                "K27JzTKmBKh"
+            ],
+            "co": [
+                "HllvX50cXC0"
+            ]
+        }
+    },
+    "rowContext": {},
+    "rows": [
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "VWGSudnonm5",
+            "272115"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "hdeC7uX9Cko",
+            "315193"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "RdNV4tTRNEo",
+            "434293"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "c4HrGRJoarj",
+            "445562"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "W6sNfkJcXGC",
+            "989292"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "MBZYTqkEgwf",
+            "474348"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "quFXhkOJGB4",
+            "473631"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "pFCZqWnXtoU",
+            "1101857"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "dOhqCNenSjS",
+            "134283"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "rO2RVJWHpCe",
+            "355786"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "K27JzTKmBKh",
+            "113824"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "sv6c7CpPcrc",
+            "771704"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "YvLOmtTQD6b",
+            "196168"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "TOgZ99Jv0bN",
+            "457338"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "FRmrFTE63D0",
+            "210055"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "hRQsZhmvqgS",
+            "166008"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "XKGgynPS1WZ",
+            "205650"
+        ],
+        [
+            "DkmMEcubiPv",
+            "20240417",
+            "vBWtCmNNnCG",
+            "325625"
+        ]
+    ],
+    "headerWidth": 4,
+    "width": 4,
+    "height": 18
+}
