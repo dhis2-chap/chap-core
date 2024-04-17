@@ -155,10 +155,15 @@ class Day(TimePeriod):
     def topandas(self):
         return pd.Period(year=self.year, month=self.month, day=self.day, freq='D')
 
+    def to_string(self):
+        return f'{self.year}-{self.month:02d}-{self.day:02d}'
 
 class Week(TimePeriod):
     _used_attributes = ['year']
     _extension = relativedelta(weeks=1)
+
+    def to_string(self):
+        return f'{self.year}W{self.week}'
 
     def __init__(self, date, *args, **kwargs):
         if args or kwargs:
@@ -192,6 +197,9 @@ class Month(TimePeriod):
     _used_attributes = ['year', 'month']
     _extension = relativedelta(months=1)
 
+    def to_string(self):
+        return f'{self.year}-{self.month:02d}'
+
     def topandas(self):
         return pd.Period(year=self.year, month=self.month, freq='M')
 
@@ -208,6 +216,9 @@ class Year(TimePeriod):
 
     def topandas(self):
         return pd.Period(year=self.year, freq='Y')
+
+    def to_string(self):
+        return f'{self.year}'
 
 
 class TimeDelta(DateUtilWrapper):

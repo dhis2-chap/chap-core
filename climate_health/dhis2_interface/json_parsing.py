@@ -49,6 +49,7 @@ def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected ca
     df.sort_values(by=['location', 'week_id'], inplace=True)
     return SpatioTemporalDict.from_pandas(df, dataclass=HealthData, fill_missing=True)
 
+
 def join_data(json_data, population_data):
     population_lookup = parse_population_data(population_data)
     disease_data = parse_disease_data(json_data)
@@ -62,3 +63,16 @@ def add_population_data(disease_data, population_lookup):
                                                )
                 for location, data in disease_data.items()}
     return SpatioTemporalDict(new_dict)
+
+
+def predictions_to_json(data: SpatioTemporalDict[HealthData], attribute_mapping: dict[str, str]):
+    entries = []
+    for location, data in data.items():
+        data = data.data()
+        for i, time_period in enumerate(data.time_period):
+            for from_name, to_name in attribute_mapping.items():
+                entries.append({'orgUnit': location,
+                                'period': time_period.to_string(),
+                                'value': getattr(data, from_name)[i],
+                                'dataElement': to_name})
+    return entries
