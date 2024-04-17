@@ -180,6 +180,22 @@ def test_from_pandas_inconsecutive(period_range):
         period_range = PeriodRange.from_pandas(series)
 
 
+@pytest.mark.parametrize('periods, missing', [
+    (['2020', '2021', '2023'], [2]),
+    (['2020', '2021', '2022', '2023'], []),
+    (['2020', '2022', '2023'], [1]),
+    (['2020', '2023'], [1, 2]),
+])
+def test_from_strings_fill_missing(periods, missing):
+    period_range, missing_idx = PeriodRange.from_strings(periods,
+                                                         fill_missing=True)
+    assert period_range[0] == Year(2020)
+    assert period_range[-1] == Year(2023)
+
+    assert np.all(missing_idx == missing)
+
+
+
 def test_searchsorted(period_range, period2):
     array_comparison = np.arange(len(period_range))
     assert period_range.searchsorted(period2) == array_comparison.searchsorted(1)

@@ -97,6 +97,10 @@ class TimePeriod:
             return TimeStamp(self._exclusive_end()) <= other
         return self._exclusive_end() <= other._date
 
+    def __sub__(self, other: 'TimePeriod'):
+        assert self._extension == other._extension
+        return TimeDelta(relativedelta(self._date, other._date))
+
     def _exclusive_end(self):
         return self._date + self._extension
 
@@ -161,6 +165,12 @@ class Week(TimePeriod):
             self.week = week_nr
         else:
             self._date = date
+
+
+    def __str__(self):
+        return f'{self._date}'
+
+    __repr__ = __str__
 
     def __date_from_numbers(cls, year: int, week_nr: int):
         return datetime.strptime(f'{year}-W{week_nr}-1', "%Y-W%W-%w")
@@ -344,9 +354,15 @@ class PeriodRange:
         return cls.from_time_periods(time_periods[0], time_periods[-1])
 
     @classmethod
-    def _check_consequtive(cls, time_delta, time_periods):
+    def _check_consequtive(cls, time_delta, time_periods, fill_missing=False):
         is_consec = [p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])]
         if not all(is_consec):
+            if fill_missing:
+                indices = [(p-time_periods[0])//time_delta for p in time_periods][:-1]
+                mask = np.full((time_periods[-1]-time_periods[0])//time_delta, True)
+                mask[indices] = False
+                return np.flatnonzero(mask)
+
             print(f'Periods {time_periods}')
             mask = ~np.array(list(is_consec))
             print(mask)
@@ -354,6 +370,7 @@ class PeriodRange:
                 print(f'Wrong period {time_periods[wrong], time_periods[wrong+1]} with time delta {time_delta}')
                 print(time_periods[wrong] + time_delta, time_periods[wrong+1])
             raise ValueError(f'Periods must be consecutive.')
+        return []
 
     @classmethod
     def _get_delta(cls, periods: list[TimePeriod]):
@@ -363,11 +380,14 @@ class PeriodRange:
         return delta
 
     @classmethod
-    def from_strings(cls, period_strings: Iterable[str]):
+    def from_strings(cls, period_strings: Iterable[str], fill_missing=False):
         periods = [TimePeriod.parse(period_string) for period_string in period_strings]
         delta = cls._get_delta(periods)
-        cls._check_consequtive(delta, periods)
-        return cls.from_time_periods(periods[0], periods[-1])
+        missing = cls._check_consequtive(delta, periods, fill_missing)
+        ret = cls.from_time_periods(periods[0], periods[-1])
+        if fill_missing:
+            return ret, missing
+        return ret
 
     @property
     def shape(self):

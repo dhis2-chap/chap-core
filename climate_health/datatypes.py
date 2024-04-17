@@ -26,8 +26,8 @@ class TimeSeriesData:
         data.to_csv(csv_file, index=False, **kwargs)
 
     @classmethod
-    def from_pandas(cls, data: pd.DataFrame) -> 'TimeSeriesData':
-        time = PeriodRange.from_strings(data.time_period.astype(str))
+    def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> 'TimeSeriesData':
+        time = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
         # time = parse_periods_strings(data.time_period.astype(str))
         variable_names = [field.name for field in dataclasses.fields(cls) if field.name != 'time_period']
 

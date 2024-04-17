@@ -104,7 +104,7 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         return pd.concat(tables)
 
     @classmethod
-    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT]) -> 'SpatioTemporalDict[FeaturesT]':
+    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT], fill_missing=False) -> 'SpatioTemporalDict[FeaturesT]':
         ''' Split a pandas frame into a SpatioTemporalDict'''
         data_dict = {}
         for location, data in df.groupby('location'):

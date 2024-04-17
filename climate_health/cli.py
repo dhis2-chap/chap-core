@@ -46,6 +46,18 @@ def forecast(model_name: ModelType, dataset_name: DataSetType, n_months: int):
     model = get_model(model_name)()
     do_forecast(model, dataset, n_months * delta_month)
 
+@app.command()
+def dhis_pull(base_url: str, username: str, password: str):
+    from climate_health.dhis2_interface.ChapProgram import ChapPullPost
+    process = ChapPullPost(dhis2Baseurl=base_url.rstrip('/'), dhis2Username=username, dhis2Password=password)
+
+    # set config used in the fetch request
+    process.getDHIS2PullConfig()
+    process.pullDHIS2Analytics()
+    process.pullDHIS2ClimateData()
+    process.startModelling()
+    process.pushDataToDHIS2()
+
 
 
 def main_function():
