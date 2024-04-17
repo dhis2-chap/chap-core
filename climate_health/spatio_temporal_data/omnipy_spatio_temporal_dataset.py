@@ -1,8 +1,8 @@
 from datetime import date
 from typing import Any, Generic, TypeVar
 
-from omnipy import Dataset, Model
-from omnipy.data.dataset import MultiModelDataset
+from ..omnipy_lib import Dataset, Model, MultiModelDataset
+# from omnipy.data.dataset import MultiModelDataset
 from pydantic import BaseModel, PrivateAttr, root_validator, validator
 from pydantic.generics import GenericModel
 

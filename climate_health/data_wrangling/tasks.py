@@ -1,4 +1,4 @@
-from omnipy import (BytesDataset,
+from climate_health.omnipy_lib import (BytesDataset,
                     StrDataset,
                     TableWithColNamesDataset,
                     TableWithColNamesModel,

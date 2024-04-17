@@ -47,6 +47,7 @@ def forecast(model_name: ModelType, dataset_name: DataSetType, n_months: int):
     do_forecast(model, dataset, n_months * delta_month)
 
 
+
 def main_function():
     '''
     This function should just be type hinted with common types,
