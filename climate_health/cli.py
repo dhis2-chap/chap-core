@@ -1,4 +1,5 @@
 """Console script for climate_health."""
+import json
 import webbrowser
 from pathlib import PurePath, Path
 from typing import Literal
@@ -59,10 +60,11 @@ def dhis_pull(base_url: str, username: str, password: str):
     path.mkdir(exist_ok=True, parents=True)
 
     disease_filename = (path / process.DHIS2HealthPullConfig.get_id()).with_suffix('.csv')
-    population_filename = (path / process.DHIS2PopulationPullConfig.get_id()).with_suffix('.csv')
+    population_filename = (path / process.DHIS2PopulationPullConfig.get_id()).with_suffix('.json')
     #f"dhis2analyticsResponses/{dhis2Config.dataElementId}_{dhis2Config.organisationUnit}_{dhis2Config.periode}.json"
     disease_data_frame.to_csv(disease_filename)
-    population_data_frame.to_csv(population_filename)
+    with open(population_filename, 'w') as f:
+        json.dump(population_data_frame, f, sort_keys = True, indent = 4)
 
 
 def main_function():

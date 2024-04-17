@@ -100,7 +100,9 @@ class NutsParams:
 
 
 class SSMForecasterNuts:
-    def __init__(self, model_spec: IsSSMSpec, training_params: dict[str, Any] = None, key: PRNGKey = PRNGKey(0)):
+    def __init__(self, model_spec: IsSSMSpec, training_params: dict[str, Any] = None, key: "PRNGKey" = None):
+        if key is None:
+            key = PRNGKey(0)
         self._model_spec = model_spec
         if training_params is None:
             training_params = NutsParams()

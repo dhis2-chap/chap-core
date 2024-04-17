@@ -1,9 +1,9 @@
 import sys
 
 from climate_health.dhis2_interface.json_parsing import parse_disease_data, parse_population_data
-from src.PullAnalytics import pull_analytics
-from src.PullAnalytics import pull_pupulation_data
-from src.Config import DHIS2AnalyticRequest, ProgramConfig
+from .src.PullAnalytics import pull_analytics
+from .src.PullAnalytics import pull_pupulation_data
+from .src.Config import DHIS2AnalyticRequest, ProgramConfig
 
 
 class ChapPullPost:
