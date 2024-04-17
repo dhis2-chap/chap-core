@@ -166,6 +166,9 @@ class Week(TimePeriod):
         else:
             self._date = date
 
+    def __sub__(self, other: 'TimePeriod'):
+        assert self._extension == other._extension
+        return TimeDelta(self._date -other._date)
 
     def __str__(self):
         return f'{self._date}'
@@ -233,7 +236,15 @@ class TimeDelta(DateUtilWrapper):
         return self._relative_delta.months + 12 * self._relative_delta.years
 
     def __floordiv__(self, divident: 'TimeDelta'):
-        assert divident._relative_delta.days == 0
+        if divident._relative_delta.days != 0:
+            for name in ('months', 'years'):
+                assert not getattr(divident._relative_delta, name, 0) > 0, f'Cannot divide by {divident}'
+                assert not getattr(self._relative_delta, name, 0) > 0, f'Cannot divide {self} by {divident}'
+
+            #assert divident._relative_delta.months == 0 and divident._relative_delta.years == 0, f'Cannot divide by {divident}'
+            #assert self._relative_delta.months == 0 and self._relative_delta.years == 0, f'Cannot divide {self} by {divident}'
+            return self._relative_delta.days // divident._relative_delta.days
+
         return self._n_months() // divident._n_months()
 
     def __mod__(self, other: 'TimeDelta'):

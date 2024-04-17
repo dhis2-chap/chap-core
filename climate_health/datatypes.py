@@ -1,4 +1,5 @@
 import bionumpy as bnp
+import numpy as np
 import pandas as pd
 from pydantic import BaseModel, validator
 import dataclasses
@@ -25,15 +26,32 @@ class TimeSeriesData:
         data = self.to_pandas()
         data.to_csv(csv_file, index=False, **kwargs)
 
+    @staticmethod
+    def _fill_missing(data, missing_indices):
+        if len(missing_indices) == 0:
+            return data
+        l = len(data)+len(missing_indices)
+        filled_data = np.full(l, np.nan)
+        mask = np.full(l, True)
+        mask[missing_indices] = False
+        filled_data[mask] = data
+        return filled_data
+
     @classmethod
     def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> 'TimeSeriesData':
         time = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
+
         if fill_missing:
             time, missing_indices = time
+            mask = np.full(len(time), True)
+            mask[missing_indices] = False
+        else:
+            missing_indices = []
         # time = parse_periods_strings(data.time_period.astype(str))
         variable_names = [field.name for field in dataclasses.fields(cls) if field.name != 'time_period']
-
-        return cls(time, **{name: data[name] for name in variable_names})
+        data = [cls._fill_missing(data[name].values, missing_indices) for name in variable_names]
+        assert all(len(d) == len(time) for d in data), f'{[len(d) for d in data]} != {len(time)}'
+        return cls(time, **dict(zip(variable_names, data)))
 
     @classmethod
     def from_csv(cls, csv_file: str, **kwargs):

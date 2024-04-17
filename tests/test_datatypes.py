@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
 import bionumpy as bnp
+import pytest
 from bionumpy.util.testing import assert_bnpdataclass_equal
-from climate_health.datatypes import ClimateHealthTimeSeries
+from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
+from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period import PeriodRange
 from climate_health.time_period.dataclasses import Year
 
@@ -43,3 +45,11 @@ def test_climate_health_time_series_to_csv(tmp_path):
     ts2 = ClimateHealthTimeSeries.from_csv(csv_file)
     assert ts == ts2
     #assert ts == ts2
+
+@pytest.fixture()
+def dataset_with_missing(data_path):
+    return pd.read_csv(data_path/'laos_pulled_data.csv')
+
+def test_dataset_with_missing(dataset_with_missing):
+    print(dataset_with_missing)
+    health_data = SpatioTemporalDict.from_pandas(dataset_with_missing, dataclass=HealthData, fill_missing=True)
