@@ -8,13 +8,11 @@ from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, Summar
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import delta_month, TimeDelta
 from .hmc import sample
-from .jax import jax, stats, jnp, PRNGKey
+from .jax import jax, stats, jnp, PRNGKey, expit, logit
 from .regression_model import remove_nans
 from .simple_ssm import get_summary
 from .util import extract_last, index_tree, array_tree_length, extract_sample
 
-expit = jax.scipy.special.expit
-logit = jax.scipy.special.logit
 
 import logging
 

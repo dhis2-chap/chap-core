@@ -52,7 +52,7 @@ def dhis_pull(base_url: str, username: str, password: str):
     process = ChapPullPost(dhis2Baseurl=base_url.rstrip('/'), dhis2Username=username, dhis2Password=password)
 
     # set config used in the fetch request
-    disease_data_frame = process.pullDHIS2Analytics()
+    disease_data_frame = process.pullDHIS2Analytics().to_pandas()
     population_data_frame = process.pullPopulationData()
 
     path = Path('dhis2analyticsResponses/')
