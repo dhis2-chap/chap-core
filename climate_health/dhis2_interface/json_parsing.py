@@ -46,5 +46,4 @@ def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected ca
     df = pd.DataFrame(new_rows, columns=col_names)
     df['week_id'] = [_get_week_id(row) for row in df['time_period']]
     df.sort_values(by=['location', 'week_id'], inplace=True)
-    return df
-    # return SpatioTemporalDict.from_pandas(df, dataclass=HealthData, fill_missing=True)
+    return SpatioTemporalDict.from_pandas(df, dataclass=HealthData, fill_missing=True)
