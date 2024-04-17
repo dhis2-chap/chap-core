@@ -8,4 +8,7 @@ class DHIS2PullConfig:
     def __init__(self, dataElementId, periode, organisationUnit):
         self.dataElementId = dataElementId
         self.periode = periode
-        self.organisationUnit = organisationUnit 
+        self.organisationUnit = organisationUnit
+
+    def get_id(self):
+        return f"{self.dataElementId}_{self.organisationUnit}_{self.periode}.json"

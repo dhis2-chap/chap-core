@@ -1,12 +1,16 @@
 import sys
-from src.ValidateArgs import validate
-from src.PullAnalytics import pullAnalytics
-from src.Config import DHIS2PullConfig, ProgramConfig
+
+from climate_health.dhis2_interface.json_parsing import parse_disease_data
+from .src.ValidateArgs import validate
+from .src.PullAnalytics import pullAnalytics, pull_analytics
+from .src.Config import DHIS2PullConfig, ProgramConfig
 
 
 class ChapPullPost:
     def __init__(self, dhis2Baseurl, dhis2Username, dhis2Password):
         self.config = ProgramConfig(dhis2Baseurl=dhis2Baseurl, dhis2Username=dhis2Username, dhis2Password=dhis2Password)
+        self.DHIS2PullConfig = DHIS2PullConfig(dataElementId="3AwryMP8p8k1C", organisationUnit="LEVEL-qpXLDdXT3po",
+                                           periode="LAST_52_WEEKS")
 
     def getDHIS2PullConfig(self):
         # Some data here that should be retrived from DHIS2, for example trough the dataStore-API. We need dataElementId, periode and organisationUnit, for now - just hardcoded.
@@ -17,8 +21,11 @@ class ChapPullPost:
         self.DHIS2PullConfig = DHIS2PullConfig(dataElementId="3AwryMP8p8k1C", organisationUnit="LEVEL-qpXLDdXT3po",
                                                periode="LAST_52_WEEKS")
 
+
     def pullDHIS2Analytics(self):
-        pullAnalytics(self.config, self.DHIS2PullConfig)
+        json = pull_analytics(self.DHIS2PullConfig, self.config)
+        return parse_disease_data(json)
+        # pullAnalytics(self.config, self.DHIS2PullConfig)
 
     def pullDHIS2ClimateData(self):
         # pull Climate-data from climate-data app

@@ -108,7 +108,7 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         ''' Split a pandas frame into a SpatioTemporalDict'''
         data_dict = {}
         for location, data in df.groupby('location'):
-            data_dict[location] = TemporalDataclass(dataclass.from_pandas(data))
+            data_dict[location] = TemporalDataclass(dataclass.from_pandas(data, fill_missing))
         return cls(data_dict)
 
     def to_csv(self, file_name: str):
