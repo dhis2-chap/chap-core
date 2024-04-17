@@ -30,7 +30,7 @@ class TimeSeriesData:
     def _fill_missing(data, missing_indices):
         if len(missing_indices) == 0:
             return data
-        l = len(data)+len(missing_indices)
+        l = len(data) + len(missing_indices)
         filled_data = np.full(l, np.nan)
         mask = np.full(l, True)
         mask[missing_indices] = False
@@ -113,6 +113,10 @@ class ClimateHealthTimeSeriesModel(BaseModel):
             return data
         else:
             return pd.Period(data)
+
+
+class HealthPopulationData(HealthData):
+    population: int
 
 
 class LocatedClimateHealthTimeSeriesModel(BaseModel):

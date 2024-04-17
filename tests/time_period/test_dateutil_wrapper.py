@@ -39,7 +39,7 @@ def test_init_week_with_numbers():
     week = Week(2023, 2)
     assert isinstance(week, Week)
     assert week.start_timestamp == TimeStamp.parse('2023-01-09')
-    assert week.topandas() == pd.Period('2023-01-09', freq='W-MON')
+    assert week.topandas() == '2023W2'#pd.Period('2023-01-09', freq='W-MON')
 
 
 def test_parse(period1):

@@ -175,7 +175,7 @@ class Week(TimePeriod):
         return TimeDelta(self._date - other._date)
 
     def __str__(self):
-        return f'{self.year}-W{self.week}'
+        return f'{self.year}W{self.week}'
 
     __repr__ = __str__
 
