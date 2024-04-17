@@ -11,7 +11,7 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = ['typer', 'numpy', 'bionumpy', 'pandas',  'plotly', 'scikit-learn', 'matplotlib', 'diskcache', 'geopy', 'pooch',
-                'python-dateutil', 'meteostat', 'cyclopts', 'requests','pydantic']
+                'python-dateutil', 'meteostat', 'cyclopts', 'requests','pydantic', 'yaml']
 
 test_requirements = ['pytest>=3', "hypothesis"]
 
