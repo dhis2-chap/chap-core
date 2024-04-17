@@ -6,7 +6,8 @@ import pytest
 from climate_health.assessment.dataset_splitting import train_test_split_with_weather
 from climate_health.assessment.forecast import forecast
 from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NaiveSSM, NutsParams
+from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NutsParams
+from climate_health.external.models.jax_models.specs import NaiveSSM
 from climate_health.external.models.jax_models.regression_model import RegressionModel, HierarchicalRegressionModel
 from climate_health.external.models.jax_models.simple_ssm import SSM
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
@@ -85,17 +86,26 @@ def test_ssm_train(train_data, test_data, jax, blackjax):
     model = SSM()
     model.train(train_data)
 
+
 def test_ssmspe_train(train_data, test_data, jax, blackjax):
     spec = NaiveSSM()
     model = SSMForecasterNuts(spec, NutsParams(n_samples=10, n_warmup=10))
     model.train(train_data)
 
-@pytest.mark.skip
+
+
 def test_ssmspe_predict(train_data, test_data, jax, blackjax):
     spec = NaiveSSM()
     model = SSMForecasterNuts(spec, NutsParams(n_samples=10, n_warmup=10))
     model.train(train_data)
     model.predict(test_data[1])
+
+def test_ssmspe_summary(train_data, test_data, jax, blackjax):
+    spec = NaiveSSM()
+    model = SSMForecasterNuts(spec, NutsParams(n_samples=10, n_warmup=10))
+    model.train(train_data)
+    summary = model.prediction_summary(test_data[1], 10)
+    assert isinstance(summary, SpatioTemporalDict)
 
 
 def test_ssm_predict(train_data, test_data, jax, blackjax):
