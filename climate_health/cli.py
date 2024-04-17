@@ -52,13 +52,17 @@ def dhis_pull(base_url: str, username: str, password: str):
     process = ChapPullPost(dhis2Baseurl=base_url.rstrip('/'), dhis2Username=username, dhis2Password=password)
 
     # set config used in the fetch request
-    #process.getDHIS2PullConfig()
-    data_frame = process.pullDHIS2Analytics()
+    disease_data_frame = process.pullDHIS2Analytics()
+    population_data_frame = process.pullPopulationData()
+
     path = Path('dhis2analyticsResponses/')
     path.mkdir(exist_ok=True, parents=True)
-    filename = (path / process.DHIS2PullConfig.get_id()).with_suffix('.csv')
+
+    disease_filename = (path / process.DHIS2HealthPullConfig.get_id()).with_suffix('.csv')
+    population_filename = (path / process.DHIS2PopulationPullConfig.get_id()).with_suffix('.csv')
     #f"dhis2analyticsResponses/{dhis2Config.dataElementId}_{dhis2Config.organisationUnit}_{dhis2Config.periode}.json"
-    data_frame.to_csv(filename)
+    disease_data_frame.to_csv(disease_filename)
+    population_data_frame.to_csv(population_filename)
 
 
 def main_function():
