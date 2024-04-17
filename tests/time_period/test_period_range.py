@@ -25,3 +25,4 @@ def test_period_range_day():
 def test_wierd_period_range():
     day_range = period_range(Day.single_entry(2020, 0, 0), Day.single_entry(2020, 1, 28))
     assert len(day_range) == 31 + 29
+
