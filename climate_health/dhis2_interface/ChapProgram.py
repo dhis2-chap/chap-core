@@ -29,7 +29,7 @@ class ChapPullPost:
         # periode is what it is
         self.DHIS2HealthPullConfig = DHIS2AnalyticRequest(dataElementId="cYeuwXTCPkU", organisationUnit="LEVEL-wjP19dkFeIk",
                                            periode="LAST_12_MONTHS")
-        self.DHIS2PopulationPullConfig = DHIS2AnalyticRequest(dataElementId="cYeuwXTCPkU", organisationUnit="LEVEL-wjP19dkFeIk",
+        self.DHIS2PopulationPullConfig = DHIS2AnalyticRequest(dataElementId="WUg3MYWQ7pt", organisationUnit="LEVEL-wjP19dkFeIk",
                                            periode="LAST_12_MONTHS")
 
     def pullPopulationData(self):
