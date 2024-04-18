@@ -50,6 +50,11 @@ class TimeStamp(DateUtilWrapper):
     def __eq__(self, other):
         return self._date == other._date
 
+    def __sub__(self, other: 'TimeStamp'):
+        if not isinstance(other, TimeStamp):
+            return NotImplemented
+        return TimeDelta(relativedelta(self._date, other._date))
+
     def _comparison(self, other: 'TimeStamp', func_name: str):
         return getattr(self._date, func_name)(other._date)
 
@@ -283,6 +288,8 @@ class PeriodRange:
         self._end_timestamp = end_timestamp
         self._time_delta = time_delta
 
+
+
     @property
     def delta(self):
         return self._time_delta
@@ -449,6 +456,14 @@ class PeriodRange:
             assert len(args[0]) == 2
             return self.concatenate(args[0][1])
         return NotImplemented
+
+    @property
+    def start_timestamp(self):
+        return self._start_timestamp
+
+    @property
+    def end_timestamp(self):
+        return self._end_timestamp
 
 
 delta_month = TimeDelta(relativedelta(months=1))

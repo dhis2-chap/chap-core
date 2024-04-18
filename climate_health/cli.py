@@ -78,7 +78,6 @@ def dhis_pull(base_url: str, username: str, password: str):
 
 
 def get_full_dataframe(process):
-
     # set config used in the fetch request
     disease_data_frame = process.pullDHIS2Analytics()
     population_data_frame = process.pullPopulationData()

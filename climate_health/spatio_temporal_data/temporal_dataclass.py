@@ -5,7 +5,9 @@ import pandas as pd
 
 from ..dataset import TemporalIndexType, FeaturesT
 from ..datatypes import Location
-
+from ..time_period import PeriodRange
+from ..time_period.date_util_wrapper import TimeStamp
+import dataclasses
 
 class TemporalDataclass(Generic[FeaturesT]):
     '''
@@ -27,6 +29,21 @@ class TemporalDataclass(Generic[FeaturesT]):
         if period_range.stop is not None:
             stop = self._data.time_period.searchsorted(period_range.stop, side='right')
         return self._data[start:stop]
+
+    def fill_to_endpoint(self, end_time_stamp: TimeStamp) -> 'TemporalDataclass[FeaturesT]':
+        if self.end_timestamp == end_time_stamp:
+            return self
+        n_missing = (end_time_stamp - self.end_timestamp)//self._data.time_period.delta
+        assert n_missing >= 0, (f'{n_missing} < 0', end_time_stamp, self.end_timestamp)
+        old_time_period = self._data.time_period
+        new_time_period = PeriodRange(old_time_period.start_timestamp, end_time_stamp, old_time_period.delta)
+        d = {field.name: getattr(self._data, field.name) for field in dataclasses.fields(self._data) if field.name != 'time_period'}
+        for name, data in d.items():
+            print(data, n_missing)
+            d[name] = np.pad(data.astype(float), (0, n_missing), constant_values=np.nan)
+        return TemporalDataclass(
+            self._data.__class__(new_time_period, **d))
+
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> 'TemporalDataclass[FeaturesT]':
         assert isinstance(period_range, slice)
@@ -103,6 +120,13 @@ class SpatioTemporalDict(Generic[FeaturesT]):
                   self._data_dict.items()]
         return pd.concat(tables)
 
+    @classmethod
+    def _fill_missing(cls, data_dict: dict[str, TemporalDataclass[FeaturesT]]):
+        ''' Fill missing values in a dictionary of TemporalDataclasses'''
+        end = max(data.end_timestamp for data in data_dict.values())
+        for location, data in data_dict.items():
+            data_dict[location] = data.fill_to_endpoint(end)
+        return data_dict
 
     @classmethod
     def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT], fill_missing=False) -> 'SpatioTemporalDict[FeaturesT]':
@@ -110,6 +134,8 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         data_dict = {}
         for location, data in df.groupby('location'):
             data_dict[location] = TemporalDataclass(dataclass.from_pandas(data, fill_missing))
+        data_dict = cls._fill_missing(data_dict)
+
         return cls(data_dict)
 
     def to_csv(self, file_name: str):

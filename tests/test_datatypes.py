@@ -26,7 +26,7 @@ def test_climate_health_time_series_from_csv(tmp_path):
     # bnp_ragged_array = true_periods
     # assert ts.time_period == bnp_ragged_array
     assert all(ts.time_period == true_periods)
-    #assert_bnpdataclass_equal(ts.time_period, bnp_ragged_array)
+    # assert_bnpdataclass_equal(ts.time_period, bnp_ragged_array)
     np.testing.assert_array_equal(ts.rainfall, np.array([1.0, 2.0, 3.0]))
     np.testing.assert_array_equal(ts.mean_temperature, np.array([1.0, 2.0, 3.0]))
     np.testing.assert_array_equal(ts.disease_cases, np.array([1, 2, 3]))
@@ -44,12 +44,18 @@ def test_climate_health_time_series_to_csv(tmp_path):
     ts.to_csv(csv_file)
     ts2 = ClimateHealthTimeSeries.from_csv(csv_file)
     assert ts == ts2
-    #assert ts == ts2
+    # assert ts == ts2
+
 
 @pytest.fixture()
 def dataset_with_missing(data_path):
-    return pd.read_csv(data_path/'laos_pulled_data.csv')
+    return pd.read_csv(data_path / 'laos_pulled_data.csv')
+
 
 def test_dataset_with_missing(dataset_with_missing):
-    print(dataset_with_missing)
     health_data = SpatioTemporalDict.from_pandas(dataset_with_missing, dataclass=HealthData, fill_missing=True)
+    start = health_data.start_timestamp
+    end = health_data.end_timestamp
+    for location, data in health_data.items():
+        # assert data.start_timestamp == start
+        assert data.end_timestamp == end

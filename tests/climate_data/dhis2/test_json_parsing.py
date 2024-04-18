@@ -1,5 +1,6 @@
 import json
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -44,5 +45,5 @@ def test_predictions_to_json():
     for element in json_data:
         assert element['dataElement'] in ['D', 'P']
         assert element['orgUnit'] in ['loc1', 'loc2']
-        assert element['value'] in [1, 2, 100, 200]
+        assert element['value'] in [1, 2, 100, 200, np.nan] or np.isnan(element['value'])
         assert element['period'] in ['2020-01', '2020-02']
