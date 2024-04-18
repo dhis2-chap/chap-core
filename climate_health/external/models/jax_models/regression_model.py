@@ -25,7 +25,11 @@ def init_values():
 
 
 def remove_nans(data):
-    nans = np.isnan(data.disease_cases)
+    try:
+        nans = np.isnan(data.disease_cases)
+    except TypeError:
+        data.disease_cases = data.disease_cases.astype(float)
+        return data
     first_non_nan = np.where(~nans)[0][0]
     non_nan = data[first_non_nan:]
     return non_nan

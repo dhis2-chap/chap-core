@@ -1,3 +1,4 @@
+import pickle
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Protocol, Any
@@ -6,13 +7,12 @@ import numpy as np
 
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, SummaryStatistics, ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from climate_health.time_period.date_util_wrapper import delta_month, TimeDelta
+from climate_health.time_period.date_util_wrapper import delta_month, TimeDelta, TimePeriod, PeriodRange
 from .hmc import sample
 from .jax import jax, stats, jnp, PRNGKey, expit, logit
 from .regression_model import remove_nans
 from .simple_ssm import get_summary
 from .util import extract_last, index_tree, array_tree_length, extract_sample
-
 
 import logging
 
@@ -50,12 +50,17 @@ class Poisson:
         return stats.poisson.logpmf(x, self.rate)
 
 
+class PoissonSkipNaN(Poisson):
+    def log_prob(self, x: Any) -> Any:
+        return jnp.where(jnp.isnan(x), 0, super().log_prob(x))
+
+
 class IsSSMSpec(Protocol):
     global_params: list[str]
     state_params: list[str]
 
     @staticmethod
-    def observation_distribution(self, params: dict[str, Any]) -> IsDistribution:
+    def observation_distribution(self, params: dict[str, Any], predictors: dict[str, Any] = None) -> IsDistribution:
         ...
 
     def state_distribution(self, previous_state: dict, params: dict[str, Any], observed: dict) -> IsDistribution:
@@ -73,7 +78,8 @@ class DictDist:
         return sum(self.dist_dict[name].log_prob(x[name]) for name in self.dist_dict.keys())
 
     def sample(self, key, shape=()):
-        return {name: dist.sample(key, shape) for name,dist in self.dist_dict.items()}
+        return {name: dist.sample(key, shape) for name, dist in self.dist_dict.items()}
+
 
 class IsSSMForecaster(Protocol):
 
@@ -101,6 +107,8 @@ class NutsParams:
 
 class SSMForecasterNuts:
     def __init__(self, model_spec: IsSSMSpec, training_params: dict[str, Any] = None, key: "PRNGKey" = None):
+        self._sampled_params = None
+        self._last_predictors = None
         if key is None:
             key = PRNGKey(0)
         self._model_spec = model_spec
@@ -108,6 +116,21 @@ class SSMForecasterNuts:
             training_params = NutsParams()
         self._training_params = training_params
         self._key = key
+
+    def save(self, filename: str):
+        ''' Pickle everything neeeded to recreate the model.'''
+        with open(filename, 'wb') as f:
+            pickle.dump((self._sampled_params, self._last_predictors, self._model_spec), f)
+
+    @classmethod
+    def load(cls, filename: str):
+        ''' Load a model from a pickled file.'''
+        with open(filename, 'rb') as f:
+            sampled_params, last_predictors, model_spec = pickle.load(f)
+        model = cls(model_spec)
+        model._sampled_params = sampled_params
+        model._last_predictors = last_predictors
+        return model
 
     def _get_local_params(self, params, location):
         globals = {name: params[name] for name in self._model_spec.global_params}
@@ -124,18 +147,20 @@ class SSMForecasterNuts:
         prior_pdf_func = prior.log_prob
 
         def obs_pdf_func(states, local_params, local_data):
-            return self._model_spec.observation_distribution(states, local_params).log_prob(
+            return self._model_spec.observation_distribution(
+                states, local_params,
+                {name: getattr(local_data, name) for name in self._model_spec.predictors}).log_prob(
                 local_data.disease_cases).sum()
 
         def infected_pdf_func(states, params, local_data):
-            previous_state = {param_name: states[param_name][:-1] for param_name in self._model_spec.state_params}
+            previous_state = {param_name: states[param_name][:-1]
+                              for param_name in self._model_spec.state_params}
             new_state = {param_name: states[param_name][1:] for param_name in self._model_spec.state_params}
             dist = self._model_spec.state_distribution(previous_state, params,
                                                        {name: getattr(local_data, name)[:-1] for name in
                                                         self._model_spec.predictors})
 
             return dist.log_prob(new_state).sum()
-
 
         def logpdf(params):
             obs_pdf = []
@@ -153,16 +178,19 @@ class SSMForecasterNuts:
         first_pdf = logpdf(init_params)
         if jnp.isnan(first_pdf):
             logger.error(prior_pdf_func(init_params))
-            logger.error([obs_pdf_func(init_params, local_data, location) for location, local_data in data.items()])
+            logger.error([obs_pdf_func(self._get_state_params(init_params, location),
+                                       self._get_local_params(init_params, location), local_data)
+                          for location, local_data in data.items()])
             logger.error(
-                [infected_pdf_func(init_params, local_data, location) for location, local_data in data.items()])
+                [infected_pdf_func(self._get_state_params(init_params, location),
+                                   self._get_local_params(init_params, location),
+                                   local_data) for location, local_data in data.items()])
         assert not jnp.isnan(first_pdf)
         jax.grad(logpdf)(init_params)
         self._sampled_params = sample(logpdf, PRNGKey(0), init_params, self._training_params.n_samples,
                                       self._training_params.n_warmup)
-        self._last_temperature = {location: data.data().mean_temperature[-1]
-                                  for location, data in orig_data.items()}
-
+        self._last_predictors = {location: {name: getattr(data.data(), name)[-1] for name in self._model_spec.predictors}
+                                 for location, data in orig_data.items()}
         last_params = extract_last(self._sampled_params)
         last_pdf = logpdf(last_params)
         assert not jnp.isnan(last_pdf)
@@ -172,31 +200,41 @@ class SSMForecasterNuts:
         predictions = {}
         for location, local_data in data.items():
             location_params = self._get_local_params(last_params, location)
-            new_state = self._model_spec.state_distribution(index_tree(self._get_state_params(last_params, location), -1),
-                                                            location_params,
-                                                            {'mean_temperature': self._last_temperature[location]})['logit_infected'].mu
+            new_state = \
+            self._model_spec.state_distribution(index_tree(self._get_state_params(last_params, location), -1),
+                                                location_params,
+                                                self._last_predictors[location])['logit_infected'].mu
             rate = self._model_spec.observation_distribution({'logit_infected': new_state}, location_params).rate
             time_period = data.get_location(location).data().time_period[:1]
             predictions[location] = HealthData(time_period, np.atleast_1d(rate))
 
         return SpatioTemporalDict(predictions)
 
-    def prediction_summary(self, data: SpatioTemporalDict, num_samples: int = 100) -> SpatioTemporalDict[SummaryStatistics]:
+    def prediction_summary(self, data: SpatioTemporalDict=None, num_samples: int = 100) -> SpatioTemporalDict[
+        SummaryStatistics]:
+        if isinstance(data, TimePeriod):
+            time_period = PeriodRange.from_time_periods(data, data)
+            locations = list(self._last_predictors.keys())
+        elif isinstance(data, SpatioTemporalDict):
+            locations = list(data.locations())
+            time_period = next(iter(data.data())).data().time_period[:1]
         self._key, param_key, sample_key = jax.random.split(self._key, 3)
         n_sampled_params = array_tree_length(self._sampled_params)
         param_idxs = jax.random.randint(param_key, (num_samples,), 0, n_sampled_params)
         samples = defaultdict(list)
+        #locations = list(self._last_predictors.keys()) if data is None else data.locations()
         for i, key in zip(param_idxs, jax.random.split(sample_key, num_samples)):
             state_key, obs_key = jax.random.split(key)
             param = extract_sample(i, self._sampled_params)
-            for location, local_data in data.items():
+            for location in locations:
                 location_params = self._get_local_params(param, location)
                 last_state = index_tree(self._get_state_params(param, location), -1)
                 new_state = self._model_spec.state_distribution(
                     last_state, location_params,
-                    {'mean_temperature': self._last_temperature[location]}).sample(state_key)
-                samples[location].append(self._model_spec.observation_distribution(new_state, location_params).sample(obs_key))
-        time_period = next(iter(data.data())).data().time_period[:1]
+                    self._last_predictors[location]).sample(state_key)
+                samples[location].append(
+                    self._model_spec.observation_distribution(new_state, location_params, self._last_predictors[location]).sample(obs_key))
+        # time_period = next(iter(data.data())).data().time_period[:1]
         summaries = {k: get_summary(time_period, s) for k, s in samples.items()}
         return SpatioTemporalDict(summaries)
 
@@ -221,9 +259,6 @@ class SSMForecasterNuts:
         summaries = {k: get_summary(time_period, s)
                      for k, s in samples.items()}
         return SpatioTemporalDict(summaries)
-
-    # def forecast(self, data: dict[str, Any], n: int, forecast_delta: int) -> dict[str, Any]:
-    #     ...
 
     def _get_init_params(self, data):
         init_params = {param_name: 0.1 for param_name in self._model_spec.global_params}

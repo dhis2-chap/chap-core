@@ -7,12 +7,12 @@ from climate_health.assessment.dataset_splitting import train_test_split_with_we
 from climate_health.assessment.forecast import forecast
 from climate_health.datatypes import ClimateHealthTimeSeries
 from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NutsParams
-from climate_health.external.models.jax_models.specs import NaiveSSM
+from climate_health.external.models.jax_models.specs import NaiveSSM, SSMWithoutWeather
 from climate_health.external.models.jax_models.regression_model import RegressionModel, HierarchicalRegressionModel
 from climate_health.external.models.jax_models.simple_ssm import SSM
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period import Month
-from climate_health.time_period.date_util_wrapper import delta_month
+from climate_health.time_period.date_util_wrapper import delta_month, Week
 
 
 @pytest.fixture()
@@ -93,12 +93,12 @@ def test_ssmspe_train(train_data, test_data, jax, blackjax):
     model.train(train_data)
 
 
-
 def test_ssmspe_predict(train_data, test_data, jax, blackjax):
     spec = NaiveSSM()
     model = SSMForecasterNuts(spec, NutsParams(n_samples=10, n_warmup=10))
     model.train(train_data)
     model.predict(test_data[1])
+
 
 def test_ssmspe_summary(train_data, test_data, jax, blackjax):
     spec = NaiveSSM()
@@ -106,6 +106,19 @@ def test_ssmspe_summary(train_data, test_data, jax, blackjax):
     model.train(train_data)
     summary = model.prediction_summary(test_data[1], 10)
     assert isinstance(summary, SpatioTemporalDict)
+
+
+def test_model_without_weather(health_population_data, jax, blackjax, fast_params, data_path):
+    spec = SSMWithoutWeather()
+    model = SSMForecasterNuts(spec, fast_params)
+    model.train(health_population_data)
+    model.save(data_path / 'model_without_weather')
+    model.prediction_summary(Week(health_population_data.end_timestamp))
+
+
+def test_model_without_weather_predict(health_population_data, jax, blackjax, data_path):
+    model = SSMForecasterNuts.load(data_path / 'model_without_weather')
+    model.prediction_summary(Week(health_population_data.end_timestamp))
 
 
 def test_ssm_predict(train_data, test_data, jax, blackjax):

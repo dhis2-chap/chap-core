@@ -158,6 +158,7 @@ class Day(TimePeriod):
     def to_string(self):
         return f'{self.year}-{self.month:02d}-{self.day:02d}'
 
+
 class Week(TimePeriod):
     _used_attributes = ['year']
     _extension = relativedelta(weeks=1)
@@ -172,6 +173,8 @@ class Week(TimePeriod):
             self._date = self.__date_from_numbers(year, week_nr)
             self.week = week_nr
         else:
+            if isinstance(date, TimeStamp):
+                date = date._date
             self.week = date.isocalendar()[1]
             self._date = date
 
@@ -186,7 +189,6 @@ class Week(TimePeriod):
 
     def __date_from_numbers(cls, year: int, week_nr: int):
         return datetime.strptime(f'{year}-W{week_nr}-1', "%Y-W%W-%w")
-
 
     def topandas(self):
         return self.__str__()
