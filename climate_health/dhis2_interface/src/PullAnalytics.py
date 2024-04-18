@@ -12,6 +12,7 @@ def pull_pupulation_data(requestConfig : DHIS2AnalyticRequest, programConfig : P
     session = get_request_session(programConfig)
     
     url = f'{programConfig.dhis2Baseurl}/api/40/analytics?dimension=dx:{requestConfig.dataElementId},pe:{requestConfig.periode},ou:{requestConfig.organisationUnit}&displayProperty=NAME'
+    print(url)
     print(
         f"- fetching analytics for dataElementId {requestConfig.dataElementId} for orgUnit {requestConfig.organisationUnit} for periode {requestConfig.periode}...")
     try:
@@ -33,6 +34,9 @@ def pull_analytics(requestConfig, programConfig):
     session = get_request_session(programConfig)
 
     url = f'{programConfig.dhis2Baseurl}/api/40/analytics?dimension=dx:{requestConfig.dataElementId},pe:{requestConfig.periode},ou:{requestConfig.organisationUnit}&displayProperty=NAME'
+    
+    print(url)
+    
     print(
         f"- fetching analytics for dataElementId {requestConfig.dataElementId} for orgUnit {requestConfig.organisationUnit} for periode {requestConfig.periode}...")
     try:

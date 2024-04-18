@@ -89,10 +89,11 @@ def get_full_dataframe(process):
 def dhis_flow(base_url: str, username: str, password: str, n_periods = 1):
     process = ChapPullPost(dhis2Baseurl=base_url.rstrip('/'), dhis2Username=username, dhis2Password=password)
     full_data_frame = get_full_dataframe(process)
-    model = SSMForecasterNuts(SSMWithoutWeather(), NutsParams(n_samples=10, n_warmup=10))
+    modelspec = SSMWithoutWeather()
+    model = SSMForecasterNuts(modelspec, NutsParams(n_samples=10, n_warmup=10))
     model.train(full_data_frame)
     predictions = model.prediction_summary(Week(full_data_frame.end_timestamp))
-    json = predictions_to_json(predictions)
+    json = process.pushDataToDHIS2(predictions, modelspec.__class__.__name__)
     print(json)
 
 
