@@ -25,6 +25,9 @@ def push_result(programConfig : ProgramConfig, dataValues : List[DataValue]):
 
     data_list = [dataclasses.asdict(data_value) for data_value in dataValues]
 
+    unique_elems = {(data['dataElement'], data['period'], data['orgUnit']) for data in data_list}
+    assert len(unique_elems) == len(data_list), "DataValues must be unique"
+    print(data_list)
     body = json.dumps({'dataValues': data_list})
 
     url = f'{programConfig.dhis2Baseurl}/api/40/dataValueSets'
@@ -40,7 +43,7 @@ def push_result(programConfig : ProgramConfig, dataValues : List[DataValue]):
         print("nothing updated")
         return
     if (response.status_code != 201):
-        raise Exception(f"Could not create. \nError code: {response.status_code}")
+        raise Exception(f"Could not create. \nError code: {response.status_code} {response.json()['message']}")
     
     print(
         f"- 201 OK - successfully pushed CHAP-result")

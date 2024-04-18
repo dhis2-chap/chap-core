@@ -62,15 +62,9 @@ def forecast(model_name: ModelType, dataset_name: DataSetType, n_months: int):
 
 @app.command()
 def dhis_pull(base_url: str, username: str, password: str):
-    from climate_health.dhis2_interface.ChapProgram import ChapPullPost
-    
-
-    full_data_frame, population_data_frame = get_full_dataframe(process)
-
     path = Path('dhis2analyticsResponses/')
     path.mkdir(exist_ok=True, parents=True)
-
-    # set config used in the fetch requestprocess = ChapPullPost(dhis2Baseurl=base_url.rstrip('/'), dhis2Username=username, dhis2Password=password)
+    from climate_health.dhis2_interface.ChapProgram import ChapPullPost
     process = ChapPullPost(dhis2Baseurl=base_url.rstrip('/'), dhis2Username=username, dhis2Password=password)
     full_data_frame = get_full_dataframe(process)
     disease_filename = (path / process.DHIS2HealthPullConfig.get_id()).with_suffix('.csv')
@@ -78,7 +72,6 @@ def dhis_pull(base_url: str, username: str, password: str):
 
 
 def get_full_dataframe(process):
-    # set config used in the fetch request
     disease_data_frame = process.pullDHIS2Analytics()
     population_data_frame = process.pullPopulationData()
     full_data_frame = add_population_data(disease_data_frame, population_data_frame)

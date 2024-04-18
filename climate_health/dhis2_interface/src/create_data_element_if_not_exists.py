@@ -46,7 +46,7 @@ def __create_data_element(programConfig : ProgramConfig, code : str, quantile : 
 
     session = get_request_session(programConfig)
 
-    name = f"CHAP - {disease.lower()} {quantile.lower().replace("_", " ")}"
+    name = f'CHAP - {disease.lower()} {quantile.lower().replace("_", " ")}'
 
     body = {
             "aggregationType":"COUNT",
@@ -67,7 +67,7 @@ def __create_data_element(programConfig : ProgramConfig, code : str, quantile : 
         logger.error(f'Could not create {name} to dhis 2: %s', e)
         raise
     if (response.status_code != 201):
-        raise Exception(f"Could not create. \nError code: {response.status_code}\nmessage: {response.json()["message"]}")
+        raise Exception(f'Could not create. \nError code: {response.status_code}\nmessage: {response.json()["message"]}')
     print(
         f"- 201 OK - dataElement with code '{code}' created")
     uid = response.json()["response"]["uid"]
