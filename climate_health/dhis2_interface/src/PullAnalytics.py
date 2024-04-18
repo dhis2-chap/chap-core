@@ -2,12 +2,12 @@ import requests
 import json
 import logging
 
-from climate_health.dhis2_interface.src.Config import DHIS2AnalyticRequest
+from climate_health.dhis2_interface.src.Config import DHIS2AnalyticRequest, ProgramConfig
 from climate_health.dhis2_interface.src.HttpRequest import get_request_session
 
 logger = logging.getLogger(__name__)
 
-def pull_pupulation_data(requestConfig : DHIS2AnalyticRequest, programConfig):
+def pull_pupulation_data(requestConfig : DHIS2AnalyticRequest, programConfig : ProgramConfig):
     # initilize the http client for pull job
     session = get_request_session(programConfig)
     

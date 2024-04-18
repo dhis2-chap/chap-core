@@ -1,6 +1,8 @@
 import sys
 
 from climate_health.dhis2_interface.json_parsing import parse_disease_data, parse_population_data
+from climate_health.dhis2_interface.src.PushResult import DataValue
+from climate_health.dhis2_interface.src.create_data_element_if_not_exists import create_data_element_if_not_exists
 from .src.PullAnalytics import pull_analytics
 from .src.PullAnalytics import pull_pupulation_data
 from .src.Config import DHIS2AnalyticRequest, ProgramConfig
@@ -40,7 +42,13 @@ class ChapPullPost:
         # do the fancy modelling here?
         return
 
-    def pushDataToDHIS2(self):
+    def pushDataToDHIS2(self, data : DataValue):
+
+        # TODO do we need to delete previous modells?, or would we overwrite exisitng values?
+
+        #Ensure that dataElement exisits
+        create_data_element_if_not_exists()
+
         # push to DHIS2
         return
 
