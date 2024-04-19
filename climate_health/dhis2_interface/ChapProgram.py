@@ -2,12 +2,11 @@ import sys
 
 
 from climate_health.datatypes import HealthData
-from climate_health.dhis2_interface.json_parsing import parse_disease_data, parse_population_data, predictions_to_json
+from climate_health.dhis2_interface.json_parsing import parse_climate_data, parse_disease_data, parse_population_data, predictions_to_json
 from climate_health.dhis2_interface.src.PushResult import DataValue, push_result
 from climate_health.dhis2_interface.src.create_data_element_if_not_exists import create_data_element_if_not_exists
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from climate_health.dhis2_interface.src.PullAnalytics import pull_analytics
-from climate_health.dhis2_interface.src.PullAnalytics import pull_pupulation_data
+from climate_health.dhis2_interface.src.PullAnalytics import pull_analytics_elements
 from climate_health.dhis2_interface.src.Config import DHIS2AnalyticRequest, ProgramConfig
 
 
@@ -21,7 +20,7 @@ class ChapPullPost:
     def getDHIS2PullConfig(self):
         # Some data here that should be retrived from DHIS2, for example trough the dataStore-API. We need dataElementId, periode and organisationUnit, for now - just hardcoded.
 
-        #siera leone all level LEVEL-wjP19dkFeIk
+        # siera leone all level LEVEL-wjP19dkFeIk
         # laos all level LEVEL-qpXLDdXT3po
 
         # dataElementId here is "IDS - Dengue Fever (Suspected cases)"
@@ -31,18 +30,20 @@ class ChapPullPost:
                                            periode="LAST_12_MONTHS")
         self.DHIS2PopulationPullConfig = DHIS2AnalyticRequest(dataElementId="WUg3MYWQ7pt", organisationUnit="LEVEL-wjP19dkFeIk",
                                            periode="TODAY")
+        self.DHIS2ClimatePullConfig = DHIS2AnalyticRequest(dataElementId="hash,hash", organisationUnit="LEVEL-wjP19dkFeIk",
+                                           periode="LAST_52WEEKS")
 
     def pullPopulationData(self):
-        json = pull_pupulation_data(self.DHIS2PopulationPullConfig, self.config)
+        json = pull_analytics_elements(self.DHIS2PopulationPullConfig, self.config)
         return parse_population_data(json)
 
     def pullDHIS2Analytics(self):
-        json = pull_analytics(self.DHIS2HealthPullConfig, self.config)
+        json = pull_analytics_elements(self.DHIS2HealthPullConfig, self.config)
         return parse_disease_data(json)
 
     def pullDHIS2ClimateData(self):
-        # pull Climate-data from climate-data app
-        return
+        json = pull_analytics_elements(self.DHIS2ClimatePullConfig, self.config)
+        return parse_climate_data(json)
 
     def startModelling(self):
         # do the fancy modelling here?
