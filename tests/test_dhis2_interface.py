@@ -25,7 +25,7 @@ def test_pull_from_play(dhis_process):
 def dhis_test_model(data_path):
     return SSMForecasterNuts.load(data_path / 'dhis_test_model')
 
-@pytest.skip()
+@pytest.mark.skip()
 def test_push(dhis_process, dhis_test_model):
     process = dhis_process
     full_data_frame = get_full_dataframe(process)
@@ -35,7 +35,7 @@ def test_push(dhis_process, dhis_test_model):
     process.pushDataToDHIS2(predictions, modelspec.__class__.__name__)
 
 
-@pytest.skip()
+@pytest.mark.skip()
 def test_flow(dhis_process):
     process = dhis_process
     full_data_frame = get_full_dataframe(process)
