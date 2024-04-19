@@ -1,0 +1,118 @@
+---
+title: "Output Data"
+author: |
+  | Dawn Nekorchuk, Michael Wimberly, and EPIDEMIA Team Members
+  | Department of Geography and Environmental Sustainability, University of Oklahoma
+  | dawn.nekorchuk@ou.edu; mcwimberly@ou.edu
+date: "Updated `r format(Sys.time(), '%B %d, %Y')`"
+output:
+  rmarkdown::html_vignette:
+    fig_caption: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '2'
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+vignette: |
+  %\VignetteIndexEntry{Output Data} 
+  %\VignetteEncoding{UTF-8} 
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Epidemiar Output Dataset - Full Run
+
+The results of `run_epidemia()` is a named list of the following datasets or objects:
+
+1. `summary_data`
+2. `epi_summary`
+3. `modeling_results_data`
+4. `environ_timeseries`
+5. `environ_anomalies`
+6. `params_meta`
+7. `regression_object`
+
+
+## `summary_data`
+Early detection and early warning alerts levels for each geographic group. Early detection alerts (`ed_alert_count`) are alerts that are triggered during the early detection period, which was defined by the argument `ed_summary_period`, the _n_ most recent weeks of known epidemiology data. Similarly, early warning alerts (`ew_alert_count`) are alerts in the future forecast estimates. “High” level indicates two or more weeks in this period had incidences greater than the alert threshold, “Medium” means that one week was in alert status, and “Low” means no weeks had alerts (`ed_sum_level` and `ew_level`, respectively).
+
+* `{groupfield}`: The user-given geographic grouping field
+* `ed_alert_count`: Number of alerts triggered in the early detection period
+* `ed_sum_level`: High/Medium/Low depending on the number of alerts, 2+/1/0 respectively
+* `ew_alert_count`: Number of alerts triggered in the early warning period (future forecast period)
+* `ew_level`: High/Medium/Low depending on the number of alerts, 2+/1/0 respectively
+
+## `epi_summary`
+Mean disease incidence per geographic group during the early detection period.
+
+* `{groupfield}`: The user-given geographic grouping field
+* `mean_epi`: The mean disease incidence (or cases, depending on the setting in `report_settings$report_value_type`) per geographic group summarized over the early detection period
+
+
+## `modeling_results_data`
+These are multiple timeseries values for observed, forecast, and alert thresholds of disease incidence, over the report period, for each geographic unit. These data can be used in creating the individual geographic unit control charts.
+
+* `{groupfield}`: The user-given geographic grouping field
+* `obs_date`: The last day of the epidemiological week, Date object
+* `series`: "obs" = observed disease incidence, "fc" = modeled/forecast incidence values, "thresh" = event detection threshold values, "ed" = early detection alert (binary), "ew" = early warning alert (binary)
+* `value`: Value of the `series` for that geographic group for that week
+* `lab`: Labels for the series ("Observed", "Forecast Trend", "Alert Threshold", "Early Detection Alert", "Early Warning Alert")
+* `upper`: Unused
+* `lower`: Unused
+* `week_epidemiar`: ISO/CDC week number, based on user given `report_settings$epi_date_type` argument
+* `year_epidemiar`: ISO/CDC year, based on user given `report_settings$epi_date_type` argument
+
+
+## `environ_timeseries`
+These are multiple timeseries for the used environmental variables during the report period for each geographic unit.
+
+* `{groupfield}`: The user-given geographic grouping field
+* `{obsfield}`: The user-given field for the environmental variable name/ID
+* `year_epidemiar`: ISO/CDC year, based on user given `report_settings$epi_date_type` argument
+* `week_epidemiar`: ISO/CDC week number, based on user given `report_settings$epi_date_type` argument
+* `obs_date`: The last day of the epidemiological week (ISO/CDC, by `report_settings$epi_date_type`), Date object
+* `val_epidemiar`: Value of the environmental variable for that geographic group for that week. Values are a combination of observed, or interpolated (for missing) or extended (future estimated) values.   
+* `reference_method`: Method for creating a weekly summary from daily data (e.g. "sum" for rainfall, or "mean" for NDWI)
+* `data_source`: "Observed" or "Imputed". Environment data was either observed, or if it was NA/missing, it was filled in (imputed). For gaps less than 2 weeks, the values are filled in with a persistence method (carry-forward). The recent values are calculated as the average of the past 7 days for 'mean' type variables (as defined in the user's `environ_info` metadata, e.g. for NDWI, LST), or the past 14 known days for 'sum' type variables (as defined in the user's `environ_info` metadata, e.g. for precipitation-like measures). For periods longer than 2 weeks, daily values were imputed using a progressive blend of the recent values (as above) with the climatology/historical averages for that week of the year (from `environ_ref_data`). 
+* `ref_value`: From `env_ref_data`.        
+* `ref_*`: Fields from `env_ref_data` that begin with `ref_` have been propagating through to here. (Potentially useful for plotting, for example.) 
+
+
+## `environ_anomalies`
+These data are the recent (during the early detection period) differences (anomalies) of the environmental variable values from the climatology/reference mean.
+
+* `{groupfield}`: The user-given geographic grouping field
+* `{obsfield}`: The user-given field for the environmental variable name/ID
+* `anom_ed_mean`: The mean of the anomalies per environmental variable per geographic group summarized during the early detection period. The anomalies here are calculated as the difference from the observed value to the historical mean for that week of the year. (Not to be confused with environmental anomalies option in modeling.)
+
+## `params_meta`
+This lists dates, settings, and parameters that `run_epidemiar()` was called with and defaults that were used if the user did not set values for those parameters.
+
+## `regression_object`
+This is the regression object from the general additive model (`mgvc::bam()`) regression. This is generally only for additional statistical investigation of the model, and is usually not saved (large object).
+
+
+# Epidemiar Output Dataset - Model Only Run
+
+The results of `run_epidemiar(..., report_settings$model_run = TRUE)` is a cached model: the regression object plus some metadata information about what was used to generate the model. 
+Once a model has been generated, it can be fed back into `run_epidemiar(..., report_settings$model_cached = {cached model object})` for faster predictions rather than regenerating the model on each run. Determining the balance on how old of a model is still useful is heavily dependent on the specific dataset. 
+
+1. `model_obj`
+2. `model_info`
+
+## `model_obj`
+The output regression object from the `mgcv::bam()` general additive model regression call, or a list of models per cluster from `clusterapply` depending on the model settings.
+
+## `model_info`
+A list of dates, settings, and relevant parameters that `run_epidemiar()` was called with. Very similar to `params_meta` of a full run. 
+
+

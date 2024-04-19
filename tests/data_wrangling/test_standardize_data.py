@@ -4,9 +4,7 @@ import tempfile
 import pytest
 
 from typing import Annotated, Generator
-from omnipy import StrDataset
-from omnipy.api.protocols.public.hub import IsRuntime
-from omnipy.hub.runtime import Runtime
+from climate_health.omnipy_lib import StrDataset, IsRuntime, Runtime
 from pytest import fixture
 
 from climate_health.data_wrangling.tasks import load_data_as_clean_strings

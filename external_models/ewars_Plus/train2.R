@@ -1,5 +1,12 @@
-install.packages("INLA")
+# Read in command line args filenames
+args = commandArgs(trailingOnly=TRUE)
+
+data_filename = args[1]
+output_model_filename = args[2]
+
+#install.packages("INLA")
 library(INLA)
+
 # our variables= 'rainsum' 'meantemperature'
 mymodel <- function(formula, data = df, family = "nbinomial", config = FALSE)
 {
@@ -30,5 +37,13 @@ T1 , replicate = S1, model = "rw1", cyclic = TRUE, constr = TRUE,
 formula0.1 <- eval(parse(text=paste0("update.formula(baseformula, ~. +",paste(alarm_vars, collapse ='+'),')')))
 
 # TODO: add
-model = mymodel(formula0.1, df)
+df = read.table(data_filename, sep=',', header=TRUE)
+
+
+
+model = mymodel(formula0.1, df, config = TRUE)
+model = inla.rerun(model)
+save(model, file = output_model_filename)
+
+
 # formula0.2 <- eval(parse(text=paste0("update.formula(baseformula, ~. +",paste(basis_var_n,collapse ='+'),')')))

@@ -16,9 +16,4 @@ def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta):
     model.train(train_data)
     model.diagnose()
     predictions = model.forecast(future_weather, 10, prediction_length)
-
-    f = open("predictions_5th_2.html", "w")
-    for location, prediction in predictions.items():
-        fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data())
-        f.write(fig.to_html())
-    f.close()
+    return predictions

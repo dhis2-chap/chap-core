@@ -17,7 +17,7 @@ Note that all paths are relative to the directory of the model.
 An example:
 ```yaml
 name: hydromet_dengue
-train_command: "Rscript train.R {train_data} {model} map.graph"
+train_command: "Rscript train2.R {train_data} {model} map.graph"
 setup_command: "Rscript setup.R"
 predict_command: "Rscript predict.R {future_data} {model}"
 conda: env.yml

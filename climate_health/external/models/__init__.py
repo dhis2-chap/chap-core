@@ -7,8 +7,8 @@ def extract_models(module):
 try:
     from .jax_models.regression_model import RegressionModel, HierarchicalRegressionModel
     from .jax_models.simple_ssm import SSM, SSMWithSigmoidEffect
-    from .jax_models import regression_model, simple_ssm
-    models = {**extract_models(regression_model), **extract_models(simple_ssm)}
+    from .jax_models import regression_model, simple_ssm, specs
+    models = {**extract_models(regression_model), **extract_models(simple_ssm), **extract_models(specs)}
     #models['RegressionModel'] = RegressionModel
     #models['HierarchicalRegressionModel'] = HierarchicalRegressionModel
     #models['SSM'] = SSM

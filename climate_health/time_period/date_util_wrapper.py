@@ -50,6 +50,11 @@ class TimeStamp(DateUtilWrapper):
     def __eq__(self, other):
         return self._date == other._date
 
+    def __sub__(self, other: 'TimeStamp'):
+        if not isinstance(other, TimeStamp):
+            return NotImplemented
+        return TimeDelta(relativedelta(self._date, other._date))
+
     def _comparison(self, other: 'TimeStamp', func_name: str):
         return getattr(self._date, func_name)(other._date)
 
@@ -66,7 +71,7 @@ class TimePeriod:
         self._date = date
 
     @classmethod
-    def __date_from_numbers(cls, year: int, month: int=1, day: int=1):
+    def __date_from_numbers(cls, year: int, month: int = 1, day: int = 1):
         return datetime(int(year), int(month), int(day))
 
     def __eq__(self, other):
@@ -97,6 +102,10 @@ class TimePeriod:
             return TimeStamp(self._exclusive_end()) <= other
         return self._exclusive_end() <= other._date
 
+    def __sub__(self, other: 'TimePeriod'):
+        assert self._extension == other._extension
+        return TimeDelta(relativedelta(self._date, other._date))
+
     def _exclusive_end(self):
         return self._date + self._extension
 
@@ -111,6 +120,8 @@ class TimePeriod:
 
     @classmethod
     def parse(cls, text_repr: str):
+        if 'W' in text_repr:
+            return cls.parse_week(text_repr)
         try:
             year = int(text_repr)
             return Year(year)
@@ -125,6 +136,11 @@ class TimePeriod:
             return Month(date)
         return Year(date)
 
+    @classmethod
+    def parse_week(cls, week: str):
+        year, weeknr = week.split('W')
+        return Week(int(year), int(weeknr))
+
     @property
     def start_timestamp(self):
         return TimeStamp(self._date)
@@ -132,6 +148,7 @@ class TimePeriod:
     @property
     def end_timestamp(self):
         return TimeStamp(self._exclusive_end())
+
 
 class Day(TimePeriod):
     _used_attributes = ['year', 'month', 'day']
@@ -143,9 +160,52 @@ class Day(TimePeriod):
     def topandas(self):
         return pd.Period(year=self.year, month=self.month, day=self.day, freq='D')
 
+    def to_string(self):
+        return f'{self.year}-{self.month:02d}-{self.day:02d}'
+
+
+class Week(TimePeriod):
+    _used_attributes = ['year']
+    _extension = relativedelta(weeks=1)
+
+    def to_string(self):
+        return f'{self.year}W{self.week}'
+
+    def __init__(self, date, *args, **kwargs):
+        if args or kwargs:
+            year = date
+            week_nr = args[0] if args else kwargs['week']
+            self._date = self.__date_from_numbers(year, week_nr)
+            self.week = week_nr
+        else:
+            if isinstance(date, TimeStamp):
+                date = date._date
+            self.week = date.isocalendar()[1]
+            self._date = date
+
+    def __sub__(self, other: 'TimePeriod'):
+        assert self._extension == other._extension
+        return TimeDelta(self._date - other._date)
+
+    def __str__(self):
+        return f'{self.year}W{self.week}'
+
+    __repr__ = __str__
+
+    def __date_from_numbers(cls, year: int, week_nr: int):
+        return datetime.strptime(f'{year}-W{week_nr}-1', "%Y-W%W-%w")
+
+    def topandas(self):
+        return self.__str__()
+        return pd.Period(self._date, freq='W-MON')
+
+
 class Month(TimePeriod):
     _used_attributes = ['year', 'month']
     _extension = relativedelta(months=1)
+
+    def to_string(self):
+        return f'{self.year}-{self.month:02d}'
 
     def topandas(self):
         return pd.Period(year=self.year, month=self.month, freq='M')
@@ -163,6 +223,10 @@ class Year(TimePeriod):
 
     def topandas(self):
         return pd.Period(year=self.year, freq='Y')
+
+    def to_string(self):
+        return f'{self.year}'
+
 
 class TimeDelta(DateUtilWrapper):
     def __init__(self, relative_delta: relativedelta):
@@ -198,7 +262,15 @@ class TimeDelta(DateUtilWrapper):
         return self._relative_delta.months + 12 * self._relative_delta.years
 
     def __floordiv__(self, divident: 'TimeDelta'):
-        assert divident._relative_delta.days == 0
+        if divident._relative_delta.days != 0:
+            for name in ('months', 'years'):
+                assert not getattr(divident._relative_delta, name, 0) > 0, f'Cannot divide by {divident}'
+                assert not getattr(self._relative_delta, name, 0) > 0, f'Cannot divide {self} by {divident}'
+
+            # assert divident._relative_delta.months == 0 and divident._relative_delta.years == 0, f'Cannot divide by {divident}'
+            # assert self._relative_delta.months == 0 and self._relative_delta.years == 0, f'Cannot divide {self} by {divident}'
+            return self._relative_delta.days // divident._relative_delta.days
+
         return self._n_months() // divident._n_months()
 
     def __mod__(self, other: 'TimeDelta'):
@@ -215,6 +287,8 @@ class PeriodRange:
         self._start_timestamp = start_timestamp
         self._end_timestamp = end_timestamp
         self._time_delta = time_delta
+
+
 
     @property
     def delta(self):
@@ -243,7 +317,7 @@ class PeriodRange:
 
     def _vectorize(self, funcname: str, other: TimePeriod):
         if isinstance(other, PeriodRange):
-            assert len(self)== len(other)
+            assert len(self) == len(other)
             return np.array([getattr(period, funcname)(other_period) for period, other_period in zip(self, other)])
         return np.array([getattr(period, funcname)(other) for period in self])
 
@@ -264,6 +338,8 @@ class PeriodRange:
             return Year
         elif self._time_delta == delta_day:
             return Day
+        elif self._time_delta == delta_week:
+            return Week
         raise ValueError(f'Unknown time delta {self._time_delta}')
 
     def __iter__(self):
@@ -286,7 +362,7 @@ class PeriodRange:
 
         if item.start is not None:
             offset = item.start if item.start >= 0 else len(self) + item.start
-            start = start+ self._time_delta * offset
+            start = start + self._time_delta * offset
         if start > end:
             raise ValueError(f'Invalid slice {item} for period range {self} of length {len(self)}')
         return PeriodRange(start, end, self._time_delta)
@@ -298,6 +374,8 @@ class PeriodRange:
             return pd.Series([pd.Period(year=p.year, freq='Y') for p in self])
         elif self._time_delta == delta_day:
             return pd.Series([pd.Period(year=p.year, month=p.month, day=p.day, freq='D') for p in self])
+        elif self._time_delta == delta_week:
+            return pd.Series([p.topandas() for p in self])
         else:
             raise ValueError(f'Cannot convert period range with time delta {self._time_delta} to pandas')
 
@@ -315,16 +393,23 @@ class PeriodRange:
         return cls.from_time_periods(time_periods[0], time_periods[-1])
 
     @classmethod
-    def _check_consequtive(cls, time_delta, time_periods):
+    def _check_consequtive(cls, time_delta, time_periods, fill_missing=False):
         is_consec = [p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])]
         if not all(is_consec):
+            if fill_missing:
+                indices = [(p - time_periods[0]) // time_delta for p in time_periods][:-1]
+                mask = np.full((time_periods[-1] - time_periods[0]) // time_delta, True)
+                mask[indices] = False
+                return np.flatnonzero(mask)
+
             print(f'Periods {time_periods}')
             mask = ~np.array(list(is_consec))
             print(mask)
             for wrong in np.flatnonzero(mask):
-                print(f'Wrong period {time_periods[wrong], time_periods[wrong+1]} with time delta {time_delta}')
-                print(time_periods[wrong] + time_delta, time_periods[wrong+1])
+                print(f'Wrong period {time_periods[wrong], time_periods[wrong + 1]} with time delta {time_delta}')
+                print(time_periods[wrong] + time_delta, time_periods[wrong + 1])
             raise ValueError(f'Periods must be consecutive.')
+        return []
 
     @classmethod
     def _get_delta(cls, periods: list[TimePeriod]):
@@ -334,11 +419,14 @@ class PeriodRange:
         return delta
 
     @classmethod
-    def from_strings(cls, period_strings: Iterable[str]):
+    def from_strings(cls, period_strings: Iterable[str], fill_missing=False):
         periods = [TimePeriod.parse(period_string) for period_string in period_strings]
         delta = cls._get_delta(periods)
-        cls._check_consequtive(delta, periods)
-        return cls.from_time_periods(periods[0], periods[-1])
+        missing = cls._check_consequtive(delta, periods, fill_missing)
+        ret = cls.from_time_periods(periods[0], periods[-1])
+        if fill_missing:
+            return ret, missing
+        return ret
 
     @property
     def shape(self):
@@ -352,7 +440,7 @@ class PeriodRange:
         if side not in ('left', 'right'):
             raise ValueError(f'Invalid side {side}')
         assert period.time_delta == self._time_delta
-        n_steps = TimeDelta(relativedelta(period._date,self._start_timestamp._date)) // self._time_delta
+        n_steps = TimeDelta(relativedelta(period._date, self._start_timestamp._date)) // self._time_delta
         if side == 'right':
             n_steps += 1
         n_steps = min(max(0, n_steps), len(self))  # if period is outside
@@ -369,7 +457,16 @@ class PeriodRange:
             return self.concatenate(args[0][1])
         return NotImplemented
 
+    @property
+    def start_timestamp(self):
+        return self._start_timestamp
+
+    @property
+    def end_timestamp(self):
+        return self._end_timestamp
+
 
 delta_month = TimeDelta(relativedelta(months=1))
 delta_year = TimeDelta(relativedelta(years=1))
 delta_day = TimeDelta(relativedelta(days=1))
+delta_week = TimeDelta(relativedelta(weeks=1))

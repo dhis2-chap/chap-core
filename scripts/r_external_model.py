@@ -78,7 +78,7 @@ def test_read_write_hydromet():
 
 
 
-train_command = "Rscript external_models/hydromet_dengue/train.R {train_data} {model} external_models/hydromet_dengue/map.graph"
+train_command = "Rscript external_models/hydromet_dengue/train2.R {train_data} {model} external_models/hydromet_dengue/map.graph"
 setup_command = "Rscript external_models/hydromet_dengue/setup.R"
 predict_command = "Rscript external_models/hydromet_dengue/predict.R {future_data} {model}"
 

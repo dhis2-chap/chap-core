@@ -1,5 +1,8 @@
 import pytest
 
+from climate_health.external.models.jax_models.model_spec import NutsParams
+
+
 @pytest.fixture()
 def blackjax():
     try:
@@ -27,3 +30,7 @@ def pm():
         pytest.skip("pymc3 is not installed")
     return pm
 
+
+@pytest.fixture()
+def fast_params():
+    return NutsParams(n_samples=10, n_warmup=10)
