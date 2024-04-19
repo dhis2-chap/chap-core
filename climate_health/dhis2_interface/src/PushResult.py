@@ -27,23 +27,23 @@ def push_result(programConfig : ProgramConfig, dataValues : List[DataValue]):
 
     unique_elems = {(data['dataElement'], data['period'], data['orgUnit']) for data in data_list}
     assert len(unique_elems) == len(data_list), "DataValues must be unique"
-    print(data_list)
-    body = json.dumps({'dataValues': data_list})
+
+    body = {'dataValues': data_list}
 
     url = f'{programConfig.dhis2Baseurl}/api/40/dataValueSets'
     
-    print(
-        f"- pushing CHAP result...")
     try:
         response = session.post(url=url, json=body)
     except Exception as e:
         logger.error('Could not push CHAP-result to dhis 2: %s', e)
         raise
     if(response.status_code == 200):
-        print("nothing updated")
+        print(
+            f"- 200 OK - successfully pushed CHAP-result"
+        )
         return
     if (response.status_code != 201):
-        raise Exception(f"Could not create. \nError code: {response.status_code} {response.json()['message']}")
+        raise Exception(f"Could not create. \nError code: {response.status_code} \n{response.json()}")
     
     print(
         f"- 201 OK - successfully pushed CHAP-result")
