@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Protocol, Generic, TypeVar
 
+import numpy as np
 import pandas as pd
 import pandas.errors
 import yaml
@@ -82,11 +83,11 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             return data
         for to_name, from_name in self._adapters.items():
             if from_name == 'week':
-                data[to_name] = data['time_period'].dt.week
+                data[to_name] = [int(str(p).split('W')[-1]) for p in data['time_period']]#.dt.week
             elif from_name == 'month':
                 data[to_name] = data['time_period'].dt.month
             elif from_name == 'year':
-                data[to_name] = data['time_period'].dt.year
+                data[to_name] = [int(str(p).split('W')[0]) for p in data['time_period']]# data['time_period'].dt.year
             elif from_name == 'population':
                 data[to_name] = 200000  # HACK: This is a placeholder for the population data
                 logger.warning("Population data is not available, using placeholder value")
@@ -109,13 +110,25 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
         with tempfile.NamedTemporaryFile() as out_file:
             with tempfile.NamedTemporaryFile() as future_datafile:
-                future_data.to_csv(future_datafile.name)
+                name = future_datafile.name
+                with open(name, "w") as f:
+
+                    df = future_data.to_pandas()
+                    df['disease_cases'] = np.nan
+                    new_pd = self._adapt_data(df)
+                    new_pd.to_csv(name)
+
+
+
+#                future_data.to_csv(future_datafile.name)
                 command = self._predict_command.format(future_data=future_datafile.name,
                                                        model=self._model_file_name,
                                                        out_file=out_file.name)
                 response = self.run_through_conda(command)
                 try:
-                    return SpatioTemporalDict.from_csv(out_file.name, self._data_type)
+                    df = pd.read_csv(out_file.name)
+                    our_df = self._adapt_data(df, inverse=True)
+                    return SpatioTemporalDict.from_pandas(our_df, HealthData)
                 except pandas.errors.EmptyDataError:
                     # todo: Probably deal with this in an other way, throw an exception istead
                     logging.warning("No data returned from model (empty file from predictions)")

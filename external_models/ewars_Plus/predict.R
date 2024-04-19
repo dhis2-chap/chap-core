@@ -1,26 +1,30 @@
 # !/usr/bin/env Rscript
+library(INLA)
 args = commandArgs(trailingOnly=TRUE)
-data_filename = args[1]
-model_filename = args[2]
+data_filename = '/tmp/tmptet26o2v'
+model_filename = 'ewars_Plus.model'
+out_filename = 'tmp.csv'
 load(file = model_filename)
-s <- 1000
-inla.posterior.sample(s, model)
-
-
-casestopred <- data$dengue_cases # response variable
-idx.pred <- which(casestopred == NA)
+s <- 2
+ss = inla.posterior.sample(s, model)
+df <- read.table(data_filename, sep=',', header=TRUE)
+df = df[1:5,]
+casestopred <- df$Y # response variable
+idx.pred <- which(is.na(casestopred))
+print(idx.pred)
 mpred <- length(idx.pred)
-df$Y <- casestopred
-xx <- inla.posterior.sample(s, model) #This samples parameters of the model
-xx.s <- inla.posterior.sample.eval(function(...) c(theta[1], Predictor[idx.pred]), xx) # This extracts the expected value and hyperparameters from the samples
-y.pred <- matrix(NA, mpred, s)
-s.idx = -1 # predict the last one
-xx.sample <- xx.s[, s.idx]
-y.pred[, s.idx] <- rnbinom(mpred,  mu = exp(xx.sample[-1]), size = xx.sample[1])
-    }
-    preds <- list(year = 2000 + yyear, month = mmonth, idx.pred = idx.pred,
-                  mean = apply(y.pred, 1, mean), median = apply(y.pred, 1, median),
-                  lci = apply(y.pred, 1, quantile, probs = c(0.025)),
-                  uci = apply(y.pred, 1, quantile, probs = c(0.975)))
-    save(preds, file = paste0("output/preds_",2000 + yyear, "_", mmonth, ".RData"))
+xx <- inla.posterior.sample(s, model)  # This samples parameters of the model
 
+xx.s <- inla.posterior.sample.eval(
+function(...) c(theta[1], Predictor[idx.pred]), xx) # This extracts the expected value and hyperparameters from the samples
+print(xx.s)
+y.pred <- matrix(NA, mpred, s)
+for (s.idx in 1:s){
+  xx.sample <- xx.s[, s.idx]
+  for (p.idx in 1:mpred){
+    y.pred[p.idx, s.idx] <- rnbinom(1,  mu = exp(xx.sample[1+p.idx]), size = xx.sample[1])
+  }
+}
+predictions = y.pred[, 1]
+df$Y[idx.pred] = predictions
+write.csv(df, out_filename)
