@@ -49,10 +49,10 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._predict_command = predict_command
         self._data_type = data_type
         self._conda_env_file = conda_env_file
+        self._working_dir = working_dir
         if self._conda_env_file is not None:
             self._conda_env_name = self._get_conda_environment_name()
         self._model = None
-        self._working_dir = working_dir
         self._adapters = adapters
 
     def _run(self, command):
@@ -61,14 +61,15 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     def _get_conda_environment_name(self):
         """Returns a name that is a hash of the content of the conda env file, so that identical file
         gives same name and changes in the file leads to new name"""
-        with open(self._conda_env_file, 'r') as file:
+        with open(str(self._working_dir / self._conda_env_file), 'r') as file:
             data = yaml.load(file, Loader=yaml.FullLoader)
             # convert to json to avoid minor changes affecting the hash
-            checksum = md5(json.dumps(data))
+            checksum = md5(json.dumps(data).encode("utf-8")).hexdigest()
             return f"{self._name}_{checksum}"
 
     def run_through_conda(self, command: str):
         if self._conda_env_file:
+            logging.info(f"Using conda environment name {self._conda_env_name}")
             return self._run(f'conda run -n {self._conda_env_name} {command}')
         return self._run(command)
 
@@ -140,6 +141,7 @@ def run_command(command: str, working_directory="./"):
     command = command.split()
 
     try:
+        print(command)
         output = subprocess.check_output(command, cwd=working_directory)
         logging.info(output)
     except subprocess.CalledProcessError as e:
