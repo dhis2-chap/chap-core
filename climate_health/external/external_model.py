@@ -12,7 +12,7 @@ import yaml
 import json
 
 from climate_health.dataset import IsSpatioTemporalDataSet
-from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
+from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             self._conda_env_name = self._get_conda_environment_name()
         self._model = None
         self._adapters = adapters
+        self._model_file_name = self._name + ".model"
 
     def _run(self, command):
         return run_command(command, working_directory=self._working_dir)
@@ -84,17 +85,24 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 logging.info("Ignoring error when creating conda environment")
                 pass
 
-        elif self._setup_command is not None:
+        if self._setup_command is not None:
             self.run_through_conda(self._setup_command)
 
     def deactivate(self):
         if self._conda_env_file:
             run_command(f'conda deactivate', self._working_dir)
 
-    def _adapt_data(self, data: pd.DataFrame):
+    def _adapt_data(self, data: pd.DataFrame, inverse=False):
+
         if self._adapters is None:
             return data
-        for to_name, from_name in self._adapters.items():
+        adapters = self._adapters
+        if inverse:
+            adapters = {v: k for k, v in adapters.items()}
+            #data['disease_cases'] = data[adapters['disase_cases']]
+            return data
+
+        for to_name, from_name in adapters.items():
             if from_name == 'week':
                 data[to_name] = [int(str(p).split('W')[-1]) for p in data['time_period']]#.dt.week
             elif from_name == 'month':
@@ -102,14 +110,14 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             elif from_name == 'year':
                 data[to_name] = [int(str(p).split('W')[0]) for p in data['time_period']]# data['time_period'].dt.year
             elif from_name == 'population':
-                data[to_name] = 200000  # HACK: This is a placeholder for the population data
+                data[to_name] = 200_000  # HACK: This is a placeholder for the population data
                 logger.warning("Population data is not available, using placeholder value")
             else:
                 data[to_name] = data[from_name]
         return data
 
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType]):
-        self._model_file_name = self._name + ".model"
+
         with tempfile.NamedTemporaryFile() as train_datafile:
             train_file_name = train_datafile.name
             with open(train_file_name, "w") as train_datafile:
@@ -130,23 +138,20 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                     df['disease_cases'] = np.nan
                     new_pd = self._adapt_data(df)
                     new_pd.to_csv(name)
-
-
-
-#                future_data.to_csv(future_datafile.name)
                 command = self._predict_command.format(future_data=future_datafile.name,
                                                        model=self._model_file_name,
                                                        out_file=out_file.name)
                 response = self.run_through_conda(command)
                 try:
                     df = pd.read_csv(out_file.name)
-                    our_df = self._adapt_data(df, inverse=True)
-                    return SpatioTemporalDict.from_pandas(our_df, HealthData)
+                    # our_df = self._adapt_data(df, inverse=True)
+
                 except pandas.errors.EmptyDataError:
                     # todo: Probably deal with this in an other way, throw an exception istead
                     logging.warning("No data returned from model (empty file from predictions)")
                     raise ValueError(f"No prediction data written to file {out_file.name}")
-
+                result_class = SummaryStatistics if 'quantile_low' in df.columns else HealthData
+                return SpatioTemporalDict.from_pandas(df, result_class)
 
 def run_command(command: str, working_directory="./"):
     """Runs a unix command using subprocess"""

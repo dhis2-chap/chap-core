@@ -1,14 +1,14 @@
 # !/usr/bin/env Rscript
 library(INLA)
 args = commandArgs(trailingOnly=TRUE)
-data_filename = '/tmp/tmptet26o2v'
 model_filename = 'ewars_Plus.model'
-out_filename = 'tmp.csv'
+model_filename = args[1]
+data_filename = args[2]#'/tmp/tmptet26o2v'
+out_filename = args[3]# 'tmp.csv'
 load(file = model_filename)
-s <- 2
+s <- 100
 ss = inla.posterior.sample(s, model)
 df <- read.table(data_filename, sep=',', header=TRUE)
-df = df[1:5,]
 casestopred <- df$Y # response variable
 idx.pred <- which(is.na(casestopred))
 print(idx.pred)
@@ -25,6 +25,16 @@ for (s.idx in 1:s){
     y.pred[p.idx, s.idx] <- rnbinom(1,  mu = exp(xx.sample[1+p.idx]), size = xx.sample[1])
   }
 }
-predictions = y.pred[, 1]
-df$Y[idx.pred] = predictions
-write.csv(df, out_filename)
+new.df = df[idx.pred,]
+new.df$mean = rowMeans(y.pred)
+new.df$std = apply(y.pred, 1, sd)
+new.df$max = apply(y.pred, 1, max)
+new.df$min = apply(y.pred, 1, min)
+new.df$quantile_low= apply(y.pred, 1, function(row) quantile(row, 0.1))
+new.df$median = apply(y.pred, 1, function(row) quantile(row, 0.5))
+new.df$quantile_high= apply(y.pred, 1, function(row) quantile(row, 0.9))
+print(new.df)
+#predictions = y.pred[, 1]
+#df
+#df$Y[idx.pred] = predictions
+write.csv(new.df, out_filename)
