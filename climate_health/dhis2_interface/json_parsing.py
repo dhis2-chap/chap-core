@@ -83,11 +83,6 @@ def predictions_to_json(data: SpatioTemporalDict[HealthData], attribute_mapping:
         data = data.data()
         for i, time_period in enumerate(data.time_period):
             for from_name, to_name in attribute_mapping.items():
-
-                entry = {'orgUnit': location,
-                         'period': time_period.to_string(),
-                         'value': getattr(data, from_name)[i],
-                         'dataElement': to_name}
                 entry = DataValue(getattr(data, from_name)[i],
                                   location,
                                   to_name,

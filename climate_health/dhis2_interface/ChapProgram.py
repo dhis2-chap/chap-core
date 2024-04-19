@@ -48,8 +48,6 @@ class ChapPullPost:
         # do the fancy modelling here?
         return
 
-
-
     def pushDataToDHIS2(self, data : SpatioTemporalDict[HealthData], model_name : str):
         # TODO do we need to delete previous modells?, or would we overwrite exisitng values?
         
