@@ -59,12 +59,18 @@ def get_state_transform(params):
         if field.type == Positive:
             converters.append(jnp.exp)
             default = Normal(np.log(field.default), 1.)
+        elif issubclass(field.type, PydanticTree):
+            T, f = get_state_transform(field.type)
+            converters.append(f)
+            default = T()
         else:
             converters.append(identity)
             default = Normal(field.default, 10.)
         new_fields.append((field.name, float, default))
-    new_class = dataclasses.make_dataclass('T_' + params.__name__, new_fields, bases=(PydanticTree,))
-    f = lambda transformed: params.tree_unflatten(None, tuple(converter(val) for converter, val in zip(converters, transformed.tree_flatten()[0])))
+    new_class = dataclasses.make_dataclass('T_' + params.__name__, new_fields, bases=(PydanticTree,), frozen=True)
+    register_pytree_node_class(new_class)
+    def f(transformed: new_class) -> params:
+        return params.tree_unflatten(None, tuple(converter(val) for converter, val in zip(converters, transformed.tree_flatten()[0])))
     return new_class, f
 
 @state_or_param
@@ -76,7 +82,7 @@ class SIRParams(PydanticTree):
 @state_or_param
 class Params(PydanticTree):
     sir: SIRParams = SIRParams()
-    observation_rate: Positive = Exponential(0.1)
+    observation_rate: Positive = 0.1
 
 
 probabilities = dataclasses.dataclass

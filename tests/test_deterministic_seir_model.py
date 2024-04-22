@@ -26,22 +26,31 @@ def tree_log_prob(dist, value):
                    for field in dataclasses.fields(dist))
     return 0
 
+
 @pytest.mark.parametrize('a', [LogNormal(np.log(0.1), 3)])
 def test_dist(a):
     samples = a.sample(PRNGKey(0), shape=(1000,))
-    px.histogram(samples[samples<10], nbins=100).show()
+    px.histogram(samples[samples < 10], nbins=100).show()
     x = np.linspace(0, min(samples.max(), 10), 100)
     px.line(x=x, y=np.exp(a.log_prob(x))).show()
 
+
 def test_state_transform():
     T, f = get_state_transform(SIRParams)
-    print(dataclasses.fields(T))
-    print(T)
     t = T()
-    print(t)
     s = t.sample(PRNGKey(0), shape=())
     normal = f(s)
     print(normal)
+
+def test_state_transform_hierarchical():
+    T, f = get_state_transform(Params)
+    t = T()
+    s = t.sample(PRNGKey(0), shape=())
+    normal = f(s)
+    assert normal.observation_rate > 0
+    assert normal.sir.beta > 0
+    assert normal.sir.gamma > 0
+
 
 
 def test_main_sir():
@@ -50,17 +59,21 @@ def test_main_sir():
     observations = SIRObserved(population=[100_000] * T, cases=[100] * T)
     rv = main_sir(params, observations)
     simulated = rv.sample(PRNGKey(0))
+    T_Param, transform = get_state_transform(Params)
+    T_prior = T_Param()
     prior = Params()
-    f = partial(tree_log_prob, prior)
+    prior_log_prob = partial(tree_log_prob, prior)
     px.line(simulated).show()
 
-    def logprob_func(params):
-        return main_sir(params, observations).log_prob(simulated).sum() + f(value=params)
+    def logprob_func(raw_params):
+        prior_prob = tree_log_prob(T_prior, raw_params)
+        return main_sir(transform(raw_params), observations).log_prob(simulated).sum() +prior_prob#  prior_log_prob(value=params)
 
-    init_params = Params().sample(jax.random.PRNGKey(0))
-    print(f(init_params))
+    init_params = T_Param().sample(jax.random.PRNGKey(0))
+    # print(prior_log_prob(init_params))
     print(jax.value_and_grad(logprob_func)(init_params))
 
-    samples = sample(logprob_func, PRNGKey(0), init_params, num_samples=100, num_warmup=200)
+    raw_samples = sample(logprob_func, PRNGKey(0), init_params, num_samples=100, num_warmup=100)
+    samples = transform(raw_samples)
     px.line(samples.sir.beta).show()
     px.line(samples.sir.gamma).show()
