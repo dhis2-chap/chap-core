@@ -339,7 +339,7 @@ get_weekly_prediction<-function(pp){
                         row.names =NULL
   )
   
-  #cor(pred_vals$fitted,pred_vals$predicted)
+  #cor(pred_vals$fitted,pred_vals$prcedicted)
   #pp<-6
   cat(paste0('done week ',run_grid[pp,]$week,'  of 52 \n'))
   cat(paste('Total running time:',round(pred_one$cpu.used[4],2)),'s\n\n')

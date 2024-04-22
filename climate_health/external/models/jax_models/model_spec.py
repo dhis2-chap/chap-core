@@ -1,7 +1,7 @@
 import pickle
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Protocol, Any
+from typing import Protocol, Any, Optional
 
 import numpy as np
 
@@ -32,7 +32,7 @@ class Normal:
     mu: float
     sigma: float
 
-    def sample(self, key, shape: int = ()) -> Any:
+    def sample(self, key, shape: Optional[tuple] = None) -> Any:
         return jax.random.normal(key, shape) * self.sigma + self.mu
 
     def log_prob(self, x: Any) -> Any:
@@ -43,12 +43,22 @@ class Normal:
 class Poisson:
     rate: float
 
-    def sample(self, key, shape: int = ()) -> Any:
+    def sample(self, key, shape: Optional[tuple] = None) -> Any:
         return jax.random.poisson(key, self.rate, shape)
 
     def log_prob(self, x: Any) -> Any:
         return stats.poisson.logpmf(x, self.rate)
 
+
+@dataclass(frozen=True)
+class Exponential:
+    beta: float
+
+    def sample(self, key, shape: Optional[tuple] = ()) -> Any:
+        return jax.random.exponential(key, shape)*self.beta
+
+    def log_prob(self, x: float):
+        return stats.poisson.logpdf(x, self.beta)
 
 class PoissonSkipNaN(Poisson):
     def log_prob(self, x: Any) -> Any:
