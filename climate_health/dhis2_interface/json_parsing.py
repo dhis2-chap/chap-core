@@ -42,6 +42,10 @@ def _convert_time_period_string(row):
         return f'{row[:4]}-{row[4:]}'
     return row
 
+def parse_climate_data(json_data):
+    #PARSE DATA HERE
+    return
+
 def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected cases)',
                        name_mapping={'time_period': 1, 'disease_cases': 3, 'location': 2}):
     meta_data = MetadDataLookup(json_data['metaData'])
