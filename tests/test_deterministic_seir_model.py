@@ -7,7 +7,7 @@ import jax
 import jax.random
 
 from climate_health.external.models.jax_models.deterministic_seir_model import SIRParams, Params, SIRState, MarkovChain, \
-    get_markov_chain, main_sir, SIRObserved, get_state_transform
+    get_markov_chain, main_sir, SIRObserved, get_state_transform, transformed_diff_distribution, get_categorical_transform
 from climate_health.external.models.jax_models.hmc import sample
 import plotly.express as px
 from jax.random import PRNGKey
@@ -36,14 +36,14 @@ def test_dist(a):
 
 
 def test_state_transform():
-    T, f = get_state_transform(SIRParams)
+    T, f, inv_f = get_state_transform(SIRParams)
     t = T()
     s = t.sample(PRNGKey(0), shape=())
     normal = f(s)
     print(normal)
 
 def test_state_transform_hierarchical():
-    T, f = get_state_transform(Params)
+    T, f,inv_f = get_state_transform(Params)
     t = T()
     s = t.sample(PRNGKey(0), shape=())
     normal = f(s)
@@ -55,25 +55,33 @@ def test_state_transform_hierarchical():
 
 def test_main_sir():
     T = 100
-    params = Params(sir=SIRParams(beta=0.1, gamma=0.05), observation_rate=0.4)
+    params = Params(sir=SIRParams(beta=0.2, gamma=0.1), observation_rate=0.4)
     observations = SIRObserved(population=[100_000] * T, cases=[100] * T)
     rv = main_sir(params, observations)
     simulated = rv.sample(PRNGKey(0))
-    T_Param, transform = get_state_transform(Params)
+    T_Param, transform, inv_transform = get_state_transform(Params)
     T_prior = T_Param()
-    prior = Params()
-    prior_log_prob = partial(tree_log_prob, prior)
+    # prior = Params()
     px.line(simulated).show()
 
     def logprob_func(raw_params):
         prior_prob = tree_log_prob(T_prior, raw_params)
-        return main_sir(transform(raw_params), observations).log_prob(simulated).sum() +prior_prob#  prior_log_prob(value=params)
+        return main_sir(transform(raw_params), observations).log_prob(simulated).sum() + prior_prob#  prior_log_prob(value=params)
 
     init_params = T_Param().sample(jax.random.PRNGKey(0))
-    # print(prior_log_prob(init_params))
     print(jax.value_and_grad(logprob_func)(init_params))
 
     raw_samples = sample(logprob_func, PRNGKey(0), init_params, num_samples=100, num_warmup=100)
     samples = transform(raw_samples)
     px.line(samples.sir.beta).show()
     px.line(samples.sir.gamma).show()
+
+
+def test_transformed_diff_distribution():
+    state_1 = SIRState(S=0.9, I=0.19, R=0.01)
+    state_2 = SIRState(S=0.8, I=0.19, R=0.01)
+    T, f, inv_f = get_categorical_transform(SIRState)
+    dist = transformed_diff_distribution(state_1, state_2, 1.0, f, inv_f)
+    s = dist.sample(PRNGKey(0), shape=())
+    print(s)
+    print(dist.log_prob(s))

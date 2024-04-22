@@ -1,3 +1,4 @@
+import operator as op
 import dataclasses
 from functools import partial
 from typing import TypeVar, Generic, Callable
@@ -8,10 +9,12 @@ from pydantic import BaseModel
 from .jax import jax, jnp
 import numpy as np
 
-from climate_health.external.models.jax_models.model_spec import Poisson, Exponential, Normal, LogNormal
+from climate_health.external.models.jax_models.model_spec import Poisson, Exponential, Normal, LogNormal, \
+    distributionclass
 from climate_health.external.models.jax_models.protoype_annotated_spec import Positive, Probability
 
 state_or_param = lambda f: register_pytree_node_class(dataclasses.dataclass(f, frozen=True))
+
 
 def get_normal_prior(field):
     if field.type == float:
@@ -31,7 +34,7 @@ class PydanticTree:
     def tree_flatten(self):
         obj = self
         ret = tuple(getattr(obj, field.name) for field in dataclasses.fields(obj))
-        #ret = ({field.name: getattr(obj, field.name) for field in dataclasses.fields(obj)}, None)
+        # ret = ({field.name: getattr(obj, field.name) for field in dataclasses.fields(obj)}, None)
         return ret, None
 
     @classmethod
@@ -42,7 +45,9 @@ class PydanticTree:
         obj = self
         d = {field.name: getattr(obj, field.name) for field in dataclasses.fields(obj)}
 
-        return self.__class__(**{name: obj.sample(key, shape=shape) if hasattr(obj, 'sample') else obj for key, (name, obj) in zip(jax.random.split(key, len(d)), d.items())})
+        return self.__class__(
+            **{name: obj.sample(key, shape=shape) if hasattr(obj, 'sample') else obj for key, (name, obj) in
+               zip(jax.random.split(key, len(d)), d.items())})
 
     def __log_prob(self, value: 'PydanticTree'):
         return sum(getattr(self, field.name).log_prob(getattr(value, field.name))
@@ -54,13 +59,15 @@ def get_state_transform(params):
     new_fields = []
 
     converters = []
+    inv_converters = []
     identity = lambda x: x
     for field in dataclasses.fields(params):
         if field.type == Positive:
             converters.append(jnp.exp)
+            inv_converters.append(jnp.log)
             default = Normal(np.log(field.default), 1.)
         elif issubclass(field.type, PydanticTree):
-            T, f = get_state_transform(field.type)
+            T, f, inv_f = get_state_transform(field.type)
             converters.append(f)
             default = T()
         else:
@@ -69,14 +76,22 @@ def get_state_transform(params):
         new_fields.append((field.name, float, default))
     new_class = dataclasses.make_dataclass('T_' + params.__name__, new_fields, bases=(PydanticTree,), frozen=True)
     register_pytree_node_class(new_class)
+
     def f(transformed: new_class) -> params:
-        return params.tree_unflatten(None, tuple(converter(val) for converter, val in zip(converters, transformed.tree_flatten()[0])))
-    return new_class, f
+        return params.tree_unflatten(None, tuple(
+            converter(val) for converter, val in zip(converters, transformed.tree_flatten()[0])))
+
+    def inv_f(params: params) -> new_class:
+        return new_class.tree_unflatten(None, tuple(
+            inv_converter(val) for inv_converter, val in zip(inv_converters, params.tree_flatten()[0])))
+
+    return new_class, f, inv_f
+
 
 @state_or_param
 class SIRParams(PydanticTree):
-    beta: Positive = 0.1#LogNormal(np.log(0.1), 1.)
-    gamma: Positive = 0.05# LogNormal(np.log(0.05), 1.)
+    beta: Positive = 0.1  # LogNormal(np.log(0.1), 1.)
+    gamma: Positive = 0.05  # LogNormal(np.log(0.05), 1.)
 
 
 @state_or_param
@@ -109,8 +124,17 @@ class MarkovChain(Generic[StateType]):
             r = self.transition(state)
             return r, r
 
+        def random_t(state, key):
+            r = self.transition(state).sample(key)
+            return r, r.sample(jax.random.PRNGKey(0))
+
         states = jax.lax.scan(t, self.initial_state, None, length=len(self.time_period))
         return states[1]
+
+    def log_prob(self, states):
+        prev_state = states[:-1]
+        next_state = states[1:]
+        return self.transition(prev_state).log_prob(next_state).sum() + self.initial_state.log_prob(states[0])
 
 
 def is_random(value):
@@ -131,6 +155,33 @@ class SIRObserved:
     cases: int
 
 
+T = TypeVar('T')
+
+
+def apply_binary(f, a: PydanticTree, b: PydanticTree):
+    return a.tree_unflatten(None, tuple(f(x, y) for x, y in zip(a.tree_flatten()[0], b.tree_flatten()[0])))
+
+
+def transformed_diff_distribution(previous_state: T, expected_next_state: T, scale, t, inv_t):
+    sub = lambda a, b: a.__class__(
+        *(getattr(a, field.name) - getattr(b, field.name) for field in dataclasses.fields(a)))
+    transformed = t(previous_state)
+    expected_diffs = sub(t(expected_next_state), transformed)
+
+    @distributionclass
+    class Dist:
+        def log_prob(self, new_state: T):
+            d = apply_binary(op.sub, t(new_state), transformed)
+            return sum(
+                Normal(ed, scale).log_prob(od) for ed, od in zip(expected_diffs.tree_flatten()[0], d.tree_flatten()[0]))
+
+        def sample(self, key, shape=()) -> T:
+            t_sample = apply_binary(lambda x, y: x + Normal(y, scale).sample(key, shape), transformed, expected_diffs)
+            return inv_t(t_sample)
+
+    return Dist()
+
+
 next_state = lambda state, params: SIRState(
     S=state.S - state.S * params.beta * state.I,
     I=state.I + state.S * params.beta * state.I - state.I * params.gamma,
@@ -144,10 +195,30 @@ def main_sir(params: Params, observations: SIRObserved, key=jax.random.PRNGKey(0
     return Poisson(states.I * observations.population * params.observation_rate)
 
 
+def get_categorical_transform(cls: PydanticTree) -> tuple[
+    type, Callable[['cls'], PydanticTree], Callable[[PydanticTree], 'cls']]:
+    new_fields = [(field.name, float)
+                  for field in dataclasses.fields(cls)]
+    new_class = dataclasses.make_dataclass('T_' + cls.__name__, new_fields, bases=(PydanticTree,), frozen=True)
+
+    def f(x: cls) -> new_class:
+        values = x.tree_flatten()[0]
+        return new_class.tree_unflatten(None, [jnp.log(value) for value in values])
+
+    def inv_f(x: new_class) -> cls:
+        values = x.tree_flatten()[0]
+        new_values = [jnp.exp(value) for value in values]
+        s = sum(new_values)
+        return cls.tree_unflatten(None, [value / s for value in new_values])
+
+    return new_class, f, inv_f
+
+
 if __name__ == '__main__':
     params = SIRParams(0.1, 0.1)
     population = 1000
     cases = 100
+
     main_sir(params, SIRObserved(population, cases))
 
 # observed[t] = Poisson(state[t].I * population * params.observation_rate)
