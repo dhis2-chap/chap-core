@@ -1,9 +1,11 @@
 import pickle
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import partial
 from typing import Protocol, Any, Optional
 
 import numpy as np
+import scipy.stats
 
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, SummaryStatistics, ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
@@ -26,8 +28,9 @@ class IsDistribution(Protocol):
     def log_prob(self, x: Any) -> Any:
         ...
 
+distributionclass = partial(dataclass, frozen=True)
 
-@dataclass
+@distributionclass
 class Normal:
     mu: float
     sigma: float
@@ -58,7 +61,20 @@ class Exponential:
         return jax.random.exponential(key, shape)*self.beta
 
     def log_prob(self, x: float):
-        return stats.poisson.logpdf(x, self.beta)
+        return stats.expon.logpdf(x, scale=self.beta)
+
+@dataclass(frozen=True)
+class LogNormal:
+    mu: float
+    sigma: float
+
+    def sample(self, key, shape: Optional[tuple] = ()) -> Any:
+        return jax.random.lognormal(key, self.sigma, shape)*np.exp(self.mu)
+
+    def log_prob(self, value: float):
+        np = jnp
+        return -np.log(value)-np.log(self.sigma)-0.5*np.log(2*np.pi)+np.log(value-self.mu)**2/(2*self.sigma**2)
+
 
 class PoissonSkipNaN(Poisson):
     def log_prob(self, x: Any) -> Any:
