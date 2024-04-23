@@ -93,12 +93,19 @@ class SIRParams(PydanticTree):
     beta: Positive = 0.1  # LogNormal(np.log(0.1), 1.)
     gamma: Positive = 0.05  # LogNormal(np.log(0.05), 1.)
 
+@state_or_param
+class ProbSIRParams(SIRParams):
+    diff_scale: Positive = 0.5
 
 @state_or_param
 class Params(PydanticTree):
     sir: SIRParams = SIRParams()
     observation_rate: Positive = 0.1
 
+
+@state_or_param
+class ProbabilisticParams(Params):
+    sir: ProbSIRParams = ProbSIRParams()
 
 probabilities = dataclasses.dataclass
 
@@ -119,16 +126,18 @@ class MarkovChain(Generic[StateType]):
     initial_state: SIRState
     time_period: np.ndarray
 
-    def sample(self, shape: tuple[int]) -> StateType:
+    def sample(self, key, shape: tuple[int]=()) -> StateType:
         def t(state, _):
             r = self.transition(state)
             return r, r
 
-        def random_t(state, key):
-            r = self.transition(state).sample(key)
-            return r, r.sample(jax.random.PRNGKey(0))
-
-        states = jax.lax.scan(t, self.initial_state, None, length=len(self.time_period))
+        def random_t(state, t_key):
+            r = self.transition(state).sample(t_key)
+            return r, r
+        if is_random(self.transition(self.initial_state)):
+            states = jax.lax.scan(random_t, self.initial_state, jax.random.split(key, len(self.time_period)))
+        else:
+            states = jax.lax.scan(t, self.initial_state, None, length=len(self.time_period))
         return states[1]
 
     def log_prob(self, states):
@@ -188,11 +197,15 @@ next_state = lambda state, params: SIRState(
     R=state.R + state.I * params.gamma)
 
 
-def main_sir(params: Params, observations: SIRObserved, key=jax.random.PRNGKey(0)):
+def next_state_dist(state, params, t, inv_t):
+    return transformed_diff_distribution(state, next_state(state, params), params.diff_scale, t, inv_t)
+
+
+def main_sir(params: Params, observations: SIRObserved, key=jax.random.PRNGKey(0), transition_function=next_state):
     time_period = np.arange(len(observations))
-    t = partial(next_state, params=params.sir)
-    states = get_markov_chain(t, SIRState(S=0.9, I=0.1, R=0.0), time_period).sample(key)
-    return Poisson(states.I * observations.population * params.observation_rate)
+    t = partial(transition_function, params=params.sir)
+    states = get_markov_chain(t, SIRState(S=0.9, I=0.19, R=0.01), time_period).sample(key)
+    return Poisson(states.I * observations.population * params.observation_rate), states
 
 
 def get_categorical_transform(cls: PydanticTree) -> tuple[
@@ -200,7 +213,7 @@ def get_categorical_transform(cls: PydanticTree) -> tuple[
     new_fields = [(field.name, float)
                   for field in dataclasses.fields(cls)]
     new_class = dataclasses.make_dataclass('T_' + cls.__name__, new_fields, bases=(PydanticTree,), frozen=True)
-
+    register_pytree_node_class(new_class)
     def f(x: cls) -> new_class:
         values = x.tree_flatten()[0]
         return new_class.tree_unflatten(None, [jnp.log(value) for value in values])

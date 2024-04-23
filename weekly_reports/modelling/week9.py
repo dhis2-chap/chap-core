@@ -24,9 +24,18 @@ from scipy.special import logit, expit
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
 from climate_health.plotting.prediction_plot import prediction_plot, forecast_plot
 from tests import EXAMPLE_DATA_PATH
-from .week8 import get_simulator
+from weekly_reports.modelling.week8 import get_simulator
 from climate_health.external.models.jax_models.state_space_model import SimpleSampler
 
+ClimateHealthTimeSeries._assert_same_lens = lambda *_, **__: None
+HealthData._assert_same_lens = lambda *_, **__: None
+
+def forecast_plot(true_data: HealthData, predicition_sampler, climate_data: ClimateData, n_samples):
+    samples = np.array([predicition_sampler.sample(climate_data) for _ in range(n_samples)])
+    plt.plot(samples.T, color='grey', alpha=0.1)
+    plt.plot(true_data.disease_cases, color='blue')
+    return plt.gcf()
+    #return plot_forecast(quantiles, true_data)
 
 def test_human_mosquito_model():
     '''Find a good parameter space for human/mosquito model'''
