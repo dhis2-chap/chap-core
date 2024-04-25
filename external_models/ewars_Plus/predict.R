@@ -3,10 +3,15 @@ library(INLA)
 args = commandArgs(trailingOnly=TRUE)
 model_filename = 'ewars_Plus.model'
 model_filename = args[1]
-data_filename = args[2]#'/tmp/tmptet26o2v'
-out_filename = args[3]# 'tmp.csv'
+data_filename = '/home/knut/Sources/climate_health/example_data/ewars_predict.csv'#args[2]#
+out_filename = 'tmp.csv'# args[3]# 'tmp.csv'
+model_filename = args[1]
+data_filename = args[2]
+out_filename = args[3]
+
 load(file = model_filename)
-s <- 100
+s <- 20
+df = read.csv(data_filename)
 ss = inla.posterior.sample(s, model)
 df <- read.table(data_filename, sep=',', header=TRUE)
 casestopred <- df$Y # response variable
@@ -25,6 +30,7 @@ for (s.idx in 1:s){
     y.pred[p.idx, s.idx] <- rnbinom(1,  mu = exp(xx.sample[1+p.idx]), size = xx.sample[1])
   }
 }
+
 new.df = df[idx.pred,]
 new.df$mean = rowMeans(y.pred)
 
