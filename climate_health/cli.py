@@ -8,7 +8,6 @@ from typing import Literal
 import pandas as pd
 from cyclopts import App
 
-from climate_health.datatypes import HealthData, ClimateData
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
 from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_json
 from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NutsParams
@@ -17,7 +16,6 @@ from climate_health.file_io import get_results_path
 from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
 from climate_health.predictor import get_model, models, ModelType
 from climate_health.file_io.example_data_set import datasets, DataSetType
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import delta_month, Week
 from .assessment.prediction_evaluator import evaluate_model
 from .assessment.forecast import forecast as do_forecast
@@ -119,18 +117,14 @@ def read_zip_folder(zip_file_path: str):
 def convert_geo_json(geo_json_content) -> OurShapeFormat:
     ...
 
-
 # def write_graph_data(geo_json_content) -> None:
 #    ...
 
 
 @app.command()
 def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
-    data: PredictionData = read_zip_folder(zip_file_path)
-    model = get_model(model_name)
-    train(data)
-    predictions = model.predict(data)
-    predictions_to_json(predictions, out_json)
+    api.dhis_zip_flow(zip_file_path, out_json, model_name)
+
 
 
 # GeoJson convertion
