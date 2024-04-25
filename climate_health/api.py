@@ -1,5 +1,8 @@
+import json
+import zipfile
+
 from climate_health.datatypes import HealthData, ClimateData, HealthPopulationData
-from climate_health.dhis2_interface.json_parsing import predictions_to_json
+from climate_health.dhis2_interface.json_parsing import predictions_to_json, parse_disease_data
 from climate_health.predictor import get_model
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 import dataclasses
@@ -12,20 +15,41 @@ class AreaPolygons:
 
 @dataclasses.dataclass
 class PredictionData:
-    area_polygons: AreaPolygons
-    health_data: SpatioTemporalDict[HealthData]
-    climate_data: SpatioTemporalDict[ClimateData]
-    population_data: SpatioTemporalDict[HealthPopulationData]
+    area_polygons: AreaPolygons = None
+    health_data: SpatioTemporalDict[HealthData] = None
+    climate_data: SpatioTemporalDict[ClimateData] = None
+    population_data: SpatioTemporalDict[HealthPopulationData] = None
+
+
+def read_zip_folder(zip_file_path: str) -> PredictionData:
+    # read zipfile, create PredictionData
+    ziparchive = zipfile.ZipFile(zip_file_path)
+    expected_files = {
+        "area_polygons": "organisations.geojson",
+        "disease": "disease.json",
+        "population": "population.json",
+        "temperature": "temperature.json",
+        "precipitation": "precipitation.json",
+    }
+    json_data = json.load(ziparchive.open(expected_files["disease"]))
+    name_mapping = {
+        "time_period": 2,
+        "disease_cases": 3,
+        "location": 1
+    }
+    disease = parse_disease_data(json_data, name_mapping=name_mapping)
+
+
+    return PredictionData(
+        health_data=disease,
+    )
+
+
+    out_data = {}
 
 
 
-def read_zip_folder(zip_file_path: str):
-    #
-    zip_file_reader = ZipFileReader(zip_file_path)
-    ...
 
-
-#def convert_geo_json(geo_json_content) -> OurShapeFormat:
 #    ...
 
 
