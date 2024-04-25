@@ -61,6 +61,13 @@ class TimeSeriesData:
 
 
 @tsdataclass
+class SimpleClimateData(TimeSeriesData):
+    rainfall: float
+    mean_temperature: float
+    # max_temperature: float
+
+
+@tsdataclass
 class ClimateData(TimeSeriesData):
     rainfall: float
     mean_temperature: float
