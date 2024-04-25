@@ -64,6 +64,7 @@ class StateSpaceDiffMosquitoModelSpec(MosquitoModelSpec):
         old_diffs = super().sample_diffs(*args, **kwargs)
         return old_diffs
 
+
 def test_refactor_transition():
     '''Refactor the transition function to explicitly calculate the diffs and the new state.'''
     T = 2
@@ -73,8 +74,9 @@ def test_refactor_transition():
     logits = jnp.linspace(-1, 1, T * 10).reshape(-1, 10)
     old_result = old_spec.transition(states, logits)
     new_result = _new_transition(MosquitoModelSpec.good_params, logits, states)
-    np.testing.assert_allclose(old_result[0], new_result[0],
-                               rtol=1e-5)  # , (new_result[0][0:2, :2], old_result[0][0:2, :2])
+    np.testing.assert_allclose(old_result[0], new_result[0], rtol=1e-5)
+    # , (new_result[0][0:2, :2], old_result[0][0:2, :2])
+
 
 
 def test_state_space_diffs():
@@ -93,12 +95,12 @@ def test_state_space_diffs():
     new_h_state = new_spec.inverse_state_transform(new_state)
     np.testing.assert_allclose(true_new_state, new_h_state, rtol=1e-5)
 
+
 def test_diff_distribution():
     ''' The diff distribution will mean the actual diffs in state space, not the diffs in human  readable space.
     Need to update both diff_distribution and transition function to reflect this.
     '''
-    check_hybrid_model_capacity(T=100, n_warmup_samples=100, n_samples=100, model_spec = StateSpaceDiffMosquitoModelSpec)
-
+    check_hybrid_model_capacity(T=100, n_warmup_samples=100, n_samples=100, model_spec=StateSpaceDiffMosquitoModelSpec)
 
 
 def test_reparameterize_to_state_space_diffs():

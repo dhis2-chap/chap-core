@@ -5,7 +5,6 @@ from functools import partial
 from typing import Protocol, Any, Optional
 
 import numpy as np
-import scipy.stats
 
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, SummaryStatistics, ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
@@ -28,7 +27,9 @@ class IsDistribution(Protocol):
     def log_prob(self, x: Any) -> Any:
         ...
 
+
 distributionclass = partial(dataclass, frozen=True)
+
 
 @distributionclass
 class Normal:
@@ -58,10 +59,11 @@ class Exponential:
     beta: float
 
     def sample(self, key, shape: Optional[tuple] = ()) -> Any:
-        return jax.random.exponential(key, shape)*self.beta
+        return jax.random.exponential(key, shape) * self.beta
 
     def log_prob(self, x: float):
         return stats.expon.logpdf(x, scale=self.beta)
+
 
 @dataclass(frozen=True)
 class LogNormal:
@@ -69,11 +71,12 @@ class LogNormal:
     sigma: float
 
     def sample(self, key, shape: Optional[tuple] = ()) -> Any:
-        return jax.random.lognormal(key, self.sigma, shape)*np.exp(self.mu)
+        return jax.random.lognormal(key, self.sigma, shape) * np.exp(self.mu)
 
     def log_prob(self, value: float):
         np = jnp
-        return -np.log(value)-np.log(self.sigma)-0.5*np.log(2*np.pi)+np.log(value-self.mu)**2/(2*self.sigma**2)
+        return -np.log(value) - np.log(self.sigma) - 0.5 * np.log(2 * np.pi) + np.log(value - self.mu) ** 2 / (
+                    2 * self.sigma ** 2)
 
 
 class PoissonSkipNaN(Poisson):
@@ -215,8 +218,9 @@ class SSMForecasterNuts:
         jax.grad(logpdf)(init_params)
         self._sampled_params = sample(logpdf, PRNGKey(0), init_params, self._training_params.n_samples,
                                       self._training_params.n_warmup)
-        self._last_predictors = {location: {name: getattr(data.data(), name)[-1] for name in self._model_spec.predictors}
-                                 for location, data in orig_data.items()}
+        self._last_predictors = {
+            location: {name: getattr(data.data(), name)[-1] for name in self._model_spec.predictors}
+            for location, data in orig_data.items()}
         last_params = extract_last(self._sampled_params)
         last_pdf = logpdf(last_params)
         assert not jnp.isnan(last_pdf)
@@ -227,16 +231,16 @@ class SSMForecasterNuts:
         for location, local_data in data.items():
             location_params = self._get_local_params(last_params, location)
             new_state = \
-            self._model_spec.state_distribution(index_tree(self._get_state_params(last_params, location), -1),
-                                                location_params,
-                                                self._last_predictors[location])['logit_infected'].mu
+                self._model_spec.state_distribution(index_tree(self._get_state_params(last_params, location), -1),
+                                                    location_params,
+                                                    self._last_predictors[location])['logit_infected'].mu
             rate = self._model_spec.observation_distribution({'logit_infected': new_state}, location_params).rate
             time_period = data.get_location(location).data().time_period[:1]
             predictions[location] = HealthData(time_period, np.atleast_1d(rate))
 
         return SpatioTemporalDict(predictions)
 
-    def prediction_summary(self, data: SpatioTemporalDict=None, num_samples: int = 100) -> SpatioTemporalDict[
+    def prediction_summary(self, data: SpatioTemporalDict = None, num_samples: int = 100) -> SpatioTemporalDict[
         SummaryStatistics]:
         if isinstance(data, TimePeriod):
             time_period = PeriodRange.from_time_periods(data, data)
@@ -248,7 +252,7 @@ class SSMForecasterNuts:
         n_sampled_params = array_tree_length(self._sampled_params)
         param_idxs = jax.random.randint(param_key, (num_samples,), 0, n_sampled_params)
         samples = defaultdict(list)
-        #locations = list(self._last_predictors.keys()) if data is None else data.locations()
+        # locations = list(self._last_predictors.keys()) if data is None else data.locations()
         for i, key in zip(param_idxs, jax.random.split(sample_key, num_samples)):
             state_key, obs_key = jax.random.split(key)
             param = extract_sample(i, self._sampled_params)
@@ -259,7 +263,8 @@ class SSMForecasterNuts:
                     last_state, location_params,
                     self._last_predictors[location]).sample(state_key)
                 samples[location].append(
-                    self._model_spec.observation_distribution(new_state, location_params, self._last_predictors[location]).sample(obs_key))
+                    self._model_spec.observation_distribution(new_state, location_params,
+                                                              self._last_predictors[location]).sample(obs_key))
         # time_period = next(iter(data.data())).data().time_period[:1]
         summaries = {k: get_summary(time_period, s) for k, s in samples.items()}
         return SpatioTemporalDict(summaries)

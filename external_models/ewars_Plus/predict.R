@@ -27,12 +27,14 @@ for (s.idx in 1:s){
 }
 new.df = df[idx.pred,]
 new.df$mean = rowMeans(y.pred)
+
 new.df$std = apply(y.pred, 1, sd)
 new.df$max = apply(y.pred, 1, max)
 new.df$min = apply(y.pred, 1, min)
-new.df$quantile_low= apply(y.pred, 1, function(row) quantile(row, 0.1))
+
+new.df$quantile_low = apply(y.pred, 1, function(row) quantile(row, 0.1))
 new.df$median = apply(y.pred, 1, function(row) quantile(row, 0.5))
-new.df$quantile_high= apply(y.pred, 1, function(row) quantile(row, 0.9))
+new.df$quantile_high = apply(y.pred, 1, function(row) quantile(row, 0.9))
 print(new.df)
 #predictions = y.pred[, 1]
 #df

@@ -34,3 +34,7 @@ def pm():
 @pytest.fixture()
 def fast_params():
     return NutsParams(n_samples=10, n_warmup=10)
+
+@pytest.fixture()
+def random_key(jax):
+    return jax.random.PRNGKey(0)
