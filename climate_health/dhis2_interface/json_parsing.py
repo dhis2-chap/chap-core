@@ -51,8 +51,14 @@ def parse_climate_data(json_data):
 def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected cases)',
                        name_mapping={'time_period': 1, 'disease_cases': 3, 'location': 2}):
     meta_data = MetadDataLookup(json_data['metaData'])
+    df = json_to_pandas(json_data, name_mapping)
+    return SpatioTemporalDict.from_pandas(df, dataclass=HealthData, fill_missing=True)
+
+
+def json_to_pandas(json_data, name_mapping):
     new_rows = []
-    col_names = ['time_period', 'disease_cases', 'location']
+    col_names = list(name_mapping.keys())
+    # col_names = ['time_period', 'disease_cases', 'location']
     for row in json_data['rows']:
         # if meta_data[row[0]] != disease_name:
         #    continue
@@ -61,12 +67,11 @@ def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected ca
         # new_row = [meta_data[elem] if elem in meta_data else elem for elem in row]
         new_rows.append(
             [new_row[name_mapping[col_name]] for col_name in col_names])
-
     df = pd.DataFrame(new_rows, columns=col_names)
     df['week_id'] = [_get_period_id(row) for row in df['time_period']]
     df['time_period'] = [_convert_time_period_string(row) for row in df['time_period']]
     df.sort_values(by=['location', 'week_id'], inplace=True)
-    return SpatioTemporalDict.from_pandas(df, dataclass=HealthData, fill_missing=True)
+    return df
 
 
 def join_data(json_data, population_data):
