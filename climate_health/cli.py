@@ -8,6 +8,7 @@ from typing import Literal
 import pandas as pd
 from cyclopts import App
 
+from climate_health import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
 from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_json
 from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NutsParams
@@ -91,26 +92,6 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods = 1):
     print(json)
 
 
-@dataclasses
-class AreaPolygons:
-    ...
-
-
-@dataclasses.dataclass
-class PredictionData:
-    area_polygons: AreaPolygons
-    health_data: SpatioTemporalDict[HealthData]
-    climate_data: SpatioTemporalDict[ClimateData]
-    population_data: SpatioTemporalDict[PopulationData]
-
-
-def read_zip_folder(zip_file_path: str):
-    #
-    zip_file_reader = ZipFileReader(zip_file_path)
-    ...
-
-def convert_geo_json(geo_json_content) -> OurShapeFormat:
-    ...
 
 # def write_graph_data(geo_json_content) -> None:
 #    ...
@@ -118,11 +99,8 @@ def convert_geo_json(geo_json_content) -> OurShapeFormat:
 
 @app.command()
 def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
-    data: PredictionData = read_zip_folder(zip_file_path)
-    model = get_model(model_name)
-    model.train(data)
-    predictions = model.predict(data)
-    predictions_to_json(predictions, out_json)
+    api.dhis_zip_flow(zip_file_path, out_json, model_name)
+
 
 # GeoJson convertion
 # zip folder reading
