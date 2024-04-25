@@ -1,4 +1,5 @@
 """Console script for climate_health."""
+import dataclasses
 import json
 import webbrowser
 from pathlib import PurePath, Path
@@ -88,6 +89,45 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods = 1):
     predictions = model.prediction_summary(Week(full_data_frame.end_timestamp))
     json = process.pushDataToDHIS2(predictions, modelspec.__class__.__name__)
     print(json)
+
+
+@dataclasses
+class AreaPolygons:
+    ...
+
+
+@dataclasses.dataclass
+class PredictionData:
+    area_polygons: AreaPolygons
+    health_data: SpatioTemporalDict[HealthData]
+    climate_data: SpatioTemporalDict[ClimateData]
+    population_data: SpatioTemporalDict[PopulationData]
+
+
+def read_zip_folder(zip_file_path: str):
+    #
+    zip_file_reader = ZipFileReader(zip_file_path)
+    ...
+
+def convert_geo_json(geo_json_content) -> OurShapeFormat:
+    ...
+
+# def write_graph_data(geo_json_content) -> None:
+#    ...
+
+
+@app.command()
+def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
+    data: PredictionData = read_zip_folder(zip_file_path)
+    model = get_model(model_name)
+    model.train(data)
+    predictions = model.predict(data)
+    predictions_to_json(predictions, out_json)
+
+# GeoJson convertion
+# zip folder reading
+# GOthenburg
+# Create prediction csv
 
 
 
