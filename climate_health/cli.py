@@ -54,12 +54,13 @@ def forecast(model_name: ModelType, dataset_name: DataSetType, n_months: int):
     dataset = datasets[dataset_name].load()
     model = get_model(model_name)()
     predictions = do_forecast(model, dataset, n_months * delta_month)
-    out_path = get_results_path()/f'{model_name}_{dataset_name}_forecast_results_{n_months}.html'
+    out_path = get_results_path() / f'{model_name}_{dataset_name}_forecast_results_{n_months}.html'
     f = open(out_path, "w")
     for location, prediction in predictions.items():
         fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data())
         f.write(fig.to_html())
     f.close()
+
 
 @app.command()
 def dhis_pull(base_url: str, username: str, password: str):
@@ -80,7 +81,7 @@ def get_full_dataframe(process):
 
 
 @app.command()
-def dhis_flow(base_url: str, username: str, password: str, n_periods = 1):
+def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
     process = ChapPullPost(dhis2Baseurl=base_url.rstrip('/'), dhis2Username=username, dhis2Password=password)
     full_data_frame = get_full_dataframe(process)
     modelspec = SSMWithoutWeather()
@@ -109,8 +110,10 @@ def read_zip_folder(zip_file_path: str):
     zip_file_reader = ZipFileReader(zip_file_path)
     ...
 
+
 def convert_geo_json(geo_json_content) -> OurShapeFormat:
     ...
+
 
 # def write_graph_data(geo_json_content) -> None:
 #    ...
@@ -120,15 +123,15 @@ def convert_geo_json(geo_json_content) -> OurShapeFormat:
 def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
     data: PredictionData = read_zip_folder(zip_file_path)
     model = get_model(model_name)
-    model.train(data)
+    train(data)
     predictions = model.predict(data)
     predictions_to_json(predictions, out_json)
+
 
 # GeoJson convertion
 # zip folder reading
 # GOthenburg
 # Create prediction csv
-
 
 
 def main_function():

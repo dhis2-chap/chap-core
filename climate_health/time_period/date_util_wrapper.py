@@ -288,7 +288,13 @@ class PeriodRange:
         self._end_timestamp = end_timestamp
         self._time_delta = time_delta
 
+    @property
+    def month(self):
+        return np.array([p.start_timestamp.month for p in self])
 
+    @property
+    def year(self):
+        return np.array([p.start_timestamp.year for p in self])
 
     @property
     def delta(self):
