@@ -124,14 +124,16 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 data[to_name] = data[from_name]
         return data
 
-    def train(self, train_data: IsSpatioTemporalDataSet[FeatureType]):
+    def train(self, train_data: IsSpatioTemporalDataSet[FeatureType], extra_args=None):
+        if extra_args is None:
+            extra_args = ''
         with tempfile.NamedTemporaryFile() as train_datafile:
             train_file_name = train_datafile.name
             with open(train_file_name, "w") as train_datafile:
                 pd = train_data.to_pandas()
                 new_pd = self._adapt_data(pd)
                 new_pd.to_csv(train_file_name)
-                command = self._train_command.format(train_data=train_file_name, model=self._model_file_name)
+                command = self._train_command.format(train_data=train_file_name, model=self._model_file_name, extra_args=extra_args)
                 response = self.run_through_conda(command)
                 print(response)
         self._saved_state = train_data

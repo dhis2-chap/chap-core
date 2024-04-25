@@ -3,9 +3,10 @@ import zipfile
 from pathlib import Path
 import numpy as np
 
-from climate_health.datatypes import HealthData, ClimateData, HealthPopulationData, SimpleClimateData
+from climate_health.datatypes import HealthData, ClimateData, HealthPopulationData, SimpleClimateData, ClimateHealthData
 from climate_health.dhis2_interface.json_parsing import predictions_to_json, parse_disease_data, json_to_pandas, \
     parse_population_data
+from climate_health.external.external_model import ExternalCommandLineModel, get_model_from_yaml_file
 from climate_health.geojson import geojson_to_shape
 from climate_health.predictor import get_model
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
@@ -90,7 +91,8 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
 
 def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
     data: PredictionData = read_zip_folder(zip_file_path)
-    model = get_model(model_name)
-    model.train(data)
+    model = get_model_from_yaml_file(f'external_models/{model_name}', model_name)
+    climate_health_data= ClimateHealthData.combine(data.health_data, data.climate_data)
+    model.train(climate_health_data, extra_data=data.area_polygons)
     predictions = model.predict(data)
     predictions_to_json(predictions, out_json)

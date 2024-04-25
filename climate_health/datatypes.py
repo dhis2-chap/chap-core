@@ -67,11 +67,14 @@ class SimpleClimateData(TimeSeriesData):
     # max_temperature: float
 
 
+
+
 @tsdataclass
 class ClimateData(TimeSeriesData):
     rainfall: float
     mean_temperature: float
     max_temperature: float
+
 
 
 @tsdataclass
@@ -99,6 +102,9 @@ class ClimateHealthTimeSeries(TimeSeriesData):
 
 ClimateHealthData = ClimateHealthTimeSeries
 
+@tsdataclass
+class FullData(ClimateHealthData):
+    population: int
 
 @tsdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
