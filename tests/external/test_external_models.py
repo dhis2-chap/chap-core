@@ -76,3 +76,4 @@ def test_external_model_predict(model_directory, models_path):
     #model.setup()
     results = model.predict(train_data)
     assert isinstance(results, SpatioTemporalDict)
+
