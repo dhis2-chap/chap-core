@@ -1,4 +1,5 @@
 import logging
+import os.path
 import subprocess
 import tempfile
 from hashlib import md5
@@ -57,6 +58,33 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._adapters = adapters
         self._model_file_name = self._name + ".model"
 
+    @classmethod
+    def from_yaml_file(cls, yaml_file: str) -> "ExternalCommandLineModel":
+        # read yaml file into a dict
+        with open(yaml_file, 'r') as file:
+            data = yaml.load(file, Loader=yaml.FullLoader)
+
+        name = data['name']
+        train_command = data['train_command']
+        predict_command = data['predict_command']
+        setup_command = data.get('setup_command', None)
+        conda_env_file = data['conda'] if 'conda' in data else None
+        data_type = data.get('data_type', None)
+        allowed_data_types = {'HealthData': HealthData}
+        data_type = allowed_data_types.get(data_type, None)
+
+        model = cls(
+            name=name,
+            train_command=train_command,
+            predict_command=predict_command,
+            data_type=data_type,
+            setup_command=setup_command,
+            conda_env_file=conda_env_file,
+            working_dir=Path(yaml_file).parent,
+            adapters=data.get('adapters', None)
+        )
+
+        return model
     def _run(self, command):
         return run_command(command, working_directory=self._working_dir)
 
@@ -78,8 +106,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     def setup(self):
         if self._conda_env_file:
             try:
-                run_command(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}',
-                            self._working_dir)
+                self._run(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}')
             except subprocess.CalledProcessError:
                 # TODO: This logic is not sound since new entries in env file will not be added to the environment if it exists
                 logging.info("Ignoring error when creating conda environment")
@@ -90,7 +117,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
     def deactivate(self):
         if self._conda_env_file:
-            run_command(f'conda deactivate', self._working_dir)
+            self._run(f'conda deactivate')
 
     def _adapt_data(self, data: pd.DataFrame, inverse=False):
 
@@ -127,7 +154,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType], extra_args=None):
         if extra_args is None:
             extra_args = ''
-        with tempfile.NamedTemporaryFile() as train_datafile:
+        with self._provide_temp_file() as train_datafile:
             train_file_name = train_datafile.name
             with open(train_file_name, "w") as train_datafile:
                 pd = train_data.to_pandas()
@@ -139,8 +166,8 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._saved_state = train_data
 
     def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
-        with tempfile.NamedTemporaryFile() as out_file:
-            with tempfile.NamedTemporaryFile() as future_datafile:
+        with self._provide_temp_file() as out_file:
+            with self._provide_temp_file() as future_datafile:
                 name = future_datafile.name
                 with open(name, "w") as f:
 
@@ -190,30 +217,66 @@ def run_command(command: str, working_directory="./"):
 
     return output
 
+class DryModeExternalCommandLineModel(ExternalCommandLineModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._file_creation_folder = './drydata'
+        self._file_index = 0
+        self._execution_code = ''
+
+    def set_file_creation_folder(self, path):
+        self._file_creation_folder = path
+
+    def _run(self, command):
+        self._execution_code += f'cd {self._working_dir}' + os.linesep
+        self._execution_code += command + os.linesep
+
+    def _provide_temp_file(self):
+        os.makedirs(self._file_creation_folder, exist_ok=True)
+        self._file_index += 1
+        return SimpleFileContextManager(f'{self._file_creation_folder}/file{self._file_index}.txt', mode='w+b')
+
+    def get_execution_code(self):
+        return self._execution_code
+
+class VerboseRDryModeExternalCommandLineModel(DryModeExternalCommandLineModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._execution_code += f'cd {self._working_dir}' + os.linesep
+        self._execution_code += "R" + os.linesep
+
+    def _run(self, command):
+        command_parts = command.split(" ")
+        #assert len(command_parts) == 2, command_parts
+        if len(command_parts) > 2:
+            r_args = 'c(' + ','.join(['"'+part+'"' for part in command_parts[2:]]) + ')'
+            self._execution_code += f'''args = {r_args}''' + os.linesep
+        r_lines = open(f'{self._working_dir}/{command_parts[1]}').readlines()
+        self._execution_code += os.linesep.join([line for line in r_lines if not 'commandArgs' in line] ) + os.linesep
+
+class SimpleFileContextManager:
+    def __init__(self, filename, mode='r'):
+        self.filename = filename
+        self.mode = mode
+        self.file = None
+
+    def __enter__(self):
+        self.file = open(self.filename, self.mode)
+        return self.file
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.file:
+            self.file.close()
+
+    def write(self, data):
+        if self.file:
+            self.file.write(data)
+
+    def read(self):
+        if self.file:
+            return self.file.read()
+
 
 def get_model_from_yaml_file(yaml_file: str) -> ExternalCommandLineModel:
-    # read yaml file into a dict
-    with open(yaml_file, 'r') as file:
-        data = yaml.load(file, Loader=yaml.FullLoader)
+    return ExternalCommandLineModel.from_yaml_file(yaml_file)
 
-    name = data['name']
-    train_command = data['train_command']
-    predict_command = data['predict_command']
-    setup_command = data.get('setup_command', None)
-    conda_env_file = data['conda'] if 'conda' in data else None
-    data_type = data.get('data_type', None)
-    allowed_data_types = {'HealthData': HealthData}
-    data_type = allowed_data_types.get(data_type, None)
-
-    model = ExternalCommandLineModel(
-        name=name,
-        train_command=train_command,
-        predict_command=predict_command,
-        data_type=data_type,
-        setup_command=setup_command,
-        conda_env_file=conda_env_file,
-        working_dir=Path(yaml_file).parent,
-        adapters=data.get('adapters', None)
-    )
-
-    return model
