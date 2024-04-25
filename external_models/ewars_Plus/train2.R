@@ -1,13 +1,14 @@
 # Read in command line args filenames
 args = commandArgs(trailingOnly=TRUE)
-
-data_filename = args[1]
+data_filename = '/home/knut/Sources/climate_health/example_data/ewars_train_data.csv'
+# data_filename = args[1]
 output_model_filename = args[2]
 
 #install.packages("INLA")
 library(INLA)
 
 # our variables= 'rainsum' 'meantemperature'
+
 mymodel <- function(formula, data = df, family = "nbinomial", config = FALSE)
 {
   model <- inla(formula = formula, data = data, family = family, offset = log(E),
@@ -42,7 +43,7 @@ df = read.table(data_filename, sep=',', header=TRUE)
 
 
 model = mymodel(formula0.1, df, config = TRUE)
-model = inla.rerun(model)
+#model = inla.rerun(model)
 save(model, file = output_model_filename)
 
 

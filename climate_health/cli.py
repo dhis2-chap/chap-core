@@ -8,6 +8,7 @@ from typing import Literal
 import pandas as pd
 from cyclopts import App
 
+from climate_health.datatypes import HealthData, ClimateData
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
 from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_json
 from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NutsParams
@@ -16,6 +17,7 @@ from climate_health.file_io import get_results_path
 from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
 from climate_health.predictor import get_model, models, ModelType
 from climate_health.file_io.example_data_set import datasets, DataSetType
+from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import delta_month, Week
 from .assessment.prediction_evaluator import evaluate_model
 from .assessment.forecast import forecast as do_forecast
@@ -88,16 +90,19 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
     model = SSMForecasterNuts(modelspec, NutsParams(n_samples=10, n_warmup=10))
     model.train(full_data_frame)
     predictions = model.prediction_summary(Week(full_data_frame.end_timestamp))
-    json = process.pushDataToDHIS2(predictions, modelspec.__class__.__name__)
-    print(json)
+    json_response = process.pushDataToDHIS2(predictions, modelspec.__class__.__name__, do_dict=False)
+    # save json
+    json_filename = Path('dhis2analyticsResponses/') / f'{modelspec.__class__.__name__}.json'
+    with open(json_filename, 'w') as f:
+        json.dump(json_response, f, indent=4)
 
 
-@dataclasses
+@dataclasses.dataclass
 class AreaPolygons:
     ...
 
 
-@dataclasses.dataclass
+'''@dataclasses.dataclass
 class PredictionData:
     area_polygons: AreaPolygons
     health_data: SpatioTemporalDict[HealthData]
@@ -132,13 +137,13 @@ def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
 # zip folder reading
 # GOthenburg
 # Create prediction csv
-
+'''
 
 def main_function():
     '''
     This function should just be type hinted with common types,
     and it will run as a command line function
-    Simple function
+    Simple function<
 
     >>> main()
 

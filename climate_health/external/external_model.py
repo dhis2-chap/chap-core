@@ -104,11 +104,19 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
         for to_name, from_name in adapters.items():
             if from_name == 'week':
-                data[to_name] = [int(str(p).split('W')[-1]) for p in data['time_period']]#.dt.week
+                if hasattr(data['time_period'], 'dt'):
+                    new_val = data['time_period'].dt.week
+                    data[to_name] = new_val
+                else:
+                    data[to_name] = [int(str(p).split('W')[-1]) for p in data['time_period']]#.dt.week
+
             elif from_name == 'month':
                 data[to_name] = data['time_period'].dt.month
             elif from_name == 'year':
-                data[to_name] = [int(str(p).split('W')[0]) for p in data['time_period']]# data['time_period'].dt.year
+                if hasattr(data['time_period'], 'dt'):
+                    data[to_name] = data['time_period'].dt.year
+                else:
+                    data[to_name] = [int(str(p).split('W')[0]) for p in data['time_period']]# data['time_period'].dt.year
             elif from_name == 'population':
                 data[to_name] = 200_000  # HACK: This is a placeholder for the population data
                 logger.warning("Population data is not available, using placeholder value")
@@ -117,7 +125,6 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         return data
 
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType]):
-
         with tempfile.NamedTemporaryFile() as train_datafile:
             train_file_name = train_datafile.name
             with open(train_file_name, "w") as train_datafile:
@@ -127,6 +134,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 command = self._train_command.format(train_data=train_file_name, model=self._model_file_name)
                 response = self.run_through_conda(command)
                 print(response)
+        self._saved_state = train_data
 
     def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
         with tempfile.NamedTemporaryFile() as out_file:
@@ -136,8 +144,13 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
                     df = future_data.to_pandas()
                     df['disease_cases'] = np.nan
+
                     new_pd = self._adapt_data(df)
+                    #if self._is_lagged:
+                    #    ned_pd = pd.concatenate(self._saved_state, new_pd)
                     new_pd.to_csv(name)
+
+                # TOOD: combine with training data set for lagged models
                 command = self._predict_command.format(future_data=future_datafile.name,
                                                        model=self._model_file_name,
                                                        out_file=out_file.name)
@@ -152,6 +165,12 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                     raise ValueError(f"No prediction data written to file {out_file.name}")
                 result_class = SummaryStatistics if 'quantile_low' in df.columns else HealthData
                 return SpatioTemporalDict.from_pandas(df, result_class)
+
+    #def forecast(self, future_data: IsSpatioTemporalDataSet[FeatureType]):
+    #    cur_dataset = self._saved_state
+    #    for period in relevant_period:
+    #        model.predict()
+
 
 def run_command(command: str, working_directory="./"):
     """Runs a unix command using subprocess"""

@@ -31,7 +31,7 @@ def parse_population_data(json_data, field_name='GEN - Population'):
     meta_data = MetadDataLookup(json_data['metaData'])
     lookup = {}
     for row in json_data['rows']:
-        #if meta_data[row[0]] != field_name:
+        # if meta_data[row[0]] != field_name:
         #    continue
         lookup[row[2]] = int(row[3])
     return lookup
@@ -42,9 +42,11 @@ def _convert_time_period_string(row):
         return f'{row[:4]}-{row[4:]}'
     return row
 
+
 def parse_climate_data(json_data):
-    #PARSE DATA HERE
+    # PARSE DATA HERE
     return
+
 
 def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected cases)',
                        name_mapping={'time_period': 1, 'disease_cases': 3, 'location': 2}):
@@ -57,7 +59,8 @@ def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected ca
         new_row = row
         # new_row[name_mapping['location']] = meta_data[new_row[name_mapping['location']]]
         # new_row = [meta_data[elem] if elem in meta_data else elem for elem in row]
-        new_rows.append([new_row[name_mapping[col_name]] for col_name in col_names])
+        new_rows.append(
+            [new_row[name_mapping[col_name]] for col_name in col_names])
 
     df = pd.DataFrame(new_rows, columns=col_names)
     df['week_id'] = [_get_period_id(row) for row in df['time_period']]

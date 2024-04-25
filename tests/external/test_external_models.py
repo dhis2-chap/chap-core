@@ -46,28 +46,27 @@ def get_dataset_from_yaml(yaml_path: Path):
                 df[to_name] = new_col
             else:
                 df[to_name] = df[from_name]
-    df['disease_cases'] = np.arange(len(df))
+    #df['disease_cases'] = np.arange(len(df))
 
     return SpatioTemporalDict.from_pandas(df, ClimateHealthTimeSeries)
 
 
 @pytest.mark.skipif(not conda_available(), reason='requires conda')
-#@pytest.mark.parametrize('model_directory', ['ewars_Plus'])
-@pytest.mark.parametrize('model_directory', ['naive_python_model'])
+@pytest.mark.parametrize('model_directory', ['ewars_Plus'])
+#@pytest.mark.parametrize('model_directory', ['naive_python_model'])
 def test_all_external_models_acceptance(model_directory, models_path, train_data, future_climate_data):
     """Only tests that the model can be initiated and that train and predict
     can be called without anything failing"""
     yaml_path = models_path / model_directory / 'config.yml'
     model = get_model_from_yaml_file(yaml_path)
-    # with open(yaml_file, 'r') as file:
-    # train_data = get_dataset_from_yaml(yaml_path)
+    #train_data = get_dataset_from_yaml(yaml_path)
     model.setup()
     model.train(train_data)
     results = model.predict(future_climate_data)
     assert results is not None
 
 
-@pytest.mark.skip(reason='Conda is a messs')
+#@pytest.mark.skip(reason='Conda is a messs')
 @pytest.mark.parametrize('model_directory', ['ewars_Plus'])
 def test_external_model_predict(model_directory, models_path):
     yaml_path = models_path / model_directory / 'config.yml'

@@ -4,7 +4,8 @@ predict_command: 'Rscript predict.R {model} {future_data} {out_file}'
 data_type: HealthData
 #conda: ../hydromet_dengue/env.yml
 adapters: {'Y': 'disease_cases', 'E': 'population', 'T1': 'week', 'T2': 'year', 'S1': 'location', 'rainsum': 'rainfall', 'meantemperature': 'mean_temperature'}
-demo_data: 'Demo_data/Demo.Data.Prospective.csv'
+#demo_data: 'Demo_data/Demo.Data.Prospective.csv'
+demo_data: 'Demo_data/populated.csv'
 demo_data_adapter: {'time_period': '{year:0.0f}W{week:0.0f}',
                     'location': 'district',
                     'disease_cases': 'weekly_hospitalised_cases',

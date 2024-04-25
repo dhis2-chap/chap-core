@@ -1,5 +1,5 @@
 import sys
-
+from collections import defaultdict
 
 from climate_health.datatypes import HealthData
 from climate_health.dhis2_interface.json_parsing import parse_climate_data, parse_disease_data, parse_population_data, predictions_to_json
@@ -49,23 +49,25 @@ class ChapPullPost:
         # do the fancy modelling here?
         return
 
-    def pushDataToDHIS2(self, data : SpatioTemporalDict[HealthData], model_name : str):
+    def pushDataToDHIS2(self, data : SpatioTemporalDict[HealthData], model_name : str, do_dict=True):
         # TODO do we need to delete previous modells?, or would we overwrite exisitng values?
         
         #used to prefix CHAP-dataElements in DHIS2
         code_prefix = "CHAP_" + model_name
 
         #dict with quantile and the hash value
-        dict = {"quantile_low": None, "median": None, "quantile_high": None}
+        name_dict = {"quantile_low": 'quantile_low',
+                     "median": 'median', "quantile_high": 'quantile_high'}
 
         # Insert hashes from DHIS2 into the dict
-        create_data_element_if_not_exists(config=self.config, code_prefix=code_prefix, dict=dict, disease=model_name)
+        if do_dict:
+            create_data_element_if_not_exists(config=self.config, code_prefix=code_prefix, dict=name_dict, disease=model_name)
 
-        # create dict 
-        values = predictions_to_json(data, dict)
-        push_result(self.config, values)
+        # create dict
+        values = predictions_to_json(data, name_dict)
+        response, body = push_result(self.config, values)
 
-        return
+        return body
 
 
 if __name__ == "__main__":

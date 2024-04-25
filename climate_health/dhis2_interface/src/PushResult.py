@@ -41,11 +41,12 @@ def push_result(programConfig : ProgramConfig, dataValues : List[DataValue]):
         print(
             f"- 200 OK - successfully pushed CHAP-result"
         )
-        return
+        return response, body
     if (response.status_code != 201):
+        return response, body
         raise Exception(f"Could not create. \nError code: {response.status_code} \n{response.json()}")
     
     print(
         f"- 201 OK - successfully pushed CHAP-result")
     response_json = response.json()
-    return response_json
+    return response_json, body
