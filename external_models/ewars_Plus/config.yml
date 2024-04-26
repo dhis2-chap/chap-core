@@ -1,5 +1,7 @@
 name: ewars_Plus
 train_command: 'Rscript train2.R {train_data} {model} {extra_args}'
+train_command: 'Rscript train2.R {train_data} {model}'
+setup_command: "Rscript setup.R"
 predict_command: 'Rscript predict.R {model} {future_data} {out_file}'
 data_type: HealthData
 #conda: ../hydromet_dengue/env.yml

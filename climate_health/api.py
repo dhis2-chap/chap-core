@@ -90,10 +90,17 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
 #    ...
 
 
-def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
+def dhis_zip_flow(zip_file_path: str, out_json: str, model_config_file):
     data: PredictionData = read_zip_folder(zip_file_path)
-    model = get_model_from_yaml_file(f'external_models/{model_name}')
-    climate_health_data= ClimateHealthData.combine(data.health_data, data.climate_data)
+    model = get_model_from_yaml_file(model_config_file)
+    climate_health_data = SpatioTemporalDict(
+            {
+                location: ClimateHealthData.combine(
+                    data.health_data.get_location(location).data(),
+                    data.climate_data.get_location(location).data()
+                )
+            for location in data.health_data.locations()
+            })
     model.train(climate_health_data, extra_data=data.area_polygons)
     predictions = model.predict(data)
     predictions_to_json(predictions, out_json)
