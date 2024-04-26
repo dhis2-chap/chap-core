@@ -13,10 +13,8 @@ mymodel <- function(formula, data = df, family = "nbinomial", config = FALSE)
 {
   model <- inla(formula = formula, data = data, family = family, offset = log(E),
                 control.inla = list(strategy = 'adaptive'),
-                control.compute = list(dic = TRUE, config = config,
-                                       cpo = TRUE, return.marginals = FALSE),
-                control.fixed = list(correlation.matrix = TRUE,
-                                     prec.intercept = 1, prec = 1),
+                control.compute = list(dic = TRUE, config = config, cpo = TRUE, return.marginals = FALSE),
+                control.fixed = list(correlation.matrix = TRUE, prec.intercept = 1, prec = 1),
                 control.predictor = list(link = 1, compute = TRUE),
                 verbose = F)
  # model <- inla.rerun(model)

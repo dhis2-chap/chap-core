@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 import pytest
-from climate_health.geojson import geojson_to_shape
+from climate_health.geojson import geojson_to_shape, geojson_to_graph
 from . import EXAMPLE_DATA_PATH
 from tempfile import NamedTemporaryFile
 
@@ -23,3 +23,7 @@ def test_geojson_to_shape(geojson_example_file):
         os.remove(out + extension)
 
 
+def test_geojson_to_graph(geojson_example_file, tmp_path):
+    filename = tmp_path / "graph.txt"
+    res = geojson_to_graph(geojson_example_file, filename)
+    print(res)

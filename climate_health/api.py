@@ -70,7 +70,8 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
     population_json = json.load(ziparchive.open(expected_files["population"]))
     population = parse_population_data(population_json)
     shape_file_name = Path(zip_file_path).parent
-    geojson_to_shape(ziparchive.open(expected_files["area_polygons"]), shape_file_name)
+    area_polygons_file = ziparchive.open(expected_files["area_polygons"])
+    geojson_to_shape(area_polygons_file, shape_file_name)
     #geojson_to_shape(str(zip_file_path) + "!area_polygons", shape_file_name)
 
     return PredictionData(
@@ -91,7 +92,7 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
 
 def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
     data: PredictionData = read_zip_folder(zip_file_path)
-    model = get_model_from_yaml_file(f'external_models/{model_name}', model_name)
+    model = get_model_from_yaml_file(f'external_models/{model_name}')
     climate_health_data= ClimateHealthData.combine(data.health_data, data.climate_data)
     model.train(climate_health_data, extra_data=data.area_polygons)
     predictions = model.predict(data)
