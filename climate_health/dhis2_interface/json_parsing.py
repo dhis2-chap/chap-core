@@ -50,7 +50,7 @@ def parse_climate_data(json_data):
 
 def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected cases)',
                        name_mapping={'time_period': 1, 'disease_cases': 3, 'location': 2}):
-    meta_data = MetadDataLookup(json_data['metaData'])
+    #meta_data = MetadDataLookup(json_data['metaData'])
     df = json_to_pandas(json_data, name_mapping)
     return SpatioTemporalDict.from_pandas(df, dataclass=HealthData, fill_missing=True)
 
