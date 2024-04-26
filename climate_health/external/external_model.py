@@ -1,6 +1,7 @@
 import logging
 import os.path
 import subprocess
+import sys
 import tempfile
 from hashlib import md5
 from pathlib import Path
@@ -207,18 +208,21 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 def run_command(command: str, working_directory="./"):
     """Runs a unix command using subprocess"""
     logging.info(f"Running command: {command}")
-    command = command.split()
+    #command = command.split()
 
     try:
         print(command)
-        output = subprocess.check_output(command, cwd=working_directory)
-        logging.info(output)
+        process = subprocess.Popen(command, stdout=subprocess.PIPE,
+                                   cwd=working_directory, shell=True)
+        for c in iter(lambda: process.stdout.read(1), b""):
+            sys.stdout.buffer.write(c)
+        #output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
+        #logging.info(output)
     except subprocess.CalledProcessError as e:
         error = e.output.decode()
         logging.info(error)
         raise e
 
-    return output
 
 class DryModeExternalCommandLineModel(ExternalCommandLineModel):
     def __init__(self, *args, **kwargs):
