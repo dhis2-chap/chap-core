@@ -195,6 +195,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 result_class = SummaryStatistics if 'quantile_low' in df.columns else HealthData
                 return SpatioTemporalDict.from_pandas(df, result_class)
 
+    def _provide_temp_file(self):
+        return tempfile.NamedTemporaryFile()
+
     #def forecast(self, future_data: IsSpatioTemporalDataSet[FeatureType]):
     #    cur_dataset = self._saved_state
     #    for period in relevant_period:
