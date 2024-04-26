@@ -9,6 +9,7 @@ from ..time_period import PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp
 import dataclasses
 
+
 class TemporalDataclass(Generic[FeaturesT]):
     '''
     Wraps a dataclass in a object that is can be sliced by time period.
@@ -33,17 +34,36 @@ class TemporalDataclass(Generic[FeaturesT]):
     def fill_to_endpoint(self, end_time_stamp: TimeStamp) -> 'TemporalDataclass[FeaturesT]':
         if self.end_timestamp == end_time_stamp:
             return self
-        n_missing = (end_time_stamp - self.end_timestamp)//self._data.time_period.delta
+        n_missing = (end_time_stamp - self.end_timestamp) // self._data.time_period.delta
         assert n_missing >= 0, (f'{n_missing} < 0', end_time_stamp, self.end_timestamp)
         old_time_period = self._data.time_period
         new_time_period = PeriodRange(old_time_period.start_timestamp, end_time_stamp, old_time_period.delta)
-        d = {field.name: getattr(self._data, field.name) for field in dataclasses.fields(self._data) if field.name != 'time_period'}
+        d = {field.name: getattr(self._data, field.name) for field in dataclasses.fields(self._data) if
+             field.name != 'time_period'}
+
         for name, data in d.items():
-            print(data, n_missing)
-            d[name] = np.pad(data.astype(float), (0, n_missing), constant_values=np.nan)
+            d[name] = np.pad(data.astype(float), (0, n_missing),
+                             constant_values=np.nan)
         return TemporalDataclass(
             self._data.__class__(new_time_period, **d))
 
+    def fill_to_range(self, start_timestamp, end_timestamp):
+        if self.end_timestamp == end_timestamp and self.start_timestamp==start_timestamp:
+            return self
+        n_missing_start = (self.start_timestamp - start_timestamp) // self._data.time_period.delta
+        n_missing = (end_timestamp - self.end_timestamp) // self._data.time_period.delta
+        assert n_missing >= 0, (f'{n_missing} < 0', end_timestamp, self.end_timestamp)
+        assert n_missing_start >= 0, (f'{n_missing} < 0', end_timestamp, self.end_timestamp)
+        old_time_period = self._data.time_period
+        new_time_period = PeriodRange(start_timestamp, end_timestamp, old_time_period.delta)
+        d = {field.name: getattr(self._data, field.name) for field in dataclasses.fields(self._data) if
+             field.name != 'time_period'}
+
+        for name, data in d.items():
+            d[name] = np.pad(data.astype(float), (n_missing_start, n_missing),
+                             constant_values=np.nan)
+        return TemporalDataclass(
+            self._data.__class__(new_time_period, **d))
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> 'TemporalDataclass[FeaturesT]':
         assert isinstance(period_range, slice)
@@ -129,7 +149,8 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         return data_dict
 
     @classmethod
-    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT], fill_missing=False) -> 'SpatioTemporalDict[FeaturesT]':
+    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT],
+                    fill_missing=False) -> 'SpatioTemporalDict[FeaturesT]':
         ''' Split a pandas frame into a SpatioTemporalDict'''
         data_dict = {}
         for location, data in df.groupby('location'):

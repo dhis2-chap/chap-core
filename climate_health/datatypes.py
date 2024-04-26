@@ -89,7 +89,7 @@ class ClimateHealthTimeSeries(TimeSeriesData):
     disease_cases: int
 
     @classmethod
-    def combine(cls, health_data: HealthData, climate_data: ClimateData):
+    def combine(cls, health_data: HealthData, climate_data: ClimateData, fill_missing=False) -> 'ClimateHealthTimeSeries':
         return ClimateHealthTimeSeries(time_period=health_data.time_period, rainfall=climate_data.rainfall,
                                        mean_temperature=climate_data.mean_temperature,
                                        disease_cases=health_data.disease_cases)
