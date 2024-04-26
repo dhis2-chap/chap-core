@@ -7,7 +7,7 @@ from climate_health.datatypes import HealthData, ClimateData, HealthPopulationDa
 from climate_health.dhis2_interface.json_parsing import predictions_to_json, parse_disease_data, json_to_pandas, \
     parse_population_data
 from climate_health.external.external_model import ExternalCommandLineModel, get_model_from_yaml_file
-from climate_health.geojson import geojson_to_shape
+from climate_health.geojson import geojson_to_shape, geojson_to_graph
 from climate_health.predictor import get_model
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 import dataclasses
@@ -69,16 +69,17 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
 
     population_json = json.load(ziparchive.open(expected_files["population"]))
     population = parse_population_data(population_json)
-    shape_file_name = Path(zip_file_path).parent
+    graph_file_name = Path(zip_file_path).with_suffix(".graph")
     area_polygons_file = ziparchive.open(expected_files["area_polygons"])
-    geojson_to_shape(area_polygons_file, shape_file_name)
+    #geojson_to_shape(area_polygons_file, shape_file_name)
+    geojson_to_graph(area_polygons_file, graph_file_name)
     #geojson_to_shape(str(zip_file_path) + "!area_polygons", shape_file_name)
 
     return PredictionData(
         health_data=disease,
         climate_data=climate,
         population_data=population,
-        area_polygons=AreaPolygons(shape_file_name)
+        area_polygons=AreaPolygons(graph_file_name)
     )
 
 
