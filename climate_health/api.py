@@ -94,14 +94,23 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
 def dhis_zip_flow(zip_file_path: str, out_json: str, model_config_file):
     data: PredictionData = read_zip_folder(zip_file_path)
     model = get_model_from_yaml_file(model_config_file)
-    climate_health_data = SpatioTemporalDict(
-            {
-                location: ClimateHealthData.combine(
-                    data.health_data.get_location(location).data(),
-                    data.climate_data.get_location(location).data()
-                )
-            for location in data.health_data.locations()
-            })
-    model.train(climate_health_data, extra_data=data.area_polygons)
+    start_endpoint = min(data.health_data.start_timestamp, data.climate_data.start_timestamp)
+    end_endpoint = max(data.health_data.end_timestamp, data.climate_data.end_timestamp)
+    new_dict = {}
+    for location in data.health_data.locations():
+        health = data.health_data.get_location(location).fill_to_range(start_endpoint, end_endpoint)
+        climate = data.climate_data.get_location(location).fill_to_range(start_endpoint, end_endpoint)
+        new_dict[location] = ClimateHealthData.combine(health.data(), climate.data())
+        #data.health_data.get_location(location).data().time_period = data.health_data.get_location(location).data().time_period.topandas()
+    climate_health_data = SpatioTemporalDict(new_dict)
+    # climate_health_data = SpatioTemporalDict(
+    #         {
+    #             location: ClimateHealthData.combine(
+    #                 data.health_data.get_location(location).data(),
+    #                 data.climate_data.get_location(location).data(), fill_missing=True
+    #             )
+    #         for location in data.health_data.locations()
+    #         })
+    model.train(climate_health_data, extra_args=data.area_polygons)
     predictions = model.predict(data)
     predictions_to_json(predictions, out_json)
