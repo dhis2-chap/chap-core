@@ -9,6 +9,18 @@ from .jax import jnp, jax, tree_util
 
 state_or_param = lambda f: tree_util.register_pytree_node_class(dataclasses.dataclass(f, frozen=True))
 
+def index_tree(tree, index):
+    if isinstance(tree, jax.Array):
+        return tree[index]
+    elif hasattr(tree, 'items'):
+        return {key: index_tree(value, index) for key, value in tree.items()}
+    elif isinstance(tree, PydanticTree):
+        return tree.__class__.tree_unflatten(None,(index_tree(value, index) for value in tree.tree_flatten()[0]))
+    elif isinstance(tree, tuple):
+        return tuple(index_tree(value, index) for value in tree)
+    else:
+        return index_tree(next(iter(tree)), index)
+
 
 def get_normal_prior(field):
     if field.type == float:
@@ -22,6 +34,13 @@ def get_normal_prior(field):
             mu = field.default
         return LogNormal(np.log(mu), 10)
 
+
+def tree_sample(tree, key, shape=()):
+    if isinstance(tree, dict):
+        keys = jax.random.split(key, len(tree))
+        return {name: tree_sample(obj, key, shape=shape) for key, (name, obj) in zip(keys, tree.items())}
+    else:
+        return tree.sample(key, shape=shape)
 
 class PydanticTree:
 
@@ -49,7 +68,18 @@ class PydanticTree:
                    if hasattr(getattr(self, field.name), 'log_prob'))
 
 
+def log_prob(dist, value):
+    if isinstance(dist, tuple):
+        return sum(log_prob(d, v) for d, v in zip(dist, value))
+    return dist.log_prob(value)
+
+
+
 def get_state_transform(params):
+    if isinstance(params, tuple):
+        T, f, inv_f = zip(*[get_state_transform(p) for p in params])
+        return tuple(T), lambda x: tuple(f_i(x_i) for f_i, x_i in zip(f, x)), lambda x: tuple(inv_f_i(x_i) for inv_f_i, x_i in zip(inv_f, x))
+
     new_fields = []
 
     converters = []
@@ -66,6 +96,7 @@ def get_state_transform(params):
             default = T()
         else:
             converters.append(identity)
+            inv_converters.append(identity)
             default = Normal(field.default, 10.)
         new_fields.append((field.name, float, default))
     new_class = dataclasses.make_dataclass('T_' + params.__name__, new_fields, bases=(PydanticTree,), frozen=True)
@@ -76,7 +107,7 @@ def get_state_transform(params):
             converter(val) for converter, val in zip(converters, transformed.tree_flatten()[0])))
 
     def inv_f(params: params) -> new_class:
-        return new_class.tree_unflatten(None, tuple(
-            inv_converter(val) for inv_converter, val in zip(inv_converters, params.tree_flatten()[0])))
+        inv_flat = tuple(inv_converter(val) for inv_converter, val in zip(inv_converters, params.tree_flatten()[0]))
+        return new_class.tree_unflatten(None, inv_flat)
 
     return new_class, f, inv_f

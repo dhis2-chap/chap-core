@@ -114,10 +114,10 @@ def test_probabilistic_sir(jax, random_key):
     #px.line(samples.observation_rate).show()
 
 
-def trace_plot(samples, real_params=None):
+def trace_plot(samples, real_params=None, name=''):
     for field in dataclasses.fields(samples):
         obj = getattr(samples, field.name)
-        fig = px.line(obj, title=field.name)
+        fig = px.line(obj, title=f'{name}_{field.name}')
         if real_params is not None:
             real_value= getattr(real_params, field.name)
             fig.add_trace(go.Scatter(x=np.arange(len(obj)), y=np.full_like(obj, real_value)))
