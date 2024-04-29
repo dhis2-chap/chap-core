@@ -35,6 +35,7 @@ distributionclass = partial(dataclass, frozen=True)
 class Normal:
     mu: float
     sigma: float
+    ndim: int = 0
 
     def sample(self, key, shape: Sequence[int] = ()) -> Any:
         assert shape==()
@@ -43,6 +44,9 @@ class Normal:
         return jax.random.normal(key, shape) * self.sigma + self.mu
 
     def log_prob(self, x: Any) -> Any:
+        if self.ndim > 0:
+            assert self.ndim == 1
+            return stats.norm.logpdf(x, loc=self.mu, scale=self.sigma).sum()
         return stats.norm.logpdf(x, loc=self.mu, scale=self.sigma)
 
 

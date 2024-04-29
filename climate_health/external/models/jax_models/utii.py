@@ -90,6 +90,10 @@ def get_state_transform(params):
             converters.append(jnp.exp)
             inv_converters.append(jnp.log)
             default = Normal(np.log(field.default), 1.)
+        elif field.type == np.ndarray:
+            converters.append(identity)
+            inv_converters.append(identity)
+            default = Normal(np.array(field.default), 10., ndim=1)
         elif issubclass(field.type, PydanticTree):
             T, f, inv_f = get_state_transform(field.type)
             converters.append(f)
