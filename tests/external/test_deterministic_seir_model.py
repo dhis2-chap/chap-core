@@ -1,18 +1,20 @@
 import dataclasses
 from functools import partial
-
+import plotly.graph_objects as go
 import numpy as np
 import plotly.express as px
 import pytest
+import numpy as np
 
 from climate_health.external.models.jax_models.deterministic_seir_model import SIRParams, Params, SIRState, main_sir, \
-    SIRObserved, get_state_transform, transformed_diff_distribution, \
+    SIRObserved, transformed_diff_distribution, \
     get_categorical_transform, next_state_dist, ProbabilisticParams, ProbSIRParams
+from climate_health.external.models.jax_models.utii import get_state_transform
 # from climate_health.external.models.jax_models.coin_svgd import CoinSVGD
 from climate_health.external.models.jax_models.hmc import sample
 from climate_health.external.models.jax_models.model_spec import LogNormal
 import plotly
-plotly.graph_objs.Figure.show = lambda self, *args, **kwargs: None
+#plotly.graph_objs.Figure.show = lambda self, *args, **kwargs: None
 
 def tree_log_prob(dist, value):
     if hasattr(dist, 'log_prob'):
@@ -112,10 +114,14 @@ def test_probabilistic_sir(jax, random_key):
     #px.line(samples.observation_rate).show()
 
 
-def trace_plot(samples):
+def trace_plot(samples, real_params=None):
     for field in dataclasses.fields(samples):
         obj = getattr(samples, field.name)
-        px.line(obj, title=field.name).show()
+        fig = px.line(obj, title=field.name)
+        if real_params is not None:
+            real_value= getattr(real_params, field.name)
+            fig.add_trace(go.Scatter(x=np.arange(len(obj)), y=np.full_like(obj, real_value)))
+        fig.show()
 
 
 def test_transformed_diff_distribution(random_key):

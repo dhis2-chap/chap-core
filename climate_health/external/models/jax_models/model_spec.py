@@ -2,7 +2,7 @@ import pickle
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
-from typing import Protocol, Any, Optional
+from typing import Protocol, Any, Optional, Sequence
 
 import numpy as np
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class IsDistribution(Protocol):
-    def sample(self, key, n: int) -> Any:
+    def sample(self, key, shape: Optional[tuple] = None) -> Any:
         ...
 
     def log_prob(self, x: Any) -> Any:
@@ -36,7 +36,10 @@ class Normal:
     mu: float
     sigma: float
 
-    def sample(self, key, shape: Optional[tuple] = None) -> Any:
+    def sample(self, key, shape: Sequence[int] = ()) -> Any:
+        assert shape==()
+        if hasattr(self.mu, 'shape'):
+            shape= self.mu.shape
         return jax.random.normal(key, shape) * self.sigma + self.mu
 
     def log_prob(self, x: Any) -> Any:

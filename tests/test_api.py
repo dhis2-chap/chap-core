@@ -11,6 +11,7 @@ def example_zip(data_path):
 def test_read_zip_folder(example_zip):
     data = read_zip_folder(example_zip)
 
+
 @pytest.fixture
 def zip_filepath(data_path):
     return data_path / "sample_chap_app_output.zip"
