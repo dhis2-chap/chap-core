@@ -14,3 +14,4 @@ USER apprunner
 
 #docker run --rm -it rstudio/r-base:4.3-jammy
 
+# sudo docker run -ti --rm -v "./:/home/run/" -w /home/run/ docker_r_base Rscript setup.R

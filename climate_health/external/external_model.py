@@ -7,6 +7,7 @@ from hashlib import md5
 from pathlib import Path
 from typing import Protocol, Generic, TypeVar
 
+import docker
 import numpy as np
 import pandas as pd
 import pandas.errors
@@ -15,6 +16,7 @@ import json
 
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
+from climate_health.docker_helper_functions import create_docker_image, run_command_through_docker_container
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
 logger = logging.getLogger(__name__)
@@ -45,7 +47,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
     def __init__(self, name: str, train_command: str, predict_command: str, data_type: type[FeatureType],
                  setup_command: str = None, conda_env_file: str = None,
-                 working_dir="./", adapters=None):
+                 working_dir="./", adapters=None,
+                 docker: str = None,
+                 dockerfile: str = None):
         self._name = name
         self._setup_command = setup_command
         self._train_command = train_command
@@ -58,6 +62,8 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._model = None
         self._adapters = adapters
         self._model_file_name = self._name + ".model"
+        self._docker = docker
+        self._dockerfile = dockerfile
 
     @classmethod
     def from_yaml_file(cls, yaml_file: str) -> "ExternalCommandLineModel":
@@ -82,11 +88,14 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             setup_command=setup_command,
             conda_env_file=conda_env_file,
             working_dir=Path(yaml_file).parent,
-            adapters=data.get('adapters', None)
+            adapters=data.get('adapters', None),
+            docker=data.get('docker', None),
+            dockerfile=data.get('dockerfile', None),
         )
 
         return model
-    def _run(self, command):
+    def _run_command(self, command):
+        """Wrapper for running command, adds working directory"""
         return run_command(command, working_directory=self._working_dir)
 
     def _get_conda_environment_name(self):
@@ -98,27 +107,34 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             checksum = md5(json.dumps(data).encode("utf-8")).hexdigest()
             return f"{self._name}_{checksum}"
 
-    def run_through_conda(self, command: str):
+    def run_through_container(self, command: str):
+        """Runs the command through either conda, docker or directly depending on the config"""
         if self._conda_env_file:
             logging.info(f"Using conda environment name {self._conda_env_name}")
-            return self._run(f'conda run -n {self._conda_env_name} {command}')
-        return self._run(command)
+            return self._run_command(f'conda run -n {self._conda_env_name} {command}')
+        elif self._docker:
+            run_command_through_docker_container(self._docker, self._working_dir, command)
+
+        return self._run_command(command)
 
     def setup(self):
         if self._conda_env_file:
             try:
-                self._run(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}')
+                self._run_command(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}')
             except subprocess.CalledProcessError:
                 # TODO: This logic is not sound since new entries in env file will not be added to the environment if it exists
                 logging.info("Ignoring error when creating conda environment")
                 pass
+        elif self._dockerfile is not None:
+            # create a Docker image from the docker file, use that
+            self._docker = create_docker_image(self._dockerfile, working_dir=self._working_dir)
 
         if self._setup_command is not None:
-            self.run_through_conda(self._setup_command)
+            self.run_through_container(self._setup_command)
 
     def deactivate(self):
         if self._conda_env_file:
-            self._run(f'conda deactivate')
+            self._run_command(f'conda deactivate')
 
     def _adapt_data(self, data: pd.DataFrame, inverse=False):
 
@@ -162,7 +178,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 new_pd = self._adapt_data(pd)
                 new_pd.to_csv(train_file_name)
                 command = self._train_command.format(train_data=train_file_name, model=self._model_file_name, extra_args=extra_args)
-                response = self.run_through_conda(command)
+                response = self.run_through_container(command)
                 print(response)
         self._saved_state = train_data
 
@@ -184,7 +200,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 command = self._predict_command.format(future_data=future_datafile.name,
                                                        model=self._model_file_name,
                                                        out_file=out_file.name)
-                response = self.run_through_conda(command)
+                response = self.run_through_container(command)
                 try:
                     df = pd.read_csv(out_file.name)
                     # our_df = self._adapt_data(df, inverse=True)
@@ -234,7 +250,7 @@ class DryModeExternalCommandLineModel(ExternalCommandLineModel):
     def set_file_creation_folder(self, path):
         self._file_creation_folder = path
 
-    def _run(self, command):
+    def _run_command(self, command):
         self._execution_code += f'cd {self._working_dir}' + os.linesep
         self._execution_code += command + os.linesep
 
@@ -252,7 +268,7 @@ class VerboseRDryModeExternalCommandLineModel(DryModeExternalCommandLineModel):
         self._execution_code += f'cd {self._working_dir}' + os.linesep
         self._execution_code += "R" + os.linesep
 
-    def _run(self, command):
+    def _run_command(self, command):
         command_parts = command.split(" ")
         #assert len(command_parts) == 2, command_parts
         if len(command_parts) > 2:
