@@ -10,6 +10,8 @@ train_command: [A template string for command that is run for training the model
 setup_command: [Optional. If set, will be run as a command before training]
 predict_command: [A template command for training. Should contain {future_data} (which will be replaced by a .csv file containing future data) and {model}.
 conda: [Optional. Can point to a yml file specifying a conda environment that all the commands will be run through.]
+dockerfile: [Optional. Ignored if conda is set. Can point to a directory that contains a Dockerfile. Will then create a docker image with the name of that director and use that docker image when running commands.]
+docker: [Optional. Ignored if dockerfile is set. Can be the name of an existing dockerimage that will be used.]
 ```
 
 Note that all paths are relative to the directory of the model.
@@ -68,3 +70,9 @@ If you store this file as 'env.yaml' you can make an environment with `conda env
 4: Make a conda env file from the final environment you have created (if you had to install anything else). Make sure things work if you create a new environment from that yml file. Note: You can create a yml file by dumping your current environment, but make sure you make a minimal file (google this).
 
 5: Try to run it through the ExternalCommandLineModel class by following the instructions in the beginning of this document by following the instructions in the beginning of this document.
+
+
+
+## Using Docker instead of Conda
+- Make sure you have Docker installed and that it can be run without sudo
+- The Dockerfile in external_models/docker_r_base may be suitable for many R methods, and can be specified with `dockerfile: ../docker_r_base/` in the config.yml file.
