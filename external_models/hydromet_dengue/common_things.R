@@ -202,7 +202,6 @@ precision.prior <- list(prec = list(prior = "pc.prec", param = c(0.5, 0.01)))
 
 # include formula and set defaults for data, family (to allow other prob dist models e.g. Poisson) and config (to allow for sampling)
 mymodel <- function(formula, data = df, family = "nbinomial", config = FALSE)
-
   {
   model <- inla(formula = formula, data = data, family = family, offset = log(E),
        control.inla = list(strategy = 'adaptive'),

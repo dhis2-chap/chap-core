@@ -14,6 +14,7 @@ from tests.external.test_deterministic_seir_model import trace_plot
 
 location_names = ['A', 'B', 'C']
 
+
 def test_linear_regression(random_key, jax):
     x = np.arange(25, dtype=float)
     T_Param, transform, inv_transform = get_state_transform(GlobalParams)
@@ -22,11 +23,12 @@ def test_linear_regression(random_key, jax):
     sampled_y = linear_regression(real_params, observed).sample(random_key)
     observed = Observations(observed.x, y=sampled_y)
 
-    init_params= get_state_transform(GlobalParams)[0]().sample(random_key)
+    init_params = get_state_transform(GlobalParams)[0]().sample(random_key)
     logprob_func = get_logprob_func(GlobalParams, observed)
     raw_samples = sample(
         logprob_func, random_key, init_params, num_samples=100, num_warmup=100)
     trace_plot(transform(raw_samples), real_params)
+
 
 @pytest.fixture
 def seasonal_params():
@@ -35,6 +37,7 @@ def seasonal_params():
     params = GlobalSeasonalParams(2., 3., 1., month_effect)
     return params
 
+
 @pytest.fixture
 def seasonal_data(seasonal_params, random_key):
     T = 36
@@ -42,7 +45,7 @@ def seasonal_data(seasonal_params, random_key):
     month = np.arange(T) % 12
     model = seasonal_linear_regression(
         seasonal_params,
-        SeasonalObservations(x=x, y=x*3.0, month=month))
+        SeasonalObservations(x=x, y=x * 3.0, month=month))
     return SeasonalObservations(x=x, month=month, y=model.sample(random_key))
 
 
@@ -56,14 +59,13 @@ def test_seasonal_inference(seasonal_params, seasonal_data, random_key, jax):
     trace_plot(transform(raw_samples), real_params)
 
 
-
 def test_sample_seasonal(random_key, jax, seasonal_params):
     T = 36
     x = np.arange(T) * 5 % 3
     month = np.arange(T) % 12
     model = seasonal_linear_regression(
         seasonal_params,
-        SeasonalObservations(x=x, y=x*3, month=month))
+        SeasonalObservations(x=x, y=x * 3, month=month))
     samples = model.sample(random_key)
     print(samples)
 
@@ -76,7 +78,7 @@ def test_seasonal_regression(random_key, jax):
     sampled_y = linear_regression(real_params, observed).sample(random_key)
     observed = Observations(observed.x, y=sampled_y)
 
-    init_params= get_state_transform(GlobalParams)[0]().sample(random_key)
+    init_params = get_state_transform(GlobalParams)[0]().sample(random_key)
     logprob_func = get_logprob_func(GlobalParams, observed)
     raw_samples = sample(
         logprob_func, random_key, init_params, num_samples=100, num_warmup=100)
@@ -88,8 +90,8 @@ def hierearchical_data():
     x = np.arange(10, dtype=float)
     return {location: Observations(x=x, y=x * float(b) + float(a))
             for location, a, b in zip(['A', 'B', 'C'],
-                                   [2, 3, 4],
-                                   [3, 4, 5])}
+                                      [2, 3, 4],
+                                      [3, 4, 5])}
 
 
 @pytest.fixture
@@ -98,8 +100,10 @@ def hierearchical_seasonal_data():
     month = np.arange(24) % 12
     return {location: SeasonalObservations(x=x, y=x * float(b) + float(a), month=month)
             for location, a, b in zip(['A', 'B', 'C'],
-                                   [2, 3, 4],
-                                   [3, 4, 5])}
+                                      [2, 3, 4],
+                                      [3, 4, 5])}
+
+
 @pytest.fixture()
 def seasonal_sampled(hierearchical_seasonal_data, random_key, seasonal_params, district_params):
     observed = hierearchical_seasonal_data
@@ -116,11 +120,13 @@ def test_sample_hiearchical_seasonal(random_key, jax, seasonal_params, district_
     samples = tree_sample(model, random_key)
     print(samples)
 
+
 def test_hierarchical_seasonal_inference(seasonal_params, district_params, seasonal_sampled, random_key, jax):
     T_Param, transform, inv = get_state_transform(seasonal_params.__class__)
     T_ParamD, transformD, invD = get_state_transform(DistrictParams)
     observed = seasonal_sampled
-    logprob_func = get_hierarchy_logprob_func(GlobalSeasonalParams, DistrictParams, observed, seasonal_linear_regression)
+    logprob_func = get_hierarchy_logprob_func(GlobalSeasonalParams, DistrictParams, observed,
+                                              seasonal_linear_regression)
     init_params = T_Param().sample(random_key), {location: T_ParamD().sample(random_key) for location in observed}
     raw_samples = sample(logprob_func, random_key, init_params, num_samples=100, num_warmup=100)
     trace_plot(transform(raw_samples[0]), seasonal_params)
@@ -133,7 +139,7 @@ def test_hierarchical(hierearchical_data, random_key, jax, district_params):
     T_Param, transform, inv = get_state_transform(GlobalParams)
     T_ParamD, transformD, invD = get_state_transform(DistrictParams)
     real_params = GlobalParams(2., 3., 5.), district_params
-    true_samples= tree_sample(hierarchical_linear_regression(real_params[0], real_params[1], observed), random_key)
+    true_samples = tree_sample(hierarchical_linear_regression(real_params[0], real_params[1], observed), random_key)
     observed = {name: Observations(observed[name].x, y=true_samples[name]) for name in observed}
     logprob_func = get_hierarchy_logprob_func(GlobalParams, DistrictParams, observed)
     init_params = T_Param().sample(random_key), {location: T_ParamD().sample(random_key) for location in observed}
@@ -146,6 +152,7 @@ def test_hierarchical(hierearchical_data, random_key, jax, district_params):
     trace_plot(transform(raw_samples[0]), real_params[0])
     for name, real in real_params[1].items():
         trace_plot(transformD(raw_samples[1][name]), real, name)
+
 
 @pytest.fixture()
 def district_params():

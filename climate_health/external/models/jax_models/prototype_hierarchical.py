@@ -1,6 +1,7 @@
 import dataclasses
 from dataclasses import replace
 from typing import Sequence
+from .jax import expit, logit
 
 import numpy as np
 from bionumpy.bnpdataclass import bnpdataclass
@@ -39,6 +40,19 @@ class Observations:
 @bnpdataclass
 class SeasonalObservations(Observations):
     month: int
+
+
+@state_or_param
+class ExpitParams(PydanticTree):
+    alpha: float = 0.
+    beta: float = 0.
+    scale: float = 1.
+    location: float = 0.
+
+
+def expit_transform(params: ExpitParams, x) -> IsDistribution:
+    return expit(params.alpha + params.beta * x)*params.scale+params.location
+    # return Normal(y_hat, params.sigma)
 
 
 def linear_regression(params: GlobalParams, given: Observations) -> IsDistribution:
@@ -94,5 +108,6 @@ def get_logprob_func(params_cls, observed, regression_model=linear_regression):
     return logprob_func
 
 
-def spatial_type(locations: Sequence[str]):
-    pass
+def lagged_regression(params: GlobalParams, given: Sequence[Observations]) -> IsDistribution:
+    y_hat = params.alpha + params.beta * given[0].x + params.sigma * given[1].y
+    return Normal(y_hat, params.sigma)
