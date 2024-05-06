@@ -17,7 +17,7 @@ def zip_filepath(data_path):
     return data_path / "sample_chap_app_output.zip"
 
 
-@pytest.mark.skip(reason='Not finished implementing')
+#@pytest.mark.skip(reason='Not finished implementing')
 def test_dhis_zip_flow(models_path, zip_filepath):
     out_json = "output.json"
     model_name = "ewars_Plus"

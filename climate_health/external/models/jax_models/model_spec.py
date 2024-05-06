@@ -50,11 +50,14 @@ class Normal:
         return stats.norm.logpdf(x, loc=self.mu, scale=self.sigma)
 
 
-@dataclass
+@distributionclass
 class Poisson:
     rate: float
 
-    def sample(self, key, shape: Optional[tuple] = None) -> Any:
+    def sample(self, key, shape: tuple = ()) -> Any:
+        assert shape==()
+        if hasattr(self.rate, 'shape'):
+            shape= self.rate.shape
         return jax.random.poisson(key, self.rate, shape)
 
     def log_prob(self, x: Any) -> Any:
@@ -87,8 +90,13 @@ class LogNormal:
 
 
 class PoissonSkipNaN(Poisson):
+
     def log_prob(self, x: Any) -> Any:
-        return jnp.where(jnp.isnan(x), 0, super().log_prob(x))
+        masked = jnp.where(jnp.isnan(x), self.rate, x)
+        res = jnp.where(jnp.isnan(x), 0, super().log_prob(masked))
+        print('-----------------')
+        print(x, self.rate, res)
+        return res
 
 
 class IsSSMSpec(Protocol):

@@ -15,25 +15,6 @@ from climate_health.time_period import Month
 from climate_health.time_period.date_util_wrapper import delta_month, Week
 
 
-@pytest.fixture()
-def data(data_path):
-    file_name = (data_path / 'hydro_met_subset').with_suffix('.csv')
-    return SpatioTemporalDict.from_pandas(pd.read_csv(file_name), ClimateHealthTimeSeries)
-
-
-@pytest.fixture()
-def train_data(split_data):
-    return split_data[0]
-
-
-@pytest.fixture()
-def split_data(data):
-    return train_test_split_with_weather(data, Month(2012, 8))
-
-
-@pytest.fixture()
-def test_data(split_data):
-    return split_data[1:]
 
 
 def test_blackjax_model_train(blackjax, jax, train_data, model):

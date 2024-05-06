@@ -28,10 +28,10 @@ mymodel <- function(formula, data = df, family = "nbinomial", config = FALSE)
 
 precision.prior <<- list(prec = list(prior = "pc.prec", param = c(0.5, 0.01)))
 alarm_vars = c('rainsum', 'meantemperature')
-baseformula <- Y ~ 1 + f(
-T1 , replicate = S1, model = "rw1", cyclic = TRUE, constr = TRUE,
-                         scale.model = TRUE,  hyper = precision.prior) +
-  f(S1 , replicate=T2, model = "iid")
+baseformula <- Y ~ 1 + f(T1 , replicate = S1, model = "rw1", cyclic = TRUE, constr = TRUE, scale.model = TRUE,  hyper = precision.prior) +
+f(S1 , replicate=T2, model = "iid")
+
+
 
 formula0.1 <- eval(parse(text=paste0("update.formula(baseformula, ~. +",paste(alarm_vars, collapse ='+'),')')))
 

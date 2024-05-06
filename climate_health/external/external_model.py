@@ -94,6 +94,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         )
 
         return model
+
     def _run_command(self, command):
         """Wrapper for running command, adds working directory"""
         return run_command(command, working_directory=self._working_dir)
@@ -113,7 +114,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             logging.info(f"Using conda environment name {self._conda_env_name}")
             return self._run_command(f'conda run -n {self._conda_env_name} {command}')
         elif self._docker:
-            run_command_through_docker_container(self._docker, self._working_dir, command)
+            return run_command_through_docker_container(self._docker, self._working_dir, command)
 
         return self._run_command(command)
 
@@ -143,7 +144,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         adapters = self._adapters
         if inverse:
             adapters = {v: k for k, v in adapters.items()}
-            #data['disease_cases'] = data[adapters['disase_cases']]
+            # data['disease_cases'] = data[adapters['disase_cases']]
             return data
 
         for to_name, from_name in adapters.items():
@@ -152,7 +153,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                     new_val = data['time_period'].dt.week
                     data[to_name] = new_val
                 else:
-                    data[to_name] = [int(str(p).split('W')[-1]) for p in data['time_period']]#.dt.week
+                    data[to_name] = [int(str(p).split('W')[-1]) for p in data['time_period']]  # .dt.week
 
             elif from_name == 'month':
                 data[to_name] = data['time_period'].dt.month
@@ -160,7 +161,8 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 if hasattr(data['time_period'], 'dt'):
                     data[to_name] = data['time_period'].dt.year
                 else:
-                    data[to_name] = [int(str(p).split('W')[0]) for p in data['time_period']]# data['time_period'].dt.year
+                    data[to_name] = [int(str(p).split('W')[0]) for p in
+                                     data['time_period']]  # data['time_period'].dt.year
             elif from_name == 'population':
                 data[to_name] = 200_000  # HACK: This is a placeholder for the population data
                 logger.warning("Population data is not available, using placeholder value")
@@ -177,7 +179,8 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 pd = train_data.to_pandas()
                 new_pd = self._adapt_data(pd)
                 new_pd.to_csv(train_file_name)
-                command = self._train_command.format(train_data=train_file_name, model=self._model_file_name, extra_args=extra_args)
+                command = self._train_command.format(train_data=train_file_name, model=self._model_file_name,
+                                                     extra_args=extra_args)
                 response = self.run_through_container(command)
                 print(response)
         self._saved_state = train_data
@@ -192,7 +195,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                     df['disease_cases'] = np.nan
 
                     new_pd = self._adapt_data(df)
-                    #if self._is_lagged:
+                    # if self._is_lagged:
                     #    ned_pd = pd.concatenate(self._saved_state, new_pd)
                     new_pd.to_csv(name)
 
@@ -201,6 +204,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                                                        model=self._model_file_name,
                                                        out_file=out_file.name)
                 response = self.run_through_container(command)
+                print(response)
                 try:
                     df = pd.read_csv(out_file.name)
                     # our_df = self._adapt_data(df, inverse=True)
@@ -215,7 +219,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     def _provide_temp_file(self):
         return tempfile.NamedTemporaryFile()
 
-    #def forecast(self, future_data: IsSpatioTemporalDataSet[FeatureType]):
+    # def forecast(self, future_data: IsSpatioTemporalDataSet[FeatureType]):
     #    cur_dataset = self._saved_state
     #    for period in relevant_period:
     #        model.predict()
@@ -224,7 +228,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 def run_command(command: str, working_directory="./"):
     """Runs a unix command using subprocess"""
     logging.info(f"Running command: {command}")
-    #command = command.split()
+    # command = command.split()
 
     try:
         print(command)
@@ -232,8 +236,9 @@ def run_command(command: str, working_directory="./"):
                                    cwd=working_directory, shell=True)
         for c in iter(lambda: process.stdout.read(1), b""):
             sys.stdout.buffer.write(c)
-        #output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
-        #logging.info(output)
+        print('finished')
+        # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
+        # logging.info(output)
     except subprocess.CalledProcessError as e:
         error = e.output.decode()
         logging.info(error)
@@ -262,6 +267,7 @@ class DryModeExternalCommandLineModel(ExternalCommandLineModel):
     def get_execution_code(self):
         return self._execution_code
 
+
 class VerboseRDryModeExternalCommandLineModel(DryModeExternalCommandLineModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -270,12 +276,13 @@ class VerboseRDryModeExternalCommandLineModel(DryModeExternalCommandLineModel):
 
     def _run_command(self, command):
         command_parts = command.split(" ")
-        #assert len(command_parts) == 2, command_parts
+        # assert len(command_parts) == 2, command_parts
         if len(command_parts) > 2:
-            r_args = 'c(' + ','.join(['"'+part+'"' for part in command_parts[2:]]) + ')'
+            r_args = 'c(' + ','.join(['"' + part + '"' for part in command_parts[2:]]) + ')'
             self._execution_code += f'''args = {r_args}''' + os.linesep
         r_lines = open(f'{self._working_dir}/{command_parts[1]}').readlines()
-        self._execution_code += os.linesep.join([line for line in r_lines if not 'commandArgs' in line] ) + os.linesep
+        self._execution_code += os.linesep.join([line for line in r_lines if not 'commandArgs' in line]) + os.linesep
+
 
 class SimpleFileContextManager:
     def __init__(self, filename, mode='r'):
@@ -302,4 +309,3 @@ class SimpleFileContextManager:
 
 def get_model_from_yaml_file(yaml_file: str) -> ExternalCommandLineModel:
     return ExternalCommandLineModel.from_yaml_file(yaml_file)
-

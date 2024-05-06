@@ -108,7 +108,8 @@ def get_state_transform(params):
 
     def f(transformed: new_class) -> params:
         return params.tree_unflatten(None, tuple(
-            converter(val) for converter, val in zip(converters, transformed.tree_flatten()[0])))
+            converter(val) for converter, val in
+            zip(converters, transformed.tree_flatten()[0])))
 
     def inv_f(params: params) -> new_class:
         inv_flat = tuple(inv_converter(val) for inv_converter, val in zip(inv_converters, params.tree_flatten()[0]))

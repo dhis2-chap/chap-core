@@ -1,16 +1,16 @@
 # !/usr/bin/env Rscript
 library(INLA)
 args = commandArgs(trailingOnly=TRUE)
-model_filename = 'ewars_Plus.model'
-model_filename = args[1]
-data_filename = '/home/knut/Sources/climate_health/example_data/ewars_predict.csv'#args[2]#
-out_filename = 'tmp.csv'# args[3]# 'tmp.csv'
+#model_filename = 'ewars_Plus.model'
+#model_filename = args[1]
+#data_filename = '/home/knut/Sources/climate_health/example_data/ewars_predict.csv'#args[2]#
+#out_filename = 'tmp.csv'# args[3]# 'tmp.csv'
 model_filename = args[1]
 data_filename = args[2]
 out_filename = args[3]
 
 load(file = model_filename)
-s <- 20
+s <- 100
 df = read.csv(data_filename)
 ss = inla.posterior.sample(s, model)
 df <- read.table(data_filename, sep=',', header=TRUE)

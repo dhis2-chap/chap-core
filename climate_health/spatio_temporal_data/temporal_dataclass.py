@@ -1,10 +1,10 @@
-from typing import Generic, Iterable, Tuple, Type
+from typing import Generic, Iterable, Tuple, Type, Callable
 
 import numpy as np
 import pandas as pd
 
 from ..dataset import TemporalIndexType, FeaturesT
-from ..datatypes import Location
+from ..datatypes import Location, add_field, remove_field
 from ..time_period import PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp
 import dataclasses
@@ -171,3 +171,9 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         Assumes other is later in time.
         '''
         return self.__class__({loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()})
+
+    def add_fields(self, new_type, **kwargs: dict[str, Callable]):
+        return self.__class__({loc: add_field(data.data(), new_type, **{key: func(data.data()) for key, func in kwargs.items()}) for loc, data in self.items()})
+
+    def remove_field(self, field_name, new_class=None):
+        return self.__class__({loc: remove_field(data.data(), field_name, new_class) for loc, data in self.items()})

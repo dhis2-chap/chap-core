@@ -112,5 +112,5 @@ def dhis_zip_flow(zip_file_path: str, out_json: str, model_config_file):
     #         for location in data.health_data.locations()
     #         })
     model.train(climate_health_data, extra_args=data.area_polygons)
-    predictions = model.predict(data)
+    predictions = model.predict(climate_health_data)
     predictions_to_json(predictions, out_json)

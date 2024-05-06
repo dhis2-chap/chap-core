@@ -1,7 +1,7 @@
 import pytest
 
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from climate_health.datatypes import ClimateHealthData, ClimateData, HealthData
+from climate_health.datatypes import ClimateHealthData, ClimateData, HealthData, FullData
 from climate_health.time_period import Month, PeriodRange
 from climate_health.time_period.period_range import period_range
 import bionumpy as bnp
@@ -21,6 +21,14 @@ def train_data(full_data) -> SpatioTemporalDict[ClimateHealthData]:
     T = len(time_period)
     d = {'oslo': ClimateHealthData(time_period, [1] * T, [1] * T, [20] * T),
          'bergen': ClimateHealthData(time_period, [100] * T, [1] * T, [1] * T)}
+    return SpatioTemporalDict(d)
+
+@pytest.fixture()
+def train_data_pop(full_data) -> SpatioTemporalDict[ClimateHealthData]:
+    time_period = period_range(Month(2012, 1), Month(2012, 7))
+    T = len(time_period)
+    d = {'oslo': FullData(time_period, [1] * T, [1] * T, [20] * T, [400000]*T),
+         'bergen': FullData(time_period, [100] * T, [1] * T, [1] * T, [100000]*T)}
     return SpatioTemporalDict(d)
 
 
