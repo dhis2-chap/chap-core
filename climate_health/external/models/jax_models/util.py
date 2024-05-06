@@ -1,4 +1,4 @@
-from .jax import jax, blackjax
+from .jax import jax, blackjax, tree_util
 
 
 def extract_last(samples):
@@ -21,6 +21,12 @@ def index_tree(tree, index):
 
 
 def array_tree_length(tree):
+    print('tree', tree)
+    flat = tree_util.tree_flatten(tree)
+    print('flat', flat)
+    val = flat[0]
+    print(val)
+    return val.shape[-1]
     if isinstance(tree, jax.Array):
         return len(tree)
     elif hasattr(tree, 'items'):

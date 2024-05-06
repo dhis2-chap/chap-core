@@ -60,7 +60,7 @@ def test_all_external_models_acceptance(model_directory, models_path, train_data
     print("Running")
     yaml_path = models_path / model_directory / 'config.yml'
     model = get_model_from_yaml_file(yaml_path)
-    #train_data = get_dataset_from_yaml(yaml_path)
+    train_data = get_dataset_from_yaml(yaml_path)
     model.setup()
     model.train(train_data)
     #results = model.predict(future_climate_data)
@@ -73,6 +73,7 @@ def test_external_model_predict(model_directory, models_path):
     yaml_path = models_path / model_directory / 'config.yml'
     train_data = get_dataset_from_yaml(yaml_path)
     model = get_model_from_yaml_file(yaml_path)
+    model.setup()
     #model.setup()
     results = model.predict(train_data)
     assert isinstance(results, SpatioTemporalDict)

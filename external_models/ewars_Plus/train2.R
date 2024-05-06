@@ -1,7 +1,7 @@
 # Read in command line args filenames
 args = commandArgs(trailingOnly=TRUE)
-data_filename = '/home/knut/Sources/climate_health/example_data/ewars_train_data.csv'
-# data_filename = args[1]
+#data_filename = '/home/knut/Sources/climate_health/example_data/ewars_train_data.csv'
+data_filename = args[1]
 output_model_filename = args[2]
 
 #install.packages("INLA")

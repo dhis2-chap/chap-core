@@ -10,6 +10,8 @@ RUN DEBIAN_FRONTEND=noninteractive \
   R -e 'r = getOption("repos"); r["CRAN"] = "http://cran.us.r-project.org"; options(repos = r); install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)' && \
   rm -rf /var/lib/apt/lists/*
 RUN useradd -ms /bin/bash apprunner
+RUN echo "apprunner:apprunner" | chpasswd
+RUN chmod -R 777  /opt/R/4.3.3/lib/R/library/INLA/
 USER apprunner
 
 #docker run --rm -it rstudio/r-base:4.3-jammy

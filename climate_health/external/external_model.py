@@ -169,55 +169,55 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             else:
                 data[to_name] = data[from_name]
         return data
+    @property
+    def _dir_name(self):
+        return Path('./')
+
 
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType], extra_args=None):
         if extra_args is None:
             extra_args = ''
-        with self._provide_temp_file() as train_datafile:
-            train_file_name = train_datafile.name
-            with open(train_file_name, "w") as train_datafile:
-                pd = train_data.to_pandas()
-                new_pd = self._adapt_data(pd)
-                new_pd.to_csv(train_file_name)
-                command = self._train_command.format(train_data=train_file_name, model=self._model_file_name,
-                                                     extra_args=extra_args)
-                response = self.run_through_container(command)
-                print(response)
+        #with self._provide_temp_file() as train_datafile:
+        train_file_name = 'training_data.csv'
+        pd = train_data.to_pandas()
+        new_pd = self._adapt_data(pd)
+        new_pd.to_csv(self._working_dir/train_file_name)
+        command = self._train_command.format(train_data=train_file_name, model=self._model_file_name, extra_args=extra_args)
+        response = self.run_through_container(command)
+        print(response)
         self._saved_state = train_data
 
     def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
-        with self._provide_temp_file() as out_file:
-            with self._provide_temp_file() as future_datafile:
-                name = future_datafile.name
-                with open(name, "w") as f:
+        name = 'future_data.csv'
+        with open(name, "w") as f:
 
-                    df = future_data.to_pandas()
-                    df['disease_cases'] = np.nan
+            df = future_data.to_pandas()
+            df['disease_cases'] = np.nan
 
-                    new_pd = self._adapt_data(df)
-                    # if self._is_lagged:
-                    #    ned_pd = pd.concatenate(self._saved_state, new_pd)
-                    new_pd.to_csv(name)
+            new_pd = self._adapt_data(df)
+            # if self._is_lagged:
+            #    ned_pd = pd.concatenate(self._saved_state, new_pd)
+            new_pd.to_csv(self._working_dir/name)
 
                 # TOOD: combine with training data set for lagged models
-                command = self._predict_command.format(future_data=future_datafile.name,
-                                                       model=self._model_file_name,
-                                                       out_file=out_file.name)
-                response = self.run_through_container(command)
-                print(response)
-                try:
-                    df = pd.read_csv(out_file.name)
-                    # our_df = self._adapt_data(df, inverse=True)
+        command = self._predict_command.format(future_data=name,
+                                               model=self._model_file_name,
+                                               out_file='predictions.csv')
+        response = self.run_through_container(command)
+        print(response)
+        try:
+            df = pd.read_csv(self._working_dir/'predictions.csv')
+        # our_df = self._adapt_data(df, inverse=True)
 
-                except pandas.errors.EmptyDataError:
-                    # todo: Probably deal with this in an other way, throw an exception istead
-                    logging.warning("No data returned from model (empty file from predictions)")
-                    raise ValueError(f"No prediction data written to file {out_file.name}")
-                result_class = SummaryStatistics if 'quantile_low' in df.columns else HealthData
-                return SpatioTemporalDict.from_pandas(df, result_class)
+        except pandas.errors.EmptyDataError:
+            # todo: Probably deal with this in an other way, throw an exception istead
+            logging.warning("No data returned from model (empty file from predictions)")
+            raise ValueError(f"No prediction data written to file {out_file.name}")
+        result_class = SummaryStatistics if 'quantile_low' in df.columns else HealthData
+        return SpatioTemporalDict.from_pandas(df, result_class)
 
     def _provide_temp_file(self):
-        return tempfile.NamedTemporaryFile()
+        return tempfile.NamedTemporaryFile(dir=self._working_dir, delete=False)
 
     # def forecast(self, future_data: IsSpatioTemporalDataSet[FeatureType]):
     #    cur_dataset = self._saved_state

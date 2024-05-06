@@ -1,4 +1,5 @@
 import dataclasses
+from collections import defaultdict
 from typing import Any, Optional, Callable
 
 import numpy as np
@@ -7,7 +8,7 @@ from .hmc import sample
 from .jax import jax, PRNGKey, jnp
 from bionumpy.bnpdataclass import BNPDataClass, bnpdataclass
 
-from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData, FullData
+from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData, FullData, SummaryStatistics
 from climate_health.external.models.jax_models.prototype_hierarchical import hierarchical_linear_regression, \
     GlobalSeasonalParams, DistrictParams, seasonal_linear_regression, get_hierarchy_logprob_func, \
     join_global_and_district
@@ -15,6 +16,7 @@ from climate_health.external.models.jax_models.utii import get_state_transform, 
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from .model_spec import Poisson, PoissonSkipNaN
 from .protoype_annotated_spec import Positive
+from .util import array_tree_length
 
 
 @bnpdataclass
@@ -90,19 +92,32 @@ class HierarchicalModel:
         assert not jnp.isinf(logprob_func(last_params)), logprob_func(last_params)
         assert not jnp.isnan(jax.grad(logprob_func)(last_params)[0].alpha), jax.grad(logprob_func)(last_params)
 
-    def sample(self, data: SpatioTemporalDict[ClimateData]) -> SpatioTemporalDict[HealthData]:
+    def sample(self, data: SpatioTemporalDict[ClimateData], n=1) -> SpatioTemporalDict[HealthData]:
+        params = index_tree(self.params, -1)
         random_key, self._key = jax.random.split(self._key)
         data_dict = {key: create_seasonal_data(value.data()) for key, value in data.items()}
-        last_params = index_tree(self.params, -1)
-        model = hierarchical_linear_regression(*last_params, data_dict, self._regression_model)
-        samples = tree_sample(model, self._key)
-        T_Param, transform, inv = get_state_transform(self._param_class)
-        T_ParamD, transformD, invD = get_state_transform(DistrictParams)
-        logprob_func = get_hierarchy_logprob_func(
-            self._param_class, DistrictParams, data_dict,
-            self._regression_model, observed_name='disease_cases')
-        true_params = {name: join_global_and_district(transform(last_params[0]),
-                                                      transformD(last_params[1][name]))
+        true_params = {name: join_global_and_district(params[0],
+                                                      params[1][name])
                        for name in data_dict.keys()}
         return SpatioTemporalDict({key: self._regression_model(true_params[key], data_dict[key]).sample(random_key)
                                    for key in data_dict.keys()})
+
+    def forecast(self, future_weather: SpatioTemporalDict[ClimateData], n=1, prediction_length=1) -> SpatioTemporalDict[SummaryStatistics]:
+        future_weather = SpatioTemporalDict({key: value.data()[:prediction_length] for key, value in future_weather.items()})
+        num_samples = n
+        param_key, self._key = jax.random.split(self._key)
+        n_sampled_params = array_tree_length(self.params)
+        param_idxs = jax.random.randint(param_key, (num_samples,), 0, n_sampled_params)
+        samples = defaultdict(list)
+
+        for param_idx, random_key in zip(param_idxs, jax.random.split(self._key, num_samples)):
+            params = index_tree(self.params, param_idx)
+            data_dict = {key: create_seasonal_data(value.data()) for key, value in data.items()}
+            true_params = {name: join_global_and_district(params[0],
+                                                          params[1][name])
+                           for name in data_dict.keys()}
+
+            for key, value in future_weather.items():
+                new_key, random_key = jax.random.split(random_key)
+                samples[key].append(self._regression_model(true_params[key], value).sample(new_key))
+        return SpatioTemporalDict({key: SummaryStatistics(np.array(value)) for key, value in samples.items()})

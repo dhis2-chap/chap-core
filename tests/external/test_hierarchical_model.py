@@ -21,12 +21,15 @@ def full_train_data(train_data):
 def test_training(full_train_data, random_key, test_data):
     true_data, test_data = test_data
     train_data = full_train_data
+    for key, value in train_data.items():
+        ...#px.line(y=value.data().disease_cases).show()
     test_data = test_data.remove_field('max_temperature')
     test_data = test_data.add_fields(FullData, population=lambda data: [100000] * len(data),
                                      disease_cases=lambda data: [np.nan] * len(data))
-    model = HierarchicalModel(random_key, {}, num_warmup=50, num_samples=200)
+    model = HierarchicalModel(random_key, {}, num_warmup=10, num_samples=10)
     model.train(train_data)
     results = model.sample(test_data)
+    forecast = model.forecast(test_data, prediction_length=10)
     for key, value in results.items():
         print(key, value.data())
         true = true_data.get_location(key).data().disease_cases
