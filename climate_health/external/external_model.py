@@ -18,6 +18,7 @@ from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.docker_helper_functions import create_docker_image, run_command_through_docker_container
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.time_period.date_util_wrapper import TimeDelta, delta_month
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                  working_dir="./", adapters=None,
                  docker: str = None,
                  dockerfile: str = None):
+        self._is_setup = False
         self._name = name
         self._setup_command = setup_command
         self._train_command = train_command
@@ -64,6 +66,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._model_file_name = self._name + ".model"
         self._docker = docker
         self._dockerfile = dockerfile
+
+    def __call__(self):
+        return self
 
     @classmethod
     def from_yaml_file(cls, yaml_file: str) -> "ExternalCommandLineModel":
@@ -119,6 +124,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         return self._run_command(command)
 
     def setup(self):
+        if self._is_setup:
+            return
+        self._is_setup = True
         if self._conda_env_file:
             try:
                 self._run_command(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}')
@@ -175,6 +183,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
 
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType], extra_args=None):
+        self.setup()
         if extra_args is None:
             extra_args = ''
         #with self._provide_temp_file() as train_datafile:
@@ -198,7 +207,6 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             # if self._is_lagged:
             #    ned_pd = pd.concatenate(self._saved_state, new_pd)
             new_pd.to_csv(self._working_dir/name)
-
                 # TOOD: combine with training data set for lagged models
         command = self._predict_command.format(future_data=name,
                                                model=self._model_file_name,
@@ -215,6 +223,13 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             raise ValueError(f"No prediction data written to file {out_file.name}")
         result_class = SummaryStatistics if 'quantile_low' in df.columns else HealthData
         return SpatioTemporalDict.from_pandas(df, result_class)
+
+    def forecast(self, future_data: SpatioTemporalDict[FeatureType], n_samples=1000, forecast_delta: TimeDelta= 3*delta_month):
+        time_period = next(iter(future_data.data())).data().time_period
+        n_periods = forecast_delta // time_period.delta
+        future_data = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_data.items()})
+        return self.predict(future_data)
+
 
     def _provide_temp_file(self):
         return tempfile.NamedTemporaryFile(dir=self._working_dir, delete=False)
