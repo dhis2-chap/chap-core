@@ -190,7 +190,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         train_file_name = 'training_data.csv'
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
-        new_pd.to_csv(self._working_dir/train_file_name)
+        new_pd.to_csv(Path(self._working_dir) / Path(train_file_name))
         command = self._train_command.format(train_data=train_file_name, model=self._model_file_name, extra_args=extra_args)
         response = self.run_through_container(command)
         print(response)
@@ -206,7 +206,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             new_pd = self._adapt_data(df)
             # if self._is_lagged:
             #    ned_pd = pd.concatenate(self._saved_state, new_pd)
-            new_pd.to_csv(self._working_dir/name)
+            new_pd.to_csv(Path(self._working_dir) / Path(name))
                 # TOOD: combine with training data set for lagged models
         command = self._predict_command.format(future_data=name,
                                                model=self._model_file_name,
@@ -214,7 +214,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         response = self.run_through_container(command)
         print(response)
         try:
-            df = pd.read_csv(self._working_dir/'predictions.csv')
+            df = pd.read_csv(Path(self._working_dir) / 'predictions.csv')
         # our_df = self._adapt_data(df, inverse=True)
 
         except pandas.errors.EmptyDataError:
@@ -229,7 +229,6 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         n_periods = forecast_delta // time_period.delta
         future_data = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_data.items()})
         return self.predict(future_data)
-
 
     def _provide_temp_file(self):
         return tempfile.NamedTemporaryFile(dir=self._working_dir, delete=False)
