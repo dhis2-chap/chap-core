@@ -35,7 +35,6 @@ def create_seasonal_data(data: BNPDataClass):
 
     months = [period.month for period in data.time_period]
     years = [period.year for period in data.time_period]
-    print(data)
     return SeasonalData(
         **{field.name: getattr(data, field.name) for field in dataclasses.fields(data)},
         month=months, year=years)
@@ -78,21 +77,18 @@ class HierarchicalModel:
         logprob_func = get_hierarchy_logprob_func(
             ParamClass, DistrictParams, data_dict,
             ch_regression, observed_name='disease_cases')
-        init_params = T_Param().sample(random_key), {location: T_ParamD().sample(random_key) for location in data_dict.keys()}
+        # init_params = T_Param().sample(random_key), {location: T_ParamD().sample(random_key) for location in data_dict.keys()}
         init_params = T_Param(0., 0., 0., np.zeros(12), np.log(0.01), np.zeros(n_years)), {name: T_ParamD(0., 0.) for
                                                                                            name in data_dict.keys()}
         val = logprob_func(init_params)
         assert not jnp.isnan(val), val
         assert not jnp.isinf(val), val
-        print('Value: ', val)
         grad = jax.grad(logprob_func)(init_params)
         assert not jnp.isnan(grad[0].alpha), grad
-        print('Grad: ', grad)
         raw_samples = sample(logprob_func, random_key, init_params,
                              num_samples=self._num_warmup, num_warmup=self._num_warmup)
         self.params = (transform(raw_samples[0]), {name: transformD(sample) for name, sample in raw_samples[1].items()})
         last_params = index_tree(raw_samples, -1)
-        print(last_params)
         assert not jnp.isinf(logprob_func(last_params)), logprob_func(last_params)
         assert not jnp.isnan(jax.grad(logprob_func)(last_params)[0].alpha), jax.grad(logprob_func)(last_params)
 

@@ -1,6 +1,6 @@
 import dataclasses
 from dataclasses import replace
-from typing import Sequence
+from typing import Sequence, Callable, Any
 from .jax import expit, logit
 
 import numpy as np
@@ -76,9 +76,14 @@ def join_global_and_district(global_params: GlobalParams, district_params: Distr
 def hierarchical_linear_regression(global_params: GlobalParams, district_params: dict[DistrictParams],
                                    given: dict[Observations], regression_model=linear_regression) -> IsDistribution:
     params = {name: join_global_and_district(global_params, district_params[name]) for name in district_params}
-    print(global_params, district_params, params)
     return {name: regression_model(params[name], given[name]) for name in district_params}
 
+@dataclasses.dataclass
+class HierarchicalRegression:
+    global_params_cls: type
+    district_params_cls: type
+    observed: dict[str, Any]
+    regression_model: Callable = linear_regression
 
 def get_hierarchy_logprob_func(global_params_cls, district_params_cls, observed, regression_model=linear_regression, observed_name='y'):
     T_Param, transform, *_ = get_state_transform(global_params_cls)
@@ -89,13 +94,10 @@ def get_hierarchy_logprob_func(global_params_cls, district_params_cls, observed,
     def logprob_func(t_params):
         global_params, district_params = t_params
         prior_pdf = prior.log_prob(global_params) + sum(priorD.log_prob(district_params[name]) for name in district_params)
-        #print('Prior', prior_pdf)
         all_params = transform(global_params), {name: transformD(district_params[name]) for name in district_params}
         models = hierarchical_linear_regression(*all_params, observed, regression_model=regression_model)
         observed_probs = [models[name].log_prob(getattr(observed[name], observed_name)).sum() for name in observed]
-        #print('O', observed_probs)
         obs_pdf = sum(observed_probs)
-        #print('Observed', obs_pdf)
         return prior_pdf + obs_pdf
 
     return logprob_func

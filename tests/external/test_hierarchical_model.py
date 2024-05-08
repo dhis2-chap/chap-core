@@ -21,12 +21,11 @@ def full_train_data(train_data):
     return train_data.add_fields(FullData, population=lambda data: [100000] * len(data))
 
 def test_train5(random_key, data_path):
-    file_name = (data_path / 'hydromet_5').with_suffix('.csv')
-    csv = pd.read_csv(file_name)
-    filtered: pd.DataFrame = csv.loc[~np.isnan(csv['disease_cases'])]
+    file_name = (data_path / 'hydromet_5_filtered').with_suffix('.csv')
+    filtered = pd.read_csv(file_name)
+    #filtered: pd.DataFrame = csv.loc[~np.isnan(csv['disease_cases'])]
     #write to file
-    filtered.to_csv((data_path / 'hydromet_5_filtered').with_suffix('.csv'))
-    return
+    # filtered.to_csv((data_path / 'hydromet_5_filtered').with_suffix('.csv'))
 
     data = SpatioTemporalDict.from_pandas(filtered, FullData)
     model = HierarchicalModel(random_key, {}, num_warmup=200, num_samples=100)
