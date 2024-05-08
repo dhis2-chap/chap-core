@@ -1,7 +1,7 @@
 import jax
 import numpy as np
 import pytest
-import plotly.express as px
+import pandas as pd
 from climate_health.datatypes import FullData, HealthData
 from climate_health.external.models.jax_models.hierarchical_model import HierarchicalModel, SeasonalClimateHealthData, \
     create_seasonal_data
@@ -11,11 +11,26 @@ from climate_health.external.models.jax_models.prototype_hierarchical import Glo
 from climate_health.external.models.jax_models.protoype_annotated_spec import Positive
 from climate_health.external.models.jax_models.utii import state_or_param, get_state_transform
 from climate_health.external.models.jax_models.jax import jnp
+from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
+from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.time_period.date_util_wrapper import delta_month
 
 
 @pytest.fixture
 def full_train_data(train_data):
     return train_data.add_fields(FullData, population=lambda data: [100000] * len(data))
+
+def test_train5(random_key, data_path):
+    file_name = (data_path / 'hydromet_5').with_suffix('.csv')
+    csv = pd.read_csv(file_name)
+    filtered: pd.DataFrame = csv.loc[~np.isnan(csv['disease_cases'])]
+    #write to file
+    filtered.to_csv((data_path / 'hydromet_5_filtered').with_suffix('.csv'))
+    return
+
+    data = SpatioTemporalDict.from_pandas(filtered, FullData)
+    model = HierarchicalModel(random_key, {}, num_warmup=200, num_samples=100)
+    model.train(data)
 
 
 def test_training(full_train_data, random_key, test_data):
@@ -26,17 +41,21 @@ def test_training(full_train_data, random_key, test_data):
     test_data = test_data.remove_field('max_temperature')
     test_data = test_data.add_fields(FullData, population=lambda data: [100000] * len(data),
                                      disease_cases=lambda data: [np.nan] * len(data))
-    model = HierarchicalModel(random_key, {}, num_warmup=10, num_samples=10)
+    model = HierarchicalModel(random_key, {}, num_warmup=200, num_samples=100)
     model.train(train_data)
-    results = model.sample(test_data)
-    forecast = model.forecast(test_data, prediction_length=10)
-    for key, value in results.items():
-        print(key, value.data())
-        true = true_data.get_location(key).data().disease_cases
-        print(key, true)
-        fig = px.line(y=value.data())
-        fig.add_scatter(y=true)
+    # results = model.sample(test_data)
+    predictions = model.forecast(test_data,n_samples=200, forecast_delta=12*delta_month)
+    for location, prediction in predictions.items():
+        fig = plot_forecast_from_summaries(prediction.data(), true_data.get_location(location).data())
         fig.show()
+
+    # for key, value in results.items():
+    #     print(key, value.data())
+    #     true = true_data.get_location(key).data().disease_cases
+    #     print(key, true)
+    #     fig = px.line(y=value.data())
+    #     fig.add_scatter(y=true)
+    #     fig.show()
 
 
 @state_or_param

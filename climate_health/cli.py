@@ -3,13 +3,13 @@ import dataclasses
 import json
 import webbrowser
 from pathlib import PurePath, Path
-from typing import Literal
+from typing import Literal, Optional
 
 import pandas as pd
 from cyclopts import App
-
+from . import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
-from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_json
+from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_datavalue
 from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NutsParams
 from climate_health.external.models.jax_models.specs import SSMWithoutWeather, NaiveSSM
 from climate_health.file_io import get_results_path
@@ -121,9 +121,6 @@ def convert_geo_json(geo_json_content) -> OurShapeFormat:
 #    ...
 
 
-@app.command()
-def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
-    api.dhis_zip_flow(zip_file_path, out_json, model_name)
 
 
 
@@ -132,6 +129,11 @@ def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
 # GOthenburg
 # Create prediction csv
 '''
+
+@app.command()
+def dhis_zip_flow(zip_file_path: str, out_json: str, model_name: Optional[str]=None):
+    api.dhis_zip_flow(zip_file_path, out_json, model_name)
+
 
 def main_function():
     '''

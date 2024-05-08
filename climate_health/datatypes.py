@@ -107,6 +107,13 @@ ClimateHealthData = ClimateHealthTimeSeries
 class FullData(ClimateHealthData):
     population: int
 
+    @classmethod
+    def combine(cls, health_data: HealthData, climate_data: ClimateData, population: float) -> 'ClimateHealthTimeSeries':
+        return cls(time_period=health_data.time_period,
+                   rainfall=climate_data.rainfall,
+                   mean_temperature=climate_data.mean_temperature,
+                   disease_cases=health_data.disease_cases,
+                   population=np.full(len(health_data), population))
 @tsdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
     location: str

@@ -22,7 +22,7 @@ def index_tree(tree, index):
 
 def array_tree_length(tree):
     print('tree', tree)
-    flat = tree_util.tree_flatten(tree)
+    flat = tree_util.tree_flatten(tree)[0]
     print('flat', flat)
     val = flat[0]
     print(val)

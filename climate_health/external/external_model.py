@@ -324,3 +324,8 @@ class SimpleFileContextManager:
 
 def get_model_from_yaml_file(yaml_file: str) -> ExternalCommandLineModel:
     return ExternalCommandLineModel.from_yaml_file(yaml_file)
+
+
+def get_class_from():
+    class NewClass(ExternalCommandLineModel):
+        pass

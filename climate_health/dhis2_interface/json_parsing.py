@@ -4,7 +4,8 @@ import pandas as pd
 from climate_health.datatypes import HealthData, HealthPopulationData
 from climate_health.dhis2_interface.src.PushResult import DataValue
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-
+import logging
+logger = logging.getLogger(__name__)
 
 class MetadDataLookup:
     def __init__(self, meta_data_json):
@@ -28,12 +29,13 @@ def _get_period_id(time_period):
 
 
 def parse_population_data(json_data, field_name='GEN - Population'):
+    logger.warning('Only using one population number per location')
     meta_data = MetadDataLookup(json_data['metaData'])
     lookup = {}
     for row in json_data['rows']:
         # if meta_data[row[0]] != field_name:
         #    continue
-        lookup[row[2]] = int(row[3])
+        lookup[row[1]] = float(row[3])
     return lookup
 
 
@@ -53,6 +55,16 @@ def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected ca
     #meta_data = MetadDataLookup(json_data['metaData'])
     df = json_to_pandas(json_data, name_mapping)
     return SpatioTemporalDict.from_pandas(df, dataclass=HealthData, fill_missing=True)
+
+
+def parse_json_rows(rows, name_mapping):
+    new_rows = []
+    col_names = list(name_mapping.keys())
+    for row in rows:
+        new_row = row
+        new_rows.append(
+            [new_row[name_mapping[col_name]] for col_name in col_names])
+    return new_rows
 
 
 def json_to_pandas(json_data, name_mapping):
@@ -89,7 +101,7 @@ def add_population_data(disease_data, population_lookup):
     return SpatioTemporalDict(new_dict)
 
 
-def predictions_to_json(data: SpatioTemporalDict[HealthData], attribute_mapping: dict[str, str]):
+def predictions_to_datavalue(data: SpatioTemporalDict[HealthData], attribute_mapping: dict[str, str]):
     entries = []
     for location, data in data.items():
         data = data.data()

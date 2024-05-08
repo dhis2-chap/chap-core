@@ -4,6 +4,7 @@ from typing import Any, Optional, Callable
 
 import numpy as np
 
+from climate_health.time_period.date_util_wrapper import delta_month
 from .hmc import sample
 from .jax import jax, PRNGKey, jnp
 from bionumpy.bnpdataclass import BNPDataClass, bnpdataclass
@@ -16,6 +17,7 @@ from climate_health.external.models.jax_models.utii import get_state_transform, 
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from .model_spec import Poisson, PoissonSkipNaN
 from .protoype_annotated_spec import Positive
+from .simple_ssm import get_summary
 from .util import array_tree_length
 
 
@@ -40,7 +42,7 @@ def create_seasonal_data(data: BNPDataClass):
 
 
 class HierarchicalModel:
-    def __init__(self, key: PRNGKey, params: Optional[dict[str, Any]] = None, num_samples: int = 100, num_warmup: int = 100):
+    def __init__(self, key: PRNGKey = PRNGKey(0), params: Optional[dict[str, Any]] = None, num_samples: int = 100, num_warmup: int = 100):
         self.params = params
         self._key = key
         self._regression_model = None
@@ -80,6 +82,8 @@ class HierarchicalModel:
         init_params = T_Param(0., 0., 0., np.zeros(12), np.log(0.01), np.zeros(n_years)), {name: T_ParamD(0., 0.) for
                                                                                            name in data_dict.keys()}
         val = logprob_func(init_params)
+        assert not jnp.isnan(val), val
+        assert not jnp.isinf(val), val
         print('Value: ', val)
         grad = jax.grad(logprob_func)(init_params)
         assert not jnp.isnan(grad[0].alpha), grad
@@ -102,22 +106,28 @@ class HierarchicalModel:
         return SpatioTemporalDict({key: self._regression_model(true_params[key], data_dict[key]).sample(random_key)
                                    for key in data_dict.keys()})
 
-    def forecast(self, future_weather: SpatioTemporalDict[ClimateData], n=1, prediction_length=1) -> SpatioTemporalDict[SummaryStatistics]:
-        future_weather = SpatioTemporalDict({key: value.data()[:prediction_length] for key, value in future_weather.items()})
-        num_samples = n
+    def forecast(self, future_weather: SpatioTemporalDict[ClimateData], n_samples=1000, forecast_delta=6*delta_month) -> SpatioTemporalDict[SummaryStatistics]:
+        time_period = next(iter(future_weather.data())).data().time_period
+        n_periods = forecast_delta // time_period.delta
+        time_period = time_period[:n_periods]
+        future_weather = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_weather.items()})
+        num_samples = n_samples
         param_key, self._key = jax.random.split(self._key)
         n_sampled_params = array_tree_length(self.params)
         param_idxs = jax.random.randint(param_key, (num_samples,), 0, n_sampled_params)
         samples = defaultdict(list)
-
+        data_dict = {key: create_seasonal_data(value.data()) for key, value in future_weather.items()}
         for param_idx, random_key in zip(param_idxs, jax.random.split(self._key, num_samples)):
             params = index_tree(self.params, param_idx)
-            data_dict = {key: create_seasonal_data(value.data()) for key, value in data.items()}
             true_params = {name: join_global_and_district(params[0],
                                                           params[1][name])
                            for name in data_dict.keys()}
 
-            for key, value in future_weather.items():
+            for key, value in data_dict.items():
                 new_key, random_key = jax.random.split(random_key)
                 samples[key].append(self._regression_model(true_params[key], value).sample(new_key))
-        return SpatioTemporalDict({key: SummaryStatistics(np.array(value)) for key, value in samples.items()})
+        return SpatioTemporalDict(
+            {key: get_summary(time_period, np.array(value)) for key, value in samples.items()})
+
+    def predict(self, *args, **kwargs):
+        return self.forecast(*args, **kwargs)

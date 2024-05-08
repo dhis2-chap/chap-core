@@ -7,8 +7,8 @@ from climate_health.time_period.date_util_wrapper import delta_month
 
 def test_forecast():
     model = get_model('ewars_Plus')()
-    dataset = datasets['hydro_met_subset'].load()
-    predictions = forecast(model, dataset, 6*delta_month)
+    dataset = datasets['hydromet_10'].load()
+    predictions = forecast(model, dataset, 12*delta_month)
     for location, prediction in predictions.items():
         fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data())
         fig.show()

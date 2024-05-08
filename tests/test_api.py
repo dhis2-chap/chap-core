@@ -1,3 +1,7 @@
+import os
+from pathlib import Path
+
+import numpy as np
 import pytest
 from climate_health.api import read_zip_folder
 from climate_health.api import dhis_zip_flow
@@ -10,6 +14,9 @@ def example_zip(data_path):
 
 def test_read_zip_folder(example_zip):
     data = read_zip_folder(example_zip)
+    climate_data = data.climate_data
+    for location, climate in climate_data.items():
+        assert np.issubdtype(climate.data().mean_temperature.dtype, float)
 
 
 @pytest.fixture
@@ -17,11 +24,18 @@ def zip_filepath(data_path):
     return data_path / "sample_chap_app_output.zip"
 
 
-#@pytest.mark.skip(reason='Not finished implementing')
-def test_dhis_zip_flow(models_path, zip_filepath):
+@pytest.fixture
+def zip_filepath_population(data_path):
+    return data_path / "chap_output2.zip"
+
+
+# @pytest.mark.skip(reason='Not finished implementing')
+def test_dhis_zip_flow(models_path, zip_filepath_population):
     out_json = "output.json"
     model_name = "ewars_Plus"
+    model_name = 'HierarchicalModel'
     model_config_file = models_path / "ewars_Plus" / 'config.yml'
-    dhis_zip_flow(zip_filepath, out_json, model_config_file)
-    assert out_json.exists()
-    out_json.unlink()
+    dhis_zip_flow(zip_filepath_population, out_json, model_name)
+    # out_json = Path(out_json)
+    assert os.path.exists(out_json)
+    # Path(out_json).unlink()
