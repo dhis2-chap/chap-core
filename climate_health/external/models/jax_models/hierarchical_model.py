@@ -51,10 +51,8 @@ class HierarchicalModel:
         self._num_warmup = num_warmup
         self._regression_model: Optional[Callable]=None
 
-    def train(self, data: SpatioTemporalDict[FullData]):
-        random_key, self._key = jax.random.split(self._key)
-        data_dict = {key: create_seasonal_data(value.data()) for key, value in data.items()}
-        min_year =  min([min(value.year) for value in data_dict.values()])
+    def _set_model(self, data_dict: SpatioTemporalDict[SeasonalClimateHealthData]):
+        min_year = min([min(value.year) for value in data_dict.values()])
         max_year = max([max(value.year) for value in data_dict.values()])
         n_years = max_year - min_year + 1
 
@@ -65,19 +63,29 @@ class HierarchicalModel:
 
         self._param_class = ParamClass
 
-        T_Param, transform, inv = get_state_transform(ParamClass)
-        T_ParamD, transformD, invD = get_state_transform(DistrictParams)
-
-        def ch_regression(params: ParamClass, given: SeasonalClimateHealthData) -> HealthData:
+        def ch_regression(params: 'ParamClass', given: SeasonalClimateHealthData) -> HealthData:
             log_rate = params.alpha + params.beta * given.mean_temperature + params.month_effect[given.month-1] + params.year_effect[given.year-min_year]
             final_rate = jnp.exp(log_rate) * given.population * params.observation_rate + 0.1
             return PoissonSkipNaN(final_rate)
 
         self._regression_model = ch_regression
+
+
+    def train(self, data: SpatioTemporalDict[FullData]):
+        random_key, self._key = jax.random.split(self._key)
+        data_dict = {key: create_seasonal_data(value.data()) for key, value in data.items()}
+        self._set_model(data_dict)
+        min_year = min([min(value.year) for value in data_dict.values()])
+        max_year = max([max(value.year) for value in data_dict.values()])
+        n_years = max_year - min_year + 1
+        T_Param, transform, inv = get_state_transform(self._param_class)
+        T_ParamD, transformD, invD = get_state_transform(DistrictParams)
         logprob_func = get_hierarchy_logprob_func(
-            ParamClass, DistrictParams, data_dict,
-            ch_regression, observed_name='disease_cases')
+            self._param_class, DistrictParams, data_dict,
+            self._regression_model, observed_name='disease_cases')
+
         # init_params = T_Param().sample(random_key), {location: T_ParamD().sample(random_key) for location in data_dict.keys()}
+
         init_params = T_Param(0., 0., 0., np.zeros(12), np.log(0.01), np.zeros(n_years)), {name: T_ParamD(0., 0.) for
                                                                                            name in data_dict.keys()}
         val = logprob_func(init_params)

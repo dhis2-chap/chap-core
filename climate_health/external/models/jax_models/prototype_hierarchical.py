@@ -22,9 +22,7 @@ class GlobalParams(PydanticTree):
 
 @state_or_param
 class GlobalSeasonalParams(GlobalParams):
-    month_effect: np.ndarray = tuple((0.,))*12
-
-
+    month_effect: np.ndarray = tuple((0.,)) * 12
 
 
 @hierarchical('District')
@@ -53,7 +51,7 @@ class ExpitParams(PydanticTree):
 
 
 def expit_transform(params: ExpitParams, x) -> IsDistribution:
-    return expit(params.alpha + params.beta * x)*params.scale+params.location
+    return expit(params.alpha + params.beta * x) * params.scale + params.location
     # return Normal(y_hat, params.sigma)
 
 
@@ -78,6 +76,7 @@ def hierarchical_linear_regression(global_params: GlobalParams, district_params:
     params = {name: join_global_and_district(global_params, district_params[name]) for name in district_params}
     return {name: regression_model(params[name], given[name]) for name in district_params}
 
+
 @dataclasses.dataclass
 class HierarchicalRegression:
     global_params_cls: type
@@ -85,7 +84,14 @@ class HierarchicalRegression:
     observed: dict[str, Any]
     regression_model: Callable = linear_regression
 
-def get_hierarchy_logprob_func(global_params_cls, district_params_cls, observed, regression_model=linear_regression, observed_name='y'):
+    def prior(self, t_params):
+        global_params, district_params = t_params
+        return self.global_params_cls().log_prob(global_params) + sum(
+            self.district_params_cls().log_prob(district_params[name]) for name in district_params)
+
+
+def get_hierarchy_logprob_func(global_params_cls, district_params_cls, observed, regression_model=linear_regression,
+                               observed_name='y'):
     T_Param, transform, *_ = get_state_transform(global_params_cls)
     T_ParamD, transformD, *_ = get_state_transform(district_params_cls)
     prior = T_Param()
@@ -93,7 +99,8 @@ def get_hierarchy_logprob_func(global_params_cls, district_params_cls, observed,
 
     def logprob_func(t_params):
         global_params, district_params = t_params
-        prior_pdf = prior.log_prob(global_params) + sum(priorD.log_prob(district_params[name]) for name in district_params)
+        prior_pdf = prior.log_prob(global_params) + sum(
+            priorD.log_prob(district_params[name]) for name in district_params)
         all_params = transform(global_params), {name: transformD(district_params[name]) for name in district_params}
         models = hierarchical_linear_regression(*all_params, observed, regression_model=regression_model)
         observed_probs = [models[name].log_prob(getattr(observed[name], observed_name)).sum() for name in observed]
