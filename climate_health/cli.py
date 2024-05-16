@@ -5,6 +5,7 @@ import webbrowser
 from pathlib import PurePath, Path
 from typing import Literal, Optional
 
+import numpy as np
 import pandas as pd
 from cyclopts import App
 from . import api
@@ -57,7 +58,7 @@ def forecast(model_name: ModelType, dataset_name: DataSetType, n_months: int):
     out_path = get_results_path() / f'{model_name}_{dataset_name}_forecast_results_{n_months}.html'
     f = open(out_path, "w")
     for location, prediction in predictions.items():
-        fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data())
+        fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data()) # , lambda x: np.log(x+1))
         f.write(fig.to_html())
     f.close()
 

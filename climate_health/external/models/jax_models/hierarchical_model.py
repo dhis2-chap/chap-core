@@ -12,7 +12,7 @@ from bionumpy.bnpdataclass import BNPDataClass, bnpdataclass
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData, FullData, SummaryStatistics
 from climate_health.external.models.jax_models.prototype_hierarchical import hierarchical_linear_regression, \
     GlobalSeasonalParams, DistrictParams, seasonal_linear_regression, get_hierarchy_logprob_func, \
-    join_global_and_district
+    join_global_and_district, hierarchical
 from climate_health.external.models.jax_models.utii import get_state_transform, state_or_param, tree_sample, index_tree
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from .model_spec import Poisson, PoissonSkipNaN, Normal
@@ -20,6 +20,12 @@ from .protoype_annotated_spec import Positive
 from .simple_ssm import get_summary
 from .util import array_tree_length
 
+
+@hierarchical('District')
+class SeasonalDistrictParams(DistrictParams):
+    alpha: float = 0.
+    beta: float = 0.
+    month_effect: np.ndarray = tuple((0.,)) * 12
 
 @bnpdataclass
 class SeasonalClimateHealthData(FullData):
@@ -96,12 +102,12 @@ class HierarchicalModel:
         max_year = max([max(value.year) for value in data_dict.values()])
         n_years = max_year - min_year + 1
         T_Param, transform, inv = get_state_transform(self._param_class)
-        T_ParamD, transformD, invD = get_state_transform(DistrictParams)
+        T_ParamD, transformD, invD = get_state_transform(SeasonalDistrictParams)
         logprob_func = get_hierarchy_logprob_func(
-            self._param_class, DistrictParams, data_dict,
+            self._param_class, SeasonalDistrictParams, data_dict,
             self._regression_model, observed_name='disease_cases')
 
-        init_params = T_Param().sample(random_key), {location: T_ParamD(0., 0.) for location in data_dict.keys()}
+        init_params = T_Param().sample(random_key), {location: T_ParamD().sample(random_key) for location in data_dict.keys()}
         #init_params = T_Param(0., 0., 0., np.zeros(12), np.log(0.01), np.zeros(n_years)), {name: T_ParamD(0., 0.) for
         # name in data_dict.keys()}
         val = logprob_func(init_params)
@@ -162,8 +168,9 @@ class HierarchicalStateModel(HierarchicalModel):
         if max_idx<=self._idx_range[1]:
             return params_tuple
         params, district_params = params_tuple
+        sigma=0.5
         new_markov_chain = MarkovChain(self._transition,
-                                       Normal(params.state[-1], 0.1),
+                                       Normal(params.state[-1], sigma),
                                        np.arange(self._idx_range[1] + 1, max_idx + 1))
         key, self._key = jax.random.split(self._key)
         return dataclasses.replace(params, state=np.concatenate([params.state, new_markov_chain.sample(key)])), district_params
@@ -173,26 +180,25 @@ class HierarchicalStateModel(HierarchicalModel):
         min_idx = min([min(value.time_index) for value in data_dict.values()])
         max_idx = max([max(value.time_index) for value in data_dict.values()])
         self._idx_range = (min_idx, max_idx)
-        self._transition = lambda state: Normal(state, 0.1)
+        sigma = 0.5
+        self._transition = lambda state: Normal(state, sigma)
         @state_or_param
         class ParamClass(GlobalSeasonalParams):
             observation_rate: Positive = 0.01
 
             state: MarkovChain = MarkovChain(
                 self._transition,
-                Normal(0., 0.1),
+                Normal(0., sigma),
                 np.arange(min_idx, max_idx + 1))
-
 
         self._param_class = ParamClass
         self._standardization_func = self._get_standardization_func(data_dict)
 
         def ch_regression(params: 'ParamClass', given: SeasonalClimateHealthData) -> HealthData:
-
             idx = given.time_index - min_idx
-            log_rate = params.alpha + params.beta * self._standardization_func(given.mean_temperature) + params.month_effect[given.month - 1] + params.state[idx]
+            # params.beta * self._standardization_func(given.mean_temperature) +
+            log_rate = params.alpha +  params.month_effect[given.month - 1] + params.state[idx]
             final_rate = jnp.exp(log_rate) * given.population * params.observation_rate + 0.1
             return PoissonSkipNaN(final_rate)
 
         self._regression_model = ch_regression
-
