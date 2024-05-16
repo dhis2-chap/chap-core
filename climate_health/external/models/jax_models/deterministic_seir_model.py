@@ -45,7 +45,7 @@ class SIRState(PydanticTree):
 StateType = TypeVar('StateType')
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MarkovChain(Generic[StateType]):
     transition: Callable[[StateType], StateType]
     initial_state: SIRState
@@ -59,8 +59,14 @@ class MarkovChain(Generic[StateType]):
         def random_t(state, t_key):
             r = self.transition(state).sample(t_key)
             return r, r
-        if is_random(self.transition(self.initial_state)):
-            states = jax.lax.scan(random_t, self.initial_state, jax.random.split(key, len(self.time_period)))
+
+        if is_random(self.initial_state):
+            key, init_key = jax.random.split(key)
+            initial_state = self.initial_state.sample(init_key)
+        else:
+            initial_state = self.initial_state
+        if is_random(self.transition(initial_state)):
+            states = jax.lax.scan(random_t, initial_state, jax.random.split(key, len(self.time_period)))
         else:
             states = jax.lax.scan(t, self.initial_state, None, length=len(self.time_period))
         return states[1]
@@ -68,7 +74,16 @@ class MarkovChain(Generic[StateType]):
     def log_prob(self, states):
         prev_state = states[:-1]
         next_state = states[1:]
-        return self.transition(prev_state).log_prob(next_state).sum() + self.initial_state.log_prob(states[0])
+        trainsition_pdf = self.transition(prev_state).log_prob(next_state).sum()
+        init_pdf = self.initial_state.log_prob(states[0])
+        return trainsition_pdf + init_pdf
+
+    def __len__(self):
+        return len(self.time_period)
+
+    @property
+    def shape(self):
+        return (len(self.time_period),)
 
 
 def is_random(value):

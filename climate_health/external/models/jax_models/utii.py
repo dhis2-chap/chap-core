@@ -98,6 +98,10 @@ def get_state_transform(params):
             T, f, inv_f = get_state_transform(field.type)
             converters.append(f)
             default = T()
+        elif hasattr(field.type, 'sample') and hasattr(field.type, 'log_prob'):
+            converters.append(identity)
+            inv_converters.append(identity)
+            default = field.default
         else:
             converters.append(identity)
             inv_converters.append(identity)

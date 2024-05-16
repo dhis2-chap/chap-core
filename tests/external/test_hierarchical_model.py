@@ -4,7 +4,7 @@ import pytest
 import pandas as pd
 from climate_health.datatypes import FullData, HealthData
 from climate_health.external.models.jax_models.hierarchical_model import HierarchicalModel, SeasonalClimateHealthData, \
-    create_seasonal_data
+    create_seasonal_data, HierarchicalStateModel
 from climate_health.external.models.jax_models.model_spec import PoissonSkipNaN
 from climate_health.external.models.jax_models.prototype_hierarchical import GlobalSeasonalParams, \
     get_hierarchy_logprob_func, DistrictParams
@@ -32,7 +32,8 @@ def test_train5(random_key, data_path):
     model.train(data)
 
 
-def test_training(full_train_data, random_key, test_data):
+@pytest.mark.parametrize('model_class', [HierarchicalStateModel])# , HierarchicalModel])
+def test_training(full_train_data, random_key, test_data, model_class):
     true_data, test_data = test_data
     train_data = full_train_data
     for key, value in train_data.items():
@@ -40,7 +41,7 @@ def test_training(full_train_data, random_key, test_data):
     test_data = test_data.remove_field('max_temperature')
     test_data = test_data.add_fields(FullData, population=lambda data: [100000] * len(data),
                                      disease_cases=lambda data: [np.nan] * len(data))
-    model = HierarchicalModel(random_key, {}, num_warmup=200, num_samples=100)
+    model = model_class(random_key, {}, num_warmup=200, num_samples=100)
     model.train(train_data)
     # results = model.sample(test_data)
     predictions = model.forecast(test_data,n_samples=200, forecast_delta=12*delta_month)

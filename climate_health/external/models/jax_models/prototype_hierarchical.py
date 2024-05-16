@@ -15,8 +15,8 @@ hierarchical = lambda name: state_or_param
 
 @state_or_param
 class GlobalParams(PydanticTree):
-    alpha: float = 10.
-    beta: float = 10.
+    alpha: float = 1.
+    beta: float = 1.
     sigma: Positive = 1.
 
 
