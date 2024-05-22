@@ -91,9 +91,12 @@ class HierarchicalRegression:
 
 
 def get_hierarchy_logprob_func(global_params_cls, district_params_cls, observed, regression_model=linear_regression,
-                               observed_name='y'):
+                               observed_name='y', state_class=None):
     T_Param, transform, *_ = get_state_transform(global_params_cls)
     T_ParamD, transformD, *_ = get_state_transform(district_params_cls)
+    if state_class is not None:
+        T_State, transformS, inv_transformS = get_state_transform(state_class)
+
     prior = T_Param()
     priorD = T_ParamD()
 

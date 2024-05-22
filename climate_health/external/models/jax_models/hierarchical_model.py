@@ -98,9 +98,6 @@ class HierarchicalModel:
         random_key, self._key = jax.random.split(self._key)
         data_dict = {key: create_seasonal_data(value.data()) for key, value in data.items()}
         self._set_model(data_dict)
-        min_year = min([min(value.year) for value in data_dict.values()])
-        max_year = max([max(value.year) for value in data_dict.values()])
-        n_years = max_year - min_year + 1
         T_Param, transform, inv = get_state_transform(self._param_class)
         T_ParamD, transformD, invD = get_state_transform(SeasonalDistrictParams)
         logprob_func = get_hierarchy_logprob_func(
@@ -108,15 +105,12 @@ class HierarchicalModel:
             self._regression_model, observed_name='disease_cases')
 
         init_params = T_Param().sample(random_key), {location: T_ParamD().sample(random_key) for location in data_dict.keys()}
-        #init_params = T_Param(0., 0., 0., np.zeros(12), np.log(0.01), np.zeros(n_years)), {name: T_ParamD(0., 0.) for
-        # name in data_dict.keys()}
         val = logprob_func(init_params)
         assert not jnp.isnan(val), val
         assert not jnp.isinf(val), val
         grad = jax.grad(logprob_func)(init_params)
         assert not jnp.isnan(grad[0].alpha), grad
-        raw_samples = sample(logprob_func, random_key, init_params,
-                             num_samples=self._num_warmup, num_warmup=self._num_warmup)
+        raw_samples = sample(logprob_func, random_key, init_params, num_samples=self._num_warmup, num_warmup=self._num_warmup)
         self.params = (transform(raw_samples[0]), {name: transformD(sample) for name, sample in raw_samples[1].items()})
         last_params = index_tree(raw_samples, -1)
         assert not jnp.isinf(logprob_func(last_params)), logprob_func(last_params)
@@ -182,10 +176,10 @@ class HierarchicalStateModel(HierarchicalModel):
         self._idx_range = (min_idx, max_idx)
         sigma = 0.5
         self._transition = lambda state: Normal(state, sigma)
+
         @state_or_param
         class ParamClass(GlobalSeasonalParams):
             observation_rate: Positive = 0.01
-
             state: MarkovChain = MarkovChain(
                 self._transition,
                 Normal(0., sigma),
@@ -196,8 +190,7 @@ class HierarchicalStateModel(HierarchicalModel):
 
         def ch_regression(params: 'ParamClass', given: SeasonalClimateHealthData) -> HealthData:
             idx = given.time_index - min_idx
-            # params.beta * self._standardization_func(given.mean_temperature) +
-            log_rate = params.alpha +  params.month_effect[given.month - 1] + params.state[idx]
+            log_rate = params.alpha + params.month_effect[given.month - 1] + params.state[idx]
             final_rate = jnp.exp(log_rate) * given.population * params.observation_rate + 0.1
             return PoissonSkipNaN(final_rate)
 
