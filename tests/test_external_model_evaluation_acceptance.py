@@ -7,6 +7,7 @@ from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
 from climate_health.external.external_model import ExternalCommandLineModel
 from climate_health.external.models import SSM
 from climate_health.external.models.jax_models.simple_ssm import SSMWithLinearEffect
+from climate_health.runners.command_line_runner import CommandLineRunner
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from . import EXAMPLE_DATA_PATH, TEST_PATH
 
@@ -100,7 +101,9 @@ def test_summary_model_evaluation(dataset_name, output_filename, load_data_func,
 
 @pytest.fixture()
 def external_predictive_model(python_model_predict_command, python_model_train_command):
+    runner = CommandLineRunner("./")
     external_model = ExternalCommandLineModel("external_model", python_model_train_command,
-                                              python_model_predict_command, HealthData)
+                                              python_model_predict_command, HealthData,
+                                              runner=runner)
 
     return external_model

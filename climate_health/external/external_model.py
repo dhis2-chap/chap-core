@@ -5,7 +5,7 @@ import sys
 import tempfile
 from hashlib import md5
 from pathlib import Path
-from typing import Protocol, Generic, TypeVar
+from typing import Protocol, Generic, TypeVar, Tuple
 
 import docker
 import numpy as np
@@ -17,6 +17,9 @@ import json
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.docker_helper_functions import create_docker_image, run_command_through_docker_container
+from climate_health.runners.command_line_runner import CommandLineRunner
+from climate_health.runners.docker_runner import DockerRunner
+from climate_health.runners.runner import Runner
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import TimeDelta, delta_month
 
@@ -41,31 +44,24 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
     The {model} is the file that the model is written to after training.
 
-    conda_env_file can be a path to a  conda yml file that will be used to create a conda environment
-    that everything will be run inside
-
     """
 
     def __init__(self, name: str, train_command: str, predict_command: str, data_type: type[FeatureType],
-                 setup_command: str = None, conda_env_file: str = None,
-                 working_dir="./", adapters=None,
-                 docker: str = None,
-                 dockerfile: str = None):
+                 setup_command: str = None,
+                 working_dir="./",
+                 adapters=None,
+                 runner: Runner = None):
         self._is_setup = False
         self._name = name
         self._setup_command = setup_command
         self._train_command = train_command
         self._predict_command = predict_command
         self._data_type = data_type
-        self._conda_env_file = conda_env_file
         self._working_dir = working_dir
-        if self._conda_env_file is not None:
-            self._conda_env_name = self._get_conda_environment_name()
         self._model = None
         self._adapters = adapters
         self._model_file_name = self._name + ".model"
-        self._docker = docker
-        self._dockerfile = dockerfile
+        self._runner = runner
 
     def __call__(self):
         return self
@@ -85,17 +81,17 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         allowed_data_types = {'HealthData': HealthData}
         data_type = allowed_data_types.get(data_type, None)
 
+        runner = get_runner_from_yaml_file(yaml_file)
+
         model = cls(
             name=name,
             train_command=train_command,
             predict_command=predict_command,
             data_type=data_type,
             setup_command=setup_command,
-            conda_env_file=conda_env_file,
             working_dir=Path(yaml_file).parent,
             adapters=data.get('adapters', None),
-            docker=data.get('docker', None),
-            dockerfile=data.get('dockerfile', None),
+            runner=runner,
         )
 
         return model
@@ -104,42 +100,12 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         """Wrapper for running command, adds working directory"""
         return run_command(command, working_directory=self._working_dir)
 
-    def _get_conda_environment_name(self):
-        """Returns a name that is a hash of the content of the conda env file, so that identical file
-        gives same name and changes in the file leads to new name"""
-        with open(str(self._working_dir / self._conda_env_file), 'r') as file:
-            data = yaml.load(file, Loader=yaml.FullLoader)
-            # convert to json to avoid minor changes affecting the hash
-            checksum = md5(json.dumps(data).encode("utf-8")).hexdigest()
-            return f"{self._name}_{checksum}"
-
     def run_through_container(self, command: str):
         """Runs the command through either conda, docker or directly depending on the config"""
-        if self._conda_env_file:
-            logging.info(f"Using conda environment name {self._conda_env_name}")
-            return self._run_command(f'conda run -n {self._conda_env_name} {command}')
-        elif self._docker:
-            return run_command_through_docker_container(self._docker, self._working_dir, command)
-
-        return self._run_command(command)
+        return self._runner.run_command(command)
 
     def setup(self):
-        if self._is_setup:
-            return
-        self._is_setup = True
-        if self._conda_env_file:
-            try:
-                self._run_command(f'conda env create --name {self._conda_env_name} -f {self._conda_env_file}')
-            except subprocess.CalledProcessError:
-                # TODO: This logic is not sound since new entries in env file will not be added to the environment if it exists
-                logging.info("Ignoring error when creating conda environment")
-                pass
-        elif self._dockerfile is not None:
-            # create a Docker image from the docker file, use that
-            self._docker = create_docker_image(self._dockerfile, working_dir=self._working_dir)
-
-        if self._setup_command is not None:
-            self.run_through_container(self._setup_command)
+        pass
 
     def deactivate(self):
         if self._conda_env_file:
@@ -183,7 +149,6 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
 
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType], extra_args=None):
-        self.setup()
         if extra_args is None:
             extra_args = ''
         #with self._provide_temp_file() as train_datafile:
@@ -323,3 +288,20 @@ class SimpleFileContextManager:
 
 def get_model_from_yaml_file(yaml_file: str) -> ExternalCommandLineModel:
     return ExternalCommandLineModel.from_yaml_file(yaml_file)
+
+
+def get_runner_from_yaml_file(yaml_file: str) -> Runner:
+    with open(yaml_file, 'r') as file:
+        data = yaml.load(file, Loader=yaml.FullLoader)
+        working_dir = Path(yaml_file).parent
+        if 'dockerfile' in data:
+            return DockerRunner(data['dockerfile'], working_dir)
+        elif 'conda' in data:
+            raise Exception("Conda runner not implemented")
+        else:
+            return CommandLineRunner(working_dir)
+
+
+def get_model_and_runner_from_yaml_file(yaml_file: str) -> Tuple[ExternalCommandLineModel, Runner]:
+    return ExternalCommandLineModel.from_yaml_file(yaml_file), get_runner_from_yaml_file(yaml_file)
+
