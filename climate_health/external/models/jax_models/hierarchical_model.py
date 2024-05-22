@@ -12,7 +12,7 @@ from bionumpy.bnpdataclass import BNPDataClass, bnpdataclass
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData, FullData, SummaryStatistics
 from climate_health.external.models.jax_models.prototype_hierarchical import hierarchical_linear_regression, \
     GlobalSeasonalParams, DistrictParams, seasonal_linear_regression, get_hierarchy_logprob_func, \
-    join_global_and_district, hierarchical
+    join_global_and_district, hierarchical, HierarchyLogProbFunc
 from climate_health.external.models.jax_models.utii import get_state_transform, state_or_param, tree_sample, index_tree
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from .model_spec import Poisson, PoissonSkipNaN, Normal
@@ -100,7 +100,7 @@ class HierarchicalModel:
         self._set_model(data_dict)
         T_Param, transform, inv = get_state_transform(self._param_class)
         T_ParamD, transformD, invD = get_state_transform(SeasonalDistrictParams)
-        logprob_func = get_hierarchy_logprob_func(
+        logprob_func = HierarchyLogProbFunc(
             self._param_class, SeasonalDistrictParams, data_dict,
             self._regression_model, observed_name='disease_cases')
 
