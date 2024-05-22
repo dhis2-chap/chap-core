@@ -1,21 +1,24 @@
+import plotly.express as px
 import dataclasses
 from collections import defaultdict
+from functools import partial
 from typing import Any, Optional, Callable
 import numpy as np
 
 from climate_health.time_period.date_util_wrapper import delta_month
 from .deterministic_seir_model import MarkovChain
 from .hmc import sample
-from .jax import jax, PRNGKey, jnp
+from .jax import jax, PRNGKey, jnp, expit
 from bionumpy.bnpdataclass import BNPDataClass, bnpdataclass
 
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData, FullData, SummaryStatistics
 from climate_health.external.models.jax_models.prototype_hierarchical import hierarchical_linear_regression, \
     GlobalSeasonalParams, DistrictParams, seasonal_linear_regression, get_hierarchy_logprob_func, \
-    join_global_and_district, hierarchical, HierarchyLogProbFunc
-from climate_health.external.models.jax_models.utii import get_state_transform, state_or_param, tree_sample, index_tree
+    join_global_and_district, hierarchical, HierarchyLogProbFunc, HiearchicalLogProbFuncWithStates
+from climate_health.external.models.jax_models.utii import get_state_transform, state_or_param, tree_sample, index_tree, \
+    PydanticTree
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from .model_spec import Poisson, PoissonSkipNaN, Normal
+from .model_spec import Poisson, PoissonSkipNaN, Normal, distributionclass
 from .protoype_annotated_spec import Positive
 from .simple_ssm import get_summary
 from .util import array_tree_length
@@ -27,10 +30,12 @@ class SeasonalDistrictParams(DistrictParams):
     beta: float = 0.
     month_effect: np.ndarray = tuple((0.,)) * 12
 
+
 @bnpdataclass
 class SeasonalClimateHealthData(FullData):
     month: int
     year: int
+
 
 @bnpdataclass
 class SeasonalClimateHealthDataState(SeasonalClimateHealthData):
@@ -46,7 +51,7 @@ def create_seasonal_data(data: BNPDataClass):
 
     months = [period.month for period in data.time_period]
     years = [period.year for period in data.time_period]
-    time_index = [period.year*12 + period.month for period in data.time_period]
+    time_index = [period.year * 12 + period.month for period in data.time_period]
 
     return SeasonalData(
         **{field.name: getattr(data, field.name) for field in dataclasses.fields(data)},
@@ -77,7 +82,6 @@ class HierarchicalModel:
         max_year = max([max(value.year) for value in data_dict.values()])
         n_years = max_year - min_year + 1
 
-
         @state_or_param
         class ParamClass(GlobalSeasonalParams):
             observation_rate: Positive = 0.01
@@ -86,13 +90,13 @@ class HierarchicalModel:
         self._param_class = ParamClass
 
         def ch_regression(params: 'ParamClass', given: SeasonalClimateHealthData) -> HealthData:
-            log_rate = params.alpha + params.beta * self._standardization_func(given.mean_temperature) + params.month_effect[given.month - 1] + \
+            log_rate = params.alpha + params.beta * self._standardization_func(given.mean_temperature) + \
+                       params.month_effect[given.month - 1] + \
                        params.year_effect[given.year - min_year]
             final_rate = jnp.exp(log_rate) * given.population * params.observation_rate + 0.1
             return PoissonSkipNaN(final_rate)
 
         self._regression_model = ch_regression
-
 
     def train(self, data: SpatioTemporalDict[FullData]):
         random_key, self._key = jax.random.split(self._key)
@@ -100,21 +104,29 @@ class HierarchicalModel:
         self._set_model(data_dict)
         T_Param, transform, inv = get_state_transform(self._param_class)
         T_ParamD, transformD, invD = get_state_transform(SeasonalDistrictParams)
-        logprob_func = HierarchyLogProbFuncWithStates(
-            self._param_class, SeasonalDistrictParams, data_dict,
-            self._regression_model, observed_name='disease_cases')
-
-        init_params = T_Param().sample(random_key), {location: T_ParamD().sample(random_key) for location in data_dict.keys()}
+        logprob_func = self._get_log_prob_func(data_dict)
+        init_params = T_Param().sample(random_key), {location: T_ParamD().sample(random_key) for location in
+                                                     data_dict.keys()}
+        init_params = self._add_init_params(init_params)
         val = logprob_func(init_params)
         assert not jnp.isnan(val), val
         assert not jnp.isinf(val), val
         grad = jax.grad(logprob_func)(init_params)
         assert not jnp.isnan(grad[0].alpha), grad
-        raw_samples = sample(logprob_func, random_key, init_params, num_samples=self._num_warmup, num_warmup=self._num_warmup)
-        self.params = (transform(raw_samples[0]), {name: transformD(sample) for name, sample in raw_samples[1].items()})
+        raw_samples = sample(logprob_func, random_key, init_params, num_samples=self._num_warmup,
+                             num_warmup=self._num_warmup)
+        self.save_params(raw_samples, transform, transformD)
         last_params = index_tree(raw_samples, -1)
         assert not jnp.isinf(logprob_func(last_params)), logprob_func(last_params)
         assert not jnp.isnan(jax.grad(logprob_func)(last_params)[0].alpha), jax.grad(logprob_func)(last_params)
+
+    def save_params(self, raw_samples, transform, transformD):
+        self.params = (transform(raw_samples[0]), {name: transformD(sample) for name, sample in raw_samples[1].items()})
+
+    def _get_log_prob_func(self, data_dict):
+        return HierarchyLogProbFunc(
+            self._param_class, SeasonalDistrictParams, data_dict,
+            self._regression_model, observed_name='disease_cases')
 
     def sample(self, data: SpatioTemporalDict[ClimateData], n=1) -> SpatioTemporalDict[HealthData]:
         params = index_tree(self.params, -1)
@@ -149,27 +161,53 @@ class HierarchicalModel:
                            for name in data_dict.keys()}
             for key, value in data_dict.items():
                 new_key, random_key = jax.random.split(random_key)
-                samples[key].append(self._regression_model(true_params[key], value).sample(new_key))
+                samples[key].append(self._regression_model(true_params[key], value, *params[2:]).sample(new_key))
         return SpatioTemporalDict(
             {key: get_summary(time_period, np.array(value)) for key, value in samples.items()})
 
     def predict(self, *args, **kwargs):
         return self.forecast(*args, **kwargs)
 
+    def _add_init_params(self, init_params):
+        return init_params
+
+
+@state_or_param
+class StateParams(PydanticTree):
+    init: float = 0.
+    # sigma: float = 0.5
+
 
 class HierarchicalStateModel(HierarchicalModel):
     def _adapt_params(self, params_tuple, data_dict):
         max_idx = max([max(value.time_index) for value in data_dict.values()])
-        if max_idx<=self._idx_range[1]:
+        if max_idx <= self._idx_range[1]:
             return params_tuple
-        params, district_params = params_tuple
-        sigma=0.5
-        new_markov_chain = MarkovChain(self._transition,
-                                       Normal(params.state[-1], sigma),
-                                       np.arange(self._idx_range[1] + 1, max_idx + 1))
+        params, district_params, states = params_tuple
+        prediction_params = StateParams(states[-1])# , params.sigma)
+        new_markov_chain = get_state_dist_from_params(prediction_params, len(np.arange(self._idx_range[1] + 1, max_idx + 1)))
+        #new_markov_chain = MarkovChain(self._transition,
+        #                               Normal(params.state[-1], sigma),
+        #                               np.arange(self._idx_range[1] + 1, max_idx + 1))
         key, self._key = jax.random.split(self._key)
-        return dataclasses.replace(params, state=np.concatenate([params.state, new_markov_chain.sample(key)])), district_params
+        return params, district_params, np.concatenate([states, new_markov_chain.sample(key)])
+        #return dataclasses.replace(params,
+        #                           state=np.concatenate([params.state, new_markov_chain.sample(key)])), district_params
 
+    def _add_init_params(self, init_params):
+        init_states = np.zeros(self._idx_range[1]+ 1 - self._idx_range[0])
+        return init_params + (init_states,)
+
+    def save_params(self, raw_samples, transform, transformD):
+        self.params = (transform(raw_samples[0]), {name: transformD(sample) for name, sample in raw_samples[1].items()}, raw_samples[2])
+
+    def diagnose(self):
+        # px.line(y=self.params[0].state_params.sigma).show()
+        return
+        flat_tree = jax.tree_util.tree_flatten(self.params)
+        for val in flat_tree[0]:
+            if val.ndim == 1:
+                px.line(y=val).show()
 
     def _set_model(self, data_dict: SpatioTemporalDict[SeasonalClimateHealthDataState]):
         min_idx = min([min(value.time_index) for value in data_dict.values()])
@@ -177,22 +215,46 @@ class HierarchicalStateModel(HierarchicalModel):
         self._idx_range = (min_idx, max_idx)
         sigma = 0.5
         self._transition = lambda state: Normal(state, sigma)
-
         @state_or_param
         class ParamClass(GlobalSeasonalParams):
             observation_rate: Positive = 0.01
-            state: MarkovChain = MarkovChain(
-                self._transition,
-                Normal(0., sigma),
-                np.arange(min_idx, max_idx + 1))
+            state_params: StateParams = StateParams(0.)#, sigma)
 
         self._param_class = ParamClass
         self._standardization_func = self._get_standardization_func(data_dict)
 
-        def ch_regression(params: 'ParamClass', given: SeasonalClimateHealthData) -> HealthData:
+        def ch_regression(params: 'ParamClass', given: SeasonalClimateHealthData, state) -> HealthData:
             idx = given.time_index - min_idx
-            log_rate = params.alpha + params.month_effect[given.month - 1] + params.state[idx]
-            final_rate = jnp.exp(log_rate) * given.population * params.observation_rate + 0.1
+            log_rate = params.alpha + params.month_effect[given.month - 1] + state[idx]
+            final_rate = expit(log_rate) * given.population * params.observation_rate + 0.1
             return PoissonSkipNaN(final_rate)
 
         self._regression_model = ch_regression
+
+    def _get_log_prob_func(self, data_dict):
+        return HiearchicalLogProbFuncWithStates(
+            self._param_class, SeasonalDistrictParams, data_dict,
+            self._regression_model, observed_name='disease_cases',
+            state_class=partial(get_state_dist_from_params,
+                                n_periods=self._idx_range[1] + 1- self._idx_range[0]))
+
+
+def get_state_dist_from_params(state_params, n_periods):
+    sigma = 0.5 # state_params.sigma
+    return MarkovChain(lambda state: Normal(state, sigma),
+                       Normal(state_params.init, sigma
+                              ),
+                       np.arange(n_periods))
+
+
+class _SimpleMarkovChain:
+    def __init__(self, state_params):
+        self._chain = MarkovChain(lambda state: Normal(state, state_params.sigma),
+                                  Normal(state_params.init, state_params.sigma),
+                                  np.arange(state_params.n))
+
+    def log_prob(self, *args, **kwargs):
+        return self._chain.log_prob(*args, **kwargs)
+
+    def sample(self, *args, **kwargs):
+        return self._chain.sample(*args, **kwargs)

@@ -150,15 +150,14 @@ class HierarchyLogProbFunc:
 
 class HiearchicalLogProbFuncWithStates(HierarchyLogProbFunc):
     def __init__(self, *args, **kwargs):
-        self.state_class = kwargs.pop('state_class')
-        self._state_dist = self.state_class()
+        self._state_class = kwargs.pop('state_class')
         super().__init__(*args, **kwargs)
 
     def __call__(self, t_params):
         global_params, district_params, state = t_params
         prior_pdf = self._prior(district_params, global_params)
         all_params = self._get_all_params(district_params, global_params)
-        state_pdf = self._state_dist.log_prob(state)
+        state_pdf = self._state_class(all_params[0].state_params).log_prob(state)
         models = hierarchical_linear_regression(
             *all_params, self.observed, regression_model=self.regression_model, state=state)
         observed_probs = [models[name].log_prob(getattr(self.observed[name], self.observed_name)).sum()
