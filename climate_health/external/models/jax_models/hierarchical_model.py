@@ -100,7 +100,7 @@ class HierarchicalModel:
         self._set_model(data_dict)
         T_Param, transform, inv = get_state_transform(self._param_class)
         T_ParamD, transformD, invD = get_state_transform(SeasonalDistrictParams)
-        logprob_func = HierarchyLogProbFunc(
+        logprob_func = HierarchyLogProbFuncWithStates(
             self._param_class, SeasonalDistrictParams, data_dict,
             self._regression_model, observed_name='disease_cases')
 
@@ -125,6 +125,7 @@ class HierarchicalModel:
                        for name in data_dict.keys()}
         return SpatioTemporalDict({key: self._regression_model(true_params[key], data_dict[key]).sample(random_key)
                                    for key in data_dict.keys()})
+
     def _adapt_params(self, params, data_dict):
         return params
 
