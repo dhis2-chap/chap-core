@@ -14,7 +14,8 @@ from bionumpy.bnpdataclass import BNPDataClass, bnpdataclass
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData, FullData, SummaryStatistics
 from climate_health.external.models.jax_models.prototype_hierarchical import hierarchical_linear_regression, \
     GlobalSeasonalParams, DistrictParams, seasonal_linear_regression, get_hierarchy_logprob_func, \
-    join_global_and_district, hierarchical, HierarchyLogProbFunc, HiearchicalLogProbFuncWithStates
+    join_global_and_district, hierarchical, HierarchyLogProbFunc, HiearchicalLogProbFuncWithStates, \
+    HiearchicalLogProbFuncWithDistrictStates
 from climate_health.external.models.jax_models.utii import get_state_transform, state_or_param, tree_sample, index_tree, \
     PydanticTree
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
@@ -161,9 +162,12 @@ class HierarchicalModel:
                            for name in data_dict.keys()}
             for key, value in data_dict.items():
                 new_key, random_key = jax.random.split(random_key)
-                samples[key].append(self._regression_model(true_params[key], value, *params[2:]).sample(new_key))
+                samples[key].append(self._sample_from_model(key, new_key, params, true_params, value))
         return SpatioTemporalDict(
             {key: get_summary(time_period, np.array(value)) for key, value in samples.items()})
+
+    def _sample_from_model(self, key, new_key, params, true_params, value):
+        return self._regression_model(true_params[key], value, *params[2:]).sample(new_key)
 
     def predict(self, *args, **kwargs):
         return self.forecast(*args, **kwargs)
@@ -179,6 +183,7 @@ class StateParams(PydanticTree):
 
 
 class HierarchicalStateModel(HierarchicalModel):
+    _log_prog_func_class = HiearchicalLogProbFuncWithStates
     def _adapt_params(self, params_tuple, data_dict):
         max_idx = max([max(value.time_index) for value in data_dict.values()])
         if max_idx <= self._idx_range[1]:
@@ -215,6 +220,7 @@ class HierarchicalStateModel(HierarchicalModel):
         self._idx_range = (min_idx, max_idx)
         sigma = 0.5
         self._transition = lambda state: Normal(state, sigma)
+
         @state_or_param
         class ParamClass(GlobalSeasonalParams):
             observation_rate: Positive = 0.01
@@ -232,12 +238,37 @@ class HierarchicalStateModel(HierarchicalModel):
         self._regression_model = ch_regression
 
     def _get_log_prob_func(self, data_dict):
-        return HiearchicalLogProbFuncWithStates(
+        return self._log_prog_func_class(
             self._param_class, SeasonalDistrictParams, data_dict,
             self._regression_model, observed_name='disease_cases',
             state_class=partial(get_state_dist_from_params,
                                 n_periods=self._idx_range[1] + 1- self._idx_range[0]))
 
+class HierarchicalStateModelD(HierarchicalStateModel):
+    _log_prog_func_class = HiearchicalLogProbFuncWithDistrictStates
+
+    def _adapt_params(self, params_tuple, data_dict):
+        max_idx = max([max(value.time_index) for value in data_dict.values()])
+        if max_idx <= self._idx_range[1]:
+            return params_tuple
+        params, district_params, states_dict = params_tuple
+        d = {}
+        for name, states in states_dict.items():
+            prediction_params = StateParams(states[-1])
+            new_markov_chain = get_state_dist_from_params(prediction_params, len(np.arange(self._idx_range[1] + 1, max_idx + 1)))
+            key, self._key = jax.random.split(self._key)
+            d[name] = np.concatenate([states, new_markov_chain.sample(key)])
+        return params, district_params, d
+
+    def _sample_from_model(self, key, new_key, params, true_params, value):
+        return self._regression_model(true_params[key], value, params[2][key]).sample(new_key)
+
+    def _add_init_params(self, init_params):
+
+        init_states = {name: np.zeros(self._idx_range[1]+ 1 - self._idx_range[0])
+                       for name in init_params[1]}
+
+        return init_params + (init_states,)
 
 def get_state_dist_from_params(state_params, n_periods):
     sigma = 0.5 # state_params.sigma
