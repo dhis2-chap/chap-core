@@ -4,7 +4,7 @@ import pytest
 import pandas as pd
 from climate_health.datatypes import FullData, HealthData
 from climate_health.external.models.jax_models.hierarchical_model import HierarchicalModel, SeasonalClimateHealthData, \
-    create_seasonal_data, HierarchicalStateModel, HierarchicalStateModelD
+    create_seasonal_data, HierarchicalStateModel, HierarchicalStateModelD2, HierarchicalStateModelD
 from climate_health.external.models.jax_models.model_spec import PoissonSkipNaN
 from climate_health.external.models.jax_models.prototype_hierarchical import GlobalSeasonalParams, \
     get_hierarchy_logprob_func, DistrictParams
@@ -32,7 +32,7 @@ def test_train5(random_key, data_path):
     model.train(data)
 
 
-@pytest.mark.parametrize('model_class', [HierarchicalStateModelD])# , HierarchicalModel])
+@pytest.mark.parametrize('model_class', [HierarchicalStateModelD2])# , HierarchicalModel])
 def test_training(full_train_data, random_key, test_data, model_class):
     true_data, test_data = test_data
     train_data = full_train_data
