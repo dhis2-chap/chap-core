@@ -191,13 +191,8 @@ class HierarchicalStateModel(HierarchicalModel):
         params, district_params, states = params_tuple
         prediction_params = StateParams(states[-1])# , params.sigma)
         new_markov_chain = get_state_dist_from_params(prediction_params, len(np.arange(self._idx_range[1] + 1, max_idx + 1)))
-        #new_markov_chain = MarkovChain(self._transition,
-        #                               Normal(params.state[-1], sigma),
-        #                               np.arange(self._idx_range[1] + 1, max_idx + 1))
         key, self._key = jax.random.split(self._key)
         return params, district_params, np.concatenate([states, new_markov_chain.sample(key)])
-        #return dataclasses.replace(params,
-        #                           state=np.concatenate([params.state, new_markov_chain.sample(key)])), district_params
 
     def _add_init_params(self, init_params):
         init_states = np.zeros(self._idx_range[1]+ 1 - self._idx_range[0])
@@ -207,12 +202,10 @@ class HierarchicalStateModel(HierarchicalModel):
         self.params = (transform(raw_samples[0]), {name: transformD(sample) for name, sample in raw_samples[1].items()}, raw_samples[2])
 
     def diagnose(self):
-        # px.line(y=self.params[0].state_params.sigma).show()
-        return
         flat_tree = jax.tree_util.tree_flatten(self.params)
         for val in flat_tree[0]:
-            if val.ndim == 1:
-                px.line(y=val).show()
+            px.line(val).show()
+
 
     def _set_model(self, data_dict: SpatioTemporalDict[SeasonalClimateHealthDataState]):
         min_idx = min([min(value.time_index) for value in data_dict.values()])

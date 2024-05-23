@@ -190,7 +190,8 @@ class HiearchicalLogProbFuncWithDistrictStates(HiearchicalLogProbFuncWithStates)
         return hierarchical_linear_regression_with_hier_state
 
     def _state_pdf(self, all_params, state):
-        return sum(self._state_class(all_params[0].state_params).log_prob(state[name]) for name in state)
+        return sum(self._state_class(all_params[0].state_params).log_prob(state[name])
+                   for name in state)
 
 
 def get_logprob_func(params_cls, observed, regression_model=linear_regression):
