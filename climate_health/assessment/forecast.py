@@ -15,6 +15,6 @@ def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta):
     model._num_samples = 400
     model.train(train_data)
     if hasattr(model, 'diagnose'):
-        model.diagnose()
+        ... #model.diagnose()
     predictions = model.forecast(future_weather, 10, prediction_length)
     return predictions

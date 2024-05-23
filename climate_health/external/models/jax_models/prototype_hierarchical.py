@@ -84,7 +84,10 @@ def hierarchical_linear_regression_with_hier_state(global_params: GlobalParams,
                                                    regression_model,
                                                    state=None) -> IsDistribution:
     params = {name: join_global_and_district(global_params, district_params[name]) for name in district_params}
-    return {name: regression_model(params[name], given[name], state[name]) for name in district_params}
+    state, district_state = state
+    state = {name: district_state[name] + state for name in district_params}
+    return {name: regression_model(params[name], given[name], state[name])
+            for name in district_params}
 
 
 @dataclasses.dataclass
@@ -174,7 +177,6 @@ class HiearchicalLogProbFuncWithStates(HierarchyLogProbFunc):
         state_pdf = self._state_pdf(all_params, state)
         models = self.regression_func(all_params[0], all_params[1], self.observed, self.regression_model, state)
 
-
         observed_probs = [models[name].log_prob(getattr(self.observed[name], self.observed_name)).sum()
                           for name in self.observed]
         obs_pdf = sum(observed_probs)
@@ -190,8 +192,9 @@ class HiearchicalLogProbFuncWithDistrictStates(HiearchicalLogProbFuncWithStates)
         return hierarchical_linear_regression_with_hier_state
 
     def _state_pdf(self, all_params, state):
-        return sum(self._state_class(all_params[0].state_params).log_prob(state[name])
-                   for name in state)
+        state, district_state = state
+        return sum(self._state_class(all_params[0].state_params).log_prob(district_state[name])
+                   for name in district_state) + self._state_class(all_params[0].state_params).log_prob(state)
 
 
 def get_logprob_func(params_cls, observed, regression_model=linear_regression):
