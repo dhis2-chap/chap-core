@@ -25,21 +25,24 @@ from .simple_ssm import get_summary
 from .util import array_tree_length
 
 SIGMA = 0.5
+
+
 def get_state_dist_from_params(state_params, n_periods):
     sigma = SIGMA  # state_params.sigma
     return MarkovChain(lambda state: Normal(state, sigma),
                        Normal(state_params.init, sigma),
                        np.arange(n_periods))
 
+
 def get_state_regression_dist_from_params(state_params, n_periods):
     sigma = SIGMA  # state_params.sigma
 
     def mean_func(mean):
         p = expit(mean)
-        return logit(p + p * (1 - p) * state_params.beta - p * state_params.gamma+ 1e-6)
+        return logit(p + p * (1 - p) * state_params.beta - p * state_params.gamma + 1e-6)
 
     return MarkovChain(lambda state: Normal(mean_func(state), sigma),
-                       Normal(state_params.init, sigma*3),
+                       Normal(state_params.init, sigma * 3),
                        np.arange(n_periods))
 
 
@@ -211,12 +214,12 @@ class GlobalParams(GlobalSeasonalParams):
     state_params: StateParams = StateParams(0.)  # , sigma)
     district_state_params: StateParams = StateParams(0.)
 
+
 @state_or_param
 class GlobalParams2(GlobalSeasonalParams):
     observation_rate: Positive = 0.01
     state_params: RegressionStateParams = RegressionStateParams(0., 0.1, 0.1)  # , sigma)
     district_state_params: RegressionStateParams = RegressionStateParams(0., 0.1, 0.1)  # , sigma)
-
 
 
 class HierarchicalStateModel(HierarchicalModel):
@@ -285,6 +288,7 @@ class HierarchicalStateModelD(HierarchicalStateModel):
     _log_prog_func_class = HiearchicalLogProbFuncWithDistrictStates
 
     def _adapt_params(self, params_tuple, data_dict):
+        ''' This needs to automatically generated from the model'''
         max_idx = max([max(value.time_index) for value in data_dict.values()])
         if max_idx <= self._idx_range[1]:
             return params_tuple
@@ -292,7 +296,8 @@ class HierarchicalStateModelD(HierarchicalStateModel):
         d = {}
         for name, states in states_dict.items():
             prediction_params = dataclasses.replace(params.district_state_params, init=states[-1])
-            new_markov_chain = self._state_dist_func(prediction_params, len(np.arange(self._idx_range[1] + 1, max_idx + 1)))
+            new_markov_chain = self._state_dist_func(prediction_params,
+                                                     len(np.arange(self._idx_range[1] + 1, max_idx + 1)))
             key, self._key = jax.random.split(self._key)
             d[name] = np.concatenate([states, new_markov_chain.sample(key)])
         prediction_params = dataclasses.replace(params.state_params, init=global_states[-1])
@@ -310,12 +315,13 @@ class HierarchicalStateModelD(HierarchicalStateModel):
         init_global_state = np.zeros(self._idx_range[1] + 1 - self._idx_range[0])
         return init_params + ((init_global_state, init_states),)
 
+
 class HierarchicalStateModelD2(HierarchicalStateModelD):
     _param_class = GlobalParams2
+
     @property
     def _state_dist_func(self):
         return get_state_regression_dist_from_params
-
 
 
 class _SimpleMarkovChain:
