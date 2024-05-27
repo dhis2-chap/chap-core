@@ -28,14 +28,14 @@ def _get_period_id(time_period):
         return int(year) * 12 + int(month)
 
 
-def parse_population_data(json_data, field_name='GEN - Population'):
+def parse_population_data(json_data, field_name='GEN - Population', col_idx=1):
     logger.warning('Only using one population number per location')
     meta_data = MetadDataLookup(json_data['metaData'])
     lookup = {}
     for row in json_data['rows']:
         # if meta_data[row[0]] != field_name:
         #    continue
-        lookup[row[1]] = float(row[3])
+        lookup[row[col_idx]] = float(row[3])
     return lookup
 
 
@@ -87,7 +87,7 @@ def json_to_pandas(json_data, name_mapping):
 
 
 def join_data(json_data, population_data):
-    population_lookup = parse_population_data(population_data)
+    population_lookup = parse_population_data(population_data, col_idx=2)
     disease_data = parse_disease_data(json_data)
     return add_population_data(disease_data, population_lookup)
 
