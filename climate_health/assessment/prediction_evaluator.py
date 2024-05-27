@@ -37,7 +37,7 @@ def plot_rmse(rmse_dict, do_show=True):
     return fig
 
 
-def evaluate_model(data_set, external_model, max_splits=5, start_offset=19, return_table=False, naive_model_cls=None, callback=None, mode = 'predict'):
+def evaluate_model(data_set, external_model, max_splits=5, start_offset=20, return_table=False, naive_model_cls=None, callback=None, mode = 'predict'):
     '''
     Evaluate a model on a dataset using forecast cross validation
     '''

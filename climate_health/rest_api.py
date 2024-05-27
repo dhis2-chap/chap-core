@@ -43,11 +43,14 @@ current_data = {}
 
 
 class State(BaseModel):
+    ready: bool
     status: str
 
 
 state = State(status='idle')
 
+def set_cur_response(response):
+    state['response'] = response
 
 @app.post('/post_data/{data_type}')
 async def post_data(data_type: str, rows: List[List[str]]) -> dict:
@@ -56,11 +59,12 @@ async def post_data(data_type: str, rows: List[List[str]]) -> dict:
 
 
 @app.post('/post_zip_file/')
-async def post_zip_file(file: Union[UploadFile, None] = None) -> List[dict]:
-    out_json = dhis_zip_flow(file.file, model_name='HierarchicalStateModelD')
+async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> List[dict]:
+    train_func = lambda: current_data.__setitem__('response', dhis_zip_flow(file.file, model_name='HierarchicalStateModelD'))
+    #out_json = dhis_zip_flow(file.file, model_name='HierarchicalStateModelD')
     # train_data = read_zip_folder(file.file)
     # print(train_data)
-    print(out_json)
+    background_tasks.add_task(train_func)
     return out_json
     # return {'status': 'success'}
 

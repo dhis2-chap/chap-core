@@ -1,3 +1,5 @@
+import dataclasses
+
 import numpy as np
 from sklearn import linear_model
 
@@ -62,17 +64,25 @@ class MultiRegionPoissonModel:
             X = self._create_feature_matrix(location_data)
             y = location_data.data().disease_cases[1:]
             mask = ~np.isnan(X).any(axis=1) & ~np.isnan(y)
+            assert mask[-1]
             X = X[mask]
             y = y[mask]
             model = linear_model.PoissonRegressor()
             model.fit(X, y)
             self._models[location] = model
-            self._saved_state[location] = TemporalDataclass(location_data.data()[-1:])
+
+            saved_data = location_data.data()[-1:]
+            assert not np.any(np.isnan(saved_data.disease_cases)), f'{saved_data.disease_cases}'
+            self._saved_state[location] = TemporalDataclass(saved_data)
 
     def predict(self, data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
         prediction_dict = {}
         for location, location_data in data.items():
             state_values = self._saved_state[location]
+
+            #state_values = TemporalDataclass(location_data.data().__class__(**{field.name: getattr(state_values.data(), field.name) for field in dataclasses.fields(location_data.data())}))
+            location_data = TemporalDataclass(state_values.data().__class__(**{field.name: getattr(location_data.data(), field.name) for field in dataclasses.fields(location_data.data())} | {"disease_cases": np.full(len(location_data.data()), 0)}))
+            #location_data.data().disease_cases = np.full(len(location_data.data()), np.nan)
             X = self._create_feature_matrix(state_values.join(location_data))
             prediction = self._models[location].predict(X[-1:])
             prediction_dict[location] = HealthData(location_data.data().time_period[:1], np.atleast_1d(prediction))

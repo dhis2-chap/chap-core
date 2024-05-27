@@ -1,7 +1,7 @@
 import pickle
 
 import climate_health
-from climate_health.datatypes import ClimateData, ClimateHealthTimeSeries
+from climate_health.datatypes import ClimateData, ClimateHealthTimeSeries, SimpleClimateData
 from climate_health.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor
 import typer
 
@@ -26,7 +26,7 @@ def predict(future_climate_data_set: str, model_file: str, output_file: str):
     with open(model_file, 'rb') as f:
         predictor = pickle.load(f)
 
-    future_climate_data = SpatioTemporalDict.from_csv(future_climate_data_set, ClimateData)
+    future_climate_data = SpatioTemporalDict.from_csv(future_climate_data_set, SimpleClimateData)
     predictions = predictor.predict(future_climate_data)
     print(predictions)
     predictions.to_csv(output_file)
