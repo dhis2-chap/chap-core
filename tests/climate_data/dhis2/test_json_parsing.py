@@ -27,7 +27,7 @@ def test_parse_json(json_data):
 
 
 def test_parse_population_data(population_data):
-    lookup = parse_population_data(population_data)
+    lookup = parse_population_data(population_data, col_idx=2)
     assert 'VWGSudnonm5' in lookup
     assert lookup['VWGSudnonm5'] == 272115
 
