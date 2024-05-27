@@ -11,4 +11,4 @@ def test_forecast():
     predictions = forecast(model, dataset, 12*delta_month)
     for location, prediction in predictions.items():
         fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data())
-        fig.show()
+        # fig.show()

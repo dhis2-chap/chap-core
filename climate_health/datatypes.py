@@ -185,5 +185,5 @@ def add_field(data: BNPDataClass, new_class: type, **field_data):
 
 def remove_field(data: BNPDataClass, field_name, new_class=None):
     if new_class is None:
-        new_class = tsdataclass(dataclasses.make_dataclass(data.__class__.__name__, [(field.name, field.type) for field in dataclasses.fields(data) if field.name != field_name]))
+        new_class = tsdataclass(dataclasses.make_dataclass(data.__class__.__name__, [(field.name, field.type) for field in dataclasses.fields(data) if field.name != field_name], bases=(TimeSeriesData,)))
     return new_class(**{field.name: getattr(data, field.name) for field in dataclasses.fields(data) if field.name != field_name})
