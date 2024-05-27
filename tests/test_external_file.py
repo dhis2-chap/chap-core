@@ -12,4 +12,4 @@ def test_fetch_and_clean(data_path):
     dataset = fetch_and_clean('hydromet')
     assert dataset is not None
     df: pd.DataFrame = dataset.to_pandas()
-    # df.to_csv(data_path / 'hydromet.csv')
+    df.to_csv(data_path / 'hydromet.csv')

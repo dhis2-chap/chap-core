@@ -58,7 +58,7 @@ def train_data(split_data):
 
 @pytest.fixture()
 def split_data(data):
-    return train_test_split_with_weather(data, Month(2012, 8))
+    return train_test_split_with_weather(data, Month(2013, 4))
 
 
 @pytest.fixture()

@@ -2,7 +2,7 @@ import sys
 from collections import defaultdict
 
 from climate_health.datatypes import HealthData
-from climate_health.dhis2_interface.json_parsing import parse_climate_data, parse_disease_data, parse_population_data, predictions_to_json
+from climate_health.dhis2_interface.json_parsing import parse_climate_data, parse_disease_data, parse_population_data, predictions_to_datavalue
 from climate_health.dhis2_interface.src.PushResult import DataValue, push_result
 from climate_health.dhis2_interface.src.create_data_element_if_not_exists import create_data_element_if_not_exists
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
@@ -64,7 +64,7 @@ class ChapPullPost:
             create_data_element_if_not_exists(config=self.config, code_prefix=code_prefix, dict=name_dict, disease=model_name)
 
         # create dict
-        values = predictions_to_json(data, name_dict)
+        values = predictions_to_datavalue(data, name_dict)
         response, body = push_result(self.config, values)
 
         return body

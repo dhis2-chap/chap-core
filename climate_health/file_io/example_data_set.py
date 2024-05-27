@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from climate_health.datatypes import ClimateHealthTimeSeries
+from climate_health.datatypes import ClimateHealthTimeSeries, FullData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
 
@@ -17,6 +17,6 @@ class ExampleDataSet:
 
 
 
-dataset_names = ['hydro_met_subset', 'hydromet_clean', 'hydromet_10']
+dataset_names = ['hydro_met_subset', 'hydromet_clean', 'hydromet_10', 'hydromet_5_filtered']
 DataSetType = Literal[tuple(dataset_names)]
-datasets = {name: ExampleDataSet(name) for name in dataset_names}
+datasets = {name: ExampleDataSet(name) if name!='hydromet_5_filtered'else ExampleDataSet(name, FullData) for name in dataset_names}

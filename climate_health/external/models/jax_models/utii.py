@@ -6,8 +6,8 @@ from climate_health.external.models.jax_models.model_spec import Normal, LogNorm
 from climate_health.external.models.jax_models.protoype_annotated_spec import Positive
 from .jax import jnp, jax, tree_util
 
-
 state_or_param = lambda f: tree_util.register_pytree_node_class(dataclasses.dataclass(f, frozen=True))
+
 
 def index_tree(tree, index):
     if isinstance(tree, jax.Array):
@@ -15,7 +15,7 @@ def index_tree(tree, index):
     elif hasattr(tree, 'items'):
         return {key: index_tree(value, index) for key, value in tree.items()}
     elif isinstance(tree, PydanticTree):
-        return tree.__class__.tree_unflatten(None,(index_tree(value, index) for value in tree.tree_flatten()[0]))
+        return tree.__class__.tree_unflatten(None, (index_tree(value, index) for value in tree.tree_flatten()[0]))
     elif isinstance(tree, tuple):
         return tuple(index_tree(value, index) for value in tree)
     else:
@@ -42,8 +42,8 @@ def tree_sample(tree, key, shape=()):
     else:
         return tree.sample(key, shape=shape)
 
-class PydanticTree:
 
+class PydanticTree:
     def tree_flatten(self):
         obj = self
         ret = tuple(getattr(obj, field.name) for field in dataclasses.fields(obj))
@@ -74,11 +74,11 @@ def log_prob(dist, value):
     return dist.log_prob(value)
 
 
-
 def get_state_transform(params):
     if isinstance(params, tuple):
         T, f, inv_f = zip(*[get_state_transform(p) for p in params])
-        return tuple(T), lambda x: tuple(f_i(x_i) for f_i, x_i in zip(f, x)), lambda x: tuple(inv_f_i(x_i) for inv_f_i, x_i in zip(inv_f, x))
+        return tuple(T), lambda x: tuple(f_i(x_i) for f_i, x_i in zip(f, x)), lambda x: tuple(
+            inv_f_i(x_i) for inv_f_i, x_i in zip(inv_f, x))
 
     new_fields = []
 
@@ -98,6 +98,10 @@ def get_state_transform(params):
             T, f, inv_f = get_state_transform(field.type)
             converters.append(f)
             default = T()
+        elif hasattr(field.type, 'sample') and hasattr(field.type, 'log_prob'):
+            converters.append(identity)
+            inv_converters.append(identity)
+            default = field.default
         else:
             converters.append(identity)
             inv_converters.append(identity)
