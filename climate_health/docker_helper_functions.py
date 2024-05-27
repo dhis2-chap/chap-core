@@ -30,7 +30,8 @@ def create_docker_image(dockerfile_directory: str, working_dir: str="./"):
 def run_command_through_docker_container(docker_image_name: str, working_directory: str, command: str):
     client = docker.from_env()
     working_dir_full_path = os.path.abspath(working_directory)
-    container = client.containers.run(docker_image_name, command,
+    container = client.containers.run(docker_image_name,
+                                      command=command,
                                       volumes=[f"{working_dir_full_path}:/home/run/"],
                                       working_dir="/home/run",
                                       auto_remove=True,
@@ -38,7 +39,7 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
     output = container.attach(stdout=True, stream=True, logs=True)
     full_output = ""
     for line in output:
-        print(line)
+        print("Line output: ", line)
         full_output += line.decode("utf-8")
 
     return full_output

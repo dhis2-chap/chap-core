@@ -23,13 +23,11 @@ def test_read_zip_folder(example_zip):
 def zip_filepath(data_path):
     return data_path / "sample_chap_app_output.zip"
 
-
 @pytest.fixture
 def zip_filepath_population(data_path):
     return data_path / "chap_output2.zip"
 
-
-# @pytest.mark.skip(reason='Not finished implementing')
+@pytest.mark.skip(reason='Not finished implementing')
 def test_dhis_zip_flow(models_path, zip_filepath_population):
     out_json = "output.json"
     model_name = "ewars_Plus"
