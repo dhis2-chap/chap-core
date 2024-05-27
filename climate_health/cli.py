@@ -95,6 +95,11 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
     with open(json_filename, 'w') as f:
         json.dump(json_response, f, indent=4)
 
+@app.command()
+def serve():
+    from .rest_api import main_backend
+    main_backend()
+
 
 @dataclasses.dataclass
 class AreaPolygons:
