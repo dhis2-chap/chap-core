@@ -4,8 +4,8 @@ from climate_health.runners.docker_runner import DockerRunner
 
 def test_command_line_runner():
     command = "echo 'test'"
-    runner = CommandLineRunner()
-    runner.run_command()
+    runner = CommandLineRunner("./")
+    runner.run_command("")
 
 
 def test_docker_runner(data_path):
