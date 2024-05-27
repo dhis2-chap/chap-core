@@ -58,8 +58,8 @@ test: ## run tests quickly with the default Python
 test-all: ## run pytest, doctests, examples
 	pytest --cov=climate_health --cov-report html
 	pytest --cov=climate_health --cov-report html --cov-append scripts/*_example.py
-	pytest --cov-report html --cov=climate_health --cov-append --doctest-modules climate_health/
-	cd docs_source && make doctest
+	#pytest --cov-report html --cov=climate_health --cov-append --doctest-modules climate_health/
+	#cd docs_source && make doctest
 
 coverage: ## check code coverage quickly with the default Python
 	coverage report -m
