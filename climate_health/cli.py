@@ -144,6 +144,17 @@ def convert_geo_json(geo_json_content) -> OurShapeFormat:
 
 @app.command()
 def dhis_zip_flow(zip_file_path: str, out_json: str, model_name: Optional[str] = None, docker_filename: Optional[str] = None):
+    '''
+    Run an forecasting evaluation on  data from a zip file from DHIS2, and save the results to a json file
+    Run using the specified model_name, which can also be a path to a yaml file. Optionally specify a docker filename
+
+    Parameters:
+        zip_file_path: str: Path to the zip file
+        out_json: str: Path to the output json file
+        model_name: Optional[str]: Name of the model to use, or path to a yaml file
+        docker_filename: Optional[str]: Path to a docker file
+    '''
+
     api.dhis_zip_flow(zip_file_path, out_json, model_name, docker_filename=docker_filename)
 
 
