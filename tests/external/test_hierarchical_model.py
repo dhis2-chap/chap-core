@@ -1,24 +1,39 @@
 import jax
 import numpy as np
 import pytest
-import plotly.express as px
+import pandas as pd
 from climate_health.datatypes import FullData, HealthData
 from climate_health.external.models.jax_models.hierarchical_model import HierarchicalModel, SeasonalClimateHealthData, \
-    create_seasonal_data
+    create_seasonal_data, HierarchicalStateModel, HierarchicalStateModelD2, HierarchicalStateModelD
 from climate_health.external.models.jax_models.model_spec import PoissonSkipNaN
 from climate_health.external.models.jax_models.prototype_hierarchical import GlobalSeasonalParams, \
     get_hierarchy_logprob_func, DistrictParams
 from climate_health.external.models.jax_models.protoype_annotated_spec import Positive
 from climate_health.external.models.jax_models.utii import state_or_param, get_state_transform
 from climate_health.external.models.jax_models.jax import jnp
+from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
+from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.time_period.date_util_wrapper import delta_month
 
 
 @pytest.fixture
 def full_train_data(train_data):
     return train_data.add_fields(FullData, population=lambda data: [100000] * len(data))
 
+def test_train5(random_key, data_path):
+    file_name = (data_path / 'hydromet_5_filtered').with_suffix('.csv')
+    filtered = pd.read_csv(file_name)
+    #filtered: pd.DataFrame = csv.loc[~np.isnan(csv['disease_cases'])]
+    #write to file
+    # filtered.to_csv((data_path / 'hydromet_5_filtered').with_suffix('.csv'))
 
-def test_training(full_train_data, random_key, test_data):
+    data = SpatioTemporalDict.from_pandas(filtered, FullData)
+    model = HierarchicalModel(random_key, {}, num_warmup=200, num_samples=100)
+    model.train(data)
+
+
+@pytest.mark.parametrize('model_class', [HierarchicalStateModelD2])# , HierarchicalModel])
+def test_training(full_train_data, random_key, test_data, model_class):
     true_data, test_data = test_data
     train_data = full_train_data
     for key, value in train_data.items():
@@ -26,17 +41,22 @@ def test_training(full_train_data, random_key, test_data):
     test_data = test_data.remove_field('max_temperature')
     test_data = test_data.add_fields(FullData, population=lambda data: [100000] * len(data),
                                      disease_cases=lambda data: [np.nan] * len(data))
-    model = HierarchicalModel(random_key, {}, num_warmup=10, num_samples=10)
+    model = model_class(random_key, {}, num_warmup=50, num_samples=50)
     model.train(train_data)
-    results = model.sample(test_data)
-    forecast = model.forecast(test_data, prediction_length=10)
-    for key, value in results.items():
-        print(key, value.data())
-        true = true_data.get_location(key).data().disease_cases
-        print(key, true)
-        fig = px.line(y=value.data())
-        fig.add_scatter(y=true)
+    model.diagnose()
+    # results = model.sample(test_data)
+    predictions = model.forecast(test_data, n_samples=100, forecast_delta=12*delta_month)
+    for location, prediction in predictions.items():
+        fig = plot_forecast_from_summaries(prediction.data(), true_data.get_location(location).data(), lambda x: np.log(x + 1))
         fig.show()
+
+    # for key, value in results.items():
+    #     print(key, value.data())
+    #     true = true_data.get_location(key).data().disease_cases
+    #     print(key, true)
+    #     fig = px.line(y=value.data())
+    #     fig.add_scatter(y=true)
+    #     fig.show()
 
 
 @state_or_param

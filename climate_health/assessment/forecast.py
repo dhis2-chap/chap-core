@@ -11,8 +11,8 @@ def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta):
     split_point = dataset.end_timestamp - prediction_length
     split_period = Month(split_point.year, split_point.month)
     train_data, test_set, future_weather = train_test_split_with_weather(dataset, split_period)
-    model.n_warmup = 1000
-    model.n_samples = 200
+    model._num_warmup = 1000
+    model._num_samples = 400
     model.train(train_data)
     if hasattr(model, 'diagnose'):
         model.diagnose()

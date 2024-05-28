@@ -49,16 +49,16 @@ def train_test_split(data_set: IsSpatioTemporalDataSet, prediction_start_period:
     return train_data, test_data
 
 
-def train_test_split_with_weather(data_set: IsSpatioTemporalDataSet, prediction_start_period: Period,
+def train_test_split_with_weather(data_set: SpatioTemporalDict, prediction_start_period: Period,
                                   extension: Optional[IsTimeDelta] = None,
                                   future_weather_class: Type[ClimateData] = ClimateData):
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)
     tmp_values: Iterable[Tuple[str, ClimateHealthData]] = ((loc, temporal_data.data()) for loc, temporal_data in
                                                            test_set.items())
-    future_weather = SpatioTemporalDict(
-        {loc: future_weather_class(
-            *[getattr(values, field.name) if hasattr(values, field.name) else values.mean_temperature for field in dataclasses.fields(future_weather_class)])
-         for loc, values in tmp_values})
+    future_weather = test_set.remove_field('disease_cases') #SpatioTemporalDict(
+        #{loc: future_weather_class(
+        #    *[getattr(values, field.name) if hasattr(values, field.name) else values.mean_temperature for field in dataclasses.fields(future_weather_class)])
+        # for loc, values in tmp_values})
     return train_set, test_set, future_weather
 
 

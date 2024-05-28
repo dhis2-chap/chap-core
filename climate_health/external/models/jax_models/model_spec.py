@@ -92,10 +92,11 @@ class LogNormal:
 class PoissonSkipNaN(Poisson):
 
     def log_prob(self, x: Any) -> Any:
-        masked = jnp.where(jnp.isnan(x), self.rate, x)
-        res = jnp.where(jnp.isnan(x), 0, super().log_prob(masked))
-        print('-----------------')
-        print(x, self.rate, res)
+        nans = jnp.isnan(x)
+        rate = jnp.where(nans, 0, self.rate)
+        masked = jnp.where(nans, rate, x)
+        #rate = jnp.where(nans, , self.rate)
+        res = jnp.where(nans, 0, stats.poisson.logpmf(masked, rate))
         return res
 
 

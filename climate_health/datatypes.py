@@ -107,6 +107,13 @@ ClimateHealthData = ClimateHealthTimeSeries
 class FullData(ClimateHealthData):
     population: int
 
+    @classmethod
+    def combine(cls, health_data: HealthData, climate_data: ClimateData, population: float) -> 'ClimateHealthTimeSeries':
+        return cls(time_period=health_data.time_period,
+                   rainfall=climate_data.rainfall,
+                   mean_temperature=climate_data.mean_temperature,
+                   disease_cases=health_data.disease_cases,
+                   population=np.full(len(health_data), population))
 @tsdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
     location: str
@@ -178,5 +185,5 @@ def add_field(data: BNPDataClass, new_class: type, **field_data):
 
 def remove_field(data: BNPDataClass, field_name, new_class=None):
     if new_class is None:
-        new_class = tsdataclass(dataclasses.make_dataclass(data.__class__.__name__, [(field.name, field.type) for field in dataclasses.fields(data) if field.name != field_name]))
+        new_class = tsdataclass(dataclasses.make_dataclass(data.__class__.__name__, [(field.name, field.type) for field in dataclasses.fields(data) if field.name != field_name], bases=(TimeSeriesData,)))
     return new_class(**{field.name: getattr(data, field.name) for field in dataclasses.fields(data) if field.name != field_name})

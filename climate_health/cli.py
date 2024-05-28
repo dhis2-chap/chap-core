@@ -3,13 +3,14 @@ import dataclasses
 import json
 import webbrowser
 from pathlib import PurePath, Path
-from typing import Literal
+from typing import Literal, Optional
 
+import numpy as np
 import pandas as pd
 from cyclopts import App
-
+from . import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
-from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_json
+from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_datavalue
 from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NutsParams
 from climate_health.external.models.jax_models.specs import SSMWithoutWeather, NaiveSSM
 from climate_health.file_io import get_results_path
@@ -57,7 +58,8 @@ def forecast(model_name: ModelType, dataset_name: DataSetType, n_months: int):
     out_path = get_results_path() / f'{model_name}_{dataset_name}_forecast_results_{n_months}.html'
     f = open(out_path, "w")
     for location, prediction in predictions.items():
-        fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data())
+        fig = plot_forecast_from_summaries(prediction.data(),
+                                           dataset.get_location(location).data())  # , lambda x: np.log(x+1))
         f.write(fig.to_html())
     f.close()
 
@@ -95,6 +97,15 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
         json.dump(json_response, f, indent=4)
 
 
+@app.command()
+def serve():
+    '''
+    Start CHAP as a backend server
+    '''
+    from .rest_api import main_backend
+    main_backend()
+
+
 @dataclasses.dataclass
 class AreaPolygons:
     ...
@@ -121,9 +132,6 @@ def convert_geo_json(geo_json_content) -> OurShapeFormat:
 #    ...
 
 
-@app.command()
-def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
-    api.dhis_zip_flow(zip_file_path, out_json, model_name)
 
 
 
@@ -132,6 +140,12 @@ def dhis_zip_flow(zip_file_path: str, out_json: str, model_name):
 # GOthenburg
 # Create prediction csv
 '''
+
+
+@app.command()
+def dhis_zip_flow(zip_file_path: str, out_json: str, model_name: Optional[str] = None):
+    api.dhis_zip_flow(zip_file_path, out_json, model_name)
+
 
 def main_function():
     '''

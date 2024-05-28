@@ -103,6 +103,8 @@ class TimePeriod:
         return self._exclusive_end() <= other._date
 
     def __sub__(self, other: 'TimePeriod'):
+        if not isinstance(other, TimePeriod):
+            return NotImplemented
         assert self._extension == other._extension
         return TimeDelta(relativedelta(self._date, other._date))
 
@@ -184,6 +186,8 @@ class Week(TimePeriod):
             self._date = date
 
     def __sub__(self, other: 'TimePeriod'):
+        if not isinstance(other, TimePeriod):
+            return NotImplemented
         assert self._extension == other._extension
         return TimeDelta(self._date - other._date)
 
@@ -445,7 +449,7 @@ class PeriodRange:
         ''' Find the index where the period would be inserted to maintain order'''
         if side not in ('left', 'right'):
             raise ValueError(f'Invalid side {side}')
-        assert period.time_delta == self._time_delta
+        assert period.time_delta == self._time_delta, (period, self._time_delta)
         n_steps = TimeDelta(relativedelta(period._date, self._start_timestamp._date)) // self._time_delta
         if side == 'right':
             n_steps += 1
