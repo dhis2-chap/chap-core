@@ -34,12 +34,19 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
                                       command=command,
                                       volumes=[f"{working_dir_full_path}:/home/run/"],
                                       working_dir="/home/run",
-                                      auto_remove=True,
+                                      auto_remove=False,
                                       detach=True)
-    output = container.attach(stdout=True, stream=True, logs=True)
-    full_output = ""
-    for line in output:
-        print("Line output: ", line)
-        full_output += line.decode("utf-8")
+    output = container.attach(stdout=True, stream=False, logs=True)
+    print(output)
+    full_output = output
+    #full_output = ""
+    #for line in output:
+    #    print("Line output: ", line)
+    #    full_output += line.decode("utf-8")
+
+    result = container.wait()
+    exit_code = result["StatusCode"]
+    assert exit_code == 0, f"Command failed with exit code {exit_code}"
+    container.remove()
 
     return full_output
