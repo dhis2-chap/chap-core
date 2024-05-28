@@ -21,15 +21,6 @@ def index_tree(tree, index):
 
 
 def array_tree_length(tree):
-    print('tree', tree)
     flat = tree_util.tree_flatten(tree)[0]
-    print('flat', flat)
     val = flat[0]
-    print(val)
     return val.shape[-1]
-    if isinstance(tree, jax.Array):
-        return len(tree)
-    elif hasattr(tree, 'items'):
-        return array_tree_length(next(iter(tree.values())))
-    else:
-        return array_tree_length(next(iter(tree)))

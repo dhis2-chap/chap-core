@@ -8,3 +8,4 @@ from climate_health.time_period.protocols import TimeStamp
 
 class TimePeriod(pd.Period):
     def __le__(self, other: Union['TimePeriod', TimeStamp]) -> bool:
+        ...
