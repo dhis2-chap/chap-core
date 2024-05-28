@@ -9,7 +9,6 @@ name: [Name of the model]
 train_command: [A template string for command that is run for training the model. Should contain {train_data} (which will be replaced with a train data file when .train() is called on the model) and {model} (whish will be replaced by a temp file name that the model is stored to).
 setup_command: [Optional. If set, will be run as a command before training]
 predict_command: [A template command for training. Should contain {future_data} (which will be replaced by a .csv file containing future data) and {model}.
-conda: [Optional. Can point to a yml file specifying a conda environment that all the commands will be run through.]
 dockerfile: [Optional. Ignored if conda is set. Can point to a directory that contains a Dockerfile. Will then create a docker image with the name of that director and use that docker image when running commands.]
 docker: [Optional. Ignored if dockerfile is set. Can be the name of an existing dockerimage that will be used.]
 ```
@@ -59,13 +58,13 @@ dependencies:
   - openssl
 ```
 
-If you store this file as 'env.yaml' you can make an environment with `conda env create --name NAME --file=env.yml`
+If you store this file as 'env.yaml' you can make an environment with `conda env create --name NAME --file=env.yml`****
 
-2: Try to get the initial r script to run without crashing (does not need to give anything correct out)
+2: Try to ****get the initial r script to run without crashing (does not need to give anything correct out)
 
   - The model might give you some data or instructions to give data on its format
 
-3: Try to split the code into setup, train and predict that takes our data in our format as input and output
+3: Try to split the code into setup, train and predict that takes our data in our**** format as input and output
 
 4: Make a conda env file from the final environment you have created (if you had to install anything else). Make sure things work if you create a new environment from that yml file. Note: You can create a yml file by dumping your current environment, but make sure you make a minimal file (google this).
 

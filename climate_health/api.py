@@ -10,6 +10,7 @@ from .assessment.dataset_splitting import train_test_split_with_weather
 from .datatypes import HealthData, ClimateData, HealthPopulationData, SimpleClimateData, ClimateHealthData, FullData
 from .dhis2_interface.json_parsing import predictions_to_datavalue, parse_disease_data, json_to_pandas, \
     parse_population_data
+from .external.external_model import get_model_from_yaml_file
 #from .external.external_model import ExternalCommandLineModel, get_model_from_yaml_file
 from .geojson import geojson_to_shape, geojson_to_graph
 from .predictor import get_model
@@ -98,19 +99,26 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
 
 #    ...
 
+def get_model_maybe_yaml(model_name, dockername=None):
+    if model_name.endswith(".yaml") or model_name.endswith(".yml"):
+        return get_model_from_yaml_file(model_name, dockername)
+    else:
+        return get_model(model_name)
 
-def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=None, n_months=4) -> List[dict]:
+
+def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=None, n_months=4, docker_filename: Optional[str] = None) -> List[dict] | None:
     data: PredictionData = read_zip_folder(zip_file_path)
-    json_body = train_on_prediction_data(data, model_name, n_months)
+    json_body = train_on_prediction_data(data, model_name, n_months, docker_filename)
     if out_json is not None:
         with open(out_json, "w") as f:
             json.dump(json_body, f)
+        return None
     else:
         return json_body
 
 
-def train_on_prediction_data(data, model_name=None, n_months=4):
-    model = get_model(model_name)(num_samples=10, num_warmup=10)
+def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=None):
+    model = get_model_maybe_yaml(model_name)() #num_samples=10, num_warmup=10)
     start_endpoint = min(data.health_data.start_timestamp,
                          data.climate_data.start_timestamp)
     end_endpoint = max(data.health_data.end_timestamp,
