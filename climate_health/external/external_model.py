@@ -215,12 +215,17 @@ def run_command(command: str, working_directory="./"):
         for c in iter(lambda: process.stdout.read(1), b""):
             sys.stdout.buffer.write(c)
         print('finished')
+        streamdata = process.communicate()[0]  # finnish before getting return code
+        return_code = process.returncode
+        assert return_code == 0, f"Command failed with return code {return_code}"
         # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
         # logging.info(output)
     except subprocess.CalledProcessError as e:
         error = e.output.decode()
         logging.info(error)
         raise e
+
+
 
 
 class DryModeExternalCommandLineModel(ExternalCommandLineModel):

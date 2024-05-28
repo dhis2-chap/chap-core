@@ -1,30 +1,25 @@
 ## Integrating external models
 
-An external model can be integrated into the code base by adding a directory for it inside this directory (i.e. inside `external_models/`).
-
-The directory can contain necessary scripts and files for the model and needs to at least contain a config.yml file following this structure:
+An external model can be integrated into the code base by creating a YAML file that defines the commands used for training and predicting. The YAML file should follow this structure:
 
 ```yaml
 name: [Name of the model]
 train_command: [A template string for command that is run for training the model. Should contain {train_data} (which will be replaced with a train data file when .train() is called on the model) and {model} (whish will be replaced by a temp file name that the model is stored to).
-setup_command: [Optional. If set, will be run as a command before training]
 predict_command: [A template command for training. Should contain {future_data} (which will be replaced by a .csv file containing future data) and {model}.
-dockerfile: [Optional. Ignored if conda is set. Can point to a directory that contains a Dockerfile. Will then create a docker image with the name of that director and use that docker image when running commands.]
-docker: [Optional. Ignored if dockerfile is set. Can be the name of an existing dockerimage that will be used.]
 ```
-
-Note that all paths are relative to the directory of the model.
 
 An example:
 ```yaml
 name: hydromet_dengue
 train_command: "Rscript train2.R {train_data} {model} map.graph"
-setup_command: "Rscript setup.R"
 predict_command: "Rscript predict.R {future_data} {model}"
-conda: env.yml
 ```
 
-A model can then be initiated using only the path of this yaml file:
+### Evaluating the model using CHAP on the command linef
+If you have a model locally that can be trained and used to predict with commands, you can run the model through CHAP on the command line like this:
+
+```bash
+
 
 ```python
 from climate_health.external.external_model import get_model_from_yaml_file

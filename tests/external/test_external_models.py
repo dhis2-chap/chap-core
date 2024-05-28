@@ -86,3 +86,10 @@ def test_run_conda():
     command = "conda --version"
     run_command(command)
 
+
+def test_run_command():
+    command = "echo 'hi'"
+    run_command(command)
+
+    with pytest.raises(Exception):
+        run_command("this_command_does_not_exist")
