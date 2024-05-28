@@ -58,7 +58,8 @@ def forecast(model_name: ModelType, dataset_name: DataSetType, n_months: int):
     out_path = get_results_path() / f'{model_name}_{dataset_name}_forecast_results_{n_months}.html'
     f = open(out_path, "w")
     for location, prediction in predictions.items():
-        fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data()) # , lambda x: np.log(x+1))
+        fig = plot_forecast_from_summaries(prediction.data(),
+                                           dataset.get_location(location).data())  # , lambda x: np.log(x+1))
         f.write(fig.to_html())
     f.close()
 
@@ -95,8 +96,12 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
     with open(json_filename, 'w') as f:
         json.dump(json_response, f, indent=4)
 
+
 @app.command()
 def serve():
+    '''
+    Start CHAP as a backend server
+    '''
     from .rest_api import main_backend
     main_backend()
 
@@ -136,8 +141,9 @@ def convert_geo_json(geo_json_content) -> OurShapeFormat:
 # Create prediction csv
 '''
 
+
 @app.command()
-def dhis_zip_flow(zip_file_path: str, out_json: str, model_name: Optional[str]=None):
+def dhis_zip_flow(zip_file_path: str, out_json: str, model_name: Optional[str] = None):
     api.dhis_zip_flow(zip_file_path, out_json, model_name)
 
 

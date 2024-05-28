@@ -2,10 +2,9 @@ import dataclasses
 import logging
 import time
 from enum import Enum
-from http.client import HTTPException, ResponseNotReady
 from typing import List, Union
 
-from fastapi import BackgroundTasks, UploadFile
+from fastapi import BackgroundTasks, UploadFile, HTTPException
 from pydantic import BaseModel
 # from fastapi.responses import HTMLResponse
 
@@ -26,7 +25,6 @@ def get_app():
         '*',  # Allow all origins
         "http://localhost:3000",
         "localhost:3000",
-        'https://chess-state-front.vercel.app/'
     ]
     app.add_middleware(
         CORSMiddleware,
@@ -55,17 +53,13 @@ def set_cur_response(response):
     state['response'] = response
 
 
-@app.post('/post_data/{data_type}')
-async def post_data(data_type: str, rows: List[List[str]]) -> dict:
-    current_data[data_type] = parse_json_rows(data_type, rows)
-    return {'status': 'success'}
-
-
 @app.post('/post_zip_file/')
 async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
+    '''
+    Post a zip file containing the data needed for training and evaluation, and start the training
+    '''
     if not state.ready:
-        # Return 400 Bad Request
-        raise ResponseNotReady()
+        raise HTTPException(status_code=400, detail="Model is currently training")
     state.ready = False
     state.status = 'training'
     prediction_data = read_zip_folder(file.file)
@@ -80,20 +74,22 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
 
 
 @app.get('/get_results/')
-async def get_results() -> dict:
+async def get_results() -> List[dict]:
+    '''
+    Retrieve results made by the model
+    '''
+
+    if 'response' not in current_data:
+        raise HTTPException(status_code=400, detail="No response available")
     return current_data['response']
 
 
 @app.get('/status/')
 async def get_status() -> State:
+    '''
+    Retrieve the current status of the model
+    '''
     return state
-
-
-@app.post('/train/{model_name}')
-async def train_model(model_name: str) -> dict:
-    model = get_model(model_name)()
-    state.status = 'training'
-    return {'status': 'success'}
 
 
 def main_backend():

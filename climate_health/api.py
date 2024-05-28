@@ -1,3 +1,4 @@
+import logging
 import json
 import zipfile
 from pathlib import Path
@@ -17,6 +18,7 @@ import dataclasses
 
 from .time_period.date_util_wrapper import Week, delta_week, delta_month, Month
 
+logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass
 class AreaPolygons:
@@ -124,9 +126,12 @@ def train_on_prediction_data(data, model_name=None, n_months=4):
     climate_health_data = SpatioTemporalDict(new_dict)
     prediction_start = Month(climate_health_data.end_timestamp) - n_months * delta_month
     train_data, _, future_weather = train_test_split_with_weather(climate_health_data, prediction_start)
+    logger.info(f"Training model {model_name} on {len(train_data.items())} locations")
     model.train(climate_health_data)  # , extra_args=data.area_polygons)
+    logger.info(f"Forecasting using {model_name} on {len(train_data.items())} locations")
     predictions = model.forecast(future_weather, forecast_delta=n_months * delta_month)
     attrs = ['median', 'quantile_high', 'quantile_low']
+    logger.info(f"Converting predictions to json")
     data_values = predictions_to_datavalue(predictions, attribute_mapping=dict(zip(attrs, attrs)))
     json_body = [dataclasses.asdict(element) for element in data_values]
     return json_body
