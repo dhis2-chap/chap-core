@@ -1,7 +1,7 @@
 import json
 import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 
@@ -97,8 +97,17 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
 #    ...
 
 
-def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=None, n_months=4) -> dict:
+def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=None, n_months=4) -> List[dict]:
     data: PredictionData = read_zip_folder(zip_file_path)
+    json_body = train_on_prediction_data(data, model_name, n_months)
+    if out_json is not None:
+        with open(out_json, "w") as f:
+            json.dump(json_body, f)
+    else:
+        return json_body
+
+
+def train_on_prediction_data(data, model_name=None, n_months=4):
     model = get_model(model_name)(num_samples=10, num_warmup=10)
     start_endpoint = min(data.health_data.start_timestamp,
                          data.climate_data.start_timestamp)
@@ -112,28 +121,12 @@ def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=N
         population = data.population_data[location]
 
         new_dict[location] = FullData.combine(health.data(), climate.data(), population)
-        # new_dict[location] = ClimateHealthData.combine(health.data(), climate.data())
-
-        # data.health_data.get_location(location).data().time_period = data.health_data.get_location(location).data().time_period.topandas()
     climate_health_data = SpatioTemporalDict(new_dict)
-    # climate_health_data = SpatioTemporalDict(
-    #         {
-    #             location: ClimateHealthData.combine(
-    #                 data.health_data.get_location(location).data(),
-    #                 data.climate_data.get_location(location).data(), fill_missing=True
-    #             )
-    #         for location in data.health_data.locations()
-    #         })
-    #prediction_start = Week(climate_health_data.end_timestamp)-n_weeks*delta_week
     prediction_start = Month(climate_health_data.end_timestamp) - n_months * delta_month
     train_data, _, future_weather = train_test_split_with_weather(climate_health_data, prediction_start)
-    model.train(climate_health_data) # , extra_args=data.area_polygons)
+    model.train(climate_health_data)  # , extra_args=data.area_polygons)
     predictions = model.forecast(future_weather, forecast_delta=n_months * delta_month)
     attrs = ['median', 'quantile_high', 'quantile_low']
     data_values = predictions_to_datavalue(predictions, attribute_mapping=dict(zip(attrs, attrs)))
     json_body = [dataclasses.asdict(element) for element in data_values]
-    if out_json is not None:
-        with open(out_json, "w") as f:
-            json.dump(json_body, f)
-    else:
-        return json_body
+    return json_body
