@@ -16,3 +16,26 @@ User documentation:
 
 Developer documentation:
 - [How to add an external model](external_models/Readme.md)
+
+
+## Run CHAP with Docker
+Ensure you have installed Docker on your local machine. If not, follow the installation guide [here](https://www.docker.com/get-started/).
+
+### Option 1 - Docker compose (easiest way)
+
+#### Step 1 - select which model to run:
+A file named ".env" is located at root-level in this project. This file contains the file path to the R-model that would be run when the CHAP starts. The default value is "./external_models/ewars_Plus", but you could edit this as you want.
+
+#### Step 2 - start CHAP
+On root-level run:
+```
+docker compose up
+```
+This would start CHAP and a web interface for interaction with CHAP. Go to http://localhost:4000/ in your browser and a webpage should appear.
+
+To stop the containers, run:
+```
+docker compose down
+```
+
+### Option 2 - run singel container
