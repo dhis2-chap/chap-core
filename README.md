@@ -24,7 +24,7 @@ Ensure you have installed Docker on your local machine. If not, follow the insta
 ### Option 1 - Docker compose (easiest way)
 
 #### Step 1 - select which model to run:
-A file named ".env" is located at root-level in this project. This file contains the file path to the R-model that would be run when the CHAP starts. The default value is "./external_models/ewars_Plus", but you could edit this as you want.
+Create a file named ".env" at the root-level in this project. This file must contain an environment variable named *"R_SCRIPT_PATH"*, that contains the file path to the R-model that would be run when CHAP starts. To begin with, you could use "R_SCRIPT_PATH=./external_models/ewars_Plus", but you could edit the value as you want.
 
 #### Step 2 - start CHAP
 On root-level run:
