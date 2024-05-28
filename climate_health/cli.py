@@ -143,8 +143,8 @@ def convert_geo_json(geo_json_content) -> OurShapeFormat:
 
 
 @app.command()
-def dhis_zip_flow(zip_file_path: str, out_json: str, model_name: Optional[str] = None):
-    api.dhis_zip_flow(zip_file_path, out_json, model_name)
+def dhis_zip_flow(zip_file_path: str, out_json: str, model_name: Optional[str] = None, docker_filename: Optional[str] = None):
+    api.dhis_zip_flow(zip_file_path, out_json, model_name, docker_filename=docker_filename)
 
 
 def main_function():
