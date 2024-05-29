@@ -46,7 +46,8 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
 
     result = container.wait()
     exit_code = result["StatusCode"]
-    assert exit_code == 0, f"Command failed with exit code {exit_code}: {container.logs().decode('utf-8')}"
+    log_output = container.logs().decode('utf-8')
+    assert exit_code == 0, f"Command failed with exit code {exit_code}: {log_output}"
     container.remove()
 
-    return full_output
+    return log_output
