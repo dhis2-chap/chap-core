@@ -30,12 +30,26 @@ def forecast_plot(true_data: HealthData, predicition_sampler: IsSampler, climate
     return plot_forecast(quantiles, true_data)
 
 
-def plot_forecast_from_summaries(summaries: SummaryStatistics, true_data: HealthData, transform = lambda x: x) -> Figure:
+def plot_forecast_from_summaries(summaries: SummaryStatistics, true_data: HealthData, transform=lambda x: x) -> Figure:
     df = summaries.topandas()
     true_df = pd.DataFrame({'x': [str(p) for p in true_data.time_period.topandas()], 'real': true_data.disease_cases})
     df.time_period = df.time_period.astype(str)
     return plot_forecasts_from_data_frame(df, true_df, transform)
-    # return plot_forecast([summaries.quantile_low, summaries.median, summaries.quantile_high], true_data, x_pred=summaries.time_period.topandas())
+
+
+def plot_forecast_from_summaries(summaries: SummaryStatistics | list[SummaryStatistics], true_data: HealthData,
+                                     transform=lambda x: x) -> Figure:
+        true_df = pd.DataFrame(
+            {'x': [str(p) for p in true_data.time_period.topandas()], 'real': true_data.disease_cases})
+        if isinstance(summaries, list):
+            df = [summary.topandas() for summary in summaries]
+            for tmp in df:
+                tmp.time_period = tmp.time_period.astype(str)
+        else:
+            df = summaries.topandas()
+            df.time_period = df.time_period.astype(str)
+
+        return plot_forecasts_from_data_frame(df, true_df, transform)
 
 
 def plot_forecast(quantiles: np.ndarray, true_data: HealthData, x_pred=None) -> Figure:
@@ -51,28 +65,43 @@ def plot_forecast(quantiles: np.ndarray, true_data: HealthData, x_pred=None) -> 
     return plot_forecasts_from_data_frame(df, true_df)
 
 
-def plot_forecasts_from_data_frame(prediction_df, true_df, transform = lambda x: x) -> Figure:
-    # insert last row of true_df into start of prediction_df
-    last_idx = np.where(prediction_df['time_period'][0] == true_df['x'])[0][0]
-    if last_idx != 0:
-        last_row = true_df.iloc[last_idx-1]
-        prepend_df = {'time_period': [last_row['x']], 'quantile_high': last_row['real'], 'quantile_low': last_row['real'], 'median': last_row['real']}
-        prediction_df = pd.concat([pd.DataFrame(prepend_df), prediction_df], ignore_index=True)
-
+def plot_forecasts_from_data_frame(prediction_df: pd.DataFrame | list[pd.DataFrame], true_df, transform=lambda x: x) -> Figure:
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=prediction_df["time_period"], y=transform(prediction_df["quantile_high"]), mode="lines", line=dict(color='lightgrey'),
-                             name="quantile_high"), )
-    fig.add_trace(go.Scatter(x=prediction_df["time_period"], y=transform(prediction_df["quantile_low"]),
-                             mode="lines", line=dict(color='lightgrey'), fill="tonexty",
-                             fillcolor='rgba(68, 68, 68, 0.3)',
-                             name="quantile_low"))
-    fig.add_scatter(x = true_df['x'], y=transform(true_df['real']), mode='lines', name='real', line=dict(color='blue'))
-    fig.add_scatter(x=prediction_df["time_period"], y=transform(prediction_df["median"]), mode="lines", line=dict(color='grey'), name="Median")
+    if isinstance(prediction_df, list):
+        for df in prediction_df:
+            add_prediction_lines(fig, df, transform, true_df)
+    else:
+        add_prediction_lines(fig, prediction_df, transform, true_df)
+    fig.add_scatter(x=true_df['x'], y=transform(true_df['real']), mode='lines', name='real', line=dict(color='blue'))
     fig.update_layout(
         title="Predicted path using estimated parameters vs real path",
         xaxis_title="Time Period",
         yaxis_title="Disease Cases")
     return fig
+
+
+def add_prediction_lines(fig, prediction_df, transform, true_df):
+    last_idx = np.where(prediction_df['time_period'][0] == true_df['x'])[0][0]
+    if last_idx != 0:
+        last_row = true_df.iloc[last_idx - 1]
+        prepend_df = {'time_period': [last_row['x']], 'quantile_high': last_row['real'],
+                      'quantile_low': last_row['real'], 'median': last_row['real']}
+        prediction_df = pd.concat([pd.DataFrame(prepend_df), prediction_df], ignore_index=True)
+    fig.add_trace(go.Scatter(x=prediction_df["time_period"],
+                             y=transform(prediction_df["quantile_high"]), mode="lines",
+                             line=dict(color='lightgrey'),
+                             name="quantile_high"), )
+    fig.add_trace(go.Scatter(x=prediction_df["time_period"], y=transform(prediction_df["quantile_low"]),
+                             mode="lines", line=dict(color='lightgrey'), fill="tonexty",
+                             fillcolor='rgba(68, 68, 68, 0.3)',
+                             name="quantile_low"))
+    fig.add_scatter(x=prediction_df["time_period"],
+                    y=transform(prediction_df["median"]), mode="lines",
+                    line=dict(color='grey'), name="Median")
+    # add vertical line for last true data point
+    fig.add_shape(
+        dict(type="line", x0=true_df['x'].iloc[last_idx-1], x1=true_df['x'].iloc[last_idx-1], y0=0, y1=max(max(prediction_df['quantile_high']), max(true_df['real'])),
+             line=dict(color="red", width=2)))
 
 
 def summary_plot(true_data: HealthData, summary_data: SummaryStatistics):

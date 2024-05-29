@@ -3,8 +3,7 @@ from typing import Iterable, Tuple, Protocol, Optional, Type
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthData, ClimateData, HealthData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from climate_health.time_period import Year, Month
-from climate_health.time_period.dataclasses import Period
+from climate_health.time_period import Year, Month, TimePeriod
 from climate_health.time_period.relationships import previous
 import dataclasses
 
@@ -20,7 +19,7 @@ class IsTimeDelta(Protocol):
     pass
 
 
-def split_test_train_on_period(data_set: IsSpatioTemporalDataSet, split_points: Iterable[Period],
+def split_test_train_on_period(data_set: IsSpatioTemporalDataSet, split_points: Iterable[TimePeriod],
                                future_length: Optional[IsTimeDelta] = None, include_future_weather: bool = False,
                                future_weather_class: Type[ClimateData] = ClimateData):
     func = train_test_split_with_weather if include_future_weather else train_test_split
@@ -30,13 +29,13 @@ def split_test_train_on_period(data_set: IsSpatioTemporalDataSet, split_points: 
     return (func(data_set, period, future_length) for period in split_points)
 
 
-def split_train_test_with_future_weather(data_set: IsSpatioTemporalDataSet, split_points: Iterable[Period],
+def split_train_test_with_future_weather(data_set: IsSpatioTemporalDataSet, split_points: Iterable[TimePeriod],
                                          future_length: Optional[IsTimeDelta] = None):
     return (train_test_split(data_set, period, future_length) for period in split_points)
 
 
 # Should we index on split-timestamp, first time period, or complete time?
-def train_test_split(data_set: IsSpatioTemporalDataSet, prediction_start_period: Period,
+def train_test_split(data_set: IsSpatioTemporalDataSet, prediction_start_period: TimePeriod,
                      extension: Optional[IsTimeDelta] = None):
     last_train_period = previous(prediction_start_period)
     train_data = data_set.restrict_time_period(slice(None, last_train_period))
@@ -49,7 +48,7 @@ def train_test_split(data_set: IsSpatioTemporalDataSet, prediction_start_period:
     return train_data, test_data
 
 
-def train_test_split_with_weather(data_set: SpatioTemporalDict, prediction_start_period: Period,
+def train_test_split_with_weather(data_set: SpatioTemporalDict, prediction_start_period: TimePeriod,
                                   extension: Optional[IsTimeDelta] = None,
                                   future_weather_class: Type[ClimateData] = ClimateData):
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)
@@ -62,7 +61,7 @@ def train_test_split_with_weather(data_set: SpatioTemporalDict, prediction_start
     return train_set, test_set, future_weather
 
 
-def get_split_points_for_data_set(data_set: IsSpatioTemporalDataSet, max_splits: int, start_offset = 1) -> list[Period]:
+def get_split_points_for_data_set(data_set: IsSpatioTemporalDataSet, max_splits: int, start_offset = 1) -> list[TimePeriod]:
     periods = next(iter(
         data_set.data())).data().time_period  # Uses the time for the first location, assumes it to be the same for all!
     return get_split_points_for_period_range(max_splits, periods, start_offset)

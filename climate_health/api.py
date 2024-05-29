@@ -1,6 +1,9 @@
 import logging
 import json
+import os
+import shutil
 import zipfile
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
 
@@ -18,6 +21,7 @@ from .spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 import dataclasses
 
 from .time_period.date_util_wrapper import Week, delta_week, delta_month, Month
+import git
 
 logger = logging.getLogger(__name__)
 
@@ -99,10 +103,37 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
 
 #    ...
 
+def get_model_from_directory_or_github_url(model_path, base_working_dir=Path('runs/')):
+    """
+    Gets the model and initializes a working directory with the code for the model
+    """
+    is_github = False
+    if isinstance(model_path, str) and model_path.startswith("https://github.com"):
+        dir_name = model_path.split("/")[-1].replace(".git", "")
+        model_name = dir_name
+        is_github = True
+    else:
+        model_name = Path(model_path).name
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    working_dir = base_working_dir / model_name / timestamp
+
+    if is_github:
+        working_dir.mkdir(parents=True)
+        git.Repo.clone_from(model_path, working_dir)
+    else:
+        # copy contents of model_path to working_dir
+        shutil.copytree(model_path, working_dir)
+
+    # assert that a config file exists
+    assert (working_dir / 'config.yml').exists(), f"config.yml file not found in {working_dir}"
+    return get_model_from_yaml_file(working_dir / 'config.yml', working_dir)
+
+
 def get_model_maybe_yaml(model_name, dockername=None):
     if model_name.endswith(".yaml") or model_name.endswith(".yml"):
-
-        model = get_model_from_yaml_file(model_name, dockername)
+        working_dir = Path(model_name).parent
+        model = get_model_from_yaml_file(model_name, working_dir, dockername)
         return model, model.name
     else:
         return get_model(model_name), model_name

@@ -71,7 +71,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         return self
 
     @classmethod
-    def from_yaml_file(cls, yaml_file: str, dockername: Optional[str] = None) -> "ExternalCommandLineModel":
+    def from_yaml_file(cls, yaml_file: str, working_dir, dockername: Optional[str] = None) -> "ExternalCommandLineModel":
         # read yaml file into a dict
         with open(yaml_file, 'r') as file:
             data = yaml.load(file, Loader=yaml.FullLoader)
@@ -92,7 +92,8 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             predict_command=predict_command,
             data_type=data_type,
             setup_command=setup_command,
-            working_dir=Path(yaml_file).parent,
+            working_dir=working_dir,
+            #working_dir=Path(yaml_file).parent,
             adapters=data.get('adapters', None),
             runner=runner,
         )
@@ -198,8 +199,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         future_data = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_data.items()})
         return self.predict(future_data)
 
-    def prediction_summary(self, *args, **kwargs):
-        return self.predict(*args, **kwargs)
+    def prediction_summary(self, future_data: SpatioTemporalDict[FeatureType], n_samples=1000):
+        future_data = SpatioTemporalDict({key: value.data()[:1] for key, value in future_data.items()})
+        return self.predict(future_data)
 
     def _provide_temp_file(self):
         return tempfile.NamedTemporaryFile(dir=self._working_dir, delete=False)
@@ -279,8 +281,8 @@ class SimpleFileContextManager:
             return self.file.read()
 
 
-def get_model_from_yaml_file(yaml_file: str, dockername: Optional[str] = None) -> ExternalCommandLineModel:
-    return ExternalCommandLineModel.from_yaml_file(yaml_file, dockername)
+def get_model_from_yaml_file(yaml_file: str, working_dir, dockername: Optional[str] = None) -> ExternalCommandLineModel:
+    return ExternalCommandLineModel.from_yaml_file(yaml_file, working_dir, dockername)
 
 
 def get_runner_from_yaml_file(yaml_file: str, dockername: Optional[str] = None) -> Runner:

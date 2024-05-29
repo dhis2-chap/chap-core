@@ -13,7 +13,8 @@ with open('HISTORY.rst') as history_file:
 requirements = ['typer', 'numpy', 'bionumpy', 'pandas', 'plotly', 'scikit-learn', 'matplotlib', 'diskcache', 'geopy',
                 'pooch',
                 'python-dateutil', 'meteostat', 'cyclopts', 'requests', 'pydantic', 'pyyaml',
-                'geopandas', 'libpysal', 'docker', 'jax', 'jaxlib', 'blackjax', 'fastapi']
+                'geopandas', 'libpysal', 'docker', 'jax', 'jaxlib', 'blackjax', 'fastapi',
+                'gitpython']
 
 test_requirements = ['pytest>=3', "hypothesis"]
 
