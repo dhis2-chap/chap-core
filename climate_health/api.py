@@ -101,9 +101,11 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
 
 def get_model_maybe_yaml(model_name, dockername=None):
     if model_name.endswith(".yaml") or model_name.endswith(".yml"):
-        return get_model_from_yaml_file(model_name, dockername)
+
+        model = get_model_from_yaml_file(model_name, dockername)
+        return model, model.name
     else:
-        return get_model(model_name)
+        return get_model(model_name), model_name
 
 
 def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=None, n_months=4, docker_filename: Optional[str] = None) -> List[dict] | None:
@@ -118,7 +120,8 @@ def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=N
 
 
 def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=None):
-    model = get_model_maybe_yaml(model_name, docker_filename)() #num_samples=10, num_warmup=10)
+    model, model_name = get_model_maybe_yaml(model_name, docker_filename)
+    model = model()
     start_endpoint = min(data.health_data.start_timestamp,
                          data.climate_data.start_timestamp)
     end_endpoint = max(data.health_data.end_timestamp,

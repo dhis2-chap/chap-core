@@ -25,12 +25,14 @@ def run_command(command: str, working_directory="./"):
         print(command)
         process = subprocess.Popen(command, stdout=subprocess.PIPE,
                                    cwd=working_directory, shell=True)
+        output = []
         for c in iter(lambda: process.stdout.read(1), b""):
             sys.stdout.buffer.write(c)
+            output.append(c.decode('ascii'))
         print('finished')
         streamdata = process.communicate()[0]  # finnish before getting return code
         return_code = process.returncode
-        assert return_code == 0, f"Command failed with return code {return_code}"
+        assert return_code == 0, f"Command '{command}' failed with return code {return_code}, ({''.join(streamdata)}, {''.join(output)}"
         # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
         # logging.info(output)
     except subprocess.CalledProcessError as e:

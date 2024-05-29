@@ -8,6 +8,8 @@ from typing import Literal, Optional
 import numpy as np
 import pandas as pd
 from cyclopts import App
+
+from climate_health.api import get_model_maybe_yaml
 from . import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
 from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_datavalue
@@ -30,13 +32,15 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
 
 
 @app.command()
-def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int, other_model: ModelType = None):
+def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits: int, other_model: ModelType = None):
     '''
     Evaluate a model on a dataset using forecast cross validation
     '''
     logging.basicConfig(level=logging.INFO)
     dataset = datasets[dataset_name].load()
-    model = get_model(model_name)()
+    model, model_name = get_model_maybe_yaml(model_name)
+    model = model()
+    # model = get_model(model_name)()
     f = open('debug.csv', 'w')
     callback = lambda name, data: append_to_csv(f, data.to_pandas())
     results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True,
@@ -50,10 +54,12 @@ def evaluate(model_name: ModelType, dataset_name: DataSetType, max_splits: int, 
 
 
 @app.command()
-def forecast(model_name: ModelType, dataset_name: DataSetType, n_months: int):
+def forecast(model_name: str, dataset_name: DataSetType, n_months: int):
     logging.basicConfig(level=logging.INFO)
     dataset = datasets[dataset_name].load()
-    model = get_model(model_name)()
+    model, model_name = get_model_maybe_yaml(model_name)
+    model = model()
+    # model = get_model(model_name)()
     predictions = do_forecast(model, dataset, n_months * delta_month)
     out_path = get_results_path() / f'{model_name}_{dataset_name}_forecast_results_{n_months}.html'
     f = open(out_path, "w")

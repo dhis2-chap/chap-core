@@ -63,6 +63,10 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._model_file_name = self._name + ".model"
         self._runner = runner
 
+    @property
+    def name(self):
+        return self._name
+
     def __call__(self):
         return self
 
@@ -193,6 +197,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         n_periods = forecast_delta // time_period.delta
         future_data = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_data.items()})
         return self.predict(future_data)
+
+    def prediction_summary(self, *args, **kwargs):
+        return self.predict(*args, **kwargs)
 
     def _provide_temp_file(self):
         return tempfile.NamedTemporaryFile(dir=self._working_dir, delete=False)
