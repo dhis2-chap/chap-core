@@ -55,11 +55,13 @@ def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits:
 
 @app.command()
 def forecast(model_name: str, dataset_name: DataSetType, n_months: int):
+    '''
+    Forecast the last n months of the data using the specified model trained on the first N-n_months months of the data
+    '''
     logging.basicConfig(level=logging.INFO)
     dataset = datasets[dataset_name].load()
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
-    # model = get_model(model_name)()
     predictions = do_forecast(model, dataset, n_months * delta_month)
     out_path = get_results_path() / f'{model_name}_{dataset_name}_forecast_results_{n_months}.html'
     f = open(out_path, "w")
@@ -68,6 +70,14 @@ def forecast(model_name: str, dataset_name: DataSetType, n_months: int):
                                            dataset.get_location(location).data())  # , lambda x: np.log(x+1))
         f.write(fig.to_html())
     f.close()
+
+
+@app.command()
+def multi_forecast(model_name: str, dataset_name: DataSetType, n_months: int, pre_train_months: int):
+    model, model_name = get_model_maybe_yaml(model_name)
+    model = model()
+    dataset = datasets[dataset_name].load()
+
 
 
 @app.command()

@@ -14,7 +14,22 @@ def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta):
     model._num_warmup = 1000
     model._num_samples = 400
     model.train(train_data)
-    if hasattr(model, 'diagnose'):
+    if False and hasattr(model, 'diagnose'):
         model.diagnose()
     predictions = model.forecast(future_weather, 10, prediction_length)
     return predictions
+
+
+def multi_forecast(model, dataset: SpatioTemporalDict, prediction_lenght: TimeDelta, pre_train_delta: TimeDelta):
+    '''
+    Forecast n_months into the future using the model
+    '''
+    cur_dataset = dataset
+    datasets = []
+    init_timestamp = dataset.start_timestamp+pre_train_delta+prediction_lenght
+    while cur_dataset.end_timestamp > init_timestamp:
+        datasets.append(cur_dataset)
+        split_point = cur_dataset.end_timestamp - prediction_lenght
+        split_period = Month(split_point.year, split_point.month)
+        cur_dataset, _, _ = train_test_split_with_weather(cur_dataset, split_period)
+    return (forecast(model, dataset, prediction_lenght) for dataset in datasets[::-1])
