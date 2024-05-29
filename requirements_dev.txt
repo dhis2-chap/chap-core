@@ -11,4 +11,6 @@ build
 geopy
 meteostat
 pytest-mock
+furo
+myst-parser
 fastapi

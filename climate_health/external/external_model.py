@@ -5,7 +5,7 @@ import sys
 import tempfile
 from hashlib import md5
 from pathlib import Path
-from typing import Protocol, Generic, TypeVar, Tuple
+from typing import Protocol, Generic, TypeVar, Tuple, Optional
 
 import docker
 import numpy as np
@@ -63,11 +63,15 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._model_file_name = self._name + ".model"
         self._runner = runner
 
+    @property
+    def name(self):
+        return self._name
+
     def __call__(self):
         return self
 
     @classmethod
-    def from_yaml_file(cls, yaml_file: str) -> "ExternalCommandLineModel":
+    def from_yaml_file(cls, yaml_file: str, dockername: Optional[str] = None) -> "ExternalCommandLineModel":
         # read yaml file into a dict
         with open(yaml_file, 'r') as file:
             data = yaml.load(file, Loader=yaml.FullLoader)
@@ -76,12 +80,11 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         train_command = data['train_command']
         predict_command = data['predict_command']
         setup_command = data.get('setup_command', None)
-        conda_env_file = data['conda'] if 'conda' in data else None
+        #conda_env_file = data['conda'] if 'conda' in data else None
         data_type = data.get('data_type', None)
         allowed_data_types = {'HealthData': HealthData}
         data_type = allowed_data_types.get(data_type, None)
-
-        runner = get_runner_from_yaml_file(yaml_file)
+        runner = get_runner_from_yaml_file(yaml_file, dockername)
 
         model = cls(
             name=name,
@@ -195,6 +198,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         future_data = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_data.items()})
         return self.predict(future_data)
 
+    def prediction_summary(self, *args, **kwargs):
+        return self.predict(*args, **kwargs)
+
     def _provide_temp_file(self):
         return tempfile.NamedTemporaryFile(dir=self._working_dir, delete=False)
 
@@ -204,24 +210,11 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     #        model.predict()
 
 
-def run_command(command: str, working_directory="./"):
-    """Runs a unix command using subprocess"""
-    logging.info(f"Running command: {command}")
-    # command = command.split()
+# todo: remove this
+def run_command(command: str, working_directory=Path(".")):
+    from climate_health.runners.command_line_runner import run_command
+    run_command(command, working_directory)
 
-    try:
-        print(command)
-        process = subprocess.Popen(command, stdout=subprocess.PIPE,
-                                   cwd=working_directory, shell=True)
-        for c in iter(lambda: process.stdout.read(1), b""):
-            sys.stdout.buffer.write(c)
-        print('finished')
-        # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
-        # logging.info(output)
-    except subprocess.CalledProcessError as e:
-        error = e.output.decode()
-        logging.info(error)
-        raise e
 
 
 class DryModeExternalCommandLineModel(ExternalCommandLineModel):
@@ -286,16 +279,19 @@ class SimpleFileContextManager:
             return self.file.read()
 
 
-def get_model_from_yaml_file(yaml_file: str) -> ExternalCommandLineModel:
-    return ExternalCommandLineModel.from_yaml_file(yaml_file)
+def get_model_from_yaml_file(yaml_file: str, dockername: Optional[str] = None) -> ExternalCommandLineModel:
+    return ExternalCommandLineModel.from_yaml_file(yaml_file, dockername)
 
 
-def get_runner_from_yaml_file(yaml_file: str) -> Runner:
+def get_runner_from_yaml_file(yaml_file: str, dockername: Optional[str] = None) -> Runner:
     with open(yaml_file, 'r') as file:
         data = yaml.load(file, Loader=yaml.FullLoader)
         working_dir = Path(yaml_file).parent
-        if 'dockerfile' in data:
-            return DockerRunner(data['dockerfile'], working_dir)
+
+        if 'dockerfile' in data or dockername is not None:
+            if dockername is None:
+                dockername = data['dockerfile']
+            return DockerRunner(dockername, working_dir)
         elif 'conda' in data:
             raise Exception("Conda runner not implemented")
         else:

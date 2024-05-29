@@ -10,5 +10,5 @@ class ArrayTree(Protocol[T]):
     def shape(self) -> tuple[int]:
         ...
 
-    def __getitem__(self, key: IndexLike) -> Self[T]:
+    def __getitem__(self, key: IndexLike) -> 'Self[T]':
         ...

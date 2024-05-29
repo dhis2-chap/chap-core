@@ -53,6 +53,13 @@ def set_cur_response(response):
     state['response'] = response
 
 
+class PredictionResponse(BaseModel):
+    value: float
+    orgUnit: str
+    dataElement: str
+    period: str
+
+
 @app.post('/post_zip_file/')
 async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
     '''
@@ -74,7 +81,7 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
 
 
 @app.get('/get_results/')
-async def get_results() -> List[dict]:
+async def get_results() -> List[PredictionResponse]:
     '''
     Retrieve results made by the model
     '''

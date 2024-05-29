@@ -16,20 +16,27 @@ class CommandLineRunner(Runner):
         pass
 
 
-def run_command(command: str, working_directory="./"):
+def run_command(command: str, working_directory=Path(".")):
     """Runs a unix command using subprocess"""
     logging.info(f"Running command: {command}")
     # command = command.split()
 
     try:
+        print(command)
         process = subprocess.Popen(command, stdout=subprocess.PIPE,
                                    cwd=working_directory, shell=True)
+        output = []
         for c in iter(lambda: process.stdout.read(1), b""):
             sys.stdout.buffer.write(c)
+            output.append(c.decode('ascii'))
         print('finished')
+        streamdata = process.communicate()[0]  # finnish before getting return code
+        return_code = process.returncode
+        assert return_code == 0, f"Command '{command}' failed with return code {return_code}, ({''.join(streamdata)}, {''.join(output)}"
         # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
         # logging.info(output)
     except subprocess.CalledProcessError as e:
         error = e.output.decode()
         logging.info(error)
         raise e
+

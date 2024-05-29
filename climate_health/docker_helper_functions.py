@@ -14,7 +14,7 @@ def create_docker_image(dockerfile_directory: str, working_dir: str="./"):
     client = docker.from_env()
     name = Path(dockerfile_directory).stem
     logging.info(f"Creating docker image {name} from Dockerfile in {dockerfile_directory}")
-    dockerfile = Path(working_dir) / Path(dockerfile_directory) / "Dockerfile"
+    dockerfile =  Path(dockerfile_directory) / "Dockerfile"
     logging.info(f"Looking for dockerfile {dockerfile}")
     response = client.api.build(fileobj=open(dockerfile, "rb"),
                                 tag=name, decode=True)
@@ -34,12 +34,20 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
                                       command=command,
                                       volumes=[f"{working_dir_full_path}:/home/run/"],
                                       working_dir="/home/run",
-                                      auto_remove=True,
+                                      auto_remove=False,
                                       detach=True)
-    output = container.attach(stdout=True, stream=True, logs=True)
-    full_output = ""
-    for line in output:
-        print("Line output: ", line)
-        full_output += line.decode("utf-8")
+    output = container.attach(stdout=True, stream=False, logs=True)
+    print(output)
+    full_output = output
+    #full_output = ""
+    #for line in output:
+    #    print("Line output: ", line)
+    #    full_output += line.decode("utf-8")
 
-    return full_output
+    result = container.wait()
+    exit_code = result["StatusCode"]
+    log_output = container.logs().decode('utf-8')
+    assert exit_code == 0, f"Command failed with exit code {exit_code}: {log_output}"
+    container.remove()
+
+    return log_output
