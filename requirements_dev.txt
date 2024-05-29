@@ -11,3 +11,4 @@ build
 geopy
 meteostat
 pytest-mock
+fastapi
