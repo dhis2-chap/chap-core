@@ -1,6 +1,13 @@
 ## Integrating external models
 
-An external model can be integrated into the code base by creating a YAML file that defines the commands used for training and predicting. The YAML file should follow this structure:
+CHAP can run external models in two ways:
+
+- By specifying a path to a local code base
+- or by specifying a github URL to a git repo. The url needs to start with https://github.com/
+
+In either case, the directory or repo should contain a config.yaml file that specifies how to train and predict with the model.
+
+The YAML file should follow this structure:
 
 ```yaml
 name: [Name of the model]
@@ -15,58 +22,18 @@ train_command: "Rscript train2.R {train_data} {model} map.graph"
 predict_command: "Rscript predict.R {future_data} {model}"
 ```
 
-### Evaluating the model using CHAP on the command linef
-If you have a model locally that can be trained and used to predict with commands, you can run the model through CHAP on the command line like this:
+### Using a docker image for external models
 
-```bash
+It is possible to add a docker image with the external model, which CHAP then will use when running the model.
 
-
-```python
-from climate_health.external.external_model import get_model_from_yaml_file
-yaml_file = 'path/to/config.yml'
-model = get_model_from_yaml_file(yaml)
-model.setup()  # optinal, will run setup command if specified
-model.train(train_data)
-results = model.predict(future_climate_data)
-```
-
-### Testing
-If you want to include the model in the automatic tests, add it to the list above the test `test_all_external_models_acceptance` in `tests/external/test_external_models.py`.
-
-
-
-### Recommended approach for adding external R models
-
-1: Make a local conda environment with R. Make a yaml file with this content and start from that:
+To do this, add a `dockerfile` key to the config.yaml file:
 
 ```yaml
-channels:
-  - conda-forge
-  - bioconda
-  - defaults
-dependencies:
-  - r-essentials
-  - r-base
-  - conda-forge::r-fmesher
-  - ca-certificates
-  - certifi
-  - openssl
+dockerfile: path/to/directory/with/dockerfile
 ```
 
-If you store this file as 'env.yaml' you can make an environment with `conda env create --name NAME --file=env.yml`****
-
-2: Try to ****get the initial r script to run without crashing (does not need to give anything correct out)
-
-  - The model might give you some data or instructions to give data on its format
-
-3: Try to split the code into setup, train and predict that takes our data in our**** format as input and output
-
-4: Make a conda env file from the final environment you have created (if you had to install anything else). Make sure things work if you create a new environment from that yml file. Note: You can create a yml file by dumping your current environment, but make sure you make a minimal file (google this).
-
-5: Try to run it through the ExternalCommandLineModel class by following the instructions in the beginning of this document by following the instructions in the beginning of this document.
+The `dockerfile` keyword should point to a directory that contains a Dockerfile that specifies how to build the docker image. This path is relative to the directory of the model itself.
 
 
-
-## Using Docker instead of Conda
-- Make sure you have Docker installed and that it can be run without sudo
-- The Dockerfile in external_models/docker_r_base may be suitable for many R methods, and can be specified with `dockerfile: ../docker_r_base/` in the config.yml file.
+### Example
+A full example of an external R model can be found at [https://github.com/knutdrand/external_rmodel_example/](https://github.com/knutdrand/external_rmodel_example/).
