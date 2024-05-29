@@ -1,10 +1,12 @@
+from pathlib import Path
+
 from climate_health.runners.command_line_runner import CommandLineRunner
 from climate_health.runners.docker_runner import DockerRunner
 
 
 def test_command_line_runner():
     command = "echo 'test'"
-    runner = CommandLineRunner("./")
+    runner = CommandLineRunner(Path("."))
     runner.run_command("")
 
 

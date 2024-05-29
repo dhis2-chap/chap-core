@@ -211,7 +211,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
 
 # todo: remove this
-def run_command(command: str, working_directory="./"):
+def run_command(command: str, working_directory=Path(".")):
     from climate_health.runners.command_line_runner import run_command
     run_command(command, working_directory)
 
