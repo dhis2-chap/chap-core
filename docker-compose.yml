@@ -1,14 +1,11 @@
 version: '3'
 services:
   chap:
-    build: external_models/docker_r_base
-    image: docker_r_base
-    volumes:
-      - ${R_SCRIPT_PATH}:/home/run/
+    build: .
+    image: chap
     ports:
       - "8000:8000"
-    working_dir: /home/run/
-    command: Rscript setup.R
+    working_dir: /
 
   chap-interface:
     build: climate_health/web_interface
