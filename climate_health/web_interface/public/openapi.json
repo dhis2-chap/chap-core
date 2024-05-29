@@ -1,0 +1,181 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "FastAPI",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/post_zip_file/": {
+            "post": {
+                "summary": "Post Zip File",
+                "description": "Post a zip file containing the data needed for training and evaluation, and start the training",
+                "operationId": "post_zip_file_post_zip_file__post",
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/Body_post_zip_file_post_zip_file__post"
+                                    }
+                                ],
+                                "title": "Body"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "title": "Response Post Zip File Post Zip File  Post"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/get_results/": {
+            "get": {
+                "summary": "Get Results",
+                "description": "Retrieve results made by the model",
+                "operationId": "get_results_get_results__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "type": "object"
+                                    },
+                                    "type": "array",
+                                    "title": "Response Get Results Get Results  Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/status/": {
+            "get": {
+                "summary": "Get Status",
+                "description": "Retrieve the current status of the model",
+                "operationId": "get_status_status__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/State"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Body_post_zip_file_post_zip_file__post": {
+                "properties": {
+                    "file": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "binary"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "File"
+                    }
+                },
+                "type": "object",
+                "title": "Body_post_zip_file_post_zip_file__post"
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "State": {
+                "properties": {
+                    "ready": {
+                        "type": "boolean",
+                        "title": "Ready"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "ready",
+                    "status"
+                ],
+                "title": "State"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            }
+        }
+    }
+}

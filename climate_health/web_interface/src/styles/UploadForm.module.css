@@ -1,0 +1,15 @@
+.container{
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1em;
+}
+
+.error{
+    color: rgb(255, 93, 93);
+    font-weight: 500;
+    text-align: right;
+}
+
+.selectedFile{
+    margin-top: 0.3em;
+}
