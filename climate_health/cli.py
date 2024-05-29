@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from cyclopts import App
 
-from climate_health.api import get_model_maybe_yaml
+from climate_health.api import get_model_maybe_yaml, get_model_from_directory_or_github_url
 from . import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
 from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_datavalue
@@ -21,7 +21,6 @@ from climate_health.predictor import get_model, models, ModelType
 from climate_health.file_io.example_data_set import datasets, DataSetType
 from climate_health.time_period.date_util_wrapper import delta_month, Week
 from .assessment.prediction_evaluator import evaluate_model
-from .assessment.forecast import forecast as do_forecast
 import logging
 
 app = App()
@@ -54,18 +53,11 @@ def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits:
 
 
 @app.command()
-def forecast(model_name: str, dataset_name: DataSetType, n_months: int):
-    logging.basicConfig(level=logging.INFO)
-    dataset = datasets[dataset_name].load()
-    model, model_name = get_model_maybe_yaml(model_name)
-    model = model()
-    # model = get_model(model_name)()
-    predictions = do_forecast(model, dataset, n_months * delta_month)
+def forecast(model_name: str, dataset_name: DataSetType, n_months: int, model_path: Optional[str] = None):
     out_path = get_results_path() / f'{model_name}_{dataset_name}_forecast_results_{n_months}.html'
     f = open(out_path, "w")
-    for location, prediction in predictions.items():
-        fig = plot_forecast_from_summaries(prediction.data(),
-                                           dataset.get_location(location).data())  # , lambda x: np.log(x+1))
+    figs = api.forecast(model_name, dataset_name, n_months, model_path)
+    for fig in figs:
         f.write(fig.to_html())
     f.close()
 
