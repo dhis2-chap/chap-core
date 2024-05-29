@@ -14,7 +14,7 @@ def create_docker_image(dockerfile_directory: str, working_dir: str="./"):
     client = docker.from_env()
     name = Path(dockerfile_directory).stem
     logging.info(f"Creating docker image {name} from Dockerfile in {dockerfile_directory}")
-    dockerfile = Path(working_dir) / Path(dockerfile_directory) / "Dockerfile"
+    dockerfile =  Path(dockerfile_directory) / "Dockerfile"
     logging.info(f"Looking for dockerfile {dockerfile}")
     response = client.api.build(fileobj=open(dockerfile, "rb"),
                                 tag=name, decode=True)
@@ -46,7 +46,7 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
 
     result = container.wait()
     exit_code = result["StatusCode"]
-    assert exit_code == 0, f"Command failed with exit code {exit_code}"
+    assert exit_code == 0, f"Command failed with exit code {exit_code}: {container.logs().decode('utf-8')}"
     container.remove()
 
     return full_output

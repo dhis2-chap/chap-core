@@ -1,5 +1,5 @@
 from annotated_types import Interval
-from typing import Annotated, Protocol, TypeVar, Self, Sequence, Any
+from typing import Annotated, Protocol, TypeVar, Sequence, Any
 
 from climate_health.external.models.jax_models.prototype_distributions import IsDistribution
 

@@ -76,7 +76,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         train_command = data['train_command']
         predict_command = data['predict_command']
         setup_command = data.get('setup_command', None)
-        conda_env_file = data['conda'] if 'conda' in data else None
+        #conda_env_file = data['conda'] if 'conda' in data else None
         data_type = data.get('data_type', None)
         allowed_data_types = {'HealthData': HealthData}
         data_type = allowed_data_types.get(data_type, None)

@@ -1,14 +1,14 @@
 # Dockerfile for for R base image with INLA installed
 # after installation, can be used interactively with:
 # sudo docker run --rm -it docker_r_base bash
-FROM rstudio/r-base:4.3-jammy
+FROM rstudio/r-base:4.4-jammy
 RUN echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/00-docker
 RUN echo 'APT::Install-Recommends "0";' >> /etc/apt/apt.conf.d/00-docker
 RUN DEBIAN_FRONTEND=noninteractive \
   apt-get update && \
   apt-get install -y libudunits2-dev libgdal-dev libssl-dev libfontconfig1-dev libgsl-dev
 RUN R -e 'r = getOption("repos"); r["CRAN"] = "http://cran.us.r-project.org"; options(repos = r); install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)'
-RUN R -e 'r = getOption("repos"); r["CRAN"] = "http://cran.us.r-project.org"; options(repos = r); install.packages("tidyverse", repos=c(getOption("repos"), dep=TRUE))'
+# RUN R -e 'r = getOption("repos"); r["CRAN"] = "http://cran.us.r-project.org"; options(repos = r); install.packages("tidyverse", repos=c(getOption("repos"), dep=TRUE))'
 RUN rm -rf /var/lib/apt/lists/*
 RUN useradd -ms /bin/bash apprunner
 RUN echo "apprunner:apprunner" | chpasswd
