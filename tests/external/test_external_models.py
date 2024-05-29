@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 import yaml
 
+from climate_health.api import get_model_from_directory_or_github_url
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.datatypes import ClimateHealthTimeSeries
 
@@ -19,7 +20,7 @@ from climate_health.util import conda_available
 @pytest.mark.skipif(not conda_available(), reason='requires conda')
 def test_r_model_from_folder(models_path, train_data, future_climate_data):
     yaml = models_path / 'testmodel' / 'config.yml'
-    model = get_model_from_yaml_file(yaml)
+    model = get_model_from_yaml_file(yaml, working_dir=models_path / 'testmodel')
     model.setup()
     model.train(train_data)
     with pytest.raises(ValueError):
@@ -28,7 +29,7 @@ def test_r_model_from_folder(models_path, train_data, future_climate_data):
 
 def test_python_model_from_folder(models_path, train_data, future_climate_data):
     yaml = models_path / 'naive_python_model' / 'config.yml'
-    model = get_model_from_yaml_file(yaml)
+    model = get_model_from_yaml_file(yaml, working_dir=models_path / 'naive_python_model')
     model.train(train_data)
     results = model.predict(future_climate_data)
     assert results is not None
@@ -59,7 +60,7 @@ def test_all_external_models_acceptance(model_directory, models_path, train_data
     can be called without anything failing"""
     print("Running")
     yaml_path = models_path / model_directory / 'config.yml'
-    model = get_model_from_yaml_file(yaml_path)
+    model = get_model_from_yaml_file(yaml_path, working_dir=models_path / model_directory)
     train_data = get_dataset_from_yaml(yaml_path)
     model.setup()
     model.train(train_data)
@@ -72,7 +73,7 @@ def test_all_external_models_acceptance(model_directory, models_path, train_data
 def test_external_model_predict(model_directory, models_path):
     yaml_path = models_path / model_directory / 'config.yml'
     train_data = get_dataset_from_yaml(yaml_path)
-    model = get_model_from_yaml_file(yaml_path)
+    model = get_model_from_yaml_file(yaml_path, working_dir=models_path / model_directory)
     model.setup()
     #model.setup()
     results = model.predict(train_data)
@@ -93,3 +94,16 @@ def test_run_command():
 
     with pytest.raises(Exception):
         run_command("this_command_does_not_exist")
+
+
+def test_get_model_from_github():
+    repo_url = "https://github.com/knutdrand/external_rmodel_example.git"
+    model = get_model_from_directory_or_github_url(repo_url)
+    assert model.name == 'example_model'
+
+
+def test_get_model_from_local_directory(models_path):
+    repo_url = models_path / 'ewars_Plus'
+    model = get_model_from_directory_or_github_url(repo_url)
+    assert model.name == "ewars_Plus"
+

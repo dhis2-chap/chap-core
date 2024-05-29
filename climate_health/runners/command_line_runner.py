@@ -16,7 +16,7 @@ class CommandLineRunner(Runner):
         pass
 
 
-def run_command(command: str, working_directory="./"):
+def run_command(command: str, working_directory=Path(".")):
     """Runs a unix command using subprocess"""
     logging.info(f"Running command: {command}")
     # command = command.split()
