@@ -18,7 +18,7 @@ from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.docker_helper_functions import create_docker_image, run_command_through_docker_container
 from climate_health.runners.command_line_runner import CommandLineRunner
-from climate_health.runners.docker_runner import DockerRunner
+from climate_health.runners.docker_runner import DockerImageRunner, DockerRunner
 from climate_health.runners.runner import Runner
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import TimeDelta, delta_month
@@ -71,7 +71,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         return self
 
     @classmethod
-    def from_yaml_file(cls, yaml_file: str, working_dir, dockername: Optional[str] = None) -> "ExternalCommandLineModel":
+    def from_yaml_file(cls, yaml_file: str, working_dir) -> "ExternalCommandLineModel":
         # read yaml file into a dict
         with open(yaml_file, 'r') as file:
             data = yaml.load(file, Loader=yaml.FullLoader)
@@ -84,7 +84,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         data_type = data.get('data_type', None)
         allowed_data_types = {'HealthData': HealthData}
         data_type = allowed_data_types.get(data_type, None)
-        runner = get_runner_from_yaml_file(yaml_file, dockername)
+        runner = get_runner_from_yaml_file(yaml_file)
 
         model = cls(
             name=name,
@@ -281,19 +281,19 @@ class SimpleFileContextManager:
             return self.file.read()
 
 
-def get_model_from_yaml_file(yaml_file: str, working_dir, dockername: Optional[str] = None) -> ExternalCommandLineModel:
-    return ExternalCommandLineModel.from_yaml_file(yaml_file, working_dir, dockername)
+def get_model_from_yaml_file(yaml_file: str, working_dir) -> ExternalCommandLineModel:
+    return ExternalCommandLineModel.from_yaml_file(yaml_file, working_dir)
 
 
-def get_runner_from_yaml_file(yaml_file: str, dockername: Optional[str] = None) -> Runner:
+def get_runner_from_yaml_file(yaml_file: str) -> Runner:
     with open(yaml_file, 'r') as file:
         data = yaml.load(file, Loader=yaml.FullLoader)
         working_dir = Path(yaml_file).parent
 
-        if 'dockerfile' in data or dockername is not None:
-            if dockername is None:
-                dockername = data['dockerfile']
-            return DockerRunner(dockername, working_dir)
+        if 'dockerfile' in data:
+            return DockerImageRunner(data['dockerfile'], working_dir)
+        elif 'dockername' in data:
+            return DockerRunner(data['dockername'], working_dir)
         elif 'conda' in data:
             raise Exception("Conda runner not implemented")
         else:

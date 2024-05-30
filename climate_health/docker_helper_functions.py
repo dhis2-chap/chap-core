@@ -4,17 +4,15 @@ from pathlib import Path
 import docker
 
 
-def create_docker_image(dockerfile_directory: str, working_dir: str="./"):
+def create_docker_image(dockerfile_directory: Path | str):
     """Creates a docker image based on path to a directory that should contain a Dockerfile.
     Uses the final directory name as the name for the image (e.g. /path/to/name/ -> name)
-    working_dir: str
-        Optional. The working dir that the path will be relative to.
     Returns the name.
     """
     client = docker.from_env()
     name = Path(dockerfile_directory).stem
     logging.info(f"Creating docker image {name} from Dockerfile in {dockerfile_directory}")
-    dockerfile =  Path(dockerfile_directory) / "Dockerfile"
+    dockerfile = Path(dockerfile_directory) / "Dockerfile"
     logging.info(f"Looking for dockerfile {dockerfile}")
     response = client.api.build(fileobj=open(dockerfile, "rb"),
                                 tag=name, decode=True)

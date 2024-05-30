@@ -37,3 +37,10 @@ The `dockerfile` keyword should point to a directory that contains a Dockerfile 
 
 ### Example
 A full example of an external R model can be found at [https://github.com/knutdrand/external_rmodel_example/](https://github.com/knutdrand/external_rmodel_example/).
+
+
+### Running an external model on the command line
+...
+
+### Running an external model through "CHAP-upload"
+...

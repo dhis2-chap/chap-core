@@ -26,7 +26,7 @@ const Result = ({ isReady }: ResultProps) => {
 
   return (
     <div className={styles.buttonContainer}>
-      <Button className={styles.result} color="success" variant='outlined' onClick={downloadResult} disableElevation sx={{ textTransform: 'none' }} endIcon={<FileDownloadIcon />}>Download latest result</Button>
+      <Button disabled={!isReady} className={styles.result} color="success" variant='outlined' onClick={downloadResult} disableElevation sx={{ textTransform: 'none' }} endIcon={<FileDownloadIcon />}>Download latest result</Button>
       <span>{errorMessage}</span>
     </div>
   )

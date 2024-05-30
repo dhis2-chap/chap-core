@@ -1,5 +1,6 @@
 import logging
 import json
+from .assessment.forecast import forecast as do_forecast
 import os
 import shutil
 import zipfile
@@ -14,8 +15,10 @@ from .datatypes import HealthData, ClimateData, HealthPopulationData, SimpleClim
 from .dhis2_interface.json_parsing import predictions_to_datavalue, parse_disease_data, json_to_pandas, \
     parse_population_data
 from .external.external_model import get_model_from_yaml_file
+from .file_io.example_data_set import DataSetType, datasets
 #from .external.external_model import ExternalCommandLineModel, get_model_from_yaml_file
 from .geojson import geojson_to_shape, geojson_to_graph
+from .plotting.prediction_plot import plot_forecast_from_summaries
 from .predictor import get_model
 from .spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 import dataclasses
@@ -138,10 +141,10 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path('ru
     return get_model_from_yaml_file(working_dir / 'config.yml', working_dir)
 
 
-def get_model_maybe_yaml(model_name, dockername=None):
+def get_model_maybe_yaml(model_name):
     if model_name.endswith(".yaml") or model_name.endswith(".yml"):
         working_dir = Path(model_name).parent
-        model = get_model_from_yaml_file(model_name, working_dir, dockername)
+        model = get_model_from_yaml_file(model_name, working_dir)
         return model, model.name
     else:
         return get_model(model_name), model_name
@@ -192,3 +195,24 @@ def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=
     data_values = predictions_to_datavalue(predictions, attribute_mapping=dict(zip(attrs, attrs)))
     json_body = [dataclasses.asdict(element) for element in data_values]
     return json_body
+
+
+def forecast(model_name: str, dataset_name: DataSetType, n_months: int, model_path: Optional[str] = None):
+    logging.basicConfig(level=logging.INFO)
+    dataset = datasets[dataset_name].load()
+
+    if model_name == 'external':
+        model = get_model_from_directory_or_github_url(model_path)
+    else:
+        model = get_model(model_name)
+        model = model()
+
+    # model = get_model(model_name)()
+    predictions = do_forecast(model, dataset, n_months * delta_month)
+
+    figs = []
+    for location, prediction in predictions.items():
+        fig = plot_forecast_from_summaries(prediction.data(),
+                                           dataset.get_location(location).data())  # , lambda x: np.log(x+1))
+        figs.append(fig)
+    return figs
