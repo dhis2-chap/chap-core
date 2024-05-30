@@ -21,6 +21,7 @@ from climate_health.predictor import get_model, models, ModelType
 from climate_health.file_io.example_data_set import datasets, DataSetType
 from climate_health.time_period.date_util_wrapper import delta_month, Week
 from .assessment.prediction_evaluator import evaluate_model
+from .assessment.forecast import forecast as do_forecast, multi_forecast as do_multi_forecast
 import logging
 
 app = App()
@@ -67,7 +68,11 @@ def multi_forecast(model_name: str, dataset_name: DataSetType, n_months: int, pr
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
     dataset = datasets[dataset_name].load()
-
+    predictions_list = list(do_multi_forecast(model, dataset, n_months * delta_month, pre_train_delta=pre_train_months * delta_month))
+    for location, true_data in dataset.items():
+        local_predictions = [pred.get_location(location).data() for pred in predictions_list]
+        fig = plot_forecast_from_summaries(local_predictions, true_data.data())
+        fig.show()
 
 
 @app.command()
