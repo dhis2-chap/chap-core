@@ -33,7 +33,7 @@ setup(
     description="Main repository for joint programming project on climate health",
     entry_points={
         'console_scripts': [
-            'climate_health=climate_health.cli:main',
+            'chap=climate_health.cli:main',
         ],
     },
     install_requires=requirements,
