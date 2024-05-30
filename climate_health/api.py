@@ -133,10 +133,10 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path('ru
     return get_model_from_yaml_file(working_dir / 'config.yml', working_dir)
 
 
-def get_model_maybe_yaml(model_name, dockername=None):
+def get_model_maybe_yaml(model_name):
     if model_name.endswith(".yaml") or model_name.endswith(".yml"):
         working_dir = Path(model_name).parent
-        model = get_model_from_yaml_file(model_name, working_dir, dockername)
+        model = get_model_from_yaml_file(model_name, working_dir)
         return model, model.name
     else:
         return get_model(model_name), model_name

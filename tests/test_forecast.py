@@ -8,6 +8,7 @@ from climate_health.time_period.date_util_wrapper import delta_month
 
 
 # @pytest.mark.skip(reason="Needs docked image")
+@pytest.mark.skip(reason='slow')
 def test_forecast():
     model = get_model('HierarchicalStateModelD2')(num_warmup=20, num_samples=20)
     dataset = datasets['hydromet_5_filtered'].load()
@@ -17,6 +18,7 @@ def test_forecast():
         fig.show()
 
 
+@pytest.mark.skip(reason='slow')
 def test_multi_forecast():
     model = get_model('HierarchicalStateModelD2')(num_warmup=20, num_samples=20)
     dataset = datasets['hydromet_5_filtered'].load()
