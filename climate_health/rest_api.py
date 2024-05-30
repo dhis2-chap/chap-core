@@ -84,6 +84,7 @@ class State(BaseModel):
 class InternalState:
     control: Optional[Control]
     current_data: dict
+    model_path: Optional[str] = None
 
 
 internal_state = InternalState(Control({}), {})
@@ -107,6 +108,16 @@ class FullPredictionResponse(BaseModel):
     dataValues: List[PredictionResponse]
 
 
+@app.post('/set_model_path/')
+async def set_model_path(model_path: str) -> dict:
+    '''
+    Set the model to be used for training and evaluation
+    https://github.com/knutdrand/external_rmodel_example.git
+    '''
+    internal_state.model_path = model_path
+    return {'status': 'success'}
+
+
 @app.post('/post_zip_file/')
 async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
     '''
@@ -117,13 +128,18 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     state.ready = False
     state.status = 'training'
     prediction_data = read_zip_folder(file.file)
+    model_name, model_path = 'HierarchicalStateModelD', None
+    if internal_state.model_path is not None:
+        model_name = 'external'
+        model_path = internal_state.model_path
 
     def train_func():
         internal_state.control = Control({'Training': TrainingControl()})
         try:
             internal_state.current_data['response'] = train_on_prediction_data(
                 prediction_data,
-                model_name='HierarchicalStateModelD',
+                model_name=model_name,
+                model_path=model_path,
                 control=internal_state.control)
         except CancelledError:
             state.status = 'cancelled'

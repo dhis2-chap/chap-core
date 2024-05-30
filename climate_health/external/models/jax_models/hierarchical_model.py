@@ -6,6 +6,7 @@ from typing import Any, Optional, Callable
 import numpy as np
 
 from climate_health.time_period.date_util_wrapper import delta_month
+from climate_health.training_control import PrintingTrainingControl
 from .deterministic_seir_model import MarkovChain
 from .hmc import sample
 from .jax import jax, PRNGKey, jnp, expit, logit
@@ -83,7 +84,7 @@ def create_seasonal_data(data: BNPDataClass):
 class HierarchicalModel:
     def __init__(self, key: PRNGKey = PRNGKey(0), params: Optional[dict[str, Any]] = None, num_samples: int = 100,
                  num_warmup: int = 100):
-        self._training_control = None
+        self._training_control = PrintingTrainingControl()
         self.params = params
         self._key = key
         self._regression_model = None

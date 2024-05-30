@@ -141,9 +141,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 else:
                     data[to_name] = [int(str(p).split('W')[0]) for p in
                                      data['time_period']]  # data['time_period'].dt.year
-            elif from_name == 'population':
-                data[to_name] = 200_000  # HACK: This is a placeholder for the population data
-                logger.warning("Population data is not available, using placeholder value")
+            #elif from_name == 'population':
+            #    data[to_name] = 200_000  # HACK: This is a placeholder for the population data
+            #    logger.warning("Population data is not available, using placeholder value")
             else:
                 data[to_name] = data[from_name]
         return data

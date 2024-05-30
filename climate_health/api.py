@@ -170,10 +170,12 @@ def dhis_zip_flow(zip_file_path: str, out_json: Optional[str] = None, model_name
         return json_body
 
 
-def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=None, control=DummyControl()):
+def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=None, model_path=None, control=DummyControl()):
     control.set_status('Preprocessing')
-    model, model_name = get_model_maybe_yaml(model_name)
-    model = model()
+    if model_name == 'external':
+        model = get_model_from_directory_or_github_url(model_path)
+    else:
+        model = get_model(model_name)()
     start_endpoint = min(data.health_data.start_timestamp,
                          data.climate_data.start_timestamp)
     end_endpoint = max(data.health_data.end_timestamp,

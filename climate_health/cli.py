@@ -77,15 +77,20 @@ def forecast(model_name: str, dataset_name: DataSetType, n_months: int,
 
 
 @app.command()
-def multi_forecast(model_name: str, dataset_name: DataSetType, n_months: int, pre_train_months: int):
+def multi_forecast(model_name: str, dataset_name: DataSetType, n_months: int, pre_train_months: int, out_path: Path = Path('')):
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
+    filename = out_path / f'{model_name}_{dataset_name}_multi_forecast_results_{n_months}.html'
+    logging.info(f'Saving to {filename}')
+    f = open(filename, "w")
     dataset = datasets[dataset_name].load()
     predictions_list = list(do_multi_forecast(model, dataset, n_months * delta_month, pre_train_delta=pre_train_months * delta_month))
+
     for location, true_data in dataset.items():
         local_predictions = [pred.get_location(location).data() for pred in predictions_list]
         fig = plot_forecast_from_summaries(local_predictions, true_data.data())
-        fig.show()
+        f.write(fig.to_html())
+    f.close()
 
 
 @app.command()
