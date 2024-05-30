@@ -25,6 +25,14 @@ import git
 
 logger = logging.getLogger(__name__)
 
+class DummyControl:
+    def set_status(self, status):
+        pass
+
+    @property
+    def current_control(self):
+        return None
+
 @dataclasses.dataclass
 class AreaPolygons:
     shape_file: str
@@ -150,7 +158,8 @@ def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=N
         return json_body
 
 
-def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=None):
+def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=None, control=DummyControl()):
+    control.set_status('Preprocessing')
     model, model_name = get_model_maybe_yaml(model_name, docker_filename)
     model = model()
     start_endpoint = min(data.health_data.start_timestamp,
@@ -169,11 +178,17 @@ def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=
     prediction_start = Month(climate_health_data.end_timestamp) - n_months * delta_month
     train_data, _, future_weather = train_test_split_with_weather(climate_health_data, prediction_start)
     logger.info(f"Training model {model_name} on {len(train_data.items())} locations")
+    control.set_status('Training')
+    if hasattr(model, 'set_training_control'):
+        model.set_training_control(control.current_control)
+
     model.train(climate_health_data)  # , extra_args=data.area_polygons)
     logger.info(f"Forecasting using {model_name} on {len(train_data.items())} locations")
+    control.set_status('Forecasting')
     predictions = model.forecast(future_weather, forecast_delta=n_months * delta_month)
     attrs = ['median', 'quantile_high', 'quantile_low']
     logger.info(f"Converting predictions to json")
+    control.set_status('Postprocessing')
     data_values = predictions_to_datavalue(predictions, attribute_mapping=dict(zip(attrs, attrs)))
     json_body = [dataclasses.asdict(element) for element in data_values]
     return json_body

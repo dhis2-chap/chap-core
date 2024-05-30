@@ -1,8 +1,9 @@
 import dataclasses
 import logging
 import time
+from asyncio import CancelledError
 from enum import Enum
-from typing import List, Union
+from typing import List, Union, Optional
 
 from fastapi import BackgroundTasks, UploadFile, HTTPException
 from pydantic import BaseModel
@@ -14,9 +15,43 @@ from fastapi.middleware.cors import CORSMiddleware
 from climate_health.api import read_zip_folder, dhis_zip_flow, train_on_prediction_data
 from climate_health.dhis2_interface.json_parsing import parse_json_rows
 from climate_health.predictor import ModelType, get_model
+from climate_health.training_control import TrainingControl
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+
+class Control:
+    def __init__(self, controls):
+        self._controls = controls
+        self._status = 'idle'
+        self._current_control = None
+        self._is_cancelled = False
+
+    @property
+    def current_control(self):
+        return self._current_control
+
+    def cancel(self):
+        if self._current_control is not None:
+            self._current_control.cancel()
+        self._is_cancelled = True
+
+    def set_status(self, status):
+        self._current_control = self._controls.get(status, None)
+        self._status = status
+        if self._is_cancelled:
+            raise CancelledError()
+
+    def get_status(self):
+        if self._current_control is not None:
+            return self._status + self._current_control.get_status()
+        return self._status
+
+    def get_progress(self):
+        if self._current_control is not None:
+            return self._current_control.get_progress()
+        return 0
 
 
 def get_app():
@@ -38,13 +73,20 @@ def get_app():
 
 app = get_app()
 
-current_data = {}
-
 
 class State(BaseModel):
     ready: bool
     status: str
+    progress: float = 0
 
+
+@dataclasses.dataclass
+class InternalState:
+    control: Optional[Control]
+    current_data: dict
+
+
+internal_state = InternalState(Control({}), {})
 
 state = State(ready=True, status='idle')
 
@@ -72,7 +114,17 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     prediction_data = read_zip_folder(file.file)
 
     def train_func():
-        current_data['response'] = train_on_prediction_data(prediction_data, model_name='HierarchicalStateModelD')
+        internal_state.control = Control({'Training': TrainingControl()})
+        try:
+            internal_state.current_data['response'] = train_on_prediction_data(
+                prediction_data,
+                model_name='HierarchicalStateModelD',
+                control=internal_state.control)
+        except CancelledError:
+            state.status = 'cancelled'
+            state.ready = True
+            internal_state.control = None
+            return
         state.ready = True
         state.status = 'idle'
 
@@ -86,9 +138,19 @@ async def get_results() -> List[PredictionResponse]:
     Retrieve results made by the model
     '''
 
-    if 'response' not in current_data:
+    if 'response' not in internal_state.current_data:
         raise HTTPException(status_code=400, detail="No response available")
-    return current_data['response']
+    return internal_state.current_data['response']
+
+
+@app.post('/cancel/')
+async def cancel() -> dict:
+    '''
+    Cancel the current training
+    '''
+    if internal_state.control is not None:
+        internal_state.control.cancel()
+    return {'status': 'success'}
 
 
 @app.get('/status/')
@@ -96,6 +158,9 @@ async def get_status() -> State:
     '''
     Retrieve the current status of the model
     '''
+    if not state.ready:
+        state.progress = internal_state.control.get_progress()
+        state.status = internal_state.control.get_status()
     return state
 
 

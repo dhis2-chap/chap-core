@@ -51,10 +51,12 @@ def sample(logdensity, rng_key, initial_position, num_samples=1000, num_warmup=1
     rng_key, warmup_key, sample_key = jax.random.split(rng_key, 3)
     logger.info("Starting warmup")
     training_control.set_total_samples(num_samples+num_warmup)
+    training_control.set_status("Warming up")
     (state, parameters), _ = warmup.run(warmup_key, initial_position, num_steps=num_warmup)
     training_control.register_progress(num_warmup)
     logger.info("Warmup done")
     kernel = blackjax.nuts(logdensity, **parameters).step
+    training_control.set_status("Sampling")
     states = inference_loop(sample_key, kernel, state, num_samples, training_control=training_control)
     mcmc_samples = states.position
     return mcmc_samples
