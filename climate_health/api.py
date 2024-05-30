@@ -16,7 +16,7 @@ from .dhis2_interface.json_parsing import predictions_to_datavalue, parse_diseas
     parse_population_data
 from .external.external_model import get_model_from_yaml_file
 from .file_io.example_data_set import DataSetType, datasets
-#from .external.external_model import ExternalCommandLineModel, get_model_from_yaml_file
+# from .external.external_model import ExternalCommandLineModel, get_model_from_yaml_file
 from .geojson import geojson_to_shape, geojson_to_graph
 from .plotting.prediction_plot import plot_forecast_from_summaries
 from .predictor import get_model
@@ -28,6 +28,7 @@ import git
 
 logger = logging.getLogger(__name__)
 
+
 class DummyControl:
     def set_status(self, status):
         pass
@@ -35,6 +36,7 @@ class DummyControl:
     @property
     def current_control(self):
         return None
+
 
 @dataclasses.dataclass
 class AreaPolygons:
@@ -47,6 +49,11 @@ class PredictionData:
     health_data: SpatioTemporalDict[HealthData] = None
     climate_data: SpatioTemporalDict[ClimateData] = None
     population_data: SpatioTemporalDict[HealthPopulationData] = None
+    disease_id: Optional[str] = None
+
+
+def extract_disease_name(health_data: dict) -> str:
+    return health_data['rows'][0][0]
 
 
 def read_zip_folder(zip_file_path: str) -> PredictionData:
@@ -66,7 +73,7 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
         "location": 1
     }
     disease = parse_disease_data(json_data, name_mapping=name_mapping)
-
+    disease_id = extract_disease_name(json_data)
     temperature_json = json.load(ziparchive.open(expected_files["temperature"]))
     name_mapping = {
         "time_period": 2,
@@ -106,7 +113,8 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
         health_data=disease,
         climate_data=climate,
         population_data=population,
-        area_polygons=AreaPolygons(graph_file_name)
+        area_polygons=AreaPolygons(graph_file_name),
+        disease_id=disease_id
     )
 
     out_data = {}
@@ -150,7 +158,8 @@ def get_model_maybe_yaml(model_name):
         return get_model(model_name), model_name
 
 
-def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=None, n_months=4, docker_filename: Optional[str] = None) -> List[dict] | None:
+def dhis_zip_flow(zip_file_path: str, out_json: Optional[str] = None, model_name=None, n_months=4,
+                  docker_filename: Optional[str] = None) -> List[dict] | None:
     data: PredictionData = read_zip_folder(zip_file_path)
     json_body = train_on_prediction_data(data, model_name, n_months, docker_filename)
     if out_json is not None:
@@ -163,7 +172,7 @@ def dhis_zip_flow(zip_file_path: str, out_json: Optional[str]=None, model_name=N
 
 def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=None, control=DummyControl()):
     control.set_status('Preprocessing')
-    model, model_name = get_model_maybe_yaml(model_name, docker_filename)
+    model, model_name = get_model_maybe_yaml(model_name)
     model = model()
     start_endpoint = min(data.health_data.start_timestamp,
                          data.climate_data.start_timestamp)
@@ -194,7 +203,9 @@ def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=
     control.set_status('Postprocessing')
     data_values = predictions_to_datavalue(predictions, attribute_mapping=dict(zip(attrs, attrs)))
     json_body = [dataclasses.asdict(element) for element in data_values]
-    return json_body
+    diseaseId = data.disease_id
+    return {'diseaseId': diseaseId, 'dataValues': json_body}
+    # return json_body
 
 
 def forecast(model_name: str, dataset_name: DataSetType, n_months: int, model_path: Optional[str] = None):

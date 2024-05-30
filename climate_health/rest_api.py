@@ -45,7 +45,7 @@ class Control:
 
     def get_status(self):
         if self._current_control is not None:
-            return self._status + self._current_control.get_status()
+            return f'{self._status}:  {self._current_control.get_status()}'
         return self._status
 
     def get_progress(self):
@@ -102,6 +102,11 @@ class PredictionResponse(BaseModel):
     period: str
 
 
+class FullPredictionResponse(BaseModel):
+    diseaseId: str
+    dataValues: List[PredictionResponse]
+
+
 @app.post('/post_zip_file/')
 async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
     '''
@@ -133,7 +138,7 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
 
 
 @app.get('/get_results/')
-async def get_results() -> List[PredictionResponse]:
+async def get_results() -> FullPredictionResponse:
     '''
     Retrieve results made by the model
     '''
