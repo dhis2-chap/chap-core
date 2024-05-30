@@ -83,6 +83,7 @@ def create_seasonal_data(data: BNPDataClass):
 class HierarchicalModel:
     def __init__(self, key: PRNGKey = PRNGKey(0), params: Optional[dict[str, Any]] = None, num_samples: int = 100,
                  num_warmup: int = 100):
+        self._training_control = None
         self.params = params
         self._key = key
         self._regression_model = None
@@ -92,6 +93,9 @@ class HierarchicalModel:
         self._num_warmup = num_warmup
         self._regression_model: Optional[Callable] = None
         self._standardization_func = lambda x: x
+
+    def set_training_control(self, training_control):
+        self._training_control = training_control
 
     def _get_standardization_func(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]):
         values = np.concatenate([value.mean_temperature for value in data.values()])
@@ -136,7 +140,7 @@ class HierarchicalModel:
         grad = jax.grad(logprob_func)(init_params)
         assert not jnp.isnan(grad[0].alpha), grad
         raw_samples = sample(logprob_func, random_key, init_params, num_samples=self._num_warmup,
-                             num_warmup=self._num_warmup)
+                             num_warmup=self._num_warmup, training_control=self._training_control)
         self.save_params(raw_samples, transform, transformD)
         last_params = index_tree(raw_samples, -1)
         assert not jnp.isinf(logprob_func(last_params)), logprob_func(last_params)
@@ -227,7 +231,7 @@ class GlobalParams2(GlobalSeasonalParams):
     state_params: RegressionStateParams = RegressionStateParams(0., 0.1, 0.1)  # , sigma)
     district_state_params: RegressionStateParams = RegressionStateParams(0., 0.1, 0.1)  # , sigma)
 
-
+    
 class HierarchicalStateModel(HierarchicalModel):
     _log_prog_func_class = HiearchicalLogProbFuncWithStates
     _param_class = GlobalParams
