@@ -12,9 +12,9 @@ RUN R -e 'r = getOption("repos"); r["CRAN"] = "http://cran.us.r-project.org"; op
 RUN rm -rf /var/lib/apt/lists/*
 RUN useradd -ms /bin/bash apprunner
 RUN echo "apprunner:apprunner" | chpasswd
-RUN chmod -R 777  /opt/R/4.3.3/lib/R/library/INLA/
-RUN chmod -R 777 /opt/R/4.3.3/lib/R/library
-RUN chmod -R 777 /opt/R/4.3.3/lib/R/
+RUN chmod -R 777  /opt/R/4.4.0/lib/R/library/INLA/
+RUN chmod -R 777 /opt/R/4.4.0/lib/R/library
+RUN chmod -R 777 /opt/R/4.4.0/lib/R/
 USER apprunner
 
 #docker run --rm -it rstudio/r-base:4.3-jammy
