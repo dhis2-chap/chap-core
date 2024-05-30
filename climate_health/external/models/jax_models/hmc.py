@@ -1,4 +1,5 @@
 from .jax import jax, blackjax
+from dynamax.utils.utils import pytree_stack
 import logging
 logger = logging.getLogger(__name__)
 
