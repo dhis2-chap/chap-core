@@ -63,6 +63,14 @@ def forecast(model_name: str, dataset_name: DataSetType, n_months: int, model_pa
 
 
 @app.command()
+def multi_forecast(model_name: str, dataset_name: DataSetType, n_months: int, pre_train_months: int):
+    model, model_name = get_model_maybe_yaml(model_name)
+    model = model()
+    dataset = datasets[dataset_name].load()
+
+
+
+@app.command()
 def dhis_pull(base_url: str, username: str, password: str):
     path = Path('dhis2analyticsResponses/')
     path.mkdir(exist_ok=True, parents=True)

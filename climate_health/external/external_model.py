@@ -199,8 +199,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         future_data = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_data.items()})
         return self.predict(future_data)
 
-    def prediction_summary(self, *args, **kwargs):
-        return self.predict(*args, **kwargs)
+    def prediction_summary(self, future_data: SpatioTemporalDict[FeatureType], n_samples=1000):
+        future_data = SpatioTemporalDict({key: value.data()[:1] for key, value in future_data.items()})
+        return self.predict(future_data)
 
     def _provide_temp_file(self):
         return tempfile.NamedTemporaryFile(dir=self._working_dir, delete=False)

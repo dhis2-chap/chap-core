@@ -163,12 +163,18 @@ class HierarchicalModel:
     def _adapt_params(self, params, data_dict):
         return params
 
+    def prediction_summary(self, future_weather: SpatioTemporalDict[ClimateData], n_samples=1000) -> SpatioTemporalDict[SummaryStatistics]:
+        time_delta = next(iter(future_weather.data())).data().time_period.delta
+        future_weather = SpatioTemporalDict({key: value.data()[:1] for key, value in future_weather.items()})
+        return self.forecast(future_weather, n_samples=n_samples, forecast_delta=1*time_delta)
+
     def forecast(self, future_weather: SpatioTemporalDict[ClimateData], n_samples=1000,
                  forecast_delta=6 * delta_month) -> SpatioTemporalDict[SummaryStatistics]:
+
         time_period = next(iter(future_weather.data())).data().time_period
         n_periods = forecast_delta // time_period.delta
-        time_period = time_period[:n_periods]
         future_weather = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_weather.items()})
+        time_period = next(iter(future_weather.data())).data().time_period
         num_samples = n_samples
         param_key, self._key = jax.random.split(self._key)
         n_sampled_params = array_tree_length(self.params)
