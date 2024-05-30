@@ -25,6 +25,9 @@ def init_params():
 def dummy_logprob_func(params):
     return params.a ** 2 - (params.b - 2) ** 3 + (params.e.c * params.e.d - 20) ** 2
 
-
-def test_sample(init_params, random_key):
-    sample(dummy_logprob_func, random_key, init_params, num_samples=100, num_warmup=100)
+@pytest.mark.parametrize("n_samples", [50, 77])
+def test_sample(init_params, random_key, n_samples):
+    samples = sample(dummy_logprob_func, random_key, init_params, num_samples=n_samples, num_warmup=20)
+    assert samples.a.shape == (n_samples,)
+    assert samples.b.shape == (n_samples,)
+    assert samples.e.c.shape == (n_samples,)
