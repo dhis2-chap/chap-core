@@ -80,7 +80,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         train_command = data['train_command']
         predict_command = data['predict_command']
         setup_command = data.get('setup_command', None)
-        #conda_env_file = data['conda'] if 'conda' in data else None
+        # conda_env_file = data['conda'] if 'conda' in data else None
         data_type = data.get('data_type', None)
         allowed_data_types = {'HealthData': HealthData}
         data_type = allowed_data_types.get(data_type, None)
@@ -93,7 +93,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             data_type=data_type,
             setup_command=setup_command,
             working_dir=working_dir,
-            #working_dir=Path(yaml_file).parent,
+            # working_dir=Path(yaml_file).parent,
             adapters=data.get('adapters', None),
             runner=runner,
         )
@@ -141,42 +141,35 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                 else:
                     data[to_name] = [int(str(p).split('W')[0]) for p in
                                      data['time_period']]  # data['time_period'].dt.year
-            #elif from_name == 'population':
-            #    data[to_name] = 200_000  # HACK: This is a placeholder for the population data
-            #    logger.warning("Population data is not available, using placeholder value")
             else:
                 data[to_name] = data[from_name]
         return data
+
     @property
     def _dir_name(self):
         return Path('./')
 
-
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType], extra_args=None):
         if extra_args is None:
             extra_args = ''
-        #with self._provide_temp_file() as train_datafile:
         train_file_name = 'training_data.csv'
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
         new_pd.to_csv(Path(self._working_dir) / Path(train_file_name))
-        command = self._train_command.format(train_data=train_file_name, model=self._model_file_name, extra_args=extra_args)
+        command = self._train_command.format(train_data=train_file_name, model=self._model_file_name,
+                                             extra_args=extra_args)
         response = self.run_through_container(command)
-        print(response)
-        self._saved_state = train_data
+        self._saved_state = new_pd
 
     def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
         name = 'future_data.csv'
         with open(name, "w") as f:
-
             df = future_data.to_pandas()
             df['disease_cases'] = np.nan
 
             new_pd = self._adapt_data(df)
-            # if self._is_lagged:
-            #    ned_pd = pd.concatenate(self._saved_state, new_pd)
+            new_pd = pd.concat([self._saved_state, new_pd])
             new_pd.to_csv(Path(self._working_dir) / Path(name))
-                # TOOD: combine with training data set for lagged models
         command = self._predict_command.format(future_data=name,
                                                model=self._model_file_name,
                                                out_file='predictions.csv')
@@ -184,7 +177,6 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         print(response)
         try:
             df = pd.read_csv(Path(self._working_dir) / 'predictions.csv')
-        # our_df = self._adapt_data(df, inverse=True)
 
         except pandas.errors.EmptyDataError:
             # todo: Probably deal with this in an other way, throw an exception istead
@@ -193,7 +185,8 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         result_class = SummaryStatistics if 'quantile_low' in df.columns else HealthData
         return SpatioTemporalDict.from_pandas(df, result_class)
 
-    def forecast(self, future_data: SpatioTemporalDict[FeatureType], n_samples=1000, forecast_delta: TimeDelta= 3*delta_month):
+    def forecast(self, future_data: SpatioTemporalDict[FeatureType], n_samples=1000,
+                 forecast_delta: TimeDelta = 3 * delta_month):
         time_period = next(iter(future_data.data())).data().time_period
         n_periods = forecast_delta // time_period.delta
         future_data = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_data.items()})
@@ -216,7 +209,6 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 def run_command(command: str, working_directory=Path(".")):
     from climate_health.runners.command_line_runner import run_command
     run_command(command, working_directory)
-
 
 
 class DryModeExternalCommandLineModel(ExternalCommandLineModel):
@@ -302,4 +294,3 @@ def get_runner_from_yaml_file(yaml_file: str) -> Runner:
 
 def get_model_and_runner_from_yaml_file(yaml_file: str) -> Tuple[ExternalCommandLineModel, Runner]:
     return ExternalCommandLineModel.from_yaml_file(yaml_file), get_runner_from_yaml_file(yaml_file)
-

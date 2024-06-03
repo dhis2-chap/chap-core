@@ -9,6 +9,7 @@ RUN DEBIAN_FRONTEND=noninteractive \
   apt-get install -y libudunits2-dev libgdal-dev libssl-dev libfontconfig1-dev libgsl-dev
 RUN R -e 'r = getOption("repos"); r["CRAN"] = "http://cran.us.r-project.org"; options(repos = r); install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)'
 RUN R -e 'r = getOption("repos"); r["CRAN"] = "http://cran.us.r-project.org"; options(repos = r); install.packages("tidyverse", repos=c(getOption("repos"), dep=TRUE))'
+RUN R -e 'r = getOption("repos"); r["CRAN"] = "http://cran.us.r-project.org"; options(repos = r); install.packages(c("tsModel", "dlnm"), repos=c(getOption("repos"), dep=TRUE))'
 RUN rm -rf /var/lib/apt/lists/*
 RUN useradd -ms /bin/bash apprunner
 RUN echo "apprunner:apprunner" | chpasswd
