@@ -46,6 +46,7 @@ def test_train_on_prediction_data(data_path):
     data = read_zip_folder(data_path / "sample_dhis_data.zip")
     train_on_prediction_data(data,
                              model_name='external',
-                             model_path='/home/knut/Sources/external_rmodel_example')
+                             model_path="https://github.com/knutdrand/external_rmodel_example.git")
+
 
 
