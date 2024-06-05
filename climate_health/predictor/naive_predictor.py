@@ -79,13 +79,13 @@ class MultiRegionPoissonModel:
         prediction_dict = {}
         for location, location_data in data.items():
             state_values = self._saved_state[location]
-
             #state_values = TemporalDataclass(location_data.data().__class__(**{field.name: getattr(state_values.data(), field.name) for field in dataclasses.fields(location_data.data())}))
             location_data = TemporalDataclass(state_values.data().__class__(**{field.name: getattr(location_data.data(), field.name) for field in dataclasses.fields(location_data.data())} | {"disease_cases": np.full(len(location_data.data()), 0)}))
             #location_data.data().disease_cases = np.full(len(location_data.data()), np.nan)
             X = self._create_feature_matrix(state_values.join(location_data))
             prediction = self._models[location].predict(X[-1:])
             prediction_dict[location] = HealthData(location_data.data().time_period[:1], np.atleast_1d(prediction))
+
         return SpatioTemporalDict(prediction_dict)
 
 
