@@ -32,3 +32,13 @@ class TrainingControl:
 
     def is_cancelled(self):
         return self._cancelled
+
+
+class PrintingTrainingControl(TrainingControl):
+    def register_progress(self, n_sampled):
+        super().register_progress(n_sampled)
+        print(f"Progress: {self.get_progress() * 100:.2f}%")
+
+    def set_status(self, status):
+        super().set_status(status)
+        print(f"Status: {self.get_status()}")

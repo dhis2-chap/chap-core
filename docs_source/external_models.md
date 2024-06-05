@@ -40,7 +40,26 @@ A full example of an external R model can be found at [https://github.com/knutdr
 
 
 ### Running an external model on the command line
-...
+External models can be run on the command line using the `chap forecast` command. See `chap forecast --help` for details:
 
+```bash
+Usage: chap forecast [ARGS] [OPTIONS]
+
+Forecast n_months ahead using the given model and dataset
+
+╭─ Parameters ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ *  MODEL-NAME,--model-name      Name of the model to use, set to external to use an external model and specify the external model with model_path [required]                                                                        │
+│ *  DATASET-NAME,--dataset-name  Name of the dataset to use, e.g. hydromet_5_filtered [choices: hydro_met_subset,hydromet_clean,hydromet_10,hydromet_5_filtered] [required]                                                          │
+│ *  N-MONTHS,--n-months          int: Number of months to forecast ahead [required]                                                                                                                                                  │
+│    MODEL-PATH,--model-path      Optional: Path to the model if model_name is external. Can ge a github repo url starting with https://github.com and ending with .git or a path to a local directory.                               │
+│    OUT-PATH,--out-path          Optional: Path to save the output file, default is the current directory [default: .]                                                                                                               │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+Example:
+
+```bash
+climate_health forecast --model-name external hydromet_5_filtered 12 https://github.com/knutdrand/external_rmodel_example.git --out-path ./
+```
 ### Running an external model through "CHAP-upload"
 ...
