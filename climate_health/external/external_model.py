@@ -65,7 +65,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._model_file_name = self._name + ".model"
         self._runner = runner
         self._saved_state = None
-        self.is_lagged=True
+        self.is_lagged = True
 
     @property
     def name(self):
