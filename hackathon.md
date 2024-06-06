@@ -1,0 +1,55 @@
+- Set data-elements as config
+- config yml for models, for which data-elements that are used
+- Save report configuration, run with same configuration. 
+- Admin panel.
+- Multiple dataelements, stratified model
+- Extend prediction from previous observations
+
+# Suggestions for aims
+- Get climate data directly to CHAP
+- Streamlining process for running it in a country / running in one country + 1+1
+- - Avoiding too much server communications 
+- - Governaces processes
+- - Laos example
+- - Set up a virtual machine in a country
+- - How resource driven are these models. Kubernetes or Docker
+- Running it on real data from csv
+- - External data sources
+- Separating into data scientist app and user app + Daniela + 1
+- Dynamically show models, require data elements + 1
+- - Add other climate sources dynamically
+- Integrate the WHO-Ewars model + GIO +1
+- Integrarte local climate data, IRI map room, into DHIS2->CHAP + Pat + 1
+- Evaluating whether a model works in CHAP, validation plots
+- Automatic communication with existing frameworks -> Modularize CHAP, make it e 
+- Low hanging design fruits
+- Server2Server communication
+- - Instance to instance
+- Parametrization of the models
+- Stan model + GIO
+- Getting forecast into chap + 1
+- Manually set parameters for districts
+- Use GEE to get urbanization
+- Identify other disease/climmate relationships
+- Multiple countries or subnational
+- Announcement in case of predicted outbrake
+- Simple triangulation use case / visual analytics
+- Calendar issues
+- Running on local machine
+
+# Group suggestions
+- 1) Devops:
+- Streamlining process for running it in a country / running in one country + 1+1
+- - Avoiding too much server communications 
+- - Governaces processes
+- - Laos example
+- - Set up a virtual machine in a country
+- - How resource driven are these models. Kubernetes or Docker
+- 2) Design: separating into data scientist app and user app + Daniela
+-- 5) Dynamically show models, require data elements + 1) 
+- 3) Integrate local climate data, IRI map room, into DHIS2->CHAP
+- - New predictors
+- 4) Statistics:
+-- Integrate the WHO-Ewars model
+-- Evaluation criteria + GUI
+-- Stan model + GIO
