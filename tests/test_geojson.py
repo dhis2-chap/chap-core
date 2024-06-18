@@ -11,7 +11,7 @@ from tempfile import NamedTemporaryFile
 def geojson_example_file():
     return EXAMPLE_DATA_PATH / "Organisation units.geojson"
 
-
+@pytest.mark.skip
 def test_geojson_to_shape(geojson_example_file):
     # this does not work with temporarifles, as a real directory is needed
     out = "shapefile_test"

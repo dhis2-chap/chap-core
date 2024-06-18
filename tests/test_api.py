@@ -3,13 +3,13 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from climate_health.api import read_zip_folder
+from climate_health.api import read_zip_folder, train_on_prediction_data
 from climate_health.api import dhis_zip_flow
 
 
 @pytest.fixture
 def example_zip(data_path):
-    return data_path / "sample_chap_app_output.zip"
+    return data_path / "sample_dhis_data.zip"
 
 
 def test_read_zip_folder(example_zip):
@@ -23,12 +23,15 @@ def test_read_zip_folder(example_zip):
 def zip_filepath(data_path):
     return data_path / "sample_chap_app_output.zip"
 
+
 @pytest.fixture
 def zip_filepath_population(data_path):
-    return data_path / "chap_output2.zip"
+    return data_path / "sample_dhis_data.zip"
 
-@pytest.mark.skip(reason='Not finished implementing')
+
+# @pytest.mark.skip(reason='Not finished implementing')
 def test_dhis_zip_flow(models_path, zip_filepath_population):
+
     out_json = "output.json"
     model_name = "ewars_Plus"
     model_name = 'HierarchicalModel'
@@ -37,3 +40,14 @@ def test_dhis_zip_flow(models_path, zip_filepath_population):
     # out_json = Path(out_json)
     assert os.path.exists(out_json)
     # Path(out_json).unlink()
+
+
+@pytest.mark.skip(reason='Failing on CI')
+def test_train_on_prediction_data(data_path):
+    data = read_zip_folder(data_path / "sample_dhis_data.zip")
+    train_on_prediction_data(data,
+                             model_name='external',
+                             model_path="https://github.com/knutdrand/external_rmodel_example.git")
+
+
+

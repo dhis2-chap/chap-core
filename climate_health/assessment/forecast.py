@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta):
+def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta, graph=None):
     '''
     Forecast n_months into the future using the model
     '''
@@ -15,6 +15,9 @@ def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta):
     split_point = dataset.end_timestamp - prediction_length
     split_period = Month(split_point.year, split_point.month)
     train_data, test_set, future_weather = train_test_split_with_weather(dataset, split_period)
+    if graph is not None and hasattr(model, 'set_graph'):
+        model.set_graph(graph)
+
     model._num_warmup = 1000
     model._num_samples = 400
     model.train(train_data)

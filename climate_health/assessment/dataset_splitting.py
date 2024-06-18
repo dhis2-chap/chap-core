@@ -58,6 +58,9 @@ def train_test_split_with_weather(data_set: SpatioTemporalDict, prediction_start
         #{loc: future_weather_class(
         #    *[getattr(values, field.name) if hasattr(values, field.name) else values.mean_temperature for field in dataclasses.fields(future_weather_class)])
         # for loc, values in tmp_values})
+    train_periods = {str(period) for data in train_set.data() for period in data.data().time_period}
+    future_periods = {str(period) for data in future_weather.data() for period in data.data().time_period}
+    assert train_periods & future_periods == set(), f"Train and future weather data overlap: {train_periods & future_periods}"
     return train_set, test_set, future_weather
 
 

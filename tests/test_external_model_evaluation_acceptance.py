@@ -105,5 +105,5 @@ def external_predictive_model(python_model_predict_command, python_model_train_c
     external_model = ExternalCommandLineModel("external_model", python_model_train_command,
                                               python_model_predict_command, HealthData,
                                               runner=runner)
-
+    external_model.is_lagged = False
     return external_model
