@@ -19,4 +19,4 @@ COPY ./external_models ./external_models
 RUN pip install -e .
 
 # Start the FastAPI application
-CMD climate_health serve
+CMD chap serve
