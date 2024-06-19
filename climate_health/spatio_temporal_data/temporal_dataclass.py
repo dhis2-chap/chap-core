@@ -140,6 +140,10 @@ class SpatioTemporalDict(Generic[FeaturesT]):
                   self._data_dict.items()]
         return pd.concat(tables)
 
+    def interpolate(self):
+        return self.__class__(
+            {loc: TemporalDataclass(data.data().interpolate()) for loc, data in self.items()})
+
     @classmethod
     def _fill_missing(cls, data_dict: dict[str, TemporalDataclass[FeaturesT]]):
         ''' Fill missing values in a dictionary of TemporalDataclasses'''

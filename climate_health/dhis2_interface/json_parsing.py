@@ -41,7 +41,7 @@ def parse_population_data(json_data, field_name='GEN - Population', col_idx=1):
     return lookup
 
 
-def _convert_time_period_string(row):
+def convert_time_period_string(row):
     if len(row) == 6 and 'W' not in row:
         return f'{row[:4]}-{row[4:]}'
     return row
@@ -83,7 +83,7 @@ def json_to_pandas(json_data, name_mapping):
             [new_row[name_mapping[col_name]] for col_name in col_names])
     df = pd.DataFrame(new_rows, columns=col_names)
     df['week_id'] = [_get_period_id(row) for row in df['time_period']]
-    df['time_period'] = [_convert_time_period_string(row) for row in df['time_period']]
+    df['time_period'] = [convert_time_period_string(row) for row in df['time_period']]
     df.sort_values(by=['location', 'week_id'], inplace=True)
     return df
 

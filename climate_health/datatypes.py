@@ -7,6 +7,7 @@ import dataclasses
 
 from .time_period import PeriodRange
 from .time_period.dataclasses import Period
+from .util import interpolate_nans
 
 tsdataclass = bnp.bnpdataclass.bnpdataclass
 
@@ -59,6 +60,12 @@ class TimeSeriesData:
         """Read data from a csv file."""
         data = pd.read_csv(csv_file, **kwargs)
         return cls.from_pandas(data)
+
+    def interpolate(self):
+        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
+        data_dict['time_period'] = self.time_period
+        fields =  {key: interpolate_nans(value) for key, value in data_dict.items() if key != 'time_period'}
+        return self.__class__(self.time_period, **fields)
 
 
 @tsdataclass
