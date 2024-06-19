@@ -31,6 +31,7 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
     data_frame.to_csv(file_object, mode='a', header=False)
 
 
+
 @app.command()
 def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits: int, other_model: ModelType = None):
     '''
