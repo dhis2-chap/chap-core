@@ -13,3 +13,17 @@ services:
     container_name: chap-interface
     ports:
       - "4000:80"
+
+  chap-db:
+    image: postgres:9.6
+    container_name: chap-db
+    environment:
+      POSTGRES_USER: chap
+      POSTGRES_PASSWORD: chap
+      POSTGRES_DB: chap
+    
+    ports:
+      - "5432:5432"
+    
+    volumes:
+      - chap-db-data:/var/lib/postgresql/data

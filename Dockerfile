@@ -16,7 +16,7 @@ COPY ./HISTORY.rst ./HISTORY.rst
 COPY ./README.md ./README.md
 COPY ./external_models ./external_models
 
-RUN pip install -e .
+RUN pip install .
 
 # Start the FastAPI application
 CMD chap serve

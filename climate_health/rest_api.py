@@ -55,7 +55,9 @@ class Control:
 
 
 def get_app():
-    app = FastAPI()
+    app = FastAPI(
+        root_path="/v1",
+    )
     origins = [
         '*',  # Allow all origins
         "http://localhost:3000",
@@ -68,6 +70,7 @@ def get_app():
         allow_methods=["*"],
         allow_headers=["*"]
     )
+
     return app
 
 
@@ -108,7 +111,7 @@ class FullPredictionResponse(BaseModel):
     dataValues: List[PredictionResponse]
 
 
-@app.post('/set_model_path/')
+@app.post('/set-model-path/')
 async def set_model_path(model_path: str) -> dict:
     '''
     Set the model to be used for training and evaluation
@@ -118,7 +121,7 @@ async def set_model_path(model_path: str) -> dict:
     return {'status': 'success'}
 
 
-@app.post('/post_zip_file/')
+@app.post('/post-zip-file/')
 async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
     '''
     Post a zip file containing the data needed for training and evaluation, and start the training
@@ -153,7 +156,7 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     return {'status': 'success'}
 
 
-@app.get('/get_results/')
+@app.get('/get-results/')
 async def get_results() -> FullPredictionResponse:
     '''
     Retrieve results made by the model
@@ -162,7 +165,6 @@ async def get_results() -> FullPredictionResponse:
     if 'response' not in internal_state.current_data:
         raise HTTPException(status_code=400, detail="No response available")
     return internal_state.current_data['response']
-
 
 @app.post('/cancel/')
 async def cancel() -> dict:
