@@ -1,3 +1,4 @@
+import pytest
 
 from climate_health.rest_api import app
 from fastapi.testclient import TestClient
@@ -15,8 +16,9 @@ client = TestClient(app)
 #paths
 set_model_path_path = "/v1/set-model-path"
 get_status_path = "/v1/status"
-post_zip_file_path = "/v1/post-zip-file"
-
+post_zip_file_path = "/v1/zip-file"
+list_models_path = "/v1/list-models"
+list_features_path = "/v1/list-features"
 
 # Set the path to the model
 #def test_post_set_model_path():
@@ -24,17 +26,28 @@ post_zip_file_path = "/v1/post-zip-file"
 #    assert response.status_code == 200
 
 # Test get status on initial, should return 200
-def test_post_zip_file():
-    testfile = open("./testdata/traning_prediction_data.zip", "rb")
+def test_post_zip_file(tests_path):
+    # TODO: make a debug model
+    testfile = open(test_path / "testdata/traning_prediction_data.zip", "rb")
     print(testfile)
     response = client.post(post_zip_file_path, files={"file": testfile})
     print(response)
     #assert response.status_code == 200
 
 
-
 # Test get status on initial, should return 200
+@pytest.mark.xfail(reason="Waiting for asyynch test client")
 def test_get_status():
     response = client.get(get_status_path)
     assert response.status_code == 200
     assert response.json()['ready'] == False
+
+def test_list_models():
+    response = client.get(list_models_path)
+    assert response.status_code == 200
+    assert 'HierarchicalStateModelD2'  in {spec['name'] for spec in response.json()}
+
+def test_list_features():
+    response = client.get(list_features_path)
+    assert response.status_code == 200
+    assert {elem['id'] for elem in response.json()} == {'population', 'rainfall', 'mean_temperature'}

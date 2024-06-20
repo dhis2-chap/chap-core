@@ -3,7 +3,7 @@ import inspect
 from enum import Enum
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, PositiveInt
 
 import climate_health.predictor.feature_spec as fs
 
@@ -20,19 +20,20 @@ class ParameterSpec(BaseModel):
     pass
 
 
-class EmptyParameterSpec(ParameterSpec):
-    ...
+class EwarsParamSpec(ParameterSpec):
+    n_weeks: PositiveInt
+    alpha: float
 
+EmptyParameterSpec = {}
 
 class ModelSpec(BaseModel):
     name: str
-    parameters: type[ParameterSpec]
+    parameters: dict
     features: list[fs.Feature]
     period: PeriodType = PeriodType.any
 
 
 def model_spec_from_yaml(filename: str) -> ModelSpec:
-
     with open(filename, 'r') as file:
         data = yaml.safe_load(file)
     name = data['name']
@@ -44,15 +45,11 @@ def model_spec_from_yaml(filename: str) -> ModelSpec:
 
 def model_spec_from_model(model_class: type) -> ModelSpec:
     name = model_class.__name__
-    parameters = EmptyParameterSpec
     param_type = list(inspect.get_annotations(model_class.train).values())[0]
-
-    # get the generic typevar and get the type of the first argument
+    if not hasattr(param_type, '__args__'):
+        return None
     var = param_type.__args__[0]
-    print(var)
-
     feature_names = [field.name for field in dataclasses.fields(var) if field.name not in _non_feature_names]
-    print(feature_names)
     return ModelSpec(name=name,
                      parameters=EmptyParameterSpec,
                      features=[fs.feature_dict[feature] for feature in feature_names],

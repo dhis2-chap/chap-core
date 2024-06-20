@@ -19,6 +19,10 @@ def data_path():
 def models_path():
     return Path(__file__).parent.parent / 'external_models'
 
+@pytest.fixture
+def tests_path():
+    return Path(__file__).parent
+
 
 @pytest.fixture(scope="session", autouse=True)
 def use_test_cache():
