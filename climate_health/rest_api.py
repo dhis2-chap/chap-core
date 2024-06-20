@@ -14,8 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from climate_health.api import read_zip_folder, dhis_zip_flow, train_on_prediction_data
 from climate_health.dhis2_interface.json_parsing import parse_json_rows
-from climate_health.model_spec import ModelSpec
+from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import ModelType, get_model
+from climate_health.predictor.feature_spec import Feature, all_features
 from climate_health.training_control import TrainingControl
 
 logger = logging.getLogger(__name__)
@@ -157,8 +158,18 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     return {'status': 'success'}
 
 @app.get('/list_models')
-async def list_models() -> dict[ModelSpec]:
-    
+async def list_models() -> list[ModelSpec]:
+    '''
+    List all available models
+    '''
+    return [model_spec_from_model(model) for model in ModelType.__members__.values()]
+
+@app.get('/list_features')
+async def list_features() -> list[Feature]:
+    '''
+    List all available features
+    '''
+    return all_features
 
 
 @app.get('/get-results/')
