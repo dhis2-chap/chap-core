@@ -7,7 +7,9 @@ from ..external.r_models import models as r_models
 __all__ = ['MultiRegionPoissonModel', 'MultiRegionNaivePredictor']
 models = __all__
 
-ModelType = Literal[tuple(__all__ + list(external_models.keys()) + list(r_models.keys()))]
+all_model_names = tuple(__all__ + list(external_models.keys()) + list(r_models.keys()))
+all_models = [d[name] for d in [globals(), external_models] for name in d.keys() if name in all_model_names]
+ModelType = Literal[all_model_names]
 # 'MultiRegionPoissonModel', 'MultiRegionNaivePredictor', 'RegressionModel', 'HierarchicalRegressionModel']
 
 DEFAULT_MODEL = external_models['HierarchicalModel']

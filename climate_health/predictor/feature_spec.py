@@ -6,6 +6,8 @@ class Feature(BaseModel):
     name: str
     description: str
 
+    def __hash__(self):
+        return hash(self.id)
 
 rainfall = Feature(id="rainfall",
                    name="Rainfall",

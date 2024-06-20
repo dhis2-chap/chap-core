@@ -14,8 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from climate_health.api import read_zip_folder, dhis_zip_flow, train_on_prediction_data
 from climate_health.dhis2_interface.json_parsing import parse_json_rows
-from climate_health.model_spec import ModelSpec
-from climate_health.predictor import ModelType, get_model
+from climate_health.model_spec import ModelSpec, model_spec_from_model
+from climate_health.predictor import ModelType, get_model, all_model_names, all_models
+from climate_health.predictor.feature_spec import Feature, all_features
 from climate_health.training_control import TrainingControl
 
 logger = logging.getLogger(__name__)
@@ -122,7 +123,7 @@ async def set_model_path(model_path: str) -> dict:
     return {'status': 'success'}
 
 
-@app.post('/post-zip-file/')
+@app.post('/zip-file/')
 async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
     '''
     Post a zip file containing the data needed for training and evaluation, and start the training
@@ -157,6 +158,23 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     return {'status': 'success'}
 
 
+@app.get('/list-models')
+async def list_models() -> list[ModelSpec]:
+    '''
+    List all available models
+    '''
+    model_list = (model_spec_from_model(model) for model in all_models)
+    valid_model_list = [m for m in model_list if m is not None]
+    return valid_model_list
+
+
+@app.get('/list-features')
+async def list_features() -> list[Feature]:
+    '''
+    List all available features
+    '''
+    return all_features
+
 
 @app.get('/get-results/')
 async def get_results() -> FullPredictionResponse:
@@ -167,6 +185,7 @@ async def get_results() -> FullPredictionResponse:
     if 'response' not in internal_state.current_data:
         raise HTTPException(status_code=400, detail="No response available")
     return internal_state.current_data['response']
+
 
 @app.post('/cancel/')
 async def cancel() -> dict:
@@ -191,4 +210,5 @@ async def get_status() -> State:
 
 def main_backend():
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # TODO: change this to localhost
+    uvicorn.run(app, host="localhost", port=8000)
