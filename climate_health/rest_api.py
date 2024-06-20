@@ -156,9 +156,6 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     background_tasks.add_task(train_func)
     return {'status': 'success'}
 
-@app.get('/list_models')
-async def list_models() -> dict[ModelSpec]:
-    
 
 
 @app.get('/get-results/')

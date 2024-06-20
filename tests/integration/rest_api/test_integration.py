@@ -1,4 +1,5 @@
 
+from unittest.mock import patch
 from climate_health.rest_api import app
 from fastapi.testclient import TestClient
 from fastapi import FastAPI, Header, HTTPException
@@ -25,11 +26,18 @@ post_zip_file_path = "/v1/post-zip-file"
 
 # Test get status on initial, should return 200
 def test_post_zip_file():
-    testfile = open("./testdata/traning_prediction_data.zip", "rb")
-    print(testfile)
-    response = client.post(post_zip_file_path, files={"file": testfile})
-    print(response)
+
+
+    with patch("fastapi.BackgroundTasks.add_task") as mock:
+
+        def side_effect(*args, **kwargs):
+            print("Background task added")
+
+        mock.side_effect = side_effect
     #assert response.status_code == 200
+    testfile = open("./testdata/traning_prediction_data.zip", "rb")
+    response = client.post(post_zip_file_path, files={"file": testfile})
+    mock.assert_called_once()
 
 
 
