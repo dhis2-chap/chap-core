@@ -109,6 +109,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
     def run_through_container(self, command: str):
         """Runs the command through either conda, docker or directly depending on the config"""
+        logger.info(f'Running command: {command}')
         return self._runner.run_command(command)
 
     def setup(self):
@@ -160,6 +161,8 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         return Path('./')
 
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType], extra_args=None):
+        end_time = train_data.end_timestamp
+        logger.info('Training model on dataset ending at %s', end_time)
         if extra_args is None:
             extra_args = ''
         train_file_name = 'training_data.csv'
@@ -184,6 +187,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
         name = 'future_data.csv'
         start_time = future_data.start_timestamp
+        logger.info('Predicting on dataset from %s', start_time)
         with open(name, "w") as f:
             df = future_data.to_pandas()
             df['disease_cases'] = np.nan

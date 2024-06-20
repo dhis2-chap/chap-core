@@ -23,12 +23,13 @@ from climate_health.time_period.date_util_wrapper import delta_month, Week
 from .assessment.prediction_evaluator import evaluate_model
 from .assessment.forecast import forecast as do_forecast, multi_forecast as do_multi_forecast
 import logging
-
+logging.basicConfig(level=logging.INFO)
 app = App()
 
 
 def append_to_csv(file_object, data_frame: pd.DataFrame):
     data_frame.to_csv(file_object, mode='a', header=False)
+
 
 
 @app.command()
