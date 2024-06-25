@@ -2,7 +2,7 @@ import ee
 import dataclasses
 import enum
 import os
-from dotenv import load_dotenv, find_dotenv
+
 
 @dataclasses.dataclass
 class Result:
@@ -31,32 +31,30 @@ dailyDataset = {
 
 class GoogleEarthEngine:
     def __init__(self):
-        self.intitilizeClient(self)
+        self.initializeClient()
 
-    def intitilizeClient(self):
-
-        #Load environment variables
-        load_dotenv(find_dotenv())
-
-        return
-        
+    def initializeClient(self):
         #read environment variables
-        account = os.environ['GOOGLE_SERVICE_ACCOUNT_EMAIL']
-        private_key = os.environ['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY']
+        account = os.environ.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
+        private_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')
 
         if(not account):
-           print("GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables")
+            print("GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables to use Google Earth Engine")
         if(not private_key):
-           print("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is not set, you need to set it in the environment variables")
+            print("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is not set, you need to set it in the environment variables to use Google Earth Engine")
 
-        print(account, private_key)
-        return
-
-        credentials = ee.ServiceAccountCredentials(account, key_file=None, key_data=private_key)
-        ee.Initialize(credentials)
+        if(not account or not private_key):
+            return
         
+        try:
+            credentials = ee.ServiceAccountCredentials(account, key_data=private_key)
+            ee.Initialize(credentials)
+            print("Google Earth Engine initialized, with account:", account)
+        except ValueError as e:
+            print("\nERROR:\n", e, "\n")
 
-    def fetch_data_climate_indicator(features: object, start_data: str, end_date: str):
+
+    def fetch_data_climate_indicator(self, features: object, start_data: str, end_date: str):
 
         #if polygon
         start_data = '2019-01-01'

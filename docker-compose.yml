@@ -2,28 +2,18 @@ version: '3'
 services:
   chap:
     build: .
+    environment:
+      - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
+      - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
     image: chap
     ports:
       - "8000:8000"
     working_dir: /
 
-  chap-interface:
-    build: climate_health/web_interface
-    image: chap-interface
-    container_name: chap-interface
-    ports:
-      - "4000:80"
-
-  chap-db:
-    image: postgres:9.6
-    container_name: chap-db
-    environment:
-      POSTGRES_USER: chap
-      POSTGRES_PASSWORD: chap
-      POSTGRES_DB: chap
-    
-    ports:
-      - "5432:5432"
-    
-    volumes:
-      - chap-db-data:/var/lib/postgresql/data
+ # TEMPORALY REMOVED THIS SINCE NOBODY USE IT, COULD BE ADDED BACK LATER IF WE FOUND IT USEFUL
+ # chap-interface:
+ #   build: climate_health/web_interface
+ #   image: chap-interface
+ #   container_name: chap-interface
+ #   ports:
+ #     - "4000:80"

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import dataclasses
 import logging
 import time
@@ -14,20 +15,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from climate_health.api import read_zip_folder, dhis_zip_flow, train_on_prediction_data
 from climate_health.dhis2_interface.json_parsing import parse_json_rows
-from climate_health.google_earth_engine.era5 import GoogleEarthEngine
+from climate_health.google_earth_engine.gee_era5 import GoogleEarthEngine
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import ModelType, get_model, all_model_names, all_models
 from climate_health.predictor.feature_spec import Feature, all_features
 from climate_health.training_control import TrainingControl
+from dotenv import load_dotenv, find_dotenv
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-    
-
-
-client = GoogleEarthEngine()
-
 
 class Control:
     def __init__(self, controls):
@@ -61,10 +57,23 @@ class Control:
             return self._current_control.get_progress()
         return 0
 
+clients = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Running pretasks..")
+    #Load environment variables
+    load_dotenv(find_dotenv())
+    # Load the ML model
+    clients["GoogleEarthEngine"] = GoogleEarthEngine()
+    yield
+    # Clean up
+
 
 def get_app():
     app = FastAPI(
         root_path="/v1",
+        lifespan=lifespan
     )
     origins = [
         '*',  # Allow all origins
@@ -217,5 +226,5 @@ async def get_status() -> State:
 def main_backend():
     import uvicorn
 
-    uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
