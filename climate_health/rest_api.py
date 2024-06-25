@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from climate_health.api import read_zip_folder, dhis_zip_flow, train_on_prediction_data
 from climate_health.dhis2_interface.json_parsing import parse_json_rows
+from climate_health.google_earth_engine.era5 import GoogleEarthEngine
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import ModelType, get_model, all_model_names, all_models
 from climate_health.predictor.feature_spec import Feature, all_features
@@ -21,6 +22,11 @@ from climate_health.training_control import TrainingControl
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+    
+
+
+client = GoogleEarthEngine()
 
 
 class Control:
@@ -210,5 +216,6 @@ async def get_status() -> State:
 
 def main_backend():
     import uvicorn
-    # TODO: change this to localhost
+
     uvicorn.run(app, host="localhost", port=8000)
+
