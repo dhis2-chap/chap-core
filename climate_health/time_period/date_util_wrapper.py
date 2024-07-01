@@ -11,7 +11,7 @@ from dateutil.relativedelta import relativedelta
 
 
 class DateUtilWrapper:
-    _used_attributes = []
+    _used_attributes: tuple = ()
 
     def __init__(self, date: datetime):
         self._date = date
@@ -23,10 +23,14 @@ class DateUtilWrapper:
 
 
 class TimeStamp(DateUtilWrapper):
-    _used_attributes = ['year', 'month', 'day', '__str__', '__repr__']
+    _used_attributes = ('year', 'month', 'day', '__str__', '__repr__')
 
     def __init__(self, date: datetime):
         self._date = date
+
+    @property
+    def date(self) -> datetime:
+        return self._date
 
     @classmethod
     def parse(cls, text_repr: str):
@@ -60,7 +64,7 @@ class TimeStamp(DateUtilWrapper):
 
 
 class TimePeriod:
-    _used_attributes = []
+    _used_attributes = ()
     _extension = None
 
     def __init__(self, date: datetime | Number, *args, **kwargs):

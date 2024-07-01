@@ -104,6 +104,14 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         return f'{self.__class__.__name__}({self._data_dict})'
 
     @property
+    def period_range(self):
+        first_period_range= self._data_dict[next(iter(self._data_dict))].data().time_period
+        assert first_period_range.start_timestamp == first_period_range.start_timestamp
+        assert first_period_range.end_timestamp == first_period_range.end_timestamp
+        return first_period_range
+
+
+    @property
     def start_timestamp(self) -> pd.Timestamp:
         return min(data.start_timestamp for data in self.data())
 

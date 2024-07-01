@@ -9,6 +9,7 @@ import climate_health.predictor.feature_spec as fs
 
 _non_feature_names = {'disease_cases', 'week', 'month', 'location', 'time_period', 'year'}
 
+
 class PeriodType(Enum):
     week = "week"
     month = "month"
@@ -24,13 +25,17 @@ class EwarsParamSpec(ParameterSpec):
     n_weeks: PositiveInt
     alpha: float
 
+
 EmptyParameterSpec = {}
+
 
 class ModelSpec(BaseModel):
     name: str
     parameters: dict
     features: list[fs.Feature]
     period: PeriodType = PeriodType.any
+    description: str = "No Description yet"
+    author: str = 'Unknown Author'
 
 
 def model_spec_from_yaml(filename: str) -> ModelSpec:
@@ -41,7 +46,10 @@ def model_spec_from_yaml(filename: str) -> ModelSpec:
     adapters = data.get('adapters', dict())
     features = [fs.feature_dict[feature] for feature in adapters.values() if feature not in _non_feature_names]
     period = PeriodType[data.get('period', 'any')]
-    return ModelSpec(name=name, parameters=parameters, features=features, period=period)
+    description = data.get('description', 'No Description yet')
+    author = data.get('author', 'Unknown Author')
+    return ModelSpec(name=name, parameters=parameters, features=features, period=period, description=description, author=author)
+
 
 def model_spec_from_model(model_class: type) -> ModelSpec:
     name = model_class.__name__
@@ -53,5 +61,7 @@ def model_spec_from_model(model_class: type) -> ModelSpec:
     return ModelSpec(name=name,
                      parameters=EmptyParameterSpec,
                      features=[fs.feature_dict[feature] for feature in feature_names],
-                     period=PeriodType.any
+                     period=PeriodType.any,
+                     description='Internally defined model',
+                     author='CHAP Team'
                      )
