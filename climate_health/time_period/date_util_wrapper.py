@@ -163,16 +163,26 @@ class Day(TimePeriod):
     def __repr__(self):
         return f'Day({self.year}-{self.month}-{self.day})'
 
+    def id(self):
+        return self._date.strftime('%Y%m%d')
+
     def topandas(self):
         return pd.Period(year=self.year, month=self.month, day=self.day, freq='D')
 
     def to_string(self):
         return f'{self.year}-{self.month:02d}-{self.day:02d}'
 
+    @property
+    def id(self):
+        return self._date.strftime('%Y%m%d')
 
 class Week(TimePeriod):
     _used_attributes = ['year']
     _extension = relativedelta(weeks=1)
+
+    @property
+    def id(self):
+        return f'{self.year}W{self.week:02d}'
 
     def to_string(self):
         return f'{self.year}W{self.week}'
@@ -212,6 +222,10 @@ class Month(TimePeriod):
     _used_attributes = ['year', 'month']
     _extension = relativedelta(months=1)
 
+    @property
+    def id(self):
+        return self._date.strftime('%Y%m')
+
     def to_string(self):
         return f'{self.year}-{self.month:02d}'
 
@@ -225,6 +239,10 @@ class Month(TimePeriod):
 class Year(TimePeriod):
     _used_attributes = ['year']
     _extension = relativedelta(years=1)
+
+    @property
+    def id(self):
+        return str(self.year)
 
     def __repr__(self):
         return f'Year({self.year})'

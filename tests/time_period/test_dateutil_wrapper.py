@@ -86,6 +86,12 @@ def test_divide_timedelta():
     assert delta_year // delta_month == 12
 
 
+def test_period_id(period1):
+    assert period1.id == '202001'
+    assert Week(2023, 2).id == '2023W02'
+    assert Day(2023, 2, 3).id == '20230203'
+    assert Year(2023).id == '2023'
+
 @pytest.fixture
 def period_range(period1, period3):
     return PeriodRange.from_time_periods(start_period=period1, end_period=period3)
