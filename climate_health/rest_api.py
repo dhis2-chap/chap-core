@@ -11,6 +11,7 @@ from pydantic import BaseModel
 # from fastapi.responses import HTMLResponse
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from climate_health.api import read_zip_folder, dhis_zip_flow, train_on_prediction_data
@@ -133,6 +134,11 @@ class FullPredictionResponse(BaseModel):
     dataValues: List[PredictionResponse]
 
 
+@app.get('favicon.ico')
+async def favicon() -> FileResponse:
+    return FileResponse('chap_icon.jpeg')
+
+
 @app.post('/set-model-path/')
 async def set_model_path(model_path: str) -> dict:
     '''
@@ -187,7 +193,7 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
 @app.get('/list-models')
 async def list_models() -> list[ModelSpec]:
     '''
-    List all available models
+    List all available models. These are not validated. Should set up test suite to validate them
     '''
     model_list = (model_spec_from_model(model) for model in all_models)
     valid_model_list = [m for m in model_list if m is not None]
