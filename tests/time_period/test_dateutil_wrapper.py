@@ -39,7 +39,7 @@ def test_init_week_with_numbers():
     week = Week(2023, 2)
     assert isinstance(week, Week)
     assert week.start_timestamp == TimeStamp.parse('2023-01-09')
-    assert week.topandas() == '2023W2'#pd.Period('2023-01-09', freq='W-MON')
+    assert week.topandas() == '2023W2'  # pd.Period('2023-01-09', freq='W-MON')
 
 
 def test_parse(period1):
@@ -91,6 +91,14 @@ def test_period_id(period1):
     assert Week(2023, 2).id == '2023W02'
     assert Day(2023, 2, 3).id == '20230203'
     assert Year(2023).id == '2023'
+
+
+def test_from_id(period1):
+    assert TimePeriod.from_id('202001') == period1
+    assert TimePeriod.from_id('2023W02') == Week(2023, 2)
+    assert TimePeriod.from_id('20230203') == Day(2023, 2, 3)
+    assert TimePeriod.from_id('2023') == Year(2023)
+
 
 @pytest.fixture
 def period_range(period1, period3):
@@ -196,11 +204,10 @@ def test_from_pandas_inconsecutive(period_range):
 def test_from_strings_fill_missing(periods, missing):
     period_range, missing_idx = PeriodRange.from_strings(periods,
                                                          fill_missing=True)
-    assert period_range[0] ==  TimePeriod.parse(periods[0])
+    assert period_range[0] == TimePeriod.parse(periods[0])
     assert period_range[-1] == TimePeriod.parse(periods[-1])
 
     assert np.all(missing_idx == missing)
-
 
 
 def test_searchsorted(period_range, period2):

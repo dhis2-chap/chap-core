@@ -78,6 +78,17 @@ class TimePeriod:
     def __date_from_numbers(cls, year: int, month: int = 1, day: int = 1):
         return datetime(int(year), int(month), int(day))
 
+    @classmethod
+    def from_id(cls, id: str):
+        if len(id) == 4:
+            return Year(int(id))
+        if 'W' in id:
+            return Week(*map(int, id.split('W')))
+        elif len(id) == 6:
+            return Month(int(id[:4]), int(id[4:]))
+        elif len(id) == 8:
+            return Day(int(id[:4]), int(id[4:6]), int(id[6:]))
+
     def __eq__(self, other):
         r = (self._date == other._date)
         r2 = (self._extension == other._extension)
