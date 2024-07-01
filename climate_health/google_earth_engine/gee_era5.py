@@ -8,6 +8,10 @@ import os
 from array import array
 import zipfile
 
+from climate_health.datatypes import ClimateData
+from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.time_period.date_util_wrapper import TimePeriod
+
 @dataclasses.dataclass
 class Result:
     orgUntId: str
@@ -89,7 +93,7 @@ class GoogleEarthEngine:
         This method, takes in the ZIP-file from the post-file path, and fetches the data from Google Earth Engine
         Data is beeing 
     '''
-    def fetch_data_climate_indicator(self, zip_file_path: str, periodes : List[Periode]):
+    def fetch_data_climate_indicator(self, zip_file_path: str, periodes : List[TimePeriod]) -> SpatioTemporalDict[ClimateData]:
         
         ziparchive = zipfile.ZipFile(zip_file_path)
 
@@ -102,7 +106,27 @@ class GoogleEarthEngine:
 
         featureCollection = ee.FeatureCollection(features)
 
-        
+        #the first periode
+        periode = periodes[0]
+
+        #Calculate the number of days for a given periode
+        days = ee.Date(periode.end_timestamp).difference(ee.Date(periode.start_timestamp._date), "days")
+
+        daysList = ee.List.sequence(0, days.subtract(1))
+
+        dailyCollection = ee.ImageCollection.fromImages(
+            daysList.map(lambda day: 
+                startUTC = ee.Date().advance(day, "days")
+                start = ee.Date(startUTC.format(None, timeZone))
+                end = start.advance(1, "days")
+                filtered = collection.filter(ee.Filter.date(start, end))
+            
+                filtered[periodReducer]()
+                    .set("system:index", startUTC.format("YYYYMMdd"))
+                    .set("system:time_start", start.millis())
+                    .set("system:time_end", end.millis())
+            )
+        ).filter(ee.Filter.listContains("system:band_names", band))  # Remove empty images
 
         
         eeScale = collection.first().select(0).projection().nominalScale()
@@ -139,6 +163,8 @@ class GoogleEarthEngine:
  
         d = self.dataParser(info)
         print(d)
+
+        
 
         
 

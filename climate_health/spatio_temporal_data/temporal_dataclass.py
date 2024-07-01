@@ -96,7 +96,7 @@ class TemporalDataclass(Generic[FeaturesT]):
 
 
 class SpatioTemporalDict(Generic[FeaturesT]):
-    def __init__(self, data_dict: dict[FeaturesT]):
+    def __init__(self, data_dict: dict[str, FeaturesT]):
         self._data_dict = {loc: TemporalDataclass(data) if not isinstance(data, TemporalDataclass) else data for
                            loc, data in data_dict.items()}
 
