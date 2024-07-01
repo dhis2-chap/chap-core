@@ -140,6 +140,12 @@ async def set_model_path(model_path: str) -> dict:
 
 @app.post('/zip-file/')
 async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
+    
+    data = clients["GoogleEarthEngine"].fetch_data_climate_indicator(file.file, '2019-01-01', '2020-01-01')
+    
+    return {'data' : data}
+    return {'status': 'success'}
+    
     '''
     Post a zip file containing the data needed for training and evaluation, and start the training
     '''

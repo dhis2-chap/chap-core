@@ -1,8 +1,12 @@
+import datetime
+import json
+from typing import List
 import ee
 import dataclasses
 import enum
 import os
-
+from array import array
+import zipfile
 
 @dataclasses.dataclass
 class Result:
@@ -29,7 +33,26 @@ dailyDataset = {
     "reducer" : reducer,
 }
 
+@dataclasses.dataclass
+class Periode:
+    id: str
+    startDate : datetime
+    endDate : datetime
+
 class GoogleEarthEngine:
+
+    #def getInfo(self, instance):
+    #    return instance.evaluate()
+
+    def kelvinToCelsius(self, k):
+        return k - 273.15
+
+    def roundOneDecimal(self, v):
+        return round(v * 10) / 10
+
+    def valueParser(self, v):
+        return self.roundOneDecimal(self.kelvinToCelsius(v))
+    
     def __init__(self):
         self.initializeClient()
 
@@ -53,31 +76,93 @@ class GoogleEarthEngine:
         except ValueError as e:
             print("\nERROR:\n", e, "\n")
 
+    def dataParser(self, data):
+        parsed_data = [ 
+                { **f['properties'], 
+                 'period': f['properties']['period'], 
+                 'value': self.valueParser(f['properties']['value']) 
+            if self.valueParser else f['properties']['value'] } for f in data 
+            ]
+        return parsed_data
 
-    def fetch_data_climate_indicator(self, features: object, start_data: str, end_date: str):
+    '''
+        This method, takes in the ZIP-file from the post-file path, and fetches the data from Google Earth Engine
+        Data is beeing 
+    '''
+    def fetch_data_climate_indicator(self, zip_file_path: str, periodes : List[Periode]):
+        
+        ziparchive = zipfile.ZipFile(zip_file_path)
 
-        #if polygon
+        features = json.load(ziparchive.open("orgUnits.geojson"))
+        
         start_data = '2019-01-01'
-        end_date = '2019-01-02'
+        end_date = '2023-01-02'
 
-        collection = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR').select(band).filterDate(start_data, end_date).mean()
-
-        print(collection.getInfo())
-
-        if(collection.size() == 0):
-            raise Exception("No data found for the given period, collection returned 0 elements")
-
-        if (reducer == "min" or reducer == "max"):
-            # ReduceRegions with min/max reducer may fail if the features are smaller than the pixel area
-            # https://stackoverflow.com/questions/59774022/reduce-regions-some-features-dont-contains-centroid-of-pixel-in-consecuence-ex
-            
-            # TODO Handle this
-            return
+        collection = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR').select(band).filterDate(start_data, end_date)
 
         featureCollection = ee.FeatureCollection(features)
 
+        
+
+        
+        eeScale = collection.first().select(0).projection().nominalScale()
+        
+        eeReducer = ee.Reducer.mean()
+
+        #eeReducer = ee.Reducer[reducer]()
+
+        reduced = collection.map(lambda image: 
+            image.reduceRegions(
+                collection=featureCollection,
+                reducer=eeReducer,
+                scale=eeScale
+            ).map(lambda feature: 
+                ee.Feature(
+                    None, 
+                    {
+                        'ou': feature.get('id'),
+                        'period': image.date().format('YYYYMMdd'),
+                        'value': feature.get(reducer)
+                    }
+                )
+            )
+        ).flatten()
+
+        valueCollection = ee.FeatureCollection(reduced)
+
+        #print(featureCollection)
+        info = valueCollection.toList(5_000).getInfo()
+
+        # Save the info to a local file
+
+        
+ 
+        d = self.dataParser(info)
+        print(d)
+
+        
+
+        #info.map(lambda e: print(e))
+
+        #parsed = self.dataParser(info)
+
+        #ee.List.iterate(self.dataParser)
+
+        #print(info)
+        #parsed = self.dataParser(e)
+        #print(parsed)
+
+
+        
+
+        #print(valueCollection)
+
+        
+
+        return {"valueCollection" : ""}
+
         #TODO find out, what is this doing?
-        eeReducer = ee.Reducer[reducer]()
+        #eeReducer = ee.Reducer[reducer]()
 
 
 
