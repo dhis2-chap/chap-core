@@ -37,3 +37,12 @@ def use_test_cache():
 def health_population_data(data_path):
     file_name = (data_path / 'health_population_data').with_suffix('.csv')
     return SpatioTemporalDict.from_pandas(pd.read_csv(file_name), HealthPopulationData)
+
+
+@pytest.fixture()
+def google_earth_engine():
+    from climate_health.google_earth_engine.gee_era5 import GoogleEarthEngine
+    try:
+        return GoogleEarthEngine()
+    except:
+        pytest.skip("Google Earth Engine not available")
