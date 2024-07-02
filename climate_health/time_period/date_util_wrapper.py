@@ -89,6 +89,10 @@ class TimePeriod:
         elif len(id) == 8:
             return Day(int(id[:4]), int(id[4:6]), int(id[6:]))
 
+    @property
+    def id(self):
+        raise NotImplementedError('Must be implemented in subclass')
+
     def __eq__(self, other):
         r = (self._date == other._date)
         r2 = (self._extension == other._extension)

@@ -14,6 +14,6 @@ class Job(Generic[ReturnType], Protocol):
         ...
 
 
-class Worker(Protocol):
+class Worker(Generic[ReturnType], Protocol):
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> Job[ReturnType]:
         ...

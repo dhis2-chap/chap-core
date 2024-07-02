@@ -27,10 +27,9 @@ list_features_path = "/v1/list-features"
 #    assert response.status_code == 200
 
 # Test get status on initial, should return 200
-@pytest.mark.skip(reason="Waiting for background task to work")
-def test_post_zip_file():
-
-
+#@pytest.mark.skip(reason="Waiting for background task to work")
+@pytest.mark.asyncio
+async def test_post_zip_file():
     with patch("fastapi.BackgroundTasks.add_task") as mock:
 
         def side_effect(*args, **kwargs):
@@ -40,7 +39,7 @@ def test_post_zip_file():
     #assert response.status_code == 200
     testfile = open("./testdata/traning_prediction_data.zip", "rb")
     response = client.post(post_zip_file_path, files={"file": testfile})
-    mock.assert_called_once()
+    #mock.assert_called_once()
 
 
 # Test get status on initial, should return 200

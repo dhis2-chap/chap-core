@@ -105,7 +105,7 @@ class SpatioTemporalDict(Generic[FeaturesT]):
 
     @property
     def period_range(self) -> PeriodRange:
-        first_period_range= self._data_dict[next(iter(self._data_dict))].data().time_period
+        first_period_range = self._data_dict[next(iter(self._data_dict))].data().time_period
         assert first_period_range.start_timestamp == first_period_range.start_timestamp
         assert first_period_range.end_timestamp == first_period_range.end_timestamp
         return first_period_range

@@ -1,10 +1,7 @@
 from contextlib import asynccontextmanager
-import dataclasses
 import logging
-import time
 from asyncio import CancelledError
-from enum import Enum
-from typing import List, Union, Optional
+from typing import List, Union
 
 from fastapi import BackgroundTasks, UploadFile, HTTPException
 from pydantic import BaseModel
@@ -14,60 +11,28 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from climate_health.api import read_zip_folder, dhis_zip_flow, train_on_prediction_data
-from climate_health.dhis2_interface.json_parsing import parse_json_rows
+from climate_health.api import read_zip_folder, train_on_prediction_data
 from climate_health.google_earth_engine.gee_era5 import GoogleEarthEngine
+from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
-from climate_health.predictor import ModelType, get_model, all_model_names, all_models
+from climate_health.predictor import all_models
 from climate_health.predictor.feature_spec import Feature, all_features
 from climate_health.training_control import TrainingControl
 from dotenv import load_dotenv, find_dotenv
 
+from climate_health.worker.background_tasks_worker import BGTaskWorker
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-class Control:
-    def __init__(self, controls):
-        self._controls = controls
-        self._status = 'idle'
-        self._current_control = None
-        self._is_cancelled = False
+clients = {}
 
-    @property
-    def current_control(self):
-        return self._current_control
-
-    def cancel(self):
-        if self._current_control is not None:
-            self._current_control.cancel()
-        self._is_cancelled = True
-
-    def set_status(self, status):
-        self._current_control = self._controls.get(status, None)
-        self._status = status
-        if self._is_cancelled:
-            raise CancelledError()
-
-    def get_status(self):
-        if self._current_control is not None:
-            return f'{self._status}:  {self._current_control.get_status()}'
-        return self._status
-
-    def get_progress(self):
-        if self._current_control is not None:
-            return self._current_control.get_progress()
-        return 0
-
-class Clients(BaseModel):
-    gee: GoogleEarthEngine = None
-
-clients = Clients()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
     print("Running pretasks..")
-    #Load environment variables
+    # Load environment variables
     load_dotenv(find_dotenv())
     # Load the ML model
     clients.gee = GoogleEarthEngine()
@@ -106,18 +71,10 @@ class State(BaseModel):
     progress: float = 0
 
 
-@dataclasses.dataclass
-class InternalState:
-    control: Optional[Control]
-    current_data: dict
-    model_path: Optional[str] = None
-
-
 internal_state = InternalState(Control({}), {})
 
 state = State(ready=True, status='idle')
-
-
+worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
 def set_cur_response(response):
     state['response'] = response
 
@@ -164,10 +121,12 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     state.ready = False
     state.status = 'training'
     prediction_data = read_zip_folder(file.file)
-    model_name, model_path = 'HierarchicalStateModelD', None
+    model_name, model_path = 'HierarchicalModel', None
     if internal_state.model_path is not None:
         model_name = 'external'
         model_path = internal_state.model_path
+
+    job = worker.queue(train_on_prediction_data, prediction_data, model_name=model_name, model_path=model_path)
 
     def train_func():
         internal_state.control = Control({'Training': TrainingControl()})
@@ -185,7 +144,8 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
         state.ready = True
         state.status = 'idle'
 
-    background_tasks.add_task(train_func)
+    #background_tasks.add_task(train_func)
+    print('task added')
     return {'status': 'success'}
 
 

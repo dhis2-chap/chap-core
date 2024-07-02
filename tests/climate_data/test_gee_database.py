@@ -26,3 +26,7 @@ def test_era5_daily():
     assert len(mocked_data) == 366
     full_data = ERA5DataBase().get_data(location, Day(2010, 1, 1), Day(2015, 1, 1))
     full_data.to_csv('climate_data_daily.csv')
+
+@pytest.mark.skip
+def test_get_climate_data_for_dataset(google_earth_engine):
+    google_earth_engine
