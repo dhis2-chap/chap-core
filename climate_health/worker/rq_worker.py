@@ -2,7 +2,7 @@
 This needs a redis db and a redis queue worker running
 $ rq worker --with-scheduler
 '''
-from typing import Callable
+from typing import Callable, Generic
 
 from rq import Queue
 from redis import Redis
@@ -10,7 +10,7 @@ from redis import Redis
 from climate_health.worker.interface import ReturnType
 
 
-class RedisJob:
+class RedisJob(Generic[ReturnType]):
     def __init__(self, job):
         self._job = job
 
@@ -27,7 +27,7 @@ class RedisQueue:
     def __init__(self):
         self.q = Queue(connection=Redis())
 
-    def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> Jopb[ReturnType]:
+    def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> RedisJob[ReturnType]:
         return self.q.enqueue(func, *args, **kwargs)
 
     def __del__(self):
