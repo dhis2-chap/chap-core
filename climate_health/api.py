@@ -58,6 +58,7 @@ def extract_disease_name(health_data: dict) -> str:
 
 def read_zip_folder(zip_file_path: str) -> PredictionData:
     # read zipfile, create PredictionData
+    print(zip_file_path)
     ziparchive = zipfile.ZipFile(zip_file_path)
     expected_files = {
         "area_polygons": "orgUnits.geojson",
@@ -172,7 +173,9 @@ def dhis_zip_flow(zip_file_path: str, out_json: Optional[str] = None, model_name
         return json_body
 
 
-def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=None, model_path=None, control=DummyControl()):
+def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=None, model_path=None, control=None):
+    if control is None:
+        control = DummyControl()
     control.set_status('Preprocessing')
     if model_name == 'external':
         model = get_model_from_directory_or_github_url(model_path)

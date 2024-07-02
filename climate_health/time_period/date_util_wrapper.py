@@ -512,6 +512,9 @@ class PeriodRange:
     def end_timestamp(self):
         return self._end_timestamp
 
+    def todict(self):
+        return {'start_timestamp': self._start_timestamp, 'end_timestamp': self._end_timestamp, 'time_delta': self._time_delta}
+
 
 delta_month = TimeDelta(relativedelta(months=1))
 delta_year = TimeDelta(relativedelta(years=1))

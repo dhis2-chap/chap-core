@@ -19,4 +19,5 @@ COPY ./external_models ./external_models
 RUN pip install -e .
 
 # Start the FastAPI application
+CMD rq worker
 CMD chap serve

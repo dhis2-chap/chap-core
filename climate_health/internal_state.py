@@ -2,6 +2,8 @@ import dataclasses
 from asyncio import CancelledError
 from typing import Optional
 
+from climate_health.worker.interface import Job
+
 
 class Control:
     def __init__(self, controls):
@@ -41,3 +43,7 @@ class InternalState:
     control: Optional[Control]
     current_data: dict
     model_path: Optional[str] = None
+    current_job: Job | None = None
+
+    def is_ready(self):
+        return self.current_job is None or self.current_job.is_finished
