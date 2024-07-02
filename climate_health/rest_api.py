@@ -28,19 +28,20 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 class Clients(BaseModel):
-    gee: GoogleEarthEngine | None = None
+    gee: GoogleEarthEngine = None
 
 clients = Clients()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global gee
+
     print("Running pretasks..")
     # Load environment variables
     load_dotenv(find_dotenv())
     # Load the ML model
     clients.gee = GoogleEarthEngine()
-    #gee = GoogleEarthEngine()
+
     yield
     # Clean up
 
@@ -102,13 +103,19 @@ async def favicon() -> FileResponse:
     return FileResponse('chap_icon.jpeg')
 
 
-@app.post('/set-model-path/')
+@app.post('/set-model-path')
 async def set_model_path(model_path: str) -> dict:
     '''
     Set the model to be used for training and evaluation
     https://github.com/knutdrand/external_rmodel_example.git
     '''
     internal_state.model_path = model_path
+    return {'status': 'success'}
+
+@app.post('/gee')
+async def test_google_earth_engine(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
+    prediction_data = read_zip_folder(file.file)
+    prediction_data.climate_data = clients.gee.fetch_data_climate_indicator(file.file, prediction_data.health_data.period_range)
     return {'status': 'success'}
 
 
@@ -132,8 +139,6 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     def train_func():
         internal_state.control = Control({'Training': TrainingControl()})
         try:
-            prediction_data.climate_data = clients.gee.fetch_data_climate_indicator(file.file, prediction_data.health_data.periode_range)
-
             internal_state.current_data['response'] = train_on_prediction_data(
                 prediction_data,
                 model_name=model_name,
@@ -170,7 +175,7 @@ async def list_features() -> list[Feature]:
     return all_features
 
 
-@app.get('/get-results/')
+@app.get('/get-results')
 async def get_results() -> FullPredictionResponse:
     '''
     Retrieve results made by the model
@@ -184,7 +189,7 @@ async def get_results() -> FullPredictionResponse:
     return result
 
 
-@app.post('/cancel/')
+@app.post('/cancel')
 async def cancel() -> dict:
     '''
     Cancel the current training
@@ -194,7 +199,7 @@ async def cancel() -> dict:
     return {'status': 'success'}
 
 
-@app.get('/status/')
+@app.get('/status')
 async def get_status() -> State:
     '''
     Retrieve the current status of the model

@@ -100,8 +100,6 @@ class GoogleEarthEngine(BaseModel):
         
         ziparchive = zipfile.ZipFile(zip_file_path)
 
-        
-
         features = json.load(ziparchive.open("orgUnits.geojson"))
         
         start_date = '2019-01-01'
@@ -109,50 +107,15 @@ class GoogleEarthEngine(BaseModel):
 
         collection = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR').select(band).filterDate(start_date, end_date)
 
-        featureCollection = ee.FeatureCollection(features)
-
-
-        #the first periode
-        #periode = periodes[0]
-
+        featureCollection : ee.FeatureCollection = ee.FeatureCollection(features["features"])
 
         
-        #Get all days from start to end of traning periode
-        #days = ee.Date(end_date).difference(ee.Date(start_date), "days")
-        #Exlude the last day
-        #periodList = ee.List.sequence(0, days.subtract(1))
+        for c in featureCollection.toList(5).getInfo():
+            print(c.get("id"))
 
-        #print(days.getInfo())
-        #print(periodList.getInfo())
-        #return
-
-
-        #periodeList = ee.List(list(map(lambda p: ee.Dictionary({"id" : "0", "start_date" : p.start_timestamp.date.timestamp(), "end_date" : p.end_timestamp.date.timestamp()}), periodes)))
-        periodeList = ee.List([ee.Dictionary({"id" : "0", "start_date" : p.start_timestamp.date, "end_date" : p.end_timestamp.date}) for p in periodes])
-
-        #periodeList = ee.List(simple_periode)
         
-        #print(periodeList.getInfo())
-       
 
-        #periodeList = ee.List([])
-
-        #for p in periodes:
-        #    ee.List([]).add(ee.Dictionary({"id" : "0", "start_date" : "p.start_timestamp.date.timestamp()", "end_date" : "p.end_timestamp.date.timestamp()"}).getInfo())
-        #print(d.getInfo())
-            #ee.List.add(d)
-        #print(ee.List([]).getInfo())
-
-        #print(periodeList.getInfo())
-
-       #def doThings(p : ee.Dictionary):
-        #    p = ee.Dictionary(p)
-       #     return ee.Dictionary({"to": p.get("id"), "start_date": p.get("start_date"), "end_date": p.get("end_date")})
-       #     #return p2.rename("id", "to")
-
-       # newlist =periodeList.map(doThings)
-
-        #ee.collection
+        periodeList = ee.List([ee.Dictionary({"id" : p.id, "start_date" : p.start_timestamp.date, "end_date" : p.end_timestamp.date}) for p in periodes])
         eeScale = collection.first().select(0).projection().nominalScale()
         
         eeReducer = ee.Reducer.mean()
@@ -163,41 +126,12 @@ class GoogleEarthEngine(BaseModel):
             end = ee.Date(p.get("end_date"))
             filtered : ee.ImageCollection = collection.filter(ee.Filter.date(start, end))
 
-            
-
             return filtered.mean().set("system:index", start_date.format("YYYYMMdd")).set("system:time_start", start.millis()).set("system:time_end", end.millis())
-
-
-
-        
-
-
-        #images_collection = periodeList.map(lambda i: getPeriode(periodes[i].start_timestamp.date, periodes[i].end_timestamp.date, collection), periodes)
-        #print(images_collection.getInfo())
-        #images = ee.ImageCollection(images_collection).toList(len(images_collection))
- 
-
-        #images = ee.List()
-        #print(images)
-
-        #return
-
 
         dailyCollection : ee.ImageCollection = ee.ImageCollection.fromImages(
             #DaysList containt all images from the start, to the end of the training periode
             periodeList.map(getPeriode)
-            
-            #periodes.map(lambda period: getPeriode(period, collection))
-            #getPeriode(periode, collection)
-            #periodes.map(lambda period: 
-            #    getPeriode(period, collection)
-            #)
         ).filter(ee.Filter.listContains("system:band_names", band))  # Remove empty images
-
-
-        #print(dailyCollection.getInfo())
-        #return
-        #eeReducer = ee.Reducer[reducer]()
 
 
         reduced = dailyCollection.map(lambda image: 
@@ -209,21 +143,17 @@ class GoogleEarthEngine(BaseModel):
                 ee.Feature(
                     None, 
                     {
-                        'ou': feature.get('id'),
-                        'period': image.date().format('YYYYMMdd'),
+                        'ou': feature.id(),
+                        'period': image,#.date().format('YYYYMMdd'),
                         'value': feature.get(reducer)
                     }
                 )
             )
         ).flatten()
 
-
-
         valueCollection : ee.FeatureCollection = ee.FeatureCollection(reduced)
 
-        
 
-        #print(featureCollection)
         info = valueCollection.toList(5_000).getInfo()
 
         # Save the info to a local file
