@@ -30,14 +30,13 @@ clients = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global gee
     print("Running pretasks..")
     # Load environment variables
     load_dotenv(find_dotenv())
     # Load the ML model
-    try:
-        clients["GoogleEarthEngine"] = GoogleEarthEngine()
-    except GEEEException as e:
-        logger.error("Could not initialize Google Earth Engine")
+    clients.gee = GoogleEarthEngine()
+    gee = GoogleEarthEngine()
     yield
     # Clean up
 
@@ -127,6 +126,8 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     def train_func():
         internal_state.control = Control({'Training': TrainingControl()})
         try:
+            prediction_data.climate_data = clients.gee.fetch_data_climate_indicator(file.file, prediction_data.health_data.periode_range)
+
             internal_state.current_data['response'] = train_on_prediction_data(
                 prediction_data,
                 model_name=model_name,
@@ -199,3 +200,4 @@ def main_backend():
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
