@@ -46,8 +46,8 @@ def property_dicts():
 
 
 def test_parse_properties(property_dicts):
-    df = pd.DataFrame(property_dicts)
-    full_dict = parse_gee_properties(df)
+
+    full_dict = parse_gee_properties(property_dicts)
 
     print(full_dict)
 
