@@ -25,7 +25,10 @@ from climate_health.worker.background_tasks_worker import BGTaskWorker
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-clients = {}
+class Clients(BaseModel):
+    gee: GoogleEarthEngine = None
+
+clients = Clients()
 
 
 @asynccontextmanager
@@ -109,6 +112,7 @@ async def set_model_path(model_path: str) -> dict:
 async def test_google_earth_engine(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
     prediction_data = read_zip_folder(file.file)
     prediction_data.climate_data = clients.gee.fetch_data_climate_indicator(file.file, prediction_data.health_data.period_range)
+    return {'status': 'success'}
     
 
 @app.post('/zip-file')
