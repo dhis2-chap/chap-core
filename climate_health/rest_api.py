@@ -20,6 +20,8 @@ from climate_health.predictor.feature_spec import Feature, all_features
 from climate_health.training_control import TrainingControl
 from dotenv import load_dotenv, find_dotenv
 
+from climate_health.worker.background_tasks_worker import BGTaskWorker
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -70,13 +72,10 @@ class State(BaseModel):
     progress: float = 0
 
 
-
-
 internal_state = InternalState(Control({}), {})
 
 state = State(ready=True, status='idle')
-
-
+worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
 def set_cur_response(response):
     state['response'] = response
 
@@ -123,6 +122,8 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
         model_name = 'external'
         model_path = internal_state.model_path
 
+    job = worker.queue(train_on_prediction_data, prediction_data, model_name=model_name, model_path=model_path)
+
     def train_func():
         internal_state.control = Control({'Training': TrainingControl()})
         try:
@@ -139,7 +140,7 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
         state.ready = True
         state.status = 'idle'
 
-    background_tasks.add_task(train_func)
+    #background_tasks.add_task(train_func)
     print('task added')
     return {'status': 'success'}
 

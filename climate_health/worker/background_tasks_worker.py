@@ -1,8 +1,11 @@
+from asyncio import CancelledError
 from typing import Generic
 
 from fastapi import BackgroundTasks
 
 from .interface import ReturnType
+from ..internal_state import InternalState, Control
+from ..training_control import TrainingControl
 
 
 class BGTaskJob(Generic[ReturnType]):
@@ -31,10 +34,12 @@ class BGTaskJob(Generic[ReturnType]):
 
 
 class BGTaskWorker(Generic[ReturnType]):
-    def __init__(self, background_tasks: BackgroundTasks, internal_state: 'InternalState'):
+    def __init__(self, background_tasks: BackgroundTasks, internal_state: InternalState, state):
         self._background_tasks = background_tasks
         self._result_dict = internal_state.current_data
         self._state = internal_state
+        self._ready_state = state
+        self._id = 0
 
     def new_id(self):
         self._id += 1
@@ -42,7 +47,14 @@ class BGTaskWorker(Generic[ReturnType]):
 
     def wrapper(self, func, job_id):
         def wrapped(*args, **kwargs):
-            self._result_dict[job_id] = func(*args, **kwargs, control=self._state.control)
+            self._state.control = Control({'Training': TrainingControl()})
+            try:
+                self._result_dict[job_id] = func(*args, **kwargs, control=self._state.control)
+            except CancelledError:
+                self._result_dict[job_id] = None
+                self._ready_state.status = 'cancelled'
+                self._ready_state.ready = True
+                self._state.control = None
 
         return wrapped
 
