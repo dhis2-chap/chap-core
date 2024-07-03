@@ -1,5 +1,6 @@
 import datetime
 import json
+import logging
 from typing import Iterable, List
 import ee
 import dataclasses
@@ -14,30 +15,31 @@ from climate_health.datatypes import ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import PeriodRange, TimePeriod
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+def meterTomm(m):
+    return round(m * 1000, 3)
+
+def roundTwoDecimal(v):
+    return round(v, 2)
+
+def kelvinToCelsium(v):
+    return roundTwoDecimal(v - 273.15)
+
+
 @dataclasses.dataclass
-class Result:
-    orgUntId: str
-    dhis2Periode : str
-    value : str
+class Band:
+    name: str
+    reducer: str
+    converter: callable
+    chap_indicator : str
+    periodeReducer : str
 
-class AggregationPeriode(enum.Enum):
-    MONTHLY = 'CMWF/ERA5_LAND/MONTHLY_AGGR'
-    DAILY = 'ECMWF/ERA5_LAND/DAILY_AGGR'
-
-band = "temperature_2m"
-reducer = "mean"
-
-monthlyDataset = {
-    "datasetId" : "ECMWF/ERA5_LAND/MONTHLY_AGGR",
-    "band" : band,
-    "reducer" : reducer,
-}
-
-dailyDataset = {
-    "datasetId" : "ECMWF/ERA5_LAND/DAILY_AGGR",
-    "band" : band,
-    "reducer" : reducer,
-}
+bands = [
+    Band(name="temperature_2m", reducer="mean", periodeReducer="mean", converter=kelvinToCelsium, chap_indicator = "temperature"),
+    Band(name="total_precipitation_sum", reducer="mean", periodeReducer="sum", converter=meterTomm, chap_indicator = "rainfall")
+]
 
 @dataclasses.dataclass
 class Periode:
@@ -46,18 +48,6 @@ class Periode:
     endDate : datetime
 
 class GoogleEarthEngine(BaseModel):
-
-    #def getInfo(self, instance):
-    #    return instance.evaluate()
-
-    def kelvinToCelsius(self, k):
-        return k - 273.15
-
-    def roundOneDecimal(self, v):
-        return round(v * 10) / 10
-
-    def valueParser(self, v):
-        return self.roundOneDecimal(self.kelvinToCelsius(v))
     
     def __init__(self):
         self.initializeClient()
@@ -68,9 +58,9 @@ class GoogleEarthEngine(BaseModel):
         private_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')
 
         if(not account):
-            print("GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables to use Google Earth Engine")
+            logger.warn("GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables to use Google Earth Engine")
         if(not private_key):
-            print("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is not set, you need to set it in the environment variables to use Google Earth Engine")
+            logger.warn("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is not set, you need to set it in the environment variables to use Google Earth Engine")
 
         if(not account or not private_key):
             return
@@ -78,62 +68,64 @@ class GoogleEarthEngine(BaseModel):
         try:
             credentials = ee.ServiceAccountCredentials(account, key_data=private_key)
             ee.Initialize(credentials)
-            print("Google Earth Engine initialized, with account:", account)
+            logger.info("Google Earth Engine initialized, with account: "+account)
         except ValueError as e:
-            print("\nERROR:\n", e, "\n")
+            logger.error("\nERROR:\n", e, "\n")
 
-    def dataParser(self, data):
-        parsed_data = [ 
-                { **f['properties'], 
-                 'period': f['properties']['period'], 
-                 'value': self.valueParser(f['properties']['value']) 
-            if self.valueParser else f['properties']['value'] } for f in data 
-            ]
+    #Keeps every f.properties, and replace the band values with the converted values
+    def dataParser(self, data, bands : List[Band]):
+        parsed_data = [{**f['properties'],
+                            **{'value': next(b.converter for b in bands if f['properties']['band'] == b.name)(f['properties']['value'])}}
+                            for f in data]
         return parsed_data
 
-    '''
-        This method, takes in the ZIP-file from the post-file path, and fetches the data from Google Earth Engine
-        Data is beeing 
-    '''
-    def fetch_data_climate_indicator(self, zip_file_path: str, periodes : Iterable[TimePeriod]) -> SpatioTemporalDict[ClimateData]:
-        
-        
+
+    def fetch_historical_era5_from_gee(self, zip_file_path: str, periodes : Iterable[Periode]) -> SpatioTemporalDict[ClimateData]:
+        features = self.get_feature_from_zip(zip_file_path)
+
+        #Fetch data for both temperature and precipitation
+        return self.fetch_data_climate_indicator(features, periodes, bands)
+         
+    def get_feature_from_zip(self, zip_file_path: str):
         ziparchive = zipfile.ZipFile(zip_file_path)
+        features = json.load(ziparchive.open("orgUnits.geojson"))["features"]
+        return features
 
-        features = json.load(ziparchive.open("orgUnits.geojson"))
+    def fetch_data_climate_indicator(self, features, periodes : Iterable[TimePeriod], bands : List[Band]) -> SpatioTemporalDict[ClimateData]:
         
-        start_date = '2019-01-01'
-        end_date = '2024-02-04'
+        eeReducerType = "mean"
 
-        collection = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR').select(band).filterDate(start_date, end_date)
+        collection = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR').select([band.name for band in bands])
+        featureCollection : ee.FeatureCollection = ee.FeatureCollection(features)
 
-        featureCollection : ee.FeatureCollection = ee.FeatureCollection(features["features"])
-
-        
-        for c in featureCollection.toList(5).getInfo():
-            print(c.get("id"))
-
-        
-
-        periodeList = ee.List([ee.Dictionary({"id" : p.id, "start_date" : p.start_timestamp.date, "end_date" : p.end_timestamp.date}) for p in periodes])
+        #Creates a ee.List for every periode, containing id (periodeId), start_date and end_date for each period
+        periodeList = ee.List([ee.Dictionary({"period" : p.id, "start_date" : p.start_timestamp.date, "end_date" : p.end_timestamp.date}) for p in periodes])
+    
         eeScale = collection.first().select(0).projection().nominalScale()
-        
-        eeReducer = ee.Reducer.mean()
+        eeReducer = getattr(ee.Reducer, eeReducerType)()
 
-        def getPeriode(p):
+        #Get every dayli image that exisist within a periode, and reduce it to a periodeReducer value
+        def getPeriode(p, band : Band) -> ee.Image:
             p = ee.Dictionary(p)
             start = ee.Date(p.get("start_date"))
-            end = ee.Date(p.get("end_date"))
-            filtered : ee.ImageCollection = collection.filter(ee.Filter.date(start, end))
+            end = ee.Date(p.get("end_date")).advance(-1, "day") #remove one day, since the end date is inclusive on current format?
 
-            return filtered.mean().set("system:index", start_date.format("YYYYMMdd")).set("system:time_start", start.millis()).set("system:time_end", end.millis())
+            #Get only images from start to end, for one bands
+            filtered : ee.ImageCollection = collection.filterDate(start, end).select(band.name)
 
-        dailyCollection : ee.ImageCollection = ee.ImageCollection.fromImages(
-            #DaysList containt all images from the start, to the end of the training periode
-            periodeList.map(getPeriode)
-        ).filter(ee.Filter.listContains("system:band_names", band))  # Remove empty images
+            #Aggregate the imageCollection to one image, based on the periodeReducer
+            return getattr(filtered, band.periodeReducer)().set("system:period", p.get("period")).set("system:time_start", start.millis()).set("system:time_end", end.millis())
 
 
+        dailyCollection = ee.ImageCollection([])
+
+        #Map the bands, then the periodeList for each band, and return the aggregated Image to the ImageCollection
+        for b in bands:
+            dailyCollection = dailyCollection.merge(ee.ImageCollection.fromImages(
+                periodeList.map(lambda period : getPeriode(period, b))
+            ).filter(ee.Filter.listContains("system:band_names", b.name)))  # Remove empty images
+
+        #Reduce the result, to contain only, orgUnitId, periodeId and the value
         reduced = dailyCollection.map(lambda image: 
             image.reduceRegions(
                 collection=featureCollection,
@@ -144,8 +136,9 @@ class GoogleEarthEngine(BaseModel):
                     None, 
                     {
                         'ou': feature.id(),
-                        'period': image,#.date().format('YYYYMMdd'),
-                        'value': feature.get(reducer)
+                        'period': image.get('system:period'),
+                        'value' : feature.get(eeReducerType),
+                        'band' : image.bandNames().get(0)
                     }
                 )
             )
@@ -153,41 +146,18 @@ class GoogleEarthEngine(BaseModel):
 
         valueCollection : ee.FeatureCollection = ee.FeatureCollection(reduced)
 
+        size = valueCollection.size().getInfo()
+        result : List = []
+        take = 5_000
 
-        info = valueCollection.toList(5_000).getInfo()
+        for i in range(0, size, take):
+            # Fetch 5000 images at once          
+            result = result + (valueCollection.toList(take, i).getInfo())
+            logger.log(logging.INFO, f" Fetched {i+take} of {size}")
 
-        # Save the info to a local file
-
-        
- 
-        d = self.dataParser(info)
-        print(d)
-
-        
-
-        
-
-        #info.map(lambda e: print(e))
-
-        #parsed = self.dataParser(info)
-
-        #ee.List.iterate(self.dataParser)
-
-        #print(info)
-        #parsed = self.dataParser(e)
-        #print(parsed)
+        return self.dataParser(result, bands)
 
 
-        
-
-        #print(valueCollection)
-
-        
-
-        return {"valueCollection" : ""}
-
-        #TODO find out, what is this doing?
-        #eeReducer = ee.Reducer[reducer]()
 
 
 
