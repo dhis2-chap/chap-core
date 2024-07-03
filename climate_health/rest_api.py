@@ -17,10 +17,12 @@ from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import all_models
 from climate_health.predictor.feature_spec import Feature, all_features
+from climate_health.rest_api_src.worker_functions import train_on_zip_file
 from climate_health.training_control import TrainingControl
 from dotenv import load_dotenv, find_dotenv
 
 from climate_health.worker.background_tasks_worker import BGTaskWorker
+from climate_health.worker.rq_worker import RedisQueue
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -77,7 +79,9 @@ class State(BaseModel):
 internal_state = InternalState(Control({}), {})
 
 state = State(ready=True, status='idle')
-worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
+
+# worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
+worker = RedisQueue()
 def set_cur_response(response):
     state['response'] = response
 
@@ -115,23 +119,24 @@ async def test_google_earth_engine(file: Union[UploadFile, None] = None, backgro
     return {'result': prediction_data.climate_data}
     
 
-@app.post('/zip-file')
-async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
+
+@app.post('/zip-file/')
+async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks=None) -> dict:
     '''
     Post a zip file containing the data needed for training and evaluation, and start the training
     '''
-    if not state.ready:
+    if not internal_state.is_ready():
         raise HTTPException(status_code=400, detail="Model is currently training")
-    state.ready = False
-    state.status = 'training'
-    prediction_data = read_zip_folder(file.file)
+
     model_name, model_path = 'HierarchicalModel', None
     if internal_state.model_path is not None:
         model_name = 'external'
         model_path = internal_state.model_path
-
-    job = worker.queue(train_on_prediction_data, prediction_data, model_name=model_name, model_path=model_path)
-
+    #def f():
+    #    prediction_data = read_zip_folder(file.file)
+    #    train_on_prediction_data(prediction_data, model_name = model_name, model_path = model_path)
+    job = worker.queue(train_on_zip_file, file, model_name, model_path)
+    internal_state.current_job = job
     def train_func():
         internal_state.control = Control({'Training': TrainingControl()})
         try:
@@ -176,10 +181,13 @@ async def get_results() -> FullPredictionResponse:
     '''
     Retrieve results made by the model
     '''
-
-    if 'response' not in internal_state.current_data:
+    cur_job = internal_state.current_job
+    print(cur_job)
+    if not (cur_job and cur_job.is_finished):
         raise HTTPException(status_code=400, detail="No response available")
-    return internal_state.current_data['response']
+    result = cur_job.result
+    print(result)
+    return result
 
 
 @app.post('/cancel')
@@ -197,11 +205,12 @@ async def get_status() -> State:
     '''
     Retrieve the current status of the model
     '''
-    if not state.ready:
-        state.progress = internal_state.control.get_progress()
-        state.status = internal_state.control.get_status()
-    return state
+    if internal_state.is_ready():
+        return State(ready=True, status='idle')
 
+    return State(ready=False,
+                 status=internal_state.current_job.status,
+                 progress=internal_state.current_job.progress)
 
 def main_backend():
     import uvicorn

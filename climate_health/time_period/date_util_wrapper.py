@@ -468,6 +468,16 @@ class PeriodRange:
     @classmethod
     def from_strings(cls, period_strings: Iterable[str], fill_missing=False):
         periods = [TimePeriod.parse(period_string) for period_string in period_strings]
+        return cls.from_period_list(fill_missing, periods)
+
+    @classmethod
+    def from_ids(cls, ids: Iterable[str], fill_missing=False):
+        periods = [TimePeriod.from_id(id) for id in ids]
+        return cls.from_period_list(fill_missing, periods)
+
+
+    @classmethod
+    def from_period_list(cls, fill_missing, periods):
         delta = cls._get_delta(periods)
         missing = cls._check_consequtive(delta, periods, fill_missing)
         ret = cls.from_time_periods(periods[0], periods[-1])
@@ -511,6 +521,9 @@ class PeriodRange:
     @property
     def end_timestamp(self):
         return self._end_timestamp
+
+    def todict(self):
+        return {'start_timestamp': self._start_timestamp, 'end_timestamp': self._end_timestamp, 'time_delta': self._time_delta}
 
 
 delta_month = TimeDelta(relativedelta(months=1))

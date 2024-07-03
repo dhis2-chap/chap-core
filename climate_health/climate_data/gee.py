@@ -1,6 +1,9 @@
+import pandas as pd
+
 from .external import ee
-from ..datatypes import ClimateData, Location, Shape
-from ..time_period import TimePeriod
+from ..datatypes import ClimateData, Location, Shape, SimpleClimateData
+from ..spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from ..time_period import TimePeriod, PeriodRange
 from ..services.cache_manager import get_cache
 from ..time_period import Month, Day
 from ..time_period.dataclasses import Month as MonthDataclass, Day as DayDataclass
@@ -72,3 +75,18 @@ class ERA5DataBase:
 
     def _generate_cache_key(self, region, start_date, end_date):
         return f"{region.latitude}_{region.longitude}_{start_date}_{end_date}"
+
+
+def parse_gee_properties(property_dicts: list[dict])->SpatioTemporalDict:
+    df = pd.DataFrame(property_dicts)
+    location_groups = df.groupby('ou')
+    full_dict = {}
+    for location, group in location_groups:
+        data_dict = {band: group[group['band'] == band] for band in group['band'].unique()}
+        pr = None
+        for band, band_group in group.groupby('band'):
+            data_dict[band] = band_group['value']
+            pr = PeriodRange.from_ids(band_group['id'])
+
+        full_dict[location] = SimpleClimateData(pr, **data_dict)
+    return SpatioTemporalDict(full_dict)

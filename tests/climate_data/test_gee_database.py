@@ -1,6 +1,8 @@
-from climate_health.climate_data.gee import ERA5DataBase
-from climate_health.datatypes import Location, ClimateData
-from climate_health.time_period import Month, Day, TimePeriod
+import pandas as pd
+
+from climate_health.climate_data.gee import ERA5DataBase, parse_gee_properties
+from climate_health.datatypes import Location, ClimateData, SimpleClimateData
+from climate_health.time_period import Month, Day, TimePeriod, PeriodRange
 import pytest
 
 
@@ -30,3 +32,23 @@ def test_era5_daily():
 @pytest.mark.skip
 def test_get_climate_data_for_dataset(google_earth_engine):
     google_earth_engine
+
+
+@pytest.fixture()
+def property_dicts():
+    return [{'id': '201201', 'ou': 'Bergen', 'value': 12., 'band': 'rainfall'}, {'id': '201202', 'ou': 'Bergen', 'value': 12., 'band': 'rainfall'}, {'id': '201201', 'ou': 'Oslo', 'value': 12., 'band': 'rainfall'},          {'id': '201202', 'ou': 'Oslo', 'value': 12., 'band': 'rainfall'},
+            {'id': '201201', 'ou': 'Bergen', 'value': 12., 'band': 'mean_temperature'},
+             {'id': '201202', 'ou': 'Bergen', 'value': 12., 'band': 'mean_temperature'},
+             {'id': '201201', 'ou': 'Oslo', 'value': 12., 'band': 'mean_temperature'},
+             {'id': '201202', 'ou': 'Oslo', 'value': 12., 'band': 'mean_temperature'}]
+
+
+
+
+def test_parse_properties(property_dicts):
+
+    full_dict = parse_gee_properties(property_dicts)
+
+    print(full_dict)
+
+

@@ -12,6 +12,7 @@ class BGTaskJob(Generic[ReturnType]):
     def __init__(self, state, job_id):
         self._state = state
         self._job_id = job_id
+        self._result_dict = state.current_data
 
     @property
     def status(self):
@@ -23,7 +24,7 @@ class BGTaskJob(Generic[ReturnType]):
 
     @property
     def result(self):
-        return self._result_dict
+        return self._result_dict[self._job_id]
 
     def cancel(self):
         self._state.control.cancel()
@@ -49,7 +50,9 @@ class BGTaskWorker(Generic[ReturnType]):
         def wrapped(*args, **kwargs):
             self._state.control = Control({'Training': TrainingControl()})
             try:
+                print('Started')
                 self._result_dict[job_id] = func(*args, **kwargs, control=self._state.control)
+                print('Finished')
             except CancelledError:
                 self._result_dict[job_id] = None
                 self._ready_state.status = 'cancelled'
@@ -58,7 +61,9 @@ class BGTaskWorker(Generic[ReturnType]):
 
         return wrapped
 
-    def queue(self, func, *args, **kwargs) -> BGTaskJob[ReturnType]:
+    def queue(self, background_tasks,  func, *args, **kwargs) -> BGTaskJob[ReturnType]:
+        print(f'Queueing task {func.__name__}(args={args}, kwargs={kwargs})')
         job_id = self.new_id()
+        print('Job id:', job_id)
         self._background_tasks.add_task(self.wrapper(func, job_id), *args, **kwargs)
         return BGTaskJob(self._state, job_id)
