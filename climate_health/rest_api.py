@@ -17,7 +17,7 @@ from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import all_models
 from climate_health.predictor.feature_spec import Feature, all_features
-from climate_health.rest_api_src.worker_functions import train_on_zip_file
+#from climate_health.rest_api_src.worker_functions import train_on_zip_file
 from climate_health.training_control import TrainingControl
 from dotenv import load_dotenv, find_dotenv
 

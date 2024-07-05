@@ -82,11 +82,11 @@ def parse_gee_properties(property_dicts: list[dict])->SpatioTemporalDict:
     location_groups = df.groupby('ou')
     full_dict = {}
     for location, group in location_groups:
-        data_dict = {band: group[group['band'] == band] for band in group['band'].unique()}
+        data_dict = {band: group[group['indicator'] == band] for band in group['indicator'].unique()}
         pr = None
-        for band, band_group in group.groupby('band'):
+        for band, band_group in group.groupby('indicator'):
             data_dict[band] = band_group['value']
-            pr = PeriodRange.from_ids(band_group['id'])
+            pr = PeriodRange.from_ids(band_group['period'])
 
         full_dict[location] = SimpleClimateData(pr, **data_dict)
     return SpatioTemporalDict(full_dict)

@@ -11,34 +11,36 @@ import zipfile
 
 from pydantic import BaseModel
 
+from climate_health.climate_data.gee import parse_gee_properties
 from climate_health.datatypes import ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import PeriodRange, TimePeriod
+from typing import List
+import ee
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-def meterTomm(m):
+def meter_to_mm(m):
     return round(m * 1000, 3)
 
-def roundTwoDecimal(v):
+def round_two_decimal(v):
     return round(v, 2)
 
-def kelvinToCelsium(v):
-    return roundTwoDecimal(v - 273.15)
-
+def kelvin_to_celsium(v):
+    return round_two_decimal(v - 273.15)
 
 @dataclasses.dataclass
 class Band:
     name: str
     reducer: str
     converter: callable
-    chap_indicator : str
+    indicator : str
     periodeReducer : str
 
 bands = [
-    Band(name="temperature_2m", reducer="mean", periodeReducer="mean", converter=kelvinToCelsium, chap_indicator = "temperature"),
-    Band(name="total_precipitation_sum", reducer="mean", periodeReducer="sum", converter=meterTomm, chap_indicator = "rainfall")
+    Band(name="temperature_2m", reducer="mean", periodeReducer="mean", converter=kelvin_to_celsium, indicator = "mean_temperature"),
+    Band(name="total_precipitation_sum", reducer="mean", periodeReducer="sum", converter=meter_to_mm, indicator = "rainfall")
 ]
 
 @dataclasses.dataclass
@@ -72,24 +74,21 @@ class GoogleEarthEngine(BaseModel):
         except ValueError as e:
             logger.error("\nERROR:\n", e, "\n")
 
-    #Keeps every f.properties, and replace the band values with the converted values
-    def dataParser(self, data, bands : List[Band]):
-        parsed_data = [{**f['properties'],
-                            **{'value': next(b.converter for b in bands if f['properties']['band'] == b.name)(f['properties']['value'])}}
-                            for f in data]
-        return parsed_data
-
 
     def fetch_historical_era5_from_gee(self, zip_file_path: str, periodes : Iterable[Periode]) -> SpatioTemporalDict[ClimateData]:
         features = self.get_feature_from_zip(zip_file_path)
 
-        #Fetch data for both temperature and precipitation
-        return self.fetch_data_climate_indicator(features, periodes, bands)
+        #Fetch data for all bands
+        gee_result = self.fetch_data_climate_indicator(features, periodes, bands)
+
+        return parse_gee_properties(gee_result)
+
          
     def get_feature_from_zip(self, zip_file_path: str):
         ziparchive = zipfile.ZipFile(zip_file_path)
         features = json.load(ziparchive.open("orgUnits.geojson"))["features"]
         return features
+    
 
     def fetch_data_climate_indicator(self, features, periodes : Iterable[TimePeriod], bands : List[Band]) -> SpatioTemporalDict[ClimateData]:
         
@@ -114,7 +113,11 @@ class GoogleEarthEngine(BaseModel):
             filtered : ee.ImageCollection = collection.filterDate(start, end).select(band.name)
 
             #Aggregate the imageCollection to one image, based on the periodeReducer
-            return getattr(filtered, band.periodeReducer)().set("system:period", p.get("period")).set("system:time_start", start.millis()).set("system:time_end", end.millis())
+            return getattr(filtered, band.periodeReducer)() \
+                .set("system:period", p.get("period")) \
+                .set("system:time_start", start.millis()) \
+                .set("system:time_end", end.millis()) \
+                .set("system:indicator", band.indicator)
 
 
         dailyCollection = ee.ImageCollection([])
@@ -138,7 +141,7 @@ class GoogleEarthEngine(BaseModel):
                         'ou': feature.id(),
                         'period': image.get('system:period'),
                         'value' : feature.get(eeReducerType),
-                        'band' : image.bandNames().get(0)
+                        'indicator' : image.get('system:indicator')
                     }
                 )
             )
@@ -150,12 +153,27 @@ class GoogleEarthEngine(BaseModel):
         result : List = []
         take = 5_000
 
-        for i in range(0, size, take):
-            # Fetch 5000 images at once          
+        #Keeps every f.properties, and replace the band values with the converted values
+        def dataParser(data, bands : List[Band]):
+            parsed_data = [{**f['properties'],
+                                #Using the right converter on the value, based on the whats defined as band-converter
+                                **{'value': next(b.converter for b in bands if f['properties']['indicator'] == b.indicator)(f['properties']['value'])}}
+                                for f in data]
+            return parsed_data
+
+
+        for i in range(0, size, take):     
             result = result + (valueCollection.toList(take, i).getInfo())
             logger.log(logging.INFO, f" Fetched {i+take} of {size}")
 
-        return self.dataParser(result, bands)
+    
+        parsedResult = dataParser(result, bands)
+
+        return parsedResult
+
+
+
+
 
 
 

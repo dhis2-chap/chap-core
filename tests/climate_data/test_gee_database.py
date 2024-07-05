@@ -2,6 +2,7 @@ import pandas as pd
 
 from climate_health.climate_data.gee import ERA5DataBase, parse_gee_properties
 from climate_health.datatypes import Location, ClimateData, SimpleClimateData
+from climate_health.google_earth_engine.gee_era5 import kelvin_to_celsium, meter_to_mm, round_two_decimal
 from climate_health.time_period import Month, Day, TimePeriod, PeriodRange
 import pytest
 
@@ -33,17 +34,36 @@ def test_era5_daily():
 def test_get_climate_data_for_dataset(google_earth_engine):
     google_earth_engine
 
+"""
+    Test converters
+"""
+
+def test_kelvin_to_celsium():
+    assert kelvin_to_celsium(273.15) == 0
+    assert kelvin_to_celsium(274.15) == 1
+    assert kelvin_to_celsium(272.15) == -1
+
+def test_meter_to_mm():
+    assert meter_to_mm(1) == 1000
+    assert meter_to_mm(0.1) == 100
+    assert meter_to_mm(0.01) == 10
+
+def test_round_two_decimal():
+    assert round_two_decimal(-10.123) == -10.12
+    assert round_two_decimal(90.1234436) == 90.12
+    assert round_two_decimal(1.1234) == 1.12
+
 
 @pytest.fixture()
 def property_dicts():
-    return [{'id': '201201', 'ou': 'Bergen', 'value': 12., 'band': 'rainfall'}, {'id': '201202', 'ou': 'Bergen', 'value': 12., 'band': 'rainfall'}, {'id': '201201', 'ou': 'Oslo', 'value': 12., 'band': 'rainfall'},          {'id': '201202', 'ou': 'Oslo', 'value': 12., 'band': 'rainfall'},
-            {'id': '201201', 'ou': 'Bergen', 'value': 12., 'band': 'mean_temperature'},
-             {'id': '201202', 'ou': 'Bergen', 'value': 12., 'band': 'mean_temperature'},
-             {'id': '201201', 'ou': 'Oslo', 'value': 12., 'band': 'mean_temperature'},
-             {'id': '201202', 'ou': 'Oslo', 'value': 12., 'band': 'mean_temperature'}]
-
-
-
+    return [{'period': '201201', 'ou': 'Bergen', 'value': 12., 'indicator': 'rainfall'}, 
+            {'period': '201202', 'ou': 'Bergen', 'value': 12., 'indicator': 'rainfall'}, 
+            {'period': '201201', 'ou': 'Oslo', 'value': 12., 'indicator': 'rainfall'},          
+            {'period': '201202', 'ou': 'Oslo', 'value': 12., 'indicator': 'rainfall'},
+            {'period': '201201', 'ou': 'Bergen', 'value': 12., 'indicator': 'mean_temperature'},
+            {'period': '201202', 'ou': 'Bergen', 'value': 12., 'indicator': 'mean_temperature'},
+            {'period': '201201', 'ou': 'Oslo', 'value': 12., 'indicator': 'mean_temperature'},
+            {'period': '201202', 'ou': 'Oslo', 'value': 12., 'indicator': 'mean_temperature'}]
 
 def test_parse_properties(property_dicts):
 
