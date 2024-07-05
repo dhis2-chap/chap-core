@@ -17,7 +17,7 @@ from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import all_models
 from climate_health.predictor.feature_spec import Feature, all_features
-#from climate_health.rest_api_src.worker_functions import train_on_zip_file
+from climate_health.rest_api_src.worker_functions import train_on_zip_file
 from climate_health.training_control import TrainingControl
 from dotenv import load_dotenv, find_dotenv
 
@@ -132,29 +132,10 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     if internal_state.model_path is not None:
         model_name = 'external'
         model_path = internal_state.model_path
-    #def f():
-    #    prediction_data = read_zip_folder(file.file)
-    #    train_on_prediction_data(prediction_data, model_name = model_name, model_path = model_path)
+
     job = worker.queue(train_on_zip_file, file, model_name, model_path)
     internal_state.current_job = job
-    def train_func():
-        internal_state.control = Control({'Training': TrainingControl()})
-        try:
-            internal_state.current_data['response'] = train_on_prediction_data(
-                prediction_data,
-                model_name=model_name,
-                model_path=model_path,
-                control=internal_state.control)
-        except CancelledError:
-            state.status = 'cancelled'
-            state.ready = True
-            internal_state.control = None
-            return
-        state.ready = True
-        state.status = 'idle'
-
-    #background_tasks.add_task(train_func)
-    print('task added')
+   
     return {'status': 'success'}
 
 
