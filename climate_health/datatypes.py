@@ -16,6 +16,12 @@ tsdataclass = bnp.bnpdataclass.bnpdataclass
 class TimeSeriesData:
     time_period: Period
 
+    def __getstate__(self):
+        return self.todict()
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
     def topandas(self):
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
         data_dict['time_period'] = self.time_period.topandas()
