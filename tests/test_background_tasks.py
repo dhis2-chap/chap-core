@@ -24,6 +24,7 @@ def queue():
     except ImportError:
         pytest.skip("rq not installed")
 
+@pytest.mark.skip("skipped for gh-actions")
 def test_simple_rq(queue):
     inputs = [InputType(period='2021-01', cases=10), InputType(period='2021-02', cases=20)]
     job = queue.enqueue(simple_task, inputs)
