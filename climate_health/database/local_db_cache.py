@@ -1,7 +1,6 @@
-from select import select
 from typing import Type
 
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session, SQLModel, select
 
 
 class LocalDbCache:
@@ -13,7 +12,7 @@ class LocalDbCache:
         period_id, region_id = item
         statement = select(self._model).where(self._model.period_id == period_id, self._model.region_id == region_id)
         result = self._session.exec(statement).first()
-        return result
+        return bool(result)
 
     def __getitem__(self, item: tuple[str, str]) -> SQLModel:
         period_id, region_id = item
@@ -27,15 +26,19 @@ class LocalDbCache:
         self._session.add(new_entry)
         self._session.commit()
 
-    def decorate(self, func):
-        def wrapper(period_id, region_id):
-            if (period_id, region_id) in self:
-                return self[period_id, region_id]
-            else:
-                value = func(period_id, region_id)
+
+    @classmethod
+    def decorate(cls, model: Type[SQLModel]):
+        def decorator(func):
+            def wrapper(period_id, region_id, *args, **kwargs):
+                if 'session' not in kwargs:
+                    return func(period_id, region_id, *args, **kwargs)
+                session = kwargs.pop('session')
+                self = cls(session, model)
+                if (period_id, region_id) in self:
+                    return self[period_id, region_id]
+                value = func(period_id, region_id, *args, **kwargs)
                 self[period_id, region_id] = value
                 return value
-
-        return wrapper
-
-
+            return wrapper
+        return decorator
