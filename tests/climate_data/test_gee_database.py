@@ -1,6 +1,6 @@
 import pandas as pd
 
-from climate_health.climate_data.gee import ERA5DataBase, parse_gee_properties
+from climate_health.climate_data.gee_legacy import ERA5DataBase, parse_gee_properties
 from climate_health.datatypes import Location, ClimateData, SimpleClimateData
 from climate_health.google_earth_engine.gee_era5 import kelvin_to_celsium, meter_to_mm, round_two_decimal
 from climate_health.time_period import Month, Day, TimePeriod, PeriodRange

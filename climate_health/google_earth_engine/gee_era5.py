@@ -11,7 +11,7 @@ import zipfile
 
 from pydantic import BaseModel
 
-from climate_health.climate_data.gee import parse_gee_properties
+from climate_health.climate_data.gee_legacy import parse_gee_properties
 from climate_health.datatypes import ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import PeriodRange, TimePeriod
@@ -49,12 +49,32 @@ class Periode:
     startDate : datetime
     endDate : datetime
 
-class GoogleEarthEngine(BaseModel):
+
+class GoogleEarthEngineConverter():
+    #Get every dayli image that exisist within a periode, and reduce it to a periodeReducer value
+    def getPeriode(p, band : Band) -> ee.Image:
+        p = ee.Dictionary(p)
+        start = ee.Date(p.get("start_date"))
+        end = ee.Date(p.get("end_date")).advance(-1, "day") #remove one day, since the end date is inclusive on current format?
+
+        #Get only images from start to end, for one bands
+        filtered : ee.ImageCollection = collection.filterDate(start, end).select(band.name)
+
+        #Aggregate the imageCollection to one image, based on the periodeReducer
+        return getattr(filtered, band.periodeReducer)() \
+            .set("system:period", p.get("period")) \
+            .set("system:time_start", start.millis()) \
+            .set("system:time_end", end.millis()) \
+            .set("system:indicator", band.indicator)
+
+
+class GoogleEarthEngine():
     
     def __init__(self):
+        self.google_earth_engine_converter = GoogleEarthEngineConverter()
         self.initializeClient()
 
-    def initializeClient(self):
+    def _initializeClient(self):
         #read environment variables
         account = os.environ.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
         private_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')
@@ -72,7 +92,7 @@ class GoogleEarthEngine(BaseModel):
             ee.Initialize(credentials)
             logger.info("Google Earth Engine initialized, with account: "+account)
         except ValueError as e:
-            logger.error("\nERROR:\n", e, "\n")
+            logger.error(e)
 
 
     def fetch_historical_era5_from_gee(self, zip_file_path: str, periodes : Iterable[Periode]) -> SpatioTemporalDict[ClimateData]:
@@ -90,7 +110,7 @@ class GoogleEarthEngine(BaseModel):
         return features
     
 
-    def fetch_data_climate_indicator(self, features, periodes : Iterable[TimePeriod], bands : List[Band]) -> SpatioTemporalDict[ClimateData]:
+    def fetch_data_climate_indicator(self, features, periodes : Iterable[TimePeriod], bands : List[Band]):
         
         eeReducerType = "mean"
 
@@ -103,21 +123,6 @@ class GoogleEarthEngine(BaseModel):
         eeScale = collection.first().select(0).projection().nominalScale()
         eeReducer = getattr(ee.Reducer, eeReducerType)()
 
-        #Get every dayli image that exisist within a periode, and reduce it to a periodeReducer value
-        def getPeriode(p, band : Band) -> ee.Image:
-            p = ee.Dictionary(p)
-            start = ee.Date(p.get("start_date"))
-            end = ee.Date(p.get("end_date")).advance(-1, "day") #remove one day, since the end date is inclusive on current format?
-
-            #Get only images from start to end, for one bands
-            filtered : ee.ImageCollection = collection.filterDate(start, end).select(band.name)
-
-            #Aggregate the imageCollection to one image, based on the periodeReducer
-            return getattr(filtered, band.periodeReducer)() \
-                .set("system:period", p.get("period")) \
-                .set("system:time_start", start.millis()) \
-                .set("system:time_end", end.millis()) \
-                .set("system:indicator", band.indicator)
 
 
         dailyCollection = ee.ImageCollection([])
@@ -125,7 +130,7 @@ class GoogleEarthEngine(BaseModel):
         #Map the bands, then the periodeList for each band, and return the aggregated Image to the ImageCollection
         for b in bands:
             dailyCollection = dailyCollection.merge(ee.ImageCollection.fromImages(
-                periodeList.map(lambda period : getPeriode(period, b))
+                periodeList.map(lambda period : self.google_earth_engine_converter.getPeriode(period, b))
             ).filter(ee.Filter.listContains("system:band_names", b.name)))  # Remove empty images
 
         #Reduce the result, to contain only, orgUnitId, periodeId and the value
@@ -154,7 +159,7 @@ class GoogleEarthEngine(BaseModel):
         take = 5_000
 
         #Keeps every f.properties, and replace the band values with the converted values
-        def dataParser(data, bands : List[Band]):
+        def _dataParser(data, bands : List[Band]):
             parsed_data = [{**f['properties'],
                                 #Using the right converter on the value, based on the whats defined as band-converter
                                 **{'value': next(b.converter for b in bands if f['properties']['indicator'] == b.indicator)(f['properties']['value'])}}
@@ -167,7 +172,7 @@ class GoogleEarthEngine(BaseModel):
             logger.log(logging.INFO, f" Fetched {i+take} of {size}")
 
     
-        parsedResult = dataParser(result, bands)
+        parsedResult = _dataParser(result, bands)
 
         return parsedResult
 

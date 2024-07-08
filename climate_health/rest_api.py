@@ -27,29 +27,10 @@ from climate_health.worker.rq_worker import RedisQueue
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-class Clients(BaseModel):
-    gee: GoogleEarthEngine = None
-
-clients = Clients()
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-
-    print("Running pretasks..")
-    # Load environment variables
-    load_dotenv(find_dotenv())
-    # Load the ML model
-    clients.gee = GoogleEarthEngine()
-
-    yield
-    # Clean up
-
 
 def get_app():
     app = FastAPI(
-        root_path="/v1",
-        lifespan=lifespan
+        root_path="/v1"
     )
     origins = [
         '*',  # Allow all origins
@@ -115,7 +96,7 @@ async def set_model_path(model_path: str) -> dict:
 @app.post('/gee')
 async def test_google_earth_engine(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
     prediction_data = read_zip_folder(file.file)
-    prediction_data.climate_data = clients.gee.fetch_historical_era5_from_gee(file.file, prediction_data.health_data.period_range)
+    #prediction_data.climate_data = clients.gee.fetch_historical_era5_from_gee(file.file, prediction_data.health_data.period_range)
     return {'result': prediction_data.climate_data}
     
 
