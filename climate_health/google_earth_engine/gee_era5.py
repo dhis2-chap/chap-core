@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 from typing import Iterable, List
+from dotenv import find_dotenv, load_dotenv
 import ee
 import dataclasses
 import enum
@@ -9,9 +10,9 @@ import os
 from array import array
 import zipfile
 
+import pandas as pd
 from pydantic import BaseModel
-
-from climate_health.climate_data.gee_legacy import parse_gee_properties
+from climate_health.datatypes import Location, ClimateData, SimpleClimateData
 from climate_health.datatypes import ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import PeriodRange, TimePeriod
@@ -30,8 +31,10 @@ def round_two_decimal(v):
 def kelvin_to_celsium(v):
     return round_two_decimal(v - 273.15)
 
-@dataclasses.dataclass
-class Band:
+class Band(BaseModel):
+    class Config():
+        arbitrary_types_allowed=True
+
     name: str
     reducer: str
     converter: callable
@@ -43,19 +46,42 @@ bands = [
     Band(name="total_precipitation_sum", reducer="mean", periodeReducer="sum", converter=meter_to_mm, indicator = "rainfall")
 ]
 
-@dataclasses.dataclass
-class Periode:
+class Periode(BaseModel):
+    class Config():
+        arbitrary_types_allowed=True
+
     id: str
     startDate : datetime
     endDate : datetime
 
+class SpatioTemporalDictConverter():
 
-class GoogleEarthEngineConverter():
+    def parse_gee_properties(self, property_dicts: list[dict])->SpatioTemporalDict:
+        df = pd.DataFrame(property_dicts)
+        location_groups = df.groupby('ou')
+        full_dict = {}
+        for location, group in location_groups:
+            data_dict = {band: group[group['indicator'] == band] for band in group['indicator'].unique()}
+            pr = None
+            for band, band_group in group.groupby('indicator'):
+                data_dict[band] = band_group['value']
+                pr = PeriodRange.from_ids(band_group['period'])
+
+            full_dict[location] = SimpleClimateData(pr, **data_dict)
+        return SpatioTemporalDict(full_dict)
+
+class Era5LandGoogleEarthEngineHelperFunctions():
+
+    def get_feature_from_zip(self, zip_file_path: str):
+        ziparchive = zipfile.ZipFile(zip_file_path)
+        features = json.load(ziparchive.open("orgUnits.geojson"))["features"]
+        return features
+    
     #Get every dayli image that exisist within a periode, and reduce it to a periodeReducer value
-    def getPeriode(p, band : Band) -> ee.Image:
+    def get_image_for_periode(self, p : Periode, band : Band, collection : ee.ImageCollection) -> ee.Image:
         p = ee.Dictionary(p)
         start = ee.Date(p.get("start_date"))
-        end = ee.Date(p.get("end_date")).advance(-1, "day") #remove one day, since the end date is inclusive on current format?
+        end = ee.Date(p.get("end_date"))#.advance(-1, "day") #remove one day, since the end date is inclusive on current format?
 
         #Get only images from start to end, for one bands
         filtered : ee.ImageCollection = collection.filterDate(start, end).select(band.name)
@@ -68,13 +94,51 @@ class GoogleEarthEngineConverter():
             .set("system:indicator", band.indicator)
 
 
-class GoogleEarthEngine():
+    def create_ee_dict(self, p : TimePeriod):
+        return ee.Dictionary({"period" : p.id, "start_date" : p.start_timestamp.date, "end_date" : p.end_timestamp.date})
+        
+    def creat_ee_feature(self, feature, image, eeReducerType):
+        return ee.Feature(
+            None, #exlude geometry
+            {
+                'ou': feature.id(),
+                'period': image.get('system:period'),
+                'value' : feature.get(eeReducerType),
+                'indicator' : image.get('system:indicator')
+            }
+        )
+    
+    def convert_value_by_band_converter(self, data, bands : List[Band]):
+        return [{**f['properties'],
+                    #Using the right converter on the value, based on the whats defined as band-converter
+                    **{'value': next(b.converter for b in bands if f['properties']['indicator'] == b.indicator)(f['properties']['value'])}}
+                for f in data]
+    
+    def value_collection_to_list(self, feature_collection : ee.FeatureCollection):
+        size = feature_collection.size().getInfo()
+        result : List = []
+        take = 5_000
+
+        #Keeps every f.properties, and replace the band values with the converted values
+        for i in range(0, size, take):     
+            result = result + (feature_collection.toList(take, i).getInfo())
+            logger.log(logging.INFO, f" Fetched {i+take} of {size}")
+
+        return result
+    
+    
+class Era5LandGoogleEarthEngine():
     
     def __init__(self):
-        self.google_earth_engine_converter = GoogleEarthEngineConverter()
-        self.initializeClient()
+        self.gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
+        self.spatial_temporal_dict_converter = SpatioTemporalDictConverter()
+        self._initialize_client()
 
-    def _initializeClient(self):
+    def get_ee(self):
+        return ee
+
+    def _initialize_client(self):
+        load_dotenv(find_dotenv())
         #read environment variables
         account = os.environ.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
         private_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')
@@ -95,86 +159,54 @@ class GoogleEarthEngine():
             logger.error(e)
 
 
-    def fetch_historical_era5_from_gee(self, zip_file_path: str, periodes : Iterable[Periode]) -> SpatioTemporalDict[ClimateData]:
-        features = self.get_feature_from_zip(zip_file_path)
+    def get_historical_era5_from_gee(self, zip_file_path: str, periodes : Iterable[Periode]) -> SpatioTemporalDict[ClimateData]:
+        features = self.gee_helper.get_feature_from_zip(zip_file_path)
 
         #Fetch data for all bands
-        gee_result = self.fetch_data_climate_indicator(features, periodes, bands)
+        gee_result = self._fetch_data_climate_indicator(features, periodes, bands)
+        spatio_temporal_dict = self.spatial_temporal_dict_converter.parse_gee_properties(gee_result)
 
-        return parse_gee_properties(gee_result)
+        return spatio_temporal_dict
 
-         
-    def get_feature_from_zip(self, zip_file_path: str):
-        ziparchive = zipfile.ZipFile(zip_file_path)
-        features = json.load(ziparchive.open("orgUnits.geojson"))["features"]
-        return features
-    
-
-    def fetch_data_climate_indicator(self, features, periodes : Iterable[TimePeriod], bands : List[Band]):
+    def _fetch_data_climate_indicator(self, features, periodes : Iterable[TimePeriod], bands : List[Band]):
         
-        eeReducerType = "mean"
+        ee_reducer_type = "mean"
 
         collection = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR').select([band.name for band in bands])
-        featureCollection : ee.FeatureCollection = ee.FeatureCollection(features)
+        feature_collection : ee.FeatureCollection = ee.FeatureCollection(features)
 
         #Creates a ee.List for every periode, containing id (periodeId), start_date and end_date for each period
-        periodeList = ee.List([ee.Dictionary({"period" : p.id, "start_date" : p.start_timestamp.date, "end_date" : p.end_timestamp.date}) for p in periodes])
+        periode_list = ee.List([self.gee_helper.create_ee_dict(p) for p in periodes])
     
-        eeScale = collection.first().select(0).projection().nominalScale()
-        eeReducer = getattr(ee.Reducer, eeReducerType)()
+        ee_scale = collection.first().select(0).projection().nominalScale()
+        eeReducer = getattr(ee.Reducer, ee_reducer_type)()
 
-
-
-        dailyCollection = ee.ImageCollection([])
+        daily_collection = ee.ImageCollection([])
 
         #Map the bands, then the periodeList for each band, and return the aggregated Image to the ImageCollection
         for b in bands:
-            dailyCollection = dailyCollection.merge(ee.ImageCollection.fromImages(
-                periodeList.map(lambda period : self.google_earth_engine_converter.getPeriode(period, b))
+            daily_collection = daily_collection.merge(ee.ImageCollection.fromImages(
+                periode_list.map(lambda period : self.gee_helper.get_image_for_periode(period, b, collection))
             ).filter(ee.Filter.listContains("system:band_names", b.name)))  # Remove empty images
 
         #Reduce the result, to contain only, orgUnitId, periodeId and the value
-        reduced = dailyCollection.map(lambda image: 
+        reduced = daily_collection.map(lambda image: 
             image.reduceRegions(
-                collection=featureCollection,
+                collection=feature_collection,
                 reducer=eeReducer,
-                scale=eeScale
+                scale=ee_scale
             ).map(lambda feature: 
-                ee.Feature(
-                    None, 
-                    {
-                        'ou': feature.id(),
-                        'period': image.get('system:period'),
-                        'value' : feature.get(eeReducerType),
-                        'indicator' : image.get('system:indicator')
-                    }
-                )
+                self.gee_helper.creat_ee_feature(feature, image, ee_reducer_type)
             )
         ).flatten()
 
-        valueCollection : ee.FeatureCollection = ee.FeatureCollection(reduced)
+        feature_collection : ee.FeatureCollection = ee.FeatureCollection(reduced)
 
-        size = valueCollection.size().getInfo()
-        result : List = []
-        take = 5_000
+        result = self.gee_helper.value_collection_to_list(feature_collection)
 
-        #Keeps every f.properties, and replace the band values with the converted values
-        def _dataParser(data, bands : List[Band]):
-            parsed_data = [{**f['properties'],
-                                #Using the right converter on the value, based on the whats defined as band-converter
-                                **{'value': next(b.converter for b in bands if f['properties']['indicator'] == b.indicator)(f['properties']['value'])}}
-                                for f in data]
-            return parsed_data
+        parsed_result = self.gee_helper.convert_value_by_band_converter(result, bands)
 
-
-        for i in range(0, size, take):     
-            result = result + (valueCollection.toList(take, i).getInfo())
-            logger.log(logging.INFO, f" Fetched {i+take} of {size}")
-
-    
-        parsedResult = _dataParser(result, bands)
-
-        return parsedResult
+        return parsed_result
 
 
 

@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from climate_health.api import read_zip_folder, train_on_prediction_data
-from climate_health.google_earth_engine.gee_era5 import GoogleEarthEngine
+from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import all_models
@@ -93,21 +93,16 @@ async def set_model_path(model_path: str) -> dict:
     internal_state.model_path = model_path
     return {'status': 'success'}
 
-@app.post('/gee')
-async def test_google_earth_engine(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
-    prediction_data = read_zip_folder(file.file)
-    #prediction_data.climate_data = clients.gee.fetch_historical_era5_from_gee(file.file, prediction_data.health_data.period_range)
-    return {'result': prediction_data.climate_data}
-    
-
 
 @app.post('/zip-file/')
 async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks=None) -> dict:
     '''
     Post a zip file containing the data needed for training and evaluation, and start the training
     '''
-    if not internal_state.is_ready():
-        raise HTTPException(status_code=400, detail="Model is currently training")
+    
+    #Herman: I comment these two lines out, since we accept more than one jobs for now?
+    #if not internal_state.is_ready():
+    #    raise HTTPException(status_code=400, detail="Model is currently training")
 
     model_name, model_path = 'HierarchicalModel', None
     if internal_state.model_path is not None:

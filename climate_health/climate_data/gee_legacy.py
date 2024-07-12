@@ -75,18 +75,3 @@ class ERA5DataBase:
 
     def _generate_cache_key(self, region, start_date, end_date):
         return f"{region.latitude}_{region.longitude}_{start_date}_{end_date}"
-
-
-def parse_gee_properties(property_dicts: list[dict])->SpatioTemporalDict:
-    df = pd.DataFrame(property_dicts)
-    location_groups = df.groupby('ou')
-    full_dict = {}
-    for location, group in location_groups:
-        data_dict = {band: group[group['indicator'] == band] for band in group['indicator'].unique()}
-        pr = None
-        for band, band_group in group.groupby('indicator'):
-            data_dict[band] = band_group['value']
-            pr = PeriodRange.from_ids(band_group['period'])
-
-        full_dict[location] = SimpleClimateData(pr, **data_dict)
-    return SpatioTemporalDict(full_dict)
