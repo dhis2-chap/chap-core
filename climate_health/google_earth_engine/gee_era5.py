@@ -4,12 +4,8 @@ import logging
 from typing import Iterable, List
 from dotenv import find_dotenv, load_dotenv
 import ee
-import dataclasses
-import enum
 import os
-from array import array
 import zipfile
-
 import pandas as pd
 from pydantic import BaseModel
 from climate_health.datatypes import Location, ClimateData, SimpleClimateData
@@ -25,11 +21,8 @@ logging.basicConfig(level=logging.INFO)
 def meter_to_mm(m):
     return round(m * 1000, 3)
 
-def round_two_decimal(v):
-    return round(v, 2)
-
 def kelvin_to_celsium(v):
-    return round_two_decimal(v - 273.15)
+    return round(v - 273.15, 2)
 
 class Band(BaseModel):
     class Config():
@@ -39,11 +32,11 @@ class Band(BaseModel):
     reducer: str
     converter: callable
     indicator : str
-    periodeReducer : str
+    periode_reducer : str
 
 bands = [
-    Band(name="temperature_2m", reducer="mean", periodeReducer="mean", converter=kelvin_to_celsium, indicator = "mean_temperature"),
-    Band(name="total_precipitation_sum", reducer="mean", periodeReducer="sum", converter=meter_to_mm, indicator = "rainfall")
+    Band(name="temperature_2m", reducer="mean", periode_reducer="mean", converter=kelvin_to_celsium, indicator = "mean_temperature"),
+    Band(name="total_precipitation_sum", reducer="mean", periode_reducer="sum", converter=meter_to_mm, indicator = "rainfall")
 ]
 
 class Periode(BaseModel):
@@ -54,31 +47,14 @@ class Periode(BaseModel):
     startDate : datetime
     endDate : datetime
 
-class SpatioTemporalDictConverter():
 
-    def parse_gee_properties(self, property_dicts: list[dict])->SpatioTemporalDict:
-        df = pd.DataFrame(property_dicts)
-        location_groups = df.groupby('ou')
-        full_dict = {}
-        for location, group in location_groups:
-            data_dict = {band: group[group['indicator'] == band] for band in group['indicator'].unique()}
-            pr = None
-            for band, band_group in group.groupby('indicator'):
-                data_dict[band] = band_group['value']
-                pr = PeriodRange.from_ids(band_group['period'])
-
-            full_dict[location] = SimpleClimateData(pr, **data_dict)
-        return SpatioTemporalDict(full_dict)
 
 class Era5LandGoogleEarthEngineHelperFunctions():
 
-    def get_feature_from_zip(self, zip_file_path: str):
-        ziparchive = zipfile.ZipFile(zip_file_path)
-        features = json.load(ziparchive.open("orgUnits.geojson"))["features"]
-        return features
+
     
     #Get every dayli image that exisist within a periode, and reduce it to a periodeReducer value
-    def get_image_for_periode(self, p : Periode, band : Band, collection : ee.ImageCollection) -> ee.Image:
+    def get_image_for_period(self, p : Periode, band : Band, collection : ee.ImageCollection) -> ee.Image:
         p = ee.Dictionary(p)
         start = ee.Date(p.get("start_date"))
         end = ee.Date(p.get("end_date"))#.advance(-1, "day") #remove one day, since the end date is inclusive on current format?
@@ -87,7 +63,7 @@ class Era5LandGoogleEarthEngineHelperFunctions():
         filtered : ee.ImageCollection = collection.filterDate(start, end).select(band.name)
 
         #Aggregate the imageCollection to one image, based on the periodeReducer
-        return getattr(filtered, band.periodeReducer)() \
+        return getattr(filtered, band.periode_reducer)() \
             .set("system:period", p.get("period")) \
             .set("system:time_start", start.millis()) \
             .set("system:time_end", end.millis()) \
@@ -114,7 +90,7 @@ class Era5LandGoogleEarthEngineHelperFunctions():
                     **{'value': next(b.converter for b in bands if f['properties']['indicator'] == b.indicator)(f['properties']['value'])}}
                 for f in data]
     
-    def value_collection_to_list(self, feature_collection : ee.FeatureCollection):
+    def feature_collection_to_list(self, feature_collection : ee.FeatureCollection):
         size = feature_collection.size().getInfo()
         result : List = []
         take = 5_000
@@ -126,16 +102,26 @@ class Era5LandGoogleEarthEngineHelperFunctions():
 
         return result
     
+    @staticmethod
+    def parse_gee_properties(property_dicts: list[dict])->SpatioTemporalDict:
+        df = pd.DataFrame(property_dicts)
+        location_groups = df.groupby('ou')
+        full_dict = {}
+        for location, group in location_groups:
+            data_dict = {band: group[group['indicator'] == band] for band in group['indicator'].unique()}
+            pr = None
+            for band, band_group in group.groupby('indicator'):
+                data_dict[band] = band_group['value']
+                pr = PeriodRange.from_ids(band_group['period'])
+
+            full_dict[location] = SimpleClimateData(pr, **data_dict)
+        return SpatioTemporalDict(full_dict)
     
 class Era5LandGoogleEarthEngine():
     
     def __init__(self):
         self.gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
-        self.spatial_temporal_dict_converter = SpatioTemporalDictConverter()
         self._initialize_client()
-
-    def get_ee(self):
-        return ee
 
     def _initialize_client(self):
         load_dotenv(find_dotenv())
@@ -158,17 +144,7 @@ class Era5LandGoogleEarthEngine():
         except ValueError as e:
             logger.error(e)
 
-
-    def get_historical_era5_from_gee(self, zip_file_path: str, periodes : Iterable[Periode]) -> SpatioTemporalDict[ClimateData]:
-        features = self.gee_helper.get_feature_from_zip(zip_file_path)
-
-        #Fetch data for all bands
-        gee_result = self._fetch_data_climate_indicator(features, periodes, bands)
-        spatio_temporal_dict = self.spatial_temporal_dict_converter.parse_gee_properties(gee_result)
-
-        return spatio_temporal_dict
-
-    def _fetch_data_climate_indicator(self, features, periodes : Iterable[TimePeriod], bands : List[Band]):
+    def get_historical_era5(self, features, periodes : Iterable[TimePeriod]):
         
         ee_reducer_type = "mean"
 
@@ -186,7 +162,7 @@ class Era5LandGoogleEarthEngine():
         #Map the bands, then the periodeList for each band, and return the aggregated Image to the ImageCollection
         for b in bands:
             daily_collection = daily_collection.merge(ee.ImageCollection.fromImages(
-                periode_list.map(lambda period : self.gee_helper.get_image_for_periode(period, b, collection))
+                periode_list.map(lambda period : self.gee_helper.get_image_for_period(period, b, collection))
             ).filter(ee.Filter.listContains("system:band_names", b.name)))  # Remove empty images
 
         #Reduce the result, to contain only, orgUnitId, periodeId and the value
@@ -202,11 +178,11 @@ class Era5LandGoogleEarthEngine():
 
         feature_collection : ee.FeatureCollection = ee.FeatureCollection(reduced)
 
-        result = self.gee_helper.value_collection_to_list(feature_collection)
-
+        result = self.gee_helper.feature_collection_to_list(feature_collection)
         parsed_result = self.gee_helper.convert_value_by_band_converter(result, bands)
+        
+        return self.gee_helper.parse_gee_properties(parsed_result)
 
-        return parsed_result
 
 
 
