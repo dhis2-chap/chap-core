@@ -9,6 +9,20 @@ from climate_health.datatypes import HealthPopulationData
 from climate_health.services.cache_manager import get_cache
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-integration", action="store_true", default=False, help="Run integration tests"
+    )
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "integration: mark a test as an integration test.")
+
+def pytest_collection_modifyitems(config, items):
+    if not config.getoption("--run-integration"):
+        skip_integration = pytest.mark.skip(reason="need --run-integration option to run")
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip_integration)
 
 @pytest.fixture
 def data_path():
@@ -46,3 +60,4 @@ def google_earth_engine():
         return GoogleEarthEngine()
     except:
         pytest.skip("Google Earth Engine not available")
+

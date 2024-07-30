@@ -12,14 +12,23 @@ from climate_health.google_earth_engine.gee_era5 import SpatioTemporalDictConver
     Era5LandGoogleEarthEngineHelperFunctions
 from climate_health.time_period.date_util_wrapper import TimePeriod
 import pytest
-import ee
+import ee as _ee
 
 spatio_temporal_dict_converter = SpatioTemporalDictConverter()
 era5_land_gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
 
 # need to
-era5_land_gee = Era5LandGoogleEarthEngine()
 
+@pytest.fixture()
+def ee(era5_land_gee):
+    return _ee
+
+@pytest.fixture()
+def era5_land_gee():
+    t = Era5LandGoogleEarthEngine()
+    if not t.is_initialized:
+        pytest.skip("Google Earth Engine not available")
+    return t
 
 def test_kelvin_to_celsium():
     assert kelvin_to_celsium(272.15) == -1
@@ -49,8 +58,8 @@ def test_parse_properties(property_dicts):
     spatio_temporal_dict_converter.parse_gee_properties(property_dicts)
 
 
-def test_get_feature_from_zip():
-    features = era5_land_gee_helper.get_feature_from_zip("fixtures/test_chapdata-bombali-jan2022-dec2022.zip")
+def test_get_feature_from_zip(tests_path):
+    features = era5_land_gee_helper.get_feature_from_zip(tests_path/"climate_data/fixtures/test_chapdata-bombali-jan2022-dec2022.zip")
     assert features is not None
 
 
@@ -133,12 +142,12 @@ def test_create_ee_dict(time_periode):
 
 
 @pytest.fixture()
-def ee_feature():
+def ee_feature(ee):
     return ee.Feature(ee.Geometry.Point([-114.318, 38.985]), {'system:index': 'abc123', 'mean': 244})
 
 
 @pytest.fixture()
-def ee_image():
+def ee_image(ee):
     image = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").first()
     return image.set({
         "system:indicator": "temperature_2m",

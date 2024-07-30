@@ -133,6 +133,7 @@ class Era5LandGoogleEarthEngine():
     def __init__(self):
         self.gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
         self.spatial_temporal_dict_converter = SpatioTemporalDictConverter()
+        self.is_initialized = False
         self._initialize_client()
 
     def get_ee(self):
@@ -156,6 +157,7 @@ class Era5LandGoogleEarthEngine():
             credentials = ee.ServiceAccountCredentials(account, key_data=private_key)
             ee.Initialize(credentials)
             logger.info("Google Earth Engine initialized, with account: "+account)
+            self.is_initialized = True
         except ValueError as e:
             logger.error(e)
 
