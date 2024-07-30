@@ -91,7 +91,7 @@ class Era5LandGoogleEarthEngineHelperFunctions():
                     **{'value': next(b.converter for b in bands if f['properties']['indicator'] == b.indicator)(f['properties']['value'])}}
                 for f in data]
     
-    def feature_collection_to_list(self, feature_collection : ee.FeatureCollection):
+    def feature_collection_to_list(self, feature_collection : 'ee.FeatureCollection'):
         size = feature_collection.size().getInfo()
         result : List = []
         take = 5_000

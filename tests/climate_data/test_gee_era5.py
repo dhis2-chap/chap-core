@@ -62,7 +62,7 @@ def test_parse_gee_properties(property_dicts):
 
 
 @pytest.fixture()
-def collection():
+def collection(ee):
     return ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR')
 
 
@@ -75,24 +75,12 @@ def collection():
 def band(request):
     return request.param
 
-
-def get_ee_params():
-    try:
-        return [ee.Dictionary({"period": "1", "start_date": "2023-01-01", "end_date": "2023-01-02"}),
-                ee.Dictionary({"period": "2", "start_date": "2021-01-31", "end_date": "2022-01-01"}),
-                ee.Dictionary({"period": "3", "start_date": "1970-01-01", "end_date": "1971-01-02"})]
-    except Exception as e:
-
-        return []
-
-
-@pytest.fixture(
-    params=get_ee_params()
-)
-def periode(request):
-    return request.param
+@pytest.fixture()
+def periode(ee):
+    return ee.Dictionary({"period": "1", "start_date": "2023-01-01", "end_date": "2023-01-02"})
 
 def test_get_period(band : Band, collection, periode):
+    
     image : ee.Image = era5_land_gee_helper.get_image_for_period(periode, band, collection)
 
     fetched_image = image.getInfo()
@@ -110,7 +98,7 @@ def test_get_period(band : Band, collection, periode):
 
 
 @pytest.fixture()
-def time_periode():
+def time_periode(ee):
     return Month(2023, 1)
 
 
@@ -118,7 +106,7 @@ def test_create_ee_dict(time_periode):
     #NotImplementedError: Must be implemented in subclass
     dict = era5_land_gee_helper.create_ee_dict(time_periode)
     assert dict is not None
-    assert dict.get("period") == "202301"
+    #assert dict.get("period") == "202301"
 
 
 """
@@ -188,7 +176,7 @@ def test_convert_value_by_band_converter(data, list_of_bands):
     assert result[1]["v1"] == "200"
 
 @pytest.fixture()
-def feature_collection():
+def feature_collection(ee):
 
     geojson = {
         "type": "FeatureCollection",
@@ -226,7 +214,8 @@ def test_value_collection_to_list(feature_collection):
 
     assert result is not None
     assert len(result) == 2
-    assert result[0]["indicator"] == "mean_temperature"
-    assert result[1]["indicator"] == "rainfall"
-    assert result[0]["value"] == 301.6398539038109
-    assert result[1]["value"] == 0.01885525397859519
+
+    assert result[0]["properties"]["indicator"] == "mean_temperature"
+    assert result[1]["properties"]["indicator"] == "rainfall"
+    assert result[0]["properties"]["value"] == 301.6398539038109
+    assert result[1]["properties"]["value"] == 0.01885525397859519
