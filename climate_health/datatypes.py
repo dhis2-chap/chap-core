@@ -5,8 +5,11 @@ from bionumpy.bnpdataclass import BNPDataClass
 from pydantic import BaseModel, validator
 import dataclasses
 
+from typing_extensions import deprecated
+
 from .time_period import PeriodRange
 from .time_period.dataclasses import Period
+from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
 
 tsdataclass = bnp.bnpdataclass.bnpdataclass
@@ -72,6 +75,35 @@ class TimeSeriesData:
         data_dict['time_period'] = self.time_period
         fields =  {key: interpolate_nans(value) for key, value in data_dict.items() if key != 'time_period'}
         return self.__class__(self.time_period, **fields)
+
+    @deprecated('Compatibility with old code')
+    def data(self):
+        return self
+
+    @property
+    def start_timestamp(self) -> pd.Timestamp:
+        return self.time_period[0].start_timestamp
+
+    @property
+    def end_timestamp(self) -> pd.Timestamp:
+        return self.time_period[-1].end_timestamp
+
+    def fill_to_endpoint(self, end_time_stamp: TimeStamp) -> 'TimeSeriesData':
+        if self.end_timestamp == end_time_stamp:
+            return self
+        n_missing = (end_time_stamp - self.end_timestamp) // self.time_period.delta
+        assert n_missing >= 0, (f'{n_missing} < 0', end_time_stamp, self.end_timestamp)
+        old_time_period = self.time_period
+        new_time_period = PeriodRange(old_time_period.start_timestamp, end_time_stamp, old_time_period.delta)
+        d = {field.name: getattr(self, field.name) for field in dataclasses.fields(self) if
+             field.name != 'time_period'}
+
+        for name, data in d.items():
+            d[name] = np.pad(data.astype(float), (0, n_missing),
+                             constant_values=np.nan)
+        return self.__class__(new_time_period, **d)
+
+
 
 
 @tsdataclass
