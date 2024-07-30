@@ -61,8 +61,41 @@ internal_state = InternalState(Control({}), {})
 
 state = State(ready=True, status='idle')
 
+
+class NaiveWorker:
+    def queue(self, func, *args, **kwargs):
+        return NaiveJob(func(*args, **kwargs))
+
+
+class NaiveJob:
+    def __init__(self, result):
+        self._result = result
+
+    @property
+    def status(self):
+        return 'finished'
+
+    @property
+    def progress(self):
+        return 1
+
+    @property
+    def result(self):
+        return self._result
+
+    def cancel(self):
+        pass
+
+    @property
+    def is_finished(self):
+        return True
+
+
+# worker = NaiveWorker()
 # worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
 worker = RedisQueue()
+
+
 def set_cur_response(response):
     state['response'] = response
 
@@ -95,13 +128,13 @@ async def set_model_path(model_path: str) -> dict:
 
 
 @app.post('/zip-file/')
-async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks=None) -> dict:
+async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
     '''
     Post a zip file containing the data needed for training and evaluation, and start the training
     '''
-    
-    #Herman: I comment these two lines out, since we accept more than one jobs for now?
-    #if not internal_state.is_ready():
+
+    # Herman: I comment these two lines out, since we accept more than one jobs for now?
+    # if not internal_state.is_ready():
     #    raise HTTPException(status_code=400, detail="Model is currently training")
 
     model_name, model_path = 'HierarchicalModel', None
@@ -111,7 +144,7 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
 
     job = worker.queue(train_on_zip_file, file, model_name, model_path)
     internal_state.current_job = job
-   
+
     return {'status': 'success'}
 
 
@@ -169,8 +202,8 @@ async def get_status() -> State:
                  status=internal_state.current_job.status,
                  progress=internal_state.current_job.progress)
 
+
 def main_backend():
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

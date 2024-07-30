@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-from typing import Iterable, List
+from typing import Iterable, List, Callable
 from dotenv import find_dotenv, load_dotenv
 import ee
 import os
@@ -30,7 +30,7 @@ class Band(BaseModel):
 
     name: str
     reducer: str
-    converter: callable
+    converter: Callable
     indicator : str
     periode_reducer : str
 
@@ -39,13 +39,14 @@ bands = [
     Band(name="total_precipitation_sum", reducer="mean", periode_reducer="sum", converter=meter_to_mm, indicator = "rainfall")
 ]
 
+
 class Periode(BaseModel):
     class Config():
         arbitrary_types_allowed=True
 
     id: str
-    startDate : datetime
-    endDate : datetime
+    startDate : datetime.datetime
+    endDate : datetime.datetime
 
 
 
@@ -121,6 +122,7 @@ class Era5LandGoogleEarthEngine():
     
     def __init__(self):
         self.gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
+        self.is_initialized = False
         self._initialize_client()
 
     def _initialize_client(self):
@@ -141,6 +143,7 @@ class Era5LandGoogleEarthEngine():
             credentials = ee.ServiceAccountCredentials(account, key_data=private_key)
             ee.Initialize(credentials)
             logger.info("Google Earth Engine initialized, with account: "+account)
+            self.is_initialized = True
         except ValueError as e:
             logger.error(e)
 
