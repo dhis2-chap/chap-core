@@ -96,6 +96,10 @@ class TemporalDataclass(Generic[FeaturesT]):
 
 
 class SpatioTemporalDict(Generic[FeaturesT]):
+    '''
+    Class representing severeal time series at different locations.
+    '''
+
     def __init__(self, data_dict: dict[str, FeaturesT]):
         self._data_dict = {loc: TemporalDataclass(data) if not isinstance(data, TemporalDataclass) else data for
                            loc, data in data_dict.items()}
@@ -103,13 +107,24 @@ class SpatioTemporalDict(Generic[FeaturesT]):
     def __repr__(self):
         return f'{self.__class__.__name__}({self._data_dict})'
 
+    def __getitem__(self, location: Location) -> TemporalDataclass[FeaturesT]:
+        return self._data_dict[location].data()
+
+    def keys(self):
+        return self._data_dict.keys()
+
+    def items(self):
+        return ((k, d.data()) for k, d in self._data_dict.items())
+
+    def values(self):
+        return (d.data() for d in self._data_dict.values())
+
     @property
     def period_range(self) -> PeriodRange:
         first_period_range = self._data_dict[next(iter(self._data_dict))].data().time_period
         assert first_period_range.start_timestamp == first_period_range.start_timestamp
         assert first_period_range.end_timestamp == first_period_range.end_timestamp
         return first_period_range
-
 
     @property
     def start_timestamp(self) -> pd.Timestamp:
@@ -135,8 +150,8 @@ class SpatioTemporalDict(Generic[FeaturesT]):
     def data(self) -> Iterable[FeaturesT]:
         return self._data_dict.values()
 
-    def items(self) -> Iterable[Tuple[Location, FeaturesT]]:
-        return self._data_dict.items()
+    #def items(self) -> Iterable[Tuple[Location, FeaturesT]]:
+    #    return self._data_dict.items()
 
     def _add_location_to_dataframe(self, df, location):
         df['location'] = location

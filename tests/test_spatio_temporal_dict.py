@@ -3,7 +3,7 @@ import tempfile
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData
+from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, TimeSeriesData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period import Month, Year, PeriodRange
 from climate_health.time_period.period_range import period_range
@@ -57,5 +57,10 @@ def test_join_on_time(train_data_new_period_range):
                PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7)))
 
 
+def test_get_location(health_population_data):
+    location_data = health_population_data.get_location('FRmrFTE63D0').data()
+    assert isinstance(location_data, TimeSeriesData)
 
-
+def test_getitem(health_population_data):
+    location_data = health_population_data['FRmrFTE63D0']
+    assert isinstance(location_data, TimeSeriesData)
