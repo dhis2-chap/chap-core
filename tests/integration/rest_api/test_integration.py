@@ -48,6 +48,7 @@ def rq_worker_process():
 
 
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_post_zip_file(tests_path, rq_worker_process):
     testfile = open(tests_path / "integration/rest_api/testdata/traning_prediction_data.zip", "rb")
     response = client.post(post_zip_file_path, files={"file": testfile})
