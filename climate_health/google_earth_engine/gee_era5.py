@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-from typing import Iterable, List
+from typing import Iterable, List, Callable
 from dotenv import find_dotenv, load_dotenv
 import ee
 import dataclasses
@@ -37,7 +37,7 @@ class Band(BaseModel):
 
     name: str
     reducer: str
-    converter: callable
+    converter: Callable
     indicator : str
     periodeReducer : str
 
@@ -46,13 +46,14 @@ bands = [
     Band(name="total_precipitation_sum", reducer="mean", periodeReducer="sum", converter=meter_to_mm, indicator = "rainfall")
 ]
 
+
 class Periode(BaseModel):
     class Config():
         arbitrary_types_allowed=True
 
     id: str
-    startDate : datetime
-    endDate : datetime
+    startDate : datetime.datetime
+    endDate : datetime.datetime
 
 class SpatioTemporalDictConverter():
 
