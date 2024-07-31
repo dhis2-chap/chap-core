@@ -1,23 +1,16 @@
-"""
-    Test converters
-"""
-
 from datetime import datetime, timezone
 from typing import List
 
 from dotenv import find_dotenv, load_dotenv
-from climate_health.google_earth_engine.gee_era5 import Band, Era5LandGoogleEarthEngine, Periode, kelvin_to_celsium, \
-    meter_to_mm, round_two_decimal
-from climate_health.google_earth_engine.gee_era5 import SpatioTemporalDictConverter, \
-    Era5LandGoogleEarthEngineHelperFunctions
-from climate_health.time_period.date_util_wrapper import TimePeriod
+from climate_health.google_earth_engine.gee_era5 import Band, Era5LandGoogleEarthEngine, Periode, kelvin_to_celsium, meter_to_mm
+from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngineHelperFunctions
+from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.time_period.date_util_wrapper import Month, TimePeriod
 import pytest
 import ee as _ee
 
-spatio_temporal_dict_converter = SpatioTemporalDictConverter()
 era5_land_gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
 
-# need to
 
 @pytest.fixture()
 def ee(era5_land_gee):
@@ -39,8 +32,11 @@ def test_meter_to_mm():
 
 
 def test_round_two_decimal():
-    assert round_two_decimal(1.1234) == 1.12
+    assert round(1.1234, 2) == 1.12
 
+"""
+    Test parse_properties
+"""
 
 @pytest.fixture()
 def property_dicts():
@@ -53,57 +49,39 @@ def property_dicts():
             {'period': '201201', 'ou': 'Oslo', 'value': 12., 'indicator': 'mean_temperature'},
             {'period': '201202', 'ou': 'Oslo', 'value': 12., 'indicator': 'mean_temperature'}]
 
-
-def test_parse_properties(property_dicts):
-    spatio_temporal_dict_converter.parse_gee_properties(property_dicts)
-
-
-def test_get_feature_from_zip(tests_path):
-    features = era5_land_gee_helper.get_feature_from_zip(tests_path/"climate_data/fixtures/test_chapdata-bombali-jan2022-dec2022.zip")
-    assert features is not None
+def test_parse_gee_properties(property_dicts):
+    result : SpatioTemporalDict = era5_land_gee_helper.parse_gee_properties(property_dicts)
+    assert result is not None
+    assert len(result.to_pandas()) == 4
+    assert (result.get_location("Oslo").data().mean_temperature == [12, 12]).all()
 
 
 """
-    Test get_image_for_periode
+    Test get_image_for_periode, tests for multiple bands and periodes
 """
 
 
 @pytest.fixture()
-def collection():
+def collection(ee):
     return ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR')
 
 
 @pytest.fixture(
     params=[
-        Band(name="temperature_2m", reducer="mean", periodeReducer="mean", converter=kelvin_to_celsium,
-             indicator="mean_temperature"),
-        Band(name="total_precipitation_sum", reducer="mean", periodeReducer="sum", converter=meter_to_mm,
-             indicator="rainfall")
+        Band(name="temperature_2m", reducer="mean", periode_reducer="mean", converter=kelvin_to_celsium, indicator = "mean_temperature"),
+        Band(name="total_precipitation_sum", reducer="mean", periode_reducer="sum", converter=meter_to_mm, indicator = "rainfall")
     ]
 )
 def band(request):
     return request.param
 
+@pytest.fixture()
+def periode(ee):
+    return ee.Dictionary({"period": "1", "start_date": "2023-01-01", "end_date": "2023-01-02"})
 
-def get_ee_params():
-    try:
-        return [ee.Dictionary({"period": "1", "start_date": "2023-01-01", "end_date": "2023-01-02"}),
-                ee.Dictionary({"period": "2", "start_date": "2021-01-31", "end_date": "2022-01-01"}),
-                ee.Dictionary({"period": "3", "start_date": "1970-01-01", "end_date": "1971-01-02"})]
-    except Exception as e:
-
-        return []
-
-
-@pytest.fixture(
-    params=get_ee_params()
-)
-def periode(request):
-    return request.param
-
-
-def test_get_periode(band: Band, collection, periode):
-    image: ee.Image = era5_land_gee_helper.get_image_for_periode(periode, band, collection)
+def test_get_period(band : Band, collection, periode):
+    
+    image : ee.Image = era5_land_gee_helper.get_image_for_period(periode, band, collection)
 
     fetched_image = image.getInfo()
 
@@ -111,12 +89,8 @@ def test_get_periode(band: Band, collection, periode):
     assert fetched_image["type"] == "Image"
     assert len(fetched_image['bands']) == 1
     assert fetched_image['bands'][0]['id'] == band.name
-    assert fetched_image['properties']['system:time_start'] == int((datetime.strptime(
-        periode.getInfo().get("start_date"), "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp()) * 1000)
-    assert fetched_image['properties']['system:time_end'] == int((datetime.strptime(periode.getInfo().get("end_date"),
-                                                                                    "%Y-%m-%d").replace(
-        tzinfo=timezone.utc).timestamp()) * 1000)
-
+    assert fetched_image['properties']['system:time_start'] == int((datetime.strptime(periode.getInfo().get("start_date"), "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp()) * 1000)
+    assert fetched_image['properties']['system:time_end'] == int((datetime.strptime(periode.getInfo().get("end_date"), "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp()) * 1000)
 
 """
     Test create_ee_dict 
@@ -124,16 +98,15 @@ def test_get_periode(band: Band, collection, periode):
 
 
 @pytest.fixture()
-def time_periode():
-    # Needs to create a TimePeriod here
-    return TimePeriod(2023, 1)
+def time_periode(ee):
+    return Month(2023, 1)
 
 
-@pytest.mark.skip(reason="Return: Must be implemented in subclass")
 def test_create_ee_dict(time_periode):
-    # NotImplementedError: Must be implemented in subclass
-    era5_land_gee_helper.create_ee_dict(time_periode)
-    pass
+    #NotImplementedError: Must be implemented in subclass
+    dict = era5_land_gee_helper.create_ee_dict(time_periode)
+    assert dict is not None
+    #assert dict.get("period") == "202301"
 
 
 """
@@ -174,28 +147,75 @@ def test_creat_ee_feature(ee_feature, ee_image):
 @pytest.fixture()
 def list_of_bands():
     return [
-        Band(name="temperature_2m", reducer="mean", periodeReducer="mean", converter=kelvin_to_celsium,
-             indicator="mean_temperature"),
-        Band(name="total_precipitation_sum", reducer="mean", periodeReducer="sum", converter=meter_to_mm,
-             indicator="rainfall")
+        Band(name="temperature_2m", reducer="mean", periode_reducer="mean", converter=kelvin_to_celsium, indicator = "mean_temperature"),
+        Band(name="total_precipitation_sum", reducer="mean", periode_reducer="sum", converter=meter_to_mm, indicator = "rainfall")
     ]
 
 
 @pytest.fixture()
 def data():
     return [
-        {"properties": {"v1": "100", "v2": "200", "indicator": "mean_temperature", "value": 400}},
+        {"properties" : {"v1" : "100", "indicator" : "mean_temperature", "value" : 300}},
+        {"properties" : {"v1" : "200", "indicator" : "rainfall", "value" : 0.004}},
     ]
-
 
 def test_convert_value_by_band_converter(data, list_of_bands):
     result = era5_land_gee_helper.convert_value_by_band_converter(data, list_of_bands)
 
     assert result is not None
+    assert len(result) == 2
 
-    # print(result)
+    #test converters
+    assert result[0]["value"] == 26.85
+    assert result[1]["value"] == 4
 
+    #other properties
+    assert result[0]["indicator"] == "mean_temperature"
+    assert result[1]["indicator"] == "rainfall"
+    assert result[0]["v1"] == "100"
+    assert result[1]["v1"] == "200"
 
-def value_collection_to_list():
-    pass
-    # era5_land_gee_helper.value_collection_to_list
+@pytest.fixture()
+def feature_collection(ee):
+
+    geojson = {
+        "type": "FeatureCollection",
+        "columns": {},
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {"type":"Point","coordinates":[0,0]},
+                "id": "1_2_0_fdc6uOvgoji",
+                "properties": {
+                    "indicator": "mean_temperature",
+                    "ou": "fdc6uOvgoji",
+                    "period": "202201",
+                    "value": 301.6398539038109
+                }
+            },
+            {
+                "type": "Feature",
+                "geometry": {"type":"Point","coordinates":[0,0]},
+                "id": "2_11_fdc6uOvgoji",
+                "properties": {
+                    "indicator": "rainfall",
+                    "ou": "fdc6uOvgoji",
+                    "period": "202212",
+                    "value": 0.01885525397859519
+                }
+            }
+        ]
+    }
+
+    return ee.FeatureCollection(geojson)
+
+def test_value_collection_to_list(feature_collection):
+    result = era5_land_gee_helper.feature_collection_to_list(feature_collection)
+
+    assert result is not None
+    assert len(result) == 2
+
+    assert result[0]["properties"]["indicator"] == "mean_temperature"
+    assert result[1]["properties"]["indicator"] == "rainfall"
+    assert result[0]["properties"]["value"] == 301.6398539038109
+    assert result[1]["properties"]["value"] == 0.01885525397859519

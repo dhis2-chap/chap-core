@@ -50,6 +50,7 @@ class PredictionData:
     climate_data: SpatioTemporalDict[ClimateData] = None
     population_data: SpatioTemporalDict[HealthPopulationData] = None
     disease_id: Optional[str] = None
+    features : List[object] = None
 
 
 def extract_disease_name(health_data: dict) -> str:
@@ -97,6 +98,8 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
     temperature["rainfall"] = precipitation["precipitation"]
     temperature["rainfall"] = temperature["rainfall"].astype(float)
     temperature["mean_temperature"] = temperature["mean_temperature"].astype(float)
+
+    features = json.load(ziparchive.open(expected_files["area_polygons"]))["features"]
     climate = SpatioTemporalDict.from_pandas(temperature, dataclass=SimpleClimateData)
 
     population_json = json.load(ziparchive.open(expected_files["population"]))
@@ -117,7 +120,8 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
         climate_data=climate,
         population_data=population,
         area_polygons=graph,
-        disease_id=disease_id
+        disease_id=disease_id,
+        features=features
     )
 
     out_data = {}

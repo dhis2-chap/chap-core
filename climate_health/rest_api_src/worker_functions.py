@@ -14,7 +14,6 @@ def train_on_zip_file(file, model_name, model_path, control=None):
     print('F', file)
     prediction_data = read_zip_folder(file.file)
 
-    prediction_data.climate_data = gee_client.get_historical_era5_from_gee(file.file, prediction_data.health_data.period_range)
-    
+    prediction_data.climate_data = gee_client.get_historical_era5(prediction_data.features, prediction_data.health_data.period_range)
 
     return train_on_prediction_data(prediction_data, model_name=model_name, model_path=model_path, control=control)
