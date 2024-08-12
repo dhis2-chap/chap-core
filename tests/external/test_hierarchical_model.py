@@ -4,21 +4,17 @@ import pytest
 import pandas as pd
 from climate_health.datatypes import FullData, HealthData
 from climate_health.external.models.jax_models.hierarchical_model import HierarchicalModel, SeasonalClimateHealthData, \
-    create_seasonal_data, HierarchicalStateModel, HierarchicalStateModelD2, HierarchicalStateModelD
+    create_seasonal_data, HierarchicalStateModelD2
 from climate_health.external.models.jax_models.model_spec import PoissonSkipNaN
 from climate_health.external.models.jax_models.prototype_hierarchical import GlobalSeasonalParams, \
     get_hierarchy_logprob_func, DistrictParams
 from climate_health.external.models.jax_models.protoype_annotated_spec import Positive
 from climate_health.external.models.jax_models.utii import state_or_param, get_state_transform
 from climate_health.external.models.jax_models.jax import jnp
-from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from climate_health.time_period.date_util_wrapper import delta_month
+from tests.external.util import check_model
 
 
-@pytest.fixture
-def full_train_data(train_data):
-    return train_data.add_fields(FullData, population=lambda data: [100000] * len(data))
 
 def test_train5(random_key, data_path):
     file_name = (data_path / 'hydromet_5_filtered').with_suffix('.csv')
@@ -34,21 +30,8 @@ def test_train5(random_key, data_path):
 
 @pytest.mark.parametrize('model_class', [HierarchicalStateModelD2])# , HierarchicalModel])
 def test_training(full_train_data, random_key, test_data, model_class):
-    true_data, test_data = test_data
-    train_data = full_train_data
-    for key, value in train_data.items():
-        ...#px.line(y=value.data().disease_cases).show()
-    test_data = test_data.remove_field('max_temperature')
-    test_data = test_data.add_fields(FullData, population=lambda data: [100000] * len(data),
-                                     disease_cases=lambda data: [np.nan] * len(data))
     model = model_class(random_key, {}, num_warmup=50, num_samples=50)
-    model.train(train_data)
-    model.diagnose()
-    # results = model.sample(test_data)
-    predictions = model.forecast(test_data, n_samples=100, forecast_delta=12*delta_month)
-    for location, prediction in predictions.items():
-        fig = plot_forecast_from_summaries(prediction.data(), true_data.get_location(location).data(), lambda x: np.log(x + 1))
-        fig.show()
+    check_model(full_train_data, model_class, random_key, test_data)
 
     # for key, value in results.items():
     #     print(key, value.data())

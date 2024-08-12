@@ -221,6 +221,22 @@ def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=
     # return json_body
 
 
+def train_with_validation(model_name, dataset_name, n_months=12):
+    dataset = datasets[dataset_name].load()
+    model = get_model(model_name)(n_iter=2000)
+    #split_point = dataset.end_timestamp - n_months * delta_month
+    #train_data, test_data, future_weather = train_test_split_with_weather(dataset, split_point)
+    prediction_length = n_months * delta_month
+    split_point = dataset.end_timestamp - prediction_length
+    split_period = Month(split_point.year, split_point.month)
+    train_data, test_set, future_weather = train_test_split_with_weather(dataset, split_period)
+
+
+    model.set_validation_data(test_set)
+    model.train(train_data)
+    #predictions = model.forecast(future_weather, forecast_delta=n_months * delta_month)
+    #return predictions
+
 def forecast(model_name: str, dataset_name: DataSetType, n_months: int, model_path: Optional[str] = None):
     logging.basicConfig(level=logging.INFO)
     dataset = datasets[dataset_name].load()
