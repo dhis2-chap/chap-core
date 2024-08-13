@@ -15,6 +15,7 @@ ModelType = Literal[all_model_names]
 DEFAULT_MODEL = external_models['HierarchicalModel']
 
 
+
 def get_model(model_name: Optional[ModelType]):
     if model_name is None:
         return DEFAULT_MODEL

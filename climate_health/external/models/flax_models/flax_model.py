@@ -15,7 +15,7 @@ from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTempora
 
 
 def l2_regularization(params, scale=1.0):
-    return sum(jnp.sum(jnp.square(p)) for p in jax.tree_util.tree_leaves(params)) * scale
+    return sum(jnp.sum(jnp.square(p)) for p in jax.tree_util.tree_leaves(params) if p.ndim==2) * scale
 
 
 def year_position_from_datetime(dt: datetime) -> float:
@@ -30,7 +30,7 @@ class TrainState(train_state.TrainState):
 class FlaxModel:
     model: nn.Module = RNNModel()
 
-    def __init__(self, rng_key: jax.random.PRNGKey = jax.random.PRNGKey(100), n_iter: int = 2000):
+    def __init__(self, rng_key: jax.random.PRNGKey = jax.random.PRNGKey(100), n_iter: int = 3000):
         self.rng_key = rng_key
         self.n_iter = n_iter
         self._losses = []
@@ -82,7 +82,6 @@ class FlaxModel:
         x = (x - self._mu) / self._std
         self._saved_x = x
         params = self.model.init(self.rng_key, x, training=False)
-        print(params)
         y_pred = self.model.apply(params, x)
         assert y_pred.shape == x.shape[:-1] + (1,)
         assert np.all(np.isfinite(y_pred))
@@ -107,7 +106,7 @@ class FlaxModel:
             dropout_train_key = jax.random.fold_in(key=dropout_key, data=state.step)
             def loss_func(params):
                 eta = state.apply_fn(params, x, training=True, rngs={'dropout': dropout_train_key})
-                return self._loss(eta, y) + l2_regularization(params)
+                return self._loss(eta, y) + l2_regularization(params, 1.0)
                 #return self._loss(state.apply_fn({'params': params}, x, training=True, rngs={'dropout': dropout_train_key}), y) + l2_regularization(params)
             #logprob_func = lambda params: self._loss(state.apply_fn({'params': params}, x, training=True, rngs={'dropout': dropout_train_key}), y) + l2_regularization(params)
             grad_func = jax.value_and_grad(loss_func)
@@ -123,7 +122,7 @@ class FlaxModel:
             #updates, opt_state = solver.update(grad, opt_state)
             #params = optax.apply_updates(params, updates)
             state = train_step(state, dropout_key)
-            if i % 10 == 0:
+            if i % 50 == 0:
                 if self._validation_x is not None:
                     val_loss = self._loss(self.get_validation_y(state.params), self._validation_y)
                     print(f"Validation Loss: {val_loss}")

@@ -9,7 +9,11 @@ try:
     from .jax_models.simple_ssm import SSM, SSMWithSigmoidEffect
     from .jax_models import regression_model, simple_ssm, specs, hierarchical_model
     from .flax_models import flax_model
-    models = {**extract_models(regression_model), **extract_models(simple_ssm), **extract_models(specs), **extract_models(hierarchical_model), **extract_models(flax_model)}
+    models = {**extract_models(regression_model), **extract_models(simple_ssm), **extract_models(specs), **extract_models(hierarchical_model)}
+    try:
+        models.update(extract_models(flax_model))
+    except ImportError as e:
+        print('Could not import FlaxModel')
     #models['RegressionModel'] = RegressionModel
     #models['HierarchicalRegressionModel'] = HierarchicalRegressionModel
     #models['SSM'] = SSM
