@@ -14,7 +14,8 @@ requirements = ['typer', 'numpy', 'bionumpy', 'pandas', 'plotly', 'scikit-learn'
                 'pooch',
                 'python-dateutil', 'meteostat', 'cyclopts', 'requests', 'pydantic', 'pyyaml',
                 'geopandas', 'libpysal', 'docker', 'jax', 'jaxlib', 'blackjax', 'fastapi',
-                'gitpython', 'dynamax', 'earthengine-api', 'python-dotenv', 'rq', "python-multipart", "uvicorn"
+                'gitpython', 'dynamax', 'earthengine-api', 'python-dotenv', 'rq', "python-multipart", "uvicorn",
+                'flax'
                 ]
 
 test_requirements = ['pytest>=3', "hypothesis"]
