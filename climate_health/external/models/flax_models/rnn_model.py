@@ -10,6 +10,7 @@ class RNNModel(nn.Module):
     pre_hidden: int = 4
     n_locations: int = 1
     embedding_dim: int = 3
+    output_dim: int = 1
 
     @nn.compact
     def __call__(self, x, training=False):
@@ -23,7 +24,7 @@ class RNNModel(nn.Module):
         #initial_carry = self.param('initial_carry', gru.initialize_carry, (1, self.n_hidden))
         x = nn.RNN(gru)(x)
         x = nn.Dense(features=4)(x)
-        x = nn.Dense(features=1)(x)
+        x = nn.Dense(features=self.output_dim)(x)
         return x
 
 

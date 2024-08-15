@@ -2,7 +2,7 @@ import pickle
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
-from typing import Protocol, Any, Optional, Sequence
+from typing import Protocol, Any, Optional, Sequence, Callable
 
 import numpy as np
 
@@ -51,6 +51,43 @@ class Normal:
 
 
 @distributionclass
+class NegativeBinomial:
+    k: float
+    p: float
+
+    def log_prob(self, x: Any) -> Any:
+        return stats.nbinom.logpmf(x, self.k, self.p)
+
+    def mean(self):
+        return self.k * (1 - self.p) / self.p
+
+'''
+mu = k*(1-p)/p
+k = mu/(1-p)*p
+k = mu/phi
+phi = p/(1-p)
+(1-p)*phi = p
+phi-p*phi = p
+phi = p(1+phi)
+p = phi/(1+phi)
+'''
+
+@distributionclass
+class NegativeBinomial2:
+    mu: float
+    alpha: float
+
+    def log_prob(self, x: Any) -> Any:
+        log_gamma = jax.scipy.special.gammaln(
+            x + 1/self.alpha) - jax.scipy.special.gammaln(1/self.alpha) - jax.scipy.special.gammaln(x + 1)
+        first_term = 1/self.alpha * jnp.log(1 + self.alpha * self.mu)
+        second_term = x * (jnp.log(self.mu)+jnp.log(self.alpha)-jnp.log(1+self.alpha*self.mu))
+        return log_gamma - first_term + second_term
+
+    def mean(self):
+        return self.mu
+
+@distributionclass
 class Poisson:
     rate: float
 
@@ -90,14 +127,26 @@ class LogNormal:
 
 
 class PoissonSkipNaN(Poisson):
-
     def log_prob(self, x: Any) -> Any:
         nans = jnp.isnan(x)
         rate = jnp.where(nans, 0, self.rate)
         masked = jnp.where(nans, rate, x)
-        #rate = jnp.where(nans, , self.rate)
         res = jnp.where(nans, 0, stats.poisson.logpmf(masked, rate))
         return res
+
+def skip_nan_distribution(dist: IsDistribution):
+    class SkipNaN(dist):
+        def log_prob(self, x: Any) -> Any:
+            nans = jnp.isnan(x)
+            masked = jnp.where(nans, 0, x)
+            res = jnp.where(nans, 0, super().log_prob(masked))
+            return res
+
+    return SkipNaN
+
+
+class NormalSkipNaN(Normal):
+    ...
 
 
 class IsSSMSpec(Protocol):
