@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from climate_health.api import read_zip_folder, train_on_prediction_data
+from climate_health.api_types import RequestV1
 from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
@@ -146,6 +147,19 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
     internal_state.current_job = job
 
     return {'status': 'success'}
+
+@app.post('/predict_from_json/')
+async def predict_from_json(data: RequestV1) -> dict:
+    '''
+    Post a json file containing the data needed for prediction
+    '''
+    model_name, model_path = 'HierarchicalModel', None
+    if internal_state.model_path is not None:
+        model_name = 'external'
+        model_path = internal_state.model_path
+
+    response = train_on_prediction_data(data, model_name, model_path)
+    return response
 
 
 @app.get('/list-models')

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from ..dataset import TemporalIndexType, FeaturesT
-from ..datatypes import Location, add_field, remove_field
+from ..datatypes import Location, add_field, remove_field, TimeSeriesArray, TimeSeriesData
 from ..time_period import PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp
 import dataclasses
@@ -204,3 +204,17 @@ class SpatioTemporalDict(Generic[FeaturesT]):
 
     def remove_field(self, field_name, new_class=None):
         return self.__class__({loc: remove_field(data.data(), field_name, new_class) for loc, data in self.items()})
+
+    @classmethod
+    def from_fields(cls, dataclass: type[TimeSeriesData], fields: dict[str, 'SpatioTemporalDict[TimeSeriesArray]']):
+        start_timestamp = min(data.start_timestamp for data in fields.values())
+        end_timestamp = max(data.end_timestamp for data in fields.values())
+        period_range = PeriodRange(start_timestamp, end_timestamp, fields[next(iter(fields))].period_range.delta)
+        new_dict = {}
+        field_names = list(fields.keys())
+        all_locations = {location for field in fields.values() for location in field.keys()}
+        for location in all_locations:
+            new_dict[location] = dataclass(period_range, **{field: fields[field][location].fill_to_range(start_timestamp, end_timestamp) for field in field_names})
+        return cls(new_dict)
+
+

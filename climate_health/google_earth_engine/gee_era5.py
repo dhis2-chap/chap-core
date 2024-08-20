@@ -109,15 +109,28 @@ class Era5LandGoogleEarthEngineHelperFunctions():
         location_groups = df.groupby('ou')
         full_dict = {}
         for location, group in location_groups:
-            data_dict = {band: group[group['indicator'] == band] for band in group['indicator'].unique()}
-            pr = None
-            for band, band_group in group.groupby('indicator'):
-                data_dict[band] = band_group['value']
-                pr = PeriodRange.from_ids(band_group['period'])
-
+            data_dict, pr = Era5LandGoogleEarthEngineHelperFunctions._get_data_dict(group)
             full_dict[location] = SimpleClimateData(pr, **data_dict)
         return SpatioTemporalDict(full_dict)
-    
+
+    @staticmethod
+    def _get_data_dict(group):
+        data_dict = {band: group[group['indicator'] == band] for band in group['indicator'].unique()}
+        pr = None
+        for band, band_group in group.groupby('indicator'):
+            data_dict[band] = band_group['value']
+            pr = PeriodRange.from_ids(band_group['period'])
+        return data_dict, pr
+
+    @staticmethod
+    def gee_properties_to_fields(property_dicts: list[dict]) -> dict[str, SpatioTemporalDict]:
+        df = pd.DataFrame(property_dicts)
+        location_groups = df.groupby('ou')
+        #field_dict = {name: {} for name in}
+        #for location, group in location_groups:
+        #    data_dict, pr = Era5LandGoogleEarthEngineHelperFunctions._get_data_dict(group)
+
+
 class Era5LandGoogleEarthEngine():
     
     def __init__(self):

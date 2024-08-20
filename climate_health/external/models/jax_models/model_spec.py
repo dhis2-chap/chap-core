@@ -87,6 +87,15 @@ class NegativeBinomial2:
     def mean(self):
         return self.mu
 
+    def sigma(self):
+        return self.mu + self.mu**2*self.alpha
+
+    def p(self):
+        return self.alpha/(1+self.alpha* self.mu)
+
+    def n(self):
+        return 1/self.alpha
+
 @distributionclass
 class Poisson:
     rate: float
