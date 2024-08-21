@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from climate_health.datatypes import ClimateHealthData, FullData, HealthData
-from climate_health.dhis2_interface.json_parsing import convert_time_period_string
+from climate_health.dhis2_interface.periods import convert_time_period_string
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period import PeriodRange
 from climate_health.time_period.dataclasses import Month

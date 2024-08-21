@@ -103,8 +103,27 @@ class TimeSeriesData:
                              constant_values=np.nan)
         return self.__class__(new_time_period, **d)
 
+    def fill_to_range(self, start_timestamp, end_timestamp):
+        if self.end_timestamp == end_timestamp and self.start_timestamp==start_timestamp:
+            return self
+        n_missing_start = (self.start_timestamp - start_timestamp) // self._data.time_period.delta
+        n_missing = (end_timestamp - self.end_timestamp) // self._data.time_period.delta
+        assert n_missing >= 0, (f'{n_missing} < 0', end_timestamp, self.end_timestamp)
+        assert n_missing_start >= 0, (f'{n_missing} < 0', end_timestamp, self.end_timestamp)
+        old_time_period = self._data.time_period
+        new_time_period = PeriodRange(start_timestamp, end_timestamp, old_time_period.delta)
+        d = {field.name: getattr(self._data, field.name) for field in dataclasses.fields(self._data) if
+             field.name != 'time_period'}
+
+        for name, data in d.items():
+            d[name] = np.pad(data.astype(float), (n_missing_start, n_missing),
+                             constant_values=np.nan)
+        return self.__class__(new_time_period, **d)
 
 
+@tsdataclass
+class TimeSeriesArray(TimeSeriesData):
+    value: float
 
 @tsdataclass
 class SimpleClimateData(TimeSeriesData):

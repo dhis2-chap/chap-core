@@ -61,3 +61,6 @@ def google_earth_engine():
     except:
         pytest.skip("Google Earth Engine not available")
 
+@pytest.fixture
+def request_json(data_path):
+    return open(data_path / 'v1_api/request.json', 'r').read()

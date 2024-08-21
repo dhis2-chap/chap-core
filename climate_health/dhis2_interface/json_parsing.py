@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from climate_health.datatypes import HealthData, HealthPopulationData
+from climate_health.dhis2_interface.periods import get_period_id, convert_time_period_string
 from climate_health.dhis2_interface.src.PushResult import DataValue
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 import logging
@@ -20,16 +21,6 @@ class MetadDataLookup:
         return item in self._lookup
 
 
-def _get_period_id(time_period):
-    if 'W' in time_period:
-        year, week = time_period.split('W')
-        return int(year) * 53 + int(week)
-    else:
-        year = time_period[:4]
-        month = time_period[4:]
-        return int(year) * 12 + int(month)
-
-
 def parse_population_data(json_data, field_name='GEN - Population', col_idx=1):
     logger.warning('Only using one population number per location')
     meta_data = MetadDataLookup(json_data['metaData'])
@@ -39,12 +30,6 @@ def parse_population_data(json_data, field_name='GEN - Population', col_idx=1):
         #    continue
         lookup[row[col_idx]] = float(row[3])
     return lookup
-
-
-def convert_time_period_string(row):
-    if len(row) == 6 and 'W' not in row:
-        return f'{row[:4]}-{row[4:]}'
-    return row
 
 
 def parse_climate_data(json_data):
@@ -82,7 +67,7 @@ def json_to_pandas(json_data, name_mapping):
         new_rows.append(
             [new_row[name_mapping[col_name]] for col_name in col_names])
     df = pd.DataFrame(new_rows, columns=col_names)
-    df['week_id'] = [_get_period_id(row) for row in df['time_period']]
+    df['week_id'] = [get_period_id(row) for row in df['time_period']]
     df['time_period'] = [convert_time_period_string(row) for row in df['time_period']]
     df.sort_values(by=['location', 'week_id'], inplace=True)
     return df

@@ -1,7 +1,7 @@
 import pandas as pd
 
 from climate_health.datatypes import FullData
-from climate_health.dhis2_interface.json_parsing import convert_time_period_string
+from climate_health.dhis2_interface.periods import convert_time_period_string
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
 filename = '/home/knut/Downloads/Climate +Malaria data.xlsx'
