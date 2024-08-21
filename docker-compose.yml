@@ -3,26 +3,14 @@ version: '3'
 services:
   redis:
     image: redis:7.4.0
-    ports:
-      - "6379:6379"
 
   chap:
     build: .
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    image: chap
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     ports:
       - "8000:8000"
     working_dir: /
-
-
- # TEMPORALY REMOVED THIS SINCE NOBODY USE IT, COULD BE ADDED BACK LATER IF WE FOUND IT USEFUL
- # chap-interface:
- #   build: climate_health/web_interface
- #   image: chap-interface
- #   container_name: chap-interface
- #   ports:
- #     - "4000:80"
