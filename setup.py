@@ -10,12 +10,24 @@ with open('README.md') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['typer', 'numpy', 'bionumpy', 'pandas', 'plotly', 'scikit-learn', 'matplotlib', 'diskcache', 'geopy',
+requirements = ['typer',
+                'numpy<2.0',
+                'bionumpy',
+                'pandas',
+                'plotly',
+                'scikit-learn',
+                'matplotlib',
+                'diskcache',
+                'geopy',
                 'pooch',
-                'python-dateutil', 'meteostat', 'cyclopts', 'requests', 'pydantic', 'pyyaml',
-                'geopandas', 'libpysal', 'docker', 'jax', 'jaxlib', 'blackjax', 'fastapi',
-                'gitpython', 'dynamax', 'earthengine-api', 'python-dotenv', 'rq', "python-multipart", "uvicorn",
-                'flax', 'pydantic-geojson'
+                'python-dateutil',
+                'meteostat',
+                'cyclopts', 'requests', 'pydantic', 'pyyaml',
+                'geopandas', 'libpysal', 'docker',
+                #'jax', 'jaxlib', 'blackjax', 'dynamax', 'flax',
+                'fastapi',
+                'gitpython',  'earthengine-api', 'python-dotenv', 'rq', "python-multipart", "uvicorn",
+                 'pydantic-geojson'
                 ]
 
 test_requirements = ['pytest>=3', "hypothesis"]

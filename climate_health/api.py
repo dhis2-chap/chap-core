@@ -225,6 +225,8 @@ def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=
 
 def train_with_validation(model_name, dataset_name, n_months=12):
     dataset = datasets[dataset_name].load()
+    #assert not np.any(np.any(np.isnan(data.to_array()[:, 1:])) for data in dataset.values()), "Dataset contains NaN values"
+    #assert not any(np.any(np.isnan(data.mean_temperature) | np.isnan(data.rainfall)) for data in dataset.values()), "Dataset contains NaN values"
     dataset = mask_covid_data(dataset)
     model = get_model(model_name)(n_iter=32000)
     #split_point = dataset.end_timestamp - n_months * delta_month

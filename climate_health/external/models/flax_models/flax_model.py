@@ -68,7 +68,7 @@ class FlaxModel:
                 (series.rainfall, series.mean_temperature, series.population, year_position)).T)  # type: ignore
             if hasattr(series, 'disease_cases'):
                 y.append(series.disease_cases)
-
+        assert not np.any(np.isnan(x))
         return np.array(x), np.array(y)
 
     def _loss(self, y_pred, y_true):

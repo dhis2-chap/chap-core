@@ -120,6 +120,9 @@ class TimeSeriesData:
                              constant_values=np.nan)
         return self.__class__(new_time_period, **d)
 
+    def to_array(self):
+        return np.array([getattr(self, field.name) for field in dataclasses.fields(self) if field.name != 'time_period']).T
+
 
 @tsdataclass
 class TimeSeriesArray(TimeSeriesData):

@@ -36,15 +36,17 @@ def split_train_test_with_future_weather(data_set: IsSpatioTemporalDataSet, spli
 
 # Should we index on split-timestamp, first time period, or complete time?
 def train_test_split(data_set: IsSpatioTemporalDataSet, prediction_start_period: TimePeriod,
-                     extension: Optional[IsTimeDelta] = None):
+                     extension: Optional[IsTimeDelta] = None, restrict_test=True):
     last_train_period = previous(prediction_start_period)
     train_data = data_set.restrict_time_period(slice(None, last_train_period))
     if extension is not None:
         end_period = prediction_start_period.extend_to(extension)
     else:
         end_period = None
-    test_data = data_set.restrict_time_period(slice(prediction_start_period, end_period))
-
+    if restrict_test:
+        test_data = data_set.restrict_time_period(slice(prediction_start_period, end_period))
+    else:
+        test_data = data_set
     return train_data, test_data
 
 

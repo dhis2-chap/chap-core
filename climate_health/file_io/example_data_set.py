@@ -12,7 +12,7 @@ class ExampleDataSet:
         self._name = Path(name)
         self._dataclass = dataclass
 
-    def load(self):
+    def load(self) -> SpatioTemporalDict:
         filename = self._name.with_suffix('.csv')
         filepath = self.base_path / filename
         return SpatioTemporalDict.from_csv(filepath, dataclass=self._dataclass)
@@ -25,5 +25,4 @@ class LocalDataSet(ExampleDataSet):
 dataset_names = ['hydro_met_subset', 'hydromet_clean', 'hydromet_10', 'hydromet_5_filtered']
 local_datasets = ['laos_full_data', 'uganda_data']
 DataSetType = Literal[tuple(dataset_names)+tuple(local_datasets)]
-datasets = {name: ExampleDataSet(name) if name != 'hydromet_5_filtered' else ExampleDataSet(name, FullData) for name in
-            dataset_names} | {name: LocalDataSet(name, FullData) for name in local_datasets}
+datasets: dict[str, ExampleDataSet] = {name: ExampleDataSet(name) if name != 'hydromet_5_filtered' else ExampleDataSet(name, FullData) for name in dataset_names} | {name: LocalDataSet(name, FullData) for name in local_datasets}
