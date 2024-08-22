@@ -5,6 +5,7 @@ from functools import partial
 from typing import Protocol, Any, Optional, Sequence, Callable
 
 import numpy as np
+import scipy
 
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, SummaryStatistics, ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
@@ -95,6 +96,62 @@ class NegativeBinomial2:
 
     def n(self):
         return 1/self.alpha
+
+@distributionclass
+class NegativeBinomial3():
+    def __init__(self, total_count, logits=None):
+        self.total_count = total_count
+        self.logits = logits
+        self.probs = jax.nn.sigmoid(logits)
+    @property
+    def mean(self):
+        return self.total_count * jnp.exp(self.logits)
+
+    @property
+    def mode(self):
+        return ((self.total_count - 1) * self.logits.exp()).floor().clamp(min=0.0)
+
+    @property
+    def variance(self):
+        return self.mean / jax.nn.sigmoid(-self.logits)
+
+    def log_prob(self, value):
+        log_unnormalized_prob = self.total_count * jax.nn.log_sigmoid(
+            -self.logits
+        ) + value * jax.nn.log_sigmoid(self.logits)
+
+        log_normalization = (
+            -jax.lax.lgamma(self.total_count + value)
+            + jax.lax.lgamma(1.0 + value)
+            + jax.lax.lgamma(self.total_count)
+        )
+        # The case self.total_count == 0 and value == 0 has probability 1 but
+        # lgamma(0) is infinite. Handle this case separately using a function
+        # that does not modify tensors in place to allow Jit compilation.
+        #log_normalization = log_normalization.masked_fill(
+        #    self.total_count + value == 0.0, 0.0
+        #)
+
+        return log_unnormalized_prob - log_normalization
+
+    def cdf(self, value):
+        result = self.scipy_nbinom.cdf(value.detach().cpu().numpy())
+        return result
+
+    def icdf(self, value):
+        result = self.scipy_nbinom.ppf(value)
+        return result
+
+
+    @property
+    def scipy_nbinom(self):
+        return scipy.stats.nbinom(
+            n=self.total_count,
+            p=1.0 - self.probs)
+
+
+
+
 
 @distributionclass
 class Poisson:

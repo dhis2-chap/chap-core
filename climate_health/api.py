@@ -26,6 +26,8 @@ import dataclasses
 from .time_period.date_util_wrapper import Week, delta_week, delta_month, Month
 import git
 
+from .transformations.covid_mask import mask_covid_data
+
 logger = logging.getLogger(__name__)
 
 
@@ -223,6 +225,7 @@ def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=
 
 def train_with_validation(model_name, dataset_name, n_months=12):
     dataset = datasets[dataset_name].load()
+    dataset = mask_covid_data(dataset)
     model = get_model(model_name)(n_iter=32000)
     #split_point = dataset.end_timestamp - n_months * delta_month
     #train_data, test_data, future_weather = train_test_split_with_weather(dataset, split_point)
@@ -230,11 +233,10 @@ def train_with_validation(model_name, dataset_name, n_months=12):
     split_point = dataset.end_timestamp - prediction_length
     split_period = Month(split_point.year, split_point.month)
     train_data, test_set, future_weather = train_test_split_with_weather(dataset, split_period)
-
-
     model.set_validation_data(test_set)
     model.train(train_data)
-    predictions = model.forecast(future_weather, forecast_delta=n_months * delta_month,n_samples=100)
+    predictions = model.forecast(future_weather, forecast_delta=n_months * delta_month,
+                                 n_samples=100)
     # plot predictions
     figs = []
     for location, prediction in predictions.items():

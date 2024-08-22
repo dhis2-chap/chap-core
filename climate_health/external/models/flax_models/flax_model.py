@@ -14,7 +14,7 @@ import jax
 
 from climate_health.external.models.flax_models.rnn_model import RNNModel
 from climate_health.external.models.jax_models.model_spec import skip_nan_distribution, Poisson, Normal, \
-    NegativeBinomial, NegativeBinomial2
+    NegativeBinomial, NegativeBinomial2, NegativeBinomial3
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 
 PoissonSkipNaN = skip_nan_distribution(Poisson)
@@ -105,7 +105,7 @@ class FlaxModel:
         state = TrainState.create(
             apply_fn=self.model.apply,
             params=params,
-            tx=optax.adam(1e-3),
+            tx=optax.adam(1e-2),
             key=dropout_key
         )
 
@@ -115,7 +115,7 @@ class FlaxModel:
 
             def loss_func(params):
                 eta = state.apply_fn(params, x, training=True, rngs={'dropout': dropout_train_key})
-                return self._loss(eta, y)#  + l2_regularization(params, 1.0)
+                return self._loss(eta, y) + l2_regularization(params, 0.001)
                 # return self._loss(state.apply_fn({'params': params}, x, training=True, rngs={'dropout': dropout_train_key}), y) + l2_regularization(params)
 
             # logprob_func = lambda params: self._loss(state.apply_fn({'params': params}, x, training=True, rngs={'dropout': dropout_train_key}), y) + l2_regularization(params)
@@ -129,7 +129,7 @@ class FlaxModel:
             # updates, opt_state = solver.update(grad, opt_state)
             # params = optax.apply_updates(params, updates)
             state = train_step(state, dropout_key)
-            if i % 2000 == 0:
+            if i % 4000 == 0:
                 if self._validation_x is not None:
                     validation_y = self.get_validation_y(state.params)
                     # print(validation_y)
@@ -143,7 +143,7 @@ class FlaxModel:
                         plt.plot(true)
                         plt.show()
                         j = j + 1
-                        if j > 5:
+                        if j > 10:
                             break
                     print(f"Loss: {self._loss(eta, y)}")
 
@@ -166,8 +166,8 @@ class FlaxModel:
         y_pred = full_y_pred[:, self._saved_x.shape[1]:]
         q_highs = self._get_q(eta, 0.95)[:, self._saved_x.shape[1]:]
         q_lows = self._get_q(eta, 0.05)[:, self._saved_x.shape[1]:]
-        #print('Y')
-        #print(y_pred)
+        median = self._get_q(eta, 0.5)[:, self._saved_x.shape[1]:]
+
         time_period = next(iter(data.values())).time_period
         return SpatioTemporalDict(
             {key: SummaryStatistics(time_period, *([row.ravel()] * 5 + [q_low.ravel(), q_high.ravel()]))
@@ -175,7 +175,6 @@ class FlaxModel:
 
     def _get_q(self, eta, q=0.95):
         mu = self._get_mean(eta)
-
         q95 = scipy.stats.poisson.ppf(q, mu)
         print(eta.shape, mu.shape, q95.shape)
         return q95
@@ -194,7 +193,7 @@ class FlaxModel:
         return np.exp(self.model.apply(self._params, x))
 
 NormalSkipNaN = skip_nan_distribution(Normal)
-NBSkipNaN = skip_nan_distribution(NegativeBinomial2)
+NBSkipNaN = skip_nan_distribution(NegativeBinomial3)
 
 class ProbabilisticFlaxModel(FlaxModel):
     n_iter: int = 32000
@@ -202,16 +201,22 @@ class ProbabilisticFlaxModel(FlaxModel):
     @property
     def model(self):
         if self._model is None:
-            self._model = RNNModel(n_locations=self._saved_x.shape[0], output_dim=2, n_hidden=5)
+            self._model = RNNModel(n_locations=self._saved_x.shape[0], output_dim=2, n_hidden=4, embedding_dim=4)
         return self._model
 
+    def _get_dist(self, eta):
+        return NBSkipNaN(jax.nn.softplus(eta[..., 0]), eta[..., 1])
+
+
     def _get_mean(self, eta):
-        return jnp.exp(eta[..., 0])
+        return self._get_dist(eta).mean
+        #return jnp.exp(eta[..., 0])
         #return jax.nn.softplus(eta[..., 0])
         #mu = eta[..., 0]
         #return mu
 
     def _get_q(self, eta, q=0.95):
+        return self._get_dist(eta).icdf(q)
         mu = self._get_mean(eta)
         alpha = jax.nn.softplus(eta[..., 1])
         dist = NegativeBinomial2(mu, alpha)
@@ -219,15 +224,10 @@ class ProbabilisticFlaxModel(FlaxModel):
         return scipy.stats.nbinom.ppf(q, n, p)
 
     def loss_func(self, eta_pred, y_true):
-        print(eta_pred.shape, y_true.shape)
-        sigma = jax.nn.softplus(eta_pred[..., 1].ravel())
-        sigma = 1.
-        #return -NormalSkipNaN(eta_pred[..., 0].ravel(), sigma).log_prob(y_true.ravel())
-
+        #print(eta_pred.shape, y_true.shape)
+        return -self._get_dist(eta_pred).log_prob(y_true).ravel()
         alpha = jax.nn.softplus(eta_pred[..., 1].ravel())
-        #alpha =  1.0
-        #return -PoissonSkipNaN(self._get_mean(eta_pred).ravel()).log_prob(y_true.ravel())
-        return -NBSkipNaN(self._get_mean(eta_pred).ravel(), alpha).log_prob(y_true.ravel())
+        return -NBSkipNaN(self._get_mean(eta_pred).ravel(), alpha).log_prob(y_true.ravel())+l2_regularization(params, 10)
 
         #p = jax.nn.sigmoid(eta_pred[..., 1]).ravel()
 

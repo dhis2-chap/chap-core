@@ -212,9 +212,12 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         period_range = PeriodRange(start_timestamp, end_timestamp, fields[next(iter(fields))].period_range.delta)
         new_dict = {}
         field_names = list(fields.keys())
-        all_locations = {location for field in fields.values() for location in field.keys()}
-        for location in all_locations:
-            new_dict[location] = dataclass(period_range, **{field: fields[field][location].fill_to_range(start_timestamp, end_timestamp) for field in field_names})
+        #all_locations = {location for field in fields.values() for location in field.keys()}
+        common_locations = set.intersection(*[set(field.keys()) for field in fields.values()])
+        #for field, data in fields.items():
+        #    assert set(data.keys()) == all_locations, (field, all_locations-set(data.keys()))
+        for location in common_locations:
+            new_dict[location] = dataclass(period_range, **{field: fields[field][location].fill_to_range(start_timestamp, end_timestamp).value for field in field_names})
         return cls(new_dict)
 
 

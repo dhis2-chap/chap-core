@@ -5,4 +5,4 @@ figs = train_with_validation('ProbabilisticFlaxModel', 'laos_full_data')
 f = open('validation.html', 'w')
 for fig in figs:
     f.write(fig.to_html())
-f.close(
+f.close()
