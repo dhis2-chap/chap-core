@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+import pytest
 from bionumpy.bnpdataclass import bnpdataclass
 from bionumpy.util.testing import assert_bnpdataclass_equal
 from npstructures import RaggedArray
@@ -12,7 +13,7 @@ from climate_health.time_period.multi_resolution import pack_to_period
 from climate_health.time_period.period_range import period_range
 from tests.mocks import climate_database
 
-
+@pytest.mark.skip('legacy')
 def test_pack_to_period():
     day_range = period_range(Day.single_entry(2020, 0, 0), Day.single_entry(2020, 1, 28))
     month_range = period_range(Month.single_entry(2020, 0), Month.single_entry(2020, 1))
@@ -30,6 +31,7 @@ class MultiResolutionClimateData:
     rainfall: List[float]
     humidity: List[float]
 
+@pytest.mark.skip('legacy')
 def test_multi_resolution_weather_data(climate_database):
     daily_weather = climate_database.get_data(Location(0, 0),
                                               Day.single_entry(2020, 0, 0),

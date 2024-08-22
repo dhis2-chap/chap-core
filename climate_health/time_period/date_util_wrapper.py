@@ -133,6 +133,7 @@ class TimePeriod:
     def __getattr__(self, item):
         if item in self._used_attributes:
             return getattr(self._date, item)
+        #return self.__getattribute__(item)
         return super().__getattribute__(item)
 
     @property

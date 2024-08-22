@@ -43,10 +43,10 @@ def day_range(start_period, end_period, exclusive_end):
 
 
 def period_range(start_period, end_period, exclusive_end=False):
-    #    return PeriodRange.from_time_periods(start_period, end_period)
-    if hasattr(start_period, 'day') or hasattr(end_period, 'day'):
-        return day_range(start_period, end_period, exclusive_end)
-    if not hasattr(start_period, 'month') or not hasattr(end_period, 'month'):
-        raise NotImplementedError(f'Only monthly data is available, {start_period}, {end_period}')
-
-    return month_range(start_period, end_period, exclusive_end)
+    return PeriodRange.from_time_periods(start_period, end_period)
+    # if hasattr(start_period, 'day') or hasattr(end_period, 'day'):
+    #     return day_range(start_period, end_period, exclusive_end)
+    # if not hasattr(start_period, 'month') or not hasattr(end_period, 'month'):
+    #     raise NotImplementedError(f'Only monthly data is available, {start_period}, {end_period}')
+    #
+    # return month_range(start_period, end_period, exclusive_end)
