@@ -75,9 +75,6 @@ def train_on_json_data(json_data: RequestV1, model_name, model_path, control=Non
 
     predictions = model.forecast(future_weather, forecast_delta=3*delta)
     # plot predictions
-    for location, data in predictions.items():
-        X = train_data[location].disease_cases
-        px.line(np.concatenate([X, data.median])).show()
 
     attrs = ['median', 'quantile_high', 'quantile_low']
     data_values = predictions_to_datavalue(predictions, attribute_mapping=dict(zip(attrs, attrs)))

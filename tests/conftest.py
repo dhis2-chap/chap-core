@@ -64,3 +64,11 @@ def google_earth_engine():
 @pytest.fixture
 def request_json(data_path):
     return open(data_path / 'v1_api/request.json', 'r').read()
+
+@pytest.fixture
+def big_request_json():
+    filepath = '/home/knut/Data/ch_data/chap_request.json'
+    if not os.path.exists(filepath):
+        pytest.skip()
+    with open(filepath, 'r') as f:
+        return f.read()

@@ -1,3 +1,4 @@
+import json
 from contextlib import asynccontextmanager
 import logging
 from asyncio import CancelledError
@@ -18,7 +19,7 @@ from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import all_models
 from climate_health.predictor.feature_spec import Feature, all_features
-from climate_health.rest_api_src.worker_functions import train_on_zip_file
+from climate_health.rest_api_src.worker_functions import train_on_zip_file, train_on_json_data
 from climate_health.training_control import TrainingControl
 from dotenv import load_dotenv, find_dotenv
 
@@ -148,7 +149,7 @@ async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: 
 
     return {'status': 'success'}
 
-@app.post('/predict_from_json/')
+@app.post('/predict-from-json/')
 async def predict_from_json(data: RequestV1) -> dict:
     '''
     Post a json file containing the data needed for prediction
@@ -157,9 +158,20 @@ async def predict_from_json(data: RequestV1) -> dict:
     if internal_state.model_path is not None:
         model_name = 'external'
         model_path = internal_state.model_path
+    json_data = data.model_dump()
 
-    response = train_on_prediction_data(data, model_name, model_path)
-    return response
+    str_data = json.dumps(json_data)
+
+    job = worker.queue(train_on_json_data, str_data, model_name, model_path)
+    internal_state.current_job = job
+
+    return {'status': 'success'}
+
+    #if internal_state.model_path is not None:
+    #    model_name = 'external'
+    #    model_path = internal_state.model_path
+    #response = train_on_prediction_data(data, model_name, model_path)
+    #return response
 
 
 @app.get('/list-models')
