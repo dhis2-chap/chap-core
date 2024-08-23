@@ -26,6 +26,8 @@ df = pd.read_csv(csv_file_name)
 #print(countries)
 
 countries = df['country'].unique()
+print(list(countries))
+exit()
 vietnam_entries = df[df['country'] == 'vietnam']
 
 periods = [pd.Period(f'{year}-{month}', 'M') for year, month in zip(vietnam_entries['year'], vietnam_entries['month'])]
@@ -65,5 +67,17 @@ names = [feature.properties['VARNAME_1'] for feature in features]
 data = gee_client.get_historical_era5(DFeatureCollectionModel(features=features).model_dump(), periodes=period_range)
 data = SpatioTemporalDict({name: value for name, value in zip(names, data.values())})
 data.to_csv('vietnam_era5.csv')
+
+
+@dataclass
+class DengueData:
+    disease_cases: int
+    mean_temperature: float
+    rainfall: float
+
+data = {'disease_cases': 20,
+        'mean_temperature': 25,
+        'rainfall': 100}
+
 
 

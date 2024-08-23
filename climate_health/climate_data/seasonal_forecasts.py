@@ -20,14 +20,19 @@ class SeasonalForecast:
 
     def add_json(self, field_name: str, json_data: list[DataElement]):
         data_dict = self.data_dict.get(field_name, defaultdict(dict))  # type: ignore
+        orgUnits = []
         for data in json_data:
             data = DataElement(**data)  # type: ignore
             data_dict[data.orgUnit][data.period] = data.value
-
+            orgUnits.append(data.orgUnit)
+        print(f'Added periods {orgUnits} to field {field_name}')
         self.data_dict[field_name] = data_dict
 
     def get_forecasts(self, org_unit, period_range, field_name, start_date=None):
         assert field_name in self.data_dict, f'Field {field_name} not found in data {self.data_dict.keys()}'
+
         data = self.data_dict[field_name][org_unit]
+
+        assert all(period.id in data for period in period_range), f'Not all periods found in data {data.keys(), org_unit}'
         return TimeSeriesArray(period_range, [data[period.id] for period in period_range])
 
