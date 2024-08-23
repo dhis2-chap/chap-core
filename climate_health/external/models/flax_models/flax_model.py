@@ -153,7 +153,7 @@ class FlaxModel:
 
         self._params = state.params
 
-    def forecast(self, data: SpatioTemporalDict[FullData], n_samples, forecast_delta):
+    def forecast(self, data: SpatioTemporalDict[FullData], n_samples=1000, forecast_delta=1):
         #print('Forecasting with params:', self._params)
         x, y = self._get_series(data)
         x = (x - self._mu) / self._std
@@ -196,7 +196,7 @@ NormalSkipNaN = skip_nan_distribution(Normal)
 NBSkipNaN = skip_nan_distribution(NegativeBinomial3)
 
 class ProbabilisticFlaxModel(FlaxModel):
-    n_iter: int = 32000
+    n_iter: int = 16000
 
     @property
     def model(self):
@@ -224,7 +224,6 @@ class ProbabilisticFlaxModel(FlaxModel):
         return scipy.stats.nbinom.ppf(q, n, p)
 
     def loss_func(self, eta_pred, y_true):
-        #print(eta_pred.shape, y_true.shape)
         return -self._get_dist(eta_pred).log_prob(y_true).ravel()
         alpha = jax.nn.softplus(eta_pred[..., 1].ravel())
         return -NBSkipNaN(self._get_mean(eta_pred).ravel(), alpha).log_prob(y_true.ravel())+l2_regularization(params, 10)
