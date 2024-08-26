@@ -37,7 +37,7 @@ def train_on_zip_file(file, model_name, model_path, control=None):
 
 def train_on_json_data(json_data: RequestV1, model_name, model_path, control=None):
     data_class = remove_field(FullData, 'disease_cases')
-    data_path = Path('/home/knut/Data/ch_data/seasonal_forecasts')
+    data_path =  Path(str(Path.home())+'/Data/ch_data/seasonal_forecasts')
     #data_path = Path(__file__).parent.parent / 'data'/ 'seasonal_forecasts'
     climate_forecasts = load_forecasts(data_path)
     if not data_path.exists():
