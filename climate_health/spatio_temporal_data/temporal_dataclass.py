@@ -171,8 +171,9 @@ class SpatioTemporalDict(Generic[FeaturesT]):
     def _fill_missing(cls, data_dict: dict[str, TemporalDataclass[FeaturesT]]):
         ''' Fill missing values in a dictionary of TemporalDataclasses'''
         end = max(data.end_timestamp for data in data_dict.values())
+        start = min(data.start_timestamp for data in data_dict.values())
         for location, data in data_dict.items():
-            data_dict[location] = data.fill_to_endpoint(end)
+            data_dict[location] = data.fill_to_range(start, end)
         return data_dict
 
     @classmethod
@@ -186,8 +187,8 @@ class SpatioTemporalDict(Generic[FeaturesT]):
 
         return cls(data_dict)
 
-    def to_csv(self, file_name: str):
-        self.to_pandas().to_csv(file_name)
+    def to_csv(self, file_name: str, mode='w'):
+        self.to_pandas().to_csv(file_name, mode=mode)
 
     @classmethod
     def from_csv(cls, file_name: str, dataclass: Type[FeaturesT]) -> 'SpatioTemporalDict[FeaturesT]':

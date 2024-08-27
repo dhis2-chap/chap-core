@@ -1,3 +1,5 @@
+import json
+
 import pooch
 
 from pydantic_geojson import FeatureModel, FeatureCollectionModel
@@ -12,6 +14,7 @@ class DFeatureCollectionModel(FeatureCollectionModel):
 data_path = 'https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_{country_code}_1.json.zip'
 
 #country_codes= {'vietnam': 'VNM', 'laos': 'LAO', 'cambodia': 'KHM', 'thailand': 'THA', 'myanmar': 'MMR', 'brazil': 'BRA', 'colombia': 'COL', 'peru': 'PER', 'ecuador': 'ECU', 'bolivia': 'BOL', 'paraguay': 'PRY'}
+
 
 country_names =['brazil', 'mexico', 'el salvador', 'paraguay', 'peru', 'colombia', 'ecuador', 'nicaragua', 'panama', 'argentina', 'indonesia', 'philippines', 'thailand', 'vietnam', 'laos', 'malaysia', 'cambodia', 'singapore']
 country_codes_l = ['BRA', 'MEX', 'SLV', 'PRY', 'PER', 'COL', 'ECU', 'NIC', 'PAN', 'ARG', 'IDN', 'PHL', 'THA', 'VNM', 'LAO', 'MYS', 'KHM', 'SGP']
@@ -38,10 +41,13 @@ def get_country_data(country)->DFeatureCollectionModel:
 
 
 def get_all_data():
-    return {country: get_country_data(country) for country in country_codes.keys()}
+    return ((country, get_country_data(country)) for country in country_codes.keys())
 
 if __name__ == '__main__':
-    print(get_all_data())
+    base_filename = '/home/knut/Data/ch_data/geometry'
+    for country, data in get_all_data():
+        json.dump(data.model_dump(), open(f'{base_filename}/{country}.json', 'w'))
+
 
 
 

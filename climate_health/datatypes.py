@@ -50,7 +50,12 @@ class TimeSeriesData:
 
     @classmethod
     def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> 'TimeSeriesData':
-        time = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
+
+        try:
+            time = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
+        except Exception:
+            print('Error in time period: ', data.time_period)
+            raise
 
         if fill_missing:
             time, missing_indices = time
