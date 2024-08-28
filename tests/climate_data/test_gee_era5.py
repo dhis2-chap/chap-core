@@ -2,8 +2,12 @@ from datetime import datetime, timezone
 from typing import List
 
 from dotenv import find_dotenv, load_dotenv
-from climate_health.google_earth_engine.gee_era5 import Band, Era5LandGoogleEarthEngine, Periode, kelvin_to_celsium, meter_to_mm
+
+from climate_health.api_types import FeatureCollectionModel
+from climate_health.google_earth_engine.gee_era5 import Band, Era5LandGoogleEarthEngine, Periode, kelvin_to_celsium, \
+    meter_to_mm, load_gee_credentials
 from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngineHelperFunctions
+from climate_health.google_earth_engine.gee_raw import fetch_era5_data
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import Month, TimePeriod
 import pytest
@@ -15,6 +19,7 @@ era5_land_gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
 @pytest.fixture()
 def ee(era5_land_gee):
     return _ee
+
 
 @pytest.fixture()
 def era5_land_gee():
@@ -219,3 +224,24 @@ def test_value_collection_to_list(feature_collection):
     assert result[1]["properties"]["indicator"] == "rainfall"
     assert result[0]["properties"]["value"] == 301.6398539038109
     assert result[1]["properties"]["value"] == 0.01885525397859519
+
+@pytest.fixture()
+def gee_credentials():
+    try:
+        load_gee_credentials()
+    except Exception as e:
+        pytest.skip("Google Earth Engine not available")
+    return load_gee_credentials()
+
+@pytest.fixture()
+def polygons(data_path):
+    return FeatureCollectionModel.model_validate_json(open(data_path / "Organisation units.geojson").read())
+
+
+def test_gee_api(gee_credentials, polygons):
+    data = fetch_era5_data(gee_credentials, polygons, start_period="202201",
+                           end_period="202202", band_names=["temperature_2m", "total_precipitation_sum"])
+    print(data)
+    assert len(data) == 2*2*len(polygons.features)
+
+

@@ -29,6 +29,7 @@ def plot_diagnostics(params: dict, name: str):
 
 
 def get_summary(time_period, samples):
+    print(samples)
     statistics = (np.mean(samples, axis=0),
                   np.median(samples, axis=0),
                   np.std(samples, axis=0),

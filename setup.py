@@ -24,7 +24,8 @@ requirements = ['typer',
                 'meteostat',
                 'cyclopts', 'requests', 'pydantic', 'pyyaml',
                 'geopandas', 'libpysal', 'docker',
-                #'jax', 'jaxlib', 'blackjax', 'dynamax', 'flax',
+                'jax', 'jaxlib', 'blackjax', 'dynamax', 'flax', 'optax',
+                'scipy'
                 'fastapi',
                 'gitpython',  'earthengine-api', 'python-dotenv', 'rq', "python-multipart", "uvicorn",
                  'pydantic-geojson'

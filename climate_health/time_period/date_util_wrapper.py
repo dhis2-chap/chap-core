@@ -74,6 +74,10 @@ class TimePeriod:
             date = date._date
         self._date = date
 
+    @property
+    def last_day(self):
+        return self.end_timestamp-delta_day
+
     @classmethod
     def __date_from_numbers(cls, year: int, month: int = 1, day: int = 1):
         return datetime(int(year), int(month), int(day))
