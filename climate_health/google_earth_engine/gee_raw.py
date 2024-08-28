@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from climate_health.api_types import FeatureCollectionModel
 from climate_health.time_period import TimePeriod, PeriodRange
 
+
 class GEECredentials(BaseModel):
     account: str
     private_key: str
@@ -36,24 +37,45 @@ def fetch_era5_data(credentials: GEECredentials,
                     end_period: str,
                     band_names=list[str],
                     reducer: str='mean') -> list[ERA5Entry]:
+    '''
+    Fetch ERA5 data for the given polygons, time periods, and band names.
+
+    Parameters
+    ----------
+    credentials : GEECredentials
+        The Google Earth Engine credentials to use for fetching the data.
+    polygons : FeatureCollectionModel
+        The polygons to fetch the data for.
+    start_period : str
+        The start period to fetch the data for.
+    end_period : str
+        The end period (last period) to fetch the data for.
+    band_names : list[str]
+        The band names to fetch the data for.
+
+    Returns
+    -------
+    list[ERA5Entry]
+        The fetched ERA5 data in long format
+
+    Examples
+    --------
+
+        >>> import climate_health.fetch
+        >>> credentials = GEECredentials(account='demoaccount@demo.gserviceaccount.com', private_key='private_key')
+        >>> polygons = FeatureCollectionModel(type='FeatureCollection', features=[...])
+        >>> start_period = '202001' # January 2020
+        >>> end_period = '202011' # December 2020
+        >>> band_names = ['temperature_2m', 'total_precipitation_sum']
+        >>> data = chap.fetch.gee_era5(credentials, polygons, start_period, end_period, band_names)
+        >>> assert len(data) == len(polygons.features) * len(band_names) * 11
+        >>> start_week = '2020W03' # Week 3 of 2020
+        >>> end_week = '2020W05' # Week 5 of 2020
+        >>> data = fetch_era5_data(credentials, polygons, start_week, end_week, band_names)
+        >>> assert len(data) == len(polygons.features) * len(band_names) * 3
 
     '''
-    Fetch ERA5 data for the given polygons and time periods.
 
-    Example:
-        credentials = GEECredentials(account='account', private_key='private_key')
-        polygons = FeatureCollectionModel(type='FeatureCollection', features=[...])
-        start_period = '202001' # January 2020
-        end_period = '202011' # December 2020
-        band_names = ['temperature_2m', 'total_precipitation_sum']
-        data = fetch_era5_data(credentials, polygons, start_period, end_period, band_names)
-        assert len(data) == len(polygons.features) * len(band_names) * 11
-
-        start_week = '2020W03' # Week 3 of 2020
-        end_week = '2020W05' # Week 5 of 2020
-        data = fetch_era5_data(credentials, polygons, start_week, end_week, band_names)
-        assert len(data) == len(polygons.features) * len(band_names) * 3
-    '''
     ee.Initialize(ee.ServiceAccountCredentials(credentials.account, key_data=credentials.private_key))
     start = TimePeriod.from_id(start_period)
     end = TimePeriod.from_id(end_period)

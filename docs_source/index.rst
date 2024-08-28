@@ -16,3 +16,15 @@ The current version has basic data handling functionality in place, and is almos
    external_models
    installation
 
+API documentation
+===================
+
+Data Fetching
+--------------
+
+Functionality for fetching data
+
+
+.. currentmodule:: climate_health.fetch
+
+.. autofunction:: gee_era5

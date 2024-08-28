@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone
 from typing import List
 
@@ -5,9 +6,9 @@ from dotenv import find_dotenv, load_dotenv
 
 from climate_health.api_types import FeatureCollectionModel
 from climate_health.google_earth_engine.gee_era5 import Band, Era5LandGoogleEarthEngine, Periode, kelvin_to_celsium, \
-    meter_to_mm, load_gee_credentials
+    meter_to_mm
 from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngineHelperFunctions
-from climate_health.google_earth_engine.gee_raw import fetch_era5_data
+from climate_health.google_earth_engine.gee_raw import fetch_era5_data, GEECredentials
 from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
 from climate_health.time_period.date_util_wrapper import Month, TimePeriod
 import pytest
@@ -228,10 +229,13 @@ def test_value_collection_to_list(feature_collection):
 @pytest.fixture()
 def gee_credentials():
     try:
-        load_gee_credentials()
+        load_dotenv(find_dotenv())
+        account = os.environ.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
+        private_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')
+        return GEECredentials(account=account, private_key=private_key)
     except Exception as e:
         pytest.skip("Google Earth Engine not available")
-    return load_gee_credentials()
+
 
 @pytest.fixture()
 def polygons(data_path):

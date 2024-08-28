@@ -143,7 +143,6 @@ class Era5LandGoogleEarthEngine():
         #read environment variables
         account = os.environ.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
         private_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')
-
         if(not account):
             logger.warn("GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables to use Google Earth Engine")
         if(not private_key):
@@ -192,7 +191,7 @@ class Era5LandGoogleEarthEngine():
             )
         ).flatten()
 
-        feature_collection : ee.FeatureCollection = ee.FeatureCollection(reduced)
+        feature_collection: ee.FeatureCollection = ee.FeatureCollection(reduced)
 
         result = self.gee_helper.feature_collection_to_list(feature_collection)
         parsed_result = self.gee_helper.convert_value_by_band_converter(result, bands)
