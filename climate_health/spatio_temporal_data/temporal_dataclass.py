@@ -34,7 +34,8 @@ class TemporalDataclass(Generic[FeaturesT]):
     def fill_to_endpoint(self, end_time_stamp: TimeStamp) -> 'TemporalDataclass[FeaturesT]':
         if self.end_timestamp == end_time_stamp:
             return self
-        n_missing = (end_time_stamp - self.end_timestamp) // self._data.time_period.delta
+        n_missing = self._data.time_period.delta.n_periods(self.end_timestamp, end_time_stamp)
+        #n_missing = (end_time_stamp - self.end_timestamp) // self._data.time_period.delta
         assert n_missing >= 0, (f'{n_missing} < 0', end_time_stamp, self.end_timestamp)
         old_time_period = self._data.time_period
         new_time_period = PeriodRange(old_time_period.start_timestamp, end_time_stamp, old_time_period.delta)
@@ -50,7 +51,8 @@ class TemporalDataclass(Generic[FeaturesT]):
     def fill_to_range(self, start_timestamp, end_timestamp):
         if self.end_timestamp == end_timestamp and self.start_timestamp==start_timestamp:
             return self
-        n_missing_start = (self.start_timestamp - start_timestamp) // self._data.time_period.delta
+        n_missing_start = self._data.time_period.delta.n_periods(start_timestamp, self.start_timestamp)
+        #n_missing_start = (self.start_timestamp - start_timestamp) // self._data.time_period.delta
         n_missing = (end_timestamp - self.end_timestamp) // self._data.time_period.delta
         assert n_missing >= 0, (f'{n_missing} < 0', end_timestamp, self.end_timestamp)
         assert n_missing_start >= 0, (f'{n_missing} < 0', end_timestamp, self.end_timestamp)

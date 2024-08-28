@@ -93,6 +93,10 @@ class TimePeriod:
     def id(self):
         raise NotImplementedError('Must be implemented in subclass')
 
+    @classmethod
+    def timestamp_diff(cls, first_timestamp: TimeStamp, second_timestamp: TimeStamp):
+        return second_timestamp-first_timestamp
+
     def __eq__(self, other):
         r = (self._date == other._date)
         r2 = (self._extension == other._extension)
@@ -191,6 +195,8 @@ class Day(TimePeriod):
     @property
     def id(self):
         return self._date.strftime('%Y%m%d')
+
+
 
 class Week(TimePeriod):
     _used_attributes = ['year']
@@ -322,6 +328,16 @@ class TimeDelta(DateUtilWrapper):
     def __repr__(self):
         return f'TimeDelta({self._relative_delta})'
 
+    def n_periods(self, start_stamp: TimeStamp, end_stamp: TimeStamp):
+        assert sum(bool(getattr(self._relative_delta, name, 0)) for name in ('days', 'months', 'years')) == 1, f'Cannot get number of periods for {self}'
+        if self._relative_delta.days != 0:
+            n_days_diff = (end_stamp.date - start_stamp.date).days
+            return n_days_diff // self._relative_delta.days
+        if self._relative_delta.weeks != 0:
+            n_days_diff = (end_stamp.date - start_stamp.date).days
+            return n_days_diff // (self._relative_delta.weeks * 7)
+        if self._relative_delta.months != 0 or self._relative_delta.years != 0:
+            return (end_stamp-start_stamp) // self
 
 class PeriodRange:
 
