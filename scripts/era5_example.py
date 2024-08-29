@@ -1,6 +1,8 @@
 import climate_health.fetch
-credentials = dict(account='demoaccount@demo.gserviceaccount.com', private_key='private_key')
-polygons = open("../example_data/Organisation units.geojson").read()
+from climate_health.google_earth_engine.gee_raw import load_credentials
+credentials = load_credentials()#dict(account='demoaccount@demo.gserviceaccount.com', private_key='private_key')
+#polygons = open("../example_data/Organisation units.geojson").read()
+polygons = climate_health.fetch.get_area_polygons('norway', ['Oslo', 'Akershus'])
 start_period = '202001' # January 2020
 end_period = '202011' # December 2020
 band_names = ['temperature_2m', 'total_precipitation_sum']
