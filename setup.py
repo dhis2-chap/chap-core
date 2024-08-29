@@ -34,6 +34,7 @@ requirements = ['typer',
                 'pycountry',
                 'unidecode',
                 'httpx',
+                'ee'
 
                 ]
 
