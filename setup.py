@@ -34,7 +34,7 @@ requirements = ['typer',
                 'pycountry',
                 'unidecode',
                 'httpx',
-                'ee'
+                'earthengine-api'
 
                 ]
 
