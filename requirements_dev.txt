@@ -13,3 +13,4 @@ meteostat
 pytest-mock
 furo
 myst-parser
+ee
