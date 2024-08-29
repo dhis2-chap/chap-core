@@ -118,7 +118,6 @@ def test_sample_hiearchical_seasonal(random_key, jax, seasonal_params, district_
     model = hierarchical_linear_regression(seasonal_params, district_params, observed, seasonal_linear_regression)
     # samples = model.sample(random_key)
     samples = tree_sample(model, random_key)
-    print(samples)
 
 
 def test_hierarchical_seasonal_inference(seasonal_params, district_params, seasonal_sampled, random_key, jax):

@@ -242,6 +242,7 @@ def polygons(data_path):
     return FeatureCollectionModel.model_validate_json(open(data_path / "Organisation units.geojson").read())
 
 
+@pytest.mark.skip('Calling actual gee data')
 def test_gee_api(gee_credentials, polygons):
     data = fetch_era5_data(gee_credentials, polygons, start_period="202201",
                            end_period="202202", band_names=["temperature_2m", "total_precipitation_sum"])
