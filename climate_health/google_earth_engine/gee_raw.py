@@ -31,8 +31,8 @@ def fetch_single_period(polygons: FeatureCollectionModel, start_dt, end_dt, band
     return {feature['id']: feature['properties'] for feature in mean_data['features']}
 
 
-def fetch_era5_data(credentials: GEECredentials,
-                    polygons: FeatureCollectionModel,
+def fetch_era5_data(credentials: GEECredentials | dict[str, str],
+                    polygons: FeatureCollectionModel | str,
                     start_period: str,
                     end_period: str,
                     band_names=list[str],
@@ -75,7 +75,10 @@ def fetch_era5_data(credentials: GEECredentials,
         >>> assert len(data) == len(polygons.features) * len(band_names) * 3
 
     '''
-
+    if isinstance(credentials, dict):
+        credentials = GEECredentials(**credentials)
+    if isinstance(polygons, str):
+        polygons = FeatureCollectionModel.model_validate_json(polygons)
     ee.Initialize(ee.ServiceAccountCredentials(credentials.account, key_data=credentials.private_key))
     start = TimePeriod.from_id(start_period)
     end = TimePeriod.from_id(end_period)

@@ -238,8 +238,12 @@ def gee_credentials():
 
 
 @pytest.fixture()
-def polygons(data_path):
-    return FeatureCollectionModel.model_validate_json(open(data_path / "Organisation units.geojson").read())
+def polygons(polygon_json):
+    return FeatureCollectionModel.model_validate_json(polygon_json)
+
+@pytest.fixture()
+def polygon_json(data_path):
+    return open(data_path / "Organisation units.geojson").read()
 
 
 @pytest.mark.skip('Calling actual gee data')
@@ -248,5 +252,13 @@ def test_gee_api(gee_credentials, polygons):
                            end_period="202202", band_names=["temperature_2m", "total_precipitation_sum"])
     print(data)
     assert len(data) == 2*2*len(polygons.features)
+
+
+@pytest.mark.skip('Calling actual gee data')
+def test_gee_api_simple(gee_credentials, polygon_json):
+    data = fetch_era5_data(gee_credentials.model_dump(), polygon_json, start_period="202201",
+                           end_period="202202", band_names=["temperature_2m", "total_precipitation_sum"])
+    print(data)
+
 
 

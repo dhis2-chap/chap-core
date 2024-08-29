@@ -1,37 +1,27 @@
-# Climate health project repo
-CHAP is a platform for forecasting and for assessing forecasts of climate-sensitive health outcomes.
-In the early phase, the focus is on vector-borne diseases like malaria and dengue
-The platforms is to perform data parsing, data integration, forecasting based on any of multiple supported models, automatic brokering of compatible models for a given prediction context and robust forecast assessment and method comparison. 
+# Climate Health Anlysis Platform (CHAP)
+CHAP offers a platform for analysing the relationship between climate and health. The platform is designed to be modular and flexible, allowing for easy integration of new models and data sources. The platform is designed to be used by researchers and public health professionals to forecast and assess the impact of climate on health outcomes.
 
-The current version has basic data handling functionality in place, and is almost at a stage where it supports running a first external model (EWARS-Plus)
+# Installation
 
-User documentation:
+    $ pip install git+https://github.com/dhis2/chap-core.git
 
-- #Ideally install mamba to make conda environments faster
-- #Create environment, the hydromet_dengue is probably okay
-- mamba env create -f external_models/hydromet_dengue/env.yml --name hydromet
-- #activate the new environment
-- conda activate hydromet 
-- 
-
-Developer documentation:
-- [How to add an external model](external_models/Readme.md)
+# Usage
+## Fetching climate data
+Fetching climate data through Google Earth Engine. The following example fetches temperature data from the ERA5 dataset for the regions of interest.
 
 
-## Run CHAP with Docker
-Ensure you have installed Docker on your local machine. If not, follow the installation guide [here](https://www.docker.com/get-started/).
+```python
 
-### Option 1 - Docker compose (easiest way)
-
-On root-level run:
+    import climate_health.fetch
+    credentials = dict(account='demoaccount@demo.gserviceaccount.com', private_key='private_key')
+    polygons = open("../example_data/Organisation units.geojson").read()
+    start_period = '202001' # January 2020
+    end_period = '202011' # December 2020
+    band_names = ['temperature_2m', 'total_precipitation_sum']
+    data = climate_health.fetch.gee_era5(credentials, polygons, start_period, end_period, band_names)
+    print(data)
+    start_week = '2020W03' # Week 3 of 2020
+    end_week = '2020W05' # Week 5 of 2020
+    data = climate_health.fetch.gee_era5(credentials, polygons, start_week, end_week, band_names)
+    print(data)
 ```
-docker compose up
-```
-This would start CHAP and a web interface for interaction with CHAP. Go to http://localhost:4000/ in your browser and a webpage should appear.
-
-To stop the containers, run:
-```
-docker compose down
-```
-
-### Option 2 - run singel container
