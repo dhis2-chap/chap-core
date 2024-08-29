@@ -14,3 +14,6 @@ pytest-mock
 furo
 myst-parser
 earthengine-api
+python-dotenv
+myst_parser
+furo
