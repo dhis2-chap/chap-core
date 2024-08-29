@@ -12,6 +12,9 @@ class ExampleDataSet:
         self._name = Path(name)
         self._dataclass = dataclass
 
+    def filepath(self):
+        return self.base_path / self._name.with_suffix('.csv')
+
     def load(self) -> SpatioTemporalDict:
         filename = self._name.with_suffix('.csv')
         filepath = self.base_path / filename

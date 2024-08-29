@@ -1,4 +1,7 @@
+import os
+
 import ee
+from dotenv import load_dotenv, find_dotenv
 from pydantic import BaseModel
 
 from climate_health.api_types import FeatureCollectionModel
@@ -16,6 +19,20 @@ class ERA5Entry(BaseModel):
     band: str
     value: float
 
+def load_credentials() -> GEECredentials:
+    '''
+    Load Google Earth Engine credentials from the environment variables.
+
+    Returns
+    -------
+    GEECredentials
+        The Google Earth Engine credentials.
+    '''
+
+    load_dotenv(find_dotenv())
+    account = os.environ.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
+    private_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')
+    return GEECredentials(account=account, private_key=private_key)
 
 def fetch_single_period(polygons: FeatureCollectionModel, start_dt, end_dt, band_names, reducer='mean') -> ERA5Entry:
     collection = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR').select(band_names)
