@@ -33,7 +33,8 @@ requirements = ['typer',
                  'pydantic-geojson', 'annotated_types',
                 'pycountry',
                 'unidecode',
-                
+                'httpx',
+
                 ]
 
 test_requirements = ['pytest>=3', "hypothesis"]
