@@ -25,10 +25,10 @@ requirements = ['typer',
                 'cyclopts', 'requests', 'pydantic', 'pyyaml',
                 'geopandas', 'libpysal', 'docker',
                 'jax', 'jaxlib', 'blackjax', 'dynamax', 'flax', 'optax',
-                'scipy'
+                'scipy',
                 'fastapi',
                 'gitpython',  'earthengine-api', 'python-dotenv', 'rq', "python-multipart", "uvicorn",
-                 'pydantic-geojson'
+                 'pydantic-geojson', 'annotated_types'
                 ]
 
 test_requirements = ['pytest>=3', "hypothesis"]

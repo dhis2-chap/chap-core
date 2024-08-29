@@ -9,7 +9,9 @@ try:
     from .jax_models.simple_ssm import SSM, SSMWithSigmoidEffect
     from .jax_models import regression_model, simple_ssm, specs, hierarchical_model
 
-    models = {**extract_models(regression_model), **extract_models(simple_ssm), **extract_models(specs), **extract_models(hierarchical_model)}
+    models = {
+        #**extract_models(regression_model),
+        **extract_models(simple_ssm), **extract_models(specs), **extract_models(hierarchical_model)}
     try:
         from .flax_models import flax_model
         models.update(extract_models(flax_model))
