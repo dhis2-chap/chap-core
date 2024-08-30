@@ -13,7 +13,6 @@ from climate_health.datatypes import ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period.date_util_wrapper import PeriodRange, TimePeriod
 from typing import List
-import ee
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -53,7 +52,7 @@ class Periode(BaseModel):
 class Era5LandGoogleEarthEngineHelperFunctions():
 
 
-    
+
     #Get every dayli image that exisist within a periode, and reduce it to a periodeReducer value
     def get_image_for_period(self, p : Periode, band : Band, collection : ee.ImageCollection) -> ee.Image:
         p = ee.Dictionary(p)
@@ -73,7 +72,7 @@ class Era5LandGoogleEarthEngineHelperFunctions():
 
     def create_ee_dict(self, p : TimePeriod):
         return ee.Dictionary({"period" : p.id, "start_date" : p.start_timestamp.date, "end_date" : p.end_timestamp.date})
-        
+
     def creat_ee_feature(self, feature, image, eeReducerType):
         return ee.Feature(
             None, #exlude geometry
@@ -84,25 +83,25 @@ class Era5LandGoogleEarthEngineHelperFunctions():
                 'indicator' : image.get('system:indicator')
             }
         )
-    
+
     def convert_value_by_band_converter(self, data, bands : List[Band]):
         return [{**f['properties'],
                     #Using the right converter on the value, based on the whats defined as band-converter
                     **{'value': next(b.converter for b in bands if f['properties']['indicator'] == b.indicator)(f['properties']['value'])}}
                 for f in data]
-    
+
     def feature_collection_to_list(self, feature_collection : 'ee.FeatureCollection'):
         size = feature_collection.size().getInfo()
         result : List = []
         take = 5_000
 
         #Keeps every f.properties, and replace the band values with the converted values
-        for i in range(0, size, take):     
+        for i in range(0, size, take):
             result = result + (feature_collection.toList(take, i).getInfo())
             logger.log(logging.INFO, f" Fetched {i+take} of {size}")
 
         return result
-    
+
     @staticmethod
     def parse_gee_properties(property_dicts: list[dict])->DataSet:
         df = pd.DataFrame(property_dicts)
@@ -132,7 +131,7 @@ class Era5LandGoogleEarthEngineHelperFunctions():
 
 
 class Era5LandGoogleEarthEngine():
-    
+
     def __init__(self):
         self.gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
         self.is_initialized = False
@@ -150,7 +149,7 @@ class Era5LandGoogleEarthEngine():
 
         if(not account or not private_key):
             return
-        
+
         try:
             credentials = ee.ServiceAccountCredentials(account, key_data=private_key)
             ee.Initialize(credentials)
@@ -160,7 +159,7 @@ class Era5LandGoogleEarthEngine():
             logger.error(e)
 
     def get_historical_era5(self, features, periodes : Iterable[TimePeriod]):
-        
+
         ee_reducer_type = "mean"
 
         collection = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR').select([band.name for band in bands])
@@ -168,7 +167,7 @@ class Era5LandGoogleEarthEngine():
 
         #Creates a ee.List for every periode, containing id (periodeId), start_date and end_date for each period
         periode_list = ee.List([self.gee_helper.create_ee_dict(p) for p in periodes])
-    
+
         ee_scale = collection.first().select(0).projection().nominalScale()
         eeReducer = getattr(ee.Reducer, ee_reducer_type)()
 
@@ -181,12 +180,12 @@ class Era5LandGoogleEarthEngine():
             ).filter(ee.Filter.listContains("system:band_names", b.name)))  # Remove empty images
 
         #Reduce the result, to contain only, orgUnitId, periodeId and the value
-        reduced = daily_collection.map(lambda image: 
+        reduced = daily_collection.map(lambda image:
             image.reduceRegions(
                 collection=feature_collection,
                 reducer=eeReducer,
                 scale=ee_scale
-            ).map(lambda feature: 
+            ).map(lambda feature:
                 self.gee_helper.creat_ee_feature(feature, image, ee_reducer_type)
             )
         ).flatten()
@@ -195,7 +194,7 @@ class Era5LandGoogleEarthEngine():
 
         result = self.gee_helper.feature_collection_to_list(feature_collection)
         parsed_result = self.gee_helper.convert_value_by_band_converter(result, bands)
-        
+
         return self.gee_helper.parse_gee_properties(parsed_result)
 
 
@@ -209,4 +208,3 @@ class Era5LandGoogleEarthEngine():
 
 
 
-        

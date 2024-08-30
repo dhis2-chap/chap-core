@@ -1,5 +1,3 @@
-
-import numpy as np
 import logging
 from pathlib import Path
 
@@ -13,7 +11,7 @@ from climate_health.datatypes import ClimateHealthTimeSeries,FullData
 
 logging.basicConfig(level=logging.INFO)
 from climate_health.external.external_model import get_model_from_yaml_file, run_command
-from ..data_fixtures import full_data, train_data, train_data_pop, future_climate_data
+from ..data_fixtures import train_data, train_data_pop, future_climate_data
 from climate_health.util import conda_available
 
 
@@ -107,4 +105,5 @@ def test_get_model_from_local_directory(models_path):
     repo_url = models_path / 'ewars_Plus'
     model = get_model_from_directory_or_github_url(repo_url)
     assert model.name == "ewars_Plus"
+
 
