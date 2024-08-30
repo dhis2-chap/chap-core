@@ -1,5 +1,6 @@
 from climate_health.data import DataSet, PeriodObservation, adaptors
 
+
 class Obs(PeriodObservation):
     disease_cases: int
     rainfall: float
@@ -23,9 +24,3 @@ dataset = DataSet.from_period_observations(observation_dict)
 gluonts_dataset = adaptors.gluonts.from_dataset(dataset)
 
 print(list(gluonts_dataset))
-
-
-
-
-
-
