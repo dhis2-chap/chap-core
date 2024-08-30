@@ -3,7 +3,7 @@ import dataclasses
 import numpy as np
 from sklearn import linear_model
 
-from climate_health.dataset import IsSpatioTemporalDataSet
+from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet, TemporalDataclass
 from climate_health.datatypes import HealthData, ClimateHealthTimeSeries, ClimateData
 from climate_health.time_period.dataclasses import Period

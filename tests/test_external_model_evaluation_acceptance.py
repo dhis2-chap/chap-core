@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from climate_health.assessment.prediction_evaluator import evaluate_model
-from climate_health.dataset import IsSpatioTemporalDataSet
+from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
 from climate_health.external.external_model import ExternalCommandLineModel
 from climate_health.external.models import SSM

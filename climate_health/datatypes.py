@@ -41,7 +41,7 @@ class TimeSeriesData:
     @classmethod
     def create_class_from_basemodel(cls, dataclass: type[PeriodObservation]):
         fields = dataclass.model_fields
-        fields =  [(name, field.annotation) for name, field in fields.items()]
+        fields =  [(name, field.annotation) if name != 'time_period' else (name, Period) for name, field in fields.items()]
         return dataclasses.make_dataclass(dataclass.__name__, fields, bases=(TimeSeriesData,))
 
     @staticmethod

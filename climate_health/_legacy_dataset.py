@@ -43,7 +43,7 @@ class TemporalArray:
         self._data = data
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        return ufunc9
+        return ufunc
 
 
 class IsSpatialDataSet(Protocol[FeaturesT]):

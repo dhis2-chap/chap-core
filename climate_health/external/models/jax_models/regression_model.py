@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 
-from climate_health.dataset import ClimateData
+from climate_health._legacy_dataset import ClimateData
 from climate_health.datatypes import HealthData
 from .hmc import sample
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet

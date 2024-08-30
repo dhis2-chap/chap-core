@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from ..dataset import IsSpatioTemporalDataSet
+from .._legacy_dataset import IsSpatioTemporalDataSet
 from ..datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 
 
