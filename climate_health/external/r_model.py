@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import TypeVar, Generic
 from climate_health.assessment.dataset_splitting import IsTimeDelta
-from climate_health.dataset import IsSpatioTemporalDataSet
+from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
 from climate_health.time_period import Month
 

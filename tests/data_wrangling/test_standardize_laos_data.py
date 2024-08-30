@@ -57,7 +57,7 @@ def messy_standardization_function(filename: Path, geolocator):
     print(month[0].month, month[-1].month)
     time_period = period_range(month[0], month[-1], exclusive_end=False)
     data_dict = {get_city_name(c): HealthData(time_period, data[c]) for c in data.columns[1:]}
-    from climate_health.dataset import SpatioTemporalDict
+    from climate_health._legacy_dataset import SpatioTemporalDict
     return SpatioTemporalDict(data_dict)
 
 

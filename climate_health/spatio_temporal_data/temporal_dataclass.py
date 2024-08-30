@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from ..api_types import PeriodObservation
-from ..dataset import TemporalIndexType, FeaturesT
+from .._legacy_dataset import TemporalIndexType, FeaturesT
 from ..datatypes import Location, add_field, remove_field, TimeSeriesArray, TimeSeriesData
 from ..time_period import PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp

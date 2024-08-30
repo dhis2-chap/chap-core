@@ -1,19 +1,23 @@
 from pathlib import Path
 from typing import Iterable
-from ..assessment.dataset_splitting import train_test_split
-from ..file_io.example_data_set import datasets
+from climate_health.assessment.dataset_splitting import train_test_split
+from climate_health.file_io.example_data_set import datasets
 from climate_health.datatypes import TimeSeriesData, remove_field
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from ..spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
-from ..time_period import delta_month
+from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
+from climate_health.time_period import delta_month
 
 GlunTSDataSet = Iterable[dict]
 
 
 class DataSetAdaptor:
+
+
     @staticmethod
     def from_gluonts(self, gluonts_dataset: GlunTSDataSet, dataclass: type[TimeSeriesData]) -> DataSet:
         raise NotImplementedError
+
+    to_dataset = from_gluonts
 
     @staticmethod
     def to_gluonts(dataset: DataSet, start_index=0, static=None, real=None) -> GlunTSDataSet:
@@ -30,6 +34,8 @@ class DataSetAdaptor:
                 'feat_dynamic_real': remove_field(data, 'disease_cases').to_array(),  # exclude the target
                 'feat_static_cat': [i]+static,
             }
+
+    from_dataset = to_gluonts
 
     @staticmethod
     def to_gluonts_multicountry(dataset: MultiCountryDataSet) -> GlunTSDataSet:

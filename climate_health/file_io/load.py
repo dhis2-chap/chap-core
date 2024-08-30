@@ -1,5 +1,5 @@
 from .external_file import fetch_and_clean
-from ..dataset import IsSpatioTemporalDataSet
+from .._legacy_dataset import IsSpatioTemporalDataSet
 
 
 def load_data_set(data_set_filename: str) -> IsSpatioTemporalDataSet:

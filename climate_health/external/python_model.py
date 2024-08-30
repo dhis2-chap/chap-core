@@ -1,6 +1,6 @@
 from .external_model import run_command
 from ..datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
-from ..dataset import IsSpatioTemporalDataSet
+from .._legacy_dataset import IsSpatioTemporalDataSet
 
 from climate_health.time_period import Month
 import tempfile

@@ -1,11 +1,12 @@
 from typing import Iterable, Tuple, Protocol, Optional, Type
 
-from climate_health.dataset import IsSpatioTemporalDataSet
+from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthData, ClimateData, HealthData
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import Year, Month, TimePeriod
 from climate_health.time_period.relationships import previous
 import dataclasses
+
 
 def split_period_on_resolution(param, param1, resolution) -> Iterable[Month]:
     pass
@@ -25,7 +26,8 @@ def split_test_train_on_period(data_set: IsSpatioTemporalDataSet, split_points: 
     func = train_test_split_with_weather if include_future_weather else train_test_split
 
     if include_future_weather:
-        return (train_test_split_with_weather(data_set, period, future_length, future_weather_class) for period in split_points)
+        return (train_test_split_with_weather(data_set, period, future_length, future_weather_class) for period in
+                split_points)
     return (func(data_set, period, future_length) for period in split_points)
 
 
@@ -56,22 +58,23 @@ def train_test_split_with_weather(data_set: DataSet, prediction_start_period: Ti
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)
     tmp_values: Iterable[Tuple[str, ClimateHealthData]] = ((loc, temporal_data.data()) for loc, temporal_data in
                                                            test_set.items())
-    future_weather = test_set.remove_field('disease_cases') #SpatioTemporalDict(
-        #{loc: future_weather_class(
-        #    *[getattr(values, field.name) if hasattr(values, field.name) else values.mean_temperature for field in dataclasses.fields(future_weather_class)])
-        # for loc, values in tmp_values})
+    future_weather = test_set.remove_field('disease_cases')  # SpatioTemporalDict(
+    # {loc: future_weather_class(
+    #    *[getattr(values, field.name) if hasattr(values, field.name) else values.mean_temperature for field in dataclasses.fields(future_weather_class)])
+    # for loc, values in tmp_values})
     train_periods = {str(period) for data in train_set.data() for period in data.data().time_period}
     future_periods = {str(period) for data in future_weather.data() for period in data.data().time_period}
     assert train_periods & future_periods == set(), f"Train and future weather data overlap: {train_periods & future_periods}"
     return train_set, test_set, future_weather
 
 
-def get_split_points_for_data_set(data_set: IsSpatioTemporalDataSet, max_splits: int, start_offset = 1) -> list[TimePeriod]:
+def get_split_points_for_data_set(data_set: IsSpatioTemporalDataSet, max_splits: int, start_offset=1) -> list[
+    TimePeriod]:
     periods = next(iter(
         data_set.data())).data().time_period  # Uses the time for the first location, assumes it to be the same for all!
     return get_split_points_for_period_range(max_splits, periods, start_offset)
 
 
 def get_split_points_for_period_range(max_splits, periods, start_offset):
-    delta = (len(periods) - 1 - start_offset) // (max_splits+1)
-    return list(periods)[start_offset+delta::delta][:max_splits]
+    delta = (len(periods) - 1 - start_offset) // (max_splits + 1)
+    return list(periods)[start_offset + delta::delta][:max_splits]

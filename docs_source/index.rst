@@ -28,3 +28,12 @@ Functionality for fetching data
 .. currentmodule:: climate_health.fetch
 
 .. autofunction:: gee_era5
+
+.. currentmodule:: climate_health.data
+
+.. autoclass:: DataSet
+    :members: from_period_observations, from_pandas, to_pandas
+
+.. autoclass:: PeriodObservation
+
+
