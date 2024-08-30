@@ -7,7 +7,7 @@ from pydantic_geojson import FeatureCollectionModel, FeatureModel
 from climate_health.datatypes import HealthPopulationData, FullData, SimpleClimateData
 from climate_health.pandas_adaptors import get_time_period
 from climate_health.rest_api_src.worker_functions import initialize_gee_client
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import PeriodRange, Month
 from climate_health.util import interpolate_nans
 
@@ -86,7 +86,7 @@ def get_country_data(country_name, old_data=None):
         DFeatureCollectionModel(features=features).model_dump(),
         periodes=period_range)
 
-    data = SpatioTemporalDict({name: value for name, value in zip(names, data.values())})
+    data = DataSet({name: value for name, value in zip(names, data.values())})
     return data
 
 
@@ -120,8 +120,8 @@ def join_climate_and_health_data():
         health_data = health_data.rename(columns={'dengue_cases': 'disease_cases',
                                                   'population_worldpop': 'population'})
         health_data['time_period'] = get_time_period(health_data, 'year', 'month')
-        st_data = SpatioTemporalDict.from_pandas(health_data, dataclass=HealthPopulationData, fill_missing=True)
-        climate_data = SpatioTemporalDict.from_csv(climate_data_set, dataclass=SimpleClimateData)
+        st_data = DataSet.from_pandas(health_data, dataclass=HealthPopulationData, fill_missing=True)
+        climate_data = DataSet.from_csv(climate_data_set, dataclass=SimpleClimateData)
         # climate_data = climate_data.restrict_time_period(slice(st_data.period_range[0], st_data.period_range[-1]))
         print(st_data.period_range)
         print(climate_data.period_range)
@@ -132,7 +132,7 @@ def join_climate_and_health_data():
                                    mean_temperature=climate_data[location].mean_temperature,
                                    rainfall=climate_data[location].rainfall)
                 for location in locations}
-        st_data = SpatioTemporalDict(data)
+        st_data = DataSet(data)
         print(st_data)
         st_data.to_csv(full_data_basename.format(country=country))
 

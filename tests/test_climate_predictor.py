@@ -3,7 +3,7 @@ import pytest
 
 from climate_health.climate_predictor import MonthlyClimatePredictor
 from climate_health.datatypes import ClimateData
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import PeriodRange, Month
 
 
@@ -11,7 +11,7 @@ from climate_health.time_period import PeriodRange, Month
 def climate_data():
     time_period = PeriodRange.from_time_periods(Month.parse('2020-01'), Month.parse('2020-12'))
     values = np.arange(len(time_period))
-    return SpatioTemporalDict(
+    return DataSet(
         {'oslo': ClimateData(time_period, values, values*2, values*3),
         'stockholm': ClimateData(time_period, values, values*2, values*3)})
 

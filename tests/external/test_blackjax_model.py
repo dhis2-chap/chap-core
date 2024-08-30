@@ -10,7 +10,7 @@ from climate_health.external.models.jax_models.model_spec import SSMForecasterNu
 from climate_health.external.models.jax_models.specs import NaiveSSM, SSMWithoutWeather
 from climate_health.external.models.jax_models.regression_model import RegressionModel, HierarchicalRegressionModel
 from climate_health.external.models.jax_models.simple_ssm import SSM
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import Month
 from climate_health.time_period.date_util_wrapper import delta_month, Week
 
@@ -86,7 +86,7 @@ def test_ssmspe_summary(train_data, test_data, jax, blackjax):
     model = SSMForecasterNuts(spec, NutsParams(n_samples=10, n_warmup=10))
     model.train(train_data)
     summary = model.prediction_summary(test_data[1], 10)
-    assert isinstance(summary, SpatioTemporalDict)
+    assert isinstance(summary, DataSet)
 
 
 def test_model_without_weather(health_population_data, jax, blackjax, fast_params, data_path):
@@ -113,7 +113,7 @@ def test_ssm_summary(trained_model, test_data, jax, blackjax):
     truth, future_data = test_data
     trained_model
     summaries = trained_model.prediction_summary(future_data, 10)
-    assert isinstance(summaries, SpatioTemporalDict)
+    assert isinstance(summaries, DataSet)
 
 
 def test_ssm_forecast(trained_model, test_data, jax, blackjax):

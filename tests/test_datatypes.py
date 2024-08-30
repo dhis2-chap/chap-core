@@ -4,7 +4,7 @@ import bionumpy as bnp
 import pytest
 from bionumpy.util.testing import assert_bnpdataclass_equal
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import PeriodRange
 from climate_health.time_period.dataclasses import Year
 
@@ -53,7 +53,7 @@ def dataset_with_missing(data_path):
 
 #@pytest.mark.skip('Must be fixed!!!!!!')
 def test_dataset_with_missing(dataset_with_missing):
-    health_data = SpatioTemporalDict.from_pandas(dataset_with_missing, dataclass=HealthData, fill_missing=True)
+    health_data = DataSet.from_pandas(dataset_with_missing, dataclass=HealthData, fill_missing=True)
     start = health_data.start_timestamp
     end = health_data.end_timestamp
     for location, data in health_data.items():

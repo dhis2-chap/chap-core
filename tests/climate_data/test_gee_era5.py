@@ -9,7 +9,7 @@ from climate_health.google_earth_engine.gee_era5 import Band, Era5LandGoogleEart
     meter_to_mm
 from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngineHelperFunctions
 from climate_health.google_earth_engine.gee_raw import fetch_era5_data, GEECredentials
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period.date_util_wrapper import Month, TimePeriod
 import pytest
 import ee as _ee
@@ -56,7 +56,7 @@ def property_dicts():
             {'period': '201202', 'ou': 'Oslo', 'value': 12., 'indicator': 'mean_temperature'}]
 
 def test_parse_gee_properties(property_dicts):
-    result : SpatioTemporalDict = era5_land_gee_helper.parse_gee_properties(property_dicts)
+    result : DataSet = era5_land_gee_helper.parse_gee_properties(property_dicts)
     assert result is not None
     assert len(result.to_pandas()) == 4
     assert (result.get_location("Oslo").data().mean_temperature == [12, 12]).all()

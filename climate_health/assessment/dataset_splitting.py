@@ -2,7 +2,7 @@ from typing import Iterable, Tuple, Protocol, Optional, Type
 
 from climate_health.dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthData, ClimateData, HealthData
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import Year, Month, TimePeriod
 from climate_health.time_period.relationships import previous
 import dataclasses
@@ -50,7 +50,7 @@ def train_test_split(data_set: IsSpatioTemporalDataSet, prediction_start_period:
     return train_data, test_data
 
 
-def train_test_split_with_weather(data_set: SpatioTemporalDict, prediction_start_period: TimePeriod,
+def train_test_split_with_weather(data_set: DataSet, prediction_start_period: TimePeriod,
                                   extension: Optional[IsTimeDelta] = None,
                                   future_weather_class: Type[ClimateData] = ClimateData):
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)

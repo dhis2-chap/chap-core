@@ -7,7 +7,7 @@ import pytest
 
 from climate_health.datatypes import HealthPopulationData, SummaryStatistics
 from climate_health.dhis2_interface.json_parsing import parse_disease_data, parse_population_data, join_data, predictions_to_datavalue
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import PeriodRange
 
 
@@ -34,14 +34,14 @@ def test_parse_population_data(population_data):
 
 def test_join_population_and_health(population_data, json_data):
     joined = join_data(json_data, population_data)
-    assert isinstance(joined, SpatioTemporalDict)
+    assert isinstance(joined, DataSet)
     for location, data in joined.items():
         assert isinstance(data.data(), HealthPopulationData)
 
 # skipped since failing
 @pytest.mark.skip()
 def test_predictions_to_json():
-    data = SpatioTemporalDict.from_pandas(pd.DataFrame({'time_period': ['2020-01', '2020-02'],
+    data = DataSet.from_pandas(pd.DataFrame({'time_period': ['2020-01', '2020-02'],
                                                          'disease_cases': [1, 2],
                                                          'population': [100, 200],
                                                          'location': ['loc1', 'loc2']}), HealthPopulationData)
@@ -64,7 +64,7 @@ def predictions():
                                 quantile_low = [0.5, 1.5],
                                 quantile_high = [1.5, 2.5])
 
-    return SpatioTemporalDict({'loc1': summary})
+    return DataSet({'loc1': summary})
 
 def test_predictions_to_json_real(predictions):
     attrs = ['median', 'quantile_high', 'quantile_low']

@@ -2,7 +2,7 @@ import pandas as pd
 
 from .external import ee
 from ..datatypes import ClimateData, Location, Shape, SimpleClimateData
-from ..spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from ..spatio_temporal_data.temporal_dataclass import DataSet
 from ..time_period import TimePeriod, PeriodRange
 from ..services.cache_manager import get_cache
 from ..time_period import Month, Day

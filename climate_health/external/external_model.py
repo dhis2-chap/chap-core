@@ -21,7 +21,7 @@ from climate_health.geojson import NeighbourGraph
 from climate_health.runners.command_line_runner import CommandLineRunner
 from climate_health.runners.docker_runner import DockerImageRunner, DockerRunner
 from climate_health.runners.runner import Runner
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period.date_util_wrapper import TimeDelta, delta_month, TimePeriod
 
 logger = logging.getLogger(__name__)
@@ -220,17 +220,17 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         time_periods = [TimePeriod.parse(s) for s in df.time_period.astype(str)]
         mask = [start_time <= time_period.start_timestamp for time_period in time_periods]
         df = df[mask]
-        return SpatioTemporalDict.from_pandas(df, result_class)
+        return DataSet.from_pandas(df, result_class)
 
-    def forecast(self, future_data: SpatioTemporalDict[FeatureType], n_samples=1000,
+    def forecast(self, future_data: DataSet[FeatureType], n_samples=1000,
                  forecast_delta: TimeDelta = 3 * delta_month):
         time_period = next(iter(future_data.data())).data().time_period
         n_periods = forecast_delta // time_period.delta
-        future_data = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_data.items()})
+        future_data = DataSet({key: value.data()[:n_periods] for key, value in future_data.items()})
         return self.predict(future_data)
 
-    def prediction_summary(self, future_data: SpatioTemporalDict[FeatureType], n_samples=1000):
-        future_data = SpatioTemporalDict({key: value.data()[:1] for key, value in future_data.items()})
+    def prediction_summary(self, future_data: DataSet[FeatureType], n_samples=1000):
+        future_data = DataSet({key: value.data()[:1] for key, value in future_data.items()})
         return self.predict(future_data)
 
     def _provide_temp_file(self):

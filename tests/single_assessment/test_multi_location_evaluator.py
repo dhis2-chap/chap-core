@@ -2,7 +2,7 @@ from climate_health.assessment.multi_location_evaluator import MultiLocationEval
 from ..data_fixtures import full_data, good_predictions, bad_predictions
 from climate_health.datatypes import SummaryStatistics
 from climate_health.time_period import Month, PeriodRange
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 import pytest
 
 
@@ -12,7 +12,7 @@ def r_model_predictions():
     T = len(time_period)
     d = {'oslo': SummaryStatistics(time_period, mean=[0.5]*T, std=[0.5]*T, median=[0.5]*T, min=[0.5]*T, max=[0.5]*T, quantile_low=[0.5]*T, quantile_high=[0.5]*T),
          'bergen': SummaryStatistics(time_period, mean=[0.5]*T, std=[0.5]*T, median=[0.5]*T, min=[0.5]*T, max=[0.5]*T, quantile_low=[0.5]*T, quantile_high=[0.5]*T)}
-    return SpatioTemporalDict(d)
+    return DataSet(d)
 
 
 # @pytest.mark.xfail

@@ -1,13 +1,13 @@
 from climate_health.assessment.dataset_splitting import train_test_split_with_weather
 from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period.date_util_wrapper import TimeDelta, Month
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta, graph=None):
+def forecast(model, dataset: DataSet, prediction_length: TimeDelta, graph=None):
     '''
     Forecast n_months into the future using the model
     '''
@@ -27,7 +27,7 @@ def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta, g
     return predictions
 
 
-def multi_forecast(model, dataset: SpatioTemporalDict, prediction_lenght: TimeDelta, pre_train_delta: TimeDelta):
+def multi_forecast(model, dataset: DataSet, prediction_lenght: TimeDelta, pre_train_delta: TimeDelta):
     '''
     Forecast n_months into the future using the model
     '''

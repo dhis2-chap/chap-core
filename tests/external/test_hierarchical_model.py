@@ -11,7 +11,7 @@ from climate_health.external.models.jax_models.prototype_hierarchical import Glo
 from climate_health.external.models.jax_models.protoype_annotated_spec import Positive
 from climate_health.external.models.jax_models.utii import state_or_param, get_state_transform
 from climate_health.external.models.jax_models.jax import jnp
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from tests.external.util import check_model
 
 
@@ -23,7 +23,7 @@ def test_train5(random_key, data_path):
     #write to file
     # filtered.to_csv((data_path / 'hydromet_5_filtered').with_suffix('.csv'))
 
-    data = SpatioTemporalDict.from_pandas(filtered, FullData)
+    data = DataSet.from_pandas(filtered, FullData)
     model = HierarchicalModel(random_key, {}, num_warmup=200, num_samples=100)
     model.train(data)
 

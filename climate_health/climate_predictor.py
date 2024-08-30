@@ -5,7 +5,7 @@ import numpy as np
 from sklearn import linear_model
 
 from .datatypes import ClimateData
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import PeriodRange
 
 
@@ -18,7 +18,7 @@ class MonthlyClimatePredictor:
     def _feature_matrix(self, time_period: PeriodRange):
         return time_period.month[:,None] == np.arange(1, 13)
 
-    def train(self, train_data: SpatioTemporalDict[ClimateData]):
+    def train(self, train_data: DataSet[ClimateData]):
         for location, data in train_data.items():
             data = data.data()
             self._cls = data.__class__
@@ -36,7 +36,7 @@ class MonthlyClimatePredictor:
         prediction_dict = {}
         for location, models in self._models.items():
             prediction_dict[location] = self._cls(time_period, **{field: model.predict(x) for field, model in models.items()})
-        return SpatioTemporalDict(prediction_dict)
+        return DataSet(prediction_dict)
 
 
 

@@ -3,7 +3,7 @@ import pandas as pd
 
 from climate_health.datatypes import ClimateData, ClimateHealthTimeSeries, FullData
 from climate_health.file_io.cleaners import laos_data
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 mapping = {'rainfall': 'gsiW9SgolNd',
            'mean_temperature': 'VA05qvanuVs',
@@ -31,14 +31,14 @@ def get_laos_climate(climate_filename):
     d = {name: df['value.' + mapping[name]].values for name in mapping.keys()}
     new_df = pd.DataFrame(
         d | {'time_period': climate_data['periodid'], 'location': climate_data['orgunit']})
-    spatio_temporal_dict = SpatioTemporalDict.from_pandas(
+    spatio_temporal_dict = DataSet.from_pandas(
         new_df, dataclass=ClimateData)
     return spatio_temporal_dict.interpolate()
 
 spatio_temporal_dict = get_laos_climate(climate_filename)
 full_dict = {name: ClimateHealthTimeSeries.combine(health.get_location(name).data(), spatio_temporal_dict.get_location(name).data())
              for name in health.locations()}
-data = SpatioTemporalDict(full_dict)
+data = DataSet(full_dict)
 data.to_csv('/home/knut/Downloads/laos_data.csv')
 
 
@@ -65,7 +65,7 @@ laos_population = {line.split(': ')[0]: int(line.split(': ~')[1].replace(',', ''
 data_dict = {name[3:]: data.data() for name, data in data.items()}
 full_data = {name: FullData(d.time_period, d.rainfall, d.mean_temperature, d.disease_cases, np.full(len(d), laos_population[name]))
              for name, d in data_dict.items()}
-full_data = SpatioTemporalDict(full_data)
+full_data = DataSet(full_data)
 full_data.to_csv('/home/knut/Data/laos_full_data.csv')
 #data = {name: FullData.combine(health.get_location(name).data(), spatio_temporal_dict.get_location(name).data(), laos_population[name])
 #        for name in health.locations()}

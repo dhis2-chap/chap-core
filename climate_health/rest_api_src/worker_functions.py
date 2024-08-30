@@ -13,7 +13,7 @@ from climate_health.dhis2_interface.json_parsing import predictions_to_datavalue
 from climate_health.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
 from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from climate_health.predictor import get_model
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import delta_month, PeriodRange
 import dataclasses
 
@@ -55,11 +55,11 @@ def train_on_json_data(json_data: RequestV1, model_name, model_path, control=Non
     locations = list(data['disease_cases'].keys())
     climate_data = gee_client.get_historical_era5(json_data.orgUnitsGeoJson.model_dump(), periodes=period_range)
     field_dict = {field_name:
-                      SpatioTemporalDict(
+                      DataSet(
                           {location: TimeSeriesArray(period_range, getattr(climate_data[location], field_name)) for
                            location in locations})
                   for field_name in ('mean_temperature', 'rainfall')}
-    train_data = SpatioTemporalDict.from_fields(FullData, data | field_dict)
+    train_data = DataSet.from_fields(FullData, data | field_dict)
     model = get_model(model_name)()
 
     if hasattr(model, 'set_graph'):
@@ -69,14 +69,14 @@ def train_on_json_data(json_data: RequestV1, model_name, model_path, control=Non
     prediction_range = PeriodRange(period_range.end_timestamp,
                                    period_range.end_timestamp + 3 * delta, delta)
     future_weather = {field_name:
-                          SpatioTemporalDict(
+                          DataSet(
                               {location: climate_forecasts.get_forecasts(location, prediction_range, field_name) for
                                location in locations})
                       for field_name in ('mean_temperature', 'rainfall')}
-    future_population = SpatioTemporalDict(
+    future_population = DataSet(
         {location: TimeSeriesArray(prediction_range, np.full(len(prediction_range), last_population[location]))
          for location in locations})
-    future_weather = SpatioTemporalDict.from_fields(data_class, future_weather | {'population': future_population})
+    future_weather = DataSet.from_fields(data_class, future_weather | {'population': future_population})
 
     model.train(train_data)  # , extra_args=data.area_polygons)
 

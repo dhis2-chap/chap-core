@@ -3,7 +3,7 @@ from typing import Iterable
 from ..assessment.dataset_splitting import train_test_split
 from ..file_io.example_data_set import datasets
 from climate_health.datatypes import TimeSeriesData, remove_field
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from ..spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from ..time_period import delta_month
 
@@ -12,11 +12,11 @@ GlunTSDataSet = Iterable[dict]
 
 class DataSetAdaptor:
     @staticmethod
-    def from_gluonts(self, gluonts_dataset: GlunTSDataSet, dataclass: type[TimeSeriesData]) -> SpatioTemporalDict:
+    def from_gluonts(self, gluonts_dataset: GlunTSDataSet, dataclass: type[TimeSeriesData]) -> DataSet:
         raise NotImplementedError
 
     @staticmethod
-    def to_gluonts(dataset: SpatioTemporalDict, start_index=0, static=None, real=None) -> GlunTSDataSet:
+    def to_gluonts(dataset: DataSet, start_index=0, static=None, real=None) -> GlunTSDataSet:
         if isinstance(dataset, MultiCountryDataSet):
             yield from DataSetAdaptor.to_gluonts_multicountry(dataset)
             return

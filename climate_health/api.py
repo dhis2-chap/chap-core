@@ -20,7 +20,7 @@ from .file_io.example_data_set import DataSetType, datasets
 from .geojson import geojson_to_shape, geojson_to_graph, NeighbourGraph
 from .plotting.prediction_plot import plot_forecast_from_summaries
 from .predictor import get_model
-from .spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from .spatio_temporal_data.temporal_dataclass import DataSet
 import dataclasses
 
 from .time_period.date_util_wrapper import Week, delta_week, delta_month, Month
@@ -48,9 +48,9 @@ class AreaPolygons:
 @dataclasses.dataclass
 class PredictionData:
     area_polygons: AreaPolygons = None
-    health_data: SpatioTemporalDict[HealthData] = None
-    climate_data: SpatioTemporalDict[ClimateData] = None
-    population_data: SpatioTemporalDict[HealthPopulationData] = None
+    health_data: DataSet[HealthData] = None
+    climate_data: DataSet[ClimateData] = None
+    population_data: DataSet[HealthPopulationData] = None
     disease_id: Optional[str] = None
     features : List[object] = None
 
@@ -102,7 +102,7 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
     temperature["mean_temperature"] = temperature["mean_temperature"].astype(float)
 
     features = json.load(ziparchive.open(expected_files["area_polygons"]))["features"]
-    climate = SpatioTemporalDict.from_pandas(temperature, dataclass=SimpleClimateData)
+    climate = DataSet.from_pandas(temperature, dataclass=SimpleClimateData)
 
     population_json = json.load(ziparchive.open(expected_files["population"]))
     population = parse_population_data(population_json)
@@ -199,7 +199,7 @@ def train_on_prediction_data(data, model_name=None, n_months=4, docker_filename=
         population = data.population_data[location]
         new_dict[location] = FullData.combine(health.data(), climate.data(), population)
 
-    climate_health_data = SpatioTemporalDict(new_dict)
+    climate_health_data = DataSet(new_dict)
     prediction_start = Month(climate_health_data.end_timestamp) - n_months * delta_month
     train_data, _, future_weather = train_test_split_with_weather(climate_health_data, prediction_start)
     logger.info(f"Training model {model_name} on {len(train_data.items())} locations")

@@ -7,7 +7,7 @@ import plotly.express as px
 from climate_health.time_period.date_util_wrapper import TimeDelta, delta_month
 from .util import extract_last, extract_sample, array_tree_length
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from .hmc import sample
 from .jax import jax, PRNGKey, stats, jnp
 from .regression_model import remove_nans
@@ -69,7 +69,7 @@ class NaiveSSM:
     def _temperature_effect(self, mean_temp, params):
         return params['alpha']
 
-    def train(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]):
+    def train(self, data: DataSet[ClimateHealthTimeSeries]):
         orig_data = data
         logger.info(f"Training model with {len(data.locations())} locations")
         data = {name: remove_nans(data.data())
@@ -119,7 +119,7 @@ class NaiveSSM:
         last_pdf = logpdf(last_params)
         assert not jnp.isnan(last_pdf)
 
-    def predict(self, data: SpatioTemporalDict[ClimateData]):
+    def predict(self, data: DataSet[ClimateData]):
         last_params = extract_last(self._sampled_params)
         predictions = {}
         for location, local_data in data.items():
@@ -127,7 +127,7 @@ class NaiveSSM:
             rate = self._get_rate(last_params, location, self._last_temperature[location])
             predictions[location] = HealthData(time_period, rate)
 
-        return SpatioTemporalDict(predictions)
+        return DataSet(predictions)
 
     def _get_rate(self, last_params, location, temperature):
         self._key, key = jax.random.split(self._key)
@@ -152,7 +152,7 @@ class NaiveSSM:
             states.append(state)
         return np.exp(np.array(states) + log_observation_rate)
 
-    def prediction_summary(self, data: SpatioTemporalDict, num_samples: int = 100) -> SpatioTemporalDict[
+    def prediction_summary(self, data: DataSet, num_samples: int = 100) -> DataSet[
         SummaryStatistics]:
         self._key, param_key, sample_key = jax.random.split(self._key, 3)
         n_sampled_params = array_tree_length(self._sampled_params)
@@ -165,10 +165,10 @@ class NaiveSSM:
                 samples[location].append(jax.random.poisson(key, rate))
         time_period = next(iter(data.data())).data().time_period[:1]
         summaries = {k: get_summary(time_period, s) for k, s in samples.items()}
-        return SpatioTemporalDict(summaries)
+        return DataSet(summaries)
 
-    def forecast(self, data: SpatioTemporalDict[ClimateData], num_samples: int = 100,
-                 forecast_delta: TimeDelta = 3 * delta_month) -> SpatioTemporalDict:
+    def forecast(self, data: DataSet[ClimateData], num_samples: int = 100,
+                 forecast_delta: TimeDelta = 3 * delta_month) -> DataSet:
         self._key, param_key, sample_key = jax.random.split(self._key, 3)
         time_period = next(iter(data.data())).data().time_period
         n_periods = forecast_delta // time_period.delta
@@ -184,7 +184,7 @@ class NaiveSSM:
                 samples[location].append(jax.random.poisson(key, rates))
         summaries = {k: get_summary(time_period, s)
                      for k, s in samples.items()}
-        return SpatioTemporalDict(summaries)
+        return DataSet(summaries)
 
 
 class SeasonalSSM(NaiveSSM):

@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Literal
 
 from climate_health.datatypes import ClimateHealthTimeSeries, FullData
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class ExampleDataSet:
@@ -15,10 +15,10 @@ class ExampleDataSet:
     def filepath(self):
         return self.base_path / self._name.with_suffix('.csv')
 
-    def load(self) -> SpatioTemporalDict:
+    def load(self) -> DataSet:
         filename = self._name.with_suffix('.csv')
         filepath = self.base_path / filename
-        return SpatioTemporalDict.from_csv(filepath, dataclass=self._dataclass)
+        return DataSet.from_csv(filepath, dataclass=self._dataclass)
 
 
 class LocalDataSet(ExampleDataSet):

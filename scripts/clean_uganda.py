@@ -2,7 +2,7 @@ import pandas as pd
 
 from climate_health.datatypes import FullData
 from climate_health.dhis2_interface.periods import convert_time_period_string
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 filename = '/home/knut/Downloads/Climate +Malaria data.xlsx'
 df = pd.read_excel(filename)
@@ -187,7 +187,7 @@ new_df['disease_cases'] = (new_df['disease_cases']/100).astype(int)
 print(new_df)
 mask = new_df['disease_cases']>new_df['population']
 print(new_df[mask])
-dataset = SpatioTemporalDict.from_pandas(new_df, dataclass=FullData)
+dataset = DataSet.from_pandas(new_df, dataclass=FullData)
 dataset.to_csv('/home/knut/Data/uganda_data.csv')
 #unique_districts = df['District'].unique()
 #print(unique_districts)

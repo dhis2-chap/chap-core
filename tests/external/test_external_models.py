@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from climate_health.api import get_model_from_directory_or_github_url
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.datatypes import ClimateHealthTimeSeries
 
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +49,7 @@ def get_dataset_from_yaml(yaml_path: Path):
                 df[to_name] = df[from_name]
     #df['disease_cases'] = np.arange(len(df))
 
-    return SpatioTemporalDict.from_pandas(df, ClimateHealthTimeSeries)
+    return DataSet.from_pandas(df, ClimateHealthTimeSeries)
 
 
 #@pytest.mark.skipif(not conda_available(), reason='requires conda')
@@ -77,7 +77,7 @@ def test_external_model_predict(model_directory, models_path):
     model.setup()
     #model.setup()
     results = model.predict(train_data)
-    assert isinstance(results, SpatioTemporalDict)
+    assert isinstance(results, DataSet)
 
 
 @pytest.mark.skipif(not conda_available(), reason='requires conda')

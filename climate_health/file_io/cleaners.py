@@ -3,7 +3,7 @@ import pandas as pd
 
 from climate_health.datatypes import ClimateHealthData, FullData, HealthData
 from climate_health.dhis2_interface.periods import convert_time_period_string
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import PeriodRange
 from climate_health.time_period.dataclasses import Month
 
@@ -21,7 +21,7 @@ def hydromet(filename):
         tmean = (tmax + tmin) / 2
         data_dict[name] = FullData(period, np.zeros_like(tmean), tmean, group['dengue_cases'].values,
                                    group['population'].values)
-    return SpatioTemporalDict(data_dict)
+    return DataSet(data_dict)
 
 
 def rwanda_data(filename):
@@ -36,7 +36,7 @@ def rwanda_data(filename):
                              'time_period': period,
                              'disease_cases': cases})
     clean_df.to_csv('/home/knut/Downloads/data/malaria_clean.csv')
-    return SpatioTemporalDict.from_pandas(clean_df, dataclass=HealthData)
+    return DataSet.from_pandas(clean_df, dataclass=HealthData)
 
 
 def laos_data(filename):
@@ -45,4 +45,4 @@ def laos_data(filename):
     periods = [convert_time_period_string(str(row)) for row in df['periodid']]
     print(periods)
     period_range = PeriodRange.from_strings(periods)
-    return SpatioTemporalDict({colname: HealthData(period_range, df[colname].values) for colname in df.columns[4:]})
+    return DataSet({colname: HealthData(period_range, df[colname].values) for colname in df.columns[4:]})

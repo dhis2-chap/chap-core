@@ -10,7 +10,7 @@ import pandas as pd
 from pydantic import BaseModel
 from climate_health.datatypes import Location, ClimateData, SimpleClimateData
 from climate_health.datatypes import ClimateData
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period.date_util_wrapper import PeriodRange, TimePeriod
 from typing import List
 import ee
@@ -104,14 +104,14 @@ class Era5LandGoogleEarthEngineHelperFunctions():
         return result
     
     @staticmethod
-    def parse_gee_properties(property_dicts: list[dict])->SpatioTemporalDict:
+    def parse_gee_properties(property_dicts: list[dict])->DataSet:
         df = pd.DataFrame(property_dicts)
         location_groups = df.groupby('ou')
         full_dict = {}
         for location, group in location_groups:
             data_dict, pr = Era5LandGoogleEarthEngineHelperFunctions._get_data_dict(group)
             full_dict[location] = SimpleClimateData(pr, **data_dict)
-        return SpatioTemporalDict(full_dict)
+        return DataSet(full_dict)
 
     @staticmethod
     def _get_data_dict(group):
@@ -123,7 +123,7 @@ class Era5LandGoogleEarthEngineHelperFunctions():
         return data_dict, pr
 
     @staticmethod
-    def gee_properties_to_fields(property_dicts: list[dict]) -> dict[str, SpatioTemporalDict]:
+    def gee_properties_to_fields(property_dicts: list[dict]) -> dict[str, DataSet]:
         df = pd.DataFrame(property_dicts)
         location_groups = df.groupby('ou')
         #field_dict = {name: {} for name in}

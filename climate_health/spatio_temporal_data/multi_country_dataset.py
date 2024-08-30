@@ -1,9 +1,9 @@
 from climate_health.datatypes import FullData
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class MultiCountryDataSet:
-    def __init__(self, data: dict[str, SpatioTemporalDict]):
+    def __init__(self, data: dict[str, DataSet]):
         self._data = data
 
     def items(self):
@@ -12,7 +12,7 @@ class MultiCountryDataSet:
     @classmethod
     def from_folder(cls, folder_path, dataclass=FullData):
         csv_files = folder_path.glob('*.csv')
-        data = {file.stem: SpatioTemporalDict.from_csv(file, dataclass) for file in csv_files}
+        data = {file.stem: DataSet.from_csv(file, dataclass) for file in csv_files}
         return MultiCountryDataSet(data)
 
     @property

@@ -4,7 +4,7 @@ import numpy as np
 from numpy.testing import assert_array_equal
 
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, TimeSeriesData
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import Month, Year, PeriodRange
 from climate_health.time_period.period_range import period_range
 from .data_fixtures import full_data, train_data, future_climate_data, bad_predictions, good_predictions, train_data_new_period_range
@@ -20,7 +20,7 @@ def test_to_from_csv(full_data):
 
 def test_climate_data_to_from_csv():
     # just tests that nothing crashes
-    future_weather = SpatioTemporalDict(
+    future_weather = DataSet(
         {
             "location": ClimateData(
                 PeriodRange.from_strings(["2001", "2002", "2003"]),
@@ -32,7 +32,7 @@ def test_climate_data_to_from_csv():
 
     with tempfile.NamedTemporaryFile() as f:
         future_weather.to_csv(f.name)
-        future_weather2 = SpatioTemporalDict.from_csv(f.name, ClimateData)
+        future_weather2 = DataSet.from_csv(f.name, ClimateData)
 
 
 def test_restrict_on_time_period(train_data_new_period_range):

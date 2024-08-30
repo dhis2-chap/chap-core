@@ -6,7 +6,7 @@ import numpy as np
 from climate_health.dataset import ClimateData
 from climate_health.datatypes import HealthData
 from .hmc import sample
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from .jax import jax, PRNGKey, stats, jnp
 
 
@@ -61,7 +61,7 @@ class RegressionModel:
         season_part = params['beta_season'][season]
         return jnp.exp(temp_part + lag_part + season_part)
 
-    def train(self, st_data: SpatioTemporalDict):
+    def train(self, st_data: DataSet):
 
         tmp_data_list = [location_data.data() for location_data in st_data.data()]
         data_list = []
@@ -85,7 +85,7 @@ class RegressionModel:
                                      num_samples=self._num_samples, num_warmup=self._num_warmup)
         self._state = {location: data.data().disease_cases[-1:] for location, data in st_data.items()}
 
-    def predict(self, st_data: SpatioTemporalDict[ClimateData]):
+    def predict(self, st_data: DataSet[ClimateData]):
         params = {name: self._param_samples[name].mean(axis=0) for name in self._priors}
         location_names = st_data.locations()
         data_list = [location_data.data()[:1] for location_data in st_data.data()]
@@ -95,7 +95,7 @@ class RegressionModel:
             rate = self._get_rate(params, data, season, self._state[location], i)
             predictions.append(HealthData(data.time_period, rate))
         print(predictions)
-        return SpatioTemporalDict(
+        return DataSet(
             {location: prediction for location, prediction in zip(st_data.locations(), predictions)})
 
 
@@ -104,7 +104,7 @@ class HierarchicalRegressionModel(RegressionModel):
         super().__init__(*args, **kwargs)
         self._priors['location_offset']= partial(jax.scipy.stats.norm.logpdf, 0, 1)
 
-    def train(self, st_data: SpatioTemporalDict):
+    def train(self, st_data: DataSet):
         self._initial_params['location_offset'] = jnp.zeros(len(st_data.locations()))
         super().train(st_data)
 

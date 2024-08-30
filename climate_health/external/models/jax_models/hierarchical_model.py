@@ -19,7 +19,7 @@ from climate_health.external.models.jax_models.prototype_hierarchical import hie
     HiearchicalLogProbFuncWithDistrictStates
 from climate_health.external.models.jax_models.utii import get_state_transform, state_or_param, tree_sample, index_tree, \
     PydanticTree
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from .model_spec import Poisson, PoissonSkipNaN, Normal, distributionclass
 from .protoype_annotated_spec import Positive
 from .simple_ssm import get_summary
@@ -98,13 +98,13 @@ class HierarchicalModel:
     def set_training_control(self, training_control):
         self._training_control = training_control
 
-    def _get_standardization_func(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]):
+    def _get_standardization_func(self, data: DataSet[ClimateHealthTimeSeries]):
         values = np.concatenate([value.mean_temperature for value in data.values()])
         mean = np.mean(values)
         std = np.std(values)
         return lambda x: (x - mean) / std
 
-    def _set_model(self, data_dict: SpatioTemporalDict[SeasonalClimateHealthData]):
+    def _set_model(self, data_dict: DataSet[SeasonalClimateHealthData]):
         min_year = min([min(value.year) for value in data_dict.values()])
         max_year = max([max(value.year) for value in data_dict.values()])
         n_years = max_year - min_year + 1
@@ -125,7 +125,7 @@ class HierarchicalModel:
 
         self._regression_model = ch_regression
 
-    def train(self, data: SpatioTemporalDict[FullData]):
+    def train(self, data: DataSet[FullData]):
         random_key, self._key = jax.random.split(self._key)
         data_dict = {key: create_seasonal_data(value.data()) for key, value in data.items()}
         self._set_model(data_dict)
@@ -155,30 +155,30 @@ class HierarchicalModel:
             self._param_class, SeasonalDistrictParams, data_dict,
             self._regression_model, observed_name='disease_cases')
 
-    def sample(self, data: SpatioTemporalDict[ClimateData], n=1) -> SpatioTemporalDict[HealthData]:
+    def sample(self, data: DataSet[ClimateData], n=1) -> DataSet[HealthData]:
         params = index_tree(self.params, -1)
         random_key, self._key = jax.random.split(self._key)
         data_dict = {key: create_seasonal_data(value.data()) for key, value in data.items()}
         true_params = {name: join_global_and_district(params[0],
                                                       params[1][name])
                        for name in data_dict.keys()}
-        return SpatioTemporalDict({key: self._regression_model(true_params[key], data_dict[key]).sample(random_key)
-                                   for key in data_dict.keys()})
+        return DataSet({key: self._regression_model(true_params[key], data_dict[key]).sample(random_key)
+                        for key in data_dict.keys()})
 
     def _adapt_params(self, params, data_dict):
         return params
 
-    def prediction_summary(self, future_weather: SpatioTemporalDict[ClimateData], n_samples=1000) -> SpatioTemporalDict[SummaryStatistics]:
+    def prediction_summary(self, future_weather: DataSet[ClimateData], n_samples=1000) -> DataSet[SummaryStatistics]:
         time_delta = next(iter(future_weather.data())).data().time_period.delta
-        future_weather = SpatioTemporalDict({key: value.data()[:1] for key, value in future_weather.items()})
+        future_weather = DataSet({key: value.data()[:1] for key, value in future_weather.items()})
         return self.forecast(future_weather, n_samples=n_samples, forecast_delta=1*time_delta)
 
-    def forecast(self, future_weather: SpatioTemporalDict[ClimateData], n_samples=1000,
-                 forecast_delta=6 * delta_month) -> SpatioTemporalDict[SummaryStatistics]:
+    def forecast(self, future_weather: DataSet[ClimateData], n_samples=1000,
+                 forecast_delta=6 * delta_month) -> DataSet[SummaryStatistics]:
 
         time_period = next(iter(future_weather.data())).data().time_period
         n_periods = forecast_delta // time_period.delta
-        future_weather = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_weather.items()})
+        future_weather = DataSet({key: value.data()[:n_periods] for key, value in future_weather.items()})
         time_period = next(iter(future_weather.data())).data().time_period
         num_samples = n_samples
         param_key, self._key = jax.random.split(self._key)
@@ -195,7 +195,7 @@ class HierarchicalModel:
             for key, value in data_dict.items():
                 new_key, random_key = jax.random.split(random_key)
                 samples[key].append(self._sample_from_model(key, new_key, params, true_params, value))
-        return SpatioTemporalDict(
+        return DataSet(
             {key: get_summary(time_period, np.array(value)) for key, value in samples.items()})
 
     def _sample_from_model(self, key, new_key, params, true_params, value):
@@ -270,7 +270,7 @@ class HierarchicalStateModel(HierarchicalModel):
             if val.ndim == 1:
                 px.line(val).show()
 
-    def _set_model(self, data_dict: SpatioTemporalDict[SeasonalClimateHealthDataState]):
+    def _set_model(self, data_dict: DataSet[SeasonalClimateHealthDataState]):
         min_idx = min([min(value.time_index) for value in data_dict.values()])
         max_idx = max([max(value.time_index) for value in data_dict.values()])
         self._idx_range = (min_idx, max_idx)

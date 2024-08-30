@@ -4,7 +4,7 @@ import pandas as pd
 from climate_health.datatypes import HealthData, HealthPopulationData
 from climate_health.dhis2_interface.periods import get_period_id, convert_time_period_string
 from climate_health.dhis2_interface.src.PushResult import DataValue
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def parse_disease_data(json_data, disease_name='IDS - Dengue Fever (Suspected ca
                        name_mapping={'time_period': 1, 'disease_cases': 3, 'location': 2}):
     # meta_data = MetadDataLookup(json_data['metaData'])
     df = json_to_pandas(json_data, name_mapping)
-    return SpatioTemporalDict.from_pandas(df, dataclass=HealthData, fill_missing=True)
+    return DataSet.from_pandas(df, dataclass=HealthData, fill_missing=True)
 
 
 def parse_json_rows(rows, name_mapping):
@@ -85,10 +85,10 @@ def add_population_data(disease_data, population_lookup):
                                                np.full(len(data.data()), population_lookup[location])
                                                )
                 for location, data in disease_data.items()}
-    return SpatioTemporalDict(new_dict)
+    return DataSet(new_dict)
 
 
-def predictions_to_datavalue(data: SpatioTemporalDict[HealthData], attribute_mapping: dict[str, str]):
+def predictions_to_datavalue(data: DataSet[HealthData], attribute_mapping: dict[str, str]):
     entries = []
     for location, data in data.items():
         data = data.data()

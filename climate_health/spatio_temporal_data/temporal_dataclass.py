@@ -98,7 +98,7 @@ class TemporalDataclass(Generic[FeaturesT]):
         return self._data.time_period[-1].end_timestamp
 
 
-class SpatioTemporalDict(Generic[FeaturesT]):
+class DataSet(Generic[FeaturesT]):
     '''
     Class representing severeal time series at different locations.
     '''
@@ -137,13 +137,13 @@ class SpatioTemporalDict(Generic[FeaturesT]):
     def end_timestamp(self) -> pd.Timestamp:
         return max(data.end_timestamp for data in self.data())
 
-    def get_locations(self, location: Iterable[Location]) -> 'SpatioTemporalDict[FeaturesT]':
+    def get_locations(self, location: Iterable[Location]) -> 'DataSet[FeaturesT]':
         return self.__class__({loc: self._data_dict[loc] for loc in location})
 
     def get_location(self, location: Location) -> FeaturesT:
         return self._data_dict[location]
 
-    def restrict_time_period(self, period_range: TemporalIndexType) -> 'SpatioTemporalDict[FeaturesT]':
+    def restrict_time_period(self, period_range: TemporalIndexType) -> 'DataSet[FeaturesT]':
         return self.__class__(
             {loc: data.restrict_time_period(period_range) for loc, data in self._data_dict.items()})
 
@@ -180,7 +180,7 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         return data_dict
 
     @classmethod
-    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT], fill_missing=False) -> 'SpatioTemporalDict[FeaturesT]':
+    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT], fill_missing=False) -> 'DataSet[FeaturesT]':
         '''
         Create a SpatioTemporalDict from a pandas dataframe.
         The dataframe needs to have a 'location' column, and a 'time_period' column.
@@ -201,18 +201,18 @@ class SpatioTemporalDict(Generic[FeaturesT]):
 
         Returns
         -------
-        SpatioTemporalDict[FeaturesT]
+        DataSet[FeaturesT]
             The SpatioTemporalDict
 
         Examples
         --------
         >>> import pandas as pd
-        >>> from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+        >>> from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
         >>> from climate_health.datatypes import HealthData
         >>> df = pd.DataFrame({'location': ['Oslo', 'Oslo', 'Bergen', 'Bergen'],
         ...                    'time_period': ['2020-01', '2020-02', '2020-01', '2020-02'],
         ...                    'disease_cases': [10, 20, 30, 40]})
-        >>> SpatioTemporalDict.from_pandas(df, HealthData)
+        >>> DataSet.from_pandas(df, HealthData)
         '''
         data_dict = {}
         for location, data in df.groupby('location'):
@@ -231,7 +231,7 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         return dataclass.from_pandas(df)
 
     @classmethod
-    def from_period_observations(cls, observation_dict: dict[str, list[PeriodObservation]]) -> 'SpatioTemporalDict[TimeSeriesData]':
+    def from_period_observations(cls, observation_dict: dict[str, list[PeriodObservation]]) -> 'DataSet[TimeSeriesData]':
         '''
         Create a SpatioTemporalDict from a dictionary of PeriodObservations.
         The keys are the location names, and the values are lists of PeriodObservations.
@@ -243,19 +243,19 @@ class SpatioTemporalDict(Generic[FeaturesT]):
 
         Returns
         -------
-        SpatioTemporalDict[TimeSeriesData]
+        DataSet[TimeSeriesData]
             The SpatioTemporalDict
 
         Examples
         --------
-        >>> from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+        >>> from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
         >>> from climate_health.api_types import PeriodObservation
         >>> class HealthObservation(PeriodObservation):
         ...     disease_cases: int
         >>> observations = {'Oslo': [HealthObservation(time_period='2020-01', disease_cases=10),
         ...                          HealthObservation(time_period='2020-02', disease_cases=20)]}
-        >>> SpatioTemporalDict.from_period_observations(observations)
-        >>> SpatioTemporalDict.to_pandas()
+        >>> DataSet.from_period_observations(observations)
+        >>> DataSet.to_pandas()
         '''
         data_dict = {}
         for location, observations in observation_dict.items():
@@ -263,10 +263,10 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         return cls(data_dict)
 
     @classmethod
-    def from_csv(cls, file_name: str, dataclass: Type[FeaturesT]) -> 'SpatioTemporalDict[FeaturesT]':
+    def from_csv(cls, file_name: str, dataclass: Type[FeaturesT]) -> 'DataSet[FeaturesT]':
         return cls.from_pandas(pd.read_csv(file_name), dataclass)
 
-    def join_on_time(self, other: 'SpatioTemporalDict[FeaturesT]') -> 'SpatioTemporalDict[Tuple[FeaturesT, FeaturesT]]':
+    def join_on_time(self, other: 'DataSet[FeaturesT]') -> 'DataSet[Tuple[FeaturesT, FeaturesT]]':
         ''' Join two SpatioTemporalDicts on time. Returns a new SpatioTemporalDict.
         Assumes other is later in time.
         '''
@@ -279,7 +279,7 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         return self.__class__({loc: remove_field(data.data(), field_name, new_class) for loc, data in self.items()})
 
     @classmethod
-    def from_fields(cls, dataclass: type[TimeSeriesData], fields: dict[str, 'SpatioTemporalDict[TimeSeriesArray]']):
+    def from_fields(cls, dataclass: type[TimeSeriesData], fields: dict[str, 'DataSet[TimeSeriesArray]']):
         start_timestamp = min(data.start_timestamp for data in fields.values())
         end_timestamp = max(data.end_timestamp for data in fields.values())
         period_range = PeriodRange(start_timestamp, end_timestamp, fields[next(iter(fields))].period_range.delta)
