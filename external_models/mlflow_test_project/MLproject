@@ -13,7 +13,9 @@ entry_points:
       train_data: path
       model_output_file: path
     command: "python train.py {train_data} {model_output_file}"
-  validate:
+  predict:
     parameters:
-      data_file: path
-    command: "python validate.py {data_file}"
+      future_data: path
+      model: path
+      out_file: path
+    command: "python predict.py {future_data} {model} {out_file}"

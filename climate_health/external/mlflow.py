@@ -1,8 +1,14 @@
 from pathlib import Path
 from typing import Generic, TypeVar
 import logging
+import numpy as np
+import pandas
 import pandas as pd
 import mlflow
+
+from climate_health.datatypes import SummaryStatistics, HealthData
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from climate_health.time_period import TimePeriod
 
 logger = logging.getLogger(__name__)
 from climate_health.dataset import IsSpatioTemporalDataSet
@@ -20,6 +26,7 @@ class ExternalMLflowModel(Generic[FeatureType]):
         self._working_dir = working_dir
         self._location_mapping = None
         self._model_file_name = Path(model_path).name + ".model"
+        self.is_lagged = True
 
     def train(self, train_data: IsSpatioTemporalDataSet[FeatureType], extra_args=None):
         if extra_args is None:
@@ -74,4 +81,48 @@ class ExternalMLflowModel(Generic[FeatureType]):
                 data[to_name] = data[from_name]
         return data
 
+    def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
+        name = 'future_data.csv'
+        future_data_name = Path(self._working_dir) / Path(name)
+        start_time = future_data.start_timestamp
+        logger.info('Predicting on dataset from %s', start_time)
+        with open(name, "w") as f:
+            df = future_data.to_pandas()
+            df['disease_cases'] = np.nan
+
+            new_pd = self._adapt_data(df)
+            if self.is_lagged:
+                new_pd = pd.concat([self._saved_state, new_pd]).sort_values(['location', 'time_period'])
+            new_pd.to_csv(future_data_name)
+
+        #command = self._predict_command.format(future_data=name,
+        #                                       model=self._model_file_name,
+        #                                       out_file='predictions.csv', **kwargs)
+        #response = self.run_through_container(command)
+
+        predictions_file = Path(self._working_dir) / 'predictions.csv'
+        # touch predictions.csv
+        with open(predictions_file, 'w') as f:
+            pass
+
+        response = mlflow.projects.run(str(self.model_path), entry_point="predict",
+                                        parameters={
+                                             "future_data": str(future_data_name), "model": str(self._model_file_name),
+                                             "out_file": str(predictions_file)
+                                        })
+        try:
+            df = pd.read_csv(predictions_file)
+
+        except pandas.errors.EmptyDataError:
+            # todo: Probably deal with this in an other way, throw an exception istead
+            logging.warning("No data returned from model (empty file from predictions)")
+            raise ValueError(f"No prediction data written")
+        result_class = SummaryStatistics if 'quantile_low' in df.columns else HealthData
+        if self._location_mapping is not None:
+            df['location'] = df['location'].apply(self._location_mapping.index_to_name)
+
+        time_periods = [TimePeriod.parse(s) for s in df.time_period.astype(str)]
+        mask = [start_time <= time_period.start_timestamp for time_period in time_periods]
+        df = df[mask]
+        return DataSet.from_pandas(df, result_class)
 
