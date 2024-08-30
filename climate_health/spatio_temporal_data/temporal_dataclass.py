@@ -3,6 +3,7 @@ from typing import Generic, Iterable, Tuple, Type, Callable
 import numpy as np
 import pandas as pd
 
+from ..api_types import PeriodObservation
 from ..dataset import TemporalIndexType, FeaturesT
 from ..datatypes import Location, add_field, remove_field, TimeSeriesArray, TimeSeriesData
 from ..time_period import PeriodRange
@@ -179,9 +180,40 @@ class SpatioTemporalDict(Generic[FeaturesT]):
         return data_dict
 
     @classmethod
-    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT],
-                    fill_missing=False) -> 'SpatioTemporalDict[FeaturesT]':
-        ''' Split a pandas frame into a SpatioTemporalDict'''
+    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT], fill_missing=False) -> 'SpatioTemporalDict[FeaturesT]':
+        '''
+        Create a SpatioTemporalDict from a pandas dataframe.
+        The dataframe needs to have a 'location' column, and a 'time_period' column.
+        The time_period columnt needs to have strings that can be parsed into a period.
+        All fields in the dataclass needs to be present in the dataframe.
+        If 'fill_missing' is True, missing values will be filled with np.nan. Else all the time series needs to be
+        consecutive.
+
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The dataframe
+        dataclass : Type[FeaturesT]
+            The dataclass to use for the time series
+        fill_missing : bool, optional
+            If missing values should be filled, by default False
+
+        Returns
+        -------
+        SpatioTemporalDict[FeaturesT]
+            The SpatioTemporalDict
+
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+        >>> from climate_health.datatypes import HealthData
+        >>> df = pd.DataFrame({'location': ['Oslo', 'Oslo', 'Bergen', 'Bergen'],
+        ...                    'time_period': ['2020-01', '2020-02', '2020-01', '2020-02'],
+        ...                    'disease_cases': [10, 20, 30, 40]})
+        >>> SpatioTemporalDict.from_pandas(df, HealthData)
+        '''
         data_dict = {}
         for location, data in df.groupby('location'):
             data_dict[location] = TemporalDataclass(dataclass.from_pandas(data, fill_missing))
@@ -191,6 +223,44 @@ class SpatioTemporalDict(Generic[FeaturesT]):
 
     def to_csv(self, file_name: str, mode='w'):
         self.to_pandas().to_csv(file_name, mode=mode)
+
+    @classmethod
+    def df_from_pydantic_observations(cls, observations: list[PeriodObservation])-> TimeSeriesData:
+        df = pd.DataFrame([obs.model_dump() for obs in observations])
+        dataclass = TimeSeriesData.create_class_from_basemodel(type(observations[0]))
+        return dataclass.from_pandas(df)
+
+    @classmethod
+    def from_period_observations(cls, observation_dict: dict[str, list[PeriodObservation]]) -> 'SpatioTemporalDict[TimeSeriesData]':
+        '''
+        Create a SpatioTemporalDict from a dictionary of PeriodObservations.
+        The keys are the location names, and the values are lists of PeriodObservations.
+
+        Parameters
+        ----------
+        observation_dict : dict[str, list[PeriodObservation]]
+            The dictionary of observations
+
+        Returns
+        -------
+        SpatioTemporalDict[TimeSeriesData]
+            The SpatioTemporalDict
+
+        Examples
+        --------
+        >>> from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+        >>> from climate_health.api_types import PeriodObservation
+        >>> class HealthObservation(PeriodObservation):
+        ...     disease_cases: int
+        >>> observations = {'Oslo': [HealthObservation(time_period='2020-01', disease_cases=10),
+        ...                          HealthObservation(time_period='2020-02', disease_cases=20)]}
+        >>> SpatioTemporalDict.from_period_observations(observations)
+        >>> SpatioTemporalDict.to_pandas()
+        '''
+        data_dict = {}
+        for location, observations in observation_dict.items():
+            data_dict[location] = TemporalDataclass(cls.df_from_pydantic_observations(observations))
+        return cls(data_dict)
 
     @classmethod
     def from_csv(cls, file_name: str, dataclass: Type[FeaturesT]) -> 'SpatioTemporalDict[FeaturesT]':

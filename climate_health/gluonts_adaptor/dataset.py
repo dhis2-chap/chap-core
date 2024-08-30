@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Iterable
-
 from ..assessment.dataset_splitting import train_test_split
 from ..file_io.example_data_set import datasets
 from climate_health.datatypes import TimeSeriesData, remove_field
@@ -41,6 +40,9 @@ class DataSetAdaptor:
 
 
 def get_dataset(name):
+    if name == 'full':
+        data_set = MultiCountryDataSet.from_folder(Path('/home/knut/Data/ch_data/full_data'))
+        return DataSetAdaptor.to_gluonts(data_set)
     return DataSetAdaptor.to_gluonts(datasets[name].load())
 
 def get_split_dataset(name, n_periods=6) -> tuple[GlunTSDataSet, GlunTSDataSet]:

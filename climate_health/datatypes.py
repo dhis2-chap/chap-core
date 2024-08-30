@@ -7,11 +7,12 @@ import dataclasses
 
 from typing_extensions import deprecated
 
+from .api_types import PeriodObservation
 from .time_period import PeriodRange
 from .time_period.dataclasses import Period
 from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
-
+import numpy as np
 tsdataclass = bnp.bnpdataclass.bnpdataclass
 
 
@@ -36,6 +37,12 @@ class TimeSeriesData:
         """Write data to a csv file."""
         data = self.to_pandas()
         data.to_csv(csv_file, index=False, **kwargs)
+
+    @classmethod
+    def create_class_from_basemodel(cls, dataclass: type[PeriodObservation]):
+        fields = dataclass.model_fields
+        fields =  [(name, field.annotation) for name, field in fields.items()]
+        return dataclasses.make_dataclass(dataclass.__name__, fields, bases=(TimeSeriesData,))
 
     @staticmethod
     def _fill_missing(data, missing_indices):

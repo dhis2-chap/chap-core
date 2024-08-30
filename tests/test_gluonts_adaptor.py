@@ -6,6 +6,8 @@ from climate_health.gluonts_adaptor.dataset import DataSetAdaptor, get_dataset, 
 from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from .data_fixtures import train_data_pop, full_data
 from climate_health.file_io.example_data_set import datasets
+
+
 @pytest.fixture
 def full_dataset():
     foldername = Path('/home/knut/Data/ch_data/full_data')

@@ -6,9 +6,22 @@ CHAP offers a platform for analysing the relationship between climate and health
     $ pip install git+https://github.com/dhis2/chap-core.git
 
 # Usage
+## Fetching Polygon Data
+Fetch polygons for regions of interest in a country (on admin1 level). The following example fetches polygons for two regions in Norway
+```python
+    import climate_health.fetch
+    polygons = climate_health.fetch.get_area_polygons('Norway', ['Oslo', 'Akershus'])
+    assert [feature.id for feature in polygons.features] == ['Oslo', 'Akershus']
+```
+Region names that are not recognized are skipped:
+
+```python
+    polygons = climate_health.fetch.get_area_polygons('Norway', ['Oslo', 'Akershus', 'Unknown'])
+    assert [feature.id for feature in polygons.features] == ['Oslo', 'Akershus']
+```
+
 ## Fetching climate data
 Fetching climate data through Google Earth Engine. The following example fetches temperature data from the ERA5 dataset for the regions of interest.
-
 
 ```python
 
