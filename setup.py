@@ -22,13 +22,20 @@ requirements = ['typer',
                 'pooch',
                 'python-dateutil',
                 'meteostat',
-                'cyclopts', 'requests', 'pydantic', 'pyyaml',
+                'cyclopts', 'requests',
+                'pydantic>=2.0',
+                'pyyaml',
                 'geopandas', 'libpysal', 'docker',
                 'jax', 'jaxlib', 'blackjax', 'dynamax', 'flax', 'optax',
                 'scipy',
                 'fastapi',
                 'gitpython',  'earthengine-api', 'python-dotenv', 'rq', "python-multipart", "uvicorn",
-                 'pydantic-geojson', 'annotated_types'
+                 'pydantic-geojson', 'annotated_types',
+                'pycountry',
+                'unidecode',
+                'httpx',
+                'earthengine-api'
+
                 ]
 
 test_requirements = ['pytest>=3', "hypothesis"]
