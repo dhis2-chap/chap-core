@@ -34,8 +34,8 @@ requirements = ['typer',
                 'pycountry',
                 'unidecode',
                 'httpx',
-                'earthengine-api'
-
+                'earthengine-api',
+                'mlflow'
                 ]
 
 test_requirements = ['pytest>=3', "hypothesis"]
