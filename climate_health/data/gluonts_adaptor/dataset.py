@@ -1,23 +1,38 @@
+import dataclasses
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TypeVar
 from climate_health.assessment.dataset_splitting import train_test_split
 from climate_health.file_io.example_data_set import datasets
 from climate_health.datatypes import TimeSeriesData, remove_field
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
-from climate_health.time_period import delta_month
+from climate_health.time_period import delta_month, PeriodRange
 
 GlunTSDataSet = Iterable[dict]
 
-
+T = TypeVar('T', bound=TimeSeriesData)
 class DataSetAdaptor:
 
+    @staticmethod
+    def _from_single_gluonts_series(series: dict, dataclass: type[T]) -> T:
+        field_names = [field.name for field in dataclasses.fields(dataclass) if field.name not in ['disease_cases', 'time_period']]
+        field_dict = {name: series['feat_dynamic_real'][:, i] for i, name in enumerate(field_names)}
+        field_dict['disease_cases'] = series['target']
+        field_dict['time_period'] = PeriodRange.from_start_and_n_periods(series['start'], len(series['target']))
+        return dataclass(**field_dict)
 
     @staticmethod
-    def from_gluonts(self, gluonts_dataset: GlunTSDataSet, dataclass: type[TimeSeriesData]) -> DataSet:
-        raise NotImplementedError
+    def from_gluonts(gluonts_dataset: GlunTSDataSet, dataclass: type[T]) -> DataSet[T]:
+        return DataSet(
+            {series['feat_static_cat'][0]:
+                 DataSetAdaptor._from_single_gluonts_series(series, dataclass) for series in gluonts_dataset})
 
     to_dataset = from_gluonts
+
+    @staticmethod
+    def get_metadata(dataset: DataSet):
+        return {'static_cat':
+                    [{i: location for i, location in enumerate(dataset.keys())}]}
 
     @staticmethod
     def to_gluonts(dataset: DataSet, start_index=0, static=None, real=None) -> GlunTSDataSet:
@@ -28,6 +43,7 @@ class DataSetAdaptor:
         assert real is None
         for i, (location, data) in enumerate(dataset.items(), start=start_index):
             period = data.time_period[0]
+
             yield {
                 'start': period.topandas(),
                 'target': data.disease_cases,
@@ -45,11 +61,16 @@ class DataSetAdaptor:
             offset += len(data.keys())
 
 
-def get_dataset(name):
+def get_dataset(name, with_metadata=False):
     if name == 'full':
-        data_set = MultiCountryDataSet.from_folder(Path('/home/knut/Data/ch_data/full_data'))
-        return DataSetAdaptor.to_gluonts(data_set)
-    return DataSetAdaptor.to_gluonts(datasets[name].load())
+        dataset = MultiCountryDataSet.from_folder(Path('/home/knut/Data/ch_data/full_data'))
+        ds = DataSetAdaptor.to_gluonts(dataset)
+    else:
+        dataset = datasets[name].load()
+        ds =  DataSetAdaptor.to_gluonts(dataset)
+    if with_metadata:
+        return ds, DataSetAdaptor.get_metadata(dataset)
+    return ds
 
 def get_split_dataset(name, n_periods=6) -> tuple[GlunTSDataSet, GlunTSDataSet]:
     if name == 'full':

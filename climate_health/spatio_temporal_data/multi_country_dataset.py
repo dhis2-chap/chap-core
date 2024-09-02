@@ -18,6 +18,9 @@ class MultiCountryDataSet:
     def countries(self):
         return list(self._data.keys())
 
+    def keys(self):
+        return self._data.keys()
+
     @classmethod
     def from_tar(cls, url, dataclass=FullData):
         tar_gz_file_name = pooch.retrieve(url, known_hash=None)

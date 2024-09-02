@@ -215,3 +215,11 @@ def test_searchsorted(period_range, period2):
     assert period_range.searchsorted(period2) == array_comparison.searchsorted(1)
     assert period_range.searchsorted(period2, side='right') == array_comparison.searchsorted(1, side='right')
     assert period_range.searchsorted(period2, side='left') == array_comparison.searchsorted(1, side='left')
+
+
+def test_from_start_and_n_periods():
+    start_period = pd.Period('2020-01')
+    n_periods = 3
+    period_range = PeriodRange.from_start_and_n_periods(start_period, n_periods)
+    assert len(period_range) == n_periods
+    assert period_range[0] == TimePeriod.from_pandas(start_period)

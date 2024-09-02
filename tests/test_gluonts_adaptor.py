@@ -3,18 +3,27 @@ from pathlib import Path
 import pytest
 
 from climate_health.data.gluonts_adaptor.dataset import DataSetAdaptor, get_dataset, get_split_dataset
+from climate_health.datatypes import FullData
 from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from climate_health.file_io.example_data_set import datasets
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from .data_fixtures import train_data_pop, full_data
-
+from climate_health.data.datasets import ISIMIP_dengue_harmonized
 
 @pytest.fixture
 def full_dataset():
-    foldername = Path('/home/knut/Data/ch_data/full_data')
-    if not foldername.exists():
-        pytest.skip()
-    dataset = MultiCountryDataSet.from_folder(foldername)
+    dataset = ISIMIP_dengue_harmonized
     return dataset
+
+@pytest.fixture
+def gluonts_vietnam_dataset():
+    dataset = ISIMIP_dengue_harmonized['vietnam']
+    return DataSetAdaptor.from_dataset(dataset)
+
+def test_to_dataset(gluonts_vietnam_dataset):
+    dataset = DataSetAdaptor.to_dataset(gluonts_vietnam_dataset, FullData)
+    assert isinstance(dataset, DataSet)
+    assert len(dataset.keys()) > 3
 
 
 def test_to_gluonts(train_data_pop):
