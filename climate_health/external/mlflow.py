@@ -11,7 +11,6 @@ from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import TimePeriod
 
 logger = logging.getLogger(__name__)
-from climate_health.dataset import IsSpatioTemporalDataSet
 
 FeatureType = TypeVar('FeatureType')
 
@@ -28,11 +27,13 @@ class ExternalMLflowModel(Generic[FeatureType]):
         self._model_file_name = Path(model_path).name + ".model"
         self.is_lagged = True
 
-    def train(self, train_data: IsSpatioTemporalDataSet[FeatureType], extra_args=None):
+    def train(self, train_data: DataSet, extra_args=None):
+
         if extra_args is None:
             extra_args = ''
+
         train_file_name = 'training_data.csv'
-        train_file_name = Path(self._working_dir) / Path(train_file_name)
+        #train_file_name = Path(self._working_dir) / Path(train_file_name)
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
         new_pd.to_csv(train_file_name)
@@ -46,7 +47,8 @@ class ExternalMLflowModel(Generic[FeatureType]):
                                        parameters={
                                            "train_data": str(train_file_name),
                                            "model_output_file": str(self._model_file_name)
-                                       })
+                                       },
+                                       build_image=True)
         self._saved_state = new_pd
         print(response)
 
@@ -81,7 +83,7 @@ class ExternalMLflowModel(Generic[FeatureType]):
                 data[to_name] = data[from_name]
         return data
 
-    def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
+    def predict(self, future_data: DataSet) -> DataSet:
         name = 'future_data.csv'
         future_data_name = Path(self._working_dir) / Path(name)
         start_time = future_data.start_timestamp

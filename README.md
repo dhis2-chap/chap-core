@@ -6,6 +6,16 @@ CHAP offers a platform for analysing the relationship between climate and health
     $ pip install git+https://github.com/dhis2/chap-core.git
 
 # Usage
+## Evaluate a public model on public data
+CHAP supports evaluating models that are defined using the MLflow specification for machine learning models (link coming). Such models can e.g. exist in Github repositories. CHAP also has some built-in example data that can be used to evaluate models. The following example shows how to evaluate an Ewars model located on Github ([https://github.com/sandvelab/chap_auto_ewars](https://github.com/sandvelab/chap_auto_ewars))  using the ISMIP dataset:
+
+```bash
+chap evaluate --model-name https://github.com/sandvelab/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --max-splits 3 --dataset-country brazil
+```
+
+The above example requires a full installation of chap with Docker available.
+
+
 ## Fetching Polygon Data
 Fetch polygons for regions of interest in a country (on admin1 level). The following example fetches polygons for two regions in Norway
 ```python

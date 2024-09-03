@@ -163,6 +163,8 @@ def get_model_maybe_yaml(model_name):
         working_dir = Path(model_name).parent
         model = get_model_from_yaml_file(model_name, working_dir)
         return model, model.name
+    elif model_name.startswith("https://github.com"):
+        return get_model_from_directory_or_github_url(model_name), model_name
     else:
         return get_model(model_name), model_name
 
