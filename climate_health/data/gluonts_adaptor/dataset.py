@@ -11,15 +11,19 @@ from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from climate_health.time_period import delta_month, PeriodRange
 import logging
+
 logger = logging.getLogger(__name__)
 GlunTSDataSet = Iterable[dict]
 
 T = TypeVar('T', bound=TimeSeriesData)
+
+
 class DataSetAdaptor:
 
     @staticmethod
     def _from_single_gluonts_series(series: dict, dataclass: type[T]) -> T:
-        field_names = [field.name for field in dataclasses.fields(dataclass) if field.name not in ['disease_cases', 'time_period']]
+        field_names = [field.name for field in dataclasses.fields(dataclass) if
+                       field.name not in ['disease_cases', 'time_period']]
         field_dict = {name: series['feat_dynamic_real'].T[:, i] for i, name in enumerate(field_names)}
         field_dict['disease_cases'] = series['target']
         field_dict['time_period'] = PeriodRange.from_start_and_n_periods(series['start'], len(series['target']))
@@ -52,7 +56,7 @@ class DataSetAdaptor:
                 'start': period.topandas(),
                 'target': data.disease_cases,
                 'feat_dynamic_real': remove_field(data, 'disease_cases').to_array().T,  # exclude the target
-                'feat_static_cat': [i]+static,
+                'feat_static_cat': [i] + static,
             }
 
     from_dataset = to_gluonts
@@ -77,7 +81,6 @@ class DataSetAdaptor:
                 'feat_static_cat': [i],
             }
 
-
     @staticmethod
     def to_gluonts_multicountry(dataset: MultiCountryDataSet) -> GlunTSDataSet:
         offset = 0
@@ -97,11 +100,14 @@ def get_dataset(name, with_metadata=False):
         return ds, DataSetAdaptor.get_metadata(dataset)
     return ds
 
+
 def get_split_dataset(name, n_periods=6) -> tuple[GlunTSDataSet, GlunTSDataSet]:
     if name == 'full':
         data_set = MultiCountryDataSet.from_folder(Path('/home/knut/Data/ch_data/full_data'))
     else:
         data_set = datasets[name].load()
+
     prediction_start = data_set.period_range[-n_periods]
     train, test = train_test_split(data_set, prediction_start, restrict_test=False)
+
     return DataSetAdaptor.to_gluonts(train), DataSetAdaptor.to_gluonts(test)

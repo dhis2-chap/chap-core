@@ -36,7 +36,6 @@ def test_to_testinstances(train_data_pop: DataSet):
     print(list(ds))
 
 
-
 def test_to_gluonts(train_data_pop):
     dataset = DataSetAdaptor().to_gluonts(train_data_pop)
     dataset = list(dataset)

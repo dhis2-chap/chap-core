@@ -13,6 +13,7 @@ from .time_period.dataclasses import Period
 from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
 import numpy as np
+
 tsdataclass = bnp.bnpdataclass.bnpdataclass
 
 
@@ -41,7 +42,8 @@ class TimeSeriesData:
     @classmethod
     def create_class_from_basemodel(cls, dataclass: type[PeriodObservation]):
         fields = dataclass.model_fields
-        fields =  [(name, field.annotation) if name != 'time_period' else (name, Period) for name, field in fields.items()]
+        fields = [(name, field.annotation) if name != 'time_period' else (name, Period) for name, field in
+                  fields.items()]
         return dataclasses.make_dataclass(dataclass.__name__, fields, bases=(TimeSeriesData,))
 
     @staticmethod
@@ -85,7 +87,7 @@ class TimeSeriesData:
     def interpolate(self):
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
         data_dict['time_period'] = self.time_period
-        fields =  {key: interpolate_nans(value) for key, value in data_dict.items() if key != 'time_period'}
+        fields = {key: interpolate_nans(value) for key, value in data_dict.items() if key != 'time_period'}
         return self.__class__(self.time_period, **fields)
 
     @deprecated('Compatibility with old code')
@@ -116,7 +118,7 @@ class TimeSeriesData:
         return self.__class__(new_time_period, **d)
 
     def fill_to_range(self, start_timestamp, end_timestamp):
-        if self.end_timestamp == end_timestamp and self.start_timestamp==start_timestamp:
+        if self.end_timestamp == end_timestamp and self.start_timestamp == start_timestamp:
             return self
         n_missing_start = (self.start_timestamp - start_timestamp) // self._data.time_period.delta
         n_missing = (end_timestamp - self.end_timestamp) // self._data.time_period.delta
@@ -133,12 +135,14 @@ class TimeSeriesData:
         return self.__class__(new_time_period, **d)
 
     def to_array(self):
-        return np.array([getattr(self, field.name) for field in dataclasses.fields(self) if field.name != 'time_period']).T
+        return np.array(
+            [getattr(self, field.name) for field in dataclasses.fields(self) if field.name != 'time_period']).T
 
 
 @tsdataclass
 class TimeSeriesArray(TimeSeriesData):
     value: float
+
 
 @tsdataclass
 class SimpleClimateData(TimeSeriesData):
@@ -147,14 +151,11 @@ class SimpleClimateData(TimeSeriesData):
     # max_temperature: float
 
 
-
-
 @tsdataclass
 class ClimateData(TimeSeriesData):
     rainfall: float
     mean_temperature: float
     max_temperature: float
-
 
 
 @tsdataclass
@@ -169,7 +170,8 @@ class ClimateHealthTimeSeries(TimeSeriesData):
     disease_cases: int
 
     @classmethod
-    def combine(cls, health_data: HealthData, climate_data: ClimateData, fill_missing=False) -> 'ClimateHealthTimeSeries':
+    def combine(cls, health_data: HealthData, climate_data: ClimateData,
+                fill_missing=False) -> 'ClimateHealthTimeSeries':
         return ClimateHealthTimeSeries(time_period=health_data.time_period, rainfall=climate_data.rainfall,
                                        mean_temperature=climate_data.mean_temperature,
                                        disease_cases=health_data.disease_cases)
@@ -182,17 +184,21 @@ class ClimateHealthTimeSeries(TimeSeriesData):
 
 ClimateHealthData = ClimateHealthTimeSeries
 
+
 @tsdataclass
 class FullData(ClimateHealthData):
     population: int
 
     @classmethod
-    def combine(cls, health_data: HealthData, climate_data: ClimateData, population: float) -> 'ClimateHealthTimeSeries':
+    def combine(cls, health_data: HealthData, climate_data: ClimateData,
+                population: float) -> 'ClimateHealthTimeSeries':
         return cls(time_period=health_data.time_period,
                    rainfall=climate_data.rainfall,
                    mean_temperature=climate_data.mean_temperature,
                    disease_cases=health_data.disease_cases,
                    population=np.full(len(health_data), population))
+
+
 @tsdataclass
 class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
     location: str
@@ -213,6 +219,7 @@ class ClimateHealthTimeSeriesModel(BaseModel):
             return data
         else:
             return pd.Period(data)
+
 
 @tsdataclass
 class HealthPopulationData(HealthData):
@@ -249,6 +256,11 @@ class SummaryStatistics(TimeSeriesData):
     # quantile_size: -> Maybe add this later
 
 
+@tsdataclass
+class Samples(TimeSeriesData):
+    samples: float
+
+
 @dataclasses.dataclass
 class Quantile:
     low: float
@@ -262,10 +274,15 @@ ResultType = pd.DataFrame
 def add_field(data: BNPDataClass, new_class: type, **field_data):
     return new_class(**{field.name: getattr(data, field.name) for field in dataclasses.fields(data)} | field_data)
 
+
 def remove_field(data: BNPDataClass, field_name, new_class=None):
     is_type = isinstance(data, type)
     if new_class is None:
-        new_class = tsdataclass(dataclasses.make_dataclass(data.__class__.__name__, [(field.name, field.type) for field in dataclasses.fields(data) if field.name != field_name], bases=(TimeSeriesData,)))
+        new_class = tsdataclass(dataclasses.make_dataclass(data.__class__.__name__,
+                                                           [(field.name, field.type) for field in
+                                                            dataclasses.fields(data) if field.name != field_name],
+                                                           bases=(TimeSeriesData,)))
         if is_type:
             return new_class
-    return new_class(**{field.name: getattr(data, field.name) for field in dataclasses.fields(data) if field.name != field_name})
+    return new_class(
+        **{field.name: getattr(data, field.name) for field in dataclasses.fields(data) if field.name != field_name})
