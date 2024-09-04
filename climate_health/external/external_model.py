@@ -1,13 +1,16 @@
 import logging
 import os.path
+import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime
 from hashlib import md5
 from pathlib import Path
 from typing import Protocol, Generic, TypeVar, Tuple, Optional
 
 import docker
+import git
 import numpy as np
 import pandas as pd
 import pandas.errors
@@ -17,6 +20,7 @@ import json
 from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.docker_helper_functions import create_docker_image, run_command_through_docker_container
+from climate_health.external.mlflow import ExternalMLflowModel
 from climate_health.geojson import NeighbourGraph
 from climate_health.runners.command_line_runner import CommandLineRunner
 from climate_health.runners.docker_runner import DockerImageRunner, DockerRunner
@@ -236,6 +240,36 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     def _provide_temp_file(self):
         return tempfile.NamedTemporaryFile(dir=self._working_dir, delete=False)
 
+    @classmethod
+    def from_mlproject_file(cls, mlproject_file):
+        working_dir = mlproject_file.parent
+        # read yaml file into a dict
+        with open(mlproject_file, 'r') as file:
+            data = yaml.load(file, Loader=yaml.FullLoader)
+
+        name = data['name']
+        train_command = data['entry_points']['train']
+        predict_command = data['entry_points']['predict']
+        setup_command = None
+        data_type = data.get('data_type', None)
+        allowed_data_types = {'HealthData': HealthData}
+        data_type = allowed_data_types.get(data_type, None)
+
+        assert "docker_env" in data, "Only docker supported for now"
+        runner = DockerRunner(data['docker_env']['image'], working_dir)
+
+        model = cls(
+            name=name,
+            train_command=train_command,
+            predict_command=predict_command,
+            data_type=data_type,
+            setup_command=setup_command,
+            working_dir=working_dir,
+            # working_dir=Path(yaml_file).parent,
+            adapters=data.get('adapters', None),
+            runner=runner,
+        )
+        return model
 
 
 # todo: remove this
@@ -327,3 +361,65 @@ def get_runner_from_yaml_file(yaml_file: str) -> Runner:
 
 def get_model_and_runner_from_yaml_file(yaml_file: str) -> Tuple[ExternalCommandLineModel, Runner]:
     return ExternalCommandLineModel.from_yaml_file(yaml_file), get_runner_from_yaml_file(yaml_file)
+
+
+
+def get_model_from_directory_or_github_url(model_path, base_working_dir=Path('runs/')):
+    """
+    Gets the model and initializes a working directory with the code for the model.
+    model_path can be a local directory or github url
+    """
+    is_github = False
+    if isinstance(model_path, str) and model_path.startswith("https://github.com"):
+        dir_name = model_path.split("/")[-1].replace(".git", "")
+        model_name = dir_name
+        is_github = True
+    else:
+        model_name = Path(model_path).name
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    working_dir = base_working_dir / model_name / timestamp
+
+    if is_github:
+        working_dir.mkdir(parents=True)
+        git.Repo.clone_from(model_path, working_dir)
+    else:
+        # copy contents of model_path to working_dir
+        shutil.copytree(model_path, working_dir)
+
+    # assert that a config file exists
+    assert (working_dir / 'config.yml').exists(), f"config.yml file not found in {working_dir}"
+    if (working_dir / 'config.yml').exists():
+        return get_model_from_yaml_file(working_dir / 'config.yml', working_dir)
+    else:
+        assert (working_dir / 'MLproject').exists(), f"MLproject file not found in {working_dir}"
+        return get_model_from_mlproject_file(working_dir / 'MLproject')
+
+
+def get_model_from_mlproject_file(mlproject_file):
+    """ parses file and returns the model
+    Will not use MLflows project setup if docker is specified
+    """
+
+    with open(mlproject_file, 'r') as file:
+        config = yaml.load(mlproject_file, Loader=yaml.FullLoader)
+    if "docker_env" in config:
+        return ExternalCommandLineModel.from_mlproject_file(mlproject_file)
+    else:
+        name = config["name"]
+        return ExternalMLflowModel(mlproject_file, name=name, working_dir=Path(mlproject_file).parent)
+
+
+def get_model_maybe_yaml(model_name):
+    model = get_model_from_directory_or_github_url(model_name)
+    return model, model.name
+
+    from climate_health.predictor import get_model
+    if model_name.endswith(".yaml") or model_name.endswith(".yml"):
+        working_dir = Path(model_name).parent
+        model = get_model_from_yaml_file(model_name, working_dir)
+        return model, model.name
+    elif model_name.startswith("https://github.com"):
+        return get_model_from_directory_or_github_url(model_name), model_name
+    else:
+        return get_model(model_name), model_name

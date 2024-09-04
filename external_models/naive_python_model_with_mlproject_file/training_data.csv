@@ -1,0 +1,15 @@
+,time_period,rainfall,mean_temperature,disease_cases,location
+0,2012-01,1,1,20,oslo
+1,2012-02,1,1,20,oslo
+2,2012-03,1,1,20,oslo
+3,2012-04,1,1,20,oslo
+4,2012-05,1,1,20,oslo
+5,2012-06,1,1,20,oslo
+6,2012-07,1,1,20,oslo
+0,2012-01,100,1,1,bergen
+1,2012-02,100,1,1,bergen
+2,2012-03,100,1,1,bergen
+3,2012-04,100,1,1,bergen
+4,2012-05,100,1,1,bergen
+5,2012-06,100,1,1,bergen
+6,2012-07,100,1,1,bergen

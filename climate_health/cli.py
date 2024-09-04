@@ -8,7 +8,6 @@ from typing import Literal, Optional
 import numpy as np
 import pandas as pd
 from cyclopts import App
-from climate_health.api import get_model_maybe_yaml, get_model_from_directory_or_github_url
 from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from . import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost

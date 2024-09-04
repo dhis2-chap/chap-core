@@ -4,15 +4,17 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import yaml
+from databricks.sdk.service.serving import ExternalModel
 
-from climate_health.api import get_model_from_directory_or_github_url
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.datatypes import ClimateHealthTimeSeries,FullData
 
 logging.basicConfig(level=logging.INFO)
-from climate_health.external.external_model import get_model_from_yaml_file, run_command
+from climate_health.external.external_model import (get_model_from_yaml_file, run_command,
+                                                    ExternalCommandLineModel,
+                                                    get_model_from_directory_or_github_url)
 from ..data_fixtures import train_data, train_data_pop, future_climate_data
-from climate_health.util import conda_available
+from climate_health.util import conda_available, docker_available
 
 
 @pytest.mark.skipif(not conda_available(), reason='requires conda')
@@ -31,6 +33,18 @@ def test_python_model_from_folder(models_path, train_data, future_climate_data):
     model.train(train_data)
     results = model.predict(future_climate_data)
     assert results is not None
+
+
+@pytest.mark.skipif(not docker_available(), reason='Requires docker')
+def test_python_model_from_folder_with_mlproject_file(models_path):
+    path = models_path / 'naive_python_model_with_mlproject_file'
+    model = ExternalCommandLineModel.from_mlproject_file(path / 'MLproject')
+
+
+def test_model_from_string_acceptance(models_path):
+    model = get_model_from_directory_or_github_url(models_path / 'naive_python_model_with_mlproject_file')
+    model = get_model_from_directory_or_github_url(models_path / 'naive_python_model')
+    model = get_model_from_directory_or_github_url("https://github.com/knutdrand/external_rmodel_example.git")
 
 
 def get_dataset_from_yaml(yaml_path: Path, datatype=ClimateHealthTimeSeries):
