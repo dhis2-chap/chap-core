@@ -167,6 +167,10 @@ class TimePeriod:
         return Year(date)
 
     @classmethod
+    def from_pandas(cls, period: pd.Period):
+        return cls.parse(str(period))
+
+    @classmethod
     def parse_week(cls, week: str):
         year, weeknr = week.split('W')
         return Week(int(year), int(weeknr))
@@ -496,6 +500,11 @@ class PeriodRange:
         periods = [TimePeriod.from_id(id) for id in ids]
         return cls.from_period_list(fill_missing, periods)
 
+    @classmethod
+    def from_start_and_n_periods(cls, start_period: pd.Period, n_periods: int):
+        period = TimePeriod.from_pandas(start_period)
+        delta = period.time_delta
+        return cls.from_time_periods(period, period + delta * (n_periods-1))
 
     @classmethod
     def from_period_list(cls, fill_missing, periods):

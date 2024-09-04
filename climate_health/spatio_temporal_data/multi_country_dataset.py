@@ -18,6 +18,9 @@ class MultiCountryDataSet:
     def countries(self):
         return list(self._data.keys())
 
+    def keys(self):
+        return self._data.keys()
+
     @classmethod
     def from_tar(cls, url, dataclass=FullData):
         tar_gz_file_name = pooch.retrieve(url, known_hash=None)
@@ -26,6 +29,7 @@ class MultiCountryDataSet:
             extracted_files = {Path(member.name).stem: tar_file.extractfile(member) for member in members}
             print({name: ef.name for name, ef in extracted_files.items() if ef is not None})
             data = {name: DataSet.from_csv(ef, dataclass) for name, ef in extracted_files.items() if ef is not None}
+
         return MultiCountryDataSet(data)
 
     def items(self):

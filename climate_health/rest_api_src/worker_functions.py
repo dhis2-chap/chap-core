@@ -1,4 +1,3 @@
-import plotly.express as px
 import json
 import os
 from pathlib import Path
