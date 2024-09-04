@@ -29,6 +29,7 @@ class MultiCountryDataSet:
             extracted_files = {Path(member.name).stem: tar_file.extractfile(member) for member in members}
             print({name: ef.name for name, ef in extracted_files.items() if ef is not None})
             data = {name: DataSet.from_csv(ef, dataclass) for name, ef in extracted_files.items() if ef is not None}
+
         return MultiCountryDataSet(data)
 
     def items(self):
