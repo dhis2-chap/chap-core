@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from cyclopts import App
 from climate_health.api import get_model_maybe_yaml, get_model_from_directory_or_github_url
+from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from . import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
 from climate_health.dhis2_interface.json_parsing import add_population_data, predictions_to_datavalue
@@ -32,12 +33,19 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
 
 
 @app.command()
-def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits: int, other_model: ModelType = None):
+def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits: int, dataset_country: Optional[str] = None, other_model: ModelType = None):
     '''
     Evaluate a model on a dataset using forecast cross validation
     '''
     logging.basicConfig(level=logging.INFO)
-    dataset = datasets[dataset_name].load()
+    dataset = datasets[dataset_name]
+    dataset = dataset.load()
+
+    if isinstance(dataset, MultiCountryDataSet):
+        assert dataset_country is not None, 'Must specify a country for multi country datasets'
+        assert dataset_country in dataset.countries, f'Country {dataset_country} not found in dataset. Countries: {dataset.countries}'
+        dataset = dataset[dataset_country]
+
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
     # model = get_model(model_name)()
@@ -45,12 +53,13 @@ def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits:
     callback = lambda name, data: append_to_csv(f, data.to_pandas())
     results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True,
                                     naive_model_cls=get_model(other_model) if other_model else None, callback=callback,
-                                    mode='prediction_summary')
+                                    mode='prediction_summary',
+                                    run_naive_predictor=False)
     output_filename = get_results_path() / f'{model_name}_{dataset_name}_results.html'
     table_filename = PurePath(output_filename).with_suffix('.csv')
     results.save(output_filename)
     table.to_csv(table_filename)
-    webbrowser.open(output_filename)
+    webbrowser.open(str(output_filename))
 
 
 @app.command()

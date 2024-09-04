@@ -37,7 +37,9 @@ def plot_rmse(rmse_dict, do_show=True):
     return fig
 
 
-def evaluate_model(data_set, external_model, max_splits=5, start_offset=20, return_table=False, naive_model_cls=None, callback=None, mode = 'predict'):
+def evaluate_model(data_set, external_model, max_splits=5, start_offset=20,
+                   return_table=False, naive_model_cls=None, callback=None, mode = 'predict',
+                   run_naive_predictor=True):
     '''
     Evaluate a model on a dataset using forecast cross validation
     '''
@@ -59,11 +61,13 @@ def evaluate_model(data_set, external_model, max_splits=5, start_offset=20, retu
         if callback:
             callback('predictions', predictions)
         evaluator.add_predictions(model_name, predictions)
-        naive_predictor = naive_model_cls()
-        naive_predictor.train(train_data)
-        naive_predictions = getattr(naive_predictor, mode)(future_climate_data)
-        evaluator.add_predictions(naive_model_name, naive_predictions)
-    results: dict[str, pd.DataFrame] = evaluator.get_results()
+        if run_naive_predictor:
+            naive_predictor = naive_model_cls()
+            naive_predictor.train(train_data)
+            naive_predictions = getattr(naive_predictor, mode)(future_climate_data)
+            evaluator.add_predictions(naive_model_name, naive_predictions)
+
+        results: dict[str, pd.DataFrame] = evaluator.get_results()
     report_class = HTMLReport if mode == 'predict' else HTMLSummaryReport
 
     report_class.error_measure = 'mle'
