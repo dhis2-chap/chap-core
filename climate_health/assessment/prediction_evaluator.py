@@ -1,12 +1,14 @@
 from dataclasses import dataclass
 from typing import Protocol, TypeVar
 
+from gluonts.evaluation import Evaluator
 from sklearn.metrics import root_mean_squared_error
 import pandas as pd
 import plotly.express as px
 from climate_health.assessment.dataset_splitting import get_split_points_for_data_set, split_test_train_on_period, \
-    train_test_split
+    train_test_split, train_test_generator
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
+from climate_health.data.gluonts_adaptor.dataset import ForecastAdaptor
 from climate_health.datatypes import TimeSeriesData, Samples
 from climate_health.predictor.naive_predictor import MultiRegionPoissonModel
 from climate_health.reports import HTMLReport, HTMLSummaryReport
@@ -104,7 +106,20 @@ class Estimator(Protocol):
         ...
 
 
-def evaluate_model(self, estimator: Estimator, data: DataSet, n_periods):
-    train, test_generator = train_test_split(data, data.period_range[-n_periods])
+def evaluate_model(estimator: Estimator, data: DataSet, prediction_length=3, n_test_sets=4):
+    train, test_generator = train_test_generator(data, prediction_length, n_test_sets)
     predictor = estimator.train(data)
-    forecasts = predictor.predict()
+    truth_data = {location: pd.DataFrame(data[location].disease_cases, index=data[location].time_period.to_period_index()) for location in data.keys()}
+    tss = []
+    forecast_list = []
+    for historic_data, future_data, _ in test_generator:
+        forecasts = predictor.predict(historic_data,future_data)
+        for location, samples in forecasts.items():
+            forecast = ForecastAdaptor.from_samples(samples)
+            t = truth_data[location]
+            tss.append(t)
+            forecast_list.append(forecast)
+    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
+    results = evaluator(tss, forecast_list)
+    return results
+        #forecasts = ((predictor.predict(*test_pair[:2]), test_pair[2]) for test_pair in test_generator)

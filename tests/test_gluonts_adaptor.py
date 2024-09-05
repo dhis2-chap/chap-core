@@ -1,13 +1,14 @@
 from pathlib import Path
-
+import numpy as np
 import pytest
 
 from climate_health.assessment.dataset_splitting import train_test_split
-from climate_health.data.gluonts_adaptor.dataset import DataSetAdaptor, get_dataset, get_split_dataset
-from climate_health.datatypes import FullData, remove_field
+from climate_health.data.gluonts_adaptor.dataset import DataSetAdaptor, get_dataset, get_split_dataset, ForecastAdaptor
+from climate_health.datatypes import FullData, remove_field, Samples
 from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from climate_health.file_io.example_data_set import datasets
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from climate_health.time_period import PeriodRange
 from .data_fixtures import train_data_pop, full_data
 from climate_health.data.datasets import ISIMIP_dengue_harmonized
 
@@ -71,3 +72,8 @@ def test_get_split_dataset(laos_full_data):
 
 def test_full_data(full_dataset):
     print(list(DataSetAdaptor.to_gluonts_multicountry(full_dataset)))
+
+def test_forecast_adaptor():
+    samples = Samples(PeriodRange.from_strings(['2021-01', '2021-02']),
+                      np.arange(6).reshape(2,3))
+    assert ForecastAdaptor.from_samples(samples).samples.shape ==(3, 2)

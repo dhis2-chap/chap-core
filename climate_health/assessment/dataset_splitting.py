@@ -62,11 +62,11 @@ def train_test_generator(dataset: DataSet, prediction_length: int, n_test_sets: 
     train_set = dataset.restrict_time_period(slice(None, dataset.period_range[split_idx]))
     historic_data = (dataset.restrict_time_period(slice(None, dataset.period_range[split_idx + i]))
                      for i in range(n_test_sets))
-    future_data = (dataset.restrict_time_period(slice(dataset.period_range[split_idx + i + 1],
+    future_data = [dataset.restrict_time_period(slice(dataset.period_range[split_idx + i + 1],
                                                       dataset.period_range[split_idx + i + prediction_length]))
-                   for i in range(n_test_sets))
+                   for i in range(n_test_sets)]
     masked_future_data = (dataset.remove_field('disease_cases') for dataset in future_data)
-    return train_set, zip(historic_data, masked_future_data)
+    return train_set, zip(historic_data, masked_future_data, future_data)
 
 
 def train_test_split_with_weather(data_set: DataSet, prediction_start_period: TimePeriod,
@@ -76,9 +76,6 @@ def train_test_split_with_weather(data_set: DataSet, prediction_start_period: Ti
     tmp_values: Iterable[Tuple[str, ClimateHealthData]] = ((loc, temporal_data.data()) for loc, temporal_data in
                                                            test_set.items())
     future_weather = test_set.remove_field('disease_cases')  # SpatioTemporalDict(
-    # {loc: future_weather_class(
-    #    *[getattr(values, field.name) if hasattr(values, field.name) else values.mean_temperature for field in dataclasses.fields(future_weather_class)])
-    # for loc, values in tmp_values})
     train_periods = {str(period) for data in train_set.data() for period in data.data().time_period}
     future_periods = {str(period) for data in future_weather.data() for period in data.data().time_period}
     assert train_periods & future_periods == set(), f"Train and future weather data overlap: {train_periods & future_periods}"
