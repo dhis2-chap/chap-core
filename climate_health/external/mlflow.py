@@ -32,7 +32,7 @@ class ExternalMLflowModel(Generic[FeatureType]):
     @property
     def name(self):
         return self._name
-    
+
     def __call__(self):
         return self
 
@@ -55,7 +55,7 @@ class ExternalMLflowModel(Generic[FeatureType]):
         response = mlflow.projects.run(str(self.model_path), entry_point="train",
                                        parameters={
                                            "train_data": str(train_file_name),
-                                           "model_output_file": str(self._model_file_name)
+                                           "model": str(self._model_file_name)
                                        },
                                        build_image=True)
         self._saved_state = new_pd
