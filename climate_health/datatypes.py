@@ -260,6 +260,20 @@ class SummaryStatistics(TimeSeriesData):
 class Samples(TimeSeriesData):
     samples: float
 
+    def topandas(self):
+        n_samples = self.samples.shape[-1]
+        df = pd.DataFrame({'time_period': self.time_period.topandas()} | {f'sample_{i}': self.samples[:, i] for i in
+                                                                          range(n_samples)})
+        return df
+
+    @classmethod
+    def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> 'TimeSeriesData':
+        ptime = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
+        n_samples = sum(1 for col in data.columns if col.startswith('sample_'))
+        samples = np.array([data[f'sample_{i}'].values for i in range(n_samples)]).T
+        return cls(ptime, samples)
+
+    to_pandas = topandas
 
 @dataclasses.dataclass
 class Quantile:

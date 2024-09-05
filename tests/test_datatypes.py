@@ -3,7 +3,7 @@ import numpy as np
 import bionumpy as bnp
 import pytest
 from bionumpy.util.testing import assert_bnpdataclass_equal
-from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
+from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, Samples
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import PeriodRange
 from climate_health.time_period.dataclasses import Year
@@ -59,3 +59,17 @@ def test_dataset_with_missing(dataset_with_missing):
     for location, data in health_data.items():
         # assert data.start_timestamp == start
         assert data.end_timestamp == end
+
+@pytest.fixture()
+def samples():
+    time_period = PeriodRange.from_strings(['2010', '2011', '2012'])
+    return Samples(
+        time_period=time_period,
+        samples=np.random.rand(3, 10))
+
+
+def test_samples(samples, tmp_path):
+    path = tmp_path/'samples.csv'
+    samples.to_csv(path)
+    samples2 = Samples.from_csv(path)
+    assert_bnpdataclass_equal(samples, samples2)
