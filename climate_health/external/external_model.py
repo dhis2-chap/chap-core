@@ -113,7 +113,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
     def run_through_container(self, command: str):
         """Runs the command through either conda, docker or directly depending on the config"""
-        logger.info(f'Running command: {command}')
+        logger.info(f'Running command: {command} through runner {self._runner}')
         return self._runner.run_command(command)
 
     def setup(self):
@@ -248,8 +248,8 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             data = yaml.load(file, Loader=yaml.FullLoader)
 
         name = data['name']
-        train_command = data['entry_points']['train']
-        predict_command = data['entry_points']['predict']
+        train_command = data['entry_points']['train']['command']
+        predict_command = data['entry_points']['predict']['command']
         setup_command = None
         data_type = data.get('data_type', None)
         allowed_data_types = {'HealthData': HealthData}
@@ -388,12 +388,13 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path('ru
         shutil.copytree(model_path, working_dir)
 
     # assert that a config file exists
-    assert (working_dir / 'config.yml').exists(), f"config.yml file not found in {working_dir}"
-    if (working_dir / 'config.yml').exists():
-        return get_model_from_yaml_file(working_dir / 'config.yml', working_dir)
-    else:
+    if (working_dir / 'MLproject').exists():
         assert (working_dir / 'MLproject').exists(), f"MLproject file not found in {working_dir}"
         return get_model_from_mlproject_file(working_dir / 'MLproject')
+    elif (working_dir / 'config.yml').exists():
+        return get_model_from_yaml_file(working_dir / 'config.yml', working_dir)
+    else:
+        raise Exception("No config.yml or MLproject file found in model directory")
 
 
 def get_model_from_mlproject_file(mlproject_file):
@@ -402,12 +403,18 @@ def get_model_from_mlproject_file(mlproject_file):
     """
 
     with open(mlproject_file, 'r') as file:
-        config = yaml.load(mlproject_file, Loader=yaml.FullLoader)
+        config = yaml.load(file, Loader=yaml.FullLoader)
     if "docker_env" in config:
+        logging.info("Docker env is specified in mlproject file, using ExternalCommandLineModel")
         return ExternalCommandLineModel.from_mlproject_file(mlproject_file)
     else:
+        logging.info("Will create ExternalMlflowModel")
         name = config["name"]
-        return ExternalMLflowModel(mlproject_file, name=name, working_dir=Path(mlproject_file).parent)
+        adapters = config.get('adapters', None)
+        allowed_data_types = {'HealthData': HealthData}
+        data_type = allowed_data_types.get(config.get('data_type', None), None)
+        return ExternalMLflowModel(mlproject_file, name=name, adapters=adapters, data_type=data_type,
+                                   working_dir=Path(mlproject_file).parent)
 
 
 def get_model_maybe_yaml(model_name):

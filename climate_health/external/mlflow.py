@@ -19,13 +19,14 @@ class ExternalMLflowModel(Generic[FeatureType]):
     Wrapper around an mlflow model with commands for training and predicting
     """
 
-    def __init__(self, model_path: str, name: str=None, adapters=None, working_dir="./"):
+    def __init__(self, model_path: str, name: str=None, adapters=None, working_dir="./", data_type=HealthData):
         self.model_path = model_path
         self._adapters = adapters
         self._working_dir = working_dir
         self._location_mapping = None
         self._model_file_name = Path(model_path).name + ".model"
         self.is_lagged = True
+        self._data_type = data_type
 
     @property
     def name(self):

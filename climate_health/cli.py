@@ -8,6 +8,8 @@ from typing import Literal, Optional
 import numpy as np
 import pandas as pd
 from cyclopts import App
+
+from climate_health.external.external_model import get_model_maybe_yaml
 from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from . import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
@@ -48,6 +50,7 @@ def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits:
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
     # model = get_model(model_name)()
+
     f = open('debug.csv', 'w')
     callback = lambda name, data: append_to_csv(f, data.to_pandas())
     results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True,
