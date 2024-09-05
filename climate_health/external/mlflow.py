@@ -32,6 +32,9 @@ class ExternalMLflowModel(Generic[FeatureType]):
     @property
     def name(self):
         return self._name
+    
+    def __call__(self):
+        return self
 
     def train(self, train_data: DataSet, extra_args=None):
 
