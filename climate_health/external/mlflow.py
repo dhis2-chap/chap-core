@@ -27,6 +27,7 @@ class ExternalMLflowModel(Generic[FeatureType]):
         self._model_file_name = Path(model_path).name + ".model"
         self.is_lagged = True
         self._data_type = data_type
+        self._name = name
 
     @property
     def name(self):
