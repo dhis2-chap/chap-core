@@ -1,11 +1,18 @@
+from dataclasses import dataclass
+from typing import Protocol, TypeVar
+
 from sklearn.metrics import root_mean_squared_error
 import pandas as pd
 import plotly.express as px
-from climate_health.assessment.dataset_splitting import get_split_points_for_data_set, split_test_train_on_period
+from climate_health.assessment.dataset_splitting import get_split_points_for_data_set, split_test_train_on_period, \
+    train_test_split
 from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
+from climate_health.datatypes import TimeSeriesData, Samples
 from climate_health.predictor.naive_predictor import MultiRegionPoissonModel
 from climate_health.reports import HTMLReport, HTMLSummaryReport
 import logging
+
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +45,7 @@ def plot_rmse(rmse_dict, do_show=True):
 
 
 def evaluate_model(data_set, external_model, max_splits=5, start_offset=20,
-                   return_table=False, naive_model_cls=None, callback=None, mode = 'predict',
+                   return_table=False, naive_model_cls=None, callback=None, mode='predict',
                    run_naive_predictor=True):
     '''
     Evaluate a model on a dataset using forecast cross validation
@@ -78,3 +85,26 @@ def evaluate_model(data_set, external_model, max_splits=5, start_offset=20,
         results = pd.concat(results.values())
         return report, results
     return report
+
+
+FetureType = TypeVar('FeatureType', bound=TimeSeriesData)
+
+
+def without_disease(t):
+    return t
+
+
+class Predictor(Protocol):
+    def predict(self, historic_data: DataSet[FetureType], future_data: DataSet[without_disease(FetureType)]) -> Samples:
+        ...
+
+
+class Estimator(Protocol):
+    def train(self, data: DataSet) -> Predictor:
+        ...
+
+
+def evaluate_model(self, estimator: Estimator, data: DataSet, n_periods):
+    train, test_generator = train_test_split(data, data.period_range[-n_periods])
+    predictor = estimator.train(data)
+    forecasts = predictor.predict()
