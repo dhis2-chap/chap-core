@@ -37,7 +37,7 @@ Fetching climate data through Google Earth Engine. The following example fetches
 
     import climate_health.fetch
     credentials = dict(account='demoaccount@demo.gserviceaccount.com', private_key='private_key')
-    polygons = open("../example_data/Organisation units.geojson").read()
+    polygons = open("polygon_file.geojson").read()
     start_period = '202001' # January 2020
     end_period = '202011' # December 2020
     band_names = ['temperature_2m', 'total_precipitation_sum']
