@@ -31,13 +31,13 @@ Region names that are not recognized are skipped:
 ```
 
 ## Fetching climate data
-Fetching climate data through Google Earth Engine. The following example fetches temperature data from the ERA5 dataset for the regions of interest.
+Fetching climate data through Google Earth Engine. The following example fetches temperature data from the ERA5 dataset for the regions of interest. You need to have an an account at gee, and pass the credentials to the method to make this work: https://developers.google.com/earth-engine/guides/auth
 
 ```python
 
     import climate_health.fetch
     credentials = dict(account='demoaccount@demo.gserviceaccount.com', private_key='private_key')
-    polygons = open("../example_data/Organisation units.geojson").read()
+    polygons = open("polygon_file.geojson").read()
     start_period = '202001' # January 2020
     end_period = '202011' # December 2020
     band_names = ['temperature_2m', 'total_precipitation_sum']
