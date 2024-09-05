@@ -27,10 +27,14 @@ class ExternalMLflowModel(Generic[FeatureType]):
         self._model_file_name = Path(model_path).name + ".model"
         self.is_lagged = True
         self._data_type = data_type
+        self._name = name
 
     @property
     def name(self):
         return self._name
+
+    def __call__(self):
+        return self
 
     def train(self, train_data: DataSet, extra_args=None):
 
@@ -51,7 +55,7 @@ class ExternalMLflowModel(Generic[FeatureType]):
         response = mlflow.projects.run(str(self.model_path), entry_point="train",
                                        parameters={
                                            "train_data": str(train_file_name),
-                                           "model_output_file": str(self._model_file_name)
+                                           "model": str(self._model_file_name)
                                        },
                                        build_image=True)
         self._saved_state = new_pd

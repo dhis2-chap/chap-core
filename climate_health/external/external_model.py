@@ -196,6 +196,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             df = future_data.to_pandas()
             df['disease_cases'] = np.nan
 
+            # todo: instead of using saved state for historic data, get histori data in as argument to predict
+            # send historic data and future data as two seperate data sets to model
+
             new_pd = self._adapt_data(df)
             if self.is_lagged:
                 new_pd = pd.concat([self._saved_state, new_pd]).sort_values(['location', 'time_period'])
@@ -413,7 +416,7 @@ def get_model_from_mlproject_file(mlproject_file):
         adapters = config.get('adapters', None)
         allowed_data_types = {'HealthData': HealthData}
         data_type = allowed_data_types.get(config.get('data_type', None), None)
-        return ExternalMLflowModel(mlproject_file, name=name, adapters=adapters, data_type=data_type,
+        return ExternalMLflowModel(mlproject_file.parent, name=name, adapters=adapters, data_type=data_type,
                                    working_dir=Path(mlproject_file).parent)
 
 
