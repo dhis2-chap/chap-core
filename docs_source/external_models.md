@@ -5,61 +5,32 @@ CHAP can run external models in two ways:
 - By specifying a path to a local code base
 - or by specifying a github URL to a git repo. The url needs to start with https://github.com/
 
-In either case, the directory or repo should contain a config.yaml file that specifies how to train and predict with the model.
+In either case, the directory or repo should be a valid MLproject directory, with an `MLproject` file. Se the specification in the [MLflow documentation](https://www.mlflow.org/docs/latest/projects.html#project-format). In addition, we require the following:
 
-The YAML file should follow this structure:
+- An entry point in the MLproject file called `train` with parameters `train_data` and `model`
+- An entry point in the MLproject file called `predict` with parameters `historic_data`, `future_data`, `model` and `out_file`
 
-```yaml
-name: [Name of the model]
-train_command: [A template string for command that is run for training the model. Should contain {train_data} (which will be replaced with a train data file when .train() is called on the model) and {model} (whish will be replaced by a temp file name that the model is stored to).
-predict_command: [A template command for training. Should contain {future_data} (which will be replaced by a .csv file containing future data) and {model}.
-```
+These should contain commands that can be run to train a model and predict the future using that model. The model parameter should be used to save a model in the train step that can be read and used in the predict step. CHAP will provide all the data (the other parameters) when running a model.
 
-An example:
-```yaml
-name: hydromet_dengue
-train_command: "Rscript train2.R {train_data} {model} map.graph"
-predict_command: "Rscript predict.R {future_data} {model}"
-```
-
-### Using a docker image for external models
-
-It is possible to add a docker image with the external model, which CHAP then will use when running the model.
-
-To do this, add a `dockerfile` key to the config.yaml file:
-
-```yaml
-dockerfile: path/to/directory/with/dockerfile
-```
-
-The `dockerfile` keyword should point to a directory that contains a Dockerfile that specifies how to build the docker image. This path is relative to the directory of the model itself.
+[Here is an example of a valid directory with an MLproject file](https://github.com/dhis2/chap-core/tree/dev/external_models/naive_python_model_with_mlproject_file).
 
 
-### Example
-A full example of an external R model can be found at [https://github.com/knutdrand/external_rmodel_example/](https://github.com/knutdrand/external_rmodel_example/).
+The MLproject file can specify a docker image or Python virtual environment that will be used when running the commands.
 
 
 ### Running an external model on the command line
-External models can be run on the command line using the `chap forecast` command. See `chap forecast --help` for details:
+External models can be run on the command line using the `chap evaluate` command. See `chap evaluate --help` for details.
+
+This example runs the auto ewars R model on public ISMIP data for Brazil using a public docker image with the R inla package. After running, a report file `report.pdf` should be made.
 
 ```bash
-Usage: chap forecast [ARGS] [OPTIONS]
-
-Forecast n_months ahead using the given model and dataset
-
-╭─ Parameters ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *  MODEL-NAME,--model-name      Name of the model to use, set to external to use an external model and specify the external model with model_path [required]                                                                        │
-│ *  DATASET-NAME,--dataset-name  Name of the dataset to use, e.g. hydromet_5_filtered [choices: hydro_met_subset,hydromet_clean,hydromet_10,hydromet_5_filtered] [required]                                                          │
-│ *  N-MONTHS,--n-months          int: Number of months to forecast ahead [required]                                                                                                                                                  │
-│    MODEL-PATH,--model-path      Optional: Path to the model if model_name is external. Can ge a github repo url starting with https://github.com and ending with .git or a path to a local directory.                               │
-│    OUT-PATH,--out-path          Optional: Path to save the output file, default is the current directory [default: .]                                                                                                               │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+chap evaluate --model-name https://github.com/sandvelab/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --max-splits 3 --dataset-country brazil
 ```
 
-Example:
 
-```bash
-climate_health forecast --model-name external hydromet_5_filtered 12 https://github.com/knutdrand/external_rmodel_example.git --out-path ./
+### Running an external model in Python
+CHAP contains an API for loading models through Python. The following shows an example of loading and evaluating a model by specifying a path to a local directory with an MLproject file. A Github URL would also work:
+
+```python
+
 ```
-### Running an external model through "CHAP-upload"
-...
