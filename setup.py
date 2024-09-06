@@ -35,7 +35,8 @@ requirements = ['typer',
                 'unidecode',
                 'httpx',
                 'earthengine-api',
-                'mlflow'
+                'mlflow',
+                'gluonts',
                 ]
 
 test_requirements = ['pytest>=3', "hypothesis"]
