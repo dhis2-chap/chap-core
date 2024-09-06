@@ -84,12 +84,12 @@ class DockerTrainPredictRunner(TrainPredictRunner):
 
 
 
-class ExternalMLflowModel(Generic[FeatureType]):
+class ExternalModel(Generic[FeatureType]):
     """
     Wrapper around an mlflow model with commands for training and predicting
     """
 
-    def __init__(self, runner: TrainPredictRunner, name: str=None, adapters=None, working_dir="./", data_type=HealthData):
+    def __init__(self, runner: MlFlowTrainPredictRunner | DockerTrainPredictRunner, name: str=None, adapters=None, working_dir="./", data_type=HealthData):
         self._runner = runner  #MlFlowTrainPredictRunner(model_path)
         #self.model_path = model_path
         self._adapters = adapters

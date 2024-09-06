@@ -20,7 +20,7 @@ import json
 from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.docker_helper_functions import create_docker_image, run_command_through_docker_container
-from climate_health.external.mlflow import ExternalMLflowModel, MlFlowTrainPredictRunner, DockerTrainPredictRunner
+from climate_health.external.mlflow import ExternalModel, MlFlowTrainPredictRunner, DockerTrainPredictRunner
 from climate_health.geojson import NeighbourGraph
 from climate_health.runners.command_line_runner import CommandLineRunner
 from climate_health.runners.docker_runner import DockerImageRunner, DockerRunner
@@ -418,8 +418,8 @@ def get_model_from_mlproject_file(mlproject_file):
     adapters = config.get('adapters', None)
     allowed_data_types = {'HealthData': HealthData}
     data_type = allowed_data_types.get(config.get('data_type', None), None)
-    return ExternalMLflowModel(runner, name=name, adapters=adapters, data_type=data_type,
-                                   working_dir=Path(mlproject_file).parent)
+    return ExternalModel(runner, name=name, adapters=adapters, data_type=data_type,
+                         working_dir=Path(mlproject_file).parent)
 
 
 def get_model_maybe_yaml(model_name):
