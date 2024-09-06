@@ -3,10 +3,11 @@ from pathlib import Path
 from typing import Iterable, TypeVar
 
 import numpy as np
+from gluonts.model import SampleForecast
 
 from climate_health.assessment.dataset_splitting import train_test_split
 from climate_health.file_io.example_data_set import datasets
-from climate_health.datatypes import TimeSeriesData, remove_field
+from climate_health.datatypes import TimeSeriesData, remove_field, Samples
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from climate_health.time_period import delta_month, PeriodRange
@@ -16,6 +17,13 @@ logger = logging.getLogger(__name__)
 GlunTSDataSet = Iterable[dict]
 
 T = TypeVar('T', bound=TimeSeriesData)
+
+
+class ForecastAdaptor:
+    @staticmethod
+    def from_samples(samples: Samples) -> SampleForecast:
+        start_period = samples.time_period[0].topandas()
+        return SampleForecast(samples.samples.T, start_period)
 
 
 class DataSetAdaptor:

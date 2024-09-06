@@ -35,6 +35,6 @@ def test_train_test_generator(full_data):
     print(full_data)
     train_data, test_pairs = train_test_generator(full_data, prediction_length=3, n_test_sets=2)
     test_pairs = list(test_pairs)
-    assert len(test_pairs)==2
+    assert len(test_pairs)== 2
     assert all(len(pair[1].period_range)==3 for pair in test_pairs)
     assert all(test_pairs[-1][1].period_range == full_data.period_range[-3:])

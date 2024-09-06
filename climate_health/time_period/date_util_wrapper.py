@@ -451,6 +451,9 @@ class PeriodRange:
         else:
             raise ValueError(f'Cannot convert period range with time delta {self._time_delta} to pandas')
 
+    def to_period_index(self):
+        return pd.period_range(start=self[0].topandas(), end=self[-1].topandas(), freq=self[-1].topandas().freq)
+
     @classmethod
     def from_pandas(cls, periods: Iterable[pd.Period]):
         time_deltas = {'M': delta_month, 'Y': delta_year, 'D': delta_day}
