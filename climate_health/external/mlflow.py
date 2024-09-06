@@ -22,6 +22,8 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         self.model_path = model_path
 
     def train(self, train_file_name, model_file_name):
+        train_file_name = self.model_path / train_file_name
+        model_file_name = self.model_path / model_file_name
         return mlflow.projects.run(str(self.model_path), entry_point="train",
                             parameters={
                                 "train_data": str(train_file_name),
@@ -30,6 +32,13 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
                             build_image=True)
 
     def predict(self, model_file_name, historic_data, future_data, output_file):
+        """
+        Input files are just file names, make them relative to model
+        """
+        model_file_name = self.model_path / model_file_name
+        historic_data = self.model_path / historic_data
+        future_data = self.model_path / future_data
+        output_file = self.model_path / output_file
         return mlflow.projects.run(str(self.model_path), entry_point="predict",
                             parameters={
                                 "historic_data": str(historic_data),
@@ -103,10 +112,13 @@ class ExternalMLflowModel(Generic[FeatureType]):
             extra_args = ''
 
         train_file_name = 'training_data.csv'
-        #train_file_name = Path(self._working_dir) / Path(train_file_name)
+        train_file_name_full = Path(self._working_dir) / Path(train_file_name)
+
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
-        new_pd.to_csv(train_file_name)
+        print("adapted data")
+        print(new_pd)
+        new_pd.to_csv(train_file_name_full)
 
         # touch model output file
         #with open(self._model_file_name, 'w') as f:
@@ -136,6 +148,10 @@ class ExternalMLflowModel(Generic[FeatureType]):
             return data
 
         for to_name, from_name in adapters.items():
+            # ignore if the column is not present
+            if from_name == "disease_cases" and "disease_cases" not in data.columns:
+                continue
+
             if from_name == 'week':
                 if hasattr(data['time_period'], 'dt'):
                     new_val = data['time_period'].dt.week
@@ -164,6 +180,8 @@ class ExternalMLflowModel(Generic[FeatureType]):
 
         for filename, dataset in [(future_data_name, future_data), (historic_data_name, historic_data)]:
             with open(filename, "w"):
+                print("Adapting ", filename)
+                print(dataset.to_pandas())
                 adapted_dataset = self._adapt_data(dataset.to_pandas())
                 adapted_dataset.to_csv(filename)
 
@@ -173,7 +191,7 @@ class ExternalMLflowModel(Generic[FeatureType]):
         with open(predictions_file, 'w') as f:
             pass
 
-        response = self._runner.predict(self._model_file_name, str(historic_data_name), str(future_data_name), str(predictions_file))
+        response = self._runner.predict(self._model_file_name, 'historic_data.csv', 'future_data.csv', 'predictions.csv')
         """
         response = mlflow.projects.run(str(self.model_path), entry_point="predict",
                                         parameters={

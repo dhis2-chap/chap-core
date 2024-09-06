@@ -59,7 +59,7 @@ def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits:
                                     mode='prediction_summary',
                                     run_naive_predictor=False)
     """
-    results = evaluate_model(model, dataset, prediction_length=3, n_test_sets=4, report_filename='report')
+    results = evaluate_model(model, dataset, prediction_length=3, n_test_sets=4, report_filename='report.pdf')
     print(results)
 
     #output_filename = get_results_path() / f'{model_name}_{dataset_name}_results.html'
