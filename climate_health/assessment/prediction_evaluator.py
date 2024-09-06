@@ -1,7 +1,11 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Protocol, TypeVar
 
 from gluonts.evaluation import Evaluator
+from gluonts.model import Forecast
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.metrics import root_mean_squared_error
 import pandas as pd
 import plotly.express as px
@@ -106,20 +110,77 @@ class Estimator(Protocol):
         ...
 
 
-def evaluate_model(estimator: Estimator, data: DataSet, prediction_length=3, n_test_sets=4):
+def evaluate_model(estimator: Estimator, data: DataSet, prediction_length=3, n_test_sets=4, report_filename=None):
     train, test_generator = train_test_generator(data, prediction_length, n_test_sets)
     predictor = estimator.train(data)
-    truth_data = {location: pd.DataFrame(data[location].disease_cases, index=data[location].time_period.to_period_index()) for location in data.keys()}
+    truth_data = {
+        location: pd.DataFrame(data[location].disease_cases, index=data[location].time_period.to_period_index()) for
+        location in data.keys()}
+    if report_filename is not None:
+        _, plot_test_generatro = train_test_generator(data, prediction_length, n_test_sets)
+        plot_forecasts(predictor, plot_test_generatro, truth_data, report_filename)
+
+    # plot_forecasts(predictor, test_generator, truth_data)
+    forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
+    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
+    results = evaluator(tss, forecast_list)
+    return results
+    # forecasts = ((predictor.predict(*test_pair[:2]), test_pair[2]) for test_pair in test_generator)
+
+
+def _get_forecast_generators(predictor, test_generator, truth_data) -> tuple[list[Forecast], list[pd.DataFrame]]:
     tss = []
     forecast_list = []
     for historic_data, future_data, _ in test_generator:
-        forecasts = predictor.predict(historic_data,future_data)
+        forecasts = predictor.predict(historic_data, future_data)
         for location, samples in forecasts.items():
             forecast = ForecastAdaptor.from_samples(samples)
             t = truth_data[location]
             tss.append(t)
             forecast_list.append(forecast)
-    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
-    results = evaluator(tss, forecast_list)
-    return results
-        #forecasts = ((predictor.predict(*test_pair[:2]), test_pair[2]) for test_pair in test_generator)
+
+    return forecast_list, tss
+
+
+def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, Forecast]:
+    forecast_dict = defaultdict(list)
+
+    for historic_data, future_data, _ in test_generator:
+        forecasts = predictor.predict(historic_data, future_data)
+        for location, samples in forecasts.items():
+            forecast_dict[location].append(ForecastAdaptor.from_samples(samples))
+    return forecast_dict
+
+
+def plot_forecasts(predictor, test_instance, truth, pdf_filename):
+    forecast_dict = _get_forecast_dict(predictor, test_instance)
+    with PdfPages(pdf_filename) as pdf:
+        for location, forecasts in forecast_dict.items():
+            _t = truth[location]
+            for forecast in forecasts:
+                plt.figure(figsize=(8, 4))  # Set the figure size
+                t = _t[_t.index <= forecast.index[-1]]
+                forecast.plot(show_label=True)
+                plt.plot(t[-150:].to_timestamp())
+                plt.title(location)
+                plt.legend()
+                pdf.savefig()
+                plt.close()  # Close the figure
+
+
+def plot_forecasts_list(predictor, test_instances, truth, pdf_filename):
+    forecasts, tss = _get_forecast_generators(predictor, test_instances, truth)
+    with PdfPages(pdf_filename) as pdf:
+        for i, (forecast_entry, ts_entry) in enumerate(zip(forecasts, tss)):
+            last_period = forecast_entry.index[-1]
+            ts_entry = ts_entry[ts_entry.index <= last_period]
+            offset = ts_entry
+            plt.figure(figsize=(8, 4))  # Set the figure size
+            plt.plot(ts_entry[-150:].to_timestamp())
+            forecast_entry.plot(show_label=True)
+            plt.title(str(i))
+            plt.legend()
+            pdf.savefig()
+            plt.close()  # Close the figure
+
+    return pdf_filename
