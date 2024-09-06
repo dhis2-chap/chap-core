@@ -20,7 +20,7 @@ import json
 from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.docker_helper_functions import create_docker_image, run_command_through_docker_container
-from climate_health.external.mlflow import ExternalMLflowModel
+from climate_health.external.mlflow import ExternalMLflowModel, MlFlowTrainPredictRunner, DockerTrainPredictRunner
 from climate_health.geojson import NeighbourGraph
 from climate_health.runners.command_line_runner import CommandLineRunner
 from climate_health.runners.docker_runner import DockerImageRunner, DockerRunner
@@ -41,6 +41,7 @@ class IsExternalModel(Protocol):
 FeatureType = TypeVar('FeatureType')
 
 
+# todo: Can be removed, use ExternalMlflowModel instead
 class ExternalCommandLineModel(Generic[FeatureType]):
     """
     Represents a model with commands for setup (optional), training and prediction.
@@ -182,11 +183,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             kwargs = {}
 
         command = self._train_command.format(train_data=train_file_name, model=self._model_file_name, extra_args=extra_args, **kwargs)
-
-
-
         response = self.run_through_container(command)
         self._saved_state = new_pd
+        return self
 
     def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
         name = 'future_data.csv'
@@ -409,14 +408,17 @@ def get_model_from_mlproject_file(mlproject_file):
         config = yaml.load(file, Loader=yaml.FullLoader)
     if "docker_env" in config:
         logging.info("Docker env is specified in mlproject file, using ExternalCommandLineModel")
-        return ExternalCommandLineModel.from_mlproject_file(mlproject_file)
+        #return ExternalCommandLineModel.from_mlproject_file(mlproject_file)
+        runner = DockerTrainPredictRunner.from_mlproject_file(mlproject_file)
     else:
-        logging.info("Will create ExternalMlflowModel")
-        name = config["name"]
-        adapters = config.get('adapters', None)
-        allowed_data_types = {'HealthData': HealthData}
-        data_type = allowed_data_types.get(config.get('data_type', None), None)
-        return ExternalMLflowModel(mlproject_file.parent, name=name, adapters=adapters, data_type=data_type,
+        runner = MlFlowTrainPredictRunner(mlproject_file.parent)
+
+    logging.info("Will create ExternalMlflowModel")
+    name = config["name"]
+    adapters = config.get('adapters', None)
+    allowed_data_types = {'HealthData': HealthData}
+    data_type = allowed_data_types.get(config.get('data_type', None), None)
+    return ExternalMLflowModel(runner, name=name, adapters=adapters, data_type=data_type,
                                    working_dir=Path(mlproject_file).parent)
 
 

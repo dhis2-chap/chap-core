@@ -11,11 +11,11 @@ entry_points:
   train:
     parameters:
       train_data: path
-      model: path
+      model: str
     command: "ch_modelling train {train_data} {model}"
   predict:
     parameters:
-      model: path
+      model: str
       historic_data: path
       future_data: path
       out_file: path
