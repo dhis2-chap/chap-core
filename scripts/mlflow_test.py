@@ -3,7 +3,7 @@ import sys
 from climate_health.data.datasets import ISIMIP_dengue_harmonized
 from climate_health.external.external_model import get_model_from_yaml_file
 from climate_health.assessment.prediction_evaluator import evaluate_model
-from climate_health.external.mlflow import ExternalMLflowModel
+from climate_health.external.mlflow import ExternalModel
 
 """
 model_name = 'config.yml'

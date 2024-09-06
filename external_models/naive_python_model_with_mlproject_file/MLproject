@@ -1,7 +1,7 @@
 name: naive_python
 
-docker_env:
-  image: python:3.10
+#docker_env:
+#  image: python:3.10
 
 #python_env: python_env.yaml
 
@@ -9,11 +9,12 @@ entry_points:
   train:
     parameters:
       train_data: path
-      model_output_file: path
-    command: "python train.py {train_data} {model_output_file}"
+      model: str
+    command: "python train.py {train_data} {model}"
   predict:
     parameters:
+      historic_data: path
       future_data: path
-      model: path
+      model: str
       out_file: path
-    command: "python predict.py {future_data} {model} {out_file}"
+    command: "python predict.py {historic_data} {future_data} {model} {out_file}"

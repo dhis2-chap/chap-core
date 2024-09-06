@@ -63,9 +63,9 @@ def evaluate_model(data_set, external_model, max_splits=5, start_offset=20,
     evaluator = MultiLocationEvaluator(model_names=[model_name, naive_model_name], truth=data_set)
     split_points = get_split_points_for_data_set(data_set, max_splits=max_splits, start_offset=start_offset)
     logger.info(f'Split points: {split_points}')
-    for (train_data, future_truth, future_climate_data) in split_test_train_on_period(data_set, split_points,
-                                                                                      future_length=None,
-                                                                                      include_future_weather=True):
+    splitted_data = split_test_train_on_period(data_set, split_points, future_length=None, include_future_weather=True)
+
+    for (train_data, future_truth, future_climate_data) in splitted_data:
         if hasattr(external_model, 'setup'):
             external_model.setup()
         external_model.train(train_data)
