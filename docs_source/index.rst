@@ -16,6 +16,11 @@ The current version has basic data handling functionality in place, and is almos
    external_models
    installation
 
+Tutorials
+---------
+
+.. include:: tutorials/wrapping_gluonts.rst
+
 API documentation
 ===================
 
