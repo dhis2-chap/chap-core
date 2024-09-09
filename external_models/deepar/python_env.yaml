@@ -1,0 +1,5 @@
+python: 3.11.3
+
+dependencies:
+  - git+https://github.com/dhis2/chap-core.git@dev
+  - git+https://github.com/knutdrand/ch_modelling.git@dev

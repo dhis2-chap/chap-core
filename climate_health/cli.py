@@ -34,7 +34,7 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
 
 
 @app.command()
-def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits: int, dataset_country: Optional[str] = None, other_model: ModelType = None):
+def evaluate(model_name: ModelType | str, dataset_name: DataSetType,  dataset_country: Optional[str] = None, prediction_length: int=6, n_splits: int =7, report_filename: Optional[str] = 'report.pdf'):
     '''
     Evaluate a model on a dataset using forecast cross validation
     '''
@@ -49,25 +49,8 @@ def evaluate(model_name: ModelType | str, dataset_name: DataSetType, max_splits:
 
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
-    # model = get_model(model_name)()
-
-    f = open('debug.csv', 'w')
-    callback = lambda name, data: append_to_csv(f, data.to_pandas())
-    """
-    results, table = evaluate_model(dataset, model, max_splits, start_offset=24, return_table=True,
-                                    naive_model_cls=get_model(other_model) if other_model else None, callback=callback,
-                                    mode='prediction_summary',
-                                    run_naive_predictor=False)
-    """
-    results = evaluate_model(model, dataset, prediction_length=3, n_test_sets=4, report_filename='report.pdf')
+    results = evaluate_model(model, dataset, prediction_length=prediction_length, n_test_sets=n_splits, report_filename=report_filename)
     print(results)
-
-    #output_filename = get_results_path() / f'{model_name}_{dataset_name}_results.html'
-    #table_filename = PurePath(output_filename).with_suffix('.csv')
-    #results.save(output_filename)
-    #table.to_csv(table_filename)
-    #webbrowser.open(str(output_filename))
-
 
 @app.command()
 def forecast(model_name: str, dataset_name: DataSetType, n_months: int,

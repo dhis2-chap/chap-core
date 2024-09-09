@@ -1,22 +1,17 @@
-name: My Project
+name: DeepAR
 
-# python_env: python_env.yaml
-# or
-# conda_env: my_env.yaml
-# or
-# docker_env:
-#    image:  mlflow-docker-example
+python_env: python_env.yaml
 
 entry_points:
   train:
     parameters:
-      train_data: path
+      train_data: str
       model: str
     command: "ch_modelling train {train_data} {model}"
   predict:
     parameters:
       model: str
-      historic_data: path
-      future_data: path
-      out_file: path
+      historic_data: str
+      future_data: str
+      out_file: str
     command: "ch_modelling predict {model} {historic_data} {future_data} {out_file}"
