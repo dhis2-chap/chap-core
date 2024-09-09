@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import json
 import dataclasses
@@ -18,6 +20,8 @@ class NaivePredictor:
         return samples
 
     def save(self, filename: str):
+        print('###########################', filename)
+        print('----------------------------', os.getcwd())
         with open(filename, 'w') as f:
             json.dump(self.mean_dict, f)
 

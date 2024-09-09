@@ -1,4 +1,6 @@
 """Console script for ch_modelling."""
+import os
+
 from climate_health.datatypes import FullData, remove_field
 from cyclopts import App
 from climate_health.data import DataSet
@@ -14,6 +16,7 @@ def train(training_data_filename: str, model_path: str):
     dataset = DataSet.from_csv(training_data_filename, FullData)
     chap_estimator = NaiveEstimator
     predictor = chap_estimator().train(dataset)
+    print('cur dir', os.getcwd())
     print("Saving model to", model_path)
     predictor.save(model_path)
 

@@ -17,35 +17,37 @@ logger = logging.getLogger(__name__)
 
 FeatureType = TypeVar('FeatureType')
 
+
 class MlFlowTrainPredictRunner(TrainPredictRunner):
     def __init__(self, model_path):
         self.model_path = model_path
 
     def train(self, train_file_name, model_file_name):
-        train_file_name = self.model_path / train_file_name
-        model_file_name = self.model_path / model_file_name
-        return mlflow.projects.run(str(self.model_path), entry_point="train",
-                            parameters={
-                                "train_data": str(train_file_name),
-                                "model": str(model_file_name)
-                            },
-                            build_image=True)
+        #train_file_name = self.model_path / train_file_name
+        #model_file_name = self.model_path / model_file_name
+        return mlflow.projects.run(str(self.model_path),
+                                   entry_point="train",
+                                   parameters={
+                                       "train_data": str(train_file_name),
+                                       "model": str(model_file_name)
+                                   },
+                                   build_image=True)
 
     def predict(self, model_file_name, historic_data, future_data, output_file):
         """
         Input files are just file names, make them relative to model
         """
-        model_file_name = self.model_path / model_file_name
-        historic_data = self.model_path / historic_data
-        future_data = self.model_path / future_data
-        output_file = self.model_path / output_file
+        # model_file_name = self.model_path / model_file_name
+        # historic_data = self.model_path / historic_data
+        # future_data = self.model_path / future_data
+        # output_file = self.model_path / output_file
         return mlflow.projects.run(str(self.model_path), entry_point="predict",
-                            parameters={
-                                "historic_data": str(historic_data),
-                                "future_data": str(future_data),
-                                "model": str(model_file_name),
-                                "out_file": str(output_file)
-                            })
+                                   parameters={
+                                       "historic_data": str(historic_data),
+                                       "future_data": str(future_data),
+                                       "model": str(model_file_name),
+                                       "out_file": str(output_file)
+                                   })
 
 
 class DockerTrainPredictRunner(TrainPredictRunner):
@@ -83,15 +85,15 @@ class DockerTrainPredictRunner(TrainPredictRunner):
         return cls(command_runner, train_command, predict_command)
 
 
-
 class ExternalModel(Generic[FeatureType]):
     """
     Wrapper around an mlflow model with commands for training and predicting
     """
 
-    def __init__(self, runner: MlFlowTrainPredictRunner | DockerTrainPredictRunner, name: str=None, adapters=None, working_dir="./", data_type=HealthData):
-        self._runner = runner  #MlFlowTrainPredictRunner(model_path)
-        #self.model_path = model_path
+    def __init__(self, runner: MlFlowTrainPredictRunner | DockerTrainPredictRunner, name: str = None, adapters=None,
+                 working_dir="./", data_type=HealthData):
+        self._runner = runner  # MlFlowTrainPredictRunner(model_path)
+        # self.model_path = model_path
         self._adapters = adapters
         self._working_dir = working_dir
         self._location_mapping = None
@@ -121,7 +123,7 @@ class ExternalModel(Generic[FeatureType]):
         new_pd.to_csv(train_file_name_full)
 
         # touch model output file
-        #with open(self._model_file_name, 'w') as f:
+        # with open(self._model_file_name, 'w') as f:
         #    pass
 
         response = self._runner.train(train_file_name, self._model_file_name)
@@ -191,7 +193,8 @@ class ExternalModel(Generic[FeatureType]):
         with open(predictions_file, 'w') as f:
             pass
 
-        response = self._runner.predict(self._model_file_name, 'historic_data.csv', 'future_data.csv', 'predictions.csv')
+        response = self._runner.predict(self._model_file_name, 'historic_data.csv', 'future_data.csv',
+                                        'predictions.csv')
         """
         response = mlflow.projects.run(str(self.model_path), entry_point="predict",
                                         parameters={
@@ -216,6 +219,3 @@ class ExternalModel(Generic[FeatureType]):
         mask = [start_time <= time_period.start_timestamp for time_period in time_periods]
         df = df[mask]
         return DataSet.from_pandas(df, Samples)
-
-
-

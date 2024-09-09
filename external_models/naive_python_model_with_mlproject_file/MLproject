@@ -8,13 +8,13 @@ python_env: python_env.yaml
 entry_points:
   train:
     parameters:
-      train_data: path
+      train_data: str
       model: str
     command: "python mock_predictor_script.py train {train_data} {model}"
   predict:
     parameters:
-      historic_data: path
-      future_data: path
+      historic_data: str
+      future_data: str
       model: str
-      out_file: path
-    command: "python  mock_predictor_script.py predict {historic_data} {future_data} {model} {out_file}"
+      out_file: str
+    command: "python  mock_predictor_script.py predict  {model} {historic_data} {future_data} {out_file}"
