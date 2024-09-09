@@ -16,7 +16,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-        image: alpine:latest
+        image: ubuntu-latest
         options: --user root
     strategy:
         matrix:
