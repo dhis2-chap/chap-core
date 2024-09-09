@@ -24,7 +24,7 @@ Running an external model on the command line
 
 External models can be run on the command line using the `chap evaluate` command. See `chap evaluate --help` for details.
 
-This example runs the auto ewars R model on public ISMIP data for Brazil using a public docker image with the R inla package. After running, a report file `report.pdf` should be made.
+This example runs an auto ewars R model on public ISMIP data for Brazil using a public docker image with the R inla package. After running, a report file `report.pdf` should be made.
 
 .. code-block:: bash
 
