@@ -123,3 +123,10 @@ def test_get_model_from_local_directory(models_path):
 
 def test_external_sanity(models_path):
     sanity_check_external_model(models_path / 'naive_python_model_with_mlproject_file')
+
+
+def test_external_sanity_deepar(models_path):
+    sanity_check_external_model(models_path / 'deepar')
+
+def test_external_sanity_deepar(models_path):
+    sanity_check_external_model('https://github.com/sandvelab/chap_auto_ewars')
