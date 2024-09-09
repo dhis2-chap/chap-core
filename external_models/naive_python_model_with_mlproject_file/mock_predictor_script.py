@@ -1,46 +1,43 @@
-import pickle
+"""Console script for ch_modelling."""
+import os
 
-import climate_health
-from climate_health.datatypes import ClimateData, ClimateHealthTimeSeries
-from climate_health.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor
-import typer
+from climate_health.datatypes import FullData, remove_field
+from cyclopts import App
+from climate_health.data import DataSet
+from climate_health.predictor.naive_estimator import NaiveEstimator, NaivePredictor
 
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-
-app = typer.Typer()
-
-
-@app.command()
-def train(train_data_set: str, model_output_file: str):
-    predictor = MultiRegionNaivePredictor()
-    train_data = DataSet.from_csv(train_data_set, ClimateHealthTimeSeries)
-    predictor.train(train_data)
-
-    # pickle predictor
-    with open(model_output_file, 'wb') as f:
-        pickle.dump(predictor, f)
+app = App()
 
 
 @app.command()
-def predict(future_climate_data_set: str, model_file: str, output_file: str):
-    with open(model_file, 'rb') as f:
-        predictor = pickle.load(f)
-
-    future_climate_data = DataSet.from_csv(future_climate_data_set, ClimateData)
-    predictions = predictor.predict(future_climate_data)
-    print(predictions)
-    predictions.to_csv(output_file)
+def train(training_data_filename: str, model_path: str):
+    '''
+    '''
+    dataset = DataSet.from_csv(training_data_filename, FullData)
+    chap_estimator = NaiveEstimator
+    predictor = chap_estimator().train(dataset)
+    print('cur dir', os.getcwd())
+    print("Saving model to", model_path)
+    predictor.save(model_path)
 
 
 @app.command()
-def predict_values(train_data_set: str, future_climate_data_set: str, output_file: str):
-    predictor = MultiRegionNaivePredictor()
-    train_data = DataSet.from_csv(train_data_set, ClimateHealthTimeSeries)
-    future_climate_data = DataSet.from_csv(future_climate_data_set, ClimateData)
-    predictor.train(train_data)
-    predictions = predictor.predict(future_climate_data)
-    print(predictions)
-    predictions.to_csv(output_file)
+def predict(model_filename: str, historic_data_filename: str, future_data_filename: str, output_filename: str):
+    '''
+    This function should just be type hinted with common types,
+    and it will run as a command line function
+    Simple function
+    '''
+    dataset = DataSet.from_csv(historic_data_filename, FullData)
+    future_data = DataSet.from_csv(future_data_filename, remove_field(FullData, 'disease_cases'))
+    chap_predictor = NaivePredictor
+    predictor = chap_predictor.load(model_filename)
+    forecasts = predictor.predict(dataset, future_data)
+    forecasts.to_csv(output_filename)
+
+
+def main():
+    app()
 
 
 if __name__ == "__main__":
