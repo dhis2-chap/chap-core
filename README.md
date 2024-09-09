@@ -5,7 +5,15 @@ CHAP offers a platform for analysing the relationship between climate and health
 
     $ pip install git+https://github.com/dhis2/chap-core.git
 
+
+# Documentation
+
+The main documentation is located at [https://dhis2.github.io/chap-core/](https://dhis2.github.io/chap-core/).
+
 # Usage
+
+The following shows basic usage of the platform. Follow the link to the documentation above for more details.
+
 ## Evaluate a public model on public data
 CHAP supports evaluating models that are defined using the MLflow specification for machine learning models (link coming). Such models can e.g. exist in Github repositories. CHAP also has some built-in example data that can be used to evaluate models. The following example shows how to evaluate an Ewars model located on Github ([https://github.com/sandvelab/chap_auto_ewars](https://github.com/sandvelab/chap_auto_ewars))  using the ISMIP dataset:
 
