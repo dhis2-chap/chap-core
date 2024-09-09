@@ -13,7 +13,7 @@ CHAP supports evaluating models that are defined using the MLflow specification 
 chap evaluate --model-name https://github.com/sandvelab/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
 ```
 
-The above example requires a full installation of chap with Docker available.
+The above example requires a full installation of chap with Docker available. 
 
 
 ## Fetching Polygon Data
