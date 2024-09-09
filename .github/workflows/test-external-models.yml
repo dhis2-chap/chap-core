@@ -15,6 +15,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+        image: alpine:latest
+        options: --user root
     strategy:
         matrix:
             os: [ubuntu-latest]
