@@ -3,7 +3,6 @@ from ..data import DataSet
 from ..assessment.dataset_splitting import train_test_generator
 
 
-
 def sanity_check_estimator(estimator):
     prediction_length = 3
     dataset = ISIMIP_dengue_harmonized['vietnam']

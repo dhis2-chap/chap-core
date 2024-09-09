@@ -7,7 +7,8 @@ import yaml
 from databricks.sdk.service.serving import ExternalModel
 
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.datatypes import ClimateHealthTimeSeries,FullData
+from climate_health.datatypes import ClimateHealthTimeSeries, FullData
+from climate_health.testing.external_model import sanity_check_external_model
 
 logging.basicConfig(level=logging.INFO)
 from climate_health.external.external_model import (get_model_from_yaml_file, run_command,
@@ -59,15 +60,14 @@ def get_dataset_from_yaml(yaml_path: Path, datatype=ClimateHealthTimeSeries):
                 df[to_name] = new_col
             else:
                 df[to_name] = df[from_name]
-    #df['disease_cases'] = np.arange(len(df))
+    # df['disease_cases'] = np.arange(len(df))
 
     return DataSet.from_pandas(df, datatype)
 
 
-
-#@pytest.mark.skipif(not conda_available(), reason='requires conda')
+# @pytest.mark.skipif(not conda_available(), reason='requires conda')
 @pytest.mark.parametrize('model_directory', ['ewars_Plus'])
-#@pytest.mark.parametrize('model_directory', ['naive_python_model'])
+# @pytest.mark.parametrize('model_directory', ['naive_python_model'])
 def test_all_external_models_acceptance(model_directory, models_path, train_data_pop, future_climate_data):
     """Only tests that the model can be initiated and that train and predict
     can be called without anything failing"""
@@ -77,18 +77,18 @@ def test_all_external_models_acceptance(model_directory, models_path, train_data
     train_data = get_dataset_from_yaml(yaml_path, FullData)
     model.setup()
     model.train(train_data)
-    #results = model.predict(future_climate_data)
-    #assert results is not None
+    # results = model.predict(future_climate_data)
+    # assert results is not None
 
 
-#@pytest.mark.skip(reason='Conda is a messs')
+# @pytest.mark.skip(reason='Conda is a messs')
 @pytest.mark.parametrize('model_directory', ['ewars_Plus'])
 def test_external_model_predict(model_directory, models_path):
     yaml_path = models_path / model_directory / 'config.yml'
     train_data = get_dataset_from_yaml(yaml_path, FullData)
     model = get_model_from_yaml_file(yaml_path, working_dir=models_path / model_directory)
     model.setup()
-    #model.setup()
+    # model.setup()
     results = model.predict(train_data)
     assert isinstance(results, DataSet)
 
@@ -121,3 +121,5 @@ def test_get_model_from_local_directory(models_path):
     assert model.name == "ewars_Plus"
 
 
+def test_external_sanity(models_path):
+    sanity_check_external_model(models_path / 'naive_python_model_with_mlproject_file')
