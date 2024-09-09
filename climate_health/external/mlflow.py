@@ -79,6 +79,7 @@ class DockerTrainPredictRunner(TrainPredictRunner):
         data_type = allowed_data_types.get(data_type, None)
 
         assert "docker_env" in data, "Only docker supported for now"
+        logging.info(f"Docker image is {data['docker_env']['image']}")
         command_runner = DockerRunner(data['docker_env']['image'], working_dir)
         return cls(command_runner, train_command, predict_command)
 
