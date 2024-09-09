@@ -9,17 +9,13 @@ The current version has basic data handling functionality in place, and is almos
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 0
    :caption: Contents:
 
-   readme
-   external_models
    installation
+   external_models
+   tutorials/wrapping_gluonts
 
-Tutorials
----------
-
-.. include:: tutorials/wrapping_gluonts.rst
 
 API documentation
 ===================
