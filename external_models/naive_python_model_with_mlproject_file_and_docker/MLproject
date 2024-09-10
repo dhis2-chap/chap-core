@@ -10,7 +10,7 @@ entry_points:
     parameters:
       train_data: str
       model: str
-    command: "python train.py train {train_data} {model}"
+    command: "python train.py {train_data} {model}"
   predict:
     parameters:
       historic_data: str
