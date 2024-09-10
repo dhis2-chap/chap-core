@@ -211,7 +211,7 @@ class ExternalModel(Generic[FeatureType]):
         except pandas.errors.EmptyDataError:
             # todo: Probably deal with this in an other way, throw an exception istead
             logging.warning("No data returned from model (empty file from predictions)")
-            raise ValueError(f"No prediction data written")
+            raise NoPredictionsError(f"No prediction data written")
         result_class = SummaryStatistics if 'quantile_low' in df.columns else HealthData
         if self._location_mapping is not None:
             df['location'] = df['location'].apply(self._location_mapping.index_to_name)
@@ -220,3 +220,8 @@ class ExternalModel(Generic[FeatureType]):
         mask = [start_time <= time_period.start_timestamp for time_period in time_periods]
         df = df[mask]
         return DataSet.from_pandas(df, Samples)
+
+
+
+class NoPredictionsError(Exception):
+    pass

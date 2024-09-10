@@ -10,6 +10,7 @@ import pandas as pd
 from cyclopts import App
 
 from climate_health.external.external_model import get_model_maybe_yaml
+from climate_health.external.mlflow import NoPredictionsError
 from climate_health.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from . import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
@@ -49,7 +50,11 @@ def evaluate(model_name: ModelType | str, dataset_name: DataSetType,  dataset_co
 
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
-    results = evaluate_model(model, dataset, prediction_length=prediction_length, n_test_sets=n_splits, report_filename=report_filename)
+    try:
+        results = evaluate_model(model, dataset, prediction_length=prediction_length, n_test_sets=n_splits, report_filename=report_filename)
+    except NoPredictionsError as e:
+        logging.error(f'No predictions were made: {e}')
+        return
     print(results)
 
 @app.command()
