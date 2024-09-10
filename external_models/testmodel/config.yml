@@ -1,0 +1,6 @@
+
+
+name: testmodel
+train_command: "echo 'Training'"
+predict_command: "echo 'Predicting'"
+setup_command: "echo 'Setting up'"

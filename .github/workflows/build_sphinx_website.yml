@@ -2,11 +2,12 @@
 
 name: build_docs
 
+
 # Controls when the action will run.
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
+    branches: [ master, dev ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -23,9 +24,8 @@ jobs:
 
       - name: install dependencies
         run: |
-          pip install npstructures
-          pip install numpy
           python -m pip install --upgrade pip
+          pip install -e .
           pip install -r requirements_dev.txt
 
       - name: make html & commit the changes

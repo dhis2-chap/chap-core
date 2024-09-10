@@ -4,34 +4,59 @@
 
 from setuptools import setup, find_packages
 
-with open('README.rst') as readme_file:
+with open('README.md') as readme_file:
     readme = readme_file.read()
 
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['typer', ]
+requirements = ['typer',
+                'numpy<2.0',
+                'bionumpy',
+                'pandas',
+                'plotly',
+                'scikit-learn',
+                'matplotlib',
+                'diskcache',
+                'geopy',
+                'pooch',
+                'python-dateutil',
+                'meteostat',
+                'cyclopts', 'requests',
+                'pydantic>=2.0',
+                'pyyaml',
+                'geopandas', 'libpysal', 'docker',
+                'jax', 'jaxlib', 'blackjax', 'dynamax', 'flax', 'optax',
+                'scipy',
+                'fastapi',
+                'gitpython',  'earthengine-api', 'python-dotenv', 'rq', "python-multipart", "uvicorn",
+                 'pydantic-geojson', 'annotated_types',
+                'pycountry',
+                'unidecode',
+                'httpx',
+                'earthengine-api',
+                'mlflow',
+                'gluonts',
+                ]
 
 test_requirements = ['pytest>=3', "hypothesis"]
 
 setup(
     author="Sandvelab",
     author_email='sandvelab',
-    python_requires='>=3.6',
+    python_requires='>=3.9',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: MITupdate proje License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.10',
     ],
     description="Main repository for joint programming project on climate health",
     entry_points={
         'console_scripts': [
-            'climate_health=climate_health.cli:main',
+            'chap=climate_health.cli:main',
         ],
     },
     install_requires=requirements,

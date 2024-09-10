@@ -1,0 +1,20 @@
+name: ewars_Plus
+#train_command: 'Rscript train2.R {train_data} {model} {extra_args}'
+train_command: 'Rscript train2.R {train_data} {model}'
+setup_command: "Rscript setup.R"
+predict_command: 'Rscript predict.R {model} {future_data} {out_file}'
+data_type: HealthData
+period: 'week'
+#conda: ../hydromet_dengue/env.yml
+adapters: {'Y': 'disease_cases', 'E': 'population', 'T1': 'week', 'T2': 'year', 'S1': 'location', 'rainsum': 'rainfall', 'meantemperature': 'mean_temperature'}
+#demo_data: 'Demo_data/Demo.Data.Prospective.csv'
+demo_data: 'Demo_data/populated.csv'
+demo_data_adapter: {'time_period': '{year:0.0f}W{week:0.0f}',
+                    'location': 'district',
+                    'disease_cases': 'weekly_hospitalised_cases',
+                    'population': 'population',
+                    'mean_temperature': 'meantemperature',
+                    'rainfall': 'rainsum'}
+#dockerfile: ../docker_r_basedocker_r_base/ # should point to a directory with a Dockerfile that will be used
+dockername: ivargr/r_inla
+#docker: can point to name of an existing docker image, e.g. from dockerhub

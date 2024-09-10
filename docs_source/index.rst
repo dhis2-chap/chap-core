@@ -1,22 +1,40 @@
-Welcome to Climate Health's documentation!
-======================================
+Climate health assessment platform (CHAP)
+==========================================
 
-.. include:: installation.rst
-.. include:: usage.rst
+CHAP is a platform for forecasting and for assessing forecasts of climate-sensitive health outcomes.
+In the early phase, the focus is on vector-borne diseases like malaria and dengue
+The platforms is to perform data parsing, data integration, forecasting based on any of multiple supported models, automatic brokering of compatible models for a given prediction context and robust forecast assessment and method comparison.
+
+The current version has basic data handling functionality in place, and is almost at a stage where it supports running a first external model (EWARS-Plus)
+
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 0
    :caption: Contents:
 
-   readme
    installation
-   usage
-   modules
-   contributing
-   history
+   external_models
+   tutorials/wrapping_gluonts
 
-Indices and tables
-==================
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+
+API documentation
+===================
+
+Data Fetching
+--------------
+
+Functionality for fetching data
+
+
+.. currentmodule:: climate_health.fetch
+
+.. autofunction:: gee_era5
+
+.. currentmodule:: climate_health.data
+
+.. autoclass:: DataSet
+    :members: from_period_observations, from_pandas, to_pandas
+
+.. autoclass:: PeriodObservation
+
+

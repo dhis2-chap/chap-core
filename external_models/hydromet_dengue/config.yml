@@ -1,0 +1,6 @@
+
+name: hydromet_dengue
+train_command: "Rscript train2.R {train_data} {model} map.graph"
+setup_command: "Rscript setup.R"
+predict_command: "Rscript predict.R {future_data} {model}"
+conda: env.yml

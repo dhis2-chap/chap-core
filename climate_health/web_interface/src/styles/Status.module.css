@@ -1,0 +1,29 @@
+.statusContainer{
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding-bottom: 0.8rem;
+}
+
+.ready{
+    border: 2px solid #307820;
+    background-color: #e9f9e6;
+    padding: 0.8em;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    color : #307820;
+}
+
+.notReady{
+    
+    background-color: #efc34031;
+    padding: 0.8em;
+    border-radius: 0.5rem;
+    font-weight: 400;
+    color : #161616;
+}
+
+.error{
+    color : red;
+    font-weight: 500;
+}

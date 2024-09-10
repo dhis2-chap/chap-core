@@ -1,0 +1,22 @@
+name: test_project
+
+# python_env: python_env.yaml
+# or
+# conda_env: my_env.yaml
+# or
+# docker_env:
+#    image:  mlflow-docker-example
+
+entry_points:
+  train:
+    parameters:
+      train_data: path
+      model: str
+    command: "python train.py {train_data} {model}"
+  predict:
+    parameters:
+      future_data: path
+      historic_data: path
+      model: str
+      out_file: path
+    command: "python predict.py {future_data} {model} {out_file}"
