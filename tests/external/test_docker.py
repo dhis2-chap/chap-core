@@ -5,6 +5,7 @@ from climate_health.util import docker_available
 
 
 @pytest.mark.skipif(not docker_available(), reason="Docker not available")
+@pytest.mark.slow
 def test_create_inla_image(models_path):
     docker_directory = models_path / 'docker_r_base'
     name = create_docker_image(docker_directory)

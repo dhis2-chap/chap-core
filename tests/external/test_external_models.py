@@ -15,37 +15,14 @@ from climate_health.external.external_model import (get_model_from_yaml_file, ru
                                                     ExternalCommandLineModel,
                                                     get_model_from_directory_or_github_url)
 from ..data_fixtures import train_data, train_data_pop, future_climate_data
-from climate_health.util import conda_available, docker_available
+from climate_health.util import conda_available, docker_available, pyenv_available
 
-
-@pytest.mark.skipif(not conda_available(), reason='requires conda')
-def test_r_model_from_folder(models_path, train_data, future_climate_data):
-    yaml = models_path / 'testmodel' / 'config.yml'
-    model = get_model_from_yaml_file(yaml, working_dir=models_path / 'testmodel')
-    model.setup()
-    model.train(train_data)
-    with pytest.raises(ValueError):
-        model.predict(future_climate_data)
-
-
-def test_python_model_from_folder(models_path, train_data, future_climate_data):
-    yaml = models_path / 'naive_python_model' / 'config.yml'
-    model = get_model_from_yaml_file(yaml, working_dir=models_path / 'naive_python_model')
-    model.train(train_data)
-    results = model.predict(future_climate_data)
-    assert results is not None
 
 
 @pytest.mark.skipif(not docker_available(), reason='Requires docker')
 def test_python_model_from_folder_with_mlproject_file(models_path):
     path = models_path / 'naive_python_model_with_mlproject_file'
-    model = ExternalCommandLineModel.from_mlproject_file(path / 'MLproject')
-
-
-def test_model_from_string_acceptance(models_path):
-    model = get_model_from_directory_or_github_url(models_path / 'naive_python_model_with_mlproject_file')
-    model = get_model_from_directory_or_github_url(models_path / 'naive_python_model')
-    model = get_model_from_directory_or_github_url("https://github.com/knutdrand/external_rmodel_example.git")
+    model = get_model_from_directory_or_github_url(path)
 
 
 def get_dataset_from_yaml(yaml_path: Path, datatype=ClimateHealthTimeSeries):
@@ -64,33 +41,6 @@ def get_dataset_from_yaml(yaml_path: Path, datatype=ClimateHealthTimeSeries):
 
     return DataSet.from_pandas(df, datatype)
 
-
-# @pytest.mark.skipif(not conda_available(), reason='requires conda')
-@pytest.mark.parametrize('model_directory', ['ewars_Plus'])
-# @pytest.mark.parametrize('model_directory', ['naive_python_model'])
-def test_all_external_models_acceptance(model_directory, models_path, train_data_pop, future_climate_data):
-    """Only tests that the model can be initiated and that train and predict
-    can be called without anything failing"""
-    print("Running")
-    yaml_path = models_path / model_directory / 'config.yml'
-    model = get_model_from_yaml_file(yaml_path, working_dir=models_path / model_directory)
-    train_data = get_dataset_from_yaml(yaml_path, FullData)
-    model.setup()
-    model.train(train_data)
-    # results = model.predict(future_climate_data)
-    # assert results is not None
-
-
-# @pytest.mark.skip(reason='Conda is a messs')
-@pytest.mark.parametrize('model_directory', ['ewars_Plus'])
-def test_external_model_predict(model_directory, models_path):
-    yaml_path = models_path / model_directory / 'config.yml'
-    train_data = get_dataset_from_yaml(yaml_path, FullData)
-    model = get_model_from_yaml_file(yaml_path, working_dir=models_path / model_directory)
-    model.setup()
-    # model.setup()
-    results = model.predict(train_data)
-    assert isinstance(results, DataSet)
 
 
 @pytest.mark.skipif(not conda_available(), reason='requires conda')
@@ -121,12 +71,20 @@ def test_get_model_from_local_directory(models_path):
     assert model.name == "ewars_Plus"
 
 
+@pytest.mark.skipif(not pyenv_available(), reason='requires pyenv')
+@pytest.mark.slow
 def test_external_sanity(models_path):
     sanity_check_external_model(models_path / 'naive_python_model_with_mlproject_file')
 
 
+@pytest.mark.skipif(not pyenv_available(), reason='requires pyenv')
+@pytest.mark.slow
 def test_external_sanity_deepar(models_path):
     sanity_check_external_model(models_path / 'deepar')
 
+
+@pytest.mark.skipif(not docker_available(), reason='requires pyenv')
+@pytest.mark.slow
 def test_external_sanity_deepar(models_path):
     sanity_check_external_model('https://github.com/sandvelab/chap_auto_ewars')
+

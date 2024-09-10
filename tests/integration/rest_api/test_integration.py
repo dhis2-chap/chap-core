@@ -48,7 +48,7 @@ def rq_worker_process():
 
 
 @pytest.mark.asyncio
-@pytest.mark.integration
+@pytest.mark.slow
 async def test_post_zip_file(tests_path, rq_worker_process):
     testfile = open(tests_path / "integration/rest_api/testdata/traning_prediction_data.zip", "rb")
     response = client.post(post_zip_file_path, files={"file": testfile})
@@ -67,7 +67,7 @@ async def test_post_zip_file(tests_path, rq_worker_process):
     assert 'diseaseId' in result.json()
 
 @pytest.mark.asyncio
-@pytest.mark.integration
+@pytest.mark.slow
 def test_predict_on_json_data(big_request_json, rq_worker_process):
     response = client.post(predict_on_json_path, json=json.loads(big_request_json))
     print(response, response.text[:100])
