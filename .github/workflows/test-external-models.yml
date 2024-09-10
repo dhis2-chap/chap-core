@@ -35,5 +35,6 @@ jobs:
 
     - name: Run
       run: |
+        chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
+        chap evaluate --model-name external_models/deepar --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
         chap evaluate --model-name https://github.com/sandvelab/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
-        #chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
