@@ -16,7 +16,7 @@ RUN echo "apprunner:apprunner" | chpasswd
 RUN chmod -R 777  /opt/R/4.4.0/lib/R/library/INLA/
 RUN chmod -R 777 /opt/R/4.4.0/lib/R/library
 RUN chmod -R 777 /opt/R/4.4.0/lib/R/
-USER apprunner
+#USER apprunner
 
 #docker run --rm -it rstudio/r-base:4.3-jammy
 
