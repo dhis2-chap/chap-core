@@ -2,7 +2,8 @@ from pathlib import Path
 
 from ..docker_helper_functions import create_docker_image, run_command_through_docker_container
 from .runner import Runner
-
+import logging
+logger = logging.getLogger(__name__)
 
 class DockerImageRunner(Runner):
     """A runner based on a docker image (Dockerfile)"""
@@ -30,5 +31,6 @@ class DockerRunner(Runner):
         self._working_dir = working_dir
 
     def run_command(self, command):
+        logger.info(f'Running command {command} in docker container {self._docker_name} in {self._working_dir}')
         return run_command_through_docker_container(self._docker_name, self._working_dir, command)
 

@@ -173,6 +173,7 @@ class TimePeriod:
     @classmethod
     def parse_week(cls, week: str):
         year, weeknr = week.split('W')
+        print('########', week)
         return Week(int(year), int(weeknr))
 
     @property
@@ -207,7 +208,7 @@ class Day(TimePeriod):
 
 
 class Week(TimePeriod):
-    _used_attributes = ['year']
+    _used_attributes = []#'year']
     _extension = relativedelta(weeks=1)
 
     @property
@@ -223,10 +224,12 @@ class Week(TimePeriod):
             week_nr = args[0] if args else kwargs['week']
             self._date = self.__date_from_numbers(year, week_nr)
             self.week = week_nr
+            self.year = self._date.year
         else:
             if isinstance(date, TimeStamp):
                 date = date._date
             self.week = date.isocalendar()[1]
+            self.year = date.isocalendar()[0]
             self._date = date
 
     def __sub__(self, other: 'TimePeriod'):
@@ -468,7 +471,16 @@ class PeriodRange:
         return cls.from_time_periods(time_periods[0], time_periods[-1])
 
     @classmethod
+    def _check_consequtive_weeks(cls, time_periods, fill_missing=False):
+        period_range = pd.period_range(start=time_periods[0]._date, end=time_periods[-1]._date, freq='W')
+        #start
+        if not all(is_consective):
+            ...
+
+    @classmethod
     def _check_consequtive(cls, time_delta, time_periods, fill_missing=False):
+        # if time_delta == delta_week:
+        #return cls._check_consequtive_weeks(time_periods, fill_missing)
         is_consec = [p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])]
         if not all(is_consec):
             if fill_missing:
@@ -515,6 +527,7 @@ class PeriodRange:
         missing = cls._check_consequtive(delta, periods, fill_missing)
         ret = cls.from_time_periods(periods[0], periods[-1])
         if fill_missing:
+            assert len(ret) == len(missing)+len(periods), (len(ret), len(missing), len(periods), periods, missing)
             return ret, missing
         return ret
 

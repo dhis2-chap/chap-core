@@ -36,6 +36,7 @@ class TrainState(train_state.TrainState):
 class FlaxModel:
     model: nn.Module#  = RNNModel()
     n_iter: int = 3000
+
     def __init__(self, rng_key: jax.random.PRNGKey = jax.random.PRNGKey(100), n_iter: int = None):
         self.rng_key = rng_key
         self._losses = []
