@@ -9,6 +9,11 @@ from climate_health.datatypes import HealthPopulationData
 from climate_health.services.cache_manager import get_cache
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
+# ignore showing plots in tests
+import matplotlib.pyplot as plt
+plt.ion()
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--run-slow", action="store_true", default=False, help="Run slow tests"
