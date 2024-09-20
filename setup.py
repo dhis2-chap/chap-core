@@ -67,7 +67,7 @@ setup(
     include_package_data=True,
     keywords='climate_health',
     name='climate_health',
-    packages=find_packages(include=['climate_health', 'climate_health.*']),
+    packages=find_packages(include=['climate_health', 'climate_health.*', 'climate_health.*.*']),
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/sandvelab/climate_health',
