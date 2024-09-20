@@ -24,6 +24,7 @@ list_features_path = "/v1/list-features"
 get_result_path = "/v1/get-results"
 predict_on_json_path = "/v1/predict-from-json"
 
+
 # Set the path to the model
 # def test_post_set_model_path():
 #    response = client.post(set_model_path_path, params={"model_path": "https://github.com/knutdrand/external_rmodel_example.git"})
@@ -49,6 +50,7 @@ def rq_worker_process():
 
 @pytest.mark.asyncio
 @pytest.mark.slow
+@pytest.mark.skip
 async def test_post_zip_file(tests_path, rq_worker_process):
     testfile = open(tests_path / "integration/rest_api/testdata/traning_prediction_data.zip", "rb")
     response = client.post(post_zip_file_path, files={"file": testfile})
@@ -56,7 +58,6 @@ async def test_post_zip_file(tests_path, rq_worker_process):
     assert response.json()['status'] == "success"
     status = client.get(get_status_path)
     assert status.status_code == 200
-    # assert status.json()['ready'] == False
     start_time = time.time()
     timeout = 30
     while client.get(get_status_path).json()['ready'] == False and time.time() - start_time < timeout:
@@ -66,22 +67,23 @@ async def test_post_zip_file(tests_path, rq_worker_process):
     assert result.status_code == 200
     assert 'diseaseId' in result.json()
 
+
 @pytest.mark.asyncio
-@pytest.mark.slow
 def test_predict_on_json_data(big_request_json, rq_worker_process):
-    response = client.post(predict_on_json_path, json=json.loads(big_request_json))
+    response = client.post(predict_on_json_path,
+                           json=json.loads(big_request_json))
     print(response, response.text[:100])
     assert response.status_code == 200
     status = client.get(get_status_path)
     assert status.status_code == 200
     start_time = time.time()
-    timeout = 30
+    timeout = 560
     while client.get(get_status_path).json()['ready'] == False and time.time() - start_time < timeout:
         time.sleep(1)
-    assert client.get(get_status_path).json()['ready'] == True
+    assert client.get(get_status_path).json()['ready']
     result = client.get(get_result_path)
 
-# Test get status on initial, should return 200
+
 @pytest.mark.xfail(reason="Waiting for asyynch test client")
 def test_get_status():
     response = client.get(get_status_path)

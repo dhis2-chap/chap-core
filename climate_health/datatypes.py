@@ -275,6 +275,17 @@ class Samples(TimeSeriesData):
 
     to_pandas = topandas
 
+    def summaries(self):
+        return SummaryStatistics(self.time_period,
+                                 mean=np.mean(self.samples, axis=-1),
+                                 median=np.median(self.samples, axis=-1),
+                                 std=np.std(self.samples, axis=-1),
+                                 min=np.min(self.samples, axis=-1),
+                                 max=np.max(self.samples, axis=-1),
+                                 quantile_low=np.quantile(self.samples, 0.25, axis=-1),
+                                 quantile_high=np.quantile(self.samples, 0.75, axis=-1))
+
+
 @dataclasses.dataclass
 class Quantile:
     low: float

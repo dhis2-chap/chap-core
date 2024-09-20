@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from climate_health.datatypes import HealthData, HealthPopulationData
+from climate_health.datatypes import HealthData, HealthPopulationData, Samples
 from climate_health.dhis2_interface.periods import get_period_id, convert_time_period_string
 from climate_health.dhis2_interface.src.PushResult import DataValue
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
@@ -86,6 +86,10 @@ def add_population_data(disease_data, population_lookup):
                                                )
                 for location, data in disease_data.items()}
     return DataSet(new_dict)
+
+
+def samples_to_datavalue(data: DataSet[Samples], attribute_mapping):
+    pass
 
 
 def predictions_to_datavalue(data: DataSet[HealthData], attribute_mapping: dict[str, str]):
