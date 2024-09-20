@@ -62,23 +62,9 @@ class QuickForecastFetcher:
 
 def train_on_json_data(json_data: RequestV1, model_name, model_path, control=None):
     model_path = model_name
-    translations = {'diseases': 'disease_cases'}
     json_data = RequestV1.model_validate_json(json_data)
     diseaseId = next(data_list.dhis2Id for data_list in json_data.features if data_list.featureId == 'diseases')
-    data = {translations.get(feature.featureId, feature.featureId): v1_conversion(feature.data,
-                                                                                  fill_missing=feature.featureId == 'diseases')
-            for feature in json_data.features}
-    gee_client = initialize_gee_client()
-    period_range = data['disease_cases'].period_range
-    locations = list(data['disease_cases'].keys())
-    climate_data = gee_client.get_historical_era5(json_data.orgUnitsGeoJson.model_dump(), periodes=period_range)
-    field_dict = {field_name:
-        DataSet(
-            {location: TimeSeriesArray(period_range, getattr(climate_data[location], field_name)) for
-             location in locations})
-        for field_name in ('mean_temperature', 'rainfall')}
-    train_data = DataSet.from_fields(FullData, data | field_dict)
-
+    train_data = dataset_from_request_v1(json_data)
 
     model = get_model_from_directory_or_github_url(model_path)
     if hasattr(model, 'set_graph'):
@@ -94,6 +80,24 @@ def train_on_json_data(json_data: RequestV1, model_name, model_path, control=Non
     json_body = [dataclasses.asdict(element) for element in data_values]
 
     return {'diseaseId': diseaseId, 'dataValues': json_body}
+
+
+def dataset_from_request_v1(json_data: RequestV1) -> DataSet[FullData]:
+    translations = {'diseases': 'disease_cases'}
+    data = {translations.get(feature.featureId, feature.featureId): v1_conversion(feature.data,
+                                                                                  fill_missing=feature.featureId == 'diseases')
+            for feature in json_data.features}
+    gee_client = initialize_gee_client()
+    period_range = data['disease_cases'].period_range
+    locations = list(data['disease_cases'].keys())
+    climate_data = gee_client.get_historical_era5(json_data.orgUnitsGeoJson.model_dump(), periodes=period_range)
+    field_dict = {field_name:
+        DataSet(
+            {location: TimeSeriesArray(period_range, getattr(climate_data[location], field_name)) for
+             location in locations})
+        for field_name in ('mean_temperature', 'rainfall')}
+    train_data = DataSet.from_fields(FullData, data | field_dict)
+    return train_data
 
 
 def load_forecasts(data_path):
