@@ -30,5 +30,6 @@ After evaluating the models, you can predict the values for the dataset using th
 predict command:
 
 ```bash
-
+chap-cli predict <path-to-dataset-file> <path-to-output-file> --model-path <model-name>
 ```
+
