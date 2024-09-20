@@ -18,3 +18,4 @@ python-dotenv
 myst_parser
 furo
 virtualenv
+pre-commit
