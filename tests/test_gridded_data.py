@@ -13,7 +13,7 @@ def credentials():
 def polygons_filename(data_path):
     return data_path/'philippines_polygons.json'
 
-@pytest.skip("Not implemented")
+@pytest.mark.skip("Not implemented")
 def test_get_gridded_data(polygons_filename):
     from climate_health.climate_data.gridded_data import get_gridded_data
     get_gridded_data(polygons_filename)
