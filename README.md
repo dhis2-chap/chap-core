@@ -1,4 +1,4 @@
-# Climate Health Anlysis Platform (CHAP)
+# Climate Health Analysis Platform (CHAP)
 CHAP offers a platform for analysing the relationship between climate and health. The platform is designed to be modular and flexible, allowing for easy integration of new models and data sources. The platform is designed to be used by researchers and public health professionals to forecast and assess the impact of climate on health outcomes.
 
 # Installation

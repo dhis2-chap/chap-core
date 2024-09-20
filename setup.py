@@ -38,6 +38,7 @@ requirements = ['typer',
                 'earthengine-api',
                 'mlflow',
                 'gluonts',
+                'xarray'
                 ]
 
 test_requirements = ['pytest>=3', "hypothesis"]
