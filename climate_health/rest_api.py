@@ -1,8 +1,6 @@
 import json
-from contextlib import asynccontextmanager
 import logging
-from asyncio import CancelledError
-from typing import List, Union
+from typing import Union
 
 from fastapi import BackgroundTasks, UploadFile, HTTPException
 from pydantic import BaseModel
@@ -12,18 +10,14 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from climate_health.api import read_zip_folder, train_on_prediction_data
 from climate_health.api_types import RequestV1
-from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import all_models
 from climate_health.predictor.feature_spec import Feature, all_features
+from climate_health.rest_api_src.data_models import FullPredictionResponse
 from climate_health.rest_api_src.worker_functions import train_on_zip_file, train_on_json_data
-from climate_health.training_control import TrainingControl
-from dotenv import load_dotenv, find_dotenv
 
-from climate_health.worker.background_tasks_worker import BGTaskWorker
 from climate_health.worker.rq_worker import RedisQueue
 
 logger = logging.getLogger(__name__)
@@ -97,21 +91,8 @@ class NaiveJob:
 # worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
 worker = RedisQueue()
 
-
 def set_cur_response(response):
     state['response'] = response
-
-
-class PredictionResponse(BaseModel):
-    value: float
-    orgUnit: str
-    dataElement: str
-    period: str
-
-
-class FullPredictionResponse(BaseModel):
-    diseaseId: str
-    dataValues: List[PredictionResponse]
 
 
 @app.get('favicon.ico')

@@ -97,13 +97,16 @@ class TemporalDataclass(Generic[FeaturesT]):
     def end_timestamp(self) -> pd.Timestamp:
         return self._data.time_period[-1].end_timestamp
 
+class Polygon:
+    pass
+
 
 class DataSet(Generic[FeaturesT]):
     '''
     Class representing severeal time series at different locations.
     '''
 
-    def __init__(self, data_dict: dict[str, FeaturesT]):
+    def __init__(self, data_dict: dict[str, FeaturesT], polygon_dict: dict[str, Polygon] = None):
         self._data_dict = {loc: TemporalDataclass(data) if not isinstance(data, TemporalDataclass) else data for
                            loc, data in data_dict.items()}
 
@@ -293,4 +296,7 @@ class DataSet(Generic[FeaturesT]):
             new_dict[location] = dataclass(period_range, **{field: fields[field][location].fill_to_range(start_timestamp, end_timestamp).value for field in field_names})
         return cls(new_dict)
 
-
+    def plot(self):
+        for location, data in self.items():
+            df = data.to_pandas()
+            df.plot(x='time_period', title=location)

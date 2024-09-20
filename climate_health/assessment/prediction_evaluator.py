@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Protocol, TypeVar
+from typing import Protocol, TypeVar, Iterable, Dict
 
 from gluonts.evaluation import Evaluator
 from gluonts.model import Forecast
@@ -111,6 +111,26 @@ class Estimator(Protocol):
 
 
 def evaluate_model(estimator: Estimator, data: DataSet, prediction_length=3, n_test_sets=4, report_filename=None):
+    '''
+    Evaluate a model on a dataset on a held out test set, making multiple predictions on the test set
+    using the same trained model
+
+    Parameters
+    ----------
+    estimator : Estimator
+        The estimator to train and evaluate
+    data : DataSet
+        The data to train and evaluate on
+    prediction_length : int
+        The number of periods to predict ahead
+    n_test_sets : int
+        The number of test sets to evaluate on
+
+    Returns
+    -------
+    tuple
+        Summary and individual evaluation results
+    '''
     train, test_generator = train_test_generator(data, prediction_length, n_test_sets)
     predictor = estimator.train(data)
     truth_data = {
@@ -123,10 +143,42 @@ def evaluate_model(estimator: Estimator, data: DataSet, prediction_length=3, n_t
     evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
     results = evaluator(tss, forecast_list)
     return results
+
+
+def evaluate_multi_model(estimator: Estimator, data: list[DataSet], prediction_length=3, n_test_sets=4,
+                         report_base_name=None):
+    trains, test_geneartors = zip(*[train_test_generator(d, prediction_length, n_test_sets) for d in data])
+    predictor = estimator.multi_train(trains)
+    result_list = []
+    for i, (data, test_generator) in enumerate(zip(data, test_geneartors)):
+        truth_data = {
+            location: pd.DataFrame(data[location].disease_cases, index=data[location].time_period.to_period_index()) for
+            location in data.keys()}
+        if report_base_name is not None:
+            _, plot_test_generatro = train_test_generator(data, prediction_length, n_test_sets)
+            plot_forecasts(predictor, plot_test_generatro, truth_data, f'{report_base_name}_i.pdf')
+        forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
+        evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
+        results = evaluator(tss, forecast_list)
+        result_list.append(results)
+    return results
     # forecasts = ((predictor.predict(*test_pair[:2]), test_pair[2]) for test_pair in test_generator)
 
 
-def _get_forecast_generators(predictor, test_generator, truth_data) -> tuple[list[Forecast], list[pd.DataFrame]]:
+def _get_forecast_generators(predictor: Predictor, test_generator: Iterable[tuple[DataSet, DataSet, DataSet]], truth_data: Dict[str, pd.DataFrame]) -> tuple[list[Forecast], list[pd.DataFrame]]:
+    '''
+    Get the forecast and truth data for a predictor and test generator.
+    One entry is a combination of prediction start period and location
+
+    Parameters
+    ----------
+    predictor : Predictor
+        The predictor to evaluate
+    test_generator : Iterable[tuple[DataSet, DataSet, DataSet]]
+        The test generator to generate test data
+    truth_data : dict[str, pd.DataFrame]
+        The truth data for the locations
+    '''
     tss = []
     forecast_list = []
     for historic_data, future_data, _ in test_generator:
@@ -144,10 +196,13 @@ def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[F
     forecast_dict = defaultdict(list)
 
     for historic_data, future_data, _ in test_generator:
+        assert len(
+            future_data.period_range) > 0, f'Future data must have at least one period {historic_data.period_range}, {future_data.period_range}'
         forecasts = predictor.predict(historic_data, future_data)
         for location, samples in forecasts.items():
             forecast_dict[location].append(ForecastAdaptor.from_samples(samples))
     return forecast_dict
+
 
 def get_forecast_df(predictor: Predictor, test_generator) -> pd.DataFrame:
     forecast_dict = _get_forecast_dict(predictor, test_generator)
@@ -158,19 +213,16 @@ def get_forecast_df(predictor: Predictor, test_generator) -> pd.DataFrame:
 
     return forecast_df
 
+
 def plot_forecasts(predictors: list[Predictor], test_instance, truth, pdf_filename):
     forecast_dicts = [_get_forecast_dict(predictor, test_instance) for predictor in predictors]
     with PdfPages(pdf_filename) as pdf:
         for location in forecast_dicts[0].keys():
             _t = truth[location]
             for forecast_dict in forecast_dicts:
-                fig = plt.subplots(figsize=(8, 4),ncols=len(forecast_dict))
+                fig = plt.subplots(figsize=(8, 4), ncols=len(forecast_dict))
                 for i in range(len(forecast_dict[location])):
                     forecast = forecast_dict[location][i]
-
-
-
-
 
                 # plt.figure(figsize=(8, 4))  # Set the figure size
                 # t = _t[_t.index <= forecast.index[-1]]
@@ -182,8 +234,8 @@ def plot_forecasts(predictors: list[Predictor], test_instance, truth, pdf_filena
                 # plt.close()  # Close the figure
 
 
-
 def plot_forecasts(predictor, test_instance, truth, pdf_filename):
+
     forecast_dict = _get_forecast_dict(predictor, test_instance)
     with PdfPages(pdf_filename) as pdf:
         for location, forecasts in forecast_dict.items():
@@ -192,11 +244,30 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
                 plt.figure(figsize=(8, 4))  # Set the figure size
                 t = _t[_t.index <= forecast.index[-1]]
                 forecast.plot(show_label=True)
-                plt.plot(t[-150:].to_timestamp())
+                plotting_context = 52*6
+                plt.plot(t[-plotting_context:].to_timestamp())
                 plt.title(location)
                 plt.legend()
                 pdf.savefig()
                 plt.close()  # Close the figure
+
+
+def plot_predictions(predictions: DataSet[Samples], truth: DataSet, pdf_filename):
+    truth_dict = {location: pd.DataFrame(truth[location].disease_cases, index=truth[location].time_period.to_period_index())
+                  for location in truth.keys()}
+    with PdfPages(pdf_filename) as pdf:
+        for location, prediction in predictions.items():
+            prediction = ForecastAdaptor.from_samples(prediction)
+            t = truth_dict[location]
+            plt.figure(figsize=(8, 4))  # Set the figure size
+            # t = _t[_t.index <= prediction.index[-1]]
+            prediction.plot(show_label=True)
+            context_length = 52*6
+            plt.plot(t[-context_length:].to_timestamp())
+            plt.title(location)
+            plt.legend()
+            pdf.savefig()
+            plt.close()  # Close the figure
 
 
 def plot_forecasts_list(predictor, test_instances, truth, pdf_filename):
@@ -205,7 +276,6 @@ def plot_forecasts_list(predictor, test_instances, truth, pdf_filename):
         for i, (forecast_entry, ts_entry) in enumerate(zip(forecasts, tss)):
             last_period = forecast_entry.index[-1]
             ts_entry = ts_entry[ts_entry.index <= last_period]
-            offset = ts_entry
             plt.figure(figsize=(8, 4))  # Set the figure size
             plt.plot(ts_entry[-150:].to_timestamp())
             forecast_entry.plot(show_label=True)
