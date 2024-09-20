@@ -33,6 +33,13 @@ def test_multi_forecast():
 
 def test_forecast_ahead():
     model = NaiveEstimator()
-    dataset = dataset = ISIMIP_dengue_harmonized['vietnam']
+    dataset = ISIMIP_dengue_harmonized['vietnam']
+    prediction_length = 3
+    forecast_ahead(model, dataset, prediction_length)
+
+
+def test_forecast_with_predicted_weather():
+    model = NaiveEstimator()
+    dataset = ISIMIP_dengue_harmonized['vietnam']
     prediction_length = 3
     forecast_ahead(model, dataset, prediction_length)

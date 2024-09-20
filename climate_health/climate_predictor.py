@@ -6,8 +6,17 @@ from sklearn import linear_model
 
 from .datatypes import ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period import PeriodRange
+from climate_health.time_period import PeriodRange, Month, Week
 
+
+def get_climate_predictor(train_data: DataSet[ClimateData]):
+    if isinstance(train_data.period_range[0], Month):
+        estimator = MonthlyClimatePredictor()
+    else:
+        assert isinstance(train_data.period_range[0], Week)
+        estimator = WeeklyClimatePredictor()
+    estimator.train(train_data)
+    return estimator
 
 
 class MonthlyClimatePredictor:
@@ -16,7 +25,7 @@ class MonthlyClimatePredictor:
         self._cls = None
 
     def _feature_matrix(self, time_period: PeriodRange):
-        return time_period.month[:,None] == np.arange(1, 13)
+        return time_period.month[:, None] == np.arange(1, 13)
 
     def train(self, train_data: DataSet[ClimateData]):
         train_data = train_data.remove_field('disease_cases')
@@ -35,10 +44,13 @@ class MonthlyClimatePredictor:
         x = self._feature_matrix(time_period)
         prediction_dict = {}
         for location, models in self._models.items():
-            prediction_dict[location] = self._cls(time_period, **{field: model.predict(x).ravel() for field, model in models.items()})
+            prediction_dict[location] = self._cls(time_period, **{field: model.predict(x).ravel() for field, model in
+                                                                  models.items()})
         return DataSet(prediction_dict)
 
 
-
-
-
+class WeeklyClimatePredictor(MonthlyClimatePredictor):
+    def _feature_matrix(self, time_period: PeriodRange):
+        t = time_period.week[:, None] == np.arange(1, 53)
+        t[..., -1] |= time_period.week == 53
+        return t

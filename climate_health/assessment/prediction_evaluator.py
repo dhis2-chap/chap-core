@@ -235,6 +235,7 @@ def plot_forecasts(predictors: list[Predictor], test_instance, truth, pdf_filena
 
 
 def plot_forecasts(predictor, test_instance, truth, pdf_filename):
+
     forecast_dict = _get_forecast_dict(predictor, test_instance)
     with PdfPages(pdf_filename) as pdf:
         for location, forecasts in forecast_dict.items():
@@ -243,7 +244,8 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
                 plt.figure(figsize=(8, 4))  # Set the figure size
                 t = _t[_t.index <= forecast.index[-1]]
                 forecast.plot(show_label=True)
-                plt.plot(t[-150:].to_timestamp())
+                plotting_context = 52*6
+                plt.plot(t[-plotting_context:].to_timestamp())
                 plt.title(location)
                 plt.legend()
                 pdf.savefig()
@@ -260,7 +262,8 @@ def plot_predictions(predictions: DataSet[Samples], truth: DataSet, pdf_filename
             plt.figure(figsize=(8, 4))  # Set the figure size
             # t = _t[_t.index <= prediction.index[-1]]
             prediction.plot(show_label=True)
-            plt.plot(t[-150:].to_timestamp())
+            context_length = 52*6
+            plt.plot(t[-context_length:].to_timestamp())
             plt.title(location)
             plt.legend()
             pdf.savefig()

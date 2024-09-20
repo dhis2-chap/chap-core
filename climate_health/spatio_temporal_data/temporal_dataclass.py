@@ -296,4 +296,7 @@ class DataSet(Generic[FeaturesT]):
             new_dict[location] = dataclass(period_range, **{field: fields[field][location].fill_to_range(start_timestamp, end_timestamp).value for field in field_names})
         return cls(new_dict)
 
-
+    def plot(self):
+        for location, data in self.items():
+            df = data.to_pandas()
+            df.plot(x='time_period', title=location)

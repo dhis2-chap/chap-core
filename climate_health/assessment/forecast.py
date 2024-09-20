@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 from climate_health.assessment.dataset_splitting import train_test_split_with_weather
 from climate_health.assessment.prediction_evaluator import Estimator, Predictor
-from climate_health.climate_predictor import MonthlyClimatePredictor
+from climate_health.climate_predictor import MonthlyClimatePredictor, get_climate_predictor
 from climate_health.data.gluonts_adaptor.dataset import ForecastAdaptor
 from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
@@ -60,10 +60,16 @@ def forecast_ahead(estimator: Estimator, dataset: DataSet, prediction_length: in
 
 
 def forecast_with_predicted_weather(predictor: Predictor, historic_data: DataSet, prediction_length: int, ):
-    prediction_range = PeriodRange.from_start_and_n_periods(
-        Month(historic_data.end_timestamp).to_string(), prediction_length)
-    climate_predictor = MonthlyClimatePredictor()
-    climate_predictor.train(historic_data)
+    delta = historic_data.period_range[0].time_delta
+    prediction_range = PeriodRange(historic_data.end_timestamp,
+                                   historic_data.end_timestamp + delta * prediction_length,
+                                   delta)
+
+    #prediction_range = PeriodRange.from_start_and_n_periods(
+    #    Month(historic_data.end_timestamp).to_string(), prediction_length)
+    #climate_predictor = MonthlyClimatePredictor()
+    #climate_predictor.train(historic_data)
+    climate_predictor= get_climate_predictor(historic_data)
     future_weather = climate_predictor.predict(prediction_range)
     predictions = predictor.predict(historic_data, future_weather)
     return predictions
