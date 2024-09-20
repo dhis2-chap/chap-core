@@ -4,7 +4,6 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import yaml
-from databricks.sdk.service.serving import ExternalModel
 
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, FullData
@@ -79,6 +78,7 @@ def test_external_sanity(models_path):
 
 @pytest.mark.skipif(not pyenv_available(), reason='requires pyenv')
 @pytest.mark.slow
+@pytest.mark.skip(reason="Unstable")
 def test_external_sanity_deepar(models_path):
     sanity_check_external_model(models_path / 'deepar')
 

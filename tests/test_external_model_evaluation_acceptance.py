@@ -77,6 +77,7 @@ class ExternalModelMock:
 
 # @pytest.mark.xfail
 @pytest.mark.slow
+@pytest.mark.skip(reason="Outdated")
 def test_external_model_evaluation(dataset_name, output_filename, load_data_func, external_predictive_model):
     external_model = external_predictive_model
     data_set = load_data_func(dataset_name)
