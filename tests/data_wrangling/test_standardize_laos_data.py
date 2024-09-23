@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.datatypes import HealthData, ClimateHealthData
 from climate_health.time_period import Month
 from climate_health.time_period.period_range import period_range
@@ -57,11 +57,11 @@ def messy_standardization_function(filename: Path, geolocator):
     print(month[0].month, month[-1].month)
     time_period = period_range(month[0], month[-1], exclusive_end=False)
     data_dict = {get_city_name(c): HealthData(time_period, data[c]) for c in data.columns[1:]}
-    from climate_health.dataset import SpatioTemporalDict
+    from climate_health._legacy_dataset import SpatioTemporalDict
     return SpatioTemporalDict(data_dict)
 
 
-def link_up_geo_data(data: SpatioTemporalDict[HealthData], geolocator):
+def link_up_geo_data(data: DataSet[HealthData], geolocator):
     climate_database = ClimateDataBaseMock()
     full_data = {}
     for city, health_data in data.items():
@@ -71,7 +71,7 @@ def link_up_geo_data(data: SpatioTemporalDict[HealthData], geolocator):
             continue
         climate_data = climate_database.get_data(location, health_data.time_period[0], health_data.time_period[-1])
         full_data[city] = ClimateHealthData.combine(health_data, climate_data)
-    return SpatioTemporalDict(full_data)
+    return DataSet(full_data)
 
 
 

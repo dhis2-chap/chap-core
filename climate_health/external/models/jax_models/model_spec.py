@@ -8,7 +8,7 @@ import numpy as np
 import scipy
 
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, SummaryStatistics, ClimateData
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period.date_util_wrapper import delta_month, TimeDelta, TimePeriod, PeriodRange
 from .hmc import sample
 from .jax import jax, stats, jnp, PRNGKey, expit, logit
@@ -297,7 +297,7 @@ class SSMForecasterNuts:
         locals = {param_name: params[param_name][location] for param_name in self._model_spec.location_params}
         return globals | locals
 
-    def train(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]):
+    def train(self, data: DataSet[ClimateHealthTimeSeries]):
         orig_data = data
         logger.info(f"Training model {self._model_spec} with {len(data.locations())} locations")
         data = {name: remove_nans(data.data())
@@ -369,14 +369,14 @@ class SSMForecasterNuts:
             time_period = data.get_location(location).data().time_period[:1]
             predictions[location] = HealthData(time_period, np.atleast_1d(rate))
 
-        return SpatioTemporalDict(predictions)
+        return DataSet(predictions)
 
-    def prediction_summary(self, data: SpatioTemporalDict = None, num_samples: int = 100) -> SpatioTemporalDict[
+    def prediction_summary(self, data: DataSet = None, num_samples: int = 100) -> DataSet[
         SummaryStatistics]:
         if isinstance(data, TimePeriod):
             time_period = PeriodRange.from_time_periods(data, data)
             locations = list(self._last_predictors.keys())
-        elif isinstance(data, SpatioTemporalDict):
+        elif isinstance(data, DataSet):
             locations = list(data.locations())
             time_period = next(iter(data.data())).data().time_period[:1]
         self._key, param_key, sample_key = jax.random.split(self._key, 3)
@@ -398,13 +398,13 @@ class SSMForecasterNuts:
                                                               self._last_predictors[location]).sample(obs_key))
         # time_period = next(iter(data.data())).data().time_period[:1]
         summaries = {k: get_summary(time_period, s) for k, s in samples.items()}
-        return SpatioTemporalDict(summaries)
+        return DataSet(summaries)
 
     def sample(self, key, n: int) -> dict[str, Any]:
         ...
 
-    def forecast(self, data: SpatioTemporalDict[ClimateData], num_samples: int = 100,
-                 forecast_delta: TimeDelta = 3 * delta_month) -> SpatioTemporalDict:
+    def forecast(self, data: DataSet[ClimateData], num_samples: int = 100,
+                 forecast_delta: TimeDelta = 3 * delta_month) -> DataSet:
         self._key, param_key, sample_key = jax.random.split(self._key, 3)
         time_period = next(iter(data.data())).data().time_period
         n_periods = forecast_delta // time_period.delta
@@ -420,7 +420,7 @@ class SSMForecasterNuts:
                 samples[location].append(jax.random.poisson(key, rates))
         summaries = {k: get_summary(time_period, s)
                      for k, s in samples.items()}
-        return SpatioTemporalDict(summaries)
+        return DataSet(summaries)
 
     def _get_init_params(self, data):
         init_params = {param_name: 0.1 for param_name in self._model_spec.global_params}

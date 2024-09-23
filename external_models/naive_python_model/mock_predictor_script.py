@@ -5,7 +5,7 @@ from climate_health.datatypes import ClimateData, ClimateHealthTimeSeries
 from climate_health.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor
 import typer
 
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 app = typer.Typer()
 
@@ -13,7 +13,7 @@ app = typer.Typer()
 @app.command()
 def train(train_data_set: str, model_output_file: str):
     predictor = MultiRegionNaivePredictor()
-    train_data = SpatioTemporalDict.from_csv(train_data_set, ClimateHealthTimeSeries)
+    train_data = DataSet.from_csv(train_data_set, ClimateHealthTimeSeries)
     predictor.train(train_data)
 
     # pickle predictor
@@ -26,7 +26,7 @@ def predict(future_climate_data_set: str, model_file: str, output_file: str):
     with open(model_file, 'rb') as f:
         predictor = pickle.load(f)
 
-    future_climate_data = SpatioTemporalDict.from_csv(future_climate_data_set, ClimateData)
+    future_climate_data = DataSet.from_csv(future_climate_data_set, ClimateData)
     predictions = predictor.predict(future_climate_data)
     print(predictions)
     predictions.to_csv(output_file)
@@ -35,8 +35,8 @@ def predict(future_climate_data_set: str, model_file: str, output_file: str):
 @app.command()
 def predict_values(train_data_set: str, future_climate_data_set: str, output_file: str):
     predictor = MultiRegionNaivePredictor()
-    train_data = SpatioTemporalDict.from_csv(train_data_set, ClimateHealthTimeSeries)
-    future_climate_data = SpatioTemporalDict.from_csv(future_climate_data_set, ClimateData)
+    train_data = DataSet.from_csv(train_data_set, ClimateHealthTimeSeries)
+    future_climate_data = DataSet.from_csv(future_climate_data_set, ClimateData)
     predictor.train(train_data)
     predictions = predictor.predict(future_climate_data)
     print(predictions)

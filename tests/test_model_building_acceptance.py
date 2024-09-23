@@ -1,6 +1,6 @@
 import pytest
 
-from climate_health.dataset import IsSpatioTemporalDataSet
+from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import HealthData
 from climate_health.predictor.naive_predictor import NaiveForecastSampler
 from climate_health.time_period import Day

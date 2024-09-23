@@ -5,7 +5,7 @@ from climate_health.datatypes import HealthData
 from climate_health.dhis2_interface.json_parsing import parse_climate_data, parse_disease_data, parse_population_data, predictions_to_datavalue
 from climate_health.dhis2_interface.src.PushResult import DataValue, push_result
 from climate_health.dhis2_interface.src.create_data_element_if_not_exists import create_data_element_if_not_exists
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.dhis2_interface.src.PullAnalytics import pull_analytics_elements
 from climate_health.dhis2_interface.src.Config import DHIS2AnalyticRequest, ProgramConfig
 
@@ -49,7 +49,7 @@ class ChapPullPost:
         # do the fancy modelling here?
         return
 
-    def pushDataToDHIS2(self, data : SpatioTemporalDict[HealthData], model_name : str, do_dict=True):
+    def pushDataToDHIS2(self, data : DataSet[HealthData], model_name : str, do_dict=True):
         # TODO do we need to delete previous modells?, or would we overwrite exisitng values?
         
         #used to prefix CHAP-dataElements in DHIS2
@@ -86,6 +86,6 @@ if __name__ == "__main__":
     process.startModelling()
 
     d = {"" : ""}
-    sp = SpatioTemporalDict(d)
+    sp = DataSet(d)
 
     process.pushDataToDHIS2(sp, "dengue")

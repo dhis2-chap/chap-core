@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_absolute_error
 
-from climate_health.dataset import IsSpatioTemporalDataSet
+from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import HealthData, ResultType, SummaryStatistics
 
 

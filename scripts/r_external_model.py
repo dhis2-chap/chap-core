@@ -6,7 +6,7 @@ import pandas as pd
 from climate_health.assessment.dataset_splitting import split_test_train_on_period, get_split_points_for_data_set
 from climate_health.datatypes import tsdataclass, TimeSeriesData
 from climate_health.external.external_model import ExternalCommandLineModel
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import TimePeriod, Month, PeriodRange
 from climate_health.time_period.dataclasses import Period as OurPeriod
 from pandas import Period
@@ -51,10 +51,10 @@ def hydromet_from_pandas(df):
             PeriodRange.from_pandas(group['time_period']),
             group['dengue_cases'].values, group['pdsi'].values, group['urban'].values, tmax, tmin)
 
-    return SpatioTemporalDict(data_dict)
+    return DataSet(data_dict)
 
 
-def hydromet_to_pandas(data: SpatioTemporalDict[HydrometDengueData]):
+def hydromet_to_pandas(data: DataSet[HydrometDengueData]):
     df = data.to_pandas()
 
     # change column location to micro_name_ibge

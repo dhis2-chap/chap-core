@@ -12,7 +12,7 @@ all_models = [d[name] for d in [globals(), external_models] for name in d.keys()
 ModelType = Literal[all_model_names]
 # 'MultiRegionPoissonModel', 'MultiRegionNaivePredictor', 'RegressionModel', 'HierarchicalRegressionModel']
 
-DEFAULT_MODEL = external_models['HierarchicalModel']
+DEFAULT_MODEL = None  #external_models['HierarchicalModel']
 
 
 

@@ -3,8 +3,8 @@ import dataclasses
 import numpy as np
 from sklearn import linear_model
 
-from climate_health.dataset import IsSpatioTemporalDataSet
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict, TemporalDataclass
+from climate_health._legacy_dataset import IsSpatioTemporalDataSet
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet, TemporalDataclass
 from climate_health.datatypes import HealthData, ClimateHealthTimeSeries, ClimateData
 from climate_health.time_period.dataclasses import Period
 
@@ -42,7 +42,7 @@ class MultiRegionNaivePredictor:
     def predict(self, future_weather: IsSpatioTemporalDataSet[ClimateData]) -> HealthData:
         prediction_dict = {location: HealthData(entry.data().time_period[:1], np.full(1, self._average_cases[location])) for
                            location, entry in future_weather.items()}
-        return SpatioTemporalDict(prediction_dict)
+        return DataSet(prediction_dict)
 
 
 class MultiRegionPoissonModel:
@@ -86,7 +86,7 @@ class MultiRegionPoissonModel:
             prediction = self._models[location].predict(X[-1:])
             prediction_dict[location] = HealthData(location_data.data().time_period[:1], np.atleast_1d(prediction))
 
-        return SpatioTemporalDict(prediction_dict)
+        return DataSet(prediction_dict)
 
 
 class NaiveForecastSampler:

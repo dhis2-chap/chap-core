@@ -31,3 +31,7 @@ def conda_available():
 
 def docker_available():
     return which("docker") is not None
+
+
+def pyenv_available():
+    return which("pyenv") is not None

@@ -1,13 +1,19 @@
+import pandas as pd
+from matplotlib import pyplot as plt
+
 from climate_health.assessment.dataset_splitting import train_test_split_with_weather
+from climate_health.assessment.prediction_evaluator import Estimator, Predictor
+from climate_health.climate_predictor import MonthlyClimatePredictor, get_climate_predictor
+from climate_health.data.gluonts_adaptor.dataset import ForecastAdaptor
 from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
-from climate_health.time_period.date_util_wrapper import TimeDelta, Month
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from climate_health.time_period.date_util_wrapper import TimeDelta, Month, PeriodRange
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta, graph=None):
+def forecast(model, dataset: DataSet, prediction_length: TimeDelta, graph=None):
     '''
     Forecast n_months into the future using the model
     '''
@@ -27,7 +33,7 @@ def forecast(model, dataset: SpatioTemporalDict, prediction_length: TimeDelta, g
     return predictions
 
 
-def multi_forecast(model, dataset: SpatioTemporalDict, prediction_lenght: TimeDelta, pre_train_delta: TimeDelta):
+def multi_forecast(model, dataset: DataSet, prediction_lenght: TimeDelta, pre_train_delta: TimeDelta):
     '''
     Forecast n_months into the future using the model
     '''
@@ -41,3 +47,29 @@ def multi_forecast(model, dataset: SpatioTemporalDict, prediction_lenght: TimeDe
         cur_dataset, _, _ = train_test_split_with_weather(cur_dataset, split_period)
     logger.info(f'Forecasting {prediction_lenght} months into the future on {len(datasets)} datasets')
     return (forecast(model, dataset, prediction_lenght) for dataset in datasets[::-1])
+
+
+def forecast_ahead(estimator: Estimator, dataset: DataSet, prediction_length: int):
+    '''
+    Forecast n_months into the future using the model
+    '''
+    logger.info(f'Forecasting {prediction_length} months into the future')
+    train_data = dataset
+    predictor = estimator.train(train_data)
+    return forecast_with_predicted_weather(predictor, train_data, prediction_length, )
+
+
+def forecast_with_predicted_weather(predictor: Predictor, historic_data: DataSet, prediction_length: int, ):
+    delta = historic_data.period_range[0].time_delta
+    prediction_range = PeriodRange(historic_data.end_timestamp,
+                                   historic_data.end_timestamp + delta * prediction_length,
+                                   delta)
+
+    #prediction_range = PeriodRange.from_start_and_n_periods(
+    #    Month(historic_data.end_timestamp).to_string(), prediction_length)
+    #climate_predictor = MonthlyClimatePredictor()
+    #climate_predictor.train(historic_data)
+    climate_predictor= get_climate_predictor(historic_data)
+    future_weather = climate_predictor.predict(prediction_range)
+    predictions = predictor.predict(historic_data, future_weather)
+    return predictions

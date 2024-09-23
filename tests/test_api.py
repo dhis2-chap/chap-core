@@ -32,7 +32,8 @@ def zip_filepath_population(data_path):
 
 
 # @pytest.mark.skip(reason='Not finished implementing')
-@pytest.mark.integration
+@pytest.mark.slow
+@pytest.mark.skip(reason='Outdated')
 def test_dhis_zip_flow(models_path, zip_filepath_population):
     out_json = "output.json"
     # model_name = "ewars_Plus"

@@ -25,6 +25,9 @@ class RequestV1(BaseModel):
     features: list[DataList]
 
 
+class PeriodObservation(BaseModel):
+    time_period: str
+
 # class Geometry:
 #     type: str
 #     coordinates: list[list[float]]

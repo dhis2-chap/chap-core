@@ -1,11 +1,11 @@
 from .external_model import run_command
 from ..datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
-from ..dataset import IsSpatioTemporalDataSet
+from .._legacy_dataset import IsSpatioTemporalDataSet
 
 from climate_health.time_period import Month
 import tempfile
 
-from ..spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from ..spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class ExternalPythonModel:
@@ -29,7 +29,7 @@ class ExternalPythonModel:
         command = (f"python {self._script} {train_data_file.name} "
                     f"{future_climate_data_file.name} {output_file.name}")
         output = run_command(command)
-        results = SpatioTemporalDict.from_csv(output_file.name, HealthData)
+        results = DataSet.from_csv(output_file.name, HealthData)
         train_data_file.close()
         future_climate_data_file.close()
         output_file.close()

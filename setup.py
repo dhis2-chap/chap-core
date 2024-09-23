@@ -11,6 +11,7 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = ['typer',
+                'virtualenv',
                 'numpy<2.0',
                 'bionumpy',
                 'pandas',
@@ -22,12 +23,22 @@ requirements = ['typer',
                 'pooch',
                 'python-dateutil',
                 'meteostat',
-                'cyclopts', 'requests', 'pydantic', 'pyyaml',
+                'cyclopts', 'requests',
+                'pydantic>=2.0',
+                'pyyaml',
                 'geopandas', 'libpysal', 'docker',
-                #'jax', 'jaxlib', 'blackjax', 'dynamax', 'flax',
+                'jax', 'jaxlib', 'blackjax', 'dynamax', 'flax', 'optax',
+                'scipy',
                 'fastapi',
                 'gitpython',  'earthengine-api', 'python-dotenv', 'rq', "python-multipart", "uvicorn",
-                 'pydantic-geojson'
+                 'pydantic-geojson', 'annotated_types',
+                'pycountry',
+                'unidecode',
+                'httpx',
+                'earthengine-api',
+                'mlflow',
+                'gluonts',
+                'xarray'
                 ]
 
 test_requirements = ['pytest>=3', "hypothesis"]
@@ -35,7 +46,7 @@ test_requirements = ['pytest>=3', "hypothesis"]
 setup(
     author="Sandvelab",
     author_email='sandvelab',
-    python_requires='>=3.10',
+    python_requires='>=3.9',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',

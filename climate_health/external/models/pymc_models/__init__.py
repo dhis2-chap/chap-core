@@ -2,14 +2,14 @@ import numpy as np
 import pandas as pd
 
 from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class MultiRegionPredictor:
     def __init__(self):
         ...
 
-    def _get_flat_data(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]) -> pd.DataFrame:
+    def _get_flat_data(self, data: DataSet[ClimateHealthTimeSeries]) -> pd.DataFrame:
         dfs = []
         for i, (location, location_data) in data.items():
             df = location_data.data().topandas()

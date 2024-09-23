@@ -39,7 +39,7 @@ def test_init_week_with_numbers():
     week = Week(2023, 2)
     assert isinstance(week, Week)
     assert week.start_timestamp == TimeStamp.parse('2023-01-09')
-    assert week.topandas() == '2023W2'  # pd.Period('2023-01-09', freq='W-MON')
+    assert week.to_string() == '2023W2'  # pd.Period('2023-01-09', freq='W-MON')
 
 
 def test_parse(period1):
@@ -215,3 +215,11 @@ def test_searchsorted(period_range, period2):
     assert period_range.searchsorted(period2) == array_comparison.searchsorted(1)
     assert period_range.searchsorted(period2, side='right') == array_comparison.searchsorted(1, side='right')
     assert period_range.searchsorted(period2, side='left') == array_comparison.searchsorted(1, side='left')
+
+
+def test_from_start_and_n_periods():
+    start_period = pd.Period('2020-01')
+    n_periods = 3
+    period_range = PeriodRange.from_start_and_n_periods(start_period, n_periods)
+    assert len(period_range) == n_periods
+    assert period_range[0] == TimePeriod.from_pandas(start_period)

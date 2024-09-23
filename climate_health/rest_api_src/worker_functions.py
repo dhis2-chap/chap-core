@@ -1,4 +1,3 @@
-import plotly.express as px
 import json
 import os
 from pathlib import Path
@@ -7,35 +6,62 @@ import numpy as np
 from dotenv import find_dotenv, load_dotenv
 from climate_health.api import read_zip_folder, train_on_prediction_data
 from climate_health.api_types import RequestV1
+from climate_health.assessment.forecast import forecast_with_predicted_weather
 from climate_health.climate_data.seasonal_forecasts import SeasonalForecast
-from climate_health.datatypes import FullData, TimeSeriesArray, remove_field
+from climate_health.climate_predictor import get_climate_predictor
+from climate_health.datatypes import FullData, TimeSeriesArray, remove_field, SimpleClimateData
 from climate_health.dhis2_interface.json_parsing import predictions_to_datavalue
 from climate_health.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
+from climate_health.external.external_model import get_model_from_directory_or_github_url
 from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from climate_health.predictor import get_model
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import delta_month, PeriodRange
 import dataclasses
-
+import logging
+logger = logging.getLogger(__name__)
 
 def initialize_gee_client():
     gee_client = Era5LandGoogleEarthEngine()
     return gee_client
 
+
 def train_on_zip_file(file, model_name, model_path, control=None):
-    
     gee_client = initialize_gee_client()
-    
+
     print('train_on_zip_file')
     print('F', file)
     prediction_data = read_zip_folder(file.file)
 
-    prediction_data.climate_data = gee_client.get_historical_era5(prediction_data.features, prediction_data.health_data.period_range)
+    prediction_data.climate_data = gee_client.get_historical_era5(prediction_data.features,
+                                                                  prediction_data.health_data.period_range)
 
     return train_on_prediction_data(prediction_data, model_name=model_name, model_path=model_path, control=control)
 
 
+class FutureWeatherFetcher:
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
+        ...
+
+
+class SeasonalForecastFetcher:
+    def __init__(self, folder_path):
+        self.folder_path = folder_path
+
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
+        ...
+
+
+class QuickForecastFetcher:
+    def __init__(self, historical_data: DataSet[SimpleClimateData]):
+        self._climate_predictor = get_climate_predictor(historical_data)
+
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
+        return self._climate_predictor.predict(period_range)
+
+
 def train_on_json_data(json_data: RequestV1, model_name, model_path, control=None):
+<<<<<<< HEAD
     data_class = remove_field(FullData, 'disease_cases')
     data_path =  Path(str(Path.home())+'/Data/ch_data/seasonal_forecasts')
     #data_path = Path(__file__).parent.parent / 'data'/ 'seasonal_forecasts'
@@ -43,44 +69,45 @@ def train_on_json_data(json_data: RequestV1, model_name, model_path, control=Non
     if not data_path.exists():
         raise FileNotFoundError(f'Could not find seasonal forecast data at {data_path}')
     translations = {'diseases': 'disease_cases'}
+=======
+    model_path = model_name
+>>>>>>> a56590705fd1aef6a46878b3163c3629395c2630
     json_data = RequestV1.model_validate_json(json_data)
     diseaseId = next(data_list.dhis2Id for data_list in json_data.features if data_list.featureId == 'diseases')
-    data = {translations.get(feature.featureId, feature.featureId): v1_conversion(feature.data, fill_missing=feature.featureId=='diseases') for feature in json_data.features}
-    last_population = {location: data.value[-1] for location, data in data['population'].items()}
+    train_data = dataset_from_request_v1(json_data)
+
+    model = get_model_from_directory_or_github_url(model_path)
+    if hasattr(model, 'set_graph'):
+        logger.warning(f"Not setting graph on {model}")
+
+        #area_polygons = data.area_polygons
+        #model.set_graph(area_polygons)
+    predictor = model.train(train_data)  # , extra_args=data.area_polygons)
+    predictions = forecast_with_predicted_weather(predictor, train_data, 3)
+    summaries = DataSet({location: samples.summaries() for location, samples in predictions.items()})
+    attrs = ['median', 'quantile_high', 'quantile_low']
+    data_values = predictions_to_datavalue(summaries, attribute_mapping=dict(zip(attrs, attrs)))
+    json_body = [dataclasses.asdict(element) for element in data_values]
+
+    return {'diseaseId': diseaseId, 'dataValues': json_body}
+
+
+def dataset_from_request_v1(json_data: RequestV1) -> DataSet[FullData]:
+    translations = {'diseases': 'disease_cases'}
+    data = {translations.get(feature.featureId, feature.featureId): v1_conversion(feature.data,
+                                                                                  fill_missing=feature.featureId == 'diseases')
+            for feature in json_data.features}
     gee_client = initialize_gee_client()
     period_range = data['disease_cases'].period_range
     locations = list(data['disease_cases'].keys())
     climate_data = gee_client.get_historical_era5(json_data.orgUnitsGeoJson.model_dump(), periodes=period_range)
     field_dict = {field_name:
-                      SpatioTemporalDict({location: TimeSeriesArray(period_range,  getattr(climate_data[location], field_name)) for location in locations})
-                  for field_name in ('mean_temperature', 'rainfall')}
-    train_data = SpatioTemporalDict.from_fields(FullData, data|field_dict)
-    model = get_model(model_name)()
-
-    if hasattr(model, 'set_graph'):
-        model.set_graph(data.area_polygons)
-
-
-    delta = period_range.delta
-    prediction_range = PeriodRange(period_range.end_timestamp,
-                                   period_range.end_timestamp + 3 * delta, delta)
-    future_weather = {field_name:
-                          SpatioTemporalDict({location: climate_forecasts.get_forecasts(location, prediction_range, field_name) for location in locations})
-                        for field_name in ('mean_temperature', 'rainfall')}
-    future_population = SpatioTemporalDict({location: TimeSeriesArray(prediction_range, np.full(len(prediction_range), last_population[location]))
-                                            for location in locations})
-    future_weather = SpatioTemporalDict.from_fields(data_class, future_weather|{'population': future_population})
-
-    model.train(train_data)  # , extra_args=data.area_polygons)
-
-    predictions = model.forecast(future_weather, forecast_delta=3*delta)
-    # plot predictions
-
-    attrs = ['median', 'quantile_high', 'quantile_low']
-    data_values = predictions_to_datavalue(predictions, attribute_mapping=dict(zip(attrs, attrs)))
-    json_body = [dataclasses.asdict(element) for element in data_values]
-
-    return {'diseaseId': diseaseId, 'dataValues': json_body}
+        DataSet(
+            {location: TimeSeriesArray(period_range, getattr(climate_data[location], field_name)) for
+             location in locations})
+        for field_name in ('mean_temperature', 'rainfall')}
+    train_data = DataSet.from_fields(FullData, data | field_dict)
+    return train_data
 
 
 def load_forecasts(data_path):
@@ -92,6 +119,3 @@ def load_forecasts(data_path):
             with open(data_path / file_name) as f:
                 climate_forecasts.add_json(variable_type, json.load(f))
     return climate_forecasts
-
-
-

@@ -6,14 +6,14 @@ from climate_health.datatypes import ClimateHealthTimeSeries
 # from climate_health.external.external_model import ExternalModel
 from climate_health.predictor.naive_predictor import MultiRegionNaivePredictor
 from climate_health.reports import HTMLReport
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from tests.test_external_model_evaluation_acceptance import ExternalModelMock
-from climate_health.dataset import IsSpatioTemporalDataSet
+from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 
 
 def load_data_set(data_set_filename: str) -> IsSpatioTemporalDataSet:
     assert data_set_filename.endswith('.csv')
-    return SpatioTemporalDict.from_pandas(pd.read_csv(data_set_filename), ClimateHealthTimeSeries)
+    return DataSet.from_pandas(pd.read_csv(data_set_filename), ClimateHealthTimeSeries)
 
 
 def main(

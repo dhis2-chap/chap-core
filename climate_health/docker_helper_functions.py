@@ -34,13 +34,14 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
                                       working_dir="/home/run",
                                       auto_remove=False,
                                       detach=True)
+
     output = container.attach(stdout=True, stream=False, logs=True)
+    # get logs from container
     print(output)
     full_output = output
     #full_output = ""
     #for line in output:
-    #    print("Line output: ", line)
-    #    full_output += line.decode("utf-8")
+    #    print(line.decode("utf-8"))
 
     result = container.wait()
     exit_code = result["StatusCode"]

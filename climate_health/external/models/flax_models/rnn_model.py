@@ -1,8 +1,6 @@
 import flax.linen as nn
 import jax.numpy as jnp
-from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.external.models.jax_models import jax
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+
 
 
 class RNNModel(nn.Module):

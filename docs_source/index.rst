@@ -9,10 +9,32 @@ The current version has basic data handling functionality in place, and is almos
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 0
    :caption: Contents:
 
-   readme
-   external_models
    installation
+   external_models
+   tutorials/wrapping_gluonts
+
+
+API documentation
+===================
+
+Data Fetching
+--------------
+
+Functionality for fetching data
+
+
+.. currentmodule:: climate_health.fetch
+
+.. autofunction:: gee_era5
+
+.. currentmodule:: climate_health.data
+
+.. autoclass:: DataSet
+    :members: from_period_observations, from_pandas, to_pandas
+
+.. autoclass:: PeriodObservation
+
 

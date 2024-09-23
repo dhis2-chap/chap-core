@@ -1,27 +1,31 @@
 import logging
 import os.path
+import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime
 from hashlib import md5
 from pathlib import Path
 from typing import Protocol, Generic, TypeVar, Tuple, Optional
 
 import docker
+import git
 import numpy as np
 import pandas as pd
 import pandas.errors
 import yaml
 import json
 
-from climate_health.dataset import IsSpatioTemporalDataSet
+from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData, SummaryStatistics
 from climate_health.docker_helper_functions import create_docker_image, run_command_through_docker_container
+from climate_health.external.mlflow import ExternalModel, MlFlowTrainPredictRunner, DockerTrainPredictRunner
 from climate_health.geojson import NeighbourGraph
 from climate_health.runners.command_line_runner import CommandLineRunner
 from climate_health.runners.docker_runner import DockerImageRunner, DockerRunner
 from climate_health.runners.runner import Runner
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period.date_util_wrapper import TimeDelta, delta_month, TimePeriod
 
 logger = logging.getLogger(__name__)
@@ -37,6 +41,7 @@ class IsExternalModel(Protocol):
 FeatureType = TypeVar('FeatureType')
 
 
+# todo: Can be removed, use ExternalMlflowModel instead
 class ExternalCommandLineModel(Generic[FeatureType]):
     """
     Represents a model with commands for setup (optional), training and prediction.
@@ -109,7 +114,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
     def run_through_container(self, command: str):
         """Runs the command through either conda, docker or directly depending on the config"""
-        logger.info(f'Running command: {command}')
+        logger.info(f'Running command: {command} through runner {self._runner}')
         return self._runner.run_command(command)
 
     def setup(self):
@@ -178,11 +183,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             kwargs = {}
 
         command = self._train_command.format(train_data=train_file_name, model=self._model_file_name, extra_args=extra_args, **kwargs)
-
-
-
         response = self.run_through_container(command)
         self._saved_state = new_pd
+        return self
 
     def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
         name = 'future_data.csv'
@@ -191,6 +194,9 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         with open(name, "w") as f:
             df = future_data.to_pandas()
             df['disease_cases'] = np.nan
+
+            # todo: instead of using saved state for historic data, get histori data in as argument to predict
+            # send historic data and future data as two seperate data sets to model
 
             new_pd = self._adapt_data(df)
             if self.is_lagged:
@@ -220,22 +226,52 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         time_periods = [TimePeriod.parse(s) for s in df.time_period.astype(str)]
         mask = [start_time <= time_period.start_timestamp for time_period in time_periods]
         df = df[mask]
-        return SpatioTemporalDict.from_pandas(df, result_class)
+        return DataSet.from_pandas(df, result_class)
 
-    def forecast(self, future_data: SpatioTemporalDict[FeatureType], n_samples=1000,
+    def forecast(self, future_data: DataSet[FeatureType], n_samples=1000,
                  forecast_delta: TimeDelta = 3 * delta_month):
         time_period = next(iter(future_data.data())).data().time_period
         n_periods = forecast_delta // time_period.delta
-        future_data = SpatioTemporalDict({key: value.data()[:n_periods] for key, value in future_data.items()})
+        future_data = DataSet({key: value.data()[:n_periods] for key, value in future_data.items()})
         return self.predict(future_data)
 
-    def prediction_summary(self, future_data: SpatioTemporalDict[FeatureType], n_samples=1000):
-        future_data = SpatioTemporalDict({key: value.data()[:1] for key, value in future_data.items()})
+    def prediction_summary(self, future_data: DataSet[FeatureType], n_samples=1000):
+        future_data = DataSet({key: value.data()[:1] for key, value in future_data.items()})
         return self.predict(future_data)
 
     def _provide_temp_file(self):
         return tempfile.NamedTemporaryFile(dir=self._working_dir, delete=False)
 
+    @classmethod
+    def from_mlproject_file(cls, mlproject_file):
+        working_dir = mlproject_file.parent
+        # read yaml file into a dict
+        with open(mlproject_file, 'r') as file:
+            data = yaml.load(file, Loader=yaml.FullLoader)
+
+        name = data['name']
+        train_command = data['entry_points']['train']['command']
+        predict_command = data['entry_points']['predict']['command']
+        setup_command = None
+        data_type = data.get('data_type', None)
+        allowed_data_types = {'HealthData': HealthData}
+        data_type = allowed_data_types.get(data_type, None)
+
+        assert "docker_env" in data, "Only docker supported for now"
+        runner = DockerRunner(data['docker_env']['image'], working_dir)
+
+        model = cls(
+            name=name,
+            train_command=train_command,
+            predict_command=predict_command,
+            data_type=data_type,
+            setup_command=setup_command,
+            working_dir=working_dir,
+            # working_dir=Path(yaml_file).parent,
+            adapters=data.get('adapters', None),
+            runner=runner,
+        )
+        return model
 
 
 # todo: remove this
@@ -327,3 +363,75 @@ def get_runner_from_yaml_file(yaml_file: str) -> Runner:
 
 def get_model_and_runner_from_yaml_file(yaml_file: str) -> Tuple[ExternalCommandLineModel, Runner]:
     return ExternalCommandLineModel.from_yaml_file(yaml_file), get_runner_from_yaml_file(yaml_file)
+
+
+
+def get_model_from_directory_or_github_url(model_path, base_working_dir=Path('runs/')):
+    """
+    Gets the model and initializes a working directory with the code for the model.
+    model_path can be a local directory or github url
+    """
+    is_github = False
+    if isinstance(model_path, str) and model_path.startswith("https://github.com"):
+        dir_name = model_path.split("/")[-1].replace(".git", "")
+        model_name = dir_name
+        is_github = True
+    else:
+        model_name = Path(model_path).name
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    working_dir = base_working_dir / model_name / timestamp
+
+    if is_github:
+        working_dir.mkdir(parents=True)
+        git.Repo.clone_from(model_path, working_dir)
+    else:
+        # copy contents of model_path to working_dir
+        shutil.copytree(model_path, working_dir)
+
+    # assert that a config file exists
+    if (working_dir / 'MLproject').exists():
+        assert (working_dir / 'MLproject').exists(), f"MLproject file not found in {working_dir}"
+        return get_model_from_mlproject_file(working_dir / 'MLproject')
+    elif (working_dir / 'config.yml').exists():
+        return get_model_from_yaml_file(working_dir / 'config.yml', working_dir)
+    else:
+        raise Exception("No config.yml or MLproject file found in model directory")
+
+
+def get_model_from_mlproject_file(mlproject_file):
+    """ parses file and returns the model
+    Will not use MLflows project setup if docker is specified
+    """
+
+    with open(mlproject_file, 'r') as file:
+        config = yaml.load(file, Loader=yaml.FullLoader)
+    if "docker_env" in config:
+        logging.info("Docker env is specified in mlproject file, using ExternalCommandLineModel")
+        #return ExternalCommandLineModel.from_mlproject_file(mlproject_file)
+        runner = DockerTrainPredictRunner.from_mlproject_file(mlproject_file)
+    else:
+        runner = MlFlowTrainPredictRunner(mlproject_file.parent)
+
+    logging.info("Will create ExternalMlflowModel")
+    name = config["name"]
+    adapters = config.get('adapters', None)
+    allowed_data_types = {'HealthData': HealthData}
+    data_type = allowed_data_types.get(config.get('data_type', None), None)
+    return ExternalModel(runner, name=name, adapters=adapters, data_type=data_type,
+                         working_dir=Path(mlproject_file).parent)
+
+
+def get_model_maybe_yaml(model_name):
+    model = get_model_from_directory_or_github_url(model_name)
+    return model, model.name
+
+    from climate_health.predictor import get_model
+    if model_name.endswith(".yaml") or model_name.endswith(".yml"):
+        working_dir = Path(model_name).parent
+        model = get_model_from_yaml_file(model_name, working_dir)
+        return model, model.name
+    elif model_name.startswith("https://github.com"):
+        return get_model_from_directory_or_github_url(model_name), model_name
+    else:
+        return get_model(model_name), model_name

@@ -4,6 +4,5 @@ __author__ = """Sandvelab"""
 __email__ = 'sandvelab'
 __version__ = '0.0.1'
 
-
-class ExternalModel:
-    pass
+from . import fetch
+from . import data

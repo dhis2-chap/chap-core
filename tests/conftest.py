@@ -7,21 +7,21 @@ import pytest
 
 from climate_health.datatypes import HealthPopulationData
 from climate_health.services.cache_manager import get_cache
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--run-integration", action="store_true", default=False, help="Run integration tests"
+        "--run-slow", action="store_true", default=False, help="Run slow tests"
     )
 
 def pytest_configure(config):
-    config.addinivalue_line("markers", "integration: mark a test as an integration test.")
+    config.addinivalue_line("markers", "slow: mark a test as a slow test.")
 
 def pytest_collection_modifyitems(config, items):
-    if not config.getoption("--run-integration"):
-        skip_integration = pytest.mark.skip(reason="need --run-integration option to run")
+    if not config.getoption("--run-slow"):
+        skip_integration = pytest.mark.skip(reason="need --run-slow option to run")
         for item in items:
-            if "integration" in item.keywords:
+            if "slow" in item.keywords:
                 item.add_marker(skip_integration)
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def use_test_cache():
 @pytest.fixture()
 def health_population_data(data_path):
     file_name = (data_path / 'health_population_data').with_suffix('.csv')
-    return SpatioTemporalDict.from_pandas(pd.read_csv(file_name), HealthPopulationData)
+    return DataSet.from_pandas(pd.read_csv(file_name), HealthPopulationData)
 
 
 @pytest.fixture()

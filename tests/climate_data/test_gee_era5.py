@@ -1,10 +1,15 @@
+import os
 from datetime import datetime, timezone
 from typing import List
 
 from dotenv import find_dotenv, load_dotenv
-from climate_health.google_earth_engine.gee_era5 import Band, Era5LandGoogleEarthEngine, Periode, kelvin_to_celsium, meter_to_mm
+
+from climate_health.api_types import FeatureCollectionModel
+from climate_health.google_earth_engine.gee_era5 import Band, Era5LandGoogleEarthEngine, Periode, kelvin_to_celsium, \
+    meter_to_mm
 from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngineHelperFunctions
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.google_earth_engine.gee_raw import fetch_era5_data, GEECredentials
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period.date_util_wrapper import Month, TimePeriod
 import pytest
 import ee as _ee
@@ -15,6 +20,7 @@ era5_land_gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
 @pytest.fixture()
 def ee(era5_land_gee):
     return _ee
+
 
 @pytest.fixture()
 def era5_land_gee():
@@ -50,7 +56,7 @@ def property_dicts():
             {'period': '201202', 'ou': 'Oslo', 'value': 12., 'indicator': 'mean_temperature'}]
 
 def test_parse_gee_properties(property_dicts):
-    result : SpatioTemporalDict = era5_land_gee_helper.parse_gee_properties(property_dicts)
+    result : DataSet = era5_land_gee_helper.parse_gee_properties(property_dicts)
     assert result is not None
     assert len(result.to_pandas()) == 4
     assert (result.get_location("Oslo").data().mean_temperature == [12, 12]).all()
@@ -219,3 +225,40 @@ def test_value_collection_to_list(feature_collection):
     assert result[1]["properties"]["indicator"] == "rainfall"
     assert result[0]["properties"]["value"] == 301.6398539038109
     assert result[1]["properties"]["value"] == 0.01885525397859519
+
+@pytest.fixture()
+def gee_credentials():
+    try:
+        load_dotenv(find_dotenv())
+        account = os.environ.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
+        private_key = os.environ.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')
+        return GEECredentials(account=account, private_key=private_key)
+    except Exception as e:
+        pytest.skip("Google Earth Engine not available")
+
+
+@pytest.fixture()
+def polygons(polygon_json):
+    return FeatureCollectionModel.model_validate_json(polygon_json)
+
+@pytest.fixture()
+def polygon_json(data_path):
+    return open(data_path / "Organisation units.geojson").read()
+
+
+@pytest.mark.skip('Calling actual gee data')
+def test_gee_api(gee_credentials, polygons):
+    data = fetch_era5_data(gee_credentials, polygons, start_period="202201",
+                           end_period="202202", band_names=["temperature_2m", "total_precipitation_sum"])
+    print(data)
+    assert len(data) == 2*2*len(polygons.features)
+
+
+@pytest.mark.skip('Calling actual gee data')
+def test_gee_api_simple(gee_credentials, polygon_json):
+    data = fetch_era5_data(gee_credentials.model_dump(), polygon_json, start_period="202201",
+                           end_period="202202", band_names=["temperature_2m", "total_precipitation_sum"])
+    print(data)
+
+
+

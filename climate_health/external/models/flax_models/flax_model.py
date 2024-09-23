@@ -15,7 +15,7 @@ import jax
 from climate_health.external.models.flax_models.rnn_model import RNNModel
 from climate_health.external.models.jax_models.model_spec import skip_nan_distribution, Poisson, Normal, \
     NegativeBinomial, NegativeBinomial2, NegativeBinomial3
-from climate_health.spatio_temporal_data.temporal_dataclass import SpatioTemporalDict
+from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 PoissonSkipNaN = skip_nan_distribution(Poisson)
 
@@ -36,6 +36,7 @@ class TrainState(train_state.TrainState):
 class FlaxModel:
     model: nn.Module#  = RNNModel()
     n_iter: int = 3000
+
     def __init__(self, rng_key: jax.random.PRNGKey = jax.random.PRNGKey(100), n_iter: int = None):
         self.rng_key = rng_key
         self._losses = []
@@ -54,12 +55,12 @@ class FlaxModel:
             self._model = RNNModel(n_locations=self._saved_x.shape[0])
         return self._model
 
-    def set_validation_data(self, data: SpatioTemporalDict[FullData]):
+    def set_validation_data(self, data: DataSet[FullData]):
         x, y = self._get_series(data)
         self._validation_x = x
         self._validation_y = y
 
-    def _get_series(self, data: SpatioTemporalDict[FullData]):
+    def _get_series(self, data: DataSet[FullData]):
         x = []
         y = []
         for series in data.values():
@@ -83,7 +84,7 @@ class FlaxModel:
         #print(y_pred.shape)
         return y_pred[:, self._saved_x.shape[1]:]
 
-    def train(self, data: SpatioTemporalDict[ClimateHealthTimeSeries]):
+    def train(self, data: DataSet[ClimateHealthTimeSeries]):
         x, y = self._get_series(data)
         self._mu = np.mean(x, axis=(0, 1))
         self._std = np.std(x, axis=(0, 1))
@@ -153,7 +154,7 @@ class FlaxModel:
 
         self._params = state.params
 
-    def forecast(self, data: SpatioTemporalDict[FullData], n_samples=1000, forecast_delta=1):
+    def forecast(self, data: DataSet[FullData], n_samples=1000, forecast_delta=1):
         #print('Forecasting with params:', self._params)
         x, y = self._get_series(data)
         x = (x - self._mu) / self._std
@@ -169,7 +170,7 @@ class FlaxModel:
         median = self._get_q(eta, 0.5)[:, self._saved_x.shape[1]:]
 
         time_period = next(iter(data.values())).time_period
-        return SpatioTemporalDict(
+        return DataSet(
             {key: SummaryStatistics(time_period, *([row.ravel()] * 5 + [q_low.ravel(), q_high.ravel()]))
              for key, row, q_high, q_low in zip(data.keys(), y_pred, q_highs, q_lows)})
 
@@ -188,7 +189,7 @@ class FlaxModel:
         plt.plot(self._losses)
         plt.show()
 
-    def predict(self, data: SpatioTemporalDict[FullData]):
+    def predict(self, data: DataSet[FullData]):
         x, y = self._get_series(data)
         return np.exp(self.model.apply(self._params, x))
 
