@@ -1,5 +1,13 @@
 Running on JSON data downloaded from the CHAP-app
 =================================================
+For this example you will need to have the CHAP-app installed on DHIS2 and chap installed on your local computer, in addition to Docker installed and credentials  for Google Earth Engine.
+Chap can be installed by running the following command:
+
+    $ pip install git+https://github.com/dhis2/chap-core.git
+
+Credentials for Google Earth Engine needs to be put as environment variables on your local computer...
+
+
 
 Convert the JSON data into a CHAP-DataSet
 ------------------------------------------
