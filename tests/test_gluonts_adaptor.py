@@ -13,7 +13,7 @@ from climate_health.file_io.example_data_set import datasets
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import PeriodRange
 from climate_health.data.datasets import ISIMIP_dengue_harmonized
-
+from .data_fixtures import train_data_pop, full_data
 
 @pytest.fixture
 def full_dataset():

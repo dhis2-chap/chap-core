@@ -8,7 +8,7 @@ import pytest
 from climate_health.datatypes import HealthPopulationData
 from climate_health.services.cache_manager import get_cache
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-
+from .data_fixtures import *
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -81,3 +81,5 @@ def big_request_json():
         pytest.skip()
     with open(filepath, "r") as f:
         return f.read()
+
+

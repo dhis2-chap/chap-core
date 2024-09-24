@@ -6,7 +6,7 @@ from climate_health.assessment.dataset_splitting import (
     train_test_generator,
 )
 from climate_health.time_period import PeriodRange
-
+from .data_fixtures import full_data
 
 def test_train_test_split(full_data):
     test_start = Month(2012, 7)

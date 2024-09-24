@@ -1,10 +1,9 @@
 from typing import Any
 
-from climate_health.external.models.jax_models.jax import jnp
+from climate_health.external.models.jax_models.jax import jnp, expit
 from climate_health.external.models.jax_models.model_spec import (
     IsDistribution,
     Poisson,
-    expit,
     DictDist,
     Normal,
     SSMForecasterNuts,

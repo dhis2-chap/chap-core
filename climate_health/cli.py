@@ -16,11 +16,11 @@ from climate_health.spatio_temporal_data.multi_country_dataset import (
 from . import api
 from climate_health.dhis2_interface.ChapProgram import ChapPullPost
 from climate_health.dhis2_interface.json_parsing import add_population_data
-from climate_health.external.models.jax_models.model_spec import (
-    SSMForecasterNuts,
-    NutsParams,
-)
-from climate_health.external.models.jax_models.specs import SSMWithoutWeather
+#from climate_health.external.models.jax_models.model_spec import (
+#    SSMForecasterNuts,
+#    NutsParams,
+#)
+#from climate_health.external.models.jax_models.specs import SSMWithoutWeather
 from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
 from climate_health.predictor import ModelType
 from climate_health.file_io.example_data_set import datasets, DataSetType

@@ -1,8 +1,8 @@
 from climate_health.cli import get_full_dataframe
-from climate_health.external.models.jax_models.model_spec import (
-    SSMForecasterNuts,
-    NutsParams,
-)
+# from climate_health.external.models.jax_models.model_spec import (
+#    SSMForecasterNuts,
+#    NutsParams,
+#)
 from climate_health.external.models.jax_models.specs import SSMWithoutWeather
 import pytest
 
