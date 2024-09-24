@@ -81,5 +81,3 @@ def big_request_json():
         pytest.skip()
     with open(filepath, "r") as f:
         return f.read()
-
-

@@ -5,8 +5,6 @@ import pytest
 from climate_health.rest_api import app
 from fastapi.testclient import TestClient
 
-# main_backend()
-
 client = TestClient(app)
 
 # paths
@@ -17,16 +15,9 @@ list_models_path = "/v1/list-models"
 list_features_path = "/v1/list-features"
 get_result_path = "/v1/get-results"
 predict_on_json_path = "/v1/predict-from-json"
+predict_path = "/v1/predict"
 
 
-# Set the path to the model
-# def test_post_set_model_path():
-#    response = client.post(set_model_path_path, params={"model_path": "https://github.com/knutdrand/external_rmodel_example.git"})
-#    assert response.status_code == 200
-
-
-# Test get status on initial, should return 200
-# @pytest.mark.skip(reason="Waiting for background task to work")
 @pytest.fixture(scope="session")
 def rq_worker_process():
     # run 'rq worker' in a subprocess
@@ -36,12 +27,6 @@ def rq_worker_process():
     yield process
     # get stdout and stderr from process
     process.terminate()
-    # stdout, stderr = process.communicate()
-    # print("----------------------")
-    # print(stdout)
-    # print("++++++++++++++++++++++")
-    # print(stderr)
-
     process.terminate()
 
 
@@ -60,8 +45,8 @@ async def test_post_zip_file(tests_path, rq_worker_process):
     start_time = time.time()
     timeout = 30
     while (
-        client.get(get_status_path).json()["ready"] == False
-        and time.time() - start_time < timeout
+            client.get(get_status_path).json()["ready"] == False
+            and time.time() - start_time < timeout
     ):
         time.sleep(1)
     assert client.get(get_status_path).json()["ready"] == True
@@ -72,20 +57,29 @@ async def test_post_zip_file(tests_path, rq_worker_process):
 
 # @pytest.mark.asyncio
 def test_predict_on_json_data(big_request_json, rq_worker_process):
-    response = client.post(predict_on_json_path, json=json.loads(big_request_json))
-    print(response, response.text[:100])
+    endpoint_path = predict_on_json_path
+    check_job_endpoint(big_request_json, endpoint_path)
+
+
+def test_predict(big_request_json, rq_worker_process):
+    check_job_endpoint(big_request_json, predict_path)
+
+
+def check_job_endpoint(big_request_json, endpoint_path):
+    response = client.post(endpoint_path, json=json.loads(big_request_json))
     assert response.status_code == 200
     status = client.get(get_status_path)
     assert status.status_code == 200
     start_time = time.time()
     timeout = 120
     while (
-        client.get(get_status_path).json()["ready"] == False
-        and time.time() - start_time < timeout
+            client.get(get_status_path).json()["ready"] == False
+            and time.time() - start_time < timeout
     ):
         time.sleep(1)
     assert client.get(get_status_path).json()["ready"]
     result = client.get(get_result_path)
+    assert result.status_code == 200
 
 
 @pytest.mark.xfail(reason="Waiting for asyynch test client")

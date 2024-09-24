@@ -2,8 +2,8 @@ import json
 import os
 
 from climate_health.api import read_zip_folder, train_on_prediction_data
-from climate_health.api_types import RequestV1
-from climate_health.assessment.forecast import forecast_with_predicted_weather
+from climate_health.api_types import RequestV1, PredictionRequest
+from climate_health.assessment.forecast import forecast_with_predicted_weather, forecast_ahead
 from climate_health.climate_data.seasonal_forecasts import SeasonalForecast
 from climate_health.climate_predictor import get_climate_predictor
 from climate_health.datatypes import FullData, TimeSeriesArray, SimpleClimateData
@@ -19,6 +19,10 @@ import dataclasses
 import logging
 
 logger = logging.getLogger(__name__)
+
+model_paths = {
+    'chap_ewars': 'https://github.com/sandvelab/chap_auto_ewars'
+}
 
 
 def initialize_gee_client():
@@ -44,7 +48,7 @@ def train_on_zip_file(file, model_name, model_path, control=None):
 
 class FutureWeatherFetcher:
     def get_future_weather(
-        self, period_range: PeriodRange
+            self, period_range: PeriodRange
     ) -> DataSet[SimpleClimateData]: ...
 
 
@@ -53,7 +57,7 @@ class SeasonalForecastFetcher:
         self.folder_path = folder_path
 
     def get_future_weather(
-        self, period_range: PeriodRange
+            self, period_range: PeriodRange
     ) -> DataSet[SimpleClimateData]: ...
 
 
@@ -62,27 +66,39 @@ class QuickForecastFetcher:
         self._climate_predictor = get_climate_predictor(historical_data)
 
     def get_future_weather(
-        self, period_range: PeriodRange
+            self, period_range: PeriodRange
     ) -> DataSet[SimpleClimateData]:
         return self._climate_predictor.predict(period_range)
+
+
+def predict(json_data: PredictionRequest):
+    json_data = PredictionRequest.model_validate_json(json_data)
+    model_path = model_paths.get(json_data.model_id)
+    estimator = get_model_from_directory_or_github_url(model_path)
+    target_id = get_target_id(json_data, ["disease", 'diseases'])
+    train_data = dataset_from_request_v1(json_data)
+    predictions = forecast_ahead(estimator, train_data, json_data.n_periods)
+    summaries = DataSet(
+        {location: samples.summaries() for location, samples in predictions.items()}
+    )
+    attrs = ["median", "quantile_high", "quantile_low"]
+    data_values = predictions_to_datavalue(
+        summaries, attribute_mapping=dict(zip(attrs, attrs))
+    )
+    json_body = [dataclasses.asdict(element) for element in data_values]
+    return {"diseaseId": target_id, "dataValues": json_body}
 
 
 def train_on_json_data(json_data: RequestV1, model_name, model_path, control=None):
     model_path = model_name
     json_data = RequestV1.model_validate_json(json_data)
-    diseaseId = next(
-        data_list.dhis2Id
-        for data_list in json_data.features
-        if data_list.featureId == "diseases"
-    )
+    target_name = "diseases"
+    target_id = get_target_id(json_data, target_name)
     train_data = dataset_from_request_v1(json_data)
-
     model = get_model_from_directory_or_github_url(model_path)
     if hasattr(model, "set_graph"):
         logger.warning(f"Not setting graph on {model}")
 
-        # area_polygons = data.area_polygons
-        # model.set_graph(area_polygons)
     predictor = model.train(train_data)  # , extra_args=data.area_polygons)
     predictions = forecast_with_predicted_weather(predictor, train_data, 3)
     summaries = DataSet(
@@ -94,11 +110,22 @@ def train_on_json_data(json_data: RequestV1, model_name, model_path, control=Non
     )
     json_body = [dataclasses.asdict(element) for element in data_values]
 
-    return {"diseaseId": diseaseId, "dataValues": json_body}
+    return {"diseaseId": target_id, "dataValues": json_body}
+
+
+def get_target_id(json_data, target_names):
+    if isinstance(target_names, str):
+        target_names = [target_names]
+    target_id = next(
+        data_list.dhis2Id
+        for data_list in json_data.features
+        if data_list.featureId in target_names
+    )
+    return target_id
 
 
 def dataset_from_request_v1(
-    json_data: RequestV1, target_name="diseases"
+        json_data: RequestV1, target_name="diseases"
 ) -> DataSet[FullData]:
     translations = {target_name: "disease_cases"}
     data = {

@@ -4,22 +4,17 @@ from typing import Union
 
 from fastapi import BackgroundTasks, UploadFile, HTTPException
 from pydantic import BaseModel
-# from fastapi.responses import HTMLResponse
-
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from climate_health.api_types import RequestV1
+from climate_health.api_types import RequestV1, PredictionRequest
 from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import all_models
 from climate_health.predictor.feature_spec import Feature, all_features
 from climate_health.rest_api_src.data_models import FullPredictionResponse
-from climate_health.rest_api_src.worker_functions import (
-    train_on_zip_file,
-    train_on_json_data,
-)
+import climate_health.rest_api_src.worker_functions as wf
 
 from climate_health.worker.rq_worker import RedisQueue
 
@@ -129,7 +124,7 @@ async def post_zip_file(
         model_name = "external"
         model_path = internal_state.model_path
 
-    job = worker.queue(train_on_zip_file, file, model_name, model_path)
+    job = worker.queue(wf.train_on_zip_file, file, model_name, model_path)
     internal_state.current_job = job
 
     return {"status": "success"}
@@ -141,7 +136,6 @@ async def predict_from_json(data: RequestV1) -> dict:
     Post a json file containing the data needed for prediction
     """
     model_path = "https://github.com/sandvelab/chap_auto_ewars"
-    # model_name, model_path = 'http', None
     if internal_state.model_path is not None:
         model_name = "external"
         model_path = internal_state.model_path
@@ -149,17 +143,22 @@ async def predict_from_json(data: RequestV1) -> dict:
 
     str_data = json.dumps(json_data)
 
-    job = worker.queue(train_on_json_data, str_data, model_path, model_path)
+    job = worker.queue(wf.train_on_json_data, str_data, model_path, model_path)
     internal_state.current_job = job
 
     return {"status": "success"}
 
-    # if internal_state.model_path is not None:
-    #    model_name = 'external'
-    #    model_path = internal_state.model_path
-    # response = train_on_prediction_data(data, model_name, model_path)
-    # return response
 
+@app.post('/predict/')
+async def predict(data: PredictionRequest)-> dict:
+    """
+    Start a prediction task using the given data as training data
+    """
+    json_data = data.model_dump()
+    str_data = json.dumps(json_data)
+    job = worker.queue(wf.predict, str_data)
+    internal_state.current_job = job
+    return {"status": "success"}
 
 @app.get("/list-models")
 async def list_models() -> list[ModelSpec]:
