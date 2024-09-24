@@ -71,15 +71,7 @@ def model_spec_from_yaml(filename: str) -> ModelSpec:
 
 def model_spec_from_model(model_class: type) -> ModelSpec:
     name = model_class.__name__
-    param_type = list(inspect.get_annotations(model_class.train).values())[0]
-    if not hasattr(param_type, "__args__"):
-        return None
-    var = param_type.__args__[0]
-    feature_names = [
-        field.name
-        for field in dataclasses.fields(var)
-        if field.name not in _non_feature_names
-    ]
+    feature_names = _get_feature_names(model_class)
     return ModelSpec(
         name=name,
         parameters=EmptyParameterSpec,
@@ -88,3 +80,17 @@ def model_spec_from_model(model_class: type) -> ModelSpec:
         description="Internally defined model",
         author="CHAP Team",
     )
+
+
+def _get_feature_names(model_class):
+    param_type = list(inspect.get_annotations(model_class.train).values())[0]
+    if not hasattr(param_type, "__args__"):
+       return []
+    var = param_type.__args__[0]
+
+    feature_names = [
+        field.name
+        for field in dataclasses.fields(var)
+        if field.name not in _non_feature_names
+    ]
+    return feature_names

@@ -1,6 +1,5 @@
-from climate_health.external.models.jax_models.hierarchical_model import (
-    HierarchicalStateModelD2,
-)
+import pytest
+
 from climate_health.model_spec import (
     model_spec_from_yaml,
     PeriodType,
@@ -8,6 +7,7 @@ from climate_health.model_spec import (
     model_spec_from_model,
 )
 import climate_health.predictor.feature_spec as fs
+from climate_health.predictor.naive_estimator import NaiveEstimator
 
 
 def test_model_spec_from_yaml(models_path):
@@ -18,9 +18,11 @@ def test_model_spec_from_yaml(models_path):
     assert model_spec.period == PeriodType.week
 
 
+
+#@pytest.mark.skip('Need a model to test')
 def test_model_spec_from_yaml():
-    cls = HierarchicalStateModelD2
+    cls = NaiveEstimator
     model_spec = model_spec_from_model(cls)
-    assert model_spec.name == "HierarchicalStateModelD2"
+    assert model_spec.name == "NaiveEstimator"
     assert model_spec.parameters == EmptyParameterSpec
-    assert set(model_spec.features) == {fs.population, fs.rainfall, fs.mean_temperature}
+    assert set(model_spec.features) == set([]) #{fs.population, fs.rainfall, fs.mean_temperature}

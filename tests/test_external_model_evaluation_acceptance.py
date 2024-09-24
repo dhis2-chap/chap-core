@@ -5,8 +5,7 @@ from climate_health.assessment.prediction_evaluator import evaluate_model
 from climate_health._legacy_dataset import IsSpatioTemporalDataSet
 from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
 from climate_health.external.external_model import ExternalCommandLineModel
-from climate_health.external.models import SSM
-from climate_health.external.models.jax_models.simple_ssm import SSMWithLinearEffect
+
 from climate_health.runners.command_line_runner import CommandLineRunner
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from . import EXAMPLE_DATA_PATH, TEST_PATH

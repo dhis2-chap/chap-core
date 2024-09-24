@@ -93,7 +93,7 @@ def test_get_status():
 def test_list_models():
     response = client.get(list_models_path)
     assert response.status_code == 200
-    assert "HierarchicalStateModelD2" in {spec["name"] for spec in response.json()}
+    assert "MultiRegionPoissonModel" in {spec["name"] for spec in response.json()}
 
 
 def test_list_features():
