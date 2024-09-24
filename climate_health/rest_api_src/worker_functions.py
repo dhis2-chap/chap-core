@@ -61,17 +61,7 @@ class QuickForecastFetcher:
 
 
 def train_on_json_data(json_data: RequestV1, model_name, model_path, control=None):
-<<<<<<< HEAD
-    data_class = remove_field(FullData, 'disease_cases')
-    data_path =  Path(str(Path.home())+'/Data/ch_data/seasonal_forecasts')
-    #data_path = Path(__file__).parent.parent / 'data'/ 'seasonal_forecasts'
-    climate_forecasts = load_forecasts(data_path)
-    if not data_path.exists():
-        raise FileNotFoundError(f'Could not find seasonal forecast data at {data_path}')
-    translations = {'diseases': 'disease_cases'}
-=======
     model_path = model_name
->>>>>>> a56590705fd1aef6a46878b3163c3629395c2630
     json_data = RequestV1.model_validate_json(json_data)
     diseaseId = next(data_list.dhis2Id for data_list in json_data.features if data_list.featureId == 'diseases')
     train_data = dataset_from_request_v1(json_data)
