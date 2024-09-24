@@ -11,12 +11,14 @@ def parse_period_string(time_string: str) -> TimePeriod:
 
 def write_time_series_data(data):
     def topandas(self):
-        data = pd.DataFrame({
-            "time_period": self.time_period.topandas(),
-            "rainfall": self.rainfall,
-            "mean_temperature": self.mean_temperature,
-            "disease_cases": self.disease_cases,
-        })
+        data = pd.DataFrame(
+            {
+                "time_period": self.time_period.topandas(),
+                "rainfall": self.rainfall,
+                "mean_temperature": self.mean_temperature,
+                "disease_cases": self.disease_cases,
+            }
+        )
         return data
 
     to_pandas = topandas
@@ -37,9 +39,12 @@ def parse_periods_strings(time_strings: List[str]) -> dc.Period:
     if t == Year:
         return dc.Year([period.year for period in periods])
     if t == Month:
-        return dc.Month([period.year for period in periods],
-                        [period.month for period in periods])
+        return dc.Month(
+            [period.year for period in periods], [period.month for period in periods]
+        )
     elif t == Day:
-        return dc.Day([period.year for period in periods],
-                      [period.month for period in periods],
-                      [period.day for period in periods])
+        return dc.Day(
+            [period.year for period in periods],
+            [period.month for period in periods],
+            [period.day for period in periods],
+        )

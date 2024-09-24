@@ -8,6 +8,7 @@ from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import Month
 from climate_health.datatypes import FullData
 
+
 @pytest.fixture()
 def blackjax():
     try:
@@ -47,7 +48,7 @@ def random_key(jax):
 
 @pytest.fixture()
 def data(data_path):
-    file_name = (data_path / 'hydro_met_subset').with_suffix('.csv')
+    file_name = (data_path / "hydro_met_subset").with_suffix(".csv")
     return DataSet.from_pandas(pd.read_csv(file_name), ClimateHealthTimeSeries)
 
 
@@ -64,6 +65,7 @@ def split_data(data):
 @pytest.fixture()
 def test_data(split_data):
     return split_data[1:]
+
 
 @pytest.fixture
 def full_train_data(train_data):

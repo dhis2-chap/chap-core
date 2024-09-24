@@ -2,7 +2,6 @@ from scipy.spatial.distance import pdist, squareform
 import torch
 from time import time
 import math
-from tqdm import tqdm
 from numpy.polynomial.hermite_e import *
 from itertools import product
 from scipy import sparse
@@ -15,6 +14,7 @@ class CoinSVGD:
     Coin Stein Variational Gradient Descent and Stein Variational Gradient Descent.
     Adapted from https://github.com/dilinwang820/Stein-Variational-Gradient-Descent/.
     """
+
     def __init__(self, batch=True):
         self.batch = batch
 
@@ -40,7 +40,7 @@ class CoinSVGD:
             h = np.sqrt(0.5 * h / np.log(theta.shape[0] + 1))
 
         # rbf kernel
-        kxy = np.exp(-pairwise_dists / h ** 2 / 2)
+        kxy = np.exp(-pairwise_dists / h**2 / 2)
 
         # rbf kernel grad
         dx_kxy = -np.matmul(kxy, theta)
@@ -49,11 +49,20 @@ class CoinSVGD:
         for i in range(theta.shape[1]):
             dx_kxy[:, i] = dx_kxy[:, i] + np.multiply(theta[:, i], sum_kxy)
 
-        dx_kxy = dx_kxy / (h ** 2)
+        dx_kxy = dx_kxy / (h**2)
 
         return kxy, dx_kxy
 
-    def svgd_update(self, theta0, ln_prob_grad, n_iter=1000, stepsize=1e-3, bandwidth=-1, alpha=0.9, adagrad=False):
+    def svgd_update(
+        self,
+        theta0,
+        ln_prob_grad,
+        n_iter=1000,
+        stepsize=1e-3,
+        bandwidth=-1,
+        alpha=0.9,
+        adagrad=False,
+    ):
         """
         SVGD
 
@@ -72,7 +81,7 @@ class CoinSVGD:
 
         # Check input
         if theta0 is None or ln_prob_grad is None:
-            raise ValueError('theta0 or ln_prob_grad cannot be None')
+            raise ValueError("theta0 or ln_prob_grad cannot be None")
 
         # initial theta
         theta = np.copy(theta0)
@@ -86,7 +95,6 @@ class CoinSVGD:
         historical_grad = 0
 
         for t in range(n_iter):
-
             # log density
             if self.batch:
                 ln_p_grad = ln_prob_grad(theta)
@@ -104,11 +112,15 @@ class CoinSVGD:
             # adagrad
             if adagrad:
                 if t == 0:
-                    historical_grad = historical_grad + grad_theta ** 2
+                    historical_grad = historical_grad + grad_theta**2
                 else:
-                    historical_grad = alpha * historical_grad + (1 - alpha) * (grad_theta ** 2)
+                    historical_grad = alpha * historical_grad + (1 - alpha) * (
+                        grad_theta**2
+                    )
 
-                adj_grad = np.divide(grad_theta, fudge_factor + np.sqrt(historical_grad))
+                adj_grad = np.divide(
+                    grad_theta, fudge_factor + np.sqrt(historical_grad)
+                )
 
             else:
                 adj_grad = grad_theta
@@ -136,7 +148,7 @@ class CoinSVGD:
 
         # Check input
         if theta0 is None or ln_prob_grad is None:
-            raise ValueError('theta0 or ln_prob_grad cannot be None')
+            raise ValueError("theta0 or ln_prob_grad cannot be None")
 
         # Initial theta
         theta0 = copy.deepcopy(theta0)
@@ -153,7 +165,6 @@ class CoinSVGD:
         abs_grad_theta_sum = 0
 
         for t in range(n_iter):
-
             # calculate grad log density
             if self.batch:
                 ln_p_grad = ln_prob_grad(theta)
@@ -182,7 +193,9 @@ class CoinSVGD:
             reward = np.maximum(reward + np.multiply(theta - theta0, grad_theta), 0)
 
             # theta update
-            theta = theta0 + grad_theta_sum / (L * (abs_grad_theta_sum + L)) * (L + reward)
+            theta = theta0 + grad_theta_sum / (L * (abs_grad_theta_sum + L)) * (
+                L + reward
+            )
 
             if np.isnan(theta).any():
                 theta = copy.deepcopy(theta0)
@@ -197,6 +210,7 @@ class CoinKSDD:
     Coin Kernel Stein Discrepancy Descent and Kernel Stein Discrepancy Descent.
     Adapted from https://github.com/pierreablin/ksddescent
     """
+
     def __init__(self):
         pass
 
@@ -225,7 +239,7 @@ class CoinKSDD:
 
         _, p = x.shape
         # Gaussian kernel:
-        norms = (x ** 2).sum(-1)
+        norms = (x**2).sum(-1)
         dists = -2 * x @ x.t() + norms[:, None] + norms[None, :]
 
         # median rule
@@ -245,7 +259,9 @@ class CoinKSDD:
             return stein_kernel, k
         return stein_kernel
 
-    def update(self, x0, score, step, n_iter=1000, h=-1, store=True, verbose=False, clamp=None):
+    def update(
+        self, x0, score, step, n_iter=1000, h=-1, store=True, verbose=False, clamp=None
+    ):
         """
         Kernel Stein Discrepancy Descent
 
@@ -289,7 +305,7 @@ class CoinKSDD:
                 all_x.append(x.clone())
             scores_x = score(x)
             k = self.gaussian_stein_kernel(x, scores_x, h)
-            loss = k.sum() / n_samples ** 2
+            loss = k.sum() / n_samples**2
             loss.backward()
             loss_list.append(loss.item())
             if verbose and i % 100 == 0:
@@ -308,7 +324,17 @@ class CoinKSDD:
         else:
             return x
 
-    def coin_update(self, x0, score, n_iter=1000, h=-1, store=True, verbose=False, clamp=None, L=.01):
+    def coin_update(
+        self,
+        x0,
+        score,
+        n_iter=1000,
+        h=-1,
+        store=True,
+        verbose=False,
+        clamp=None,
+        L=0.01,
+    ):
         x = x0.clone().detach()
         n_samples, p = x.shape
         x.requires_grad = True
@@ -329,13 +355,12 @@ class CoinKSDD:
                 all_x.append(x.clone())
             scores_x = score(x)
             k = self.gaussian_stein_kernel(x, scores_x, h)
-            loss = k.sum() / n_samples ** 2
+            loss = k.sum() / n_samples**2
             loss.backward()
             loss_list.append(loss.item())
             if verbose and i % 100 == 0:
                 print(i, loss.item())
             with torch.no_grad():
-
                 # |gradient|
                 abs_grad_x = abs(x.grad)
 
@@ -343,20 +368,22 @@ class CoinKSDD:
                 L = torch.maximum(abs_grad_x, L)
 
                 # sum of gradients
-                grad_x_sum += (-x.grad)
+                grad_x_sum += -x.grad
                 abs_grad_x_sum += abs_grad_x
 
                 # 'reward'
                 reward = np.maximum(reward + torch.multiply(x - x0, (-x.grad)), 0)
 
                 # x dot gradient
-                x_dot_grad_x = torch.einsum('ij,ji->i', x, -x.grad.T)
+                x_dot_grad_x = torch.einsum("ij,ji->i", x, -x.grad.T)
 
                 # sum of x dot gradient
                 x_dot_grad_x_sum += x_dot_grad_x
 
                 # x update
-                x[:] = x0.clone().detach() + grad_x_sum / (L * (abs_grad_x_sum + L)) * (L + reward)
+                x[:] = x0.clone().detach() + grad_x_sum / (L * (abs_grad_x_sum + L)) * (
+                    L + reward
+                )
 
                 # clamp
                 if n is not None:
@@ -383,6 +410,7 @@ class CoinLAWGD:
     Coin Laplacian Adjusted Wasserstein Gradient Descent and Laplacian Adjusted Wasserstein Gradient Descent
     Adapted from https://github.com/twmaunu/LAWGD
     """
+
     def __init__(self):
         pass
 
@@ -391,15 +419,27 @@ class CoinLAWGD:
         return np.linspace(x_min, x_max, n_grid)
 
     @staticmethod
-    def x_grid_func_2d(x_min=-10, x_max=10, y_min=-10, y_max=10, n_grid_x=32, n_grid_y=32):
+    def x_grid_func_2d(
+        x_min=-10, x_max=10, y_min=-10, y_max=10, n_grid_x=32, n_grid_y=32
+    ):
         n_grid = n_grid_x * n_grid_y
         xx = np.linspace(x_min, x_max, n_grid_x)
         yy = np.linspace(y_min, y_max, n_grid_y)
         dx = (x_max - x_min) / (n_grid_x - 1)
         dy = (y_max - y_min) / (n_grid_y - 1)
         m = dict(zip(product(range(n_grid_x), range(n_grid_y)), range(n_grid)))
-        xx2 = np.outer(xx, np.ones(n_grid_x, ))
-        yy2 = np.outer(np.ones(n_grid_y, ), yy)
+        xx2 = np.outer(
+            xx,
+            np.ones(
+                n_grid_x,
+            ),
+        )
+        yy2 = np.outer(
+            np.ones(
+                n_grid_y,
+            ),
+            yy,
+        )
         xx2 = xx2.flatten()
         yy2 = yy2.flatten()
         xx_yy = np.column_stack((xx2, yy2))
@@ -407,7 +447,7 @@ class CoinLAWGD:
 
     @staticmethod
     def diff_one(m):
-        d = np.zeros((m+1, m))
+        d = np.zeros((m + 1, m))
         d[:m, :] = np.eye(m)
         d[1:, :] -= np.diag(np.ones(m), 0)
         return d
@@ -446,21 +486,29 @@ class CoinLAWGD:
         x_grid = self.x_grid_func(x_min, x_max, n_grid)
         psi = np.zeros((n_grid, n_eig + 1))
 
-        for i in range(n_eig+1):
-            c = np.zeros(i + 1, )
+        for i in range(n_eig + 1):
+            c = np.zeros(
+                i + 1,
+            )
             c[i] = 1
-            psi[:, i] = (hermeval(x_grid, c) / math.factorial(i))
+            psi[:, i] = hermeval(x_grid, c) / math.factorial(i)
 
-        psi_prime = np.zeros((n_grid, n_eig+1))
-        for i in range(n_eig+1):
+        psi_prime = np.zeros((n_grid, n_eig + 1))
+        for i in range(n_eig + 1):
             if i == 0:
-                c = np.zeros(i + 1, )
+                c = np.zeros(
+                    i + 1,
+                )
                 c[i] = 1
                 psi_prime[:, i] = 2 * i
             else:
-                c = np.zeros(i + 1, )
+                c = np.zeros(
+                    i + 1,
+                )
                 c[i] = 1
-                c2 = np.zeros(i + 1, )
+                c2 = np.zeros(
+                    i + 1,
+                )
                 c2[i - 1] = 1
                 psi_prime[:, i] = 2 * hermeval(x_grid, c2) / math.factorial(i)
 
@@ -468,9 +516,11 @@ class CoinLAWGD:
         psi = psi[:, 1:]
         psi_prime = psi_prime[:, 1:]
 
-        return psi_prime.dot(np.diag(1 / (np.arange(n_eig)+1))).dot(psi.T)
+        return psi_prime.dot(np.diag(1 / (np.arange(n_eig) + 1))).dot(psi.T)
 
-    def lawgd_1d_mixture_gaussian_kernel(self, x_min=-10, x_max=10, n_grid=128, mixture_model=None):
+    def lawgd_1d_mixture_gaussian_kernel(
+        self, x_min=-10, x_max=10, n_grid=128, mixture_model=None
+    ):
         """
         1D LAWGD mixture gaussian kernel
 
@@ -485,31 +535,47 @@ class CoinLAWGD:
         """
 
         x_grid = self.x_grid_func(x_min, x_max, n_grid).reshape((n_grid, 1))
-        dx = (x_max-x_min)/(n_grid-1)
+        dx = (x_max - x_min) / (n_grid - 1)
 
         neg_lap = np.zeros([n_grid, n_grid])
         for i in range(n_grid):
             if i > 0:
-                neg_lap[i-1, i] = -1/(dx**2)
-            neg_lap[i, i] = 2/(dx**2)
-            if i+1 < n_grid:
-                neg_lap[i+1, i] = -1/(dx**2)
+                neg_lap[i - 1, i] = -1 / (dx**2)
+            neg_lap[i, i] = 2 / (dx**2)
+            if i + 1 < n_grid:
+                neg_lap[i + 1, i] = -1 / (dx**2)
 
         potential_op = np.diag(mixture_model.v_s(x_grid))
         l = neg_lap + potential_op
 
         e, psi = np.linalg.eigh(l)
 
-        psi = psi * np.outer(np.exp(-mixture_model.ln_prob(x_grid) / 2), np.ones(n_grid, ))
-        psi_prime = (psi[1:, ] - psi[:-1, ]) / dx
+        psi = psi * np.outer(
+            np.exp(-mixture_model.ln_prob(x_grid) / 2),
+            np.ones(
+                n_grid,
+            ),
+        )
+        psi_prime = (psi[1:,] - psi[:-1,]) / dx
 
         e_inv = e
         e_inv = 1 / e_inv
 
         return psi_prime.dot(np.diag(e_inv)).dot(psi[:-1, :].T)
 
-    def lawgd_1d(self, x0, step=2, n_iter=5000, kernel="gaussian", n_grid=128, n_eig=150, x_min=-6, x_max=6,
-                 every_iter=1, model=None):
+    def lawgd_1d(
+        self,
+        x0,
+        step=2,
+        n_iter=5000,
+        kernel="gaussian",
+        n_grid=128,
+        n_eig=150,
+        x_min=-6,
+        x_max=6,
+        every_iter=1,
+        model=None,
+    ):
         """
         LAWGD on a 1d grid
 
@@ -566,8 +632,19 @@ class CoinLAWGD:
         else:
             return x
 
-    def coin_lawgd_1d(self, x0, n_iter=5000, kernel="gaussian", n_grid=128, n_eig=150, x_min=-6, x_max=6,
-                      every_iter=1, model=None, L=0.01):
+    def coin_lawgd_1d(
+        self,
+        x0,
+        n_iter=5000,
+        kernel="gaussian",
+        n_grid=128,
+        n_eig=150,
+        x_min=-6,
+        x_max=6,
+        every_iter=1,
+        model=None,
+        L=0.01,
+    ):
         """
         Coin LAWGD on a 1d grid
 
@@ -585,7 +662,6 @@ class CoinLAWGD:
         Outputs:
             x: particle positions
         """
-
 
         x_grid = self.x_grid_func(x_min, x_max, n_grid)
         x_grid = x_grid.reshape((x_grid.size, 1))
@@ -627,7 +703,7 @@ class CoinLAWGD:
             L = np.maximum(abs_grad, L)
 
             # sum of gradients
-            grad_sum += (-grad)
+            grad_sum += -grad
             abs_grad_sum += abs_grad
             abs_grad_sum_max = np.amax(abs_grad_sum, 1)
 
@@ -635,7 +711,7 @@ class CoinLAWGD:
             reward = np.maximum(reward + np.multiply(x - x0, (-grad)), 0)
 
             # x dot gradient
-            x_dot_grad = np.einsum('ij,ji->i', x, -grad.T)
+            x_dot_grad = np.einsum("ij,ji->i", x, -grad.T)
 
             # sum of x dot gradient
             x_dot_grad_sum += x_dot_grad
@@ -664,14 +740,14 @@ class CoinSGLD:
     """
     Stochastic Gradient Langevin Dynamics.
     """
+
     def __init__(self, batch=True):
         self.batch = batch
 
     def sgld_update(self, theta0, score, dt, n_iter):
-
         # check input
         if theta0 is None or score is None:
-            raise ValueError('theta0 or ln_prob_grad cannot be None')
+            raise ValueError("theta0 or ln_prob_grad cannot be None")
 
         # initial theta
         theta = np.copy(theta0)
@@ -681,10 +757,11 @@ class CoinSGLD:
         all_theta.append(np.copy(theta))
 
         # noise
-        w = np.random.normal(loc=0.0, scale=np.sqrt(2*dt), size=(n_iter,) + theta.shape)
+        w = np.random.normal(
+            loc=0.0, scale=np.sqrt(2 * dt), size=(n_iter,) + theta.shape
+        )
 
         for t in range(n_iter):
-
             # grad log density
             if self.batch:
                 grad_theta = score(theta)
@@ -700,10 +777,9 @@ class CoinSGLD:
         return all_theta
 
     def coin_update(self, theta0, score, n_iter):
-
         # check input
         if theta0 is None or score is None:
-            raise ValueError('theta0 or ln_prob_grad cannot be None')
+            raise ValueError("theta0 or ln_prob_grad cannot be None")
 
         # initial theta
         theta = np.copy(theta0)
@@ -720,7 +796,6 @@ class CoinSGLD:
         abs_grad_theta_sum = 0
 
         for t in range(n_iter):
-
             # calculate grad log density
             if self.batch:
                 ln_p_grad = score(theta)
@@ -746,13 +821,19 @@ class CoinSGLD:
             reward = np.maximum(reward + np.multiply(theta - theta0, grad_theta), 0)
 
             # theta update
-            theta_tmp = theta0 + grad_theta_sum / (L * (abs_grad_theta_sum + L)) * (L + reward)
+            theta_tmp = theta0 + grad_theta_sum / (L * (abs_grad_theta_sum + L)) * (
+                L + reward
+            )
 
             # effective lr
-            eps = (theta_tmp - theta)/(ln_p_grad+1e-16)
+            eps = (theta_tmp - theta) / (ln_p_grad + 1e-16)
 
             # add noise
-            theta = theta + eps * ln_p_grad + np.sqrt(2*abs(eps)) * np.random.normal(0, 1, theta.shape)
+            theta = (
+                theta
+                + eps * ln_p_grad
+                + np.sqrt(2 * abs(eps)) * np.random.normal(0, 1, theta.shape)
+            )
 
             all_theta.append(np.copy(theta))
 

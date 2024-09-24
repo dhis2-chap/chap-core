@@ -1,8 +1,13 @@
 from pydantic import BaseModel
-from pydantic_geojson import FeatureCollectionModel as _FeatureCollectionModel, FeatureModel as _FeatureModel
+from pydantic_geojson import (
+    FeatureCollectionModel as _FeatureCollectionModel,
+    FeatureModel as _FeatureModel,
+)
+
 
 class FeatureModel(_FeatureModel):
     id: str
+
 
 class FeatureCollectionModel(_FeatureCollectionModel):
     features: list[FeatureModel]
@@ -27,6 +32,7 @@ class RequestV1(BaseModel):
 
 class PeriodObservation(BaseModel):
     time_period: str
+
 
 # class Geometry:
 #     type: str

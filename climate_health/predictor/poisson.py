@@ -1,8 +1,7 @@
-from climate_health.predictor.protocol import IsPredictor
 import sklearn.linear_model as lm
 
 
-class Poisson():
+class Poisson:
     def __init__(self, alpha=1, fit_intercept=True):
         self.model = lm.PoissonRegressor(alpha=alpha, fit_intercept=fit_intercept)
 

@@ -1,4 +1,3 @@
-
 try:
     from jax.scipy import stats
     from jax.random import PRNGKey
@@ -7,7 +6,7 @@ try:
     import blackjax
     from jax.scipy.special import expit, logit
     import jax.tree_util as tree_util
-except ImportError as e:
+except ImportError:
     jax, jnp, stats, PRNGKey, blackjax = (None, None, None, None, None)
     expit, logit = (None, None)
     tree_util = None

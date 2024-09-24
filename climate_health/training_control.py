@@ -5,14 +5,18 @@ class TrainingControl:
     def __init__(self):
         self._total_samples = None
         self._cancelled = False
-        self._status = 'None'
+        self._status = "None"
         self._n_finished = 0
 
     def set_total_samples(self, total_samples):
         self._total_samples = total_samples
 
     def get_progress(self):
-        return self._n_finished / self._total_samples if self._total_samples is not None else 0
+        return (
+            self._n_finished / self._total_samples
+            if self._total_samples is not None
+            else 0
+        )
 
     def get_status(self):
         return self._status

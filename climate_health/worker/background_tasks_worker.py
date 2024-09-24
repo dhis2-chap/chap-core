@@ -35,7 +35,9 @@ class BGTaskJob(Generic[ReturnType]):
 
 
 class BGTaskWorker(Generic[ReturnType]):
-    def __init__(self, background_tasks: BackgroundTasks, internal_state: InternalState, state):
+    def __init__(
+        self, background_tasks: BackgroundTasks, internal_state: InternalState, state
+    ):
         self._background_tasks = background_tasks
         self._result_dict = internal_state.current_data
         self._state = internal_state
@@ -48,22 +50,24 @@ class BGTaskWorker(Generic[ReturnType]):
 
     def wrapper(self, func, job_id):
         def wrapped(*args, **kwargs):
-            self._state.control = Control({'Training': TrainingControl()})
+            self._state.control = Control({"Training": TrainingControl()})
             try:
-                print('Started')
-                self._result_dict[job_id] = func(*args, **kwargs, control=self._state.control)
-                print('Finished')
+                print("Started")
+                self._result_dict[job_id] = func(
+                    *args, **kwargs, control=self._state.control
+                )
+                print("Finished")
             except CancelledError:
                 self._result_dict[job_id] = None
-                self._ready_state.status = 'cancelled'
+                self._ready_state.status = "cancelled"
                 self._ready_state.ready = True
                 self._state.control = None
 
         return wrapped
 
-    def queue(self, background_tasks,  func, *args, **kwargs) -> BGTaskJob[ReturnType]:
-        print(f'Queueing task {func.__name__}(args={args}, kwargs={kwargs})')
+    def queue(self, background_tasks, func, *args, **kwargs) -> BGTaskJob[ReturnType]:
+        print(f"Queueing task {func.__name__}(args={args}, kwargs={kwargs})")
         job_id = self.new_id()
-        print('Job id:', job_id)
+        print("Job id:", job_id)
         self._background_tasks.add_task(self.wrapper(func, job_id), *args, **kwargs)
         return BGTaskJob(self._state, job_id)

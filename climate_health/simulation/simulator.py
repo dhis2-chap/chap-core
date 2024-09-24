@@ -4,16 +4,16 @@ from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, Healt
 
 
 class Simulator:
-    def __init__(self):
-        ...
+    def __init__(self): ...
 
     def simulate(self) -> ClimateHealthTimeSeries:
         """Simulate the model for the given parameters."""
         ...
 
+
 class IsDiseaseCaseSimulator(Protocol):
-    def simulate(self, climate_data: ClimateData) -> HealthData:
-        ...
+    def simulate(self, climate_data: ClimateData) -> HealthData: ...
+
 
 class PureSimulatorWrapper:
     def __init__(self, simulator_func: Simulator):
@@ -21,5 +21,3 @@ class PureSimulatorWrapper:
 
     def simulate(self, climate_data: ClimateData) -> ClimateHealthTimeSeries:
         return self.simulator.simulate()
-
-

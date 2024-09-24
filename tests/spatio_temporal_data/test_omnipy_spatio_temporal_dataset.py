@@ -1,18 +1,17 @@
 import datetime
 from pathlib import Path
-from typing import Annotated, Any, TypeAlias
+from typing import Annotated, TypeAlias
 
 import pytest
 from climate_health.omnipy_lib import JsonScalar
-#from omnipy.modules.json.typedefs import (
+# from omnipy.modules.json.typedefs import (
 #   JsonScalar,
-#)
+# )
 
 from climate_health.spatio_temporal_data.omnipy_spatio_temporal_dataset import (
     SpatioTemporalDataOmnipyDataset,
     TemporalDataOmnipyDataset,
     TemporalDataPydanticModel,
-    TemporalSubDatasetsPydanticModel,
     MultiResolutionTemporalDataOmnipyModel,
 )
 

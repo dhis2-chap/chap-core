@@ -9,8 +9,15 @@ from climate_health.external.models.jax_models.utii import state_or_param, Pydan
 from .jax import jax, jnp
 import numpy as np
 
-from climate_health.external.models.jax_models.model_spec import Poisson, Normal, distributionclass
-from climate_health.external.models.jax_models.protoype_annotated_spec import Positive, Probability
+from climate_health.external.models.jax_models.model_spec import (
+    Poisson,
+    Normal,
+    distributionclass,
+)
+from climate_health.external.models.jax_models.protoype_annotated_spec import (
+    Positive,
+    Probability,
+)
 
 
 @state_or_param
@@ -18,9 +25,11 @@ class SIRParams(PydanticTree):
     beta: Positive = 0.1  # LogNormal(np.log(0.1), 1.)
     gamma: Positive = 0.05  # LogNormal(np.log(0.05), 1.)
 
+
 @state_or_param
 class ProbSIRParams(SIRParams):
     diff_scale: Positive = 0.5
+
 
 @state_or_param
 class Params(PydanticTree):
@@ -32,6 +41,7 @@ class Params(PydanticTree):
 class ProbabilisticParams(Params):
     sir: ProbSIRParams = ProbSIRParams()
 
+
 probabilities = dataclasses.dataclass
 
 
@@ -42,7 +52,7 @@ class SIRState(PydanticTree):
     R: Probability
 
 
-StateType = TypeVar('StateType')
+StateType = TypeVar("StateType")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -51,7 +61,7 @@ class MarkovChain(Generic[StateType]):
     initial_state: SIRState
     time_period: np.ndarray
 
-    def sample(self, key, shape: tuple[int]=()) -> StateType:
+    def sample(self, key, shape: tuple[int] = ()) -> StateType:
         def t(state, _):
             r = self.transition(state)
             return r, r
@@ -66,9 +76,13 @@ class MarkovChain(Generic[StateType]):
         else:
             initial_state = self.initial_state
         if is_random(self.transition(initial_state)):
-            states = jax.lax.scan(random_t, initial_state, jax.random.split(key, len(self.time_period)))
+            states = jax.lax.scan(
+                random_t, initial_state, jax.random.split(key, len(self.time_period))
+            )
         else:
-            states = jax.lax.scan(t, self.initial_state, None, length=len(self.time_period))
+            states = jax.lax.scan(
+                t, self.initial_state, None, length=len(self.time_period)
+            )
         return states[1]
 
     def log_prob(self, states):
@@ -87,7 +101,7 @@ class MarkovChain(Generic[StateType]):
 
 
 def is_random(value):
-    return hasattr(value, 'sample') and hasattr(value, 'log_prob')
+    return hasattr(value, "sample") and hasattr(value, "log_prob")
 
 
 def get_markov_chain(transition, initial_state, time_period):
@@ -104,16 +118,24 @@ class SIRObserved:
     cases: int
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def apply_binary(f, a: PydanticTree, b: PydanticTree):
-    return a.tree_unflatten(None, tuple(f(x, y) for x, y in zip(a.tree_flatten()[0], b.tree_flatten()[0])))
+    return a.tree_unflatten(
+        None, tuple(f(x, y) for x, y in zip(a.tree_flatten()[0], b.tree_flatten()[0]))
+    )
 
 
-def transformed_diff_distribution(previous_state: T, expected_next_state: T, scale, t, inv_t):
+def transformed_diff_distribution(
+    previous_state: T, expected_next_state: T, scale, t, inv_t
+):
     sub = lambda a, b: a.__class__(
-        *(getattr(a, field.name) - getattr(b, field.name) for field in dataclasses.fields(a)))
+        *(
+            getattr(a, field.name) - getattr(b, field.name)
+            for field in dataclasses.fields(a)
+        )
+    )
     transformed = t(previous_state)
     expected_diffs = sub(t(expected_next_state), transformed)
 
@@ -122,10 +144,16 @@ def transformed_diff_distribution(previous_state: T, expected_next_state: T, sca
         def log_prob(self, new_state: T):
             d = apply_binary(op.sub, t(new_state), transformed)
             return sum(
-                Normal(ed, scale).log_prob(od) for ed, od in zip(expected_diffs.tree_flatten()[0], d.tree_flatten()[0]))
+                Normal(ed, scale).log_prob(od)
+                for ed, od in zip(expected_diffs.tree_flatten()[0], d.tree_flatten()[0])
+            )
 
         def sample(self, key, shape=()) -> T:
-            t_sample = apply_binary(lambda x, y: x + Normal(y, scale).sample(key, shape), transformed, expected_diffs)
+            t_sample = apply_binary(
+                lambda x, y: x + Normal(y, scale).sample(key, shape),
+                transformed,
+                expected_diffs,
+            )
             return inv_t(t_sample)
 
     return Dist()
@@ -134,26 +162,39 @@ def transformed_diff_distribution(previous_state: T, expected_next_state: T, sca
 next_state = lambda state, params: SIRState(
     S=state.S - state.S * params.beta * state.I,
     I=state.I + state.S * params.beta * state.I - state.I * params.gamma,
-    R=state.R + state.I * params.gamma)
+    R=state.R + state.I * params.gamma,
+)
 
 
 def next_state_dist(state, params, t, inv_t):
-    return transformed_diff_distribution(state, next_state(state, params), params.diff_scale, t, inv_t)
+    return transformed_diff_distribution(
+        state, next_state(state, params), params.diff_scale, t, inv_t
+    )
 
 
-def main_sir(params: Params, observations: SIRObserved, key=jax.random.PRNGKey(0), transition_function=next_state):
+def main_sir(
+    params: Params,
+    observations: SIRObserved,
+    key=jax.random.PRNGKey(0),
+    transition_function=next_state,
+):
     time_period = np.arange(len(observations))
     t = partial(transition_function, params=params.sir)
-    states = get_markov_chain(t, SIRState(S=0.9, I=0.19, R=0.01), time_period).sample(key)
+    states = get_markov_chain(t, SIRState(S=0.9, I=0.19, R=0.01), time_period).sample(
+        key
+    )
     return Poisson(states.I * observations.population * params.observation_rate), states
 
 
-def get_categorical_transform(cls: PydanticTree) -> tuple[
-    type, Callable[['cls'], PydanticTree], Callable[[PydanticTree], 'cls']]:
-    new_fields = [(field.name, float)
-                  for field in dataclasses.fields(cls)]
-    new_class = dataclasses.make_dataclass('T_' + cls.__name__, new_fields, bases=(PydanticTree,), frozen=True)
+def get_categorical_transform(
+    cls: PydanticTree,
+) -> tuple[type, Callable[["cls"], PydanticTree], Callable[[PydanticTree], "cls"]]:
+    new_fields = [(field.name, float) for field in dataclasses.fields(cls)]
+    new_class = dataclasses.make_dataclass(
+        "T_" + cls.__name__, new_fields, bases=(PydanticTree,), frozen=True
+    )
     register_pytree_node_class(new_class)
+
     def f(x: cls) -> new_class:
         values = x.tree_flatten()[0]
         return new_class.tree_unflatten(None, [jnp.log(value) for value in values])
@@ -167,7 +208,7 @@ def get_categorical_transform(cls: PydanticTree) -> tuple[
     return new_class, f, inv_f
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     params = SIRParams(0.1, 0.1)
     population = 1000
     cases = 100

@@ -16,8 +16,13 @@ def pytree_concatenate(pytrees):
     return tree_unflatten(treedef, [jnp.concatenate(vals) for vals in zip(*leaves)])
 
 
-def inference_loop(rng_key, kernel, initial_state: Any, num_samples: int, training_control: Optional[
-    TrainingControl] = None):
+def inference_loop(
+    rng_key,
+    kernel,
+    initial_state: Any,
+    num_samples: int,
+    training_control: Optional[TrainingControl] = None,
+):
     epoch_size = num_samples // 10
 
     @jax.jit
@@ -42,7 +47,9 @@ def inference_loop(rng_key, kernel, initial_state: Any, num_samples: int, traini
     return pytree_concatenate(all_states)
 
 
-def inference_loop_multiple_chains(rng_key, initial_states, tuned_params, log_prob_fn, num_samples, num_chains):
+def inference_loop_multiple_chains(
+    rng_key, initial_states, tuned_params, log_prob_fn, num_samples, num_chains
+):
     kernel = blackjax.nuts.build_kernel()
 
     def step_fn(key, state, **params):
@@ -59,7 +66,9 @@ def inference_loop_multiple_chains(rng_key, initial_states, tuned_params, log_pr
     return (states, infos)
 
 
-def multichain_sample(logdensity, rng_key, init_param_func, num_samples=1000, num_warmup=1000, n_chains=4):
+def multichain_sample(
+    logdensity, rng_key, init_param_func, num_samples=1000, num_warmup=1000, n_chains=4
+):
     warmup = blackjax.window_adaptation(blackjax.nuts, logdensity)
     # we use 4 chains for sampling
     rng_key, init_key, warmup_key = jax.random.split(rng_key, 3)
@@ -68,7 +77,9 @@ def multichain_sample(logdensity, rng_key, init_param_func, num_samples=1000, nu
 
     @jax.vmap
     def call_warmup(seed, param):
-        (initial_states, tuned_params), _ = warmup.run(seed, param, num_steps=num_warmup)
+        (initial_states, tuned_params), _ = warmup.run(
+            seed, param, num_steps=num_warmup
+        )
         return initial_states, tuned_params
 
     warmup_keys = jax.random.split(warmup_key, n_chains)
@@ -82,17 +93,28 @@ def multichain_sample(logdensity, rng_key, init_param_func, num_samples=1000, nu
     return states.position
 
 
-def sample(logdensity, rng_key, initial_position, num_samples=1000, num_warmup=1000, training_control=None):
+def sample(
+    logdensity,
+    rng_key,
+    initial_position,
+    num_samples=1000,
+    num_warmup=1000,
+    training_control=None,
+):
     if training_control is None:
         training_control = TrainingControl()
     warmup = blackjax.window_adaptation(blackjax.nuts, logdensity)
     rng_key, warmup_key, sample_key = jax.random.split(rng_key, 3)
     training_control.set_total_samples(num_samples + num_warmup)
     training_control.set_status("Warming up")
-    (state, parameters), _ = warmup.run(warmup_key, initial_position, num_steps=num_warmup)
+    (state, parameters), _ = warmup.run(
+        warmup_key, initial_position, num_steps=num_warmup
+    )
     training_control.register_progress(num_warmup)
     kernel = blackjax.nuts(logdensity, **parameters).step
     training_control.set_status("Sampling")
-    states = inference_loop(sample_key, kernel, state, num_samples, training_control=training_control)
+    states = inference_loop(
+        sample_key, kernel, state, num_samples, training_control=training_control
+    )
     mcmc_samples = states.position
     return mcmc_samples

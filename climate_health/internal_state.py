@@ -8,7 +8,7 @@ from climate_health.worker.interface import Job
 class Control:
     def __init__(self, controls):
         self._controls = controls
-        self._status = 'idle'
+        self._status = "idle"
         self._current_control = None
         self._is_cancelled = False
 
@@ -29,7 +29,7 @@ class Control:
 
     def get_status(self):
         if self._current_control is not None:
-            return f'{self._status}:  {self._current_control.get_status()}'
+            return f"{self._status}:  {self._current_control.get_status()}"
         return self._status
 
     def get_progress(self):

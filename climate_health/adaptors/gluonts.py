@@ -13,11 +13,21 @@ from dataclasses import dataclass
 class GluonTSPredictor:
     gluonts_predictor: Predictor
 
-    def predict(self, history: DataSet, future_data: DataSet, num_samples=100) -> DataSet:
-        gluonts_dataset = DataSetAdaptor.to_gluonts_testinstances(history, future_data, self.gluonts_predictor.prediction_length)
-        forecasts = self.gluonts_predictor.predict(gluonts_dataset, num_samples=num_samples)
-        data = {location: Samples(PeriodRange.from_pandas(forecast.index), forecast.samples.T) for location, forecast in
-                zip(history.keys(), forecasts)}
+    def predict(
+        self, history: DataSet, future_data: DataSet, num_samples=100
+    ) -> DataSet:
+        gluonts_dataset = DataSetAdaptor.to_gluonts_testinstances(
+            history, future_data, self.gluonts_predictor.prediction_length
+        )
+        forecasts = self.gluonts_predictor.predict(
+            gluonts_dataset, num_samples=num_samples
+        )
+        data = {
+            location: Samples(
+                PeriodRange.from_pandas(forecast.index), forecast.samples.T
+            )
+            for location, forecast in zip(history.keys(), forecasts)
+        }
         return DataSet(data)
 
     def save(self, filename: str):

@@ -4,6 +4,7 @@ class ProgramConfig:
         self.dhis2Password = dhis2Password
         self.dhis2Baseurl = dhis2Baseurl
 
+
 class DHIS2AnalyticRequest:
     def __init__(self, dataElementId, periode, organisationUnit):
         self.dataElementId = dataElementId

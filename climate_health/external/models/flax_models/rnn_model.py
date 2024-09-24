@@ -2,7 +2,6 @@ import flax.linen as nn
 import jax.numpy as jnp
 
 
-
 class RNNModel(nn.Module):
     n_hidden: int = 4
     pre_hidden: int = 4
@@ -13,9 +12,11 @@ class RNNModel(nn.Module):
     @nn.compact
     def __call__(self, x, training=False):
         dropout_rate = 0.2
-        loc = nn.Embed(num_embeddings=self.n_locations, features=self.embedding_dim)(jnp.arange(self.n_locations))
+        loc = nn.Embed(num_embeddings=self.n_locations, features=self.embedding_dim)(
+            jnp.arange(self.n_locations)
+        )
         loc = jnp.repeat(loc[:, None, :], x.shape[1], axis=1)
-        x = jnp.concatenate([x, loc], axis=-1) # batch x embedding_dim
+        x = jnp.concatenate([x, loc], axis=-1)  # batch x embedding_dim
         layers = [4]
         for i in range(len(layers)):
             x = nn.Dense(features=layers[i])(x)
@@ -31,8 +32,6 @@ class RNNModel(nn.Module):
         return x
 
 
-
-
 class ARModel(nn.Module):
     n_locations: int = 1
     prediction_length: int = 3
@@ -40,6 +39,4 @@ class ARModel(nn.Module):
     def __call__(self, x, training=False):
         rnn = RNNModel(n_locations=self.n_locations)
 
-        x = rnn(x[:, :-self.prediction_length], training=training)
-
-
+        x = rnn(x[:, : -self.prediction_length], training=training)

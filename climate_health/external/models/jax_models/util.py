@@ -1,4 +1,4 @@
-from .jax import jax, blackjax, tree_util
+from .jax import jax, tree_util
 
 
 def extract_last(samples):
@@ -7,14 +7,16 @@ def extract_last(samples):
 
 
 def extract_sample(i, samples):
-    return {key: value[i] if not hasattr(value, 'items') else extract_last(value) for key, value in
-                   samples.items()}
+    return {
+        key: value[i] if not hasattr(value, "items") else extract_last(value)
+        for key, value in samples.items()
+    }
 
 
 def index_tree(tree, index):
     if isinstance(tree, jax.Array):
         return tree[index]
-    elif hasattr(tree, 'items'):
+    elif hasattr(tree, "items"):
         return {key: index_tree(value, index) for key, value in tree.items()}
     else:
         return index_tree(next(iter(tree)), index)

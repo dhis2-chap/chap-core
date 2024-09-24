@@ -1,4 +1,4 @@
-from sqlmodel import Field, SQLModel, create_engine, Session, select, Index
+from sqlmodel import Field, SQLModel, create_engine, Session, Index
 
 from climate_health.database.local_db_cache import LocalDbCache
 
@@ -14,6 +14,7 @@ class TestRainfall(SQLModel, table=True):
         Index("idx_region_id", "region_id"),
     )
 
+
 # Define the database URL
 DATABASE_URL = "postgresql://test_user:climate_health@localhost:5432/test_db"
 
@@ -25,6 +26,7 @@ SQLModel.metadata.create_all(engine)
 
 # Mock external data retrieval function
 
+
 @LocalDbCache.decorate(TestRainfall)
 def retrieve_rainfall_data_from_external_source(period_id, region_id):
     # Simulate external data retrieval
@@ -34,5 +36,7 @@ def retrieve_rainfall_data_from_external_source(period_id, region_id):
 # Example usage
 period_id = "202101"
 region_id = "RegionA"
-rainfall_data = retrieve_rainfall_data_from_external_source(period_id, region_id, session = Session(engine))
+rainfall_data = retrieve_rainfall_data_from_external_source(
+    period_id, region_id, session=Session(engine)
+)
 print(rainfall_data)
