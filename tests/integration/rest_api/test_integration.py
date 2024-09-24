@@ -35,11 +35,12 @@ def rq_worker_process():
     process = subprocess.Popen(["rq", "worker"])
     yield process
     # get stdout and stderr from process
-    stdout, stderr = process.communicate()
-    print("----------------------")
-    print(stdout)
-    print("++++++++++++++++++++++")
-    print(stderr)
+    process.terminate()
+    # stdout, stderr = process.communicate()
+    # print("----------------------")
+    # print(stdout)
+    # print("++++++++++++++++++++++")
+    # print(stderr)
 
     process.terminate()
 
@@ -69,7 +70,7 @@ async def test_post_zip_file(tests_path, rq_worker_process):
     assert "diseaseId" in result.json()
 
 
-@pytest.mark.asyncio
+# @pytest.mark.asyncio
 def test_predict_on_json_data(big_request_json, rq_worker_process):
     response = client.post(predict_on_json_path, json=json.loads(big_request_json))
     print(response, response.text[:100])
@@ -77,7 +78,7 @@ def test_predict_on_json_data(big_request_json, rq_worker_process):
     status = client.get(get_status_path)
     assert status.status_code == 200
     start_time = time.time()
-    timeout = 560
+    timeout = 120
     while (
         client.get(get_status_path).json()["ready"] == False
         and time.time() - start_time < timeout
