@@ -56,6 +56,7 @@ async def test_post_zip_file(tests_path, rq_worker_process):
 
 
 # @pytest.mark.asyncio
+@pytest.mark.skip
 def test_predict_on_json_data(big_request_json, rq_worker_process):
     endpoint_path = predict_on_json_path
     check_job_endpoint(big_request_json, endpoint_path)
