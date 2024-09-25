@@ -48,7 +48,7 @@ def harmonize(input_filename: Path, output_filename: Path):
     with open(input_filename, "r") as f:
         text = f.read()
     request_data = RequestV1.model_validate_json(text)
-    dataset = dataset_from_request_v1(request_data, target_name="disease")
+    dataset = dataset_from_request_v1(request_data, target_name="disease", usecwd_for_credentials=True)
     dataset.to_csv(output_filename)
 
 

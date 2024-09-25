@@ -23,8 +23,8 @@ model_paths = {
 }
 
 
-def initialize_gee_client():
-    gee_client = Era5LandGoogleEarthEngine()
+def initialize_gee_client(usecwd=False):
+    gee_client = Era5LandGoogleEarthEngine(usecwd=usecwd)
     return gee_client
 
 
@@ -98,7 +98,7 @@ def get_target_id(json_data, target_names):
 
 
 def dataset_from_request_v1(
-        json_data: RequestV1, target_name="diseases"
+        json_data: RequestV1, target_name="diseases", usecwd_for_credentials=False
 ) -> DataSet[FullData]:
     translations = {target_name: "disease_cases"}
     data = {
@@ -107,7 +107,7 @@ def dataset_from_request_v1(
         )
         for feature in json_data.features
     }
-    gee_client = initialize_gee_client()
+    gee_client = initialize_gee_client(usecwd=usecwd_for_credentials)
     period_range = data["disease_cases"].period_range
     locations = list(data["disease_cases"].keys())
     climate_data = gee_client.get_historical_era5(
