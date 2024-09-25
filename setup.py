@@ -76,10 +76,10 @@ setup(
     include_package_data=True,
     keywords="climate_health",
     name="climate_health",
-    packages=find_packages(include=["climate_health", "climate_health.*"]),
+    packages=find_packages(include=["climate_health", "climate_health.*", "climate_health.dhis2_interface.src"]),
     test_suite="tests",
     tests_require=test_requirements,
-    url="https://github.com/sandvelab/climate_health",
+    url="https://github.com/dhis2/chap-core",
     version="0.0.1",
     zip_safe=False,
 )
