@@ -1,5 +1,5 @@
-from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.plotting import plot_timeseries_data
+from chap_core.datatypes import ClimateHealthTimeSeries
+from chap_core.plotting import plot_timeseries_data
 import pandas as pd
 
 def convert_stacked_data_to_standard(csv_file_name):

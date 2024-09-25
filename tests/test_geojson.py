@@ -1,15 +1,14 @@
 import os
-from pathlib import Path
 
 import pytest
-from climate_health.geojson import geojson_to_shape, geojson_to_graph
+from chap_core.geojson import geojson_to_shape, geojson_to_graph
 from . import EXAMPLE_DATA_PATH
-from tempfile import NamedTemporaryFile
 
 
 @pytest.fixture
 def geojson_example_file():
     return EXAMPLE_DATA_PATH / "Organisation units.geojson"
+
 
 @pytest.mark.skip
 def test_geojson_to_shape(geojson_example_file):

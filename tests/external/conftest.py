@@ -1,53 +1,16 @@
 import pandas as pd
 import pytest
 
-from climate_health.assessment.dataset_splitting import train_test_split_with_weather
-from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.external.models.jax_models.model_spec import NutsParams
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period import Month
-from climate_health.datatypes import FullData
-
-@pytest.fixture()
-def blackjax():
-    try:
-        import blackjax
-    except ImportError:
-        pytest.skip("jax is not installed")
-    return blackjax
-
-
-@pytest.fixture()
-def jax():
-    try:
-        import jax
-    except ImportError:
-        pytest.skip("jax is not installed")
-    return jax
-
-
-@pytest.fixture()
-def pm():
-    try:
-        import pymc3 as pm
-    except:
-        pytest.skip("pymc3 is not installed")
-    return pm
-
-
-@pytest.fixture()
-def fast_params():
-    return NutsParams(n_samples=10, n_warmup=10)
-
-
-@pytest.fixture()
-def random_key(jax):
-    return jax.random.PRNGKey(0)
-
+from chap_core.assessment.dataset_splitting import train_test_split_with_weather
+from chap_core.datatypes import ClimateHealthTimeSeries
+#from chap_core.external.models.jax_models.model_spec import NutsParams
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import Month
+from chap_core.datatypes import FullData
 
 @pytest.fixture()
 def data(data_path):
-    file_name = (data_path / 'hydro_met_subset').with_suffix('.csv')
+    file_name = (data_path / "hydro_met_subset").with_suffix(".csv")
     return DataSet.from_pandas(pd.read_csv(file_name), ClimateHealthTimeSeries)
 
 
@@ -64,6 +27,7 @@ def split_data(data):
 @pytest.fixture()
 def test_data(split_data):
     return split_data[1:]
+
 
 @pytest.fixture
 def full_train_data(train_data):

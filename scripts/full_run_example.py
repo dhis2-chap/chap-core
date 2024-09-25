@@ -1,7 +1,7 @@
 """
 Script for full run of training a model and assessing it on a dataset.
 """
-from climate_health.main import assess_model_on_csv_data, PlaceholderModel
+from chap_core.main import assess_model_on_csv_data, PlaceholderModel
 
 
 if __name__ == "__main__":

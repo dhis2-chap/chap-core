@@ -1,9 +1,9 @@
 import pandas as pd
 
-from climate_health.assessment.prediction_evaluator import evaluate_model
-from climate_health.external.external_model import get_model_from_directory_or_github_url
-from climate_health.external.r_models import models_path
-from climate_health.file_io.example_data_set import datasets
+from chap_core.assessment.prediction_evaluator import evaluate_model
+from chap_core.external.external_model import get_model_from_directory_or_github_url
+from chap_core.external.r_models import models_path
+from chap_core.file_io.example_data_set import datasets
 import logging
 
 if __name__ == '__main__':

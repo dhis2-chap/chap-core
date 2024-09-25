@@ -19,9 +19,9 @@ import matplotlib.pyplot as plt
 from report_tests import get_markdown
 from scipy.special import logit
 
-from climate_health.datatypes import ClimateData, HealthData, ClimateHealthTimeSeries
-from climate_health.external.models.jax_models.state_space_model import SimpleSampler
-from climate_health.plotting.prediction_plot import prediction_plot
+from chap_core.datatypes import ClimateData, HealthData, ClimateHealthTimeSeries
+from chap_core.external.models.jax_models.state_space_model import SimpleSampler
+from chap_core.plotting.prediction_plot import prediction_plot
 from report_tests import show
 
 from tests import EXAMPLE_DATA_PATH

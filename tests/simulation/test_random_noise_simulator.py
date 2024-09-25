@@ -1,5 +1,5 @@
-from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.simulation.random_noise_simulator import RandomNoiseSimulator
+from chap_core.datatypes import ClimateHealthTimeSeries
+from chap_core.simulation.random_noise_simulator import RandomNoiseSimulator
 
 
 def test_random_noise_simulator():

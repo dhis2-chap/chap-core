@@ -3,12 +3,12 @@ logging.basicConfig(level=logging.INFO)
 import numpy as np
 import pandas as pd
 
-from climate_health.assessment.dataset_splitting import split_test_train_on_period, get_split_points_for_data_set
-from climate_health.datatypes import tsdataclass, TimeSeriesData
-from climate_health.external.external_model import ExternalCommandLineModel
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period import TimePeriod, Month, PeriodRange
-from climate_health.time_period.dataclasses import Period as OurPeriod
+from chap_core.assessment.dataset_splitting import split_test_train_on_period, get_split_points_for_data_set
+from chap_core.datatypes import tsdataclass, TimeSeriesData
+from chap_core.external.external_model import ExternalCommandLineModel
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import TimePeriod, Month, PeriodRange
+from chap_core.time_period.dataclasses import Period as OurPeriod
 from pandas import Period
 
 

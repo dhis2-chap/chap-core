@@ -1,13 +1,14 @@
 import tempfile
 
 import numpy as np
-from numpy.testing import assert_array_equal
 
-from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, TimeSeriesData
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period import Month, Year, PeriodRange
-from climate_health.time_period.period_range import period_range
-from .data_fixtures import full_data, train_data, future_climate_data, bad_predictions, good_predictions, train_data_new_period_range
+from chap_core.datatypes import (
+    ClimateHealthTimeSeries,
+    ClimateData,
+    TimeSeriesData,
+)
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import Month, PeriodRange
 from tempfile import NamedTemporaryFile
 
 
@@ -26,9 +27,10 @@ def test_climate_data_to_from_csv():
                 PeriodRange.from_strings(["2001", "2002", "2003"]),
                 np.array([0, 1, 2]),
                 np.array([0, 1, 2]),
-                np.array([0, 1, 2])
+                np.array([0, 1, 2]),
             )
-        })
+        }
+    )
 
     with tempfile.NamedTemporaryFile() as f:
         future_weather.to_csv(f.name)
@@ -53,14 +55,16 @@ def test_join_on_time(train_data_new_period_range):
 
     for location in joined.locations():
         period = joined.get_location(location).data().time_period
-        assert np.all(period == \
-               PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7)))
+        assert np.all(
+            period == PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7))
+        )
 
 
 def test_get_location(health_population_data):
-    location_data = health_population_data.get_location('FRmrFTE63D0').data()
+    location_data = health_population_data.get_location("FRmrFTE63D0").data()
     assert isinstance(location_data, TimeSeriesData)
 
+
 def test_getitem(health_population_data):
-    location_data = health_population_data['FRmrFTE63D0']
+    location_data = health_population_data["FRmrFTE63D0"]
     assert isinstance(location_data, TimeSeriesData)

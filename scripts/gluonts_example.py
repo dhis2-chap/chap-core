@@ -1,4 +1,4 @@
-from climate_health.data import DataSet, PeriodObservation, adaptors
+from chap_core.data import DataSet, PeriodObservation, adaptors
 
 
 class Obs(PeriodObservation):

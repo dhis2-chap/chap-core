@@ -1,0 +1,2 @@
+def pullClimateData():
+    return True

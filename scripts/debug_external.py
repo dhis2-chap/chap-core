@@ -1,4 +1,4 @@
-import climate_health.api as api
+import chap_core.api as api
 
 
 if __name__ == '__main__':

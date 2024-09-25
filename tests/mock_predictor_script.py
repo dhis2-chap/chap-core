@@ -1,11 +1,16 @@
 import pickle
 
-import climate_health
-from climate_health.datatypes import ClimateData, ClimateHealthTimeSeries, SimpleClimateData
-from climate_health.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor
+from chap_core.datatypes import (
+    ClimateData,
+    ClimateHealthTimeSeries,
+    SimpleClimateData,
+)
+from chap_core.predictor.naive_predictor import (
+    MultiRegionNaivePredictor,
+)
 import typer
 
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 app = typer.Typer()
 
@@ -17,13 +22,13 @@ def train(train_data_set: str, model_output_file: str):
     predictor.train(train_data)
 
     # pickle predictor
-    with open(model_output_file, 'wb') as f:
+    with open(model_output_file, "wb") as f:
         pickle.dump(predictor, f)
 
 
 @app.command()
 def predict(future_climate_data_set: str, model_file: str, output_file: str):
-    with open(model_file, 'rb') as f:
+    with open(model_file, "rb") as f:
         predictor = pickle.load(f)
 
     future_climate_data = DataSet.from_csv(future_climate_data_set, SimpleClimateData)

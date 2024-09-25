@@ -1,4 +1,4 @@
-from climate_health.datatypes import ClimateHealthTimeSeries
+from chap_core.datatypes import ClimateHealthTimeSeries
 
 class ClimateHealthTimeSeriesWithLags:
     ...

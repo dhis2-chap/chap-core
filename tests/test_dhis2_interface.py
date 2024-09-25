@@ -1,18 +1,25 @@
-from climate_health.cli import get_full_dataframe
-from climate_health.external.models.jax_models.model_spec import SSMForecasterNuts, NutsParams
-from climate_health.external.models.jax_models.specs import SSMWithoutWeather
+from chap_core.cli import get_full_dataframe
+# from chap_core.external.models.jax_models.model_spec import (
+#    SSMForecasterNuts,
+#    NutsParams,
+#)
 import pytest
 
-from climate_health.time_period import Month
+from chap_core.time_period import Month
 
 
 @pytest.fixture
 def dhis_process():
-    base_url = 'https://play.dhis2.org/40.3.0/'
-    username = 'admin'
-    password = 'district'
-    from climate_health.dhis2_interface.ChapProgram import ChapPullPost
-    process = ChapPullPost(dhis2Baseurl=base_url.rstrip('/'), dhis2Username=username, dhis2Password=password)
+    base_url = "https://play.dhis2.org/40.3.0/"
+    username = "admin"
+    password = "district"
+    from chap_core.dhis2_interface.ChapProgram import ChapPullPost
+
+    process = ChapPullPost(
+        dhis2Baseurl=base_url.rstrip("/"),
+        dhis2Username=username,
+        dhis2Password=password,
+    )
     return process
 
 
@@ -24,7 +31,8 @@ def test_pull_from_play(dhis_process):
 
 @pytest.fixture()
 def dhis_test_model(data_path):
-    return SSMForecasterNuts.load(data_path / 'dhis_test_model')
+    return SSMForecasterNuts.load(data_path / "dhis_test_model")
+
 
 @pytest.mark.skip()
 def test_push(dhis_process, dhis_test_model):
