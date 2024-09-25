@@ -167,13 +167,15 @@ class Era5LandGoogleEarthEngineHelperFunctions:
 
 
 class Era5LandGoogleEarthEngine:
-    def __init__(self):
+    def __init__(self, usecwd=False):
         self.gee_helper = Era5LandGoogleEarthEngineHelperFunctions()
         self.is_initialized = False
+        self._usecwd = usecwd
         self._initialize_client()
 
+
     def _initialize_client(self):
-        load_dotenv(find_dotenv())
+        load_dotenv(find_dotenv(usecwd=self._usecwd))
         # read environment variables
         account = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")
         private_key = os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY")
