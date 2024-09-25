@@ -43,6 +43,7 @@ class ModelSpec(BaseModel):
     period: PeriodType = PeriodType.any
     description: str = "No Description yet"
     author: str = "Unknown Author"
+    target_name: str = 'disease_cases'
 
 
 def model_spec_from_yaml(filename: str) -> ModelSpec:

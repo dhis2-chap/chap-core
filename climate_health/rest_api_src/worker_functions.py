@@ -5,8 +5,7 @@ from climate_health.api import read_zip_folder, train_on_prediction_data
 from climate_health.api_types import RequestV1, PredictionRequest
 from climate_health.assessment.forecast import forecast_with_predicted_weather, forecast_ahead
 from climate_health.climate_data.seasonal_forecasts import SeasonalForecast
-from climate_health.climate_predictor import get_climate_predictor
-from climate_health.datatypes import FullData, TimeSeriesArray, SimpleClimateData
+from climate_health.datatypes import FullData, TimeSeriesArray
 from climate_health.dhis2_interface.json_parsing import predictions_to_datavalue
 from climate_health.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
 from climate_health.external.external_model import (
@@ -14,7 +13,6 @@ from climate_health.external.external_model import (
 )
 from climate_health.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period import PeriodRange
 import dataclasses
 import logging
 
@@ -44,31 +42,6 @@ def train_on_zip_file(file, model_name, model_path, control=None):
     return train_on_prediction_data(
         prediction_data, model_name=model_name, model_path=model_path, control=control
     )
-
-
-class FutureWeatherFetcher:
-    def get_future_weather(
-            self, period_range: PeriodRange
-    ) -> DataSet[SimpleClimateData]: ...
-
-
-class SeasonalForecastFetcher:
-    def __init__(self, folder_path):
-        self.folder_path = folder_path
-
-    def get_future_weather(
-            self, period_range: PeriodRange
-    ) -> DataSet[SimpleClimateData]: ...
-
-
-class QuickForecastFetcher:
-    def __init__(self, historical_data: DataSet[SimpleClimateData]):
-        self._climate_predictor = get_climate_predictor(historical_data)
-
-    def get_future_weather(
-            self, period_range: PeriodRange
-    ) -> DataSet[SimpleClimateData]:
-        return self._climate_predictor.predict(period_range)
 
 
 def predict(json_data: PredictionRequest):

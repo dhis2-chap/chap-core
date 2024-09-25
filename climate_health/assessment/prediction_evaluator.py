@@ -139,6 +139,7 @@ def evaluate_model(
     prediction_length=3,
     n_test_sets=4,
     report_filename=None,
+    weather_provider=None,
 ):
     """
     Evaluate a model on a dataset on a held out test set, making multiple predictions on the test set
@@ -160,7 +161,7 @@ def evaluate_model(
     tuple
         Summary and individual evaluation results
     """
-    train, test_generator = train_test_generator(data, prediction_length, n_test_sets)
+    train, test_generator = train_test_generator(data, prediction_length, n_test_sets, future_weather_provider=weather_provider)
     predictor = estimator.train(data)
     truth_data = {
         location: pd.DataFrame(
@@ -171,7 +172,7 @@ def evaluate_model(
     }
     if report_filename is not None:
         _, plot_test_generatro = train_test_generator(
-            data, prediction_length, n_test_sets
+            data, prediction_length, n_test_sets, future_weather_provider=weather_provider
         )
         plot_forecasts(predictor, plot_test_generatro, truth_data, report_filename)
     forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)

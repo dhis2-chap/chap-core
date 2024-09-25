@@ -1,6 +1,7 @@
 from typing import Iterable, Tuple, Protocol, Optional, Type
 
 from climate_health._legacy_dataset import IsSpatioTemporalDataSet
+from climate_health.climate_predictor import FutureWeatherFetcher
 from climate_health.datatypes import ClimateHealthData, ClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import Month, TimePeriod
@@ -71,7 +72,7 @@ def train_test_split(
 
 
 def train_test_generator(
-    dataset: DataSet, prediction_length: int, n_test_sets: int = 1
+    dataset: DataSet, prediction_length: int, n_test_sets: int = 1, future_weather_provider: Optional[FutureWeatherFetcher] = None
 ) -> tuple[DataSet, Iterable[tuple[DataSet, DataSet]]]:
     """
     Genereate a train set along with an iterator of test data that contains tuples of full data up until a
@@ -81,10 +82,10 @@ def train_test_generator(
     train_set = dataset.restrict_time_period(
         slice(None, dataset.period_range[split_idx])
     )
-    historic_data = (
+    historic_data = [
         dataset.restrict_time_period(slice(None, dataset.period_range[split_idx + i]))
         for i in range(n_test_sets)
-    )
+    ]
     future_data = [
         dataset.restrict_time_period(
             slice(
@@ -94,9 +95,10 @@ def train_test_generator(
         )
         for i in range(n_test_sets)
     ]
-    masked_future_data = (
-        dataset.remove_field("disease_cases") for dataset in future_data
-    )
+    if future_weather_provider is not None:
+        masked_future_data = [future_weather_provider(hd).get_future_weather(fd.period_range) for (hd, fd) in zip(historic_data, future_data)]
+    else:
+        masked_future_data = (dataset.remove_field("disease_cases") for dataset in future_data)
     return train_set, zip(historic_data, masked_future_data, future_data)
 
 

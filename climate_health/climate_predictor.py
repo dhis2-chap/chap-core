@@ -4,7 +4,7 @@ from collections import defaultdict
 import numpy as np
 from sklearn import linear_model
 
-from .datatypes import ClimateData
+from .datatypes import ClimateData, SimpleClimateData
 from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 from climate_health.time_period import PeriodRange, Month, Week
 
@@ -17,6 +17,7 @@ def get_climate_predictor(train_data: DataSet[ClimateData]):
         estimator = WeeklyClimatePredictor()
     estimator.train(train_data)
     return estimator
+
 
 
 class MonthlyClimatePredictor:
@@ -56,3 +57,28 @@ class WeeklyClimatePredictor(MonthlyClimatePredictor):
         t = time_period.week[:, None] == np.arange(1, 53)
         t[..., -1] |= time_period.week == 53
         return t
+
+
+class FutureWeatherFetcher:
+    def get_future_weather(
+            self, period_range: PeriodRange
+    ) -> DataSet[SimpleClimateData]: ...
+
+
+class SeasonalForecastFetcher:
+    def __init__(self, folder_path):
+        self.folder_path = folder_path
+
+    def get_future_weather(
+            self, period_range: PeriodRange
+    ) -> DataSet[SimpleClimateData]: ...
+
+
+class QuickForecastFetcher:
+    def __init__(self, historical_data: DataSet[SimpleClimateData]):
+        self._climate_predictor = get_climate_predictor(historical_data)
+
+    def get_future_weather(
+            self, period_range: PeriodRange
+    ) -> DataSet[SimpleClimateData]:
+        return self._climate_predictor.predict(period_range)

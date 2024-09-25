@@ -77,11 +77,6 @@ def forecast_with_predicted_weather(
         historic_data.end_timestamp + delta * prediction_length,
         delta,
     )
-
-    # prediction_range = PeriodRange.from_start_and_n_periods(
-    #    Month(historic_data.end_timestamp).to_string(), prediction_length)
-    # climate_predictor = MonthlyClimatePredictor()
-    # climate_predictor.train(historic_data)
     climate_predictor = get_climate_predictor(historic_data)
     future_weather = climate_predictor.predict(prediction_range)
     predictions = predictor.predict(historic_data, future_weather)
