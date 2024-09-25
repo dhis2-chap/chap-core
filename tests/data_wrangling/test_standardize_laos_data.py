@@ -3,10 +3,10 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.datatypes import HealthData, ClimateHealthData
-from climate_health.time_period import Month
-from climate_health.time_period.period_range import period_range
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.datatypes import HealthData, ClimateHealthData
+from chap_core.time_period import Month
+from chap_core.time_period.period_range import period_range
 from tests.mocks import ClimateDataBaseMock
 
 
@@ -74,7 +74,7 @@ def messy_standardization_function(filename: Path, geolocator):
     data_dict = {
         get_city_name(c): HealthData(time_period, data[c]) for c in data.columns[1:]
     }
-    from climate_health._legacy_dataset import SpatioTemporalDict
+    from chap_core._legacy_dataset import SpatioTemporalDict
 
     return SpatioTemporalDict(data_dict)
 

@@ -1,5 +1,5 @@
-from climate_health.main import assess_model_on_csv_data
-from climate_health.predictor.poisson import Poisson
+from chap_core.main import assess_model_on_csv_data
+from chap_core.predictor.poisson import Poisson
 
 from . import EXAMPLE_DATA_PATH
 

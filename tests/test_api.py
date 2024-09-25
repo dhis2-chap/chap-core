@@ -2,8 +2,8 @@ import os
 
 import numpy as np
 import pytest
-from climate_health.api import read_zip_folder, train_on_prediction_data
-from climate_health.api import dhis_zip_flow
+from chap_core.api import read_zip_folder, train_on_prediction_data
+from chap_core.api import dhis_zip_flow
 
 
 @pytest.fixture

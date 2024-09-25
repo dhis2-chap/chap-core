@@ -2,7 +2,7 @@ import time
 import json
 import pytest
 
-from climate_health.rest_api import app
+from chap_core.rest_api import app
 from fastapi.testclient import TestClient
 
 client = TestClient(app)

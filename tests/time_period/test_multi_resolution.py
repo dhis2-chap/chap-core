@@ -7,10 +7,10 @@ from bionumpy.util.testing import assert_bnpdataclass_equal
 from npstructures import RaggedArray
 from numpy.testing import assert_array_equal
 
-from climate_health.datatypes import Location
-from climate_health.time_period.dataclasses import Day, Month
-from climate_health.time_period.multi_resolution import pack_to_period
-from climate_health.time_period.period_range import period_range
+from chap_core.datatypes import Location
+from chap_core.time_period.dataclasses import Day, Month
+from chap_core.time_period.multi_resolution import pack_to_period
+from chap_core.time_period.period_range import period_range
 
 
 @pytest.mark.skip("legacy")

@@ -1,18 +1,18 @@
 import numpy as np
 import pytest
 
-from climate_health.assessment.dataset_splitting import train_test_split
-from climate_health.data.gluonts_adaptor.dataset import (
+from chap_core.assessment.dataset_splitting import train_test_split
+from chap_core.data.gluonts_adaptor.dataset import (
     DataSetAdaptor,
     get_dataset,
     get_split_dataset,
     ForecastAdaptor,
 )
-from climate_health.datatypes import FullData, Samples
-from climate_health.file_io.example_data_set import datasets
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period import PeriodRange
-from climate_health.data.datasets import ISIMIP_dengue_harmonized
+from chap_core.datatypes import FullData, Samples
+from chap_core.file_io.example_data_set import datasets
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import PeriodRange
+from chap_core.data.datasets import ISIMIP_dengue_harmonized
 from .data_fixtures import train_data_pop, full_data
 
 @pytest.fixture

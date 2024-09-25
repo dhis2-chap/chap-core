@@ -1,5 +1,5 @@
 import pandas as pd
-from climate_health.predictor.poisson import Poisson
+from chap_core.predictor.poisson import Poisson
 
 
 def test_predictor():

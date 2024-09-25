@@ -1,13 +1,13 @@
 import pytest
 
-from climate_health.model_spec import (
+from chap_core.model_spec import (
     model_spec_from_yaml,
     PeriodType,
     EmptyParameterSpec,
     model_spec_from_model,
 )
-import climate_health.predictor.feature_spec as fs
-from climate_health.predictor.naive_estimator import NaiveEstimator
+import chap_core.predictor.feature_spec as fs
+from chap_core.predictor.naive_estimator import NaiveEstimator
 
 
 def test_model_spec_from_yaml(models_path):

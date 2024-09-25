@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from climate_health.time_period.date_util_wrapper import (
+from chap_core.time_period.date_util_wrapper import (
     TimePeriod,
     TimeStamp,
     delta_month,

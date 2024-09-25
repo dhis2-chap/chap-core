@@ -108,27 +108,27 @@ ENV/
 # Ignore omnipy-generated tar.gz files (temporary due to hack in omnipy v0.14.7)
 example_data/**/*.tar.gz
 
-#web interface 
-climate_health/web_interface/node_modules
-climate_health/web_interface/.pnp
-climate_health/web_interface/.pnp.js
+#web interface
+chap_core/web_interface/node_modules
+chap_core/web_interface/.pnp
+chap_core/web_interface/.pnp.js
 
-climate_health/web_interface/coverage
+chap_core/web_interface/coverage
 
-climate_health/web_interface/build
+chap_core/web_interface/build
 
-climate_health/web_interface/.DS_Store
-climate_health/web_interface/.env.local
-climate_health/web_interface/.env.development.local
-climate_health/web_interface/.env.test.local
-climate_health/web_interface/.env.production.local
+chap_core/web_interface/.DS_Store
+chap_core/web_interface/.env.local
+chap_core/web_interface/.env.development.local
+chap_core/web_interface/.env.test.local
+chap_core/web_interface/.env.production.local
 
-climate_health/web_interface/npm-debug.log*
-climate_health/web_interface/yarn-debug.log*
-climate_health/web_interface/yarn-error.log*
+chap_core/web_interface/npm-debug.log*
+chap_core/web_interface/yarn-debug.log*
+chap_core/web_interface/yarn-error.log*
 
 
-climate_health/web_interface/node_modules/
+chap_core/web_interface/node_modules/
 
 /scripts/runs/
 

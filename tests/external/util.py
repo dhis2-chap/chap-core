@@ -1,8 +1,8 @@
 import numpy as np
 
-from climate_health.datatypes import FullData
-from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
-from climate_health.time_period import delta_month
+from chap_core.datatypes import FullData
+from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
+from chap_core.time_period import delta_month
 
 
 def check_model(full_train_data, model, random_key, test_data):

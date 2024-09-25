@@ -1,6 +1,6 @@
 from pathlib import Path, PurePath
 
-from climate_health.external.external_model import get_model_from_yaml_file, DryModeExternalCommandLineModel, \
+from chap_core.external.external_model import get_model_from_yaml_file, DryModeExternalCommandLineModel, \
     VerboseRDryModeExternalCommandLineModel
 from tests.external.test_external_models import get_dataset_from_yaml
 

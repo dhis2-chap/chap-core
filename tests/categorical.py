@@ -1,5 +1,5 @@
-# from climate_health.external.models.jax_models.deterministic_seir_model import PydanticTree
-# from climate_health.time_period import dataclasses
+# from chap_core.external.models.jax_models.deterministic_seir_model import PydanticTree
+# from chap_core.time_period import dataclasses
 # from .jax import jnp
 #
 #

@@ -1,5 +1,5 @@
-from climate_health.datatypes import Location
-from climate_health.geo_coding.location_lookup import LocationLookup
+from chap_core.datatypes import Location
+from chap_core.geo_coding.location_lookup import LocationLookup
 import pytest
 
 

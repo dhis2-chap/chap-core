@@ -1,4 +1,4 @@
-from climate_health.geometry import get_area_polygons
+from chap_core.geometry import get_area_polygons
 
 
 def test_get_area_polygons():

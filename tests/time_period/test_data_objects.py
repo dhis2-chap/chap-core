@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
-from climate_health.time_period import TimePeriod, Month, Day
-from climate_health.time_period.dataclasses import Year
+from chap_core.time_period import TimePeriod, Month, Day
+from chap_core.time_period.dataclasses import Year
 
 
 def test_time_period_month():

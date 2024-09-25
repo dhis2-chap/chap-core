@@ -4,12 +4,12 @@ from typing import re
 import pandas as pd
 from pydantic_geojson import FeatureCollectionModel, FeatureModel
 
-from climate_health.datatypes import HealthPopulationData, FullData, SimpleClimateData
-from climate_health.pandas_adaptors import get_time_period
-from climate_health.rest_api_src.worker_functions import initialize_gee_client
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period import PeriodRange, Month
-from climate_health.util import interpolate_nans
+from chap_core.datatypes import HealthPopulationData, FullData, SimpleClimateData
+from chap_core.pandas_adaptors import get_time_period
+from chap_core.rest_api_src.worker_functions import initialize_gee_client
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import PeriodRange, Month
+from chap_core.util import interpolate_nans
 
 csv_file_name = '~/Data/ch_data/dengue_data_ISIMIP.csv'
 base_folder = '/home/knut/Data/ch_data/'

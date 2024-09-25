@@ -1,4 +1,4 @@
-from climate_health.api import train_with_validation
+from chap_core.api import train_with_validation
 
 #train_with_validation('FlaxModel', 'laos_full_data')
 figs = train_with_validation('ProbabilisticFlaxModel', 'laos_full_data')

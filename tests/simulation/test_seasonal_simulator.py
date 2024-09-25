@@ -1,4 +1,4 @@
-from climate_health.simulation.seasonal_simulator import SeasonalSingleVariableSimulator
+from chap_core.simulation.seasonal_simulator import SeasonalSingleVariableSimulator
 
 
 def test_seasonal_single_variable_simulator():

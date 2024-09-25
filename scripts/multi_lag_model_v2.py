@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import Dict
-from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.main import PlaceholderModel, assess_model_on_csv_data, lagged_rows, \
+from chap_core.datatypes import ClimateHealthTimeSeries
+from chap_core.main import PlaceholderModel, assess_model_on_csv_data, lagged_rows, \
     split_to_train_test_truth_fixed_ahead_lag, make_assessment_report
 
 

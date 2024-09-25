@@ -21,11 +21,11 @@ import jax.numpy as jnp
 
 from scipy.special import logit, expit
 
-from climate_health.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
-from climate_health.plotting.prediction_plot import prediction_plot, forecast_plot
+from chap_core.datatypes import ClimateHealthTimeSeries, ClimateData, HealthData
+from chap_core.plotting.prediction_plot import prediction_plot, forecast_plot
 from tests import EXAMPLE_DATA_PATH
 from weekly_reports.modelling.week8 import get_simulator
-from climate_health.external.models.jax_models.state_space_model import SimpleSampler
+from chap_core.external.models.jax_models.state_space_model import SimpleSampler
 
 ClimateHealthTimeSeries._assert_same_lens = lambda *_, **__: None
 HealthData._assert_same_lens = lambda *_, **__: None

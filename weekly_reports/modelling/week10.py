@@ -1,4 +1,4 @@
-''' Goal for this week is to reparameterize the mosquito model to have diffs in state space as hidden states which will 
+''' Goal for this week is to reparameterize the mosquito model to have diffs in state space as hidden states which will
 hopefully speed up the inference enough to be easy to work with. We are also starting an iteration on the teamproject
 so hopefully functionality for running and evaluating the models on real data will be in place soon.
 '''
@@ -106,6 +106,6 @@ def test_diff_distribution():
 def test_reparameterize_to_state_space_diffs():
     '''Reparameterize the model to have diffs in state space as hidden states.
     This makes the reconstruction step a simple cumsum and probably makes the autodiff more stable.
-    Also move modelling code into climate_health repo to avoid discrepancies
+    Also move modelling code into chap_core repo to avoid discrepancies
     '''
     pass

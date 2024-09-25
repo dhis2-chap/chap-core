@@ -1,4 +1,4 @@
-from climate_health.assessment.prediction_evaluator import (
+from chap_core.assessment.prediction_evaluator import (
     AssessmentReport,
     make_assessment_report,
     plot_rmse,
@@ -11,12 +11,12 @@ def test_make_assessment_report(mocker):
     expected_rmse = {"model1": 1.0}
 
     mocker.patch(
-        "climate_health.assessment.prediction_evaluator.root_mean_squared_error",
+        "chap_core.assessment.prediction_evaluator.root_mean_squared_error",
         return_value=1.0,
     )
 
     mock_plot_rmse = mocker.patch(
-        "climate_health.assessment.prediction_evaluator.plot_rmse"
+        "chap_core.assessment.prediction_evaluator.plot_rmse"
     )
 
     result = make_assessment_report(prediction_dict, truth_dict, do_show=False)

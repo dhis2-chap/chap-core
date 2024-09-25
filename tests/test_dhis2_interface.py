@@ -1,11 +1,11 @@
-from climate_health.cli import get_full_dataframe
-# from climate_health.external.models.jax_models.model_spec import (
+from chap_core.cli import get_full_dataframe
+# from chap_core.external.models.jax_models.model_spec import (
 #    SSMForecasterNuts,
 #    NutsParams,
 #)
 import pytest
 
-from climate_health.time_period import Month
+from chap_core.time_period import Month
 
 
 @pytest.fixture
@@ -13,7 +13,7 @@ def dhis_process():
     base_url = "https://play.dhis2.org/40.3.0/"
     username = "admin"
     password = "district"
-    from climate_health.dhis2_interface.ChapProgram import ChapPullPost
+    from chap_core.dhis2_interface.ChapProgram import ChapPullPost
 
     process = ChapPullPost(
         dhis2Baseurl=base_url.rstrip("/"),

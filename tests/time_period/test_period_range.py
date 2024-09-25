@@ -1,9 +1,9 @@
 import pytest
 from bionumpy.util.testing import assert_bnpdataclass_equal
 
-from climate_health.time_period.period_range import period_range
-from climate_health.time_period.dataclasses import Month, Day
-# from climate_health.time_period import Month, Day, Year
+from chap_core.time_period.period_range import period_range
+from chap_core.time_period.dataclasses import Month, Day
+# from chap_core.time_period import Month, Day, Year
 
 
 @pytest.mark.skip("legacy")

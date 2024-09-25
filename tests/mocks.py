@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from climate_health.datatypes import Shape, ClimateData
-from climate_health.time_period import TimePeriod
-from climate_health.time_period.period_range import period_range
+from chap_core.datatypes import Shape, ClimateData
+from chap_core.time_period import TimePeriod
+from chap_core.time_period.period_range import period_range
 
 
 class ClimateDataBaseMock:

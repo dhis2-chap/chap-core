@@ -1,9 +1,9 @@
 import pytest
 
-from climate_health._legacy_dataset import IsSpatioTemporalDataSet
-from climate_health.datatypes import HealthData
-from climate_health.predictor.naive_predictor import NaiveForecastSampler
-from climate_health.time_period import Day
+from chap_core._legacy_dataset import IsSpatioTemporalDataSet
+from chap_core.datatypes import HealthData
+from chap_core.predictor.naive_predictor import NaiveForecastSampler
+from chap_core.time_period import Day
 from .mocks import ClimateDataBaseMock
 # from omnipy import MultiModelDataset
 

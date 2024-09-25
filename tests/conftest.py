@@ -5,9 +5,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from climate_health.datatypes import HealthPopulationData
-from climate_health.services.cache_manager import get_cache
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.datatypes import HealthPopulationData
+from chap_core.services.cache_manager import get_cache
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from .data_fixtures import *
 
 # ignore showing plots in tests
@@ -66,7 +66,7 @@ def health_population_data(data_path):
 
 @pytest.fixture()
 def google_earth_engine():
-    from climate_health.google_earth_engine.gee_era5 import GoogleEarthEngine
+    from chap_core.google_earth_engine.gee_era5 import GoogleEarthEngine
 
     try:
         return GoogleEarthEngine()

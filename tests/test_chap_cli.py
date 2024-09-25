@@ -1,8 +1,8 @@
 import pytest
 
-from climate_health.chap_cli import harmonize, evaluate, predict
-from climate_health.datatypes import FullData
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.chap_cli import harmonize, evaluate, predict
+from chap_core.datatypes import FullData
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 @pytest.fixture

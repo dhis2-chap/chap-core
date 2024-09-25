@@ -1,12 +1,12 @@
 import pytest
 
-from climate_health.assessment.forecast import forecast, multi_forecast, forecast_ahead
-from climate_health.data.datasets import ISIMIP_dengue_harmonized
-from climate_health.file_io.example_data_set import datasets
-from climate_health.plotting.prediction_plot import plot_forecast_from_summaries
-from climate_health.predictor import get_model
-from climate_health.predictor.naive_estimator import NaiveEstimator
-from climate_health.time_period.date_util_wrapper import delta_month
+from chap_core.assessment.forecast import forecast, multi_forecast, forecast_ahead
+from chap_core.data.datasets import ISIMIP_dengue_harmonized
+from chap_core.file_io.example_data_set import datasets
+from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
+from chap_core.predictor import get_model
+from chap_core.predictor.naive_estimator import NaiveEstimator
+from chap_core.time_period.date_util_wrapper import delta_month
 
 
 # @pytest.mark.skip(reason="Needs docked image")

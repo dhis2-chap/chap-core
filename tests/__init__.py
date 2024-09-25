@@ -1,4 +1,4 @@
-"""Unit test package for climate_health."""
+"""Unit test package for chap_core."""
 
 from pathlib import Path
 

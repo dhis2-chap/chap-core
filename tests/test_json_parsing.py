@@ -1,10 +1,10 @@
 import pytest
 
-from climate_health.dhis2_interface.json_parsing import (
+from chap_core.dhis2_interface.json_parsing import (
     json_to_pandas,
     parse_disease_data,
 )
-from climate_health.time_period.date_util_wrapper import Month
+from chap_core.time_period.date_util_wrapper import Month
 
 
 @pytest.fixture

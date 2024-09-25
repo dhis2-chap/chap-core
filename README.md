@@ -24,7 +24,7 @@ The following shows basic usage of the platform. Follow the link to the document
 CHAP supports evaluating models that are defined using the MLflow specification for machine learning models (link coming). Such models can e.g. exist in Github repositories. CHAP also has some built-in example data that can be used to evaluate models. The following example shows how to evaluate an Ewars model located on Github ([https://github.com/sandvelab/chap_auto_ewars](https://github.com/sandvelab/chap_auto_ewars))  using the ISMIP dataset:
 
 ```bash
-chap evaluate --model-name https://github.com/sandvelab/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
+chap-cli evaluate --model-name https://github.com/sandvelab/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
 ```
 
 The above example requires that you have installed chap with pip and also that you have Docker available.
@@ -32,10 +32,12 @@ The above example requires that you have installed chap with pip and also that y
 
 ## Fetching Polygon Data
 Fetch polygons for regions of interest in a country (on admin1 level). The following example fetches polygons for two regions in Norway
+
 ```python
-    import climate_health.fetch
-    polygons = climate_health.fetch.get_area_polygons('Norway', ['Oslo', 'Akershus'])
-    assert [feature.id for feature in polygons.features] == ['Oslo', 'Akershus']
+    import chap_core.fetch
+
+polygons = chap_core.fetch.get_area_polygons('Norway', ['Oslo', 'Akershus'])
+assert [feature.id for feature in polygons.features] == ['Oslo', 'Akershus']
 ```
 Region names that are not recognized are skipped:
 
@@ -49,16 +51,17 @@ Fetching climate data through Google Earth Engine. The following example fetches
 
 ```python
 
-    import climate_health.fetch
-    credentials = dict(account='demoaccount@demo.gserviceaccount.com', private_key='private_key')
-    polygons = open("polygon_file.geojson").read()
-    start_period = '202001' # January 2020
-    end_period = '202011' # December 2020
-    band_names = ['temperature_2m', 'total_precipitation_sum']
-    data = climate_health.fetch.gee_era5(credentials, polygons, start_period, end_period, band_names)
-    print(data)
-    start_week = '2020W03' # Week 3 of 2020
-    end_week = '2020W05' # Week 5 of 2020
-    data = climate_health.fetch.gee_era5(credentials, polygons, start_week, end_week, band_names)
-    print(data)
+import chap_core.fetch
+
+credentials = dict(account='demoaccount@demo.gserviceaccount.com', private_key='private_key')
+polygons = open("polygon_file.geojson").read()
+start_period = '202001'  # January 2020
+end_period = '202011'  # December 2020
+band_names = ['temperature_2m', 'total_precipitation_sum']
+data = chap_core.fetch.gee_era5(credentials, polygons, start_period, end_period, band_names)
+print(data)
+start_week = '2020W03'  # Week 3 of 2020
+end_week = '2020W05'  # Week 5 of 2020
+data = chap_core.fetch.gee_era5(credentials, polygons, start_week, end_week, band_names)
+print(data)
 ```

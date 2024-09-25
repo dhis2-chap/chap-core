@@ -1,10 +1,10 @@
 """Console script for ch_modelling."""
 import os
 
-from climate_health.datatypes import FullData, remove_field
+from chap_core.datatypes import FullData, remove_field
 from cyclopts import App
-from climate_health.data import DataSet
-from climate_health.predictor.naive_estimator import NaiveEstimator, NaivePredictor
+from chap_core.data import DataSet
+from chap_core.predictor.naive_estimator import NaiveEstimator, NaivePredictor
 
 app = App()
 

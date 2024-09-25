@@ -1,4 +1,4 @@
-from climate_health.external.r_description import get_imports
+from chap_core.external.r_description import get_imports
 
 
 def test_parse(data_path):

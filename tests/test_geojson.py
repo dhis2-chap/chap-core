@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from climate_health.geojson import geojson_to_shape, geojson_to_graph
+from chap_core.geojson import geojson_to_shape, geojson_to_graph
 from . import EXAMPLE_DATA_PATH
 
 

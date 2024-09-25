@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from meteostat import Point
 
-from climate_health.climate_data.meteostat_wrapper import ClimateDataMeteoStat
+from chap_core.climate_data.meteostat_wrapper import ClimateDataMeteoStat
 
 
 def test_format_start_date():

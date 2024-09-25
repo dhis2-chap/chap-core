@@ -2,8 +2,8 @@ import json
 import numpy as np
 import pytest
 
-from climate_health.climate_data.seasonal_forecasts import SeasonalForecast
-from climate_health.time_period.date_util_wrapper import PeriodRange
+from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
+from chap_core.time_period.date_util_wrapper import PeriodRange
 
 
 @pytest.fixture

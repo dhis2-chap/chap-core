@@ -1,5 +1,5 @@
 from bionumpy.bnpdataclass import bnpdataclass
-from climate_health.time_period.dataclasses import Year, Day
+from chap_core.time_period.dataclasses import Year, Day
 
 
 @bnpdataclass

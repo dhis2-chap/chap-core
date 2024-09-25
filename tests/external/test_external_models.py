@@ -5,16 +5,16 @@ import pandas as pd
 import pytest
 import yaml
 
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.datatypes import ClimateHealthTimeSeries
-from climate_health.testing.external_model import sanity_check_external_model
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.datatypes import ClimateHealthTimeSeries
+from chap_core.testing.external_model import sanity_check_external_model
 
 logging.basicConfig(level=logging.INFO)
-from climate_health.external.external_model import (
+from chap_core.external.external_model import (
     run_command,
     get_model_from_directory_or_github_url,
 )
-from climate_health.util import conda_available, docker_available, pyenv_available
+from chap_core.util import conda_available, docker_available, pyenv_available
 
 
 @pytest.mark.skipif(not docker_available(), reason="Requires docker")

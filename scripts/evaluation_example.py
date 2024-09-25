@@ -9,7 +9,7 @@ from gluonts.dataset.util import period_index
 from gluonts.evaluation import Evaluator
 from matplotlib import pyplot as plt
 
-from climate_health.data import adaptors, datasets
+from chap_core.data import adaptors, datasets
 
 # Load the dataset and extract the data for Laos
 dataset = datasets.ISIMIP_dengue_harmonized

@@ -6,11 +6,11 @@ sys.exit()
 
 import pickle
 
-import climate_health
-from climate_health.datatypes import ClimateData, ClimateHealthTimeSeries
-from climate_health.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor
+import chap_core
+from chap_core.datatypes import ClimateData, ClimateHealthTimeSeries
+from chap_core.predictor.naive_predictor import NaivePredictor, MultiRegionNaivePredictor
 import typer
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 print("Training")
 train_data_set = sys.argv[1]

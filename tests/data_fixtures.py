@@ -1,14 +1,14 @@
 import pytest
 
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.datatypes import (
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.datatypes import (
     ClimateHealthData,
     ClimateData,
     HealthData,
     FullData,
 )
-from climate_health.time_period import Month, PeriodRange
-from climate_health.time_period.period_range import period_range
+from chap_core.time_period import Month, PeriodRange
+from chap_core.time_period.period_range import period_range
 import bionumpy as bnp
 
 

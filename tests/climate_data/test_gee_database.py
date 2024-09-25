@@ -1,8 +1,8 @@
-from climate_health.climate_data.gee_legacy import ERA5DataBase
-from climate_health.datatypes import Location
+from chap_core.climate_data.gee_legacy import ERA5DataBase
+from chap_core.datatypes import Location
 
-# from climate_health.google_earth_engine.gee_era5 import kelvin_to_celsium, meter_to_mm, round_two_decimal
-from climate_health.time_period import Month, Day
+# from chap_core.google_earth_engine.gee_era5 import kelvin_to_celsium, meter_to_mm, round_two_decimal
+from chap_core.time_period import Month, Day
 import pytest
 
 

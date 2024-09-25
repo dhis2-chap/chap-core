@@ -1,5 +1,5 @@
-from climate_health.datatypes import Location
-from climate_health.time_period import Month
+from chap_core.datatypes import Location
+from chap_core.time_period import Month
 from ..mocks import ClimateDataBaseMock
 
 

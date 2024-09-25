@@ -1,11 +1,11 @@
-from climate_health.time_period import Month
-from climate_health.assessment.dataset_splitting import (
+from chap_core.time_period import Month
+from chap_core.assessment.dataset_splitting import (
     split_test_train_on_period,
     train_test_split,
     get_split_points_for_period_range,
     train_test_generator,
 )
-from climate_health.time_period import PeriodRange
+from chap_core.time_period import PeriodRange
 from .data_fixtures import full_data
 
 def test_train_test_split(full_data):

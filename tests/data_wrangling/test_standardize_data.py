@@ -4,11 +4,11 @@ import tempfile
 import pytest
 
 from typing import Annotated, Generator
-from climate_health.omnipy_lib import StrDataset, IsRuntime, Runtime
+from chap_core.omnipy_lib import StrDataset, IsRuntime, Runtime
 from pytest import fixture
 
-from climate_health.data_wrangling.tasks import load_data_as_clean_strings
-from climate_health.data_wrangling.flows import (
+from chap_core.data_wrangling.tasks import load_data_as_clean_strings
+from chap_core.data_wrangling.flows import (
     standardize_separated_data_func_flow,
     standardize_separated_data_linear_flow,
     standardize_separated_data_dag_flow,

@@ -1,16 +1,16 @@
 import pickle
 
-from climate_health.datatypes import (
+from chap_core.datatypes import (
     ClimateData,
     ClimateHealthTimeSeries,
     SimpleClimateData,
 )
-from climate_health.predictor.naive_predictor import (
+from chap_core.predictor.naive_predictor import (
     MultiRegionNaivePredictor,
 )
 import typer
 
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 app = typer.Typer()
 

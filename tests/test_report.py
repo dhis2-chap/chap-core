@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from climate_health.reports import HTMLReport
+from chap_core.reports import HTMLReport
 
 
 @pytest.fixture

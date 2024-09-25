@@ -1,8 +1,8 @@
 import pandas as pd
 
-from climate_health.datatypes import FullData
-from climate_health.dhis2_interface.periods import convert_time_period_string
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.datatypes import FullData
+from chap_core.dhis2_interface.periods import convert_time_period_string
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 filename = '/home/knut/Downloads/Climate +Malaria data.xlsx'
 df = pd.read_excel(filename)

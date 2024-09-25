@@ -3,7 +3,7 @@ import xarray
 import pyproj ## installed with pip install to avoid missing proj database error
 import numpy as np;
 
-from climate_health.google_earth_engine.gee_raw import load_credentials
+from chap_core.google_earth_engine.gee_raw import load_credentials
 
 # required: https://github.com/google/Xee
 service_account = 'dhis2-demo@dhis2-gis.iam.gserviceaccount.com'

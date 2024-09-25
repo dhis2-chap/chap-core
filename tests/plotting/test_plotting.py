@@ -3,15 +3,15 @@ import os
 import numpy as np
 import pytest
 
-from climate_health.datatypes import ClimateData, HealthData, SummaryStatistics
-from climate_health.plotting import plot_timeseries_data, plot_multiperiod
-from climate_health.plotting.prediction_plot import (
+from chap_core.datatypes import ClimateData, HealthData, SummaryStatistics
+from chap_core.plotting import plot_timeseries_data, plot_multiperiod
+from chap_core.plotting.prediction_plot import (
     forecast_plot,
     plot_forecast_from_summaries,
 )
-from climate_health.simulation.random_noise_simulator import RandomNoiseSimulator
-from climate_health.time_period import Month, PeriodRange
-from climate_health.time_period import get_period_range as period_range
+from chap_core.simulation.random_noise_simulator import RandomNoiseSimulator
+from chap_core.time_period import Month, PeriodRange
+from chap_core.time_period import get_period_range as period_range
 from tests import EXAMPLE_DATA_PATH
 
 

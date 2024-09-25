@@ -1,9 +1,9 @@
-from climate_health.predictor.naive_predictor import MultiRegionNaivePredictor
+from chap_core.predictor.naive_predictor import MultiRegionNaivePredictor
 
 import pytest
 
-from climate_health.assessment.dataset_splitting import train_test_split
-from climate_health.time_period import Month
+from chap_core.assessment.dataset_splitting import train_test_split
+from chap_core.time_period import Month
 from ..data_fixtures import full_data
 
 

@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from climate_health.datatypes import ClimateData, ClimateHealthTimeSeries, FullData
-from climate_health.file_io.cleaners import laos_data
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.datatypes import ClimateData, ClimateHealthTimeSeries, FullData
+from chap_core.file_io.cleaners import laos_data
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 mapping = {'rainfall': 'gsiW9SgolNd',
            'mean_temperature': 'VA05qvanuVs',

@@ -1,6 +1,6 @@
 import pytest
-from climate_health.api_types import RequestV1
-from climate_health.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
+from chap_core.api_types import RequestV1
+from chap_core.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
 
 
 @pytest.fixture

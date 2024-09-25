@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Tests for `climate_health` package."""
+"""Tests for `chap_core` package."""
 
 import pytest
 

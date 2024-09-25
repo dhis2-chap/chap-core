@@ -5,15 +5,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from climate_health.datatypes import HealthPopulationData, SummaryStatistics
-from climate_health.dhis2_interface.json_parsing import (
+from chap_core.datatypes import HealthPopulationData, SummaryStatistics
+from chap_core.dhis2_interface.json_parsing import (
     parse_disease_data,
     parse_population_data,
     join_data,
     predictions_to_datavalue,
 )
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period import PeriodRange
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import PeriodRange
 
 
 @pytest.fixture()

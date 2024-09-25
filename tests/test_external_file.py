@@ -1,6 +1,6 @@
 import pandas as pd
 
-from climate_health.file_io.external_file import get_file, fetch_and_clean
+from chap_core.file_io.external_file import get_file, fetch_and_clean
 import pytest
 
 

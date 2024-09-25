@@ -1,6 +1,6 @@
-from climate_health.api import forecast
+from chap_core.api import forecast
 import pytest
-from climate_health.util import docker_available
+from chap_core.util import docker_available
 
 
 @pytest.mark.skipif(not docker_available(), reason="Docker not available")

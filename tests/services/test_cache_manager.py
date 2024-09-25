@@ -1,5 +1,5 @@
 from diskcache import Cache
-from climate_health.services.cache_manager import get_cache
+from chap_core.services.cache_manager import get_cache
 
 
 def test_get_cache_test_env():

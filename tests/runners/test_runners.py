@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from climate_health.runners.command_line_runner import CommandLineRunner
-from climate_health.runners.docker_runner import DockerImageRunner, DockerRunner
+from chap_core.runners.command_line_runner import CommandLineRunner
+from chap_core.runners.docker_runner import DockerImageRunner, DockerRunner
 
 
 def test_command_line_runner():

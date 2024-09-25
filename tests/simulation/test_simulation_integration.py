@@ -1,6 +1,6 @@
-from climate_health.main import assess_model_on_csv_data
-from climate_health.predictor.poisson import Poisson
-from climate_health.simulation.random_noise_simulator import RandomNoiseSimulator
+from chap_core.main import assess_model_on_csv_data
+from chap_core.predictor.poisson import Poisson
+from chap_core.simulation.random_noise_simulator import RandomNoiseSimulator
 
 
 def test_simulation_integration(tmp_path):

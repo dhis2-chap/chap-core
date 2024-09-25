@@ -10,7 +10,7 @@ WORKDIR /app
 RUN apt-get update
 #RUN apt-get upgrade
 
-COPY ./climate_health ./climate_health
+COPY chap_core ./climate_health
 COPY ./README.md ./README.md
 COPY ./setup.py ./setup.py
 COPY ./HISTORY.rst ./HISTORY.rst

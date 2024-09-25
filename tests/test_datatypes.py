@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 import pytest
 from bionumpy.util.testing import assert_bnpdataclass_equal
-from climate_health.datatypes import ClimateHealthTimeSeries, HealthData, Samples
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period import PeriodRange
+from chap_core.datatypes import ClimateHealthTimeSeries, HealthData, Samples
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import PeriodRange
 
 
 def test_climate_health_time_series_from_csv(tmp_path):

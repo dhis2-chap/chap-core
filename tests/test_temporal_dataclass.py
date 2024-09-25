@@ -1,8 +1,8 @@
 import pytest
 import numpy as np
-from climate_health.api_types import PeriodObservation
-from climate_health.time_period import PeriodRange
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.api_types import PeriodObservation
+from chap_core.time_period import PeriodRange
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class HealthObservation(PeriodObservation):

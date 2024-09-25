@@ -3,12 +3,12 @@ from pathlib import Path
 from typing import Annotated, TypeAlias
 
 import pytest
-from climate_health.omnipy_lib import JsonScalar
+from chap_core.omnipy_lib import JsonScalar
 # from omnipy.modules.json.typedefs import (
 #   JsonScalar,
 # )
 
-from climate_health.spatio_temporal_data.omnipy_spatio_temporal_dataset import (
+from chap_core.spatio_temporal_data.omnipy_spatio_temporal_dataset import (
     SpatioTemporalDataOmnipyDataset,
     TemporalDataOmnipyDataset,
     TemporalDataPydanticModel,

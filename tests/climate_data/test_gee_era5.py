@@ -3,19 +3,19 @@ from datetime import datetime, timezone
 
 from dotenv import find_dotenv, load_dotenv
 
-from climate_health.api_types import FeatureCollectionModel
-from climate_health.google_earth_engine.gee_era5 import (
+from chap_core.api_types import FeatureCollectionModel
+from chap_core.google_earth_engine.gee_era5 import (
     Band,
     Era5LandGoogleEarthEngine,
     kelvin_to_celsium,
     meter_to_mm,
 )
-from climate_health.google_earth_engine.gee_era5 import (
+from chap_core.google_earth_engine.gee_era5 import (
     Era5LandGoogleEarthEngineHelperFunctions,
 )
-from climate_health.google_earth_engine.gee_raw import fetch_era5_data, GEECredentials
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
-from climate_health.time_period.date_util_wrapper import Month
+from chap_core.google_earth_engine.gee_raw import fetch_era5_data, GEECredentials
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period.date_util_wrapper import Month
 import pytest
 import ee as _ee
 
@@ -162,7 +162,7 @@ def test_get_period(band: Band, collection, periode):
 
 
 """
-    Test create_ee_dict 
+    Test create_ee_dict
 """
 
 

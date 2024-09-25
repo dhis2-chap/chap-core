@@ -1,13 +1,13 @@
 import pandas as pd
 import pytest
 
-from climate_health.assessment.prediction_evaluator import evaluate_model
-from climate_health._legacy_dataset import IsSpatioTemporalDataSet
-from climate_health.datatypes import ClimateHealthTimeSeries, HealthData
-from climate_health.external.external_model import ExternalCommandLineModel
+from chap_core.assessment.prediction_evaluator import evaluate_model
+from chap_core._legacy_dataset import IsSpatioTemporalDataSet
+from chap_core.datatypes import ClimateHealthTimeSeries, HealthData
+from chap_core.external.external_model import ExternalCommandLineModel
 
-from climate_health.runners.command_line_runner import CommandLineRunner
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.runners.command_line_runner import CommandLineRunner
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from . import EXAMPLE_DATA_PATH, TEST_PATH
 
 

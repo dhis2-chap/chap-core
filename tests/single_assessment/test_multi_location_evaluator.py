@@ -1,7 +1,7 @@
-from climate_health.assessment.multi_location_evaluator import MultiLocationEvaluator
-from climate_health.datatypes import SummaryStatistics
-from climate_health.time_period import Month, PeriodRange
-from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.assessment.multi_location_evaluator import MultiLocationEvaluator
+from chap_core.datatypes import SummaryStatistics
+from chap_core.time_period import Month, PeriodRange
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 import pytest
 
 
