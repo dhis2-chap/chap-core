@@ -1,30 +1,25 @@
 from typing import TypeVar, Generic, Callable, Protocol
 
-ReturnType = TypeVar('ReturnType', covariant=True)
+ReturnType = TypeVar("ReturnType", covariant=True)
 
 
 class Job(Generic[ReturnType], Protocol):
+    @property
+    def status(self) -> str: ...
 
     @property
-    def status(self) -> str:
-        ...
+    def result(self) -> ReturnType: ...
 
     @property
-    def result(self) -> ReturnType:
-        ...
+    def progress(self) -> float: ...
+
+    def cancel(self): ...
 
     @property
-    def progress(self) -> float:
-        ...
-
-    def cancel(self):
-        ...
-
-    @property
-    def is_finished(self) -> bool:
-        ...
+    def is_finished(self) -> bool: ...
 
 
 class Worker(Generic[ReturnType], Protocol):
-    def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> Job[ReturnType]:
-        ...
+    def queue(
+        self, func: Callable[..., ReturnType], *args, **kwargs
+    ) -> Job[ReturnType]: ...

@@ -8,12 +8,11 @@ from climate_health.climate_data.meteostat_wrapper import ClimateDataMeteoStat
 
 
 def test_format_start_date():
-
     list_start_date = [
-        '2010-01-01', # Daily
-        '2010-W1', # Weekly
-        '2010-1', # Monthly
-        '2010' # Yearly
+        "2010-01-01",  # Daily
+        "2010-W1",  # Weekly
+        "2010-1",  # Monthly
+        "2010",  # Yearly
     ]
 
     res_date = []
@@ -26,16 +25,16 @@ def test_format_start_date():
         datetime(2010, 1, 1, 0, 0),
         datetime(2010, 1, 4, 0, 0),
         datetime(2010, 1, 1, 0, 0),
-        datetime(2010, 1, 1, 0, 0)
+        datetime(2010, 1, 1, 0, 0),
     ]
 
-def test_format_end_date():
 
+def test_format_end_date():
     list_start_date = [
-        '2010-01-01', # Daily
-        '2010-W1', # Weekly
-        '2010-1', # Monthly
-        '2010' # Yearly
+        "2010-01-01",  # Daily
+        "2010-W1",  # Weekly
+        "2010-1",  # Monthly
+        "2010",  # Yearly
     ]
 
     res_date = []
@@ -48,30 +47,32 @@ def test_format_end_date():
         datetime(2010, 1, 1, 0, 0),
         datetime(2010, 1, 10, 0, 0),
         datetime(2010, 1, 1, 0, 0),
-        datetime(2010, 1, 1, 0, 0)
+        datetime(2010, 1, 1, 0, 0),
     ]
 
-@pytest.mark.xfail(reason='Do not work with CI')
+
+@pytest.mark.xfail(reason="Do not work with CI")
 def test_fetch_location():
-    location = 'Paris'
+    location = "Paris"
 
     climate_lookup = ClimateDataMeteoStat()
     point_location = climate_lookup._fetch_location(location)
 
     point_expected = Point(48.8535, 2.3484, 0)
 
-
     assert point_location._lat == point_expected._lat
     assert point_location._lon == point_expected._lon
 
 
-@pytest.mark.xfail(reason='Do not work with CI')
+@pytest.mark.xfail(reason="Do not work with CI")
 def test_get_climate_daily():
-    location = 'Paris'
-    start_date = '2010-01-01'
-    end_date = '2010-01-03'
+    location = "Paris"
+    start_date = "2010-01-01"
+    end_date = "2010-01-03"
 
-    climate_dataframe = ClimateDataMeteoStat().get_climate(location, start_date, end_date)
+    climate_dataframe = ClimateDataMeteoStat().get_climate(
+        location, start_date, end_date
+    )
 
     data = pd.DataFrame(
         {
@@ -85,13 +86,15 @@ def test_get_climate_daily():
     assert climate_dataframe.equals(data)
 
 
-@pytest.mark.xfail(reason='Do not work with CI')
+@pytest.mark.xfail(reason="Do not work with CI")
 def test_get_climate_weekly():
-    location = 'Paris'
-    start_date = '2010-W1'
-    end_date = '2010-W3'
+    location = "Paris"
+    start_date = "2010-W1"
+    end_date = "2010-W3"
 
-    climate_dataframe = ClimateDataMeteoStat().get_climate(location, start_date, end_date)
+    climate_dataframe = ClimateDataMeteoStat().get_climate(
+        location, start_date, end_date
+    )
 
     data = pd.DataFrame(
         {
@@ -105,13 +108,15 @@ def test_get_climate_weekly():
     assert climate_dataframe.equals(data)
 
 
-@pytest.mark.xfail(reason='Do not work with CI')
+@pytest.mark.xfail(reason="Do not work with CI")
 def test_get_climate_monthly():
-    location = 'Paris'
-    start_date = '2010-01'
-    end_date = '2010-03'
+    location = "Paris"
+    start_date = "2010-01"
+    end_date = "2010-03"
 
-    climate_dataframe = ClimateDataMeteoStat().get_climate(location, start_date, end_date)
+    climate_dataframe = ClimateDataMeteoStat().get_climate(
+        location, start_date, end_date
+    )
 
     data = pd.DataFrame(
         {
@@ -125,13 +130,15 @@ def test_get_climate_monthly():
     assert climate_dataframe.equals(data)
 
 
-@pytest.mark.xfail(reason='Do not work with CI')
+@pytest.mark.xfail(reason="Do not work with CI")
 def test_get_climate_yearly():
-    location = 'Paris'
-    start_date = '2010'
-    end_date = '2012'
+    location = "Paris"
+    start_date = "2010"
+    end_date = "2012"
 
-    climate_dataframe = ClimateDataMeteoStat().get_climate(location, start_date, end_date)
+    climate_dataframe = ClimateDataMeteoStat().get_climate(
+        location, start_date, end_date
+    )
 
     data = pd.DataFrame(
         {
@@ -144,48 +151,49 @@ def test_get_climate_yearly():
 
     assert climate_dataframe.equals(data)
 
+
 def test_make_date_range_daily():
-    start_date = '2010-01-01'
-    end_date = '2010-01-03'
+    start_date = "2010-01-01"
+    end_date = "2010-01-03"
 
     climate_lookup = ClimateDataMeteoStat()
-    climate_lookup._delta = 'day'
+    climate_lookup._delta = "day"
     date_range = climate_lookup._make_date_range(start_date, end_date)
 
-    assert date_range == ['2010-1-1', '2010-1-2', '2010-1-3']
+    assert date_range == ["2010-1-1", "2010-1-2", "2010-1-3"]
 
 
 def test_make_date_range_weekly():
-    start_date = '2010-W1'
-    end_date = '2010-W3'
+    start_date = "2010-W1"
+    end_date = "2010-W3"
 
     climate_lookup = ClimateDataMeteoStat()
-    climate_lookup._delta = 'week'
+    climate_lookup._delta = "week"
     date_range = climate_lookup._make_date_range(start_date, end_date)
 
-    assert date_range == ['2010-W1', '2010-W2', '2010-W3']
+    assert date_range == ["2010-W1", "2010-W2", "2010-W3"]
 
 
 def test_make_date_range_monthly():
-    start_date = '2010-1'
-    end_date = '2010-3'
+    start_date = "2010-1"
+    end_date = "2010-3"
 
     climate_lookup = ClimateDataMeteoStat()
-    climate_lookup._delta = 'month'
+    climate_lookup._delta = "month"
     date_range = climate_lookup._make_date_range(start_date, end_date)
 
-    assert date_range == ['2010-1', '2010-2', '2010-3']
+    assert date_range == ["2010-1", "2010-2", "2010-3"]
 
 
 def test_make_test_range_yearly():
-    start_date = '2010'
-    end_date = '2012'
+    start_date = "2010"
+    end_date = "2012"
 
     climate_lookup = ClimateDataMeteoStat()
-    climate_lookup._delta = 'year'
+    climate_lookup._delta = "year"
     date_range = climate_lookup._make_date_range(start_date, end_date)
 
-    assert date_range == ['2010', '2011', '2012']
+    assert date_range == ["2010", "2011", "2012"]
 
 
 def test_fetch_climate_data():
@@ -194,7 +202,7 @@ def test_fetch_climate_data():
     end_date = datetime(2010, 1, 3, 0, 0)
 
     climate_data = ClimateDataMeteoStat()
-    climate_data._delta = 'day'
+    climate_data._delta = "day"
     climate_dataframe = climate_data._fetch_climate_data(location, start_date, end_date)
 
     print(climate_dataframe)
@@ -206,6 +214,6 @@ def test_fetch_climate_data():
         }
     )
 
-    data = data.set_index(pd.date_range(start_date, end_date, freq='D'))
+    data = data.set_index(pd.date_range(start_date, end_date, freq="D"))
 
     assert climate_dataframe.equals(data)

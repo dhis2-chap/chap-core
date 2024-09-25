@@ -4,42 +4,51 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from climate_health.time_period.date_util_wrapper import TimePeriod, TimeStamp, delta_month, PeriodRange, delta_year, \
-    Month, Day, Year, Week
+from climate_health.time_period.date_util_wrapper import (
+    TimePeriod,
+    TimeStamp,
+    delta_month,
+    PeriodRange,
+    delta_year,
+    Month,
+    Day,
+    Year,
+    Week,
+)
 
 
 @pytest.fixture
 def period1():
-    return TimePeriod.parse('2020-1')
+    return TimePeriod.parse("2020-1")
 
 
 @pytest.fixture
 def period2():
-    return TimePeriod.parse('2020-2')
+    return TimePeriod.parse("2020-2")
 
 
 @pytest.fixture
 def period3():
-    return TimePeriod.parse('2021-2')
+    return TimePeriod.parse("2021-2")
 
 
 @pytest.fixture
 def edge_timestamps():
-    texts = ['2019-12-31', '2020-1-1', '2020-1-31', '2020-2-1']
+    texts = ["2019-12-31", "2020-1-1", "2020-1-31", "2020-2-1"]
     return [TimeStamp.parse(text) for text in texts]
 
 
 def test_init_with_numbers(period2):
     assert Month(2020, 2) == period2
     assert Day(2020, 2, 3) == Day(datetime(2020, 2, 3))
-    assert Year(2020) == TimePeriod.parse('2020')
+    assert Year(2020) == TimePeriod.parse("2020")
 
 
 def test_init_week_with_numbers():
     week = Week(2023, 2)
     assert isinstance(week, Week)
-    assert week.start_timestamp == TimeStamp.parse('2023-01-09')
-    assert week.to_string() == '2023W2'  # pd.Period('2023-01-09', freq='W-MON')
+    assert week.start_timestamp == TimeStamp.parse("2023-01-09")
+    assert week.to_string() == "2023W2"  # pd.Period('2023-01-09', freq='W-MON')
 
 
 def test_parse(period1):
@@ -87,17 +96,17 @@ def test_divide_timedelta():
 
 
 def test_period_id(period1):
-    assert period1.id == '202001'
-    assert Week(2023, 2).id == '2023W02'
-    assert Day(2023, 2, 3).id == '20230203'
-    assert Year(2023).id == '2023'
+    assert period1.id == "202001"
+    assert Week(2023, 2).id == "2023W02"
+    assert Day(2023, 2, 3).id == "20230203"
+    assert Year(2023).id == "2023"
 
 
 def test_from_id(period1):
-    assert TimePeriod.from_id('202001') == period1
-    assert TimePeriod.from_id('2023W02') == Week(2023, 2)
-    assert TimePeriod.from_id('20230203') == Day(2023, 2, 3)
-    assert TimePeriod.from_id('2023') == Year(2023)
+    assert TimePeriod.from_id("202001") == period1
+    assert TimePeriod.from_id("2023W02") == Week(2023, 2)
+    assert TimePeriod.from_id("20230203") == Day(2023, 2, 3)
+    assert TimePeriod.from_id("2023") == Year(2023)
 
 
 @pytest.fixture
@@ -165,7 +174,7 @@ def test_period_range_gt(period_range, period2):
 def test_period_range_ge(period_range, period2):
     mask = period_range >= period2
     assert len(mask) == len(period_range)
-    assert (not mask[0])
+    assert not mask[0]
     assert mask.sum() == 13
 
 
@@ -173,14 +182,16 @@ def test_period_range_ge(period_range, period2):
 #    period_range = PeriodRange(start_period=period1, end_period=period3)
 def test_topandas(period_range):
     pd_series = period_range.topandas()
-    assert pd_series[0] == pd.Period('2020-01')
-    assert pd_series[1] == pd.Period('2020-02')
-    assert pd_series[13] == pd.Period('2021-02')
+    assert pd_series[0] == pd.Period("2020-01")
+    assert pd_series[1] == pd.Period("2020-02")
+    assert pd_series[13] == pd.Period("2021-02")
     assert len(pd_series) == 14
 
 
 def test_from_pandas(period_range):
-    series = pd.Series([pd.Period('2020-01'), pd.Period('2020-02'), pd.Period('2020-03')])
+    series = pd.Series(
+        [pd.Period("2020-01"), pd.Period("2020-02"), pd.Period("2020-03")]
+    )
     period_range = PeriodRange.from_pandas(series)
     assert len(period_range) == 3
     assert period_range[0] == Month(2020, 1)
@@ -189,21 +200,23 @@ def test_from_pandas(period_range):
 
 
 def test_from_pandas_inconsecutive(period_range):
-    series = pd.Series([pd.Period('2020-01'), pd.Period('2020-03')])
+    series = pd.Series([pd.Period("2020-01"), pd.Period("2020-03")])
     with pytest.raises(ValueError):
         period_range = PeriodRange.from_pandas(series)
 
 
-@pytest.mark.parametrize('periods, missing', [
-    (['2020', '2021', '2023'], [2]),
-    (['2020', '2021', '2022', '2023'], []),
-    (['2020', '2022', '2023'], [1]),
-    (['2020', '2023'], [1, 2]),
-    (['2020W1', '2020W2', '2020W4'], [2]),
-])
+@pytest.mark.parametrize(
+    "periods, missing",
+    [
+        (["2020", "2021", "2023"], [2]),
+        (["2020", "2021", "2022", "2023"], []),
+        (["2020", "2022", "2023"], [1]),
+        (["2020", "2023"], [1, 2]),
+        (["2020W1", "2020W2", "2020W4"], [2]),
+    ],
+)
 def test_from_strings_fill_missing(periods, missing):
-    period_range, missing_idx = PeriodRange.from_strings(periods,
-                                                         fill_missing=True)
+    period_range, missing_idx = PeriodRange.from_strings(periods, fill_missing=True)
     assert period_range[0] == TimePeriod.parse(periods[0])
     assert period_range[-1] == TimePeriod.parse(periods[-1])
 
@@ -213,12 +226,16 @@ def test_from_strings_fill_missing(periods, missing):
 def test_searchsorted(period_range, period2):
     array_comparison = np.arange(len(period_range))
     assert period_range.searchsorted(period2) == array_comparison.searchsorted(1)
-    assert period_range.searchsorted(period2, side='right') == array_comparison.searchsorted(1, side='right')
-    assert period_range.searchsorted(period2, side='left') == array_comparison.searchsorted(1, side='left')
+    assert period_range.searchsorted(
+        period2, side="right"
+    ) == array_comparison.searchsorted(1, side="right")
+    assert period_range.searchsorted(
+        period2, side="left"
+    ) == array_comparison.searchsorted(1, side="left")
 
 
 def test_from_start_and_n_periods():
-    start_period = pd.Period('2020-01')
+    start_period = pd.Period("2020-01")
     n_periods = 3
     period_range = PeriodRange.from_start_and_n_periods(start_period, n_periods)
     assert len(period_range) == n_periods

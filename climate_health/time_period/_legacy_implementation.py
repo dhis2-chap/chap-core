@@ -9,7 +9,7 @@ class TimePeriod:
 
     @classmethod
     def from_string(cls, time_string):
-        split = time_string.split('-')
+        split = time_string.split("-")
         if len(split) == 1:
             year = split[0]
             return Year(int(year))
@@ -23,11 +23,11 @@ class TimePeriod:
     def __leq__(self, other):
         if self.year != other.year:
             return self.year < other.year
-        if not hasattr(self, 'month'):
+        if not hasattr(self, "month"):
             return True
         if self.month != other.month:
             return self.month < other.month
-        if not hasattr(self, 'day'):
+        if not hasattr(self, "day"):
             return True
         return self.day <= other.day
 
@@ -51,24 +51,26 @@ class Month(TimePeriod):
 
     def __str__(self) -> str:
         dict_month = {
-            1: 'January',
-            2: 'February',
-            3: 'March',
-            4: 'April',
-            5: 'May',
-            6: 'June',
-            7: 'July',
-            8: 'August',
-            9: 'September',
-            10: 'October',
-            11: 'November',
-            12: 'December',
+            1: "January",
+            2: "February",
+            3: "March",
+            4: "April",
+            5: "May",
+            6: "June",
+            7: "July",
+            8: "August",
+            9: "September",
+            10: "October",
+            11: "November",
+            12: "December",
         }
-        return f'{dict_month[self.month]} {self.year}'
+        return f"{dict_month[self.month]} {self.year}"
 
 
 class Day(TimePeriod):
-    def __init__(self, year: Union[int, str], month: Union[int, str], day: Union[int, str]) -> None:
+    def __init__(
+        self, year: Union[int, str], month: Union[int, str], day: Union[int, str]
+    ) -> None:
         self.year = int(year)
         self.month = int(month)
         self.day = int(day)
