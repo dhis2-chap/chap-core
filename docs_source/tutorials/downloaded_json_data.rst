@@ -12,6 +12,7 @@ The easiest way to do this is to create a file called ".env" in the root of the 
 "GOOGLE_SERVICE_ACCOUNT_EMAIL" and "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY". The file should look similar to the following content:
 
 .. code-block:: bash
+    
     GOOGLE_SERVICE_ACCOUNT_EMAIL="your-google-serviec-account@company.iam.gserviceaccount.com"
     GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----  <your-private-key>  -----END PRIVATE KEY-----"
 
