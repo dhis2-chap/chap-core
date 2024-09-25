@@ -200,9 +200,6 @@ class DataSet(Generic[FeaturesT]):
     def data(self) -> Iterable[FeaturesT]:
         return self._data_dict.values()
 
-    # def items(self) -> Iterable[Tuple[Location, FeaturesT]]:
-    #    return self._data_dict.items()
-
     def _add_location_to_dataframe(self, df, location):
         df["location"] = location
         return df
