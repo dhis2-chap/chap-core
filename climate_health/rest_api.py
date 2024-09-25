@@ -96,7 +96,7 @@ async def favicon() -> FileResponse:
     return FileResponse("chap_icon.jpeg")
 
 
-@app.post('/predict/')
+@app.post('/predict')
 async def predict(data: PredictionRequest) -> dict:
     """
     Start a prediction task using the given data as training data

@@ -131,3 +131,8 @@ climate_health/web_interface/yarn-error.log*
 climate_health/web_interface/node_modules/
 
 /scripts/runs/
+
+
+#ignore outputs from pytest
+/runs
+/cache
