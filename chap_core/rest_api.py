@@ -99,7 +99,8 @@ async def favicon() -> FileResponse:
 @app.post('/predict')
 async def predict(data: PredictionRequest) -> dict:
     """
-    Start a prediction task using the given data as training data
+    Start a prediction task using the given data as training data.
+    Results can be retrieved using the get-results endpoint.
     """
     json_data = data.model_dump()
     str_data = json.dumps(json_data)
@@ -132,11 +133,9 @@ async def get_results() -> FullPredictionResponse:
     Retrieve results made by the model
     """
     cur_job = internal_state.current_job
-    print(cur_job)
     if not (cur_job and cur_job.is_finished):
         raise HTTPException(status_code=400, detail="No response available")
     result = cur_job.result
-    print(result)
     return result
 
 
@@ -167,5 +166,4 @@ async def get_status() -> State:
 
 def main_backend():
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)
