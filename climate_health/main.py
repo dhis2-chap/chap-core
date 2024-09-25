@@ -2,15 +2,18 @@
 Contains function for running full analysis (e.g from data to prediction assesment report)
 """
 
-import pandas as pd
 from collections import defaultdict
 from .datatypes import ClimateHealthTimeSeries
-from climate_health.assessment.prediction_evaluator import AssessmentReport, make_assessment_report
+from climate_health.assessment.prediction_evaluator import (
+    AssessmentReport,
+    make_assessment_report,
+)
 from .predictor.protocol import IsPredictor
 
 
-def assess_model_on_csv_data(data_file_name: str, split_fraction: float,
-                             model: IsPredictor) -> 'AssessmentReport':
+def assess_model_on_csv_data(
+    data_file_name: str, split_fraction: float, model: IsPredictor
+) -> "AssessmentReport":
     """
     Wraps together all necessary steps for reading data from file, assessing a model on different lags ahead
     and generating a report with results.
@@ -24,12 +27,17 @@ def assess_model_on_csv_data(data_file_name: str, split_fraction: float,
 
     for lag_ahead in range(1, 10):
         rowbased_data = lagged_rows(data, lag_rows=[2], lag=lag_ahead)
-        x_train, y_train, x_test, y_test = (
-            split_to_train_test_truth_fixed_ahead_lag(rowbased_data, split_fraction))
+        x_train, y_train, x_test, y_test = split_to_train_test_truth_fixed_ahead_lag(
+            rowbased_data, split_fraction
+        )
         model.train(x_train, y_train)
-        for test_time_offset, (single_X_test, single_Y_test) in enumerate(zip(x_test.values, y_test)):
+        for test_time_offset, (single_X_test, single_Y_test) in enumerate(
+            zip(x_test.values, y_test)
+        ):
             # the model as of now takes the input as a DF with features as columns, thus the reshape
-            prediction_dict[lag_ahead][test_time_offset] = model.predict(single_X_test.reshape(1, -1))
+            prediction_dict[lag_ahead][test_time_offset] = model.predict(
+                single_X_test.reshape(1, -1)
+            )
             truth_dict[lag_ahead][test_time_offset] = single_Y_test
     report = make_assessment_report(prediction_dict, truth_dict)
     return report
@@ -39,8 +47,12 @@ def lagged_rows(data, lag_rows, lag=1):
     new_data = data.iloc[lag:]
     for lag_row in lag_rows:
         for i in range(lag):
-            lagged_col = data.iloc[lag - i - 1:-1 - i, lag_row].values
-            new_data.insert(len(new_data.columns), f"{data.columns[lag_row]}_lag_{i + 1}", lagged_col)
+            lagged_col = data.iloc[lag - i - 1 : -1 - i, lag_row].values
+            new_data.insert(
+                len(new_data.columns),
+                f"{data.columns[lag_row]}_lag_{i + 1}",
+                lagged_col,
+            )
     return new_data
 
 
@@ -60,7 +72,6 @@ def split_to_train_test_truth_fixed_ahead_lag(data, split_fraction):
 
 
 class PlaceholderModel:
-
     def __init__(self):
         return
 

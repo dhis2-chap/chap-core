@@ -15,8 +15,8 @@ class RandomNoiseSimulator(Simulator):
     def simulate(self) -> ClimateHealthTimeSeries:
         """Simulate the model for the given parameters."""
         return ClimateHealthTimeSeries(
-            time_period=Year([i for i in range(1,self.n_time_points+1)]),
+            time_period=Year([i for i in range(1, self.n_time_points + 1)]),
             rainfall=np.random.randn(self.n_time_points),
             mean_temperature=np.random.randn(self.n_time_points),
-            disease_cases=np.random.poisson(10, self.n_time_points)
+            disease_cases=np.random.poisson(10, self.n_time_points),
         )

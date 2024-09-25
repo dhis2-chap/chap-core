@@ -7,16 +7,17 @@ from climate_health.google_earth_engine.gee_raw import load_credentials
 def credentials():
     try:
         load_credentials()
-    except Exception as e:
+    except Exception:
         pytest.skip("Credentials not found")
 
 
 @pytest.fixture
 def polygons_filename(data_path):
-    return data_path / 'philippines_polygons.json'
+    return data_path / "philippines_polygons.json"
 
 
 @pytest.mark.skip("Not implemented")
 def test_get_gridded_data(polygons_filename):
     from climate_health.climate_data.gridded_data import get_gridded_data
+
     get_gridded_data(polygons_filename)

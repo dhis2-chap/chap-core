@@ -11,11 +11,9 @@ from climate_health.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 def get_app():
-    app = FastAPI(
-        root_path="/v1"
-    )
+    app = FastAPI(root_path="/v1")
     origins = [
-        '*',  # Allow all origins
+        "*",  # Allow all origins
         "http://localhost:3000",
         "localhost:3000",
     ]
@@ -24,7 +22,7 @@ def get_app():
         allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"]
+        allow_headers=["*"],
     )
 
     return app
@@ -35,7 +33,10 @@ def samples_to_json(samples_dataset: DataSet[Samples]):
     for location, samples in samples_dataset.items():
         for period, data in zip(samples.time_periods, samples.data):
             data_values.append(
-                FullPredictionResponse(orgunit=location, period=period.id(), data=data.tolist()))
+                FullPredictionResponse(
+                    orgunit=location, period=period.id(), data=data.tolist()
+                )
+            )
     return data_values
 
 
@@ -46,9 +47,9 @@ def get_rest_api(estimator):
 
     @app.post("/train")
     def train(self, data: RequestV1, name: Optional[str] = None) -> dict:
-        name = name or 'model_{len(self._models)}'
+        name = name or "model_{len(self._models)}"
         predictors[name] = estimator.train(data)
-        return {'name': name}
+        return {"name": name}
 
     @app.post("/predict")
     def predict(model_name: str, data: RequestV1):

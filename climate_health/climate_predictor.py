@@ -28,12 +28,12 @@ class MonthlyClimatePredictor:
         return time_period.month[:, None] == np.arange(1, 13)
 
     def train(self, train_data: DataSet[ClimateData]):
-        train_data = train_data.remove_field('disease_cases')
+        train_data = train_data.remove_field("disease_cases")
         for location, data in train_data.items():
             self._cls = data.__class__
             x = self._feature_matrix(data.time_period)
             for field in dataclasses.fields(data):
-                if field.name in ('time_period'):
+                if field.name in ("time_period"):
                     continue
                 y = getattr(data, field.name)
                 model = linear_model.LinearRegression()
@@ -44,8 +44,10 @@ class MonthlyClimatePredictor:
         x = self._feature_matrix(time_period)
         prediction_dict = {}
         for location, models in self._models.items():
-            prediction_dict[location] = self._cls(time_period, **{field: model.predict(x).ravel() for field, model in
-                                                                  models.items()})
+            prediction_dict[location] = self._cls(
+                time_period,
+                **{field: model.predict(x).ravel() for field, model in models.items()},
+            )
         return DataSet(prediction_dict)
 
 

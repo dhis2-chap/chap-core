@@ -8,6 +8,7 @@ WORKDIR /app
 
 # Install the Python dependencies
 RUN apt-get update
+#RUN apt-get upgrade
 
 COPY ./climate_health ./climate_health
 COPY ./README.md ./README.md
@@ -16,7 +17,9 @@ COPY ./HISTORY.rst ./HISTORY.rst
 COPY ./README.md ./README.md
 COPY ./external_models ./external_models
 
+RUN pip install --upgrade pip
 RUN pip install -e .
 
 # Start the FastAPI application
 CMD chap serve & rq worker
+#CMD ["chap", "serve", "&", "rq", "worker"]

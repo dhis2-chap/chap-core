@@ -1,7 +1,8 @@
-'''
+"""
 This needs a redis db and a redis queue worker running
 $ rq worker --with-scheduler
-'''
+"""
+
 from typing import Callable, Generic
 
 from rq import Queue
@@ -12,7 +13,9 @@ from dotenv import load_dotenv, find_dotenv
 
 from climate_health.worker.interface import ReturnType
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class RedisJob(Generic[ReturnType]):
     def __init__(self, job: Job):
@@ -36,8 +39,10 @@ class RedisJob(Generic[ReturnType]):
     @property
     def is_finished(self) -> bool:
         print(self._job.is_finished)
-        if self._job.get_status() == 'queued':
-            logger.warning('Job is queued, maybe no worker is set up? Run `$ rq worker`')
+        if self._job.get_status() == "queued":
+            logger.warning(
+                "Job is queued, maybe no worker is set up? Run `$ rq worker`"
+            )
         print(self._job.get_status())
 
         return self._job.is_finished
@@ -50,18 +55,20 @@ class RedisQueue:
 
     def read_environment_variables(self):
         load_dotenv(find_dotenv())
-        host = os.environ.get('REDIS_HOST')
-        port = os.environ.get('REDIS_PORT')
+        host = os.environ.get("REDIS_HOST")
+        port = os.environ.get("REDIS_PORT")
 
-        #using default values if environment variables are not set
+        # using default values if environment variables are not set
         if host is None:
-            host = 'localhost'
+            host = "localhost"
         if port is None:
-            port = '6379'
+            port = "6379"
 
         return host, port
 
-    def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> RedisJob[ReturnType]:
+    def queue(
+        self, func: Callable[..., ReturnType], *args, **kwargs
+    ) -> RedisJob[ReturnType]:
         return RedisJob(self.q.enqueue(func, *args, **kwargs))
 
     def __del__(self):

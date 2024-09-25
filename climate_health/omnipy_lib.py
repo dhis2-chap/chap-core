@@ -4,11 +4,12 @@ try:
     from omnipy import StrDataset
     from omnipy.api.protocols.public.hub import IsRuntime
     from omnipy.hub.runtime import Runtime
-    from omnipy import (BytesDataset,
-                    StrDataset,
-                    TableWithColNamesDataset,
-                    TableWithColNamesModel,
-                    TaskTemplate)
+    from omnipy import (
+        BytesDataset,
+        TableWithColNamesDataset,
+        TableWithColNamesModel,
+        TaskTemplate,
+    )
     from omnipy import Dataset, Model
     from omnipy.data.dataset import MultiModelDataset
 
@@ -26,6 +27,3 @@ except ImportError:
     TableWithColNamesDataset = None
     TableWithColNamesModel = None
     TaskTemplate = None
-
-
-

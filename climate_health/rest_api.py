@@ -1,22 +1,19 @@
 import json
 import logging
-from typing import Union
 
-from fastapi import BackgroundTasks, UploadFile, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
-# from fastapi.responses import HTMLResponse
-
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from climate_health.api_types import RequestV1
+from climate_health.api_types import PredictionRequest
 from climate_health.internal_state import Control, InternalState
 from climate_health.model_spec import ModelSpec, model_spec_from_model
 from climate_health.predictor import all_models
 from climate_health.predictor.feature_spec import Feature, all_features
 from climate_health.rest_api_src.data_models import FullPredictionResponse
-from climate_health.rest_api_src.worker_functions import train_on_zip_file, train_on_json_data
+import climate_health.rest_api_src.worker_functions as wf
 
 from climate_health.worker.rq_worker import RedisQueue
 
@@ -25,11 +22,9 @@ logging.basicConfig(level=logging.INFO)
 
 
 def get_app():
-    app = FastAPI(
-        root_path="/v1"
-    )
+    app = FastAPI(root_path="/v1")
     origins = [
-        '*',  # Allow all origins
+        "*",  # Allow all origins
         "http://localhost:3000",
         "localhost:3000",
     ]
@@ -38,7 +33,7 @@ def get_app():
         allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"]
+        allow_headers=["*"],
     )
 
     return app
@@ -55,7 +50,7 @@ class State(BaseModel):
 
 internal_state = InternalState(Control({}), {})
 
-state = State(ready=True, status='idle')
+state = State(ready=True, status="idle")
 
 
 class NaiveWorker:
@@ -69,7 +64,7 @@ class NaiveJob:
 
     @property
     def status(self):
-        return 'finished'
+        return "finished"
 
     @property
     def progress(self):
@@ -91,93 +86,51 @@ class NaiveJob:
 # worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
 worker = RedisQueue()
 
+
 def set_cur_response(response):
-    state['response'] = response
+    state["response"] = response
 
 
-@app.get('favicon.ico')
+@app.get("favicon.ico")
 async def favicon() -> FileResponse:
-    return FileResponse('chap_icon.jpeg')
+    return FileResponse("chap_icon.jpeg")
 
 
-@app.post('/set-model-path')
-async def set_model_path(model_path: str) -> dict:
-    '''
-    Set the model to be used for training and evaluation
-    https://github.com/knutdrand/external_rmodel_example.git
-    '''
-    internal_state.model_path = model_path
-    return {'status': 'success'}
-
-
-@app.post('/zip-file/')
-async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
-    '''
-    Post a zip file containing the data needed for training and evaluation, and start the training
-    '''
-
-    # Herman: I comment these two lines out, since we accept more than one jobs for now?
-    # if not internal_state.is_ready():
-    #    raise HTTPException(status_code=400, detail="Model is currently training")
-
-    model_name, model_path = 'HierarchicalModel', None
-    if internal_state.model_path is not None:
-        model_name = 'external'
-        model_path = internal_state.model_path
-
-    job = worker.queue(train_on_zip_file, file, model_name, model_path)
-    internal_state.current_job = job
-
-    return {'status': 'success'}
-
-@app.post('/predict-from-json/')
-async def predict_from_json(data: RequestV1) -> dict:
-    '''
-    Post a json file containing the data needed for prediction
-    '''
-    model_name, model_path = 'HierarchicalModel', None
-    if internal_state.model_path is not None:
-        model_name = 'external'
-        model_path = internal_state.model_path
+@app.post('/predict/')
+async def predict(data: PredictionRequest) -> dict:
+    """
+    Start a prediction task using the given data as training data
+    """
     json_data = data.model_dump()
-
     str_data = json.dumps(json_data)
-
-    job = worker.queue(train_on_json_data, str_data, model_name, model_path)
+    job = worker.queue(wf.predict, str_data)
     internal_state.current_job = job
-
-    return {'status': 'success'}
-
-    #if internal_state.model_path is not None:
-    #    model_name = 'external'
-    #    model_path = internal_state.model_path
-    #response = train_on_prediction_data(data, model_name, model_path)
-    #return response
+    return {"status": "success"}
 
 
-@app.get('/list-models')
+@app.get("/list-models")
 async def list_models() -> list[ModelSpec]:
-    '''
+    """
     List all available models. These are not validated. Should set up test suite to validate them
-    '''
+    """
     model_list = (model_spec_from_model(model) for model in all_models)
     valid_model_list = [m for m in model_list if m is not None]
     return valid_model_list
 
 
-@app.get('/list-features')
+@app.get("/list-features")
 async def list_features() -> list[Feature]:
-    '''
+    """
     List all available features
-    '''
+    """
     return all_features
 
 
-@app.get('/get-results')
+@app.get("/get-results")
 async def get_results() -> FullPredictionResponse:
-    '''
+    """
     Retrieve results made by the model
-    '''
+    """
     cur_job = internal_state.current_job
     print(cur_job)
     if not (cur_job and cur_job.is_finished):
@@ -187,27 +140,29 @@ async def get_results() -> FullPredictionResponse:
     return result
 
 
-@app.post('/cancel')
+@app.post("/cancel")
 async def cancel() -> dict:
-    '''
+    """
     Cancel the current training
-    '''
+    """
     if internal_state.control is not None:
         internal_state.control.cancel()
-    return {'status': 'success'}
+    return {"status": "success"}
 
 
-@app.get('/status')
+@app.get("/status")
 async def get_status() -> State:
-    '''
+    """
     Retrieve the current status of the model
-    '''
+    """
     if internal_state.is_ready():
-        return State(ready=True, status='idle')
+        return State(ready=True, status="idle")
 
-    return State(ready=False,
-                 status=internal_state.current_job.status,
-                 progress=internal_state.current_job.progress)
+    return State(
+        ready=False,
+        status=internal_state.current_job.status,
+        progress=internal_state.current_job.progress,
+    )
 
 
 def main_backend():
