@@ -11,15 +11,16 @@ Install CHAP Core
 We recommend you run CHAP Core with Conda. If you don't have Conda, you could install Miniconda, 
 (a minimal installer for Conda) from https://docs.anaconda.com/miniconda/#latest-miniconda-installer-links
 
-Windows: After installation open Anaconda Prompt, search for "Anaconda Prompt" in the Windows Start menu.
-Linux: Conda should work in your default terminal after installation.
+| Windows: After installation open Anaconda Prompt. Search for "Anaconda Prompt" in the Windows Start menu.
+| Linux: Conda should work in your default terminal after installation.
 
 We recommend you to create a new conda environment by running the following commands:
 
     $ conda create -n chap-core python=3.11
+
     $ conda activate chap-core
 
-In the same shell, install CHAP Core, by runing the following commands (this take 5-20 minutes):
+In the same shell, install CHAP Core, by runing the following commands (this take 10-20 minutes):
 
     $ pip install git+https://github.com/dhis2/chap-core.git
 
@@ -68,7 +69,7 @@ predict command:
 
 .. code-block:: bash
 
-    chap-cli predict <path-to-dataset-file>.csv <path-to-output-file>.csv --model-id <model-name> --do-summary
+    chap-cli predict <path-to-dataset-file>.csv <path-to-output-file>.csv --model-id chap_ewars --do-summary
 
 This will generate a new dataset with the predicted values for the dataset.
 
