@@ -1,5 +1,5 @@
 Running on JSON data downloaded from the CHAP-app (when CHAP Core is not installed on your DHIS2-instance)
-=================================================
+=============================================================================================================
 
 Requriments: 
     - Docker is installed on your computer (Installation instructions can be found at https://docs.docker.com/get-started/get-docker/).
@@ -11,16 +11,16 @@ Install CHAP Core
 We recommend you run CHAP Core with Conda. If you don't have Conda, you could install Miniconda, 
 (a minimal installer for Conda) from https://docs.anaconda.com/miniconda/#latest-miniconda-installer-links
 
-| Windows: After installation open Anaconda Prompt. Search for "Anaconda Prompt" in the Windows Start menu.
-| Linux: Conda should work in your default terminal after installation.
+- Windows: After installation open Anaconda Prompt. Search for "Anaconda Prompt" in the Windows Start menu.
+- Linux: Conda should work in your default terminal after installation.
 
-We recommend you to create a new conda environment by running the following commands:
+**We recommend you to create a new conda environment by running the following commands:**
 
     $ conda create -n chap-core python=3.11
 
     $ conda activate chap-core
 
-In the same shell, install CHAP Core, by runing the following commands (this take 10-20 minutes):
+**In the same shell, install CHAP Core, by runing the following commands (this take 10-20 minutes):**
 
     $ pip install git+https://github.com/dhis2/chap-core.git
 
