@@ -53,7 +53,7 @@ test_requirements = ["pytest>=3", "hypothesis"]
 
 setup(
     author="Sandvelab",
-    author_email="sandvelab",
+    author_email="knutdrand@gmail.com",
     python_requires=">=3.9",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
