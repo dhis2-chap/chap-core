@@ -72,7 +72,7 @@ setup(
     },
     install_requires=requirements,
     license="MIT license",
-    long_description="",
+    long_description="Chap Core",
     include_package_data=True,
     keywords="chap_core",
     name="chap_core",
