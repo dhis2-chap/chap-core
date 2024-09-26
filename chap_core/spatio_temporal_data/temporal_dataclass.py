@@ -212,10 +212,10 @@ class DataSet(Generic[FeaturesT]):
         ]
         return pd.concat(tables)
 
-    def interpolate(self):
+    def interpolate(self, field_names=None):
         return self.__class__(
             {
-                loc: TemporalDataclass(data.data().interpolate())
+                loc: data.interpolate(field_names)
                 for loc, data in self.items()
             }
         )

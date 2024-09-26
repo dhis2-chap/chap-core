@@ -1,3 +1,5 @@
+from typing import Optional, List
+
 import bionumpy as bnp
 import numpy as np
 import pandas as pd
@@ -99,13 +101,13 @@ class TimeSeriesData:
         data = pd.read_csv(csv_file, **kwargs)
         return cls.from_pandas(data)
 
-    def interpolate(self):
+    def interpolate(self, field_names: Optional[List[str]]=None):
         data_dict = {
             field.name: getattr(self, field.name) for field in dataclasses.fields(self)
         }
         data_dict["time_period"] = self.time_period
         fields = {
-            key: interpolate_nans(value)
+            key: interpolate_nans(value) if field_names is None or key in field_names else value
             for key, value in data_dict.items()
             if key != "time_period"
         }
@@ -150,21 +152,21 @@ class TimeSeriesData:
             return self
         n_missing_start = (
             self.start_timestamp - start_timestamp
-        ) // self._data.time_period.delta
-        n_missing = (end_timestamp - self.end_timestamp) // self._data.time_period.delta
+        ) // self.time_period.delta
+        n_missing = (end_timestamp - self.end_timestamp) // self.time_period.delta
         assert n_missing >= 0, (f"{n_missing} < 0", end_timestamp, self.end_timestamp)
         assert n_missing_start >= 0, (
             f"{n_missing} < 0",
             end_timestamp,
             self.end_timestamp,
         )
-        old_time_period = self._data.time_period
+        old_time_period = self.time_period
         new_time_period = PeriodRange(
             start_timestamp, end_timestamp, old_time_period.delta
         )
         d = {
-            field.name: getattr(self._data, field.name)
-            for field in dataclasses.fields(self._data)
+            field.name: getattr(self, field.name)
+            for field in dataclasses.fields(self)
             if field.name != "time_period"
         }
 

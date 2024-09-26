@@ -103,7 +103,7 @@ def dataset_from_request_v1(
     translations = {target_name: "disease_cases"}
     data = {
         translations.get(feature.featureId, feature.featureId): v1_conversion(
-            feature.data, fill_missing=feature.featureId == target_name
+            feature.data, fill_missing=feature.featureId in (target_name, 'population')
         )
         for feature in json_data.features
     }
@@ -125,6 +125,7 @@ def dataset_from_request_v1(
         for field_name in ("mean_temperature", "rainfall")
     }
     train_data = DataSet.from_fields(FullData, data | field_dict)
+    train_data = train_data.interpolate(['population'])
     return train_data
 
 

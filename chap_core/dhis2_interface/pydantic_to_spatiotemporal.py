@@ -20,4 +20,5 @@ def v1_conversion(
         value=df.value,
     )
     converted_df = pd.DataFrame(d)
-    return DataSet.from_pandas(converted_df, TimeSeriesArray, fill_missing=fill_missing)
+    ds = DataSet.from_pandas(converted_df, TimeSeriesArray, fill_missing=fill_missing)
+    return ds
