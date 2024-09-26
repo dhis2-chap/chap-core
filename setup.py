@@ -53,12 +53,12 @@ test_requirements = ["pytest>=3", "hypothesis"]
 
 setup(
     author="Sandvelab",
-    author_email="sandvelab",
+    author_email="knutdrand@gmail.com",
     python_requires=">=3.9",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MITupdate proje License",
+        'License :: OSI Approved :: MIT License',
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
@@ -72,7 +72,7 @@ setup(
     },
     install_requires=requirements,
     license="MIT license",
-    long_description=readme + "\n\n" + history,
+    long_description="Chap Core",
     include_package_data=True,
     keywords="chap_core",
     name="chap_core",
@@ -80,6 +80,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/dhis2/chap-core",
-    version="0.0.1",
+    version="0.0.8",
     zip_safe=False,
 )
