@@ -4,7 +4,7 @@ Running on JSON data downloaded from the CHAP-app
 **Use this instruction when CHAP Core is not installed at a backend service on your DHIS2-instance**
 
 Requriments: 
-    - Docker is installed on your computer (Installation instructions can be found at https://docs.docker.com/get-started/get-docker/).
+    - Docker is installed AND running on your computer (Installation instructions can be found at https://docs.docker.com/get-started/get-docker/).
     - CHAP-app is installed on your DHIS2-instance (Instruction for CHAP-app installation could be found at https://github.com/dhis2/chap-app)
     - Access to credentials for Google Earth Engine. (Google Service Account Email and Private Key)
 
@@ -53,7 +53,7 @@ This is done by running the following command (replace the placeholders with the
 
 Evaluate models on the dataset
 ------------------------------
-The next step is to evaluate existing models on the dataset, to see if some of them perform well on your dataset.
+The next step is to evaluate existing models on the dataset, to see if some of them perform well on your dataset. Ensure Docker is running.
 This is done by running the following command:
 
 .. code-block:: bash
