@@ -65,3 +65,9 @@ end_week = '2020W05'  # Week 5 of 2020
 data = chap_core.fetch.gee_era5(credentials, polygons, start_week, end_week, band_names)
 print(data)
 ```
+
+
+# Development
+We have an open Github board with plans, roadmaps and todo here: [https://github.com/orgs/sandvelab/projects/2](https://github.com/orgs/sandvelab/projects/2).
+
+Instructions on how to contribute to the project will come here soon.
