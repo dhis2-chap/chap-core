@@ -49,7 +49,7 @@ def predict(json_data: PredictionRequest):
     json_data = PredictionRequest.model_validate_json(json_data)
     #model_path = model_paths.get(json_data.model_id)
     #estimator = get_model_from_directory_or_github_url(model_path)
-    estimator = registry.get_model(json_data.model_id)
+    estimator = registry.get_model(json_data.estimator_id)
     target_id = get_target_id(json_data, ["disease", 'diseases'])
     train_data = dataset_from_request_v1(json_data)
     predictions = forecast_ahead(estimator, train_data, json_data.n_periods)
