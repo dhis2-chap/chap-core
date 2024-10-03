@@ -32,6 +32,14 @@ models = (
         description='Weekly Deep Auto Regressive model',
         author='knutdrand',
         github_link='https://github.com/knutdrand/weekly_ar_model'),
+    ExternalModelSpec(
+        name='auto_regressive_monthly',
+        parameters={},
+        features=[fs.rainfall, fs.mean_temperature],
+        period=PeriodType.month,
+        description='Monthly Deep Auto Regressive model',
+        author='knutdrand',
+        github_link='https://github.com/sandvelab/monthly_ar_model')
 )
 
 model_dict = {model.name: model for model in models}
