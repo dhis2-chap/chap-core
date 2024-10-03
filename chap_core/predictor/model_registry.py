@@ -19,7 +19,7 @@ naive_spec = ModelSpec(
 
 class ModelRegistry:
     def __init__(self, model_dict: dict):
-        self._model_type = Literal['naive_model', *model_dict.keys()]
+        self._model_type = Literal[('naive_model',) + tuple(model_dict.keys())]
         self._model_specs = [naive_spec, *model_dict.values()]
 
     @property
