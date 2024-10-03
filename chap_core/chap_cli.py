@@ -1,5 +1,6 @@
 from pathlib import Path
 import logging
+from typing import Literal
 
 from cyclopts import App
 
@@ -14,21 +15,26 @@ from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.rest_api_src.worker_functions import dataset_from_request_v1
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import delta_month
-
+from chap_core.predictor.published_models import model_dict
+#model_type = Literal[*model_dict.keys()]
+from chap_core.predictor.model_registry import registry
 logger = logging.getLogger(__name__)
 
 
-def _get_model(model_id: str):
-    if model_id == "naive_model":
-        return NaiveEstimator()
-    elif model_id == "chap_ewars":
-        return get_model_from_directory_or_github_url(
-            "https://github.com/sandvelab/chap_auto_ewars"
-        )
-    else:
-        raise ValueError(
-            f"Unknown model id: {model_id}, expected one of 'naive_model', 'chap_ewars'"
-        )
+# def _get_model(model_id: str):
+#     if model_id == "naive_model":
+#         return NaiveEstimator()
+#     elif model_id == "chap_ewars_monthly":
+#         return get_model_from_directory_or_github_url(
+#             "https://github.com/sandvelab/chap_auto_ewars"
+#         )
+#     elif model_id == "chap_ewars_weekly":
+#         return get_model_from_directory_or_github_url(
+#             "https://github.com/sandvelab/chap_auto_ewars_weekly")
+#     else:
+#         raise ValueError(
+#             f"Unknown model id: {model_id}, expected one of 'naive_model', 'chap_ewars'"
+#         )
 
 
 def harmonize(input_filename: Path, output_filename: Path):
@@ -55,7 +61,7 @@ def harmonize(input_filename: Path, output_filename: Path):
 def evaluate(
     data_filename: Path,
     output_filename: Path,
-    model_id: str,
+    model_id: registry.model_type,
     prediction_length: int = None,
     n_test_sets: int = None,
 ):
@@ -81,7 +87,7 @@ def evaluate(
     if n_test_sets is None:
         n_periods = 12 if data_set.period_range.delta == delta_month else 52
         n_test_sets = n_periods - prediction_length + 1
-    model = _get_model(model_id)
+    model = registry.get_model(model_id)
     evaluate_model(
         model,
         data_set,
@@ -114,7 +120,7 @@ def predict(
     data_set = DataSet.from_csv(data_filename, FullData)
     if prediction_length is None:
         prediction_length = 3 if data_set.period_range.delta == delta_month else 12
-    model = _get_model(model_id)
+    model = registry.get_model(model_id)
     samples = forecast_ahead(model, data_set, prediction_length)
     if do_summary:
         predictions = DataSet(
