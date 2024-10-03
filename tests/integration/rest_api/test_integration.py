@@ -93,7 +93,10 @@ def test_get_status():
 def test_list_models():
     response = client.get(list_models_path)
     assert response.status_code == 200
-    assert "MultiRegionPoissonModel" in {spec["name"] for spec in response.json()}
+    spec_names = {spec["name"] for spec in response.json()}
+    assert "chap_ewars_monthly" in spec_names
+    assert "chap_ewars_weekly" in spec_names
+
 
 
 def test_list_features():
