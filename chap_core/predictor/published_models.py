@@ -31,7 +31,7 @@ models = (
         period=PeriodType.week,
         description='Weekly Deep Auto Regressive model',
         author='knutdrand',
-        github_link='https://github.com/knutdrand/weekly_ar_model')
+        github_link='https://github.com/knutdrand/weekly_ar_model'),
 )
 
 model_dict = {model.name: model for model in models}

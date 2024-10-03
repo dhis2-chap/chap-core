@@ -22,8 +22,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         self.model_path = model_path
 
     def train(self, train_file_name, model_file_name):
-        # train_file_name = self.model_path / train_file_name
-        # model_file_name = self.model_path / model_file_name
+        logger.info("Training model using MLflow")
         return mlflow.projects.run(
             str(self.model_path),
             entry_point="train",
