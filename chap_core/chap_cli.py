@@ -88,13 +88,14 @@ def evaluate(
         n_periods = 12 if data_set.period_range.delta == delta_month else 52
         n_test_sets = n_periods - prediction_length + 1
     model = registry.get_model(model_id)
-    evaluate_model(
+    results = evaluate_model(
         model,
         data_set,
         prediction_length=prediction_length,
         n_test_sets=n_test_sets,
         report_filename=output_filename,
     )
+    logger.info(results[0])
 
 
 def predict(

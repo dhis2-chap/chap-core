@@ -3,10 +3,8 @@ import numpy as np
 
 from chap_core.assessment.forecast import forecast_ahead, forecast_with_predicted_weather
 from chap_core.assessment.prediction_evaluator import plot_predictions
-from chap_core.data.datasets import ISIMIP_dengue_harmonized
 from chap_core.datatypes import FullData, HealthData
 from chap_core.external.external_model import get_model_from_directory_or_github_url
-from chap_core.external.r_models import models_path
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 if __name__ == '__main__':

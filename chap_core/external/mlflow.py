@@ -5,6 +5,7 @@ import pandas
 import pandas as pd
 import mlflow
 import yaml
+from mlflow.utils.process import ShellCommandException
 
 from chap_core.datatypes import SummaryStatistics, HealthData, Samples
 from chap_core.runners.docker_runner import DockerRunner
@@ -23,15 +24,20 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
 
     def train(self, train_file_name, model_file_name):
         logger.info("Training model using MLflow")
-        return mlflow.projects.run(
-            str(self.model_path),
-            entry_point="train",
-            parameters={
-                "train_data": str(train_file_name),
-                "model": str(model_file_name),
-            },
-            build_image=True,
-        )
+        try:
+            return mlflow.projects.run(
+                str(self.model_path),
+                entry_point="train",
+                parameters={
+                    "train_data": str(train_file_name),
+                    "model": str(model_file_name),
+                },
+                build_image=True,
+            )
+        except ShellCommandException as e:
+            logger.error(f"Error running mlflow project, might be due to missing pyenv (See: https://github.com/pyenv/pyenv#installation)")
+            raise e
+
 
     def predict(self, model_file_name, historic_data, future_data, output_file):
         """
@@ -135,8 +141,8 @@ class ExternalModel(Generic[FeatureType]):
 
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
-        print("adapted data")
-        print(new_pd)
+        #print("adapted data")
+        #print(new_pd)
         new_pd.to_csv(train_file_name_full)
 
         # touch model output file
@@ -207,8 +213,8 @@ class ExternalModel(Generic[FeatureType]):
             (historic_data_name, historic_data),
         ]:
             with open(filename, "w"):
-                print("Adapting ", filename)
-                print(dataset.to_pandas())
+                #print("Adapting ", filename)
+                #print(dataset.to_pandas())
                 adapted_dataset = self._adapt_data(dataset.to_pandas())
                 adapted_dataset.to_csv(filename)
 
