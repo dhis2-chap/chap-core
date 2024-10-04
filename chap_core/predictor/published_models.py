@@ -6,7 +6,8 @@ class ExternalModelSpec(ModelSpec):
     github_link: str
 
 
-base_features = [fs.rainfall, fs.mean_temperature]
+base_features = [fs.rainfall, fs.mean_temperature, fs.population]
+
 models = (
     ExternalModelSpec(
         name='chap_ewars_monthly',
