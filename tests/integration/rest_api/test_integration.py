@@ -96,6 +96,8 @@ def test_list_models():
     spec_names = {spec["name"] for spec in response.json()}
     assert "chap_ewars_monthly" in spec_names
     assert "chap_ewars_weekly" in spec_names
+    spec = next(spec for spec in response.json() if spec["name"] == "chap_ewars_monthly")
+    assert 'population' in (feature['id'] for feature in spec['features'])
 
 
 
