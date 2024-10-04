@@ -12,15 +12,16 @@ from chap_core.external.external_model import (
     get_model_from_directory_or_github_url,
 )
 from chap_core.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
+from chap_core.predictor.model_registry import registry
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 import dataclasses
 import logging
 
 logger = logging.getLogger(__name__)
 
-model_paths = {
-    'chap_ewars': 'https://github.com/sandvelab/chap_auto_ewars'
-}
+#model_paths = {
+#    'chap_ewars': 'https://github.com/sandvelab/chap_auto_ewars'
+#}
 
 
 def initialize_gee_client(usecwd=False):
@@ -46,8 +47,9 @@ def train_on_zip_file(file, model_name, model_path, control=None):
 
 def predict(json_data: PredictionRequest):
     json_data = PredictionRequest.model_validate_json(json_data)
-    model_path = model_paths.get(json_data.model_id)
-    estimator = get_model_from_directory_or_github_url(model_path)
+    #model_path = model_paths.get(json_data.model_id)
+    #estimator = get_model_from_directory_or_github_url(model_path)
+    estimator = registry.get_model(json_data.estimator_id)
     target_id = get_target_id(json_data, ["disease", 'diseases'])
     train_data = dataset_from_request_v1(json_data)
     predictions = forecast_ahead(estimator, train_data, json_data.n_periods)
