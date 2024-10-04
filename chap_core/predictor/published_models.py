@@ -6,11 +6,12 @@ class ExternalModelSpec(ModelSpec):
     github_link: str
 
 
+base_features = [fs.rainfall, fs.mean_temperature]
 models = (
     ExternalModelSpec(
         name='chap_ewars_monthly',
         parameters={},
-        features=[fs.rainfall, fs.mean_temperature],
+        features=base_features,
         period=PeriodType.month,
         description='Monthly EWARS model',
         author='CHAP',
@@ -19,7 +20,7 @@ models = (
     ExternalModelSpec(
         name='chap_ewars_weekly',
         parameters={},
-        features=[fs.rainfall, fs.mean_temperature],
+        features=base_features,
         period=PeriodType.week,
         description='Weekly EWARS model',
         author='CHAP',
@@ -27,7 +28,7 @@ models = (
     ExternalModelSpec(
         name='auto_regressive_weekly',
         parameters={},
-        features=[fs.rainfall, fs.mean_temperature],
+        features=base_features,
         period=PeriodType.week,
         description='Weekly Deep Auto Regressive model',
         author='knutdrand',
@@ -35,7 +36,7 @@ models = (
     ExternalModelSpec(
         name='auto_regressive_monthly',
         parameters={},
-        features=[fs.rainfall, fs.mean_temperature],
+        features=base_features,
         period=PeriodType.month,
         description='Monthly Deep Auto Regressive model',
         author='knutdrand',
