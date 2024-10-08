@@ -82,6 +82,9 @@ class DockerTrainPredictRunner(TrainPredictRunner):
         )
         return self._docker_runner.run_command(command)
 
+    def change_runner(self, new_runner):
+        self._docker_runner = new_runner
+
     @classmethod
     def from_mlproject_file(cls, mlproject_file: Path):
         working_dir = mlproject_file.parent
