@@ -149,16 +149,16 @@ class DataSet(Generic[FeaturesT]):
     def __repr__(self):
         return f"{self.__class__.__name__}({self._data_dict})"
 
-    def __getitem__(self, location: Location) -> TemporalDataclass[FeaturesT]:
+    def __getitem__(self, location: str) -> FeaturesT:
         return self._data_dict[location].data()
 
-    def keys(self):
+    def keys(self) -> Iterable[str]:
         return self._data_dict.keys()
 
-    def items(self):
+    def items(self) -> Iterable[Tuple[str, FeaturesT]]:
         return ((k, d.data()) for k, d in self._data_dict.items())
 
-    def values(self):
+    def values(self) -> Iterable[FeaturesT]:
         return (d.data() for d in self._data_dict.values())
 
     @property
@@ -212,10 +212,10 @@ class DataSet(Generic[FeaturesT]):
         ]
         return pd.concat(tables)
 
-    def interpolate(self):
+    def interpolate(self, field_names=None):
         return self.__class__(
             {
-                loc: TemporalDataclass(data.data().interpolate())
+                loc: data.interpolate(field_names)
                 for loc, data in self.items()
             }
         )

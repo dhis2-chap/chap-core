@@ -20,5 +20,5 @@ If doing development on the code base, you should also install the dev requireme
 
 .. code-block:: console
 
-    $ pip install -r requirements_dev.tzt
+    $ pip install -r requirements_dev.txt
 

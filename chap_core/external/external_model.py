@@ -437,6 +437,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         git.Repo.clone_from(model_path, working_dir)
     else:
         # copy contents of model_path to working_dir
+        logger.info(f'Copying files from {model_path} to {working_dir}')
         shutil.copytree(model_path, working_dir)
 
     # assert that a config file exists

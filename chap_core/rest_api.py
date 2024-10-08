@@ -14,7 +14,7 @@ from chap_core.predictor import all_models
 from chap_core.predictor.feature_spec import Feature, all_features
 from chap_core.rest_api_src.data_models import FullPredictionResponse
 import chap_core.rest_api_src.worker_functions as wf
-
+from chap_core.predictor.model_registry import registry
 from chap_core.worker.rq_worker import RedisQueue
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,8 @@ async def predict(data: PredictionRequest) -> dict:
     """
     json_data = data.model_dump()
     str_data = json.dumps(json_data)
-    job = worker.queue(wf.predict, str_data)
+    job = worker.queue(wf.predict,
+                       str_data)
     internal_state.current_job = job
     return {"status": "success"}
 
@@ -114,9 +115,7 @@ async def list_models() -> list[ModelSpec]:
     """
     List all available models. These are not validated. Should set up test suite to validate them
     """
-    model_list = (model_spec_from_model(model) for model in all_models)
-    valid_model_list = [m for m in model_list if m is not None]
-    return valid_model_list
+    return registry.list_specifications()
 
 
 @app.get("/list-features")
