@@ -33,6 +33,7 @@ services:
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
+      - IS_IN_DOCKER=1
     command: rq worker --url redis://redis:6379/0
     networks:
         - chap-network

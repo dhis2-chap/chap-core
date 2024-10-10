@@ -459,19 +459,19 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False):
 
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
+    is_in_docker = os.environ.get("IS_IN_DOCKER", False)
     if "docker_env" in config:
         logging.info(
             "Docker env is specified in mlproject file, using ExternalCommandLineModel"
         )
         # return ExternalCommandLineModel.from_mlproject_file(mlproject_file)
         runner = DockerTrainPredictRunner.from_mlproject_file(mlproject_file)
+        if is_in_docker:
+            assert isinstance(runner, DockerTrainPredictRunner), "Only supported for docker"
+            runner.change_runner(CommandLineRunner(mlproject_file.parent))
+            logging.info("Ignoring docker env. Setting runner to a command line runner")
     else:
         runner = MlFlowTrainPredictRunner(mlproject_file.parent)
-
-    if ignore_env:
-        assert isinstance(runner, DockerTrainPredictRunner), "Only supported for docker"
-        runner.change_runner(CommandLineRunner(mlproject_file.parent))
-        logging.info("Ignoring docker env. Setting runner to a command line runner")
 
     logging.info("Will create ExternalMlflowModel")
     name = config["name"]
