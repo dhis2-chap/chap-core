@@ -5,6 +5,7 @@ services:
     image: redis:7.4.0
 
   chap:
+    container_name: chap
     build: .
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
@@ -14,6 +15,11 @@ services:
     ports:
       - "8000:8000"
     working_dir: /
+    #command: ["chap", "serve", "&", "rq", "worker"]
+    # write as multiline command
+    command: >
+       chap serve &
+       rq worker
 
   chap_with_r_inla:
     container_name: chap_with_r_inla
@@ -28,3 +34,7 @@ services:
     ports:
       - "8001:8000"
     working_dir: /
+    command: >
+        chap serve &
+        rq worker
+

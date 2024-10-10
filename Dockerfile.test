@@ -1,0 +1,9 @@
+FROM climate_health-chap
+
+COPY pytest.ini pytest.ini
+COPY ./example_data ./example_data
+COPY ./tests ./tests
+COPY requirements_dev.txt requirements_dev.txt
+
+RUN pip install -r requirements_dev.txt
+RUN pip install pytest

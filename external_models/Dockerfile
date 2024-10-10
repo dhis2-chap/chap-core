@@ -30,5 +30,5 @@ RUN pip install --upgrade pip
 RUN uv pip install --system -e .
 
 # Start the FastAPI application
-CMD chap serve & rq worker
+#CMD chap serve & rq worker
 #CMD ["chap", "serve", "&", "rq", "worker"]

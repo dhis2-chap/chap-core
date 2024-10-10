@@ -17,9 +17,11 @@ COPY ./HISTORY.rst ./HISTORY.rst
 COPY ./README.md ./README.md
 COPY ./external_models ./external_models
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
 RUN pip install --upgrade pip
-RUN pip install -e .
+RUN uv pip install --system -e .
 
 # Start the FastAPI application
-CMD chap serve & rq worker
+#CMD chap serve & rq worker
 #CMD ["chap", "serve", "&", "rq", "worker"]
