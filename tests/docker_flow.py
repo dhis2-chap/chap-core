@@ -62,4 +62,8 @@ def evaluate_model(chap_url, data, model, timeout=120):
     results = requests.get(chap_url + "/v1/get-results").json()
     assert len(results['dataValues']) == 45, len(results['dataValues'])
 
-evaluate_model(chap_url, dataset(), {"name": "naive_model"})
+if __name__ == "__main__":
+    main()
+    #
+
+#evaluate_model(chap_url, dataset(), {"name": "naive_model"})

@@ -20,8 +20,6 @@ services:
     expose:
       - "8000"
     working_dir: /
-    #command: ["chap", "serve", "&", "rq", "worker"]
-    # write as multiline command
     command: >
        chap serve
     networks:
@@ -29,7 +27,9 @@ services:
 
   worker:
     container_name: redis_queue
-    build: .
+    build:
+      context: .
+      dockerfile: external_models/Dockerfile
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
