@@ -15,20 +15,32 @@ def dataset():
     return data
 
 
-chap_url = "http://localhost:8000"
-chap_with_r_inla_url = "http://localhost:8001"
+#hostname = "localhost"
+hostname = 'chap'
+chap_url = "http://%s:8000" % hostname
+#chap_with_r_inla_url = "http://localhost:8001"
 
 
 def main():
-
-    modellist = chap_url + "/v1/list-models"
-    models = requests.get(modellist)
+    model_url = chap_url + "/v1/list-models"
+    ensure_up(chap_url)
+    models = requests.get(model_url)
 
     for model in models.json():
         evaluate_model(chap_url, dataset(), model)
 
 
-def evaluate_model(chap_url, data, model):
+def ensure_up(chap_url):
+    for _ in range(5):
+        try:
+            requests.get(chap_url + "/v1/status")
+            break
+        except requests.exceptions.ConnectionError:
+            time.sleep(5)
+
+
+def evaluate_model(chap_url, data, model, timeout=120):
+    ensure_up(chap_url)
     model_name = model["name"]
     data["estimator_id"] = model_name
     print(model_name)
@@ -39,10 +51,15 @@ def evaluate_model(chap_url, data, model):
     assert response.status_code == 200
     assert response.json()["status"] == "success"
 
-    while True:
+    for _ in range(timeout // 5):
         job_status = requests.get(chap_url + "/v1/status").json()
         print(job_status)
-        time.sleep(1)
+        time.sleep(5)
+        if job_status['ready']:
+            break
+    else:
+        raise TimeoutError("Model evaluation took too long")
+    results = requests.get(chap_url + "/v1/get-results").json()
+    assert len(results['dataValues']) == 45, len(results['dataValues'])
 
-#main()
 evaluate_model(chap_url, dataset(), {"name": "naive_model"})

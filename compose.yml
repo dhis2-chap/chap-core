@@ -3,10 +3,13 @@ version: '3'
 services:
   redis:
     image: redis:7.4.0
-
+    container_name: redis
+    networks:
+        - chap-network
   chap:
     depends_on:
-        -   redis
+        -  redis
+        -  worker
     container_name: chap
     build: .
     environment:
@@ -16,26 +19,44 @@ services:
       - REDIS_PORT=6379
     ports:
       - "8000:8000"
+    expose:
+      - "8000"
     working_dir: /
     #command: ["chap", "serve", "&", "rq", "worker"]
     # write as multiline command
     command: >
-       chap serve && rq worker
+       chap serve
+    networks:
+      - chap-network
 
-  chap_with_r_inla:
-    container_name: chap_with_r_inla
-    build:
-      context: ./
-      dockerfile: external_models/Dockerfile
+  worker:
+    container_name: redis_queue
+    build: .
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    ports:
-      - "8001:8000"
-    working_dir: /
-    command: >
-        chap serve &
-        rq worker
+    command: rq worker --url redis://redis:6379/0
+    networks:
+        - chap-network
 
+
+networks:
+  chap-network:
+    driver: bridge
+
+      #  chap_with_r_inla:
+#    container_name: chap_with_r_inla
+#    build:
+#      context: ./
+#      dockerfile: external_models/Dockerfile
+#    environment:
+#      - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
+#      - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
+#      - REDIS_HOST=redis
+#      - REDIS_PORT=6379
+#    ports:
+#      - "8001:8000"
+#    working_dir: /
+#    command: >
+#        chap serve &
+#        rq worker

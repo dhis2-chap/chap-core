@@ -52,6 +52,7 @@ class RedisQueue:
 
     def __init__(self):
         host, port = self.read_environment_variables()
+        logger.info('Connecting to Redis queue at %s:%s' % (host, port))
         self.q = Queue(connection=Redis(host=host, port=int(port)))
 
     def read_environment_variables(self):
