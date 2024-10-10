@@ -10,6 +10,10 @@ WORKDIR /app
 
 # Install the Python dependencies
 RUN apt-get update
+#  install git
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y git
 #RUN apt-get upgrade
 
 COPY ./chap_core ./chap_core
@@ -23,7 +27,7 @@ COPY ./external_models ./external_models
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 RUN pip install --upgrade pip
-RUN pip install -e .
+RUN uv pip install --system -e .
 
 # Start the FastAPI application
 CMD chap serve & rq worker
