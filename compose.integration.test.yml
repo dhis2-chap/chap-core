@@ -1,0 +1,9 @@
+
+version: '3'
+services:
+  redis:
+    image: redis:7.4.0
+
+  chap_frontend_emulator:
+    # use a python3.12 image
+    image: python:3.12

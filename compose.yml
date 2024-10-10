@@ -5,6 +5,8 @@ services:
     image: redis:7.4.0
 
   chap:
+    depends_on:
+        -   redis
     container_name: chap
     build: .
     environment:
@@ -18,8 +20,7 @@ services:
     #command: ["chap", "serve", "&", "rq", "worker"]
     # write as multiline command
     command: >
-       chap serve &
-       rq worker
+       chap serve && rq worker
 
   chap_with_r_inla:
     container_name: chap_with_r_inla
