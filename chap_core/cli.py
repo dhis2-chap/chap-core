@@ -8,7 +8,7 @@ from typing import Optional
 import pandas as pd
 from cyclopts import App
 
-from chap_core.external.external_model import get_model_maybe_yaml
+from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
 from chap_core.external.mlflow import NoPredictionsError
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
@@ -45,6 +45,7 @@ def evaluate(
     prediction_length: int = 6,
     n_splits: int = 7,
     report_filename: Optional[str] = "report.pdf",
+    ignore_environment: bool = False,
 ):
     """
     Evaluate a model on a dataset using forecast cross validation
@@ -62,7 +63,7 @@ def evaluate(
         ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
         dataset = dataset[dataset_country]
 
-    model, model_name = get_model_maybe_yaml(model_name)
+    model = get_model_from_directory_or_github_url(model_name, ignore_env=ignore_environment)
     model = model()
     try:
         results = evaluate_model(

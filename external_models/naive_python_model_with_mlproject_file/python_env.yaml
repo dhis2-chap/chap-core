@@ -2,5 +2,5 @@ python: 3.11.3
 
 dependencies:
   - virtualenv
-  - git+https://github.com/dhis2/chap-core.git@dev
+  - chap-core
 

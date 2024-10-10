@@ -416,7 +416,7 @@ def get_model_and_runner_from_yaml_file(
     ), get_runner_from_yaml_file(yaml_file)
 
 
-def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/")):
+def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/"), ignore_env=False):
     """
     Gets the model and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
@@ -445,14 +445,14 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         assert (
             working_dir / "MLproject"
         ).exists(), f"MLproject file not found in {working_dir}"
-        return get_model_from_mlproject_file(working_dir / "MLproject")
+        return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
     elif (working_dir / "config.yml").exists():
         return get_model_from_yaml_file(working_dir / "config.yml", working_dir)
     else:
         raise Exception("No config.yml or MLproject file found in model directory")
 
 
-def get_model_from_mlproject_file(mlproject_file):
+def get_model_from_mlproject_file(mlproject_file, ignore_env=False):
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
@@ -467,6 +467,11 @@ def get_model_from_mlproject_file(mlproject_file):
         runner = DockerTrainPredictRunner.from_mlproject_file(mlproject_file)
     else:
         runner = MlFlowTrainPredictRunner(mlproject_file.parent)
+
+    if ignore_env:
+        assert isinstance(runner, DockerTrainPredictRunner), "Only supported for docker"
+        runner.change_runner(CommandLineRunner(mlproject_file.parent))
+        logging.info("Ignoring docker env. Setting runner to a command line runner")
 
     logging.info("Will create ExternalMlflowModel")
     name = config["name"]
