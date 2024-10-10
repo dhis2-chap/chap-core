@@ -34,5 +34,6 @@ jobs:
         pip install -e .
     - name: Run pytest
       run: |
+        make test-all
         pytest
-        #make test-all
+        
