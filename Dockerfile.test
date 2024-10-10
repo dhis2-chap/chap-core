@@ -1,4 +1,4 @@
-FROM climate_health-chap
+FROM climate_health-chap:latest
 
 COPY pytest.ini pytest.ini
 COPY ./example_data ./example_data

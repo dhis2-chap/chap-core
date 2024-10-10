@@ -1,9 +1,4 @@
-
-version: '3'
 services:
-  redis:
-    image: redis:7.4.0
-
   chap:
     build:
         context: .
@@ -11,7 +6,8 @@ services:
 
     # multine command
     command: ["pytest", "/app/tests/"]
-
+    depends_on:
+        -  worker
     container_name: chap_test
 
   #chap_with_r_inla:
