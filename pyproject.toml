@@ -93,3 +93,13 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 docstring-code-format = true
 docstring-code-line-length = "dynamic"
+
+[tool.pytest.ini_options]
+log_cli = true
+norecursedirs = [
+    "tests/data_wrangling",
+    "tests/spatio_temporal_data",
+    "tests/",
+    ".mypy_cache",
+]
+ignore = ['tests/test_meteostat_wrapper']
