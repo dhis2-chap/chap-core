@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+./.ruff_cache
 *.py[cod]
 *$py.class
 
@@ -127,11 +128,9 @@ chap_core/web_interface/npm-debug.log*
 chap_core/web_interface/yarn-debug.log*
 chap_core/web_interface/yarn-error.log*
 
-
 chap_core/web_interface/node_modules/
 
 /scripts/runs/
-
 
 #ignore outputs from pytest
 /runs
