@@ -26,13 +26,13 @@ dependencies = [
     "matplotlib",
     "meteostat",
     "mlflow",
-    "numpy<2",
+    "numpy<2.0",
     "pandas",
     "plotly",
     "pooch",
     "pycountry",
     "pydantic-geojson<2",
-    "pydantic>2",
+    "pydantic>=2.0",
     "python-dateutil",
     "python-dotenv",
     "python-multipart",
@@ -75,7 +75,8 @@ dev-dependencies = [
     "sphinx>=8.1.0",
     "virtualenv>=20.26.6",
     "wheel>=0.44.0",
-    "typer>=0.12.5",
+    "typer~=0.9.0",
+    "hypothesis~=6.98.2",
 ]
 
 [tool.ruff]
