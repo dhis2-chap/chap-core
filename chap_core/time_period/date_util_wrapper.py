@@ -93,6 +93,8 @@ class TimePeriod:
     def from_id(cls, id: str):
         if len(id) == 4:
             return Year(int(id))
+        if 'SunW' in id:
+            return Week(*map(int, id.split("SunW")), iso_day=7)
         if "W" in id:
             return Week(*map(int, id.split("W")))
         elif len(id) == 6:
@@ -158,6 +160,8 @@ class TimePeriod:
     @classmethod
     def parse(cls, text_repr: str):
         if "W" in text_repr or "/" in text_repr:
+            if 'SunW' in text_repr:
+                return cls.from_id(text_repr)
             return cls.parse_week(text_repr)
         try:
             year = int(text_repr)
@@ -230,28 +234,34 @@ class WeekNumbering:
 
     @staticmethod
     def get_date(year: int, week: int, day: int) -> datetime:
-        return datetime.strptime(f"{year}-W{week}-{day}", "%G-W%V-%w")
+        return datetime.strptime(f"{year}-W{week}-{day%7}", "%G-W%V-%w")
 
 
 class Week(TimePeriod):
     _used_attributes = []  #'year']
     _extension = relativedelta(weeks=1)
     _week_numbering = WeekNumbering
-
+    _sep_strings = {1: "W", 7: "SunW"}
     @property
     def id(self):
+        if self._day_nr != 1:
+            assert self._day_nr == 7, 'Only support Sunday or Monday as the first day of the week'
+            return f"{self.year}{self._sep_strings[self._day_nr]}{self.week:02d}"
         return f"{self.year}W{self.week:02d}"
 
     def to_string(self):
-        return f"{self.year}W{self.week}"
+        return f"{self.year}{self._sep_strings[self._day_nr]}{self.week}"
 
     def __init__(self, date, *args, **kwargs):
         if args or kwargs:
             year = date
             week_nr = args[0] if args else kwargs["week"]
+            day_nr = kwargs.get("iso_day", 1)
+            self._day_nr = day_nr
             self._date = self.__date_from_numbers(year, week_nr)
             self.week = week_nr
             self.year = year
+
             # self.year = self._date.year
         else:
             if isinstance(date, TimeStamp):
@@ -259,7 +269,7 @@ class Week(TimePeriod):
             year, week, day = date.isocalendar()
             self.week = week
             self.year = year
-
+            self._day_nr = day
             self._date = date
 
     def __sub__(self, other: "TimePeriod"):
@@ -269,12 +279,12 @@ class Week(TimePeriod):
         return TimeDelta(self._date - other._date)
 
     def __str__(self):
-        return f"{self.year}W{self.week}"
+        return f"{self.year}{self._sep_strings[self._day_nr]}{self.week}"
 
     __repr__ = __str__
 
     def __date_from_numbers(self, year: int, week_nr: int):
-        date = self._week_numbering.get_date(year, week_nr, 1)
+        date = self._week_numbering.get_date(year, week_nr, self._day_nr)
         # date = datetime.strptime(f'{year}-W{week_nr}-1', "%Y-W%W-%w")
         assert date.isocalendar()[:2] == (year, week_nr), (
             date.isocalendar()[:2],
@@ -289,7 +299,9 @@ class Week(TimePeriod):
 
     def topandas(self):
         # return self.__str__()
-        return pd.Period(self._date, freq="W-MON")
+        assert self._day_nr in (1, 0, 7), self._day_nr
+        daystr = "MON" if self._day_nr == 1 else "SUN"
+        return pd.Period(self._date, freq=("W-%s" % daystr))
 
 
 class Month(TimePeriod):
