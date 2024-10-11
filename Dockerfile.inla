@@ -16,7 +16,8 @@ RUN apt-get update && \
     apt-get install -y git
 
 COPY ./chap_core ./chap_core
-COPY ./setup.py ./setup.py
+COPY ./pyproject.toml ./pyproject.toml
+COPY ./README.md ./README.md
 
 # get uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
