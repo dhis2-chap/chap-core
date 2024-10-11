@@ -16,7 +16,7 @@ dependencies = [
     "diskcache",
     "docker",
     "earthengine-api",
-    "fastapi",
+    "fastapi[standard]",
     "geopandas",
     "geopy",
     "gitpython",
