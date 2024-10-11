@@ -31,25 +31,16 @@ class Month(Year):
     month: int
 
     def topandas(self):
-        return pd.Series(
-            [
-                pd.Period(year=y, month=m, freq="M")
-                for y, m in zip(self.year, self.month)
-            ]
-        )
+        return pd.Series([pd.Period(year=y, month=m, freq="M") for y, m in zip(self.year, self.month)])
 
     def argsort(self):
         return np.lexsort((self.month, self.year))
 
     def __le__(self, other):
-        return np.where(
-            self.year == other.year, self.month <= other.month, self.year < other.year
-        )
+        return np.where(self.year == other.year, self.month <= other.month, self.year < other.year)
 
     def __ge__(self, other):
-        return np.where(
-            self.year == other.year, self.month >= other.month, self.year > other.year
-        )
+        return np.where(self.year == other.year, self.month >= other.month, self.year > other.year)
 
 
 @bnpdataclass
@@ -61,10 +52,7 @@ class Day(Month):
 
     def topandas(self):
         return pd.Series(
-            [
-                pd.Period(year=y, month=m, day=d, freq="D")
-                for y, m, d in zip(self.year, self.month, self.day)
-            ]
+            [pd.Period(year=y, month=m, day=d, freq="D") for y, m, d in zip(self.year, self.month, self.day)]
         )
 
 

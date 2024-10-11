@@ -12,7 +12,5 @@ class OutbreakParameters(BaseModel):
     probability_threshold: float
 
 
-def outbreak_prediction(
-    parameters: OutbreakParameters, case_samples: Iterable[float]
-) -> bool:
+def outbreak_prediction(parameters: OutbreakParameters, case_samples: Iterable[float]) -> bool:
     return np.mean()

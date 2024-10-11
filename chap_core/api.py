@@ -101,9 +101,7 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
     population_json = json.load(ziparchive.open(expected_files["population"]))
     population = parse_population_data(population_json)
     graph_file_name = ""
-    graph = NeighbourGraph.from_geojson_file(
-        ziparchive.open(expected_files["area_polygons"])
-    )
+    graph = NeighbourGraph.from_geojson_file(ziparchive.open(expected_files["area_polygons"]))
     print(graph)
     if False:
         graph_file_name = Path(zip_file_path).with_suffix(".graph")
@@ -160,18 +158,12 @@ def train_on_prediction_data(
         model = get_model_from_directory_or_github_url(model_path)
     else:
         model = get_model(model_name)()
-    start_timestamp = min(
-        data.health_data.start_timestamp, data.climate_data.start_timestamp
-    )
+    start_timestamp = min(data.health_data.start_timestamp, data.climate_data.start_timestamp)
     end_timestamp = max(data.health_data.end_timestamp, data.climate_data.end_timestamp)
     new_dict = {}
     for location in data.health_data.locations():
-        health = data.health_data.get_location(location).fill_to_range(
-            start_timestamp, end_timestamp
-        )
-        climate = data.climate_data.get_location(location).fill_to_range(
-            start_timestamp, end_timestamp
-        )
+        health = data.health_data.get_location(location).fill_to_range(start_timestamp, end_timestamp)
+        climate = data.climate_data.get_location(location).fill_to_range(start_timestamp, end_timestamp)
         assert (
             location in data.population_data
         ), f"Location {location} not in population data: {data.population_data.keys()}"
@@ -180,9 +172,7 @@ def train_on_prediction_data(
 
     climate_health_data = DataSet(new_dict)
     prediction_start = Month(climate_health_data.end_timestamp) - n_months * delta_month
-    train_data, _, future_weather = train_test_split_with_weather(
-        climate_health_data, prediction_start
-    )
+    train_data, _, future_weather = train_test_split_with_weather(climate_health_data, prediction_start)
     logger.info(f"Training model {model_name} on {len(train_data.items())} locations")
     control.set_status("Training")
     if hasattr(model, "set_training_control"):
@@ -191,17 +181,13 @@ def train_on_prediction_data(
         model.set_graph(data.area_polygons)
 
     model.train(train_data)  # , extra_args=data.area_polygons)
-    logger.info(
-        f"Forecasting using {model_name} on {len(train_data.items())} locations"
-    )
+    logger.info(f"Forecasting using {model_name} on {len(train_data.items())} locations")
     control.set_status("Forecasting")
     predictions = model.forecast(future_weather, forecast_delta=n_months * delta_month)
     attrs = ["median", "quantile_high", "quantile_low"]
     logger.info("Converting predictions to json")
     control.set_status("Postprocessing")
-    data_values = predictions_to_datavalue(
-        predictions, attribute_mapping=dict(zip(attrs, attrs))
-    )
+    data_values = predictions_to_datavalue(predictions, attribute_mapping=dict(zip(attrs, attrs)))
     json_body = [dataclasses.asdict(element) for element in data_values]
     diseaseId = data.disease_id
     return {"diseaseId": diseaseId, "dataValues": json_body}
@@ -219,14 +205,10 @@ def train_with_validation(model_name, dataset_name, n_months=12):
     prediction_length = n_months * delta_month
     split_point = dataset.end_timestamp - prediction_length
     split_period = Month(split_point.year, split_point.month)
-    train_data, test_set, future_weather = train_test_split_with_weather(
-        dataset, split_period
-    )
+    train_data, test_set, future_weather = train_test_split_with_weather(dataset, split_period)
     model.set_validation_data(test_set)
     model.train(train_data)
-    predictions = model.forecast(
-        future_weather, forecast_delta=n_months * delta_month, n_samples=100
-    )
+    predictions = model.forecast(future_weather, forecast_delta=n_months * delta_month, n_samples=100)
     # plot predictions
     figs = []
     for location, prediction in predictions.items():

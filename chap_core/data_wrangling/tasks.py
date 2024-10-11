@@ -28,8 +28,5 @@ def strip_commas(data_file: TableWithColNamesModel) -> TableWithColNamesModel:
     # table_colnames_ds[:, :, 1:] = table_colnames_ds[:, :, 1:].for_val(lambda v: v.rstrip(','))
 
     return TableWithColNamesModel(
-        [
-            {k: v.rstrip(",") if v is not None else None for k, v in tuple(row.items())}
-            for row in data_file
-        ]
+        [{k: v.rstrip(",") if v is not None else None for k, v in tuple(row.items())} for row in data_file]
     )

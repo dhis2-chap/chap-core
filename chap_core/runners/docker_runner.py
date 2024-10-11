@@ -27,9 +27,7 @@ class DockerImageRunner(Runner):
 
     def run_command(self, command):
         self.setup()
-        return run_command_through_docker_container(
-            self._docker_name, self._working_dir, command
-        )
+        return run_command_through_docker_container(self._docker_name, self._working_dir, command)
 
 
 class DockerRunner(Runner):
@@ -40,9 +38,5 @@ class DockerRunner(Runner):
         self._working_dir = working_dir
 
     def run_command(self, command):
-        logger.info(
-            f"Running command {command} in docker container {self._docker_name} in {self._working_dir}"
-        )
-        return run_command_through_docker_container(
-            self._docker_name, self._working_dir, command
-        )
+        logger.info(f"Running command {command} in docker container {self._docker_name} in {self._working_dir}")
+        return run_command_through_docker_container(self._docker_name, self._working_dir, command)

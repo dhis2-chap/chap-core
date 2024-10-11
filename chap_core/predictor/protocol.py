@@ -40,11 +40,7 @@ class IsMultiRegionForecastSampler(Protocol):
 class IsMultiRegionPredictor(Protocol):
     def train(
         self,
-        spatio_temporal_climate_health_data: IsSpatioTemporalDataSet[
-            ClimateHealthTimeSeries
-        ],
+        spatio_temporal_climate_health_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
     ): ...
 
-    def predict(
-        self, future_weather: IsSpatioTemporalDataSet[ClimateData]
-    ) -> IsSpatioTemporalDataSet[HealthData]: ...
+    def predict(self, future_weather: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]: ...

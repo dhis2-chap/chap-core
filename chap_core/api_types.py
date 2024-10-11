@@ -29,8 +29,10 @@ class RequestV1(BaseModel):
     orgUnitsGeoJson: FeatureCollectionModel
     features: list[DataList]
 
+
 class RequestV2(RequestV1):
-    estimator_id: str = 'chap_ewars_monthly'
+    estimator_id: str = "chap_ewars_monthly"
+
 
 class PredictionRequest(RequestV2):
     n_periods: int = 3

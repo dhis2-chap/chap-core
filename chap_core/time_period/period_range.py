@@ -6,9 +6,7 @@ from . import PeriodRange
 
 
 def month_range(start_period: Month, end_period: Month, exclusive_end=False):
-    n_months = (end_period.year - start_period.year) * 12 + (
-        end_period.month + 1 - start_period.month
-    )
+    n_months = (end_period.year - start_period.year) * 12 + (end_period.month + 1 - start_period.month)
     if exclusive_end:
         n_months -= 1
     global_month = np.arange(start_period.month, start_period.month + n_months)
@@ -50,9 +48,7 @@ def day_range(start_period, end_period, exclusive_end):
         freq="D",
     )
     period_range = pd.period_range(start=pd_start, end=pd_end, freq="D")
-    return Day(
-        year=period_range.year, month=period_range.month - 1, day=period_range.day - 1
-    )
+    return Day(year=period_range.year, month=period_range.month - 1, day=period_range.day - 1)
 
 
 def period_range(start_period, end_period, exclusive_end=False):

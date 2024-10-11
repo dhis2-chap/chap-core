@@ -36,7 +36,5 @@ def retrieve_rainfall_data_from_external_source(period_id, region_id):
 # Example usage
 period_id = "202101"
 region_id = "RegionA"
-rainfall_data = retrieve_rainfall_data_from_external_source(
-    period_id, region_id, session=Session(engine)
-)
+rainfall_data = retrieve_rainfall_data_from_external_source(period_id, region_id, session=Session(engine))
 print(rainfall_data)

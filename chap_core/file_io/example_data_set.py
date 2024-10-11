@@ -46,13 +46,9 @@ local_datasets = ["laos_full_data", "uganda_data"]
 remote_datasets = {
     "ISIMIP_dengue_harmonized": "https://github.com/dhis2/chap-core/raw/dev/example_data/full_data.tar.gz"
 }
-DataSetType = Literal[
-    tuple(dataset_names) + tuple(local_datasets) + tuple(remote_datasets.keys())
-]
+DataSetType = Literal[tuple(dataset_names) + tuple(local_datasets) + tuple(remote_datasets.keys())]
 datasets: dict[str, ExampleDataSet] = {
-    name: ExampleDataSet(name)
-    if name != "hydromet_5_filtered"
-    else ExampleDataSet(name, FullData)
+    name: ExampleDataSet(name) if name != "hydromet_5_filtered" else ExampleDataSet(name, FullData)
     for name in dataset_names
 } | {name: LocalDataSet(name, FullData) for name in local_datasets}
 for name, url in remote_datasets.items():

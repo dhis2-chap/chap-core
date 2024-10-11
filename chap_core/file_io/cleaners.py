@@ -33,17 +33,11 @@ def rwanda_data(filename):
     filename = "/home/knut/Downloads/data/Malaria Cases Final.xlsx"
     df = pd.read_excel(filename, sheet_name="Sheet1")
     df.to_csv("/home/knut/Downloads/data/malaria_cases.csv")
-    case_names = "Under5_F	Under5_M	5-19_F	5-19_M	20 +_F	20 +_M".split(
-        "\t"
-    )
+    case_names = "Under5_F	Under5_M	5-19_F	5-19_M	20 +_F	20 +_M".split("\t")
     case_names = [name.strip() for name in case_names]
     cases = sum([df[name].values for name in case_names])
-    period = [
-        pd.Period(f"{year}-{month}") for year, month in zip(df["Year"], df["Period"])
-    ]
-    clean_df = pd.DataFrame(
-        {"location": df["Sector"], "time_period": period, "disease_cases": cases}
-    )
+    period = [pd.Period(f"{year}-{month}") for year, month in zip(df["Year"], df["Period"])]
+    clean_df = pd.DataFrame({"location": df["Sector"], "time_period": period, "disease_cases": cases})
     clean_df.to_csv("/home/knut/Downloads/data/malaria_clean.csv")
     return DataSet.from_pandas(clean_df, dataclass=HealthData)
 
@@ -54,9 +48,4 @@ def laos_data(filename):
     periods = [convert_time_period_string(str(row)) for row in df["periodid"]]
     print(periods)
     period_range = PeriodRange.from_strings(periods)
-    return DataSet(
-        {
-            colname: HealthData(period_range, df[colname].values)
-            for colname in df.columns[4:]
-        }
-    )
+    return DataSet({colname: HealthData(period_range, df[colname].values) for colname in df.columns[4:]})

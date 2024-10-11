@@ -65,9 +65,7 @@ class TimeStamp(DateUtilWrapper):
         return TimeDelta(relativedelta(self._date, other._date))
 
     def _comparison(self, other: "TimeStamp", func_name: str):
-        return getattr(self._date.replace(tzinfo=utc), func_name)(
-            other._date.replace(tzinfo=utc)
-        )
+        return getattr(self._date.replace(tzinfo=utc), func_name)(other._date.replace(tzinfo=utc))
 
 
 class TimePeriod:
@@ -165,9 +163,7 @@ class TimePeriod:
         except ValueError:
             pass
         default_dates = [datetime(2010, 1, 1), datetime(2009, 11, 10)]
-        dates = [
-            parse(text_repr, default=default_date) for default_date in default_dates
-        ]
+        dates = [parse(text_repr, default=default_date) for default_date in default_dates]
         date = dates[0]
         if dates[0].day == dates[1].day:
             return Day(date)
@@ -188,9 +184,7 @@ class TimePeriod:
             start, end = week.split("/")
             start_date = dateutil.parser.parse(start)
             end_date = dateutil.parser.parse(end)
-            assert (
-                relativedelta(end_date, start_date).days == 6
-            ), f"Week must be 7 days {start_date} {end_date}"
+            assert relativedelta(end_date, start_date).days == 6, f"Week must be 7 days {start_date} {end_date}"
             return Week(start_date)  # type: ignore
 
     @property
@@ -364,12 +358,8 @@ class TimeDelta(DateUtilWrapper):
     def __floordiv__(self, divident: "TimeDelta"):
         if divident._relative_delta.days != 0:
             for name in ("months", "years"):
-                assert (
-                    not getattr(divident._relative_delta, name, 0) > 0
-                ), f"Cannot divide by {divident}"
-                assert (
-                    not getattr(self._relative_delta, name, 0) > 0
-                ), f"Cannot divide {self} by {divident}"
+                assert not getattr(divident._relative_delta, name, 0) > 0, f"Cannot divide by {divident}"
+                assert not getattr(self._relative_delta, name, 0) > 0, f"Cannot divide {self} by {divident}"
 
             # assert divident._relative_delta.months == 0 and divident._relative_delta.years == 0, f'Cannot divide by {divident}'
             # assert self._relative_delta.months == 0 and self._relative_delta.years == 0, f'Cannot divide {self} by {divident}'
@@ -379,20 +369,14 @@ class TimeDelta(DateUtilWrapper):
 
     def __mod__(self, other: "TimeDelta"):
         assert other._relative_delta.days == 0
-        return self.__class__(
-            relativedelta(months=self._n_months() % other._n_months())
-        )
+        return self.__class__(relativedelta(months=self._n_months() % other._n_months()))
 
     def __repr__(self):
         return f"TimeDelta({self._relative_delta})"
 
     def n_periods(self, start_stamp: TimeStamp, end_stamp: TimeStamp):
         assert (
-            sum(
-                bool(getattr(self._relative_delta, name, 0))
-                for name in ("days", "months", "years")
-            )
-            == 1
+            sum(bool(getattr(self._relative_delta, name, 0)) for name in ("days", "months", "years")) == 1
         ), f"Cannot get number of periods for {self}"
         if self._relative_delta.days != 0:
             n_days_diff = (end_stamp.date - start_stamp.date).days
@@ -441,17 +425,12 @@ class PeriodRange:
         )
 
     @classmethod
-    def from_timestamps(
-        cls, start_timestamp: TimeStamp, end_timestamp: TimeStamp, time_delta: TimeDelta
-    ):
+    def from_timestamps(cls, start_timestamp: TimeStamp, end_timestamp: TimeStamp, time_delta: TimeDelta):
         return cls(start_timestamp, end_timestamp, time_delta)
 
     def __len__(self):
         if self._time_delta._relative_delta.days != 0:
-            assert (
-                self._time_delta._relative_delta.months == 0
-                and self._time_delta._relative_delta.years == 0
-            )
+            assert self._time_delta._relative_delta.months == 0 and self._time_delta._relative_delta.years == 0
             days = (self._end_timestamp._date - self._start_timestamp._date).days
             return days // self._time_delta._relative_delta.days
         delta = relativedelta(self._end_timestamp._date, self._start_timestamp._date)
@@ -464,12 +443,7 @@ class PeriodRange:
     def _vectorize(self, funcname: str, other: TimePeriod):
         if isinstance(other, PeriodRange):
             assert len(self) == len(other)
-            return np.array(
-                [
-                    getattr(period, funcname)(other_period)
-                    for period, other_period in zip(self, other)
-                ]
-            )
+            return np.array([getattr(period, funcname)(other_period) for period, other_period in zip(self, other)])
         return np.array([getattr(period, funcname)(other) for period in self])
 
     def __ne__(self, other: TimePeriod) -> np.ndarray[bool]:
@@ -494,19 +468,14 @@ class PeriodRange:
         raise ValueError(f"Unknown time delta {self._time_delta}")
 
     def __iter__(self):
-        return (
-            self._period_class((self._start_timestamp + self._time_delta * i)._date)
-            for i in range(len(self))
-        )
+        return (self._period_class((self._start_timestamp + self._time_delta * i)._date) for i in range(len(self)))
 
     def __getitem__(self, item: slice | int):
         """Slice by numeric index in the period range"""
         if isinstance(item, Number):
             if item < 0:
                 item += len(self)
-            return self._period_class(
-                (self._start_timestamp + self._time_delta * item)._date
-            )
+            return self._period_class((self._start_timestamp + self._time_delta * item)._date)
         assert item.step is None
         start = self._start_timestamp
         end = self._end_timestamp
@@ -514,39 +483,26 @@ class PeriodRange:
             if item.stop < 0:
                 end -= self._time_delta * abs(item.stop)
             else:
-                end = (
-                    start + self._time_delta * item.stop
-                )  # Not sure about the logic here, test more
+                end = start + self._time_delta * item.stop  # Not sure about the logic here, test more
 
         if item.start is not None:
             offset = item.start if item.start >= 0 else len(self) + item.start
             start = start + self._time_delta * offset
         if start > end:
-            raise ValueError(
-                f"Invalid slice {item} for period range {self} of length {len(self)}"
-            )
+            raise ValueError(f"Invalid slice {item} for period range {self} of length {len(self)}")
         return PeriodRange(start, end, self._time_delta)
 
     def topandas(self):
         if self._time_delta == delta_month:
-            return pd.Series(
-                [pd.Period(year=p.year, month=p.month, freq="M") for p in self]
-            )
+            return pd.Series([pd.Period(year=p.year, month=p.month, freq="M") for p in self])
         elif self._time_delta == delta_year:
             return pd.Series([pd.Period(year=p.year, freq="Y") for p in self])
         elif self._time_delta == delta_day:
-            return pd.Series(
-                [
-                    pd.Period(year=p.year, month=p.month, day=p.day, freq="D")
-                    for p in self
-                ]
-            )
+            return pd.Series([pd.Period(year=p.year, month=p.month, day=p.day, freq="D") for p in self])
         elif self._time_delta == delta_week:
             return pd.Series([p.topandas() for p in self])
         else:
-            raise ValueError(
-                f"Cannot convert period range with time delta {self._time_delta} to pandas"
-            )
+            raise ValueError(f"Cannot convert period range with time delta {self._time_delta} to pandas")
 
     def to_period_index(self):
         return pd.period_range(
@@ -563,18 +519,14 @@ class PeriodRange:
             raise ValueError("Cannot create a period range from an empty list")
         frequency = periods[0].freqstr
         time_delta = time_deltas[frequency]
-        assert all(
-            p.freqstr == frequency for p in periods
-        ), f"All periods must have the same frequency {periods}"
+        assert all(p.freqstr == frequency for p in periods), f"All periods must have the same frequency {periods}"
         time_periods = [TimePeriod.parse(str(period)) for period in periods]
         cls._check_consequtive(time_delta, time_periods)
         return cls.from_time_periods(time_periods[0], time_periods[-1])
 
     @classmethod
     def _check_consequtive_weeks(cls, time_periods, fill_missing=False):
-        period_range = pd.period_range(
-            start=time_periods[0]._date, end=time_periods[-1]._date, freq="W"
-        )
+        period_range = pd.period_range(start=time_periods[0]._date, end=time_periods[-1]._date, freq="W")
         # start
         if not all(is_consective):
             ...
@@ -583,14 +535,10 @@ class PeriodRange:
     def _check_consequtive(cls, time_delta, time_periods, fill_missing=False):
         # if time_delta == delta_week:
         # return cls._check_consequtive_weeks(time_periods, fill_missing)
-        is_consec = [
-            p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])
-        ]
+        is_consec = [p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])]
         if not all(is_consec):
             if fill_missing:
-                indices = [(p - time_periods[0]) // time_delta for p in time_periods][
-                    :-1
-                ]
+                indices = [(p - time_periods[0]) // time_delta for p in time_periods][:-1]
                 mask = np.full((time_periods[-1] - time_periods[0]) // time_delta, True)
                 mask[indices] = False
                 return np.flatnonzero(mask)
@@ -599,9 +547,7 @@ class PeriodRange:
             mask = ~np.array(list(is_consec))
             print(mask)
             for wrong in np.flatnonzero(mask):
-                print(
-                    f"Wrong period {time_periods[wrong], time_periods[wrong + 1]} with time delta {time_delta}"
-                )
+                print(f"Wrong period {time_periods[wrong], time_periods[wrong + 1]} with time delta {time_delta}")
                 print(time_periods[wrong] + time_delta, time_periods[wrong + 1])
             raise ValueError("Periods must be consecutive.")
         return []
@@ -660,9 +606,7 @@ class PeriodRange:
         if side not in ("left", "right"):
             raise ValueError(f"Invalid side {side}")
         assert period.time_delta == self._time_delta, (period, self._time_delta)
-        n_steps = self._time_delta.n_periods(
-            self._start_timestamp, period.start_timestamp
-        )
+        n_steps = self._time_delta.n_periods(self._start_timestamp, period.start_timestamp)
         # n_steps = TimeDelta(relativedelta(period._date, self._start_timestamp._date)) // self._time_delta
         if side == "right":
             n_steps += 1
@@ -671,12 +615,8 @@ class PeriodRange:
 
     def concatenate(self, other: "PeriodRange") -> "PeriodRange":
         assert self._time_delta == other._time_delta
-        assert (
-            other._start_timestamp == self._end_timestamp
-        ), "Can only concnatenate when other starts where self ends"
-        return PeriodRange(
-            self._start_timestamp, other._end_timestamp, self._time_delta
-        )
+        assert other._start_timestamp == self._end_timestamp, "Can only concnatenate when other starts where self ends"
+        return PeriodRange(self._start_timestamp, other._end_timestamp, self._time_delta)
 
     def __array_function__(self, func, types, args, kwargs):
         if func.__name__ == "concatenate":

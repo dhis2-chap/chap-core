@@ -6,9 +6,7 @@ from chap_core.dhis2_interface.periods import convert_time_period_string
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
-def v1_conversion(
-    data_list: list[DataElement], fill_missing=False
-) -> DataSet[TimeSeriesArray]:
+def v1_conversion(data_list: list[DataElement], fill_missing=False) -> DataSet[TimeSeriesArray]:
     """
     Convert a list of DataElement objects to a SpatioTemporalDict[TimeSeriesArray] object.
     """

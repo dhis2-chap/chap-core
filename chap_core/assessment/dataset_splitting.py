@@ -31,9 +31,7 @@ def split_test_train_on_period(
 
     if include_future_weather:
         return (
-            train_test_split_with_weather(
-                data_set, period, future_length, future_weather_class
-            )
+            train_test_split_with_weather(data_set, period, future_length, future_weather_class)
             for period in split_points
         )
     return (func(data_set, period, future_length) for period in split_points)
@@ -44,9 +42,7 @@ def split_train_test_with_future_weather(
     split_points: Iterable[TimePeriod],
     future_length: Optional[IsTimeDelta] = None,
 ):
-    return (
-        train_test_split(data_set, period, future_length) for period in split_points
-    )
+    return (train_test_split(data_set, period, future_length) for period in split_points)
 
 
 # Should we index on split-timestamp, first time period, or complete time?
@@ -63,28 +59,26 @@ def train_test_split(
     else:
         end_period = None
     if restrict_test:
-        test_data = data_set.restrict_time_period(
-            slice(prediction_start_period, end_period)
-        )
+        test_data = data_set.restrict_time_period(slice(prediction_start_period, end_period))
     else:
         test_data = data_set
     return train_data, test_data
 
 
 def train_test_generator(
-    dataset: DataSet, prediction_length: int, n_test_sets: int = 1, future_weather_provider: Optional[FutureWeatherFetcher] = None
+    dataset: DataSet,
+    prediction_length: int,
+    n_test_sets: int = 1,
+    future_weather_provider: Optional[FutureWeatherFetcher] = None,
 ) -> tuple[DataSet, Iterable[tuple[DataSet, DataSet]]]:
     """
     Genereate a train set along with an iterator of test data that contains tuples of full data up until a
     split point and data without target variables for the remaining steps
     """
     split_idx = -(prediction_length + n_test_sets)
-    train_set = dataset.restrict_time_period(
-        slice(None, dataset.period_range[split_idx])
-    )
+    train_set = dataset.restrict_time_period(slice(None, dataset.period_range[split_idx]))
     historic_data = [
-        dataset.restrict_time_period(slice(None, dataset.period_range[split_idx + i]))
-        for i in range(n_test_sets)
+        dataset.restrict_time_period(slice(None, dataset.period_range[split_idx + i])) for i in range(n_test_sets)
     ]
     future_data = [
         dataset.restrict_time_period(
@@ -96,7 +90,10 @@ def train_test_generator(
         for i in range(n_test_sets)
     ]
     if future_weather_provider is not None:
-        masked_future_data = [future_weather_provider(hd).get_future_weather(fd.period_range) for (hd, fd) in zip(historic_data, future_data)]
+        masked_future_data = [
+            future_weather_provider(hd).get_future_weather(fd.period_range)
+            for (hd, fd) in zip(historic_data, future_data)
+        ]
     else:
         masked_future_data = (dataset.remove_field("disease_cases") for dataset in future_data)
     return train_set, zip(historic_data, masked_future_data, future_data)
@@ -113,14 +110,8 @@ def train_test_split_with_weather(
         (loc, temporal_data.data()) for loc, temporal_data in test_set.items()
     )
     future_weather = test_set.remove_field("disease_cases")  # SpatioTemporalDict(
-    train_periods = {
-        str(period) for data in train_set.data() for period in data.data().time_period
-    }
-    future_periods = {
-        str(period)
-        for data in future_weather.data()
-        for period in data.data().time_period
-    }
+    train_periods = {str(period) for data in train_set.data() for period in data.data().time_period}
+    future_periods = {str(period) for data in future_weather.data() for period in data.data().time_period}
     assert (
         train_periods & future_periods == set()
     ), f"Train and future weather data overlap: {train_periods & future_periods}"

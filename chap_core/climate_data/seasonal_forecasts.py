@@ -28,15 +28,11 @@ class SeasonalForecast:
         self.data_dict[field_name] = data_dict
 
     def get_forecasts(self, org_unit, period_range, field_name, start_date=None):
-        assert (
-            field_name in self.data_dict
-        ), f"Field {field_name} not found in data {self.data_dict.keys()}"
+        assert field_name in self.data_dict, f"Field {field_name} not found in data {self.data_dict.keys()}"
 
         data = self.data_dict[field_name][org_unit]
 
         assert all(
             period.id in data for period in period_range
         ), f"Not all periods found in data {data.keys(), org_unit}"
-        return TimeSeriesArray(
-            period_range, [data[period.id] for period in period_range]
-        )
+        return TimeSeriesArray(period_range, [data[period.id] for period in period_range])

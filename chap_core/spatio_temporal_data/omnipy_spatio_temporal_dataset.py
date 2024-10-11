@@ -22,23 +22,17 @@ class TemporalDataPydanticModel(BaseModel):
             return data
 
 
-TemporalDataPydanticModelT = TypeVar(
-    "TemporalDataPydanticModelT", bound=TemporalDataPydanticModel
-)
+TemporalDataPydanticModelT = TypeVar("TemporalDataPydanticModelT", bound=TemporalDataPydanticModel)
 
 
-class TemporalDataOmnipyModel(
-    Model[TemporalDataPydanticModelT], Generic[TemporalDataPydanticModelT]
-):
+class TemporalDataOmnipyModel(Model[TemporalDataPydanticModelT], Generic[TemporalDataPydanticModelT]):
     def to_data(self) -> Any:
         data = super().to_data()
         data["start_date"] = data["start_date"].isoformat()
         return data
 
 
-class MultiResolutionTemporalDataPydanticModel(
-    GenericModel, Generic[TemporalDataPydanticModelT]
-):
+class MultiResolutionTemporalDataPydanticModel(GenericModel, Generic[TemporalDataPydanticModelT]):
     days: Model[list[TemporalDataOmnipyModel[TemporalDataPydanticModelT]]] = []
     weeks: Model[list[TemporalDataOmnipyModel[TemporalDataPydanticModelT]]] = []
     months: Model[list[TemporalDataOmnipyModel[TemporalDataPydanticModelT]]] = []
@@ -59,21 +53,15 @@ class TemporalSubDatasetsPydanticModel(BaseModel):
         return values
 
 
-TemporalSubDatasetsPydanticModelT = TypeVar(
-    "TemporalSubDatasetsPydanticModelT", bound=TemporalSubDatasetsPydanticModel
-)
+TemporalSubDatasetsPydanticModelT = TypeVar("TemporalSubDatasetsPydanticModelT", bound=TemporalSubDatasetsPydanticModel)
 
 
 class TemporalDataOmnipyDataset(
-    MultiModelDataset[
-        MultiResolutionTemporalDataOmnipyModel[TemporalDataPydanticModel]
-    ],
+    MultiModelDataset[MultiResolutionTemporalDataOmnipyModel[TemporalDataPydanticModel]],
 ): ...
 
 
-TemporalDataOmnipyDatasetT = TypeVar(
-    "TemporalDataOmnipyDatasetT", bound=TemporalDataOmnipyDataset
-)
+TemporalDataOmnipyDatasetT = TypeVar("TemporalDataOmnipyDatasetT", bound=TemporalDataOmnipyDataset)
 
 
 class SpatioTemporalDataOmnipyDataset(

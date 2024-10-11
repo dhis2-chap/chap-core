@@ -12,9 +12,7 @@ class ExternalRModel:
         self.lead_time = lead_time
         self.adaptors = adaptors
 
-    def get_predictions(
-        self, train_data: ClimateHealthTimeSeries, future_climate_data: ClimateData
-    ) -> HealthData:
+    def get_predictions(self, train_data: ClimateHealthTimeSeries, future_climate_data: ClimateData) -> HealthData:
         pass
 
 
@@ -40,21 +38,13 @@ class ExternalLaggedRModel(Generic[FeatureType]):
         training_data_file = self._tmp_dir / "training_data.csv"
         train_data.to_csv(training_data_file)
         end_timestamp = train_data.end_timestamp
-        self._saved_state = train_data.restrict_time_period(
-            end_timestamp - self._lag_period, None
-        )
-        self._run_train_script(
-            self._script_file_name, training_data_file, self._model_filename
-        )
+        self._saved_state = train_data.restrict_time_period(end_timestamp - self._lag_period, None)
+        self._run_train_script(self._script_file_name, training_data_file, self._model_filename)
 
-    def predict(
-        self, future_data: IsSpatioTemporalDataSet[FeatureType]
-    ) -> IsSpatioTemporalDataSet[FeatureType]:
+    def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
         full_data = self._join_state_and_future(future_data)
         full_data_path = self._tmp_dir / "full_data.csv"
         full_data.to_csv(full_data_path)
         output_file = self._tmp_dir / "output.csv"
-        self._run_predict_script(
-            self._script_file_name, self._model_filename, full_data_path, output_file
-        )
+        self._run_predict_script(self._script_file_name, self._model_filename, full_data_path, output_file)
         return self._read_output(output_file)
