@@ -1,6 +1,5 @@
 # installs chap with support for some external models
 FROM ivargr/r_inla
-
 RUN apt-get update
 RUN apt-get install -y python3
 RUN apt-get install -y python3-pip
@@ -17,7 +16,8 @@ RUN apt-get update && \
 #RUN apt-get upgrade
 
 COPY ./chap_core ./chap_core
-COPY ./setup.py ./setup.py
+COPY ./pyproject.toml .
+COPY ./README.md .
 
 # get uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
