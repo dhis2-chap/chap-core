@@ -14,7 +14,7 @@ If running models, you may also need to install:
 
 # Documentation
 
-The main documentation is located at [https://dhis2.github.io/chap-core/](https://dhis2.github.io/chap-core/).
+The main documentation is located at [https://dhis2-chap.github.io/chap-core/](https://dhis2-chap.github.io/chap-core/).
 
 # Usage
 
