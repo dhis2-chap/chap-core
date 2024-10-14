@@ -6,10 +6,6 @@ CHAP offers a platform for analysing the relationship between climate and health
 
 The main documentation is located at [https://dhis2-chap.github.io/chap-core/](https://dhis2-chap.github.io/chap-core/).
 
-# Usage
-
-The following shows basic usage of the platform. Follow the link to the documentation above for more details.
-
 
 # Development
 We have an open Github board with plans, roadmaps and todo here: [https://github.com/orgs/dhis2-chap/projects/3](https://github.com/orgs/dhis2-chap/projects/3).
