@@ -103,3 +103,4 @@ norecursedirs = [
     ".mypy_cache",
 ]
 ignore = ['tests/test_meteostat_wrapper']
+
