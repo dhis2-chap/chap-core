@@ -12,5 +12,5 @@ The following shows basic usage of the platform. Follow the link to the document
 
 
 # Development
-We have an open Github board with plans, roadmaps and todo here: [https://github.com/orgs/sandvelab/projects/2](https://github.com/orgs/sandvelab/projects/2).
+We have an open Github board with plans, roadmaps and todo here: [https://github.com/orgs/dhis2-chap/projects/3](https://github.com/orgs/dhis2-chap/projects/3).
 
