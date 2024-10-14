@@ -17,9 +17,7 @@ async def set_model_path(model_path: str) -> dict:
     return {"status": "success"}
 
 
-async def post_zip_file(
-    file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None
-) -> dict:
+async def post_zip_file(file: Union[UploadFile, None] = None, background_tasks: BackgroundTasks = None) -> dict:
     """
     Post a zip file containing the data needed for training and evaluation, and start the training
     """

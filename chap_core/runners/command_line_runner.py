@@ -23,9 +23,7 @@ def run_command(command: str, working_directory=Path(".")):
 
     try:
         print(command)
-        process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, cwd=working_directory, shell=True
-        )
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, cwd=working_directory, shell=True)
         output = []
         for c in iter(lambda: process.stdout.read(1), b""):
             sys.stdout.buffer.write(c)

@@ -9,9 +9,7 @@ from chap_core.dhis2_interface.src.HttpRequest import get_request_session
 logger = logging.getLogger(__name__)
 
 
-def pull_analytics_elements(
-    requestConfig: DHIS2AnalyticRequest, programConfig: ProgramConfig
-):
+def pull_analytics_elements(requestConfig: DHIS2AnalyticRequest, programConfig: ProgramConfig):
     # initilize the http client for pull job
     session = get_request_session(programConfig)
 

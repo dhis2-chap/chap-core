@@ -31,9 +31,7 @@ class AssessmentReport:
         return
 
 
-def make_assessment_report(
-    prediction_dict, truth_dict, do_show=False
-) -> AssessmentReport:
+def make_assessment_report(prediction_dict, truth_dict, do_show=False) -> AssessmentReport:
     rmse_dict = {}
     for prediction_key, prediction_value in prediction_dict.items():
         rmse_dict[prediction_key] = root_mean_squared_error(
@@ -75,16 +73,10 @@ def evaluate_model(
         naive_model_cls = MultiRegionPoissonModel
     model_name = external_model.__class__.__name__
     naive_model_name = naive_model_cls.__name__
-    evaluator = MultiLocationEvaluator(
-        model_names=[model_name, naive_model_name], truth=data_set
-    )
-    split_points = get_split_points_for_data_set(
-        data_set, max_splits=max_splits, start_offset=start_offset
-    )
+    evaluator = MultiLocationEvaluator(model_names=[model_name, naive_model_name], truth=data_set)
+    split_points = get_split_points_for_data_set(data_set, max_splits=max_splits, start_offset=start_offset)
     logger.info(f"Split points: {split_points}")
-    splitted_data = split_test_train_on_period(
-        data_set, split_points, future_length=None, include_future_weather=True
-    )
+    splitted_data = split_test_train_on_period(data_set, split_points, future_length=None, include_future_weather=True)
 
     for train_data, future_truth, future_climate_data in splitted_data:
         if hasattr(external_model, "setup"):
@@ -161,7 +153,9 @@ def evaluate_model(
     tuple
         Summary and individual evaluation results
     """
-    train, test_generator = train_test_generator(data, prediction_length, n_test_sets, future_weather_provider=weather_provider)
+    train, test_generator = train_test_generator(
+        data, prediction_length, n_test_sets, future_weather_provider=weather_provider
+    )
     predictor = estimator.train(data)
     truth_data = {
         location: pd.DataFrame(
@@ -188,9 +182,7 @@ def evaluate_multi_model(
     n_test_sets=4,
     report_base_name=None,
 ):
-    trains, test_geneartors = zip(
-        *[train_test_generator(d, prediction_length, n_test_sets) for d in data]
-    )
+    trains, test_geneartors = zip(*[train_test_generator(d, prediction_length, n_test_sets) for d in data])
     predictor = estimator.multi_train(trains)
     result_list = []
     for i, (data, test_generator) in enumerate(zip(data, test_geneartors)):
@@ -202,15 +194,9 @@ def evaluate_multi_model(
             for location in data.keys()
         }
         if report_base_name is not None:
-            _, plot_test_generatro = train_test_generator(
-                data, prediction_length, n_test_sets
-            )
-            plot_forecasts(
-                predictor, plot_test_generatro, truth_data, f"{report_base_name}_i.pdf"
-            )
-        forecast_list, tss = _get_forecast_generators(
-            predictor, test_generator, truth_data
-        )
+            _, plot_test_generatro = train_test_generator(data, prediction_length, n_test_sets)
+            plot_forecasts(predictor, plot_test_generatro, truth_data, f"{report_base_name}_i.pdf")
+        forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
         evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
         results = evaluator(tss, forecast_list)
         result_list.append(results)
@@ -249,9 +235,7 @@ def _get_forecast_generators(
     return forecast_list, tss
 
 
-def _get_forecast_dict(
-    predictor: Predictor, test_generator
-) -> dict[str, list[Forecast]]:
+def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[Forecast]]:
     forecast_dict = defaultdict(list)
 
     for historic_data, future_data, _ in test_generator:
@@ -275,9 +259,7 @@ def get_forecast_df(predictor: Predictor, test_generator) -> pd.DataFrame:
 
 
 def plot_forecasts(predictors: list[Predictor], test_instance, truth, pdf_filename):
-    forecast_dicts = [
-        _get_forecast_dict(predictor, test_instance) for predictor in predictors
-    ]
+    forecast_dicts = [_get_forecast_dict(predictor, test_instance) for predictor in predictors]
     with PdfPages(pdf_filename) as pdf:
         for location in forecast_dicts[0].keys():
             _t = truth[location]

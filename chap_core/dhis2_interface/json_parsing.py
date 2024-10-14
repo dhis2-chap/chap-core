@@ -15,9 +15,7 @@ logger = logging.getLogger(__name__)
 
 class MetadDataLookup:
     def __init__(self, meta_data_json):
-        self._lookup = {
-            name: value["name"] for name, value in meta_data_json["items"].items()
-        }
+        self._lookup = {name: value["name"] for name, value in meta_data_json["items"].items()}
 
     def __getitem__(self, item):
         return self._lookup[item]
@@ -101,9 +99,7 @@ def samples_to_datavalue(data: DataSet[Samples], attribute_mapping):
     pass
 
 
-def predictions_to_datavalue(
-    data: DataSet[HealthData], attribute_mapping: dict[str, str]
-):
+def predictions_to_datavalue(data: DataSet[HealthData], attribute_mapping: dict[str, str]):
     entries = []
     for location, data in data.items():
         data = data.data()

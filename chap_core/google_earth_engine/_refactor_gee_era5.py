@@ -29,9 +29,9 @@ class GoogleEarthEngine(BaseModel):
             {
                 **f["properties"],
                 **{
-                    "value": next(
-                        b.converter for b in bands if f["properties"]["band"] == b.name
-                    )(f["properties"]["value"])
+                    "value": next(b.converter for b in bands if f["properties"]["band"] == b.name)(
+                        f["properties"]["value"]
+                    )
                 },
             }
             for f in data
@@ -56,9 +56,7 @@ class GoogleEarthEngine(BaseModel):
     ) -> SpatioTemporalDict[ClimateData]:
         eeReducerType = "mean"
 
-        collection = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select(
-            [band.name for band in bands]
-        )
+        collection = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select([band.name for band in bands])
         featureCollection: ee.FeatureCollection = ee.FeatureCollection(features)
 
         # Creates a ee.List for every periode, containing id (periodeId), start_date and end_date for each period
@@ -87,9 +85,7 @@ class GoogleEarthEngine(BaseModel):
             )  # remove one day, since the end date is inclusive on current format?
 
             # Get only images from start to end, for one bands
-            filtered: ee.ImageCollection = collection.filterDate(start, end).select(
-                band.name
-            )
+            filtered: ee.ImageCollection = collection.filterDate(start, end).select(band.name)
 
             # Aggregate the imageCollection to one image, based on the periodeReducer
             return (
@@ -104,16 +100,14 @@ class GoogleEarthEngine(BaseModel):
         # Map the bands, then the periodeList for each band, and return the aggregated Image to the ImageCollection
         for b in bands:
             dailyCollection = dailyCollection.merge(
-                ee.ImageCollection.fromImages(
-                    periodeList.map(lambda period: getPeriode(period, b))
-                ).filter(ee.Filter.listContains("system:band_names", b.name))
+                ee.ImageCollection.fromImages(periodeList.map(lambda period: getPeriode(period, b))).filter(
+                    ee.Filter.listContains("system:band_names", b.name)
+                )
             )  # Remove empty images
 
         # Reduce the result, to contain only, orgUnitId, periodeId and the value
         reduced = dailyCollection.map(
-            lambda image: image.reduceRegions(
-                collection=featureCollection, reducer=eeReducer, scale=eeScale
-            ).map(
+            lambda image: image.reduceRegions(collection=featureCollection, reducer=eeReducer, scale=eeScale).map(
                 lambda feature: ee.Feature(
                     None,
                     {

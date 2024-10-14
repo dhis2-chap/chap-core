@@ -23,9 +23,7 @@ def plot_timeseries_data(data: ClimateHealthTimeSeries) -> Figure:
     return fig
 
 
-def plot_multiperiod(
-    climate_data: ClimateData, health_data: HealthData, head: None | int = None
-) -> Figure:
+def plot_multiperiod(climate_data: ClimateData, health_data: HealthData, head: None | int = None) -> Figure:
     """Returns a plot of the climate and health data on the same plot. The time_period is on the x-axis.
 
     Parameters
@@ -47,9 +45,7 @@ def plot_multiperiod(
     health_df = health_df.head(cut_off_idx)
     health_df.time_period = health_df.time_period.dt.to_timestamp()
 
-    temperature_trace = px.line(
-        climate_df, x="time_period", y="mean_temperature", title="Climate Health Data"
-    )
+    temperature_trace = px.line(climate_df, x="time_period", y="mean_temperature", title="Climate Health Data")
     temperature_trace.update_traces(line_color="#1E88E5")
     disease_trace = px.line(
         health_df,

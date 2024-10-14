@@ -16,11 +16,12 @@ from chap_core.spatio_temporal_data.multi_country_dataset import (
 from . import api
 from chap_core.dhis2_interface.ChapProgram import ChapPullPost
 from chap_core.dhis2_interface.json_parsing import add_population_data
-#from chap_core.external.models.jax_models.model_spec import (
+
+# from chap_core.external.models.jax_models.model_spec import (
 #    SSMForecasterNuts,
 #    NutsParams,
-#)
-#from chap_core.external.models.jax_models.specs import SSMWithoutWeather
+# )
+# from chap_core.external.models.jax_models.specs import SSMWithoutWeather
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
 from chap_core.predictor import ModelType
 from chap_core.file_io.example_data_set import datasets, DataSetType
@@ -55,9 +56,7 @@ def evaluate(
     dataset = dataset.load()
 
     if isinstance(dataset, MultiCountryDataSet):
-        assert (
-            dataset_country is not None
-        ), "Must specify a country for multi country datasets"
+        assert dataset_country is not None, "Must specify a country for multi country datasets"
         assert (
             dataset_country in dataset.countries
         ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
@@ -98,9 +97,7 @@ def forecast(
         out_path: Optional[str]: Path to save the output file, default is the current directory
     """
 
-    out_file = (
-        Path(out_path) / f"{model_name}_{dataset_name}_forecast_results_{n_months}.html"
-    )
+    out_file = Path(out_path) / f"{model_name}_{dataset_name}_forecast_results_{n_months}.html"
     f = open(out_file, "w")
     figs = api.forecast(model_name, dataset_name, n_months, model_path)
     for fig in figs:
@@ -118,9 +115,7 @@ def multi_forecast(
 ):
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
-    filename = (
-        out_path / f"{model_name}_{dataset_name}_multi_forecast_results_{n_months}.html"
-    )
+    filename = out_path / f"{model_name}_{dataset_name}_multi_forecast_results_{n_months}.html"
     logging.info(f"Saving to {filename}")
     f = open(filename, "w")
     dataset = datasets[dataset_name].load()
@@ -134,9 +129,7 @@ def multi_forecast(
     )
 
     for location, true_data in dataset.items():
-        local_predictions = [
-            pred.get_location(location).data() for pred in predictions_list
-        ]
+        local_predictions = [pred.get_location(location).data() for pred in predictions_list]
         fig = plot_forecast_from_summaries(local_predictions, true_data.data())
         f.write(fig.to_html())
     f.close()
@@ -154,9 +147,7 @@ def dhis_pull(base_url: str, username: str, password: str):
         dhis2Password=password,
     )
     full_data_frame = get_full_dataframe(process)
-    disease_filename = (path / process.DHIS2HealthPullConfig.get_id()).with_suffix(
-        ".csv"
-    )
+    disease_filename = (path / process.DHIS2HealthPullConfig.get_id()).with_suffix(".csv")
     full_data_frame.to_csv(disease_filename)
 
 
@@ -179,13 +170,9 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
     model = SSMForecasterNuts(modelspec, NutsParams(n_samples=10, n_warmup=10))
     model.train(full_data_frame)
     predictions = model.prediction_summary(Week(full_data_frame.end_timestamp))
-    json_response = process.pushDataToDHIS2(
-        predictions, modelspec.__class__.__name__, do_dict=False
-    )
+    json_response = process.pushDataToDHIS2(predictions, modelspec.__class__.__name__, do_dict=False)
     # save json
-    json_filename = (
-        Path("dhis2analyticsResponses/") / f"{modelspec.__class__.__name__}.json"
-    )
+    json_filename = Path("dhis2analyticsResponses/") / f"{modelspec.__class__.__name__}.json"
     with open(json_filename, "w") as f:
         json.dump(json_response, f, indent=4)
 
@@ -253,9 +240,7 @@ def dhis_zip_flow(
         docker_filename: Optional[str]: Path to a docker file
     """
 
-    api.dhis_zip_flow(
-        zip_file_path, out_json, model_name, docker_filename=docker_filename
-    )
+    api.dhis_zip_flow(zip_file_path, out_json, model_name, docker_filename=docker_filename)
 
 
 def main_function():

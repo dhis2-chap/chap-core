@@ -44,7 +44,7 @@ class ModelSpec(BaseModel):
     period: PeriodType = PeriodType.any
     description: str = "No Description yet"
     author: str = "Unknown Author"
-    targets: str = 'disease_cases'
+    targets: str = "disease_cases"
 
 
 def model_spec_from_yaml(filename: str) -> ModelSpec:
@@ -53,11 +53,7 @@ def model_spec_from_yaml(filename: str) -> ModelSpec:
     name = data["name"]
     parameters = EmptyParameterSpec
     adapters = data.get("adapters", dict())
-    features = [
-        fs.feature_dict[feature]
-        for feature in adapters.values()
-        if feature not in _non_feature_names
-    ]
+    features = [fs.feature_dict[feature] for feature in adapters.values() if feature not in _non_feature_names]
     period = PeriodType[data.get("period", "any")]
     description = data.get("description", "No Description yet")
     author = data.get("author", "Unknown Author")
@@ -87,14 +83,10 @@ def model_spec_from_model(model_class: type) -> ModelSpec:
 def _get_feature_names(model_class):
     var = get_dataclass(model_class)
     if var is None:
-       return []
-    #var = param_type.__args__[0]
+        return []
+    # var = param_type.__args__[0]
 
-    feature_names = [
-        field.name
-        for field in dataclasses.fields(var)
-        if field.name not in _non_feature_names
-    ]
+    feature_names = [field.name for field in dataclasses.fields(var) if field.name not in _non_feature_names]
     return feature_names
 
 

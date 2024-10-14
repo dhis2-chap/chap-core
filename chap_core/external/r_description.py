@@ -25,8 +25,5 @@ def parse_description_file(file_path):
 def get_imports(file_path):
     description_data = parse_description_file(file_path)
     return [
-        val.strip()
-        for key in ["imports", "depends"]
-        for val in description_data.get(key, "").split(",")
-        if val.strip()
+        val.strip() for key in ["imports", "depends"] for val in description_data.get(key, "").split(",") if val.strip()
     ]

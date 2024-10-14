@@ -11,9 +11,7 @@ from chap_core.datatypes import Samples
 class NaivePredictor:
     mean_dict: dict
 
-    def predict(
-        self, historic_data: DataSet, future_data: DataSet, num_samples: int = 100
-    ) -> DataSet:
+    def predict(self, historic_data: DataSet, future_data: DataSet, num_samples: int = 100) -> DataSet:
         samples = DataSet(
             {
                 location: Samples(
@@ -43,8 +41,5 @@ class NaivePredictor:
 
 class NaiveEstimator:
     def train(self, data: DataSet) -> NaivePredictor:
-        mean_dict = {
-            location: np.nanmean(data[location].disease_cases)
-            for location in data.keys()
-        }
+        mean_dict = {location: np.nanmean(data[location].disease_cases) for location in data.keys()}
         return NaivePredictor(mean_dict)

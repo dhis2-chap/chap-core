@@ -19,9 +19,7 @@ class ClimateDataMeteoStat:
         self.data: pd.DataFrame = pd.DataFrame()
         self._delta: str = None
 
-    def get_climate(
-        self, location: str, start_date_string: str, end_date_string: str
-    ) -> pd.DataFrame:
+    def get_climate(self, location: str, start_date_string: str, end_date_string: str) -> pd.DataFrame:
         """
         Get the climate data for the given location, start date, end date and time period
         """
@@ -30,18 +28,14 @@ class ClimateDataMeteoStat:
         start_date = self._format_start_date(start_date_string)
         end_date = self._format_end_date(end_date_string)
 
-        cache_data = self._get_cache_climate(
-            location, start_date_string, end_date_string
-        )
+        cache_data = self._get_cache_climate(location, start_date_string, end_date_string)
         if cache_data is not None:
             return cache_data
 
         # Fetch location
         location_point = self._fetch_location(location)
 
-        climate_dataframe = self._fetch_climate_data(
-            location_point, start_date, end_date
-        )
+        climate_dataframe = self._fetch_climate_data(location_point, start_date, end_date)
         climate_dataframe = self._aggregate_climate_data(climate_dataframe)
         climate_dataframe = self._format_index(climate_dataframe)
 
@@ -54,44 +48,28 @@ class ClimateDataMeteoStat:
         Format the index of the dataframe
         """
         if self._delta == "day":
-            climate_dataframe = climate_dataframe.rename_axis(
-                "time_period"
-            ).reset_index()
+            climate_dataframe = climate_dataframe.rename_axis("time_period").reset_index()
             climate_dataframe["time_period"] = (
-                climate_dataframe["time_period"]
-                .dt.strftime("%Y-%m-%d")
-                .str.replace("-0", "-")
+                climate_dataframe["time_period"].dt.strftime("%Y-%m-%d").str.replace("-0", "-")
             )
 
         elif self._delta == "week":
-            climate_dataframe["time_period"] = (
-                climate_dataframe.index.to_series().apply(lambda x: x.strftime("%G-W%V"))
-            )
-            climate_dataframe["time_period"] = climate_dataframe[
-                "time_period"
-            ].str.replace("-W0", "-W")
+            climate_dataframe["time_period"] = climate_dataframe.index.to_series().apply(lambda x: x.strftime("%G-W%V"))
+            climate_dataframe["time_period"] = climate_dataframe["time_period"].str.replace("-W0", "-W")
 
             # Set 'Year-Week' as new index
             climate_dataframe.set_index("time_period", inplace=True)
             climate_dataframe.reset_index(inplace=True)
 
         elif self._delta == "month":
-            climate_dataframe = climate_dataframe.rename_axis(
-                "time_period"
-            ).reset_index()
+            climate_dataframe = climate_dataframe.rename_axis("time_period").reset_index()
             climate_dataframe["time_period"] = (
-                climate_dataframe["time_period"]
-                .dt.strftime("%Y-%m")
-                .str.replace("-0", "-")
+                climate_dataframe["time_period"].dt.strftime("%Y-%m").str.replace("-0", "-")
             )
 
         elif self._delta == "year":
-            climate_dataframe = climate_dataframe.rename_axis(
-                "time_period"
-            ).reset_index()
-            climate_dataframe["time_period"] = climate_dataframe["time_period"].astype(
-                str
-            )
+            climate_dataframe = climate_dataframe.rename_axis("time_period").reset_index()
+            climate_dataframe["time_period"] = climate_dataframe["time_period"].astype(str)
 
         return climate_dataframe
 
@@ -109,9 +87,7 @@ class ClimateDataMeteoStat:
             )
 
         elif self._delta == "year":
-            climate_dataframe = climate_dataframe.groupby(
-                climate_dataframe.index.year
-            ).agg(
+            climate_dataframe = climate_dataframe.groupby(climate_dataframe.index.year).agg(
                 {
                     "rainfall": "sum",  # Sum the precipitation values
                     "mean_temperature": "mean",  # Average the average temperature values
@@ -123,9 +99,7 @@ class ClimateDataMeteoStat:
 
         return climate_dataframe
 
-    def _fetch_climate_data(
-        self, location: Point, start_date: datetime, end_date: datetime
-    ):
+    def _fetch_climate_data(self, location: Point, start_date: datetime, end_date: datetime):
         """
         Fetch the climate data for the given location, start date and end date
         """
@@ -204,9 +178,7 @@ class ClimateDataMeteoStat:
             data = pd.concat([cache_data, data]).drop_duplicates(subset="time_period")
         cache.set(cache_key, data)
 
-    def _get_cache_climate(
-        self, location: str, start_date: str, end_date: str
-    ) -> pd.DataFrame | None:
+    def _get_cache_climate(self, location: str, start_date: str, end_date: str) -> pd.DataFrame | None:
         """
         Get the climate data from the cache only if all date from start to end are present
         """
@@ -231,10 +203,7 @@ class ClimateDataMeteoStat:
             start_week = pd.to_datetime(start_date + "-1", format="%Y-W%W-%w")
             end_week = pd.to_datetime(end_date + "-1", format="%Y-W%W-%w")
             date_range = pd.date_range(start=start_week, end=end_week, freq="W-MON")
-            return [
-                f"{date.isocalendar()[0]}-W{date.isocalendar()[1]}"
-                for date in date_range
-            ]
+            return [f"{date.isocalendar()[0]}-W{date.isocalendar()[1]}" for date in date_range]
         elif self._delta == "month":
             date_range = pd.date_range(start=start_date, end=end_date, freq="MS")
             return [date.strftime("%Y-%m").replace("-0", "-") for date in date_range]

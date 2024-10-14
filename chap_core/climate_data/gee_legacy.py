@@ -29,9 +29,7 @@ class ERA5DataBase:
         exclusive_end=True,
     ) -> ClimateData:
         assert isinstance(region, Location), f"Expected Location, got {type(region)}"
-        assert isinstance(
-            start_period, (Month, Day)
-        ), f"Expected Month, got {type(start_period)}, {start_period}"
+        assert isinstance(start_period, (Month, Day)), f"Expected Month, got {type(start_period)}, {start_period}"
         is_daily = hasattr(start_period, "day")
         start_day = start_period.day if is_daily else 1
         start_date = f"{start_period.year}-{start_period.month:02d}-{start_day:02d}"
@@ -41,13 +39,8 @@ class ERA5DataBase:
             "temperature_2m_max",
             "total_precipitation_sum",
         ]
-        info = self._download_data(
-            region, start_date, end_date, is_daily, variable_names
-        )
-        variable_dicts = {
-            name: np.array([f["properties"][name] for f in info["features"]])
-            for name in variable_names
-        }
+        info = self._download_data(region, start_date, end_date, is_daily, variable_names)
+        variable_dicts = {name: np.array([f["properties"][name] for f in info["features"]]) for name in variable_names}
         ids = [v["id"] for v in info["features"]]
         years, months = zip(*((int(id[:4]), int(id[4:6])) for id in ids))
         if not is_daily:
@@ -74,11 +67,7 @@ class ERA5DataBase:
             point = ee.Geometry.Point(region.longitude, region.latitude)
             ic = self._daily_ic if is_daily else self._monthly_ic
             ic = ic.filterDate(start_date, end_date).select(*variable_names)
-            data = ic.map(
-                lambda image: ee.Feature(
-                    None, image.reduceRegion(ee.Reducer.mean(), point, 1)
-                )
-            )
+            data = ic.map(lambda image: ee.Feature(None, image.reduceRegion(ee.Reducer.mean(), point, 1)))
             info = data.getInfo()
             cache.set(cache_key, info)
             return info

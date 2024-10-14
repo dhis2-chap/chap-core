@@ -11,9 +11,7 @@ from chap_core.assessment.prediction_evaluator import (
 from .predictor.protocol import IsPredictor
 
 
-def assess_model_on_csv_data(
-    data_file_name: str, split_fraction: float, model: IsPredictor
-) -> "AssessmentReport":
+def assess_model_on_csv_data(data_file_name: str, split_fraction: float, model: IsPredictor) -> "AssessmentReport":
     """
     Wraps together all necessary steps for reading data from file, assessing a model on different lags ahead
     and generating a report with results.
@@ -27,17 +25,11 @@ def assess_model_on_csv_data(
 
     for lag_ahead in range(1, 10):
         rowbased_data = lagged_rows(data, lag_rows=[2], lag=lag_ahead)
-        x_train, y_train, x_test, y_test = split_to_train_test_truth_fixed_ahead_lag(
-            rowbased_data, split_fraction
-        )
+        x_train, y_train, x_test, y_test = split_to_train_test_truth_fixed_ahead_lag(rowbased_data, split_fraction)
         model.train(x_train, y_train)
-        for test_time_offset, (single_X_test, single_Y_test) in enumerate(
-            zip(x_test.values, y_test)
-        ):
+        for test_time_offset, (single_X_test, single_Y_test) in enumerate(zip(x_test.values, y_test)):
             # the model as of now takes the input as a DF with features as columns, thus the reshape
-            prediction_dict[lag_ahead][test_time_offset] = model.predict(
-                single_X_test.reshape(1, -1)
-            )
+            prediction_dict[lag_ahead][test_time_offset] = model.predict(single_X_test.reshape(1, -1))
             truth_dict[lag_ahead][test_time_offset] = single_Y_test
     report = make_assessment_report(prediction_dict, truth_dict)
     return report

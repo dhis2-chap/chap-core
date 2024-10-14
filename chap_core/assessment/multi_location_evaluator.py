@@ -59,21 +59,14 @@ class MultiLocationEvaluator:
                                     pred.quantile_high,
                                 ]
                             ]
-                            truths.append(
-                                [location, str(pred_time.topandas()), mae, mle]
-                                + [float(true_value)] * 7
-                            )
+                            truths.append([location, str(pred_time.topandas()), mae, mle] + [float(true_value)] * 7)
                             model_results.append(new_entry)
                             # model_results.append(truth_entry)
 
                     elif isinstance(pred, HealthData):
                         if self.check_data(true.disease_cases, pred.disease_cases):
-                            mae = mean_absolute_error(
-                                true.disease_cases, pred.disease_cases
-                            )
-                            mle = np.log(pred.disease_cases[0] + 1) - np.log(
-                                true_value + 1
-                            )
+                            mae = mean_absolute_error(true.disease_cases, pred.disease_cases)
+                            mle = np.log(pred.disease_cases[0] + 1) - np.log(true_value + 1)
                             new_entry = [location, str(pred_time.topandas()), mae, mle]
                             model_results.append(new_entry)
 
@@ -111,9 +104,7 @@ class MultiLocationEvaluator:
                     ],
                 )
             elif isinstance(pred, HealthData):
-                results[model_name] = pd.DataFrame(
-                    model_results, columns=["location", "period", "mae", "mle"]
-                )
+                results[model_name] = pd.DataFrame(model_results, columns=["location", "period", "mae", "mle"])
 
         return results
 

@@ -39,17 +39,13 @@ class SpatialData(Generic[T]):
 
 
 class SpatioTemporalData(Generic[T]):
-    def __getitem__(
-        self, item: Tuple[TemporalIndex, SpatialIndex]
-    ) -> Union["SpatioTemporalData[T]", T]: ...
+    def __getitem__(self, item: Tuple[TemporalIndex, SpatialIndex]) -> Union["SpatioTemporalData[T]", T]: ...
 
 
 class IsSpatioTemporalDataSet(Protocol[T]):
     dataclass = ...
 
-    def get_data_for_locations(
-        self, location: Iterable[spatial_index_type]
-    ) -> "IsSpatioTemporalDataSet[T]": ...
+    def get_data_for_locations(self, location: Iterable[spatial_index_type]) -> "IsSpatioTemporalDataSet[T]": ...
 
     def get_data_for_location(self, location: spatial_index_type) -> T: ...
 

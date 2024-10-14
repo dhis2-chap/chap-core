@@ -4,7 +4,6 @@ class Runner:
     def store_file(self, file_path): ...
 
 
-
 class TrainPredictRunner:
     """
     Specific wrapper for runners that only run train/predict commands

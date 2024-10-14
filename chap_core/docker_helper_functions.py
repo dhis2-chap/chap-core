@@ -11,9 +11,7 @@ def create_docker_image(dockerfile_directory: Path | str):
     """
     client = docker.from_env()
     name = Path(dockerfile_directory).stem
-    logging.info(
-        f"Creating docker image {name} from Dockerfile in {dockerfile_directory}"
-    )
+    logging.info(f"Creating docker image {name} from Dockerfile in {dockerfile_directory}")
     dockerfile = Path(dockerfile_directory) / "Dockerfile"
     logging.info(f"Looking for dockerfile {dockerfile}")
     response = client.api.build(fileobj=open(dockerfile, "rb"), tag=name, decode=True)
@@ -26,9 +24,7 @@ def create_docker_image(dockerfile_directory: Path | str):
     return name
 
 
-def run_command_through_docker_container(
-    docker_image_name: str, working_directory: str, command: str
-):
+def run_command_through_docker_container(docker_image_name: str, working_directory: str, command: str):
     client = docker.from_env()
     working_dir_full_path = os.path.abspath(working_directory)
     container = client.containers.run(

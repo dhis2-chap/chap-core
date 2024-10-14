@@ -15,9 +15,7 @@ class HTMLReport:
 
     @classmethod
     def from_results(cls, results: dict[str, ResultType]) -> "HTMLReport":
-        table = pd.concat(
-            results.values(), keys=results.keys(), names=["model"]
-        ).reset_index()
+        table = pd.concat(results.values(), keys=results.keys(), names=["model"]).reset_index()
         return cls.from_table(table)
 
     @classmethod
@@ -77,12 +75,8 @@ class HTMLSummaryReport(HTMLReport):
     @classmethod
     def _make_charts(cls, plotting_data: pd.DataFrame):
         # mask = plotting_data['statistic'].isin(['quantile_low', 'quantile_high', 'true_value'])
-        plotting_data["error_minus"] = (
-            plotting_data["median"] - plotting_data["quantile_low"]
-        )
-        plotting_data["error_plus"] = (
-            plotting_data["quantile_high"] - plotting_data["median"]
-        )
+        plotting_data["error_minus"] = plotting_data["median"] - plotting_data["quantile_low"]
+        plotting_data["error_plus"] = plotting_data["quantile_high"] - plotting_data["median"]
         plotting_data["median_p1"] = plotting_data["median"] + 1
         yield px.scatter(
             plotting_data,

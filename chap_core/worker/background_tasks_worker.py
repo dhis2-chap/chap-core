@@ -35,9 +35,7 @@ class BGTaskJob(Generic[ReturnType]):
 
 
 class BGTaskWorker(Generic[ReturnType]):
-    def __init__(
-        self, background_tasks: BackgroundTasks, internal_state: InternalState, state
-    ):
+    def __init__(self, background_tasks: BackgroundTasks, internal_state: InternalState, state):
         self._background_tasks = background_tasks
         self._result_dict = internal_state.current_data
         self._state = internal_state
@@ -53,9 +51,7 @@ class BGTaskWorker(Generic[ReturnType]):
             self._state.control = Control({"Training": TrainingControl()})
             try:
                 print("Started")
-                self._result_dict[job_id] = func(
-                    *args, **kwargs, control=self._state.control
-                )
+                self._result_dict[job_id] = func(*args, **kwargs, control=self._state.control)
                 print("Finished")
             except CancelledError:
                 self._result_dict[job_id] = None

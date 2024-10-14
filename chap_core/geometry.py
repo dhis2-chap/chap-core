@@ -18,9 +18,7 @@ class PFeatureCollectionModel(FeatureCollectionModel):
     features: list[PFeatureModel]
 
 
-data_path = (
-    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_{country_code}_1.json.zip"
-)
+data_path = "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_{country_code}_1.json.zip"
 
 # country_codes= {'vietnam': 'VNM', 'laos': 'LAO', 'cambodia': 'KHM', 'thailand': 'THA', 'myanmar': 'MMR', 'brazil': 'BRA', 'colombia': 'COL', 'peru': 'PER', 'ecuador': 'ECU', 'bolivia': 'BOL', 'paraguay': 'PRY'}
 
@@ -98,16 +96,11 @@ def get_area_polygons(country: str, regions: list[str]) -> FeatureCollectionMode
 
     """
     data = get_country_data(country)
-    feature_dict = {
-        normalize_name(feature.properties["NAME_1"]): feature
-        for feature in data.features
-    }
+    feature_dict = {normalize_name(feature.properties["NAME_1"]): feature for feature in data.features}
     return DFeatureCollectionModel(
         type="FeatureCollection",
         features=[
-            add_id(feature_dict[normalize_name(region)])
-            for region in regions
-            if normalize_name(region) in feature_dict
+            add_id(feature_dict[normalize_name(region)]) for region in regions if normalize_name(region) in feature_dict
         ],
     )
 

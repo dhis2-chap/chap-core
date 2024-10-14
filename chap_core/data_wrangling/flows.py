@@ -57,26 +57,20 @@ def standardize_separated_data_func_flow(
             disease_data_file_name,
         ),
     )
-    table_values_parsed_ds = TableOfPydanticRecordsDataset[
-        ClimateHealthTimeSeriesModel
-    ](table_transposed_renamed_colnames_ds)
+    table_values_parsed_ds = TableOfPydanticRecordsDataset[ClimateHealthTimeSeriesModel](
+        table_transposed_renamed_colnames_ds
+    )
     return PandasDataset(table_values_parsed_ds)
 
 
 @LinearFlowTemplate(
     convert_dataset.refine(fixed_params=dict(dataset_cls=SplitToLinesDataset)),
-    convert_dataset.refine(
-        fixed_params=dict(dataset_cls=SplitLinesToColumnsDataset, delimiter=";")
-    ),
+    convert_dataset.refine(fixed_params=dict(dataset_cls=SplitLinesToColumnsDataset, delimiter=";")),
     convert_dataset.refine(fixed_params=dict(dataset_cls=TableWithColNamesDataset)),
     strip_commas,
     transpose_columns_with_data_files,
     rename_col_names,
-    convert_dataset.refine(
-        fixed_params=dict(
-            dataset_cls=TableOfPydanticRecordsDataset[ClimateHealthTimeSeriesModel]
-        )
-    ),
+    convert_dataset.refine(fixed_params=dict(dataset_cls=TableOfPydanticRecordsDataset[ClimateHealthTimeSeriesModel])),
     convert_dataset.refine(fixed_params=dict(dataset_cls=PandasDataset)),
 )
 def standardize_separated_data_linear_flow(
@@ -88,18 +82,12 @@ def standardize_separated_data_linear_flow(
 
 @DagFlowTemplate(
     convert_dataset.refine(fixed_params=dict(dataset_cls=SplitToLinesDataset)),
-    convert_dataset.refine(
-        fixed_params=dict(dataset_cls=SplitLinesToColumnsDataset, delimiter=";")
-    ),
+    convert_dataset.refine(fixed_params=dict(dataset_cls=SplitLinesToColumnsDataset, delimiter=";")),
     convert_dataset.refine(fixed_params=dict(dataset_cls=TableWithColNamesDataset)),
     strip_commas,
     transpose_columns_with_data_files,
     rename_col_names,
-    convert_dataset.refine(
-        fixed_params=dict(
-            dataset_cls=TableOfPydanticRecordsDataset[ClimateHealthTimeSeriesModel]
-        )
-    ),
+    convert_dataset.refine(fixed_params=dict(dataset_cls=TableOfPydanticRecordsDataset[ClimateHealthTimeSeriesModel])),
     convert_dataset.refine(fixed_params=dict(dataset_cls=PandasDataset)),
     for_all_subjobs=dict(ensure_result_keys=["dataset"]),
     expand_result_key="dataset",
