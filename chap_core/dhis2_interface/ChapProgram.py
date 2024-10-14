@@ -102,9 +102,7 @@ class ChapPullPost:
 if __name__ == "__main__":
     # validate arguments
     if len(sys.argv) != 4:
-        print(
-            "UNVALID ARGUMENTS: Usage: ChapProgram.py <dhis2Baseurl> <dhis2Username> <dhis2Password>"
-        )
+        print("UNVALID ARGUMENTS: Usage: ChapProgram.py <dhis2Baseurl> <dhis2Username> <dhis2Password>")
         sys.exit(1)
 
     process = ChapPullPost(

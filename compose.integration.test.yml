@@ -1,0 +1,11 @@
+services:
+  chap_frontend_emulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.integrationtest
+    container_name: chap_frontend_emulator
+    depends_on:
+      - chap
+    networks:
+      - chap-network
+    command: python docker_flow.py

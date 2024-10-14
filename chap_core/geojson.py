@@ -10,23 +10,17 @@ def geojson_to_shape(geojson_filename: str, shape_filename: str | Path):
     gdf.to_file(shape_filename)
 
 
-def geojson_to_graph(
-    geojson_filename: str | IO, graph_filename: str | Path
-):  # , graph_filename: str|Path):
+def geojson_to_graph(geojson_filename: str | IO, graph_filename: str | Path):  # , graph_filename: str|Path):
     NeighbourGraph.from_geojson_file(geojson_filename).to_graph_file(graph_filename)
 
 
 class LocationMapping:
     def __init__(self, ordered_locations):
-        self._location_map = {
-            i + 1: location for i, location in enumerate(ordered_locations)
-        }
+        self._location_map = {i + 1: location for i, location in enumerate(ordered_locations)}
         self._reverse_map = {v: k for k, v in self._location_map.items()}
 
     def name_to_index(self, name):
-        assert (
-            name in self._reverse_map
-        ), f"Name {name} not found in location map {[self._reverse_map.keys()]}"
+        assert name in self._reverse_map, f"Name {name} not found in location map {[self._reverse_map.keys()]}"
         return self._reverse_map[name]
 
     def index_to_name(self, item):

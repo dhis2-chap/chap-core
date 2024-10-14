@@ -12,11 +12,7 @@ class TrainingControl:
         self._total_samples = total_samples
 
     def get_progress(self):
-        return (
-            self._n_finished / self._total_samples
-            if self._total_samples is not None
-            else 0
-        )
+        return self._n_finished / self._total_samples if self._total_samples is not None else 0
 
     def get_status(self):
         return self._status

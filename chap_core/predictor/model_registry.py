@@ -8,18 +8,18 @@ from ..model_spec import PeriodType, ModelSpec
 NaiveEstimator
 
 naive_spec = ModelSpec(
-    name='naive_model',
+    name="naive_model",
     parameters={},
     features=[],
     period=PeriodType.any,
-    description='Naive model used for testing',
-    author='CHAP',
+    description="Naive model used for testing",
+    author="CHAP",
 )
 
 
 class ModelRegistry:
     def __init__(self, model_dict: dict):
-        self._model_type = Literal[('naive_model',) + tuple(model_dict.keys())]
+        self._model_type = Literal[("naive_model",) + tuple(model_dict.keys())]
         self._model_specs = [naive_spec, *model_dict.values()]
 
     @property
@@ -33,11 +33,10 @@ class ModelRegistry:
             spec = model_dict[model_id]
             return get_model_from_directory_or_github_url(spec.github_link)
         else:
-            raise ValueError(
-                f"Unknown model id: {model_id}, expected one of 'naive_model', {list(model_dict.keys())}"
-            )
+            raise ValueError(f"Unknown model id: {model_id}, expected one of 'naive_model', {list(model_dict.keys())}")
 
     def list_specifications(self):
         return self._model_specs
+
 
 registry = ModelRegistry(model_dict)

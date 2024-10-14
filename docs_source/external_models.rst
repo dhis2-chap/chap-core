@@ -28,7 +28,7 @@ This example runs an auto ewars R model on public ISMIP data for Brazil using a 
 
 .. code-block:: bash
 
-    chap evaluate --model-name https://github.com/sandvelab/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
+    chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
 
 
 Running an external model in Python

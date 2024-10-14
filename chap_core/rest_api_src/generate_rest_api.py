@@ -32,11 +32,7 @@ def samples_to_json(samples_dataset: DataSet[Samples]):
     data_values = []
     for location, samples in samples_dataset.items():
         for period, data in zip(samples.time_periods, samples.data):
-            data_values.append(
-                FullPredictionResponse(
-                    orgunit=location, period=period.id(), data=data.tolist()
-                )
-            )
+            data_values.append(FullPredictionResponse(orgunit=location, period=period.id(), data=data.tolist()))
     return data_values
 
 

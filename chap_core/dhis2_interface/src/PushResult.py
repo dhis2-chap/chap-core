@@ -21,9 +21,7 @@ def push_result(programConfig: ProgramConfig, dataValues: List[DataValue]):
 
     data_list = [dataclasses.asdict(data_value) for data_value in dataValues]
 
-    unique_elems = {
-        (data["dataElement"], data["period"], data["orgUnit"]) for data in data_list
-    }
+    unique_elems = {(data["dataElement"], data["period"], data["orgUnit"]) for data in data_list}
     assert len(unique_elems) == len(data_list), "DataValues must be unique"
 
     body = {"dataValues": data_list}
@@ -40,9 +38,7 @@ def push_result(programConfig: ProgramConfig, dataValues: List[DataValue]):
         return response, body
     if response.status_code != 201:
         return response, body
-        raise Exception(
-            f"Could not create. \nError code: {response.status_code} \n{response.json()}"
-        )
+        raise Exception(f"Could not create. \nError code: {response.status_code} \n{response.json()}")
 
     print("- 201 OK - successfully pushed CHAP-result")
     response_json = response.json()

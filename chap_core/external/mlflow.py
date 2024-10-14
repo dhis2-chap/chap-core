@@ -35,9 +35,10 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
                 build_image=True,
             )
         except ShellCommandException as e:
-            logger.error(f"Error running mlflow project, might be due to missing pyenv (See: https://github.com/pyenv/pyenv#installation)")
+            logger.error(
+                "Error running mlflow project, might be due to missing pyenv (See: https://github.com/pyenv/pyenv#installation)"
+            )
             raise e
-
 
     def predict(self, model_file_name, historic_data, future_data, output_file):
         """
@@ -60,17 +61,13 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
 
 
 class DockerTrainPredictRunner(TrainPredictRunner):
-    def __init__(
-        self, docker_runner: DockerRunner, train_command: str, predict_command: str
-    ):
+    def __init__(self, docker_runner: DockerRunner, train_command: str, predict_command: str):
         self._docker_runner = docker_runner
         self._train_command = train_command
         self._predict_command = predict_command
 
     def train(self, train_file_name, model_file_name):
-        command = self._train_command.format(
-            train_data=train_file_name, model=model_file_name
-        )
+        command = self._train_command.format(train_data=train_file_name, model=model_file_name)
         return self._docker_runner.run_command(command)
 
     def predict(self, model_file_name, historic_data, future_data, output_file):
@@ -81,6 +78,9 @@ class DockerTrainPredictRunner(TrainPredictRunner):
             out_file=output_file,
         )
         return self._docker_runner.run_command(command)
+
+    def change_runner(self, new_runner):
+        self._docker_runner = new_runner
 
     @classmethod
     def from_mlproject_file(cls, mlproject_file: Path):
@@ -141,8 +141,8 @@ class ExternalModel(Generic[FeatureType]):
 
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
-        #print("adapted data")
-        #print(new_pd)
+        # print("adapted data")
+        # print(new_pd)
         new_pd.to_csv(train_file_name_full)
 
         # touch model output file
@@ -163,9 +163,7 @@ class ExternalModel(Generic[FeatureType]):
 
     def _adapt_data(self, data: pd.DataFrame, inverse=False):
         if self._location_mapping is not None:
-            data["location"] = data["location"].apply(
-                self._location_mapping.name_to_index
-            )
+            data["location"] = data["location"].apply(self._location_mapping.name_to_index)
         if self._adapters is None:
             return data
         adapters = self._adapters
@@ -184,9 +182,7 @@ class ExternalModel(Generic[FeatureType]):
                     new_val = data["time_period"].dt.week
                     data[to_name] = new_val
                 else:
-                    data[to_name] = [
-                        int(str(p).split("W")[-1]) for p in data["time_period"]
-                    ]  # .dt.week
+                    data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
 
             elif from_name == "month":
                 data[to_name] = data["time_period"].dt.month
@@ -213,8 +209,8 @@ class ExternalModel(Generic[FeatureType]):
             (historic_data_name, historic_data),
         ]:
             with open(filename, "w"):
-                #print("Adapting ", filename)
-                #print(dataset.to_pandas())
+                # print("Adapting ", filename)
+                # print(dataset.to_pandas())
                 adapted_dataset = self._adapt_data(dataset.to_pandas())
                 adapted_dataset.to_csv(filename)
 
@@ -253,9 +249,7 @@ class ExternalModel(Generic[FeatureType]):
             df["location"] = df["location"].apply(self._location_mapping.index_to_name)
 
         time_periods = [TimePeriod.parse(s) for s in df.time_period.astype(str)]
-        mask = [
-            start_time <= time_period.start_timestamp for time_period in time_periods
-        ]
+        mask = [start_time <= time_period.start_timestamp for time_period in time_periods]
         df = df[mask]
         return DataSet.from_pandas(df, Samples)
 

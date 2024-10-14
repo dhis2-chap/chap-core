@@ -19,7 +19,6 @@ def get_climate_predictor(train_data: DataSet[ClimateData]):
     return estimator
 
 
-
 class MonthlyClimatePredictor:
     def __init__(self):
         self._models = defaultdict(dict)
@@ -60,25 +59,19 @@ class WeeklyClimatePredictor(MonthlyClimatePredictor):
 
 
 class FutureWeatherFetcher:
-    def get_future_weather(
-            self, period_range: PeriodRange
-    ) -> DataSet[SimpleClimateData]: ...
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]: ...
 
 
 class SeasonalForecastFetcher:
     def __init__(self, folder_path):
         self.folder_path = folder_path
 
-    def get_future_weather(
-            self, period_range: PeriodRange
-    ) -> DataSet[SimpleClimateData]: ...
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]: ...
 
 
 class QuickForecastFetcher:
     def __init__(self, historical_data: DataSet[SimpleClimateData]):
         self._climate_predictor = get_climate_predictor(historical_data)
 
-    def get_future_weather(
-            self, period_range: PeriodRange
-    ) -> DataSet[SimpleClimateData]:
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
         return self._climate_predictor.predict(period_range)

@@ -32,27 +32,18 @@ class DataSetAdaptor:
     @staticmethod
     def _from_single_gluonts_series(series: dict, dataclass: type[T]) -> T:
         field_names = [
-            field.name
-            for field in dataclasses.fields(dataclass)
-            if field.name not in ["disease_cases", "time_period"]
+            field.name for field in dataclasses.fields(dataclass) if field.name not in ["disease_cases", "time_period"]
         ]
-        field_dict = {
-            name: series["feat_dynamic_real"].T[:, i]
-            for i, name in enumerate(field_names)
-        }
+        field_dict = {name: series["feat_dynamic_real"].T[:, i] for i, name in enumerate(field_names)}
         field_dict["disease_cases"] = series["target"]
-        field_dict["time_period"] = PeriodRange.from_start_and_n_periods(
-            series["start"], len(series["target"])
-        )
+        field_dict["time_period"] = PeriodRange.from_start_and_n_periods(series["start"], len(series["target"]))
         return dataclass(**field_dict)
 
     @staticmethod
     def from_gluonts(gluonts_dataset: GlunTSDataSet, dataclass: type[T]) -> DataSet[T]:
         return DataSet(
             {
-                series["feat_static_cat"][
-                    0
-                ]: DataSetAdaptor._from_single_gluonts_series(series, dataclass)
+                series["feat_static_cat"][0]: DataSetAdaptor._from_single_gluonts_series(series, dataclass)
                 for series in gluonts_dataset
             }
         )
@@ -61,14 +52,10 @@ class DataSetAdaptor:
 
     @staticmethod
     def get_metadata(dataset: DataSet):
-        return {
-            "static_cat": [{i: location for i, location in enumerate(dataset.keys())}]
-        }
+        return {"static_cat": [{i: location for i, location in enumerate(dataset.keys())}]}
 
     @staticmethod
-    def to_gluonts(
-        dataset: DataSet, start_index=0, static=None, real=None
-    ) -> GlunTSDataSet:
+    def to_gluonts(dataset: DataSet, start_index=0, static=None, real=None) -> GlunTSDataSet:
         if isinstance(dataset, MultiCountryDataSet):
             yield from DataSetAdaptor.to_gluonts_multicountry(dataset)
             return
@@ -80,9 +67,7 @@ class DataSetAdaptor:
             yield {
                 "start": period.topandas(),
                 "target": data.disease_cases,
-                "feat_dynamic_real": remove_field(data, "disease_cases")
-                .to_array()
-                .T,  # exclude the target
+                "feat_dynamic_real": remove_field(data, "disease_cases").to_array().T,  # exclude the target
                 "feat_static_cat": [i] + static,
             }
 
@@ -95,9 +80,7 @@ class DataSetAdaptor:
             assert future_data.start_timestamp == historic_data.end_timestamp
 
             period = historic_data.time_period[0]
-            historic_predictors = remove_field(
-                historic_data, "disease_cases"
-            ).to_array()
+            historic_predictors = remove_field(historic_data, "disease_cases").to_array()
 
             future_predictors = future_data.to_array()
             logger.warning("Assuming location order is the same for test data")
@@ -105,9 +88,7 @@ class DataSetAdaptor:
             yield {
                 "start": period.topandas(),
                 "target": historic_data.disease_cases,
-                "feat_dynamic_real": np.concatenate(
-                    [historic_predictors, future_predictors], axis=0
-                ),
+                "feat_dynamic_real": np.concatenate([historic_predictors, future_predictors], axis=0),
                 "feat_static_cat": [i],
             }
 
@@ -121,9 +102,7 @@ class DataSetAdaptor:
 
 def get_dataset(name, with_metadata=False):
     if name == "full":
-        dataset = MultiCountryDataSet.from_folder(
-            Path("/home/knut/Data/ch_data/full_data")
-        )
+        dataset = MultiCountryDataSet.from_folder(Path("/home/knut/Data/ch_data/full_data"))
         ds = DataSetAdaptor.to_gluonts(dataset)
     else:
         dataset = datasets[name].load()
@@ -135,9 +114,7 @@ def get_dataset(name, with_metadata=False):
 
 def get_split_dataset(name, n_periods=6) -> tuple[GlunTSDataSet, GlunTSDataSet]:
     if name == "full":
-        data_set = MultiCountryDataSet.from_folder(
-            Path("/home/knut/Data/ch_data/full_data")
-        )
+        data_set = MultiCountryDataSet.from_folder(Path("/home/knut/Data/ch_data/full_data"))
     else:
         data_set = datasets[name].load()
 

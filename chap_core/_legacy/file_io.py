@@ -39,9 +39,7 @@ def parse_periods_strings(time_strings: List[str]) -> dc.Period:
     if t == Year:
         return dc.Year([period.year for period in periods])
     if t == Month:
-        return dc.Month(
-            [period.year for period in periods], [period.month for period in periods]
-        )
+        return dc.Month([period.year for period in periods], [period.month for period in periods])
     elif t == Day:
         return dc.Day(
             [period.year for period in periods],

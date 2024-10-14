@@ -62,9 +62,7 @@ class Periode(BaseModel):
 
 class Era5LandGoogleEarthEngineHelperFunctions:
     # Get every dayli image that exisist within a periode, and reduce it to a periodeReducer value
-    def get_image_for_period(
-        self, p: Periode, band: Band, collection: ee.ImageCollection
-    ) -> ee.Image:
+    def get_image_for_period(self, p: Periode, band: Band, collection: ee.ImageCollection) -> ee.Image:
         p = ee.Dictionary(p)
         start = ee.Date(p.get("start_date"))
         end = ee.Date(
@@ -72,9 +70,7 @@ class Era5LandGoogleEarthEngineHelperFunctions:
         )  # .advance(-1, "day") #remove one day, since the end date is inclusive on current format?
 
         # Get only images from start to end, for one bands
-        filtered: ee.ImageCollection = collection.filterDate(start, end).select(
-            band.name
-        )
+        filtered: ee.ImageCollection = collection.filterDate(start, end).select(band.name)
 
         # Aggregate the imageCollection to one image, based on the periodeReducer
         return (
@@ -111,11 +107,9 @@ class Era5LandGoogleEarthEngineHelperFunctions:
                 **f["properties"],
                 # Using the right converter on the value, based on the whats defined as band-converter
                 **{
-                    "value": next(
-                        b.converter
-                        for b in bands
-                        if f["properties"]["indicator"] == b.indicator
-                    )(f["properties"]["value"])
+                    "value": next(b.converter for b in bands if f["properties"]["indicator"] == b.indicator)(
+                        f["properties"]["value"]
+                    )
                 },
             }
             for f in data
@@ -139,18 +133,13 @@ class Era5LandGoogleEarthEngineHelperFunctions:
         location_groups = df.groupby("ou")
         full_dict = {}
         for location, group in location_groups:
-            data_dict, pr = Era5LandGoogleEarthEngineHelperFunctions._get_data_dict(
-                group
-            )
+            data_dict, pr = Era5LandGoogleEarthEngineHelperFunctions._get_data_dict(group)
             full_dict[location] = SimpleClimateData(pr, **data_dict)
         return DataSet(full_dict)
 
     @staticmethod
     def _get_data_dict(group):
-        data_dict = {
-            band: group[group["indicator"] == band]
-            for band in group["indicator"].unique()
-        }
+        data_dict = {band: group[group["indicator"] == band] for band in group["indicator"].unique()}
         pr = None
         for band, band_group in group.groupby("indicator"):
             data_dict[band] = band_group["value"]
@@ -172,7 +161,6 @@ class Era5LandGoogleEarthEngine:
         self.is_initialized = False
         self._usecwd = usecwd
         self._initialize_client()
-
 
     def _initialize_client(self):
         load_dotenv(find_dotenv(usecwd=self._usecwd))
@@ -202,9 +190,7 @@ class Era5LandGoogleEarthEngine:
     def get_historical_era5(self, features, periodes: Iterable[TimePeriod]):
         ee_reducer_type = "mean"
 
-        collection = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select(
-            [band.name for band in bands]
-        )
+        collection = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select([band.name for band in bands])
         feature_collection: ee.FeatureCollection = ee.FeatureCollection(features)
 
         # Creates a ee.List for every periode, containing id (periodeId), start_date and end_date for each period
@@ -219,22 +205,14 @@ class Era5LandGoogleEarthEngine:
         for b in bands:
             daily_collection = daily_collection.merge(
                 ee.ImageCollection.fromImages(
-                    periode_list.map(
-                        lambda period: self.gee_helper.get_image_for_period(
-                            period, b, collection
-                        )
-                    )
+                    periode_list.map(lambda period: self.gee_helper.get_image_for_period(period, b, collection))
                 ).filter(ee.Filter.listContains("system:band_names", b.name))
             )  # Remove empty images
 
         # Reduce the result, to contain only, orgUnitId, periodeId and the value
         reduced = daily_collection.map(
-            lambda image: image.reduceRegions(
-                collection=feature_collection, reducer=eeReducer, scale=ee_scale
-            ).map(
-                lambda feature: self.gee_helper.creat_ee_feature(
-                    feature, image, ee_reducer_type
-                )
+            lambda image: image.reduceRegions(collection=feature_collection, reducer=eeReducer, scale=ee_scale).map(
+                lambda feature: self.gee_helper.creat_ee_feature(feature, image, ee_reducer_type)
             )
         ).flatten()
 

@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class RedisJob(Generic[ReturnType]):
-    '''Wrapper for a Redis Job'''
-    
+    """Wrapper for a Redis Job"""
+
     def __init__(self, job: Job):
         self._job = job
 
@@ -41,17 +41,16 @@ class RedisJob(Generic[ReturnType]):
     @property
     def is_finished(self) -> bool:
         if self._job.get_status() == "queued":
-            logger.warning(
-                "Job is queued, maybe no worker is set up? Run `$ rq worker`"
-            )
+            logger.warning("Job is queued, maybe no worker is set up? Run `$ rq worker`")
         return self._job.is_finished
 
 
 class RedisQueue:
-    '''Simple abstraction for a Redis Queue'''
+    """Simple abstraction for a Redis Queue"""
 
     def __init__(self):
         host, port = self.read_environment_variables()
+        logger.info("Connecting to Redis queue at %s:%s" % (host, port))
         self.q = Queue(connection=Redis(host=host, port=int(port)))
 
     def read_environment_variables(self):
@@ -67,9 +66,7 @@ class RedisQueue:
 
         return host, port
 
-    def queue(
-        self, func: Callable[..., ReturnType], *args, **kwargs
-    ) -> RedisJob[ReturnType]:
+    def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> RedisJob[ReturnType]:
         return RedisJob(self.q.enqueue(func, *args, **kwargs))
 
     def __del__(self):

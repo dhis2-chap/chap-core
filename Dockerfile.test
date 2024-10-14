@@ -1,0 +1,10 @@
+FROM climate_health-chap:latest
+
+#COPY pytest.ini pytest.ini
+COPY ./example_data ./example_data
+COPY ./tests ./tests
+#COPY requirements_dev.txt requirements_dev.txt
+
+#RUN pip install -r requirements_dev.txt
+RUN uv sync --dev
+#RUN uv pip install pytest

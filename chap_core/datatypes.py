@@ -29,9 +29,7 @@ class TimeSeriesData:
         self.__dict__.update(state)
 
     def topandas(self):
-        data_dict = {
-            field.name: getattr(self, field.name) for field in dataclasses.fields(self)
-        }
+        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
         data_dict["time_period"] = self.time_period.topandas()
         return pd.DataFrame(data_dict)
 
@@ -46,12 +44,9 @@ class TimeSeriesData:
     def create_class_from_basemodel(cls, dataclass: type[PeriodObservation]):
         fields = dataclass.model_fields
         fields = [
-            (name, field.annotation) if name != "time_period" else (name, Period)
-            for name, field in fields.items()
+            (name, field.annotation) if name != "time_period" else (name, Period) for name, field in fields.items()
         ]
-        return dataclasses.make_dataclass(
-            dataclass.__name__, fields, bases=(TimeSeriesData,)
-        )
+        return dataclasses.make_dataclass(dataclass.__name__, fields, bases=(TimeSeriesData,))
 
     @staticmethod
     def _fill_missing(data, missing_indices):
@@ -67,9 +62,7 @@ class TimeSeriesData:
     @classmethod
     def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> "TimeSeriesData":
         try:
-            time = PeriodRange.from_strings(
-                data.time_period.astype(str), fill_missing=fill_missing
-            )
+            time = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
         except Exception:
             print("Error in time period: ", data.time_period)
             raise
@@ -81,18 +74,9 @@ class TimeSeriesData:
         else:
             missing_indices = []
         # time = parse_periods_strings(data.time_period.astype(str))
-        variable_names = [
-            field.name
-            for field in dataclasses.fields(cls)
-            if field.name != "time_period"
-        ]
-        data = [
-            cls._fill_missing(data[name].values, missing_indices)
-            for name in variable_names
-        ]
-        assert all(
-            len(d) == len(time) for d in data
-        ), f"{[len(d) for d in data]} != {len(time)}"
+        variable_names = [field.name for field in dataclasses.fields(cls) if field.name != "time_period"]
+        data = [cls._fill_missing(data[name].values, missing_indices) for name in variable_names]
+        assert all(len(d) == len(time) for d in data), f"{[len(d) for d in data]} != {len(time)}"
         return cls(time, **dict(zip(variable_names, data)))
 
     @classmethod
@@ -101,10 +85,8 @@ class TimeSeriesData:
         data = pd.read_csv(csv_file, **kwargs)
         return cls.from_pandas(data)
 
-    def interpolate(self, field_names: Optional[List[str]]=None):
-        data_dict = {
-            field.name: getattr(self, field.name) for field in dataclasses.fields(self)
-        }
+    def interpolate(self, field_names: Optional[List[str]] = None):
+        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
         data_dict["time_period"] = self.time_period
         fields = {
             key: interpolate_nans(value) if field_names is None or key in field_names else value
@@ -131,28 +113,17 @@ class TimeSeriesData:
         n_missing = (end_time_stamp - self.end_timestamp) // self.time_period.delta
         assert n_missing >= 0, (f"{n_missing} < 0", end_time_stamp, self.end_timestamp)
         old_time_period = self.time_period
-        new_time_period = PeriodRange(
-            old_time_period.start_timestamp, end_time_stamp, old_time_period.delta
-        )
-        d = {
-            field.name: getattr(self, field.name)
-            for field in dataclasses.fields(self)
-            if field.name != "time_period"
-        }
+        new_time_period = PeriodRange(old_time_period.start_timestamp, end_time_stamp, old_time_period.delta)
+        d = {field.name: getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"}
 
         for name, data in d.items():
             d[name] = np.pad(data.astype(float), (0, n_missing), constant_values=np.nan)
         return self.__class__(new_time_period, **d)
 
     def fill_to_range(self, start_timestamp, end_timestamp):
-        if (
-            self.end_timestamp == end_timestamp
-            and self.start_timestamp == start_timestamp
-        ):
+        if self.end_timestamp == end_timestamp and self.start_timestamp == start_timestamp:
             return self
-        n_missing_start = (
-            self.start_timestamp - start_timestamp
-        ) // self.time_period.delta
+        n_missing_start = (self.start_timestamp - start_timestamp) // self.time_period.delta
         n_missing = (end_timestamp - self.end_timestamp) // self.time_period.delta
         assert n_missing >= 0, (f"{n_missing} < 0", end_timestamp, self.end_timestamp)
         assert n_missing_start >= 0, (
@@ -161,28 +132,16 @@ class TimeSeriesData:
             self.end_timestamp,
         )
         old_time_period = self.time_period
-        new_time_period = PeriodRange(
-            start_timestamp, end_timestamp, old_time_period.delta
-        )
-        d = {
-            field.name: getattr(self, field.name)
-            for field in dataclasses.fields(self)
-            if field.name != "time_period"
-        }
+        new_time_period = PeriodRange(start_timestamp, end_timestamp, old_time_period.delta)
+        d = {field.name: getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"}
 
         for name, data in d.items():
-            d[name] = np.pad(
-                data.astype(float), (n_missing_start, n_missing), constant_values=np.nan
-            )
+            d[name] = np.pad(data.astype(float), (n_missing_start, n_missing), constant_values=np.nan)
         return self.__class__(new_time_period, **d)
 
     def to_array(self):
         return np.array(
-            [
-                getattr(self, field.name)
-                for field in dataclasses.fields(self)
-                if field.name != "time_period"
-            ]
+            [getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"]
         ).T
 
 
@@ -317,16 +276,13 @@ class Samples(TimeSeriesData):
     def topandas(self):
         n_samples = self.samples.shape[-1]
         df = pd.DataFrame(
-            {"time_period": self.time_period.topandas()}
-            | {f"sample_{i}": self.samples[:, i] for i in range(n_samples)}
+            {"time_period": self.time_period.topandas()} | {f"sample_{i}": self.samples[:, i] for i in range(n_samples)}
         )
         return df
 
     @classmethod
     def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> "TimeSeriesData":
-        ptime = PeriodRange.from_strings(
-            data.time_period.astype(str), fill_missing=fill_missing
-        )
+        ptime = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
         n_samples = sum(1 for col in data.columns if col.startswith("sample_"))
         samples = np.array([data[f"sample_{i}"].values for i in range(n_samples)]).T
         return cls(ptime, samples)
@@ -357,10 +313,7 @@ ResultType = pd.DataFrame
 
 
 def add_field(data: BNPDataClass, new_class: type, **field_data):
-    return new_class(
-        **{field.name: getattr(data, field.name) for field in dataclasses.fields(data)}
-        | field_data
-    )
+    return new_class(**{field.name: getattr(data, field.name) for field in dataclasses.fields(data)} | field_data)
 
 
 def remove_field(data: BNPDataClass, field_name, new_class=None):
@@ -369,20 +322,12 @@ def remove_field(data: BNPDataClass, field_name, new_class=None):
         new_class = tsdataclass(
             dataclasses.make_dataclass(
                 data.__class__.__name__,
-                [
-                    (field.name, field.type)
-                    for field in dataclasses.fields(data)
-                    if field.name != field_name
-                ],
+                [(field.name, field.type) for field in dataclasses.fields(data) if field.name != field_name],
                 bases=(TimeSeriesData,),
             )
         )
         if is_type:
             return new_class
     return new_class(
-        **{
-            field.name: getattr(data, field.name)
-            for field in dataclasses.fields(data)
-            if field.name != field_name
-        }
+        **{field.name: getattr(data, field.name) for field in dataclasses.fields(data) if field.name != field_name}
     )

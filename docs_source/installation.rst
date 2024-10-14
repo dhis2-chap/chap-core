@@ -4,21 +4,15 @@
 Installation
 ============
 
-Installation can currently be done by cloning the git repo and installing locally:
+Basic installation can be done using pip:
 
 .. code-block:: console
 
-    $ git clone git://github.com/sandvelab/climate_health
+    $ pip install chap-core
 
-Once you have a copy of the source, you can install it with:
+If running models, you may also need to install:
 
-.. code-block:: console
+- Docker, if running a model that runs through docker
+- [pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#installation), if running a model that uses Python virtual environments
 
-    $ pip install -e .
-
-If doing development on the code base, you should also install the dev requirements:
-
-.. code-block:: console
-
-    $ pip install -r requirements_dev.txt
 

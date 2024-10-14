@@ -10,17 +10,13 @@ class LocalDbCache:
 
     def __contains__(self, item: tuple[str, str]) -> bool:
         period_id, region_id = item
-        statement = select(self._model).where(
-            self._model.period_id == period_id, self._model.region_id == region_id
-        )
+        statement = select(self._model).where(self._model.period_id == period_id, self._model.region_id == region_id)
         result = self._session.exec(statement).first()
         return bool(result)
 
     def __getitem__(self, item: tuple[str, str]) -> SQLModel:
         period_id, region_id = item
-        statement = select(self._model).where(
-            self._model.period_id == period_id, self._model.region_id == region_id
-        )
+        statement = select(self._model).where(self._model.period_id == period_id, self._model.region_id == region_id)
         result = self._session.exec(statement).first()
         return result
 

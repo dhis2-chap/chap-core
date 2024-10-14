@@ -41,18 +41,12 @@ class MultiRegionNaivePredictor:
         # return data.data().disease_cases.mean()
 
     def train(self, data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]):
-        self._average_cases = {
-            location: self._get_mean(data) for location, data in data.items()
-        }
+        self._average_cases = {location: self._get_mean(data) for location, data in data.items()}
         # self._buffer = next(iter(data.values())).time_period[-1]
 
-    def predict(
-        self, future_weather: IsSpatioTemporalDataSet[ClimateData]
-    ) -> HealthData:
+    def predict(self, future_weather: IsSpatioTemporalDataSet[ClimateData]) -> HealthData:
         prediction_dict = {
-            location: HealthData(
-                entry.data().time_period[:1], np.full(1, self._average_cases[location])
-            )
+            location: HealthData(entry.data().time_period[:1], np.full(1, self._average_cases[location]))
             for location, entry in future_weather.items()
         }
         return DataSet(prediction_dict)
@@ -84,14 +78,10 @@ class MultiRegionPoissonModel:
             self._models[location] = model
 
             saved_data = location_data.data()[-1:]
-            assert not np.any(
-                np.isnan(saved_data.disease_cases)
-            ), f"{saved_data.disease_cases}"
+            assert not np.any(np.isnan(saved_data.disease_cases)), f"{saved_data.disease_cases}"
             self._saved_state[location] = TemporalDataclass(saved_data)
 
-    def predict(
-        self, data: IsSpatioTemporalDataSet[ClimateData]
-    ) -> IsSpatioTemporalDataSet[HealthData]:
+    def predict(self, data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
         prediction_dict = {}
         for location, location_data in data.items():
             state_values = self._saved_state[location]
@@ -108,9 +98,7 @@ class MultiRegionPoissonModel:
             # location_data.data().disease_cases = np.full(len(location_data.data()), np.nan)
             X = self._create_feature_matrix(state_values.join(location_data))
             prediction = self._models[location].predict(X[-1:])
-            prediction_dict[location] = HealthData(
-                location_data.data().time_period[:1], np.atleast_1d(prediction)
-            )
+            prediction_dict[location] = HealthData(location_data.data().time_period[:1], np.atleast_1d(prediction))
 
         return DataSet(prediction_dict)
 

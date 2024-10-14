@@ -1,6 +1,5 @@
 from pathlib import Path
 import logging
-from typing import Literal
 
 from cyclopts import App
 
@@ -8,16 +7,13 @@ from chap_core.api_types import RequestV1
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.datatypes import FullData
-from chap_core.external.external_model import (
-    get_model_from_directory_or_github_url,
-)
-from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.rest_api_src.worker_functions import dataset_from_request_v1
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import delta_month
-from chap_core.predictor.published_models import model_dict
-#model_type = Literal[*model_dict.keys()]
+
+# model_type = Literal[*model_dict.keys()]
 from chap_core.predictor.model_registry import registry
+
 logger = logging.getLogger(__name__)
 
 
@@ -124,9 +120,7 @@ def predict(
     model = registry.get_model(model_id)
     samples = forecast_ahead(model, data_set, prediction_length)
     if do_summary:
-        predictions = DataSet(
-            {location: samples.summaries() for location, samples in samples.items()}
-        )
+        predictions = DataSet({location: samples.summaries() for location, samples in samples.items()})
     else:
         predictions = samples
     predictions.to_csv(output_filename)

@@ -5,9 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def create_data_element_if_not_exists(
-    config: ProgramConfig, code_prefix: str, dict: dict[str, str], disease=""
-):
+def create_data_element_if_not_exists(config: ProgramConfig, code_prefix: str, dict: dict[str, str], disease=""):
     for key, value in dict.items():
         code = f"{code_prefix}_{key}".upper()
         # first check if exisits, set hash if exists
@@ -16,9 +14,7 @@ def create_data_element_if_not_exists(
         # if not found, create new dataElement in DHIS2
         if dict[key] == None:
             # create the data element
-            dict[key] = __create_data_element(
-                programConfig=config, code=code, quantile=key, disease=disease
-            )
+            dict[key] = __create_data_element(programConfig=config, code=code, quantile=key, disease=disease)
 
     # return the updated dict, with code and hashes
     print(dict)
@@ -38,16 +34,12 @@ def __get_elements_if_exisits(programConfig: ProgramConfig, code: str):
     # return None if dataElement does not exisits
     if len(response.json()["dataElements"]) == 0:
         return None
-    print(
-        f"- 200 OK - dataElement with code '{code}' already exists, skipping creation."
-    )
+    print(f"- 200 OK - dataElement with code '{code}' already exists, skipping creation.")
     uid = response.json()["dataElements"][0]["id"]
     return uid
 
 
-def __create_data_element(
-    programConfig: ProgramConfig, code: str, quantile: str, disease: str
-):
+def __create_data_element(programConfig: ProgramConfig, code: str, quantile: str, disease: str):
     session = get_request_session(programConfig)
 
     name = f'CHAP - {disease.lower()} {quantile.lower().replace("_", " ")}'

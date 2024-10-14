@@ -68,9 +68,7 @@ class Month(TimePeriod):
 
 
 class Day(TimePeriod):
-    def __init__(
-        self, year: Union[int, str], month: Union[int, str], day: Union[int, str]
-    ) -> None:
+    def __init__(self, year: Union[int, str], month: Union[int, str], day: Union[int, str]) -> None:
         self.year = int(year)
         self.month = int(month)
         self.day = int(day)

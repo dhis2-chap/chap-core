@@ -140,9 +140,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
     def _adapt_data(self, data: pd.DataFrame, inverse=False):
         if self._location_mapping is not None:
-            data["location"] = data["location"].apply(
-                self._location_mapping.name_to_index
-            )
+            data["location"] = data["location"].apply(self._location_mapping.name_to_index)
         if self._adapters is None:
             return data
         adapters = self._adapters
@@ -157,9 +155,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
                     new_val = data["time_period"].dt.week
                     data[to_name] = new_val
                 else:
-                    data[to_name] = [
-                        int(str(p).split("W")[-1]) for p in data["time_period"]
-                    ]  # .dt.week
+                    data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
 
             elif from_name == "month":
                 data[to_name] = data["time_period"].dt.month
@@ -209,9 +205,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         self._saved_state = new_pd
         return self
 
-    def predict(
-        self, future_data: IsSpatioTemporalDataSet[FeatureType]
-    ) -> IsSpatioTemporalDataSet[FeatureType]:
+    def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
         name = "future_data.csv"
         start_time = future_data.start_timestamp
         logger.info("Predicting on dataset from %s", start_time)
@@ -224,9 +218,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
 
             new_pd = self._adapt_data(df)
             if self.is_lagged:
-                new_pd = pd.concat([self._saved_state, new_pd]).sort_values(
-                    ["location", "time_period"]
-                )
+                new_pd = pd.concat([self._saved_state, new_pd]).sort_values(["location", "time_period"])
             new_pd.to_csv(Path(self._working_dir) / Path(name))
 
         if "{graph}" in self._predict_command:
@@ -253,9 +245,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             df["location"] = df["location"].apply(self._location_mapping.index_to_name)
 
         time_periods = [TimePeriod.parse(s) for s in df.time_period.astype(str)]
-        mask = [
-            start_time <= time_period.start_timestamp for time_period in time_periods
-        ]
+        mask = [start_time <= time_period.start_timestamp for time_period in time_periods]
         df = df[mask]
         return DataSet.from_pandas(df, result_class)
 
@@ -267,15 +257,11 @@ class ExternalCommandLineModel(Generic[FeatureType]):
     ):
         time_period = next(iter(future_data.data())).data().time_period
         n_periods = forecast_delta // time_period.delta
-        future_data = DataSet(
-            {key: value.data()[:n_periods] for key, value in future_data.items()}
-        )
+        future_data = DataSet({key: value.data()[:n_periods] for key, value in future_data.items()})
         return self.predict(future_data)
 
     def prediction_summary(self, future_data: DataSet[FeatureType], n_samples=1000):
-        future_data = DataSet(
-            {key: value.data()[:1] for key, value in future_data.items()}
-        )
+        future_data = DataSet({key: value.data()[:1] for key, value in future_data.items()})
         return self.predict(future_data)
 
     def _provide_temp_file(self):
@@ -337,9 +323,7 @@ class DryModeExternalCommandLineModel(ExternalCommandLineModel):
     def _provide_temp_file(self):
         os.makedirs(self._file_creation_folder, exist_ok=True)
         self._file_index += 1
-        return SimpleFileContextManager(
-            f"{self._file_creation_folder}/file{self._file_index}.txt", mode="w+b"
-        )
+        return SimpleFileContextManager(f"{self._file_creation_folder}/file{self._file_index}.txt", mode="w+b")
 
     def get_execution_code(self):
         return self._execution_code
@@ -355,15 +339,10 @@ class VerboseRDryModeExternalCommandLineModel(DryModeExternalCommandLineModel):
         command_parts = command.split(" ")
         # assert len(command_parts) == 2, command_parts
         if len(command_parts) > 2:
-            r_args = (
-                "c(" + ",".join(['"' + part + '"' for part in command_parts[2:]]) + ")"
-            )
+            r_args = "c(" + ",".join(['"' + part + '"' for part in command_parts[2:]]) + ")"
             self._execution_code += f"""args = {r_args}""" + os.linesep
         r_lines = open(f"{self._working_dir}/{command_parts[1]}").readlines()
-        self._execution_code += (
-            os.linesep.join([line for line in r_lines if "commandArgs" not in line])
-            + os.linesep
-        )
+        self._execution_code += os.linesep.join([line for line in r_lines if "commandArgs" not in line]) + os.linesep
 
 
 class SimpleFileContextManager:
@@ -411,12 +390,10 @@ def get_runner_from_yaml_file(yaml_file: str) -> Runner:
 def get_model_and_runner_from_yaml_file(
     yaml_file: str,
 ) -> Tuple[ExternalCommandLineModel, Runner]:
-    return ExternalCommandLineModel.from_yaml_file(
-        yaml_file
-    ), get_runner_from_yaml_file(yaml_file)
+    return ExternalCommandLineModel.from_yaml_file(yaml_file), get_runner_from_yaml_file(yaml_file)
 
 
-def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/")):
+def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/"), ignore_env=False):
     """
     Gets the model and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
@@ -437,34 +414,35 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         git.Repo.clone_from(model_path, working_dir)
     else:
         # copy contents of model_path to working_dir
-        logger.info(f'Copying files from {model_path} to {working_dir}')
+        logger.info(f"Copying files from {model_path} to {working_dir}")
         shutil.copytree(model_path, working_dir)
 
     # assert that a config file exists
     if (working_dir / "MLproject").exists():
-        assert (
-            working_dir / "MLproject"
-        ).exists(), f"MLproject file not found in {working_dir}"
-        return get_model_from_mlproject_file(working_dir / "MLproject")
+        assert (working_dir / "MLproject").exists(), f"MLproject file not found in {working_dir}"
+        return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
     elif (working_dir / "config.yml").exists():
         return get_model_from_yaml_file(working_dir / "config.yml", working_dir)
     else:
         raise Exception("No config.yml or MLproject file found in model directory")
 
 
-def get_model_from_mlproject_file(mlproject_file):
+def get_model_from_mlproject_file(mlproject_file, ignore_env=False):
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
 
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
+    is_in_docker = os.environ.get("IS_IN_DOCKER", False)
     if "docker_env" in config:
-        logging.info(
-            "Docker env is specified in mlproject file, using ExternalCommandLineModel"
-        )
+        logging.info("Docker env is specified in mlproject file, using ExternalCommandLineModel")
         # return ExternalCommandLineModel.from_mlproject_file(mlproject_file)
         runner = DockerTrainPredictRunner.from_mlproject_file(mlproject_file)
+        if is_in_docker:
+            assert isinstance(runner, DockerTrainPredictRunner), "Only supported for docker"
+            runner.change_runner(CommandLineRunner(mlproject_file.parent))
+            logging.info("Ignoring docker env. Setting runner to a command line runner")
     else:
         runner = MlFlowTrainPredictRunner(mlproject_file.parent)
 

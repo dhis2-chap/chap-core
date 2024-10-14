@@ -31,17 +31,13 @@ def forecast_plot(
     climate_data: ClimateData,
     n_samples,
 ) -> Figure:
-    samples = np.array(
-        [predicition_sampler.sample(climate_data) for _ in range(n_samples)]
-    )
+    samples = np.array([predicition_sampler.sample(climate_data) for _ in range(n_samples)])
     quantiles = np.quantile(samples, [0.1, 0.5, 0.9], axis=0)
 
     return plot_forecast(quantiles, true_data)
 
 
-def plot_forecast_from_summaries(
-    summaries: SummaryStatistics, true_data: HealthData, transform=lambda x: x
-) -> Figure:
+def plot_forecast_from_summaries(summaries: SummaryStatistics, true_data: HealthData, transform=lambda x: x) -> Figure:
     df = summaries.topandas()
     true_df = pd.DataFrame(
         {
@@ -82,9 +78,7 @@ def plot_forecast(quantiles: np.ndarray, true_data: HealthData, x_pred=None) -> 
         x_pred = x_true
     else:
         x_pred = [str(p) for p in x_pred]
-    df = pd.DataFrame(
-        {"x": x_pred, "10th": quantiles[0], "50th": quantiles[1], "90th": quantiles[2]}
-    )
+    df = pd.DataFrame({"x": x_pred, "10th": quantiles[0], "50th": quantiles[1], "90th": quantiles[2]})
     true_df = pd.DataFrame({"x": x_true, "real": true_data.disease_cases})
     true_df.x = true_df.x.astype(str)
     return plot_forecasts_from_data_frame(df, true_df)
@@ -124,9 +118,7 @@ def add_prediction_lines(fig, prediction_df, transform, true_df):
             "quantile_low": last_row["real"],
             "median": last_row["real"],
         }
-        prediction_df = pd.concat(
-            [pd.DataFrame(prepend_df), prediction_df], ignore_index=True
-        )
+        prediction_df = pd.concat([pd.DataFrame(prepend_df), prediction_df], ignore_index=True)
     fig.add_trace(
         go.Scatter(
             x=prediction_df["time_period"],

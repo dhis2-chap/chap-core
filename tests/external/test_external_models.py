@@ -86,4 +86,4 @@ def test_external_sanity_deepar(models_path):
 @pytest.mark.skipif(not docker_available(), reason="requires pyenv")
 @pytest.mark.slow
 def test_external_sanity_deepar(models_path):
-    sanity_check_external_model("https://github.com/sandvelab/chap_auto_ewars")
+    sanity_check_external_model("https://github.com/dhis2-chap/chap_auto_ewars")

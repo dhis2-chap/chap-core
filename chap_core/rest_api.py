@@ -9,8 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from chap_core.api_types import PredictionRequest
 from chap_core.internal_state import Control, InternalState
-from chap_core.model_spec import ModelSpec, model_spec_from_model
-from chap_core.predictor import all_models
+from chap_core.model_spec import ModelSpec
 from chap_core.predictor.feature_spec import Feature, all_features
 from chap_core.rest_api_src.data_models import FullPredictionResponse
 import chap_core.rest_api_src.worker_functions as wf
@@ -96,7 +95,7 @@ async def favicon() -> FileResponse:
     return FileResponse("chap_icon.jpeg")
 
 
-@app.post('/predict')
+@app.post("/predict")
 async def predict(data: PredictionRequest) -> dict:
     """
     Start a prediction task using the given data as training data.
@@ -104,8 +103,7 @@ async def predict(data: PredictionRequest) -> dict:
     """
     json_data = data.model_dump()
     str_data = json.dumps(json_data)
-    job = worker.queue(wf.predict,
-                       str_data)
+    job = worker.queue(wf.predict, str_data)
     internal_state.current_job = job
     return {"status": "success"}
 
@@ -165,4 +163,5 @@ async def get_status() -> State:
 
 def main_backend():
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
