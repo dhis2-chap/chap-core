@@ -6,7 +6,8 @@ from pydantic import BaseModel
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.time_period import TimePeriod, PeriodRange
-
+import logging
+logger = logging.getLogger(__name__)
 
 class GEECredentials(BaseModel):
     account: str
@@ -109,7 +110,10 @@ def fetch_era5_data(
     end = TimePeriod.from_id(end_period)
     period_range = PeriodRange.from_time_periods(start, end)
     data = []
-    for period in period_range:
+    n_periods = len(period_range)
+    logger.info(f"Fetching gee data for {n_periods} periods")
+    for i, period in enumerate(period_range):
+        logger.info(f"Fetching period {period}: {i+1}/{n_periods}")
         start_day = period.start_timestamp.date
         end_day = period.last_day.date
         res = fetch_single_period(polygons, start_day, end_day, band_names, reducer=reducer)

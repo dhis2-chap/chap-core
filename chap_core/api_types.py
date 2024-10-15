@@ -34,13 +34,13 @@ class RequestV2(RequestV1):
     estimator_id: str = "chap_ewars_monthly"
 
 
+
 class PredictionRequest(RequestV2):
     n_periods: int = 3
 
 
 class PeriodObservation(BaseModel):
     time_period: str
-
 
 # class Geometry:
 #     type: str

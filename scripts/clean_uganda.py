@@ -189,5 +189,6 @@ mask = new_df['disease_cases']>new_df['population']
 print(new_df[mask])
 dataset = DataSet.from_pandas(new_df, dataclass=FullData)
 dataset.to_csv('/home/knut/Data/uganda_data.csv')
+
 #unique_districts = df['District'].unique()
 #print(unique_districts)
