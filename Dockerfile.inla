@@ -19,12 +19,9 @@ COPY ./README.md ./README.md
 
 # get uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+RUN uv sync
+# RUN pip install --upgrade pip
+# RUN uv pip install --system -e .
 
-RUN pip install --upgrade pip
-RUN uv pip install --system -e .
-curl https://pyenv.run | bash
 
 
-# Start the FastAPI application
-#CMD chap serve & rq worker
-#CMD ["chap", "serve", "&", "rq", "worker"]

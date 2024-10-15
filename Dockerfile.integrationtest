@@ -3,4 +3,3 @@ FROM python:3.12.0-slim
 COPY tests/docker_flow.py docker_flow.py
 COPY example_data/anonymous_chap_request.json example_data/anonymous_chap_request.json
 RUN pip install requests
-

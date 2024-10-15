@@ -34,28 +34,10 @@ services:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - IS_IN_DOCKER=1
-    command: rq worker --url redis://redis:6379/0
+    command: /app/.venv/bin/rq worker --url redis://redis:6379/0
     networks:
         - chap-network
-
 
 networks:
   chap-network:
     driver: bridge
-
-      #  chap_with_r_inla:
-#    container_name: chap_with_r_inla
-#    build:
-#      context: ./
-#      dockerfile: external_models/Dockerfile
-#    environment:
-#      - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
-#      - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
-#      - REDIS_HOST=redis
-#      - REDIS_PORT=6379
-#    ports:
-#      - "8001:8000"
-#    working_dir: /
-#    command: >
-#        chap serve &
-#        rq worker
