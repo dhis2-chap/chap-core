@@ -4,6 +4,7 @@ services:
     container_name: redis
     networks:
         - chap-network
+
   chap:
     depends_on:
         -  redis
@@ -19,9 +20,8 @@ services:
       - "8000:8000"
     expose:
       - "8000"
+    command: /app/.venv/bin/chap serve
     working_dir: /
-    command: >
-       chap serve
     networks:
       - chap-network
 
@@ -29,7 +29,7 @@ services:
     container_name: redis_queue
     build:
       context: .
-      dockerfile: external_models/Dockerfile
+      dockerfile: Dockerfile.inla
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
