@@ -52,9 +52,9 @@ class TimeSeriesData:
     def _fill_missing(data, missing_indices):
         if len(missing_indices) == 0:
             return data
-        l = len(data) + len(missing_indices)
-        filled_data = np.full(l, np.nan)
-        mask = np.full(l, True)
+        n_entries = len(data) + len(missing_indices)
+        filled_data = np.full(n_entries, np.nan)
+        mask = np.full(n_entries, True)
         mask[missing_indices] = False
         filled_data[mask] = data
         return filled_data

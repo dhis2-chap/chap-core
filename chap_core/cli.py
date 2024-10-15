@@ -10,6 +10,7 @@ from cyclopts import App
 
 from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
 from chap_core.external.mlflow import NoPredictionsError
+from chap_core.predictor.model_registry import naive_spec
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
@@ -23,7 +24,7 @@ from chap_core.dhis2_interface.json_parsing import add_population_data
 # )
 # from chap_core.external.models.jax_models.specs import SSMWithoutWeather
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
-from chap_core.predictor import ModelType
+from chap_core.predictor import ModelType, model_registry
 from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month, Week
 from .assessment.prediction_evaluator import evaluate_model
@@ -166,8 +167,8 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
         dhis2Password=password,
     )
     full_data_frame = get_full_dataframe(process)
-    modelspec = SSMWithoutWeather()
-    model = SSMForecasterNuts(modelspec, NutsParams(n_samples=10, n_warmup=10))
+    modelspec = naive_spec
+    model = model_registry['naive_model']()
     model.train(full_data_frame)
     predictions = model.prediction_summary(Week(full_data_frame.end_timestamp))
     json_response = process.pushDataToDHIS2(predictions, modelspec.__class__.__name__, do_dict=False)

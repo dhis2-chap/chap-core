@@ -14,8 +14,6 @@ def prediction_plot(
     climate_data: ClimateData,
     n_samples,
 ) -> Figure:
-    reporting_rate = 10000
-    T = len(true_data) + 1
     for i in range(n_samples):
         new_observed = predicition_sampler.sample(climate_data)
         plt.plot(new_observed, label="predicted", color="grey")
@@ -36,17 +34,6 @@ def forecast_plot(
 
     return plot_forecast(quantiles, true_data)
 
-
-def plot_forecast_from_summaries(summaries: SummaryStatistics, true_data: HealthData, transform=lambda x: x) -> Figure:
-    df = summaries.topandas()
-    true_df = pd.DataFrame(
-        {
-            "x": [str(p) for p in true_data.time_period.topandas()],
-            "real": true_data.disease_cases,
-        }
-    )
-    df.time_period = df.time_period.astype(str)
-    return plot_forecasts_from_data_frame(df, true_df, transform)
 
 
 def plot_forecast_from_summaries(
@@ -157,15 +144,3 @@ def add_prediction_lines(fig, prediction_df, transform, true_df):
             line=dict(color="red", width=2),
         )
     )
-
-
-def summary_plot(true_data: HealthData, summary_data: SummaryStatistics):
-    reporting_rate = 10000
-    T = len(true_data) + 1
-    for i in range(n_samples):
-        new_observed = predicition_sampler.sample(climate_data)
-        plt.plot(new_observed, label="predicted", color="grey")
-    plt.plot(true_data.disease_cases, label="real", color="blue")
-    plt.legend()
-    plt.title("Prdicted path using estimated parameters vs real path")
-    return plt.gcf()

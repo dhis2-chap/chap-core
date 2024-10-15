@@ -20,6 +20,4 @@ def get_model(model_name: Optional[ModelType]):
         return DEFAULT_MODEL
     if model_name in r_models:
         return r_models[model_name]
-    if model_name in external_models:
-        return external_models[model_name]
     return globals()[model_name]

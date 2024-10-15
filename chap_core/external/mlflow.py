@@ -1,13 +1,12 @@
 from pathlib import Path
 from typing import Generic, TypeVar
 import logging
-import pandas
 import pandas as pd
 import mlflow
 import yaml
 from mlflow.utils.process import ShellCommandException
 
-from chap_core.datatypes import SummaryStatistics, HealthData, Samples
+from chap_core.datatypes import HealthData, Samples
 from chap_core.runners.docker_runner import DockerRunner
 from chap_core.runners.runner import TrainPredictRunner
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -89,14 +88,8 @@ class DockerTrainPredictRunner(TrainPredictRunner):
         with open(mlproject_file, "r") as file:
             data = yaml.load(file, Loader=yaml.FullLoader)
 
-        name = data["name"]
         train_command = data["entry_points"]["train"]["command"]
         predict_command = data["entry_points"]["predict"]["command"]
-        setup_command = None
-        data_type = data.get("data_type", None)
-        allowed_data_types = {"HealthData": HealthData}
-        data_type = allowed_data_types.get(data_type, None)
-
         assert "docker_env" in data, "Only docker supported for now"
         logging.info(f"Docker image is {data['docker_env']['image']}")
         command_runner = DockerRunner(data["docker_env"]["image"], working_dir)
@@ -149,7 +142,7 @@ class ExternalModel(Generic[FeatureType]):
         # with open(self._model_file_name, 'w') as f:
         #    pass
 
-        response = self._runner.train(train_file_name, self._model_file_name)
+        self._runner.train(train_file_name, self._model_file_name)
         """
         response = mlflow.projects.run(str(self.model_path), entry_point="train",
                                        parameters={
@@ -217,10 +210,10 @@ class ExternalModel(Generic[FeatureType]):
         predictions_file = Path(self._working_dir) / "predictions.csv"
 
         # touch predictions.csv
-        with open(predictions_file, "w") as f:
+        with open(predictions_file, "w") as _:
             pass
 
-        response = self._runner.predict(
+        self._runner.predict(
             self._model_file_name,
             "historic_data.csv",
             "future_data.csv",
@@ -238,12 +231,10 @@ class ExternalModel(Generic[FeatureType]):
         try:
             df = pd.read_csv(predictions_file)
 
-        except pandas.errors.EmptyDataError:
+        except pd.errors.EmptyDataError:
             # todo: Probably deal with this in an other way, throw an exception istead
             logging.warning("No data returned from model (empty file from predictions)")
             raise NoPredictionsError("No prediction data written")
-
-        result_class = SummaryStatistics if "quantile_low" in df.columns else HealthData
 
         if self._location_mapping is not None:
             df["location"] = df["location"].apply(self._location_mapping.index_to_name)

@@ -1,8 +1,5 @@
 import ee
 import xarray
-import geopandas
-import pyproj  ## installed with pip install to avoid missing proj database error
-import numpy as np;
 
 from chap_core.google_earth_engine.gee_raw import load_credentials
 

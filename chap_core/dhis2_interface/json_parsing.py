@@ -26,7 +26,7 @@ class MetadDataLookup:
 
 def parse_population_data(json_data, field_name="GEN - Population", col_idx=1):
     logger.warning("Only using one population number per location")
-    meta_data = MetadDataLookup(json_data["metaData"])
+    # meta_data = MetadDataLookup(json_data["metaData"])
     lookup = {}
     for row in json_data["rows"]:
         # if meta_data[row[0]] != field_name:

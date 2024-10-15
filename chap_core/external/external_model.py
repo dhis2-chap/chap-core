@@ -201,7 +201,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             extra_args=extra_args,
             **kwargs,
         )
-        response = self.run_through_container(command)
+        self.run_through_container(command)
         self._saved_state = new_pd
         return self
 
@@ -209,7 +209,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         name = "future_data.csv"
         start_time = future_data.start_timestamp
         logger.info("Predicting on dataset from %s", start_time)
-        with open(name, "w") as f:
+        with open(name, "w") as _:
             df = future_data.to_pandas()
             df["disease_cases"] = np.nan
 
@@ -226,20 +226,20 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             kwargs = {"graph": filename}
         else:
             kwargs = {}
+        outfile_name = "predictions.csv"
         command = self._predict_command.format(
             future_data=name,
             model=self._model_file_name,
-            out_file="predictions.csv",
+            out_file=outfile_name,
             **kwargs,
         )
-        response = self.run_through_container(command)
+        self.run_through_container(command)
         try:
-            df = pd.read_csv(Path(self._working_dir) / "predictions.csv")
-
-        except pandas.errors.EmptyDataError:
+            df = pd.read_csv(Path(self._working_dir) / outfile_name)
+        except pd.errors.EmptyDataError:
             # todo: Probably deal with this in an other way, throw an exception istead
             logging.warning("No data returned from model (empty file from predictions)")
-            raise ValueError(f"No prediction data written to file {out_file.name}")
+            raise ValueError(f"No prediction data written to file {outfile_name}")
         result_class = SummaryStatistics if "quantile_low" in df.columns else HealthData
         if self._location_mapping is not None:
             df["location"] = df["location"].apply(self._location_mapping.index_to_name)

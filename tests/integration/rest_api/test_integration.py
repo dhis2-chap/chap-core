@@ -1,3 +1,4 @@
+import os
 import time
 import json
 import pytest
@@ -20,14 +21,18 @@ predict_path = "/v1/predict"
 
 @pytest.fixture(scope="session")
 def rq_worker_process():
-    # run 'rq worker' in a subprocess
-    import subprocess
+    # laod environment variables
+    has_worker = os.environ.get("HAS_WORKER", False)
+    if has_worker:
+        yield None
+    else:
+        import subprocess
 
-    process = subprocess.Popen(["rq", "worker"])
-    yield process
-    # get stdout and stderr from process
-    process.terminate()
-    process.terminate()
+        process = subprocess.Popen(["rq", "worker"])
+        yield process
+        # get stdout and stderr from process
+        process.terminate()
+        process.terminate()
 
 
 @pytest.mark.asyncio

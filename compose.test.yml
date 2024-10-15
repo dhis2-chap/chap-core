@@ -11,6 +11,7 @@ services:
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
+      - HAS_WORKER=1
     command: /app/.venv/bin/pytest /app/tests
 
   #chap_with_r_inla:

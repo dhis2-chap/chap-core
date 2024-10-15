@@ -43,7 +43,6 @@ async def predict_from_json(data: RequestV1) -> dict:
     """
     model_path = "https://github.com/sandvelab/chap_auto_ewars"
     if internal_state.model_path is not None:
-        model_name = "external"
         model_path = internal_state.model_path
     json_data = data.model_dump()
 

@@ -55,7 +55,7 @@ def plot_rmse(rmse_dict, do_show=True):
     return fig
 
 
-def evaluate_model(
+def _evaluate_model(
     data_set,
     external_model,
     max_splits=5,
@@ -246,36 +246,6 @@ def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[F
         for location, samples in forecasts.items():
             forecast_dict[location].append(ForecastAdaptor.from_samples(samples))
     return forecast_dict
-
-
-def get_forecast_df(predictor: Predictor, test_generator) -> pd.DataFrame:
-    forecast_dict = _get_forecast_dict(predictor, test_generator)
-    dfs = []
-    for location, forecasts in forecast_dict.items():
-        for forecast in forecasts:
-            quantiles = [forecast.quantile(q) for q in [0.1, 0.5, 0.9]]
-
-    return forecast_df
-
-
-def plot_forecasts(predictors: list[Predictor], test_instance, truth, pdf_filename):
-    forecast_dicts = [_get_forecast_dict(predictor, test_instance) for predictor in predictors]
-    with PdfPages(pdf_filename) as pdf:
-        for location in forecast_dicts[0].keys():
-            _t = truth[location]
-            for forecast_dict in forecast_dicts:
-                fig = plt.subplots(figsize=(8, 4), ncols=len(forecast_dict))
-                for i in range(len(forecast_dict[location])):
-                    forecast = forecast_dict[location][i]
-
-                # plt.figure(figsize=(8, 4))  # Set the figure size
-                # t = _t[_t.index <= forecast.index[-1]]
-                # forecast.plot(show_label=True)
-                # plt.plot(t[-150:].to_timestamp())
-                # plt.title(location)
-                # plt.legend()
-                # pdf.savefig()
-                # plt.close()  # Close the figure
 
 
 def plot_forecasts(predictor, test_instance, truth, pdf_filename):

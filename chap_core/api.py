@@ -107,9 +107,6 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
         graph_file_name = Path(zip_file_path).with_suffix(".graph")
         area_polygons_file = ziparchive.open(expected_files["area_polygons"])
         geojson_to_graph(area_polygons_file, graph_file_name)
-    # geojson_to_shape(area_polygons_file, shape_file_name)
-
-    # geojson_to_shape(str(zip_file_path) + "!area_polygons", shape_file_name)
 
     return PredictionData(
         health_data=disease,
@@ -119,11 +116,6 @@ def read_zip_folder(zip_file_path: str) -> PredictionData:
         disease_id=disease_id,
         features=features,
     )
-
-    out_data = {}
-
-
-#    ...
 
 
 def dhis_zip_flow(

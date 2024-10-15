@@ -1,3 +1,6 @@
+from typing import List
+
+import pydantic
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
@@ -10,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 def generate_app(estimator, working_dir: str):
     app = FastAPI()
-    cur_id = 0
     origins = [
         "*",  # Allow all origins
         "http://localhost:3000",
@@ -24,10 +26,10 @@ def generate_app(estimator, working_dir: str):
         allow_headers=["*"],
     )
 
-    return app
-
     dc = get_dataclass(estimator)
     model = pydantic.create_model('TrainingData', **dc.__annotations__)
+    training_data_filename = f"{working_dir}/training_data.csv"
+    model_path = f"{working_dir}/model"
 
     @app.command()
     def train(training_data: List[model]):

@@ -1,8 +1,8 @@
-from typing import Iterable, Tuple, Protocol, Optional, Type
+from typing import Iterable, Protocol, Optional, Type
 
 from chap_core._legacy_dataset import IsSpatioTemporalDataSet
 from chap_core.climate_predictor import FutureWeatherFetcher
-from chap_core.datatypes import ClimateHealthData, ClimateData
+from chap_core.datatypes import ClimateData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month, TimePeriod
 from chap_core.time_period.relationships import previous
@@ -106,10 +106,7 @@ def train_test_split_with_weather(
     future_weather_class: Type[ClimateData] = ClimateData,
 ):
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)
-    tmp_values: Iterable[Tuple[str, ClimateHealthData]] = (
-        (loc, temporal_data.data()) for loc, temporal_data in test_set.items()
-    )
-    future_weather = test_set.remove_field("disease_cases")  # SpatioTemporalDict(
+    future_weather = test_set.remove_field("disease_cases")
     train_periods = {str(period) for data in train_set.data() for period in data.data().time_period}
     future_periods = {str(period) for data in future_weather.data() for period in data.data().time_period}
     assert (

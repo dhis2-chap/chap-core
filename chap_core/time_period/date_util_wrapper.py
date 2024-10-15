@@ -207,9 +207,6 @@ class Day(TimePeriod):
     def __repr__(self):
         return f"Day({self.year}-{self.month}-{self.day})"
 
-    def id(self):
-        return self._date.strftime("%Y%m%d")
-
     def topandas(self):
         return pd.Period(year=self.year, month=self.month, day=self.day, freq="D")
 
@@ -535,13 +532,6 @@ class PeriodRange:
         time_periods = [TimePeriod.parse(str(period)) for period in periods]
         cls._check_consequtive(time_delta, time_periods)
         return cls.from_time_periods(time_periods[0], time_periods[-1])
-
-    @classmethod
-    def _check_consequtive_weeks(cls, time_periods, fill_missing=False):
-        period_range = pd.period_range(start=time_periods[0]._date, end=time_periods[-1]._date, freq="W")
-        # start
-        if not all(is_consective):
-            ...
 
     @classmethod
     def _check_consequtive(cls, time_delta, time_periods, fill_missing=False):

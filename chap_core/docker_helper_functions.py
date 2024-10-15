@@ -1,4 +1,3 @@
-import logging
 import os
 from pathlib import Path
 import docker
@@ -41,11 +40,6 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
     output = container.attach(stdout=True, stream=False, logs=True)
     # get logs from container
     print(output)
-    full_output = output
-    # full_output = ""
-    # for line in output:
-    #    print(line.decode("utf-8"))
-
     result = container.wait()
     exit_code = result["StatusCode"]
     log_output = container.logs().decode("utf-8")

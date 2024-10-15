@@ -146,14 +146,6 @@ class Era5LandGoogleEarthEngineHelperFunctions:
             pr = PeriodRange.from_ids(band_group["period"])
         return data_dict, pr
 
-    @staticmethod
-    def gee_properties_to_fields(property_dicts: list[dict]) -> dict[str, DataSet]:
-        df = pd.DataFrame(property_dicts)
-        location_groups = df.groupby("ou")
-        # field_dict = {name: {} for name in}
-        # for location, group in location_groups:
-        #    data_dict, pr = Era5LandGoogleEarthEngineHelperFunctions._get_data_dict(group)
-
 
 class Era5LandGoogleEarthEngine:
     def __init__(self, usecwd=False):

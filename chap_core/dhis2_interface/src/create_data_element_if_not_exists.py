@@ -12,7 +12,7 @@ def create_data_element_if_not_exists(config: ProgramConfig, code_prefix: str, d
         dict[key] = __get_elements_if_exisits(config, code)
 
         # if not found, create new dataElement in DHIS2
-        if dict[key] == None:
+        if dict[key] is None:
             # create the data element
             dict[key] = __create_data_element(programConfig=config, code=code, quantile=key, disease=disease)
 
