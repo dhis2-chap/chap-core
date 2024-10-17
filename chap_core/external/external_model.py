@@ -393,7 +393,8 @@ def get_model_and_runner_from_yaml_file(
     return ExternalCommandLineModel.from_yaml_file(yaml_file), get_runner_from_yaml_file(yaml_file)
 
 
-def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/"), ignore_env=False):
+def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/"), ignore_env=False,
+                                           make_run_dir=True):
     """
     Gets the model and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
@@ -406,8 +407,19 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
     else:
         model_name = Path(model_path).name
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    working_dir = base_working_dir / model_name / timestamp
+    if not make_run_dir:
+        working_dir = base_working_dir / model_name / "latest"
+        # clear working dir
+        if working_dir.exists():
+            logging.info(f"Removing previous working dir {working_dir}")
+            shutil.rmtree(working_dir)
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        working_dir = base_working_dir / model_name / timestamp
+        # check that working dir does not exist
+        assert not working_dir.exists(), f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
+
+    logger.info(f"Writing results to {working_dir}")
 
     if is_github:
         working_dir.mkdir(parents=True)

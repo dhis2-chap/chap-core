@@ -63,7 +63,7 @@ def evaluate(
         ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
         dataset = dataset[dataset_country]
 
-    model = get_model_from_directory_or_github_url(model_name, ignore_env=ignore_environment)
+    model = get_model_from_directory_or_github_url(model_name, ignore_env=ignore_environment, make_run_dir=False)
     model = model()
     try:
         results = evaluate_model(
