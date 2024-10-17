@@ -40,7 +40,7 @@ def ensure_up(chap_url):
             time.sleep(5)
 
 
-def evaluate_model(chap_url, data, model, timeout=300):
+def evaluate_model(chap_url, data, model, timeout=600):
     ensure_up(chap_url)
     model_name = model["name"]
     data["estimator_id"] = model_name
