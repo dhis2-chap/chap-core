@@ -291,8 +291,8 @@ class Week(TimePeriod):
     def topandas(self):
         # return self.__str__()
         assert self._day_nr in (1, 0, 7), self._day_nr
-        daystr = "MON" if self._day_nr == 1 else "SUN"
-        return pd.Period(self._date, freq=("W-%s" % daystr))
+        #daystr = "MON" if self._day_nr == 1 else "SUN"
+        return pd.Period(self._date, freq=("W"))
 
 
 class Month(TimePeriod):
@@ -522,7 +522,8 @@ class PeriodRange:
 
     @classmethod
     def from_pandas(cls, periods: Iterable[pd.Period]):
-        time_deltas = {"M": delta_month, "Y": delta_year, "D": delta_day}
+        time_deltas = {"M": delta_month, "Y": delta_year, "D": delta_day,
+                       'W-MON': delta_week, 'W-SUN': delta_week}
         periods = list(periods)
         if not len(periods):
             raise ValueError("Cannot create a period range from an empty list")
