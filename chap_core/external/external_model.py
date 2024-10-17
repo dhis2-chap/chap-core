@@ -439,7 +439,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         raise Exception("No config.yml or MLproject file found in model directory")
 
 
-def get_model_from_mlproject_file(mlproject_file, ignore_env=False):
+def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """

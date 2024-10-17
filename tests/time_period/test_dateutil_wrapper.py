@@ -113,6 +113,17 @@ def test_from_id(period1):
 def period_range(period1, period3):
     return PeriodRange.from_time_periods(start_period=period1, end_period=period3)
 
+@pytest.fixture()
+def weekly_period_range():
+    start_period = Week(2020, 1)
+    end_period = Week(2020, 3)
+    return PeriodRange.from_time_periods(start_period=start_period, end_period=end_period)
+
+def test_weekly_to_pandas(weekly_period_range):
+    df = weekly_period_range.topandas()
+    print(df)
+    pr = PeriodRange.from_pandas(df)
+    assert all(pr == weekly_period_range)
 
 def test_period_range(period_range):
     assert len(period_range) == 14
