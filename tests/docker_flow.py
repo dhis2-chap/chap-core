@@ -7,7 +7,8 @@ import json
 import time
 
 import requests
-
+import logging
+logger = logging.getLogger(__name__)
 
 def dataset():
     dataset = "../example_data/anonymous_chap_request.json"
@@ -39,13 +40,11 @@ def ensure_up(chap_url):
             time.sleep(5)
 
 
-def evaluate_model(chap_url, data, model, timeout=120):
+def evaluate_model(chap_url, data, model, timeout=300):
     ensure_up(chap_url)
     model_name = model["name"]
     data["estimator_id"] = model_name
-    print(model_name)
-    print(model)
-    print("\n\n")
+    logger.info(model_name)
     evalute_url = chap_url + f"/v1/predict/"
     response = requests.post(evalute_url, json=data)
     assert response.status_code == 200
@@ -53,7 +52,11 @@ def evaluate_model(chap_url, data, model, timeout=120):
 
     for _ in range(timeout // 5):
         job_status = requests.get(chap_url + "/v1/status").json()
-        print(job_status)
+        if job_status['status'] == "failed":
+            raise ValueError("Model evaluation failed")
+
+        logger.info(job_status)
+
         time.sleep(5)
         if job_status['ready']:
             break

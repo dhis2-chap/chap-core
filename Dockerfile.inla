@@ -1,21 +1,36 @@
 # installs chap with support for some external models
 FROM ivargr/r_inla
 
+
+
+
 RUN apt-get update
 RUN apt-get install -y python3
 RUN apt-get install -y python3-pip
 
+
+
 # Set the working directory in the container
-WORKDIR /app
+
 
 # Install the Python dependencies
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y git
 
+# Install pyenv
+RUN git clone --depth=1 https://github.com/pyenv/pyenv.git .pyenv
+
+ENV PYENV_ROOT="/.pyenv"
+ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
+
+WORKDIR /app
 COPY ./chap_core ./chap_core
 COPY ./pyproject.toml ./pyproject.toml
 COPY ./README.md ./README.md
+
+RUN git clone https://github.com/pyenv/pyenv.git /pyenv
+ENV PYENV_ROOT /pyenv
 
 # get uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
