@@ -6,7 +6,7 @@ from chap_core.predictor.model_registry import registry
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 model = registry.get_model('chap_ewars_weekly')
-dataset = DataSet.from_csv('../example_data/nicaragua_weekly_data.csv', dataclass=FullData)
+dataset = DataSet.from_csv('example_data/nicaragua_weekly_data.csv', dataclass=FullData)
 if __name__ == '__main__':
     evaluate_model(model,
                    dataset,

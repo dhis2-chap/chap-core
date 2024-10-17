@@ -34,6 +34,8 @@ def load_credentials() -> GEECredentials:
     load_dotenv(find_dotenv())
     account = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")
     private_key = os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY")
+    if private_key is None:
+        raise ValueError("Google Earth Engine private key not found in environment variables")
     return GEECredentials(account=account, private_key=private_key)
 
 
