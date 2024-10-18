@@ -7,7 +7,7 @@ import numpy as np
 from chap_core.api import read_zip_folder, train_on_prediction_data
 from chap_core.api_types import RequestV1, PredictionRequest, EvaluationEntry, EvaluationResponse
 from chap_core.assessment.forecast import forecast_with_predicted_weather, forecast_ahead
-from chap_core.assessment.prediction_evaluator import evaluate_model, backtest
+from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, TimeSeriesArray
