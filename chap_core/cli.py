@@ -48,6 +48,7 @@ def evaluate(
     n_splits: int = 7,
     report_filename: Optional[str] = "report.pdf",
     ignore_environment: bool = False,
+    debug: bool = False,
 ):
     """
     Evaluate a model on a dataset using forecast cross validation
@@ -63,7 +64,8 @@ def evaluate(
         ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
         dataset = dataset[dataset_country]
 
-    model = get_model_from_directory_or_github_url(model_name, ignore_env=ignore_environment)
+    make_run_dir = debug
+    model = get_model_from_directory_or_github_url(model_name, ignore_env=ignore_environment, make_run_dir=make_run_dir)
     model = model()
     try:
         results = evaluate_model(
