@@ -34,9 +34,22 @@ class RequestV2(RequestV1):
     estimator_id: str = "chap_ewars_monthly"
 
 
-
 class PredictionRequest(RequestV2):
     n_periods: int = 3
+
+
+class EvaluationEntry(BaseModel):
+    orgUnit: str
+    period: str
+    quantile: float
+    value: float
+    splitPeriod: str
+
+
+class EvaluationResponse(BaseModel):
+    actualCases: DataList
+    predictions: list[EvaluationEntry]
+
 
 
 class PeriodObservation(BaseModel):

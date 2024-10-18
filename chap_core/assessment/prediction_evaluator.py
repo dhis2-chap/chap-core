@@ -125,6 +125,17 @@ class Estimator(Protocol):
     def train(self, data: DataSet) -> Predictor: ...
 
 
+def backtest(estimator: Estimator,
+    data: DataSet,
+    prediction_length,
+    n_test_sets, stride=1, weather_provider=None) -> Iterable[DataSet]:
+    train, test_generator = train_test_generator(
+        data, prediction_length, n_test_sets, future_weather_provider=weather_provider
+    )
+    predictor = estimator.train(data)
+    for historic_data, future_data, _ in test_generator:
+        yield predictor.predict(historic_data, future_data)
+
 def evaluate_model(
     estimator: Estimator,
     data: DataSet,

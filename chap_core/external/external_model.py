@@ -399,9 +399,12 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
     model_path can be a local directory or github url
     """
     is_github = False
+    commit = None
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):
         dir_name = model_path.split("/")[-1].replace(".git", "")
         model_name = dir_name
+        if '@' in model_path:
+            model_path, commit = model_path.split('@')
         is_github = True
     else:
         model_name = Path(model_path).name
@@ -411,7 +414,10 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
 
     if is_github:
         working_dir.mkdir(parents=True)
-        git.Repo.clone_from(model_path, working_dir)
+        repo = git.Repo.clone_from(model_path, working_dir)
+        if commit:
+            repo.git.checkout(commit)
+
     else:
         # copy contents of model_path to working_dir
         logger.info(f"Copying files from {model_path} to {working_dir}")

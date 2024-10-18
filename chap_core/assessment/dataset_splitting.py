@@ -69,22 +69,23 @@ def train_test_generator(
     dataset: DataSet,
     prediction_length: int,
     n_test_sets: int = 1,
+    stride: int = 1,
     future_weather_provider: Optional[FutureWeatherFetcher] = None,
 ) -> tuple[DataSet, Iterable[tuple[DataSet, DataSet]]]:
     """
     Genereate a train set along with an iterator of test data that contains tuples of full data up until a
     split point and data without target variables for the remaining steps
     """
-    split_idx = -(prediction_length + n_test_sets)
+    split_idx = -(prediction_length + (n_test_sets-1)*stride+1)
     train_set = dataset.restrict_time_period(slice(None, dataset.period_range[split_idx]))
     historic_data = [
-        dataset.restrict_time_period(slice(None, dataset.period_range[split_idx + i])) for i in range(n_test_sets)
+        dataset.restrict_time_period(slice(None, dataset.period_range[split_idx + i*stride])) for i in range(n_test_sets)
     ]
     future_data = [
         dataset.restrict_time_period(
             slice(
-                dataset.period_range[split_idx + i + 1],
-                dataset.period_range[split_idx + i + prediction_length],
+                dataset.period_range[split_idx + i*stride + 1],
+                dataset.period_range[split_idx + i*stride + prediction_length],
             )
         )
         for i in range(n_test_sets)

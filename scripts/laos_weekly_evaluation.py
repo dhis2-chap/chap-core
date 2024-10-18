@@ -4,10 +4,10 @@ from chap_core.datatypes import FullData
 from chap_core.predictor.model_registry import registry
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-model_name = 'chap_ewars_weekly'
+model_name = 'auto_regressive_weekly'
 model = registry.get_model(model_name)
-filename = 'nicaragua_weekly_data'
-dataset = DataSet.from_csv('../example_data/%s.csv' % filename, dataclass=FullData)
+filename = 'weekly_laos_data'
+dataset = DataSet.from_csv('~/Data/ch_data/%s.csv' % filename, dataclass=FullData)
 
 if __name__ == '__main__':
     evaluate_model(model,

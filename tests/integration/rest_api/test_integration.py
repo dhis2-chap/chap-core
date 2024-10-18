@@ -17,6 +17,7 @@ list_features_path = "/v1/list-features"
 get_result_path = "/v1/get-results"
 predict_on_json_path = "/v1/predict-from-json"
 predict_path = "/v1/predict"
+evaluate_path = "/v1/evaluate"
 
 
 @pytest.fixture(scope="session")
@@ -65,6 +66,9 @@ async def test_post_zip_file(tests_path, rq_worker_process):
 def test_predict_on_json_data(big_request_json, rq_worker_process):
     endpoint_path = predict_on_json_path
     check_job_endpoint(big_request_json, endpoint_path)
+
+def test_evaluate(big_request_json, rq_worker_process):
+    check_job_endpoint(big_request_json, evaluate_path)
 
 
 def test_predict(big_request_json, rq_worker_process):

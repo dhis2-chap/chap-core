@@ -289,7 +289,7 @@ class Samples(TimeSeriesData):
 
     to_pandas = topandas
 
-    def summaries(self):
+    def summaries(self, q_low=0.25, q_high=0.75):
         return SummaryStatistics(
             self.time_period,
             mean=np.mean(self.samples, axis=-1),
@@ -297,8 +297,8 @@ class Samples(TimeSeriesData):
             std=np.std(self.samples, axis=-1),
             min=np.min(self.samples, axis=-1),
             max=np.max(self.samples, axis=-1),
-            quantile_low=np.quantile(self.samples, 0.25, axis=-1),
-            quantile_high=np.quantile(self.samples, 0.75, axis=-1),
+            quantile_low=np.quantile(self.samples, q_low, axis=-1),
+            quantile_high=np.quantile(self.samples, q_high, axis=-1),
         )
 
 
