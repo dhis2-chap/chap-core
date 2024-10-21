@@ -28,6 +28,10 @@ class RedisJob(Generic[ReturnType]):
         return self._job.get_status()
 
     @property
+    def exception_info(self) -> str:
+        return self._job.exc_info
+
+    @property
     def result(self) -> ReturnType | None:
         return self._job.return_value()
 

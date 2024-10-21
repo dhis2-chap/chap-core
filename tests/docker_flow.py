@@ -53,7 +53,8 @@ def evaluate_model(chap_url, data, model, timeout=600):
     for _ in range(timeout // 5):
         job_status = requests.get(chap_url + "/v1/status").json()
         if job_status['status'] == "failed":
-            raise ValueError("Model evaluation failed")
+            exception_info = requests.get(chap_url + "/v1/get-exception").json()
+            raise ValueError("Model evaluation failed. Exception: %s" % exception_info)
 
         logger.info(job_status)
 
