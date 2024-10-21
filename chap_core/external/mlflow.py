@@ -1,4 +1,3 @@
-from idlelib.undo import Command
 from pathlib import Path
 from typing import Generic, TypeVar, Literal
 import logging

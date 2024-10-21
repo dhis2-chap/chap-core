@@ -21,8 +21,7 @@ from chap_core.datatypes import (
 )
 from chap_core.external.mlflow import (
     ExternalModel,
-    MlFlowTrainPredictRunner,
-    DockerTrainPredictRunner, get_train_predict_runner,
+    get_train_predict_runner,
 )
 from chap_core.geojson import NeighbourGraph
 from chap_core.runners.command_line_runner import CommandLineRunner
