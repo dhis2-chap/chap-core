@@ -61,7 +61,7 @@ def predict(json_data: PredictionRequest):
 def _convert_prediction_request(json_data):
     json_data = PredictionRequest.model_validate_json(json_data)
     estimator = registry.get_model(json_data.estimator_id)
-    target_id = get_target_id(json_data, ["disease", "diseases"])
+    target_id = get_target_id(json_data, ["disease", "diseases", "disease_cases"])
     train_data = dataset_from_request_v1(json_data)
     return estimator, json_data, target_id, train_data
 
