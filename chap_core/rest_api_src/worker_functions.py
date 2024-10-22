@@ -1,10 +1,15 @@
 import json
 import os
+from typing import Optional, Tuple, List
+
+import numpy as np
 
 from chap_core.api import read_zip_folder, train_on_prediction_data
-from chap_core.api_types import RequestV1, PredictionRequest
+from chap_core.api_types import RequestV1, PredictionRequest, EvaluationEntry, EvaluationResponse
 from chap_core.assessment.forecast import forecast_with_predicted_weather, forecast_ahead
+from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
+from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, TimeSeriesArray
 from chap_core.dhis2_interface.json_parsing import predictions_to_datavalue
 from chap_core.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
@@ -44,18 +49,45 @@ def train_on_zip_file(file, model_name, model_path, control=None):
 
 
 def predict(json_data: PredictionRequest):
-    json_data = PredictionRequest.model_validate_json(json_data)
-    # model_path = model_paths.get(json_data.model_id)
-    # estimator = get_model_from_directory_or_github_url(model_path)
-    estimator = registry.get_model(json_data.estimator_id)
-    target_id = get_target_id(json_data, ["disease", "diseases"])
-    train_data = dataset_from_request_v1(json_data)
+    estimator, json_data, target_id, train_data = _convert_prediction_request(json_data)
     predictions = forecast_ahead(estimator, train_data, json_data.n_periods)
     summaries = DataSet({location: samples.summaries() for location, samples in predictions.items()})
     attrs = ["median", "quantile_high", "quantile_low"]
     data_values = predictions_to_datavalue(summaries, attribute_mapping=dict(zip(attrs, attrs)))
     json_body = [dataclasses.asdict(element) for element in data_values]
     return {"diseaseId": target_id, "dataValues": json_body}
+
+
+def _convert_prediction_request(json_data):
+    json_data = PredictionRequest.model_validate_json(json_data)
+    estimator = registry.get_model(json_data.estimator_id)
+    target_id = get_target_id(json_data, ["disease", "diseases", "disease_cases"])
+    train_data = dataset_from_request_v1(json_data)
+    return estimator, json_data, target_id, train_data
+
+
+def evaluate(json_data: PredictionRequest, n_splits: Optional[int]=None, stride: int=1, quantiles: Tuple[float]=(0.25, 0.75))->EvaluationResponse:
+    estimator, json_data, target_id, train_data = _convert_prediction_request(json_data)
+    print([(data_list.featureId, data_list.dhis2Id) for data_list in json_data.features])
+    print(target_id)
+    real_data = next(data_list for data_list in json_data.features if data_list.dhis2Id == target_id)
+    predictions_list = backtest(estimator, train_data, prediction_length=json_data.n_periods,
+                           n_test_sets=n_splits, stride=stride, weather_provider=QuickForecastFetcher)
+    evaluation_entries: List[EvaluationEntry]=[]
+    for predictions in predictions_list:
+        first_period = predictions.period_range[0]
+        for location, samples in predictions.items():
+            quantiles = {q: np.quantile(samples.samples, q, axis=-1) for q in quantiles}
+            for q, quantile in quantiles.items():
+                for period, value in zip(predictions.period_range, quantile):
+                    entry = EvaluationEntry(orgUnit=location,
+                                            period=period.id,
+                                            quantile=q,
+                                            value=value,
+                                            splitPeriod=first_period.id)
+                    evaluation_entries.append(entry)
+
+    return EvaluationResponse(actualCases=real_data, predictions=evaluation_entries) # .model_dump()
 
 
 def train_on_json_data(json_data: RequestV1, model_name, model_path, control=None):

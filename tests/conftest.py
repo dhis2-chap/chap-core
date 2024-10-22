@@ -80,8 +80,9 @@ def request_json(data_path):
 
 
 @pytest.fixture
-def big_request_json():
-    filepath = "/home/knut/Data/ch_data/chap_request.json"
+def big_request_json(data_path):
+    filepath = data_path / "anonymous_chap_request.json"
+    assert os.path.exists(filepath)
     if not os.path.exists(filepath):
         pytest.skip()
     with open(filepath, "r") as f:

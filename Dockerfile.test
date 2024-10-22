@@ -1,10 +1,24 @@
-FROM climate_health-chap:latest
+# Use the official Python base image
+FROM ghcr.io/astral-sh/uv:python3.10-bookworm-slim
 
-#COPY pytest.ini pytest.ini
+# Set the working directory in the container
+WORKDIR /app
+
+# Install the Python dependencies
+RUN apt-get update
+RUN apt-get upgrade -y
+RUN apt-get install -y git
+
+COPY ./chap_core ./chap_core
+COPY ./pyproject.toml .
+COPY ./README.md .
+COPY ./external_models ./external_models
 COPY ./example_data ./example_data
 COPY ./tests ./tests
-#COPY requirements_dev.txt requirements_dev.txt
+COPY .env* ./
 
-#RUN pip install -r requirements_dev.txt
 RUN uv sync --dev
-#RUN uv pip install pytest
+# CMD ["/app/.venv/bin/pytest", "/app/tests"]
+
+
+

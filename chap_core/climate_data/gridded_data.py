@@ -24,7 +24,6 @@ def get_gridded_data(polygons_filename):
     country_bounds = ee.Geometry.Rectangle(*gdf.total_bounds)  # lon1, lat1, lon2, lat2)
     projection = collection.first().select(0).projection()  # EPSG:4326
     dataset = xarray.open_dataset(collection, engine="ee", projection=projection, geometry=country_bounds)
-    ds = dataset
     first_image = dataset.isel(time=0)
     temp_d = first_image["temperature_2m"]
     temp_d.plot()

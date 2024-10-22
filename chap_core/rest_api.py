@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Optional, Union
 
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -7,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from chap_core.api_types import PredictionRequest
+from chap_core.api_types import PredictionRequest, EvaluationResponse
 from chap_core.internal_state import Control, InternalState
 from chap_core.model_spec import ModelSpec
 from chap_core.predictor.feature_spec import Feature, all_features
@@ -66,6 +67,10 @@ class NaiveJob:
         return "finished"
 
     @property
+    def exception_info(self):
+        return ""
+
+    @property
     def progress(self):
         return 1
 
@@ -108,6 +113,19 @@ async def predict(data: PredictionRequest) -> dict:
     return {"status": "success"}
 
 
+@app.post("/evaluate")
+async def evaluate(data: PredictionRequest, n_splits: Optional[int]=2, stride: int = 1) -> dict:
+    """
+    Start a prediction task using the given data as training data.
+    Results can be retrieved using the get-results endpoint.
+    """
+    json_data = data.model_dump()
+    str_data = json.dumps(json_data)
+    job = worker.queue(wf.evaluate, str_data, n_splits, stride)
+    internal_state.current_job = job
+    return {"status": "success"}
+
+
 @app.get("/list-models")
 async def list_models() -> list[ModelSpec]:
     """
@@ -125,7 +143,7 @@ async def list_features() -> list[Feature]:
 
 
 @app.get("/get-results")
-async def get_results() -> FullPredictionResponse:
+async def get_results() -> Union[FullPredictionResponse, EvaluationResponse]:
     """
     Retrieve results made by the model
     """
@@ -135,6 +153,15 @@ async def get_results() -> FullPredictionResponse:
     result = cur_job.result
     return result
 
+@app.get("/get-exception")
+async def get_exception() -> str:
+    """
+    Retrieve exception information if the job failed
+    """
+    cur_job = internal_state.current_job
+    if not (cur_job and cur_job.is_finished):
+        raise HTTPException(status_code=400, detail="No response available")
+    return cur_job.exception_info
 
 @app.post("/cancel")
 async def cancel() -> dict:

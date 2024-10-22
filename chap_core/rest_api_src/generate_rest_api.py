@@ -39,7 +39,6 @@ def samples_to_json(samples_dataset: DataSet[Samples]):
 def get_rest_api(estimator):
     app = get_app()
     predictors: dict[str, Predictor] = {}
-    predictions: dict[str, DataSet[Samples]] = {}
 
     @app.post("/train")
     def train(self, data: RequestV1, name: Optional[str] = None) -> dict:

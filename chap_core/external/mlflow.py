@@ -1,13 +1,13 @@
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Literal
 import logging
-import pandas
 import pandas as pd
 import mlflow
 import yaml
 from mlflow.utils.process import ShellCommandException
 
-from chap_core.datatypes import SummaryStatistics, HealthData, Samples
+from chap_core.datatypes import HealthData, Samples
+from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.runners.docker_runner import DockerRunner
 from chap_core.runners.runner import TrainPredictRunner
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -16,6 +16,35 @@ from chap_core.time_period import TimePeriod
 logger = logging.getLogger(__name__)
 
 FeatureType = TypeVar("FeatureType")
+
+
+def get_train_predict_runner(mlproject_file: Path, runner_type: Literal["mlflow", "docker"], skip_environment=False) -> TrainPredictRunner:
+    """
+    Returns a TrainPredictRunner based on the runner_type.
+    If runner_type is "mlflow", returns an MlFlowTrainPredictRunner.
+    If runner_type is "docker", the mlproject file is parsed to create a runner
+    if skip_environment, mlflow and docker is not used, instead returning a TrainPredictRunner that uses the command line
+    """
+    if skip_environment or runner_type == "docker":
+        working_dir = mlproject_file.parent
+
+        # read yaml file into a dict
+        with open(mlproject_file, "r") as file:
+            data = yaml.load(file, Loader=yaml.FullLoader)
+
+        train_command = data["entry_points"]["train"]["command"]
+        predict_command = data["entry_points"]["predict"]["command"]
+        assert "docker_env" in data, "Only docker supported for now"
+        logging.info(f"Docker image is {data['docker_env']['image']}")
+
+        if skip_environment:
+            return CommandLineTrainPredictRunner(CommandLineRunner(working_dir), train_command, predict_command)
+
+        command_runner = DockerRunner(data["docker_env"]["image"], working_dir)
+        return DockerTrainPredictRunner(command_runner, train_command, predict_command)
+    else:
+        assert runner_type == "mlflow"
+        return MlFlowTrainPredictRunner(mlproject_file.parent)
 
 
 class MlFlowTrainPredictRunner(TrainPredictRunner):
@@ -60,15 +89,15 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         )
 
 
-class DockerTrainPredictRunner(TrainPredictRunner):
-    def __init__(self, docker_runner: DockerRunner, train_command: str, predict_command: str):
-        self._docker_runner = docker_runner
+class CommandLineTrainPredictRunner(TrainPredictRunner):
+    def __init__(self, runner: CommandLineRunner, train_command: str, predict_command: str):
+        self._runner = runner
         self._train_command = train_command
         self._predict_command = predict_command
 
     def train(self, train_file_name, model_file_name):
         command = self._train_command.format(train_data=train_file_name, model=model_file_name)
-        return self._docker_runner.run_command(command)
+        return self._runner.run_command(command)
 
     def predict(self, model_file_name, historic_data, future_data, output_file):
         command = self._predict_command.format(
@@ -77,26 +106,28 @@ class DockerTrainPredictRunner(TrainPredictRunner):
             model=model_file_name,
             out_file=output_file,
         )
-        return self._docker_runner.run_command(command)
+        return self._runner.run_command(command)
+
+
+class DockerTrainPredictRunner(TrainPredictRunner):
+    def __init__(self, runner: DockerRunner, train_command: str, predict_command: str):
+        self._runner = runner
+        self._train_command = train_command
+        self._predict_command = predict_command
 
     def change_runner(self, new_runner):
-        self._docker_runner = new_runner
+        self._runner = new_runner
 
     @classmethod
     def from_mlproject_file(cls, mlproject_file: Path):
+        assert False # Not implemented
         working_dir = mlproject_file.parent
         # read yaml file into a dict
         with open(mlproject_file, "r") as file:
             data = yaml.load(file, Loader=yaml.FullLoader)
 
-        name = data["name"]
         train_command = data["entry_points"]["train"]["command"]
         predict_command = data["entry_points"]["predict"]["command"]
-        setup_command = None
-        data_type = data.get("data_type", None)
-        allowed_data_types = {"HealthData": HealthData}
-        data_type = allowed_data_types.get(data_type, None)
-
         assert "docker_env" in data, "Only docker supported for now"
         logging.info(f"Docker image is {data['docker_env']['image']}")
         command_runner = DockerRunner(data["docker_env"]["image"], working_dir)
@@ -141,15 +172,8 @@ class ExternalModel(Generic[FeatureType]):
 
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
-        # print("adapted data")
-        # print(new_pd)
         new_pd.to_csv(train_file_name_full)
-
-        # touch model output file
-        # with open(self._model_file_name, 'w') as f:
-        #    pass
-
-        response = self._runner.train(train_file_name, self._model_file_name)
+        self._runner.train(train_file_name, self._model_file_name)
         """
         response = mlflow.projects.run(str(self.model_path), entry_point="train",
                                        parameters={
@@ -209,18 +233,16 @@ class ExternalModel(Generic[FeatureType]):
             (historic_data_name, historic_data),
         ]:
             with open(filename, "w"):
-                # print("Adapting ", filename)
-                # print(dataset.to_pandas())
                 adapted_dataset = self._adapt_data(dataset.to_pandas())
                 adapted_dataset.to_csv(filename)
 
         predictions_file = Path(self._working_dir) / "predictions.csv"
 
         # touch predictions.csv
-        with open(predictions_file, "w") as f:
+        with open(predictions_file, "w") as _:
             pass
 
-        response = self._runner.predict(
+        self._runner.predict(
             self._model_file_name,
             "historic_data.csv",
             "future_data.csv",
@@ -238,12 +260,10 @@ class ExternalModel(Generic[FeatureType]):
         try:
             df = pd.read_csv(predictions_file)
 
-        except pandas.errors.EmptyDataError:
+        except pd.errors.EmptyDataError:
             # todo: Probably deal with this in an other way, throw an exception istead
             logging.warning("No data returned from model (empty file from predictions)")
             raise NoPredictionsError("No prediction data written")
-
-        result_class = SummaryStatistics if "quantile_low" in df.columns else HealthData
 
         if self._location_mapping is not None:
             df["location"] = df["location"].apply(self._location_mapping.index_to_name)

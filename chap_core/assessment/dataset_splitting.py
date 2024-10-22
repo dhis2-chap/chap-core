@@ -1,8 +1,8 @@
-from typing import Iterable, Tuple, Protocol, Optional, Type
+from typing import Iterable, Protocol, Optional, Type
 
 from chap_core._legacy_dataset import IsSpatioTemporalDataSet
 from chap_core.climate_predictor import FutureWeatherFetcher
-from chap_core.datatypes import ClimateHealthData, ClimateData
+from chap_core.datatypes import ClimateData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month, TimePeriod
 from chap_core.time_period.relationships import previous
@@ -69,22 +69,23 @@ def train_test_generator(
     dataset: DataSet,
     prediction_length: int,
     n_test_sets: int = 1,
+    stride: int = 1,
     future_weather_provider: Optional[FutureWeatherFetcher] = None,
 ) -> tuple[DataSet, Iterable[tuple[DataSet, DataSet]]]:
     """
     Genereate a train set along with an iterator of test data that contains tuples of full data up until a
     split point and data without target variables for the remaining steps
     """
-    split_idx = -(prediction_length + n_test_sets)
+    split_idx = -(prediction_length + (n_test_sets-1)*stride+1)
     train_set = dataset.restrict_time_period(slice(None, dataset.period_range[split_idx]))
     historic_data = [
-        dataset.restrict_time_period(slice(None, dataset.period_range[split_idx + i])) for i in range(n_test_sets)
+        dataset.restrict_time_period(slice(None, dataset.period_range[split_idx + i*stride])) for i in range(n_test_sets)
     ]
     future_data = [
         dataset.restrict_time_period(
             slice(
-                dataset.period_range[split_idx + i + 1],
-                dataset.period_range[split_idx + i + prediction_length],
+                dataset.period_range[split_idx + i*stride + 1],
+                dataset.period_range[split_idx + i*stride + prediction_length],
             )
         )
         for i in range(n_test_sets)
@@ -106,10 +107,7 @@ def train_test_split_with_weather(
     future_weather_class: Type[ClimateData] = ClimateData,
 ):
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)
-    tmp_values: Iterable[Tuple[str, ClimateHealthData]] = (
-        (loc, temporal_data.data()) for loc, temporal_data in test_set.items()
-    )
-    future_weather = test_set.remove_field("disease_cases")  # SpatioTemporalDict(
+    future_weather = test_set.remove_field("disease_cases")
     train_periods = {str(period) for data in train_set.data() for period in data.data().time_period}
     future_periods = {str(period) for data in future_weather.data() for period in data.data().time_period}
     assert (

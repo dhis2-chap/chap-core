@@ -37,3 +37,13 @@ def docker_available():
 
 def pyenv_available():
     return which("pyenv") is not None
+
+
+def redis_available():
+    try:
+        import redis
+        r = redis.Redis()
+        r.ping()
+        return True
+    except:
+        return False

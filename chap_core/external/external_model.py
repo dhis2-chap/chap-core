@@ -21,8 +21,7 @@ from chap_core.datatypes import (
 )
 from chap_core.external.mlflow import (
     ExternalModel,
-    MlFlowTrainPredictRunner,
-    DockerTrainPredictRunner,
+    get_train_predict_runner,
 )
 from chap_core.geojson import NeighbourGraph
 from chap_core.runners.command_line_runner import CommandLineRunner
@@ -201,7 +200,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             extra_args=extra_args,
             **kwargs,
         )
-        response = self.run_through_container(command)
+        self.run_through_container(command)
         self._saved_state = new_pd
         return self
 
@@ -209,7 +208,7 @@ class ExternalCommandLineModel(Generic[FeatureType]):
         name = "future_data.csv"
         start_time = future_data.start_timestamp
         logger.info("Predicting on dataset from %s", start_time)
-        with open(name, "w") as f:
+        with open(name, "w") as _:
             df = future_data.to_pandas()
             df["disease_cases"] = np.nan
 
@@ -226,20 +225,20 @@ class ExternalCommandLineModel(Generic[FeatureType]):
             kwargs = {"graph": filename}
         else:
             kwargs = {}
+        outfile_name = "predictions.csv"
         command = self._predict_command.format(
             future_data=name,
             model=self._model_file_name,
-            out_file="predictions.csv",
+            out_file=outfile_name,
             **kwargs,
         )
-        response = self.run_through_container(command)
+        self.run_through_container(command)
         try:
-            df = pd.read_csv(Path(self._working_dir) / "predictions.csv")
-
-        except pandas.errors.EmptyDataError:
+            df = pd.read_csv(Path(self._working_dir) / outfile_name)
+        except pd.errors.EmptyDataError:
             # todo: Probably deal with this in an other way, throw an exception istead
             logging.warning("No data returned from model (empty file from predictions)")
-            raise ValueError(f"No prediction data written to file {out_file.name}")
+            raise ValueError(f"No prediction data written to file {outfile_name}")
         result_class = SummaryStatistics if "quantile_low" in df.columns else HealthData
         if self._location_mapping is not None:
             df["location"] = df["location"].apply(self._location_mapping.index_to_name)
@@ -393,25 +392,43 @@ def get_model_and_runner_from_yaml_file(
     return ExternalCommandLineModel.from_yaml_file(yaml_file), get_runner_from_yaml_file(yaml_file)
 
 
-def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/"), ignore_env=False):
+def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/"), ignore_env=False,
+                                           make_run_dir=True):
     """
     Gets the model and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
     """
     is_github = False
+    commit = None
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):
         dir_name = model_path.split("/")[-1].replace(".git", "")
         model_name = dir_name
+        if '@' in model_path:
+            model_path, commit = model_path.split('@')
         is_github = True
     else:
         model_name = Path(model_path).name
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    working_dir = base_working_dir / model_name / timestamp
+    if not make_run_dir:
+        working_dir = base_working_dir / model_name / "latest"
+        # clear working dir
+        if working_dir.exists():
+            logging.info(f"Removing previous working dir {working_dir}")
+            shutil.rmtree(working_dir)
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        working_dir = base_working_dir / model_name / timestamp
+        # check that working dir does not exist
+        assert not working_dir.exists(), f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
+
+    logger.info(f"Writing results to {working_dir}")
 
     if is_github:
         working_dir.mkdir(parents=True)
-        git.Repo.clone_from(model_path, working_dir)
+        repo = git.Repo.clone_from(model_path, working_dir)
+        if commit:
+            repo.git.checkout(commit)
+
     else:
         # copy contents of model_path to working_dir
         logger.info(f"Copying files from {model_path} to {working_dir}")
@@ -427,25 +444,36 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         raise Exception("No config.yml or MLproject file found in model directory")
 
 
-def get_model_from_mlproject_file(mlproject_file, ignore_env=False):
+def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
+    is_in_docker = os.environ.get("IS_IN_DOCKER", False)
+    if is_in_docker:
+        ignore_env = True
+
 
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
-    is_in_docker = os.environ.get("IS_IN_DOCKER", False)
-    if "docker_env" in config:
-        logging.info("Docker env is specified in mlproject file, using ExternalCommandLineModel")
-        # return ExternalCommandLineModel.from_mlproject_file(mlproject_file)
-        runner = DockerTrainPredictRunner.from_mlproject_file(mlproject_file)
-        if is_in_docker:
-            assert isinstance(runner, DockerTrainPredictRunner), "Only supported for docker"
-            runner.change_runner(CommandLineRunner(mlproject_file.parent))
-            logging.info("Ignoring docker env. Setting runner to a command line runner")
-    else:
-        runner = MlFlowTrainPredictRunner(mlproject_file.parent)
 
+    if "docker_env" in config:
+        runner_type = "docker"
+        #logging.info("Docker env is specified in mlproject file, using ExternalCommandLineModel")
+        # return ExternalCommandLineModel.from_mlproject_file(mlproject_file)
+        #runner = DockerTrainPredictRunner.from_mlproject_file(mlproject_file)
+        #if is_in_docker or ignore_env:
+        #    assert isinstance(runner, DockerTrainPredictRunner), "Only supported for docker"
+        #    runner.change_runner(CommandLineRunner(mlproject_file.parent))
+        #    logging.info("Ignoring docker env. Setting runner to a command line runner")
+    else:
+        runner_type = "mlflow"
+        # runner = get_train_predict_runner(mlproject_file, "mlflow", skip_environment=ignore_env)
+        #runner = MlFlowTrainPredictRunner(mlproject_file.parent)
+        #if ignore_env:
+        #    logging.info("Ignoring mlflow env. Setting runner to a command line runner")
+        #    runner.change_runner(CommandLineRunner(mlproject_file.parent))
+
+    runner = get_train_predict_runner(mlproject_file, runner_type, skip_environment=ignore_env)
     logging.info("Will create ExternalMlflowModel")
     name = config["name"]
     adapters = config.get("adapters", None)

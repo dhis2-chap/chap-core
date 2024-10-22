@@ -26,3 +26,4 @@ dataset = xarray.open_dataset(
 )
 first_image = dataset.isel(time=0)
 temp = first_image['temperature_2m'].values
+
