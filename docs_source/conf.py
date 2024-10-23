@@ -24,6 +24,19 @@ sys.path.insert(0, os.path.abspath('..'))
 
 import chap_core
 
+doctest_global_setup = """
+import chap_core
+import pandas as pd
+import numpy as np
+import os
+if os.getcwd().endswith("docs_source"):
+    os.chdir("../")
+pd.options.display.max_columns = 5
+pd.options.display.width = 150
+pd.options.display.max_colwidth = 30
+"""
+
+
 # -- General configuration ---------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
