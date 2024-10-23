@@ -8,5 +8,5 @@ The main documentation is located at [https://dhis2-chap.github.io/chap-core/](h
 
 
 # Development
-We have an open Github board with plans, roadmaps and todo here: [https://github.com/orgs/dhis2-chap/projects/4](https://github.com/orgs/dhis2-chap/projects/3).
+We have an open Github board with plans, roadmaps and todo here: [https://github.com/orgs/dhis2-chap/projects/4](https://github.com/orgs/dhis2-chap/projects/4).
 
