@@ -47,3 +47,11 @@ def redis_available():
         return True
     except ModuleNotFoundError:
         return False
+
+    import redis
+    try:
+        r = redis.Redis()
+        r.ping()
+        return True
+    except redis.exceptions.ConnectionError:
+        return False
