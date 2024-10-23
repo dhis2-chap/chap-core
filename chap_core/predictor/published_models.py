@@ -16,7 +16,7 @@ models = (
         period=PeriodType.month,
         description="Monthly EWARS model",
         author="CHAP",
-        github_link="https://github.com/sandvelab/chap_auto_ewars",
+        github_link="https://github.com/sandvelab/chap_auto_ewars@58d56f86641f4c7b09bbb635afd61740deff0640",
     ),
     ExternalModelSpec(
         name="chap_ewars_weekly",
@@ -25,7 +25,7 @@ models = (
         period=PeriodType.week,
         description="Weekly EWARS model",
         author="CHAP",
-        github_link="https://github.com/sandvelab/chap_auto_ewars_weekly",
+        github_link="https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6",
     ),
     ExternalModelSpec(
         name="auto_regressive_weekly",
@@ -34,7 +34,7 @@ models = (
         period=PeriodType.week,
         description="Weekly Deep Auto Regressive model",
         author="knutdrand",
-        github_link="https://github.com/knutdrand/weekly_ar_model",
+        github_link="https://github.com/knutdrand/weekly_ar_model@36a537dac138af428a4167b2a89eac7dafd5d762",
     ),
     ExternalModelSpec(
         name="auto_regressive_monthly",
@@ -43,7 +43,7 @@ models = (
         period=PeriodType.month,
         description="Monthly Deep Auto Regressive model",
         author="knutdrand",
-        github_link="https://github.com/sandvelab/monthly_ar_model",
+        github_link="https://github.com/sandvelab/monthly_ar_model@cadd785872624b4bcd839a39f5e7020c25254c31",
     ),
 )
 

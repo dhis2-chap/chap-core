@@ -61,7 +61,8 @@ class TemporalDataclass(Generic[FeaturesT]):
             return self
         n_missing_start = self._data.time_period.delta.n_periods(start_timestamp, self.start_timestamp)
         # n_missing_start = (self.start_timestamp - start_timestamp) // self._data.time_period.delta
-        n_missing = (end_timestamp - self.end_timestamp) // self._data.time_period.delta
+        n_missing = self._data.time_period.delta.n_periods(self.end_timestamp, end_timestamp)
+        #n_missing = (end_timestamp - self.end_timestamp) // self._data.time_period.delta
         assert n_missing >= 0, (f"{n_missing} < 0", end_timestamp, self.end_timestamp)
         assert n_missing_start >= 0, (
             f"{n_missing} < 0",
