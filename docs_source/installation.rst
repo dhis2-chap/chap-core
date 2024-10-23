@@ -13,6 +13,6 @@ Basic installation can be done using pip:
 If running models, you may also need to install:
 
 - Docker, if running a model that runs through docker
-- [pyenv](https://github.com/pyenv/pyenv?tab=readme-ov-file#installation), if running a model that uses Python virtual environments
+- `Pyenv <https://github.com/pyenv/pyenv?tab=readme-ov-file#installation>`_, if running a model that uses Python virtual environments
 
 

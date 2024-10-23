@@ -475,6 +475,7 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalM
         #    runner.change_runner(CommandLineRunner(mlproject_file.parent))
 
     runner = get_train_predict_runner(mlproject_file, runner_type, skip_environment=ignore_env)
+    logging.info("Runner is %s", runner)
     logging.info("Will create ExternalMlflowModel")
     name = config["name"]
     adapters = config.get("adapters", None)

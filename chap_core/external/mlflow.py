@@ -89,6 +89,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         )
 
 
+
 class CommandLineTrainPredictRunner(TrainPredictRunner):
     def __init__(self, runner: CommandLineRunner, train_command: str, predict_command: str):
         self._runner = runner
@@ -109,14 +110,10 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         return self._runner.run_command(command)
 
 
-class DockerTrainPredictRunner(TrainPredictRunner):
+class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
     def __init__(self, runner: DockerRunner, train_command: str, predict_command: str):
-        self._runner = runner
-        self._train_command = train_command
-        self._predict_command = predict_command
+        super().__init__(runner, train_command, predict_command)
 
-    def change_runner(self, new_runner):
-        self._runner = new_runner
 
     @classmethod
     def from_mlproject_file(cls, mlproject_file: Path):
