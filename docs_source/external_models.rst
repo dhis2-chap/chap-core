@@ -15,12 +15,13 @@ These should contain commands that can be run to train a model and predict the f
 
 `Here is an example of a valid directory with an MLproject file <https://github.com/dhis2/chap-core/tree/dev/external_models/naive_python_model_with_mlproject_file>`_.
 
+The following shows how you can run models that follow the specification above. If you have your own model that you want to make compatible with CHAP, follow :ref:`this guide <developing_custom_models>`.
 
 The MLproject file can specify a docker image or Python virtual environment that will be used when running the commands.
 
 
 Running an external model on the command line
-----------------------------------------------
+...............................................
 
 External models can be run on the command line using the `chap evaluate` command. See `chap evaluate --help` for details.
 
@@ -32,7 +33,7 @@ This example runs an auto ewars R model on public ISMIP data for Brazil using a 
 
 
 Running an external model in Python
-------------------------------------
+...................................
 
 CHAP contains an API for loading models through Python. The following shows an example of loading and evaluating three different models by specifying paths/github urls, and evaluating those models:
 

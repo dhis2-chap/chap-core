@@ -427,6 +427,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         working_dir.mkdir(parents=True)
         repo = git.Repo.clone_from(model_path, working_dir)
         if commit:
+            logger.info(f'Checking out commit' + commit)
             repo.git.checkout(commit)
 
     else:
@@ -474,6 +475,7 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalM
         #    runner.change_runner(CommandLineRunner(mlproject_file.parent))
 
     runner = get_train_predict_runner(mlproject_file, runner_type, skip_environment=ignore_env)
+    logging.info("Runner is %s", runner)
     logging.info("Will create ExternalMlflowModel")
     name = config["name"]
     adapters = config.get("adapters", None)

@@ -14,6 +14,7 @@ The current version has basic data handling functionality in place, and is almos
 
    installation
    external_models
+   developing_custom_models
    tutorials/wrapping_gluonts
    tutorials/downloaded_json_data
 
