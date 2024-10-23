@@ -427,7 +427,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         working_dir.mkdir(parents=True)
         repo = git.Repo.clone_from(model_path, working_dir)
         if commit:
-            logger.info(f'Checking out commit' + commit)
+            logger.info(f'Checking out commit {commit}')
             repo.git.checkout(commit)
 
     else:
