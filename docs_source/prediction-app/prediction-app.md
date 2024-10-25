@@ -61,7 +61,7 @@ Below is an example of how a filled form could look like:
 <br/>
 <img src="../_static/form_filled.png" alt="drawing" width="350"/>
 
-Click **"Download data"** if you chose Solution 1 (Download disease data from DHIS2 into a CHAP Core-supported format) and **"Send data to CHAP ➔** if you chose Solution 2 (Use Prediction App to transfer data directly to CHAP Core's REST-API).
+Click **"Download data"** if you chose Solution 1 (Download disease data from DHIS2 into a CHAP Core-supported format) and **"Send data to CHAP ➔"** if you chose Solution 2 (Use Prediction App to transfer data directly to CHAP Core's REST-API).
 
 <br/>
 <br/>
