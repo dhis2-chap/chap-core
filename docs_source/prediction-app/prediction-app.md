@@ -26,7 +26,7 @@ You need to download the Prediction App as a ZIP file for installing it on your 
 ### 3. Starting REST-API and edit URL
 
 <div style="background-color: orangered; padding: 10px; color : white; margin-top: 20px; margin-bottom: 20px">
-<b>NB!</b> This step is only required if you choose solution 2 (Start CHAP Core's REST-API locally and transfer data directly from Prediction App to CHAP Core). If you, choose solution 1 (Download disease data from DHIS2 to use CHAP Core CLI), proceed to step 4
+<b>NB!</b> Step 3 is only required if you choose solution 2 (Start CHAP Core's REST-API locally and transfer data directly from Prediction App to CHAP Core). If you, choose solution 1 (Download disease data from DHIS2 to use CHAP Core CLI), proceed to step 4
 </div>
 
 #### 3.1 Start CHAP Core with REST-API
