@@ -7,12 +7,12 @@ Starting CHAP Core using Docker Compose is specifically for those who want to us
 
 ## 1. Install Docker and Docker Compose (if not installed)
 
-### 1.1. Install Docker and Docker Compose
-Docker is a platform for developing, shipping, and running applications inside containers.
+
+**Docker** is a platform for developing, shipping, and running applications inside containers.
 
 To download and install Docker, visit the official Docker website: [https://docs.docker.com/get-started/get-docker](https://docs.docker.com/get-started/get-docker)
 
-Docker Compose is a tool for defining and running multi-container Docker applications and is required for starting CHAP Core with Docker. To install Docker Compose, follow the instructions provided in the official Docker documentation:
+**Docker Compose** is a tool for defining and running multi-container Docker applications and is required for starting CHAP Core with Docker. To install Docker Compose, follow the instructions provided in the official Docker documentation:
 
 [Install Docker Compose](https://docs.docker.com/compose/install/)
 
