@@ -1,7 +1,7 @@
 # Prediction App
 
 **This page contains documentation on how to install and use Prediction App to create predictions.**
-Prediction App enables integration between [CHAP Core](https://github.com/dhis2-chap/CHAP Core) and [DHIS2](https://dhis2.org/) (2.41+). 
+Prediction App enables integration between [CHAP Core](https://github.com/dhis2-chap/chap-core) and [DHIS2](https://dhis2.org/) (2.41+). 
 
 [Click here if you are looking for Prediction App development documentation ➔](https://github.com/dhis2/prediction-app/blob/main/doc/development/README.md) 
 
