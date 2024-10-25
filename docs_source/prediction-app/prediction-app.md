@@ -56,6 +56,10 @@ After clicking "Save", Prediction App would reload and start to fetch and send d
 - Ensure you have a DHIS2 data element for the disease data you want to make a prediction for.
 - You select which areas you want to create a prediction for in the "Select organization units" section.
 - "period" in the form, refers to the model's training period, the prediction will be for three months. For instance, if you select all periods between January 2013 and August 2024, a prediction will be made for September 2024, October 2024, and November 2024.
+<br/>
+
+**Important about selecting period**<br/>
+If your primary goal is to predict the number of cases (rather than to evaluate models), make sure you select the most recent completed period up to today. CHAP Core does not account for specific dates and treats each month's registrations equally. Therefore, it is crucial to ensure that the data you provide is complete. For example, if today's date is the 15th, the data for the current month is likely to be incomplete because it won't include information from the second half of the month. CHAP Core is not able to tell that the data belongs to an incomplete month and will count it as one full month of registration when it in reality is only 15 days. This will cause inaccurate predictions.
 
 Below is an example of how a filled form could look like:
 <br/>
