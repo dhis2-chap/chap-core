@@ -1,48 +1,54 @@
 Climate Health Analytics Platform (CHAP)
 ==============================================================
-Installing and using CHAP
-"""""""""""""""""""""""""""""""""""""""""""""
 
 CHAP is a platform for forecasting and for assessing forecasts of climate-sensitive health outcomes.
 In the early phase, the focus is on vector-borne diseases like malaria and dengue
-The platforms is to perform data parsing, data integration, forecasting based on any of 
+The platform can perform data parsing, data integration, forecasting based on any of
 multiple supported models, automatic brokering of compatible models for a given prediction context and robust forecast assessment and method comparison.
-
-This page container documentation regarding installing and using CHAP. This contain information about every CHAP product, such as CHAP Core, Prediction App, and Climate App.
-
 
 The current version has basic data handling functionality in place, and is almost at a stage where it supports running a first external model (EWARS-Plus)
 
+This documentation contains information about installing and using CHAP. The documentation is divided into sections depending on use-case:
+
+- For users who want to test out a full installation of CHAP locally, we recommend following the guide on :doc:`settiing up CHAP with docker compose <docker-compose-doc>`.
+- For users who want to develop custom forecasting models and run or benchmark these through CHAP, we recommend installing the chap-core Python package and folowing the guides on :ref:`integrating external models <external_models>` and :ref:`developing custom models <developing_custom_models>`.
+
+
+The following is an overview of all pages in the documentation:
+
+
 
 .. toctree::
-   :maxdepth: 0
-   :caption: Contents:
-   
-   prediction-app/prediction-app
-   docker-compose-doc
+   :glob:
+   :maxdepth: 2
+   :caption: Installation and getting started
+
    installation
-   external_models
-   developing_custom_models
+
+.. toctree::
+   :glob:
+   :maxdepth: 2
+   :caption: Setting up CHAP with docker and integration with DHIS2
+
+   prediction-app/*
+   docker-compose-doc
+   tutorials/downloaded_json_data
+
+
+.. toctree::
+   :glob:
+   :maxdepth: 2
+   :caption: Integration external or custom models with CHAP
+
+   external_models/*
+
+
+.. toctree::
+   :glob:
+   :maxdepth: 2
+   :caption: Using CHAP as a library
+
    tutorials/wrapping_gluonts
-
-API documentation
-===================
-
-Data Fetching
---------------
-
-Functionality for fetching data
-
-
-.. currentmodule:: climate_health.fetch
-
-.. autofunction:: gee_era5
-
-.. currentmodule:: climate_health.data
-
-.. autoclass:: DataSet
-    :members: from_period_observations, from_pandas, to_pandas
-
-.. autoclass:: PeriodObservation
+   api_docs
 
 

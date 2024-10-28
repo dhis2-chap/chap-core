@@ -1,18 +1,24 @@
 .. highlight:: shell
 
-============
-Installation
-============
+Installation and getting started
+===================================
 
-Basic installation can be done using pip:
+Installation of chap-core
+---------------------------
+
+Installation of CHAP depends on how you want to use CHAP. If you are developing custom models or integrating external forecasting models with CHAP, you should install the chap-core Python package:
 
 .. code-block:: console
 
     $ pip install chap-core
 
-If running models, you may also need to install:
+Local or sever setup with docker
+----------------------------------
 
-- Docker, if running a model that runs through docker
-- `Pyenv <https://github.com/pyenv/pyenv?tab=readme-ov-file#installation>`_, if running a model that uses Python virtual environments
+If you want to run models that are already available with CHAP locally on a computer or on a server, we recommend setting up CHAP using docker. `See this guide for setting up CHAP using Docker Compose <docker-compose-doc>`_.
 
+Development setup
+------------------
+
+If you want to contribute to the chap-core Python codebase, you will need to set up a development environment. The following is our recommended setup. You will need to have Python 3.10 or a higher version installed.
 
