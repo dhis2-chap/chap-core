@@ -182,7 +182,7 @@ wheels = [
 
 [[package]]
 name = "chap-core"
-version = "0.0.11"
+version = "0.0.13"
 source = { editable = "." }
 dependencies = [
     { name = "annotated-types" },
@@ -223,7 +223,7 @@ dependencies = [
     { name = "xarray" },
 ]
 
-[package.dev-dependencies]
+[package.dependency-groups]
 dev = [
     { name = "build" },
     { name = "bump2version" },
@@ -282,7 +282,7 @@ requires-dist = [
     { name = "xarray" },
 ]
 
-[package.metadata.requires-dev]
+[package.metadata.dependency-groups]
 dev = [
     { name = "build" },
     { name = "bump2version", specifier = ">=1.0.1" },
