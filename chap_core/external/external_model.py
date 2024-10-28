@@ -449,7 +449,7 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalM
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
-    is_in_docker = os.environ.get("IS_IN_DOCKER", False)
+    #is_in_docker = os.environ.get("IS_IN_DOCKER", False)
     #if is_in_docker:
     #    ignore_env = True
 
