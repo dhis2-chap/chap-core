@@ -1,4 +1,4 @@
-# Use JSON-file from Prediction App with CHAP Core CLI
+# Solution 1: Use JSON-file from Prediction App with CHAP Core CLI
 
 If you are following this documentation, we assume that you have downloaded a JSON file using the "Download button" in the Prediction App. If you have not completed this step, you need to [learn how to install the Prediction App and download a JSON file](./prediction-app.md) first
 
