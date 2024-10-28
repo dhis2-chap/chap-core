@@ -1,5 +1,5 @@
 
-# Docker Compose (CHAP Core) {#docker-compose}
+# Docker Compose (CHAP Core)
 
 Starting CHAP Core using Docker Compose is specifically for those who want to use the CHAP Core REST-API, either together with other services or with the Prediction App installed on a DHIS2 server. See documentation for [Prediction App](prediction-app/prediction-app.md) for instructions on how to install the Prediction App.
 

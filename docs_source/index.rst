@@ -10,13 +10,15 @@ The current version has basic data handling functionality in place, and is almos
 
 This documentation contains information about installing and using CHAP. The documentation is divided into sections depending on use-case:
 
-- For users who want to test out a full installation of CHAP locally, we recommend following the guide on :doc:`settiing up CHAP with docker compose <docker-compose-doc>`.
-- For users who want to develop custom forecasting models and run or benchmark these through CHAP, we recommend installing the chap-core Python package and folowing the guides on :ref:`integrating external models <external_models>` and :ref:`developing custom models <developing_custom_models>`.
+- For users who want to fully install CHAP locally or on a server, e.g. to integrate with DHIS2, we recommend :doc:`setting up CHAP with docker compose <docker-compose-doc>` and :doc:`using the Prediction app <prediction-app/prediction-app>`.
+- For users who want to develop custom forecasting models and run or benchmark these through CHAP, or to simply evaluate external models on small example datasets, we recommend :ref:`installing the chap-core Python package <installation>` and folowing the guides on :ref:`integrating external models <external_models>` and :ref:`developing custom models <developing_custom_models>`.
+- For users who want to use CHAP as a library, we refer to the tutorials and API documentation (see the menu).
 
+
+All pages
+----------
 
 The following is an overview of all pages in the documentation:
-
-
 
 .. toctree::
    :glob:
@@ -24,21 +26,21 @@ The following is an overview of all pages in the documentation:
    :caption: Installation and getting started
 
    installation
+   docker-compose-doc
 
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Setting up CHAP with docker and integration with DHIS2
+   :caption: Using the Predictions App with CHAP (and integration with DHIS2)
 
    prediction-app/*
-   docker-compose-doc
    tutorials/downloaded_json_data
 
 
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Integration external or custom models with CHAP
+   :caption: Integrating external or custom models with CHAP
 
    external_models/*
 
