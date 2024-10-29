@@ -26,5 +26,5 @@ def test_run_docker_basic(models_path):
 
     with pytest.raises(docker.errors.APIError):
         result = run_command_through_docker_container(
-            "ubuntu", "./", "command_not_existing"
+            "ubuntu", "./", "command_not_existing", remove_after_run=True
         )

@@ -135,3 +135,10 @@ chap_core/web_interface/node_modules/
 #ignore outputs from pytest
 /runs
 /cache
+
+report.pdf
+tests/future_data.csv
+
+tests/logs/
+tests/out.tmp
+mlruns/
