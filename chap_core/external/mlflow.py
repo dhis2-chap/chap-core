@@ -117,6 +117,8 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
     def __init__(self, runner: DockerRunner, train_command: str, predict_command: str):
         super().__init__(runner, train_command, predict_command)
 
+    def teardown(self):
+        self._runner.teardown()
 
 
 class ExternalModel(Generic[FeatureType]):
@@ -126,7 +128,7 @@ class ExternalModel(Generic[FeatureType]):
 
     def __init__(
         self,
-        runner: MlFlowTrainPredictRunner | DockerTrainPredictRunner,
+        runner: MlFlowTrainPredictRunner | DockerTrainPredictRunner | CommandLineRunner,
         name: str = None,
         adapters=None,
         working_dir="./",
@@ -256,6 +258,9 @@ class ExternalModel(Generic[FeatureType]):
         time_periods = [TimePeriod.parse(s) for s in df.time_period.astype(str)]
         mask = [start_time <= time_period.start_timestamp for time_period in time_periods]
         df = df[mask]
+
+        self._runner.teardown()
+
         return DataSet.from_pandas(df, Samples)
 
 

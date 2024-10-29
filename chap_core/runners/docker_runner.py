@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import docker
 from ..docker_helper_functions import (
     create_docker_image,
     run_command_through_docker_container,
@@ -40,3 +40,9 @@ class DockerRunner(Runner):
     def run_command(self, command):
         logger.info(f"Running command {command} in docker container {self._docker_name} in {self._working_dir}")
         return run_command_through_docker_container(self._docker_name, self._working_dir, command)
+
+    def teardown(self):
+        # remove the docker image
+        client = docker.from_env()
+        client.images.remove(self._docker_name, force=True)
+

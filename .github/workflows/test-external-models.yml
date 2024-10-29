@@ -43,4 +43,6 @@ jobs:
         command: ""
     - name: Run
       run: |
+        GOOGLE_SERVICE_ACCOUNT_EMAIL={{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+        GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY={{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
         make test-all
