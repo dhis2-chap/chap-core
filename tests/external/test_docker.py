@@ -9,6 +9,7 @@ from chap_core.util import docker_available
 
 @pytest.mark.skipif(not docker_available(), reason="Docker not available")
 @pytest.mark.slow
+@pytest.mark.skip(reason="Not necessary anymore, this image is not being used directly")
 def test_create_inla_image(models_path):
     docker_directory = models_path / "docker_r_base"
     name = create_docker_image(docker_directory)
