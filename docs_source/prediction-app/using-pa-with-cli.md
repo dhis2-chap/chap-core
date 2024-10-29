@@ -13,21 +13,21 @@ The JSON file you download from the Prediction App should look similar to this:
         "featureId": "population",
         "dhis2Id": "gJkrZH2vV8k",
         "data": [
-          //removed for readability  
+          //removed for readability
         ]
       },
       {
         "featureId": "disease",
         "dhis2Id": "GPEAQwddr16",
         "data": [
-          //removed for readability  
+          //removed for readability
         ]
       }
     ],
     "orgUnitsGeoJson": {
       "type": "FeatureCollection",
       "features": [
-        //removed for readability  
+        //removed for readability
       ]
     }
   }
@@ -36,37 +36,19 @@ The JSON file you download from the Prediction App should look similar to this:
 
 ## Get started with CHAP Cli
 
-#### Requirements: 
+#### Requirements:
 - Docker is installed **AND** running on your computer (Installation instructions can be found at [https://docs.docker.com/get-started/get-docker/](https://docs.docker.com/get-started/get-docker/)).
 - Access to the credentials for Google Earth Engine. (Google Service Account Email and Private Key)
 
 ## Install CHAP Core CLI
 
-We recommend you run CHAP Core with Conda. If you don't have Conda, you can install Miniconda, 
-(a minimal installer for Conda) from https://docs.anaconda.com/miniconda/#latest-miniconda-installer-links.
-
-- Windows: After installation, open "Anaconda Prompt". Search for "Anaconda Prompt" in the Windows Start menu.
-- Linux: Conda should work in your default terminal after installation.
-
-**We recommend you create a new conda environment by running the following commands:**
-
-```bash
-$ conda create -n chap-core python=3.11
-$ conda activate chap-core
-```
-
-**In the same shell, install CHAP Core by running the following command (10-20 min):**
-
-```bash
-$ pip install git+https://github.com/dhis2/chap-core.git
-```
-
+Follow [the installation instructions to install the chap-core package](../installation).
 After installation, the chap command line interface (CLI) should be available in your terminal.
 
 ## Credentials for Google Earth Engine
 
-You need to have credentials for Google Earth Engine. We recommend you create a new folder named "chap-core-cli" where you will later run CHAP Core. Inside 
-this folder, create a new file named ".env" with the two environment variables: **"GOOGLE_SERVICE_ACCOUNT_EMAIL"** and **"GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"**. 
+You need to have credentials for Google Earth Engine. We recommend you create a new folder named "chap-core-cli" where you will later run CHAP Core. Inside
+this folder, create a new file named ".env" with the two environment variables: **"GOOGLE_SERVICE_ACCOUNT_EMAIL"** and **"GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"**.
 
 <div style="border-radius: 1px; border-style: dotted; border-color: orange; padding: 10px; color : black; background-color: white; margin-top: 20px; margin-bottom: 20px">
 **Note**: It's recommended to use a terminal or a code editor when creating the ".env" file. If you, for instance, are using Windows File Explorer to create this file, you may end up with a text file named .env.txt instead.

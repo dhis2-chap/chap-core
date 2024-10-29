@@ -7,7 +7,7 @@ In the early phase, the focus is on vector-borne diseases like malaria and dengu
 The platform can perform data parsing, data integration, forecasting based on any of
 multiple supported models, automatic brokering of compatible models for a given prediction context and robust forecast assessment and method comparison.
 
-This documentation contains technical information about installing and using CHAP. For more general information about the project, we refer to :ref:`the CHAP project wiki <https://github.com/dhis2-chap/chap-core/wiki>`. The documentation here is divided into sections referring to different use-cases:
+This documentation contains technical information about installing and using CHAP. For more general information about the project, we refer to `the CHAP project wiki <https://github.com/dhis2-chap/chap-core/wiki>`_. The documentation here is divided into sections referring to different use-cases:
 
 ----
 
