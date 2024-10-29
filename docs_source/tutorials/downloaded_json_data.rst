@@ -1,37 +1,28 @@
-Running on JSON data downloaded from the CHAP-app
+Running on JSON data downloaded from the Prediction App
 =============================================================================================================
 
 **Use this instruction when CHAP Core is not installed at a backend service on your DHIS2-instance**
 
-Requriments: 
+Requriments:
     - Docker is installed AND running on your computer (Installation instructions can be found at https://docs.docker.com/get-started/get-docker/).
-    - CHAP-app is installed on your DHIS2-instance (Instruction for CHAP-app installation could be found at https://github.com/dhis2/chap-app)
+    - Prediction App is installed on your DHIS2-instance (Instruction for Prediction App installation could be found at https://github.com/dhis2/prediction-app)
     - Access to credentials for Google Earth Engine. (Google Service Account Email and Private Key)
 
 Install CHAP Core
 -----------------
-We recommend you run CHAP Core with Conda. If you don't have Conda, you could install Miniconda, 
+
+
+Follow :ref:`the installation instructions to install the chap-core package <installation>`.
+After installation, the chap command line interface (CLI) should be available in your terminal.
+
+We recommend you run CHAP Core with Conda. If you don't have Conda, you could install Miniconda,
 (a minimal installer for Conda) from https://docs.anaconda.com/miniconda/#latest-miniconda-installer-links
 
-- Windows: After installation open "Anaconda Prompt". Search for "Anaconda Prompt" in the Windows Start menu.
-- Linux: Conda should work in your default terminal after installation.
-
-**We recommend you to create a new conda environment by running the following commands:**
-
-    $ conda create -n chap-core python=3.11
-
-    $ conda activate chap-core
-
-**In the same shell, install CHAP Core, by runing the following command (10-20 min):**
-
-    $ pip install git+https://github.com/dhis2/chap-core.git
-
-After installation, chap command line interface (CLI) should be available in your terminal.
 
 Credentials for Google Earth Engine
 ------------------------------------------
-You need to have credentials for Google Earth Engine. We recommend you to create a new folder where you will later run CHAP Core. Inside 
-this folder, create a new file named ".env" with the two environment variables: **"GOOGLE_SERVICE_ACCOUNT_EMAIL"** and **"GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"**. 
+You need to have credentials for Google Earth Engine. We recommend you to create a new folder where you will later run CHAP Core. Inside
+this folder, create a new file named ".env" with the two environment variables: **"GOOGLE_SERVICE_ACCOUNT_EMAIL"** and **"GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"**.
 The file should look similar to the following content:
 
 .. code-block:: bash
@@ -42,8 +33,8 @@ The file should look similar to the following content:
 Convert the JSON data into a CHAP-DataSet
 ------------------------------------------
 
-After downloading the JSON data from the CHAP-app, it's practical to first convert the data into a CHAP-DataSet. This
-fetches the climate data from the Google Earth Engine dataset ERA5-Land Daily Aggregated and harmonizes the data into a single DataSet. 
+After downloading the JSON data from the Prediction App, it's practical to first convert the data into a CHAP-DataSet. This
+fetches the climate data from the Google Earth Engine dataset ERA5-Land Daily Aggregated and harmonizes the data into a single DataSet.
 This is done by running the following command (replace the placeholders with the actual values):
 
 .. code-block:: bash

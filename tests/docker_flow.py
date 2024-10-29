@@ -41,6 +41,7 @@ def ensure_up(chap_url):
 
 
 def evaluate_model(chap_url, data, model, timeout=600):
+    print("Evaluating", model)
     ensure_up(chap_url)
     model_name = model["name"]
     data["estimator_id"] = model_name
@@ -54,6 +55,10 @@ def evaluate_model(chap_url, data, model, timeout=600):
         job_status = requests.get(chap_url + "/v1/status").json()
         if job_status['status'] == "failed":
             exception_info = requests.get(chap_url + "/v1/get-exception").json()
+            if "Earth Engine client library not initialized" in exception_info:
+                logger.warning("Earth Engine client library not initialized. Ignoring this test")
+                return
+
             raise ValueError("Model evaluation failed. Exception: %s" % exception_info)
 
         logger.info(job_status)

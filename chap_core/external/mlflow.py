@@ -34,12 +34,13 @@ def get_train_predict_runner(mlproject_file: Path, runner_type: Literal["mlflow"
 
         train_command = data["entry_points"]["train"]["command"]
         predict_command = data["entry_points"]["predict"]["command"]
-        assert "docker_env" in data, "Only docker supported for now"
-        logging.info(f"Docker image is {data['docker_env']['image']}")
 
         if skip_environment:
             return CommandLineTrainPredictRunner(CommandLineRunner(working_dir), train_command, predict_command)
+        else:
+            assert "docker_env" in data, "Runner type is docker, but no docker_env in mlproject file"
 
+        logging.info(f"Docker image is {data['docker_env']['image']}")
         command_runner = DockerRunner(data["docker_env"]["image"], working_dir)
         return DockerTrainPredictRunner(command_runner, train_command, predict_command)
     else:

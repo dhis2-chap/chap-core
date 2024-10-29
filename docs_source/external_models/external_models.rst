@@ -1,3 +1,6 @@
+.. _external_models:
+
+
 Integrating external models
 ------------------------------
 
@@ -37,6 +40,6 @@ Running an external model in Python
 
 CHAP contains an API for loading models through Python. The following shows an example of loading and evaluating three different models by specifying paths/github urls, and evaluating those models:
 
-.. literalinclude :: ../scripts/external_model_example.py
+.. literalinclude :: ../../scripts/external_model_example.py
    :language: python
 
