@@ -112,24 +112,11 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
 
 
 class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
+    """This is basically a CommandLineTrainPredictRunner, but with a DockerRunner
+    instead of a CommandLineRunner as runner"""
     def __init__(self, runner: DockerRunner, train_command: str, predict_command: str):
         super().__init__(runner, train_command, predict_command)
 
-
-    @classmethod
-    def from_mlproject_file(cls, mlproject_file: Path):
-        assert False # Not implemented
-        working_dir = mlproject_file.parent
-        # read yaml file into a dict
-        with open(mlproject_file, "r") as file:
-            data = yaml.load(file, Loader=yaml.FullLoader)
-
-        train_command = data["entry_points"]["train"]["command"]
-        predict_command = data["entry_points"]["predict"]["command"]
-        assert "docker_env" in data, "Only docker supported for now"
-        logging.info(f"Docker image is {data['docker_env']['image']}")
-        command_runner = DockerRunner(data["docker_env"]["image"], working_dir)
-        return cls(command_runner, train_command, predict_command)
 
 
 class ExternalModel(Generic[FeatureType]):
