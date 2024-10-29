@@ -223,7 +223,7 @@ dependencies = [
     { name = "xarray" },
 ]
 
-[package.dependency-groups]
+[package.dev-dependencies]
 dev = [
     { name = "build" },
     { name = "bump2version" },
@@ -282,7 +282,7 @@ requires-dist = [
     { name = "xarray" },
 ]
 
-[package.metadata.dependency-groups]
+[package.metadata.requires-dev]
 dev = [
     { name = "build" },
     { name = "bump2version", specifier = ">=1.0.1" },
