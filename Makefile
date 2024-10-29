@@ -56,7 +56,7 @@ test: ## run tests quickly with the default Python
 	pytest
 
 test-all: ## run pytest, doctests, examples
-	./tests/test_docker_compose_flow.sh
+	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
 	./tests/test_docker_compose_integration_flow.sh
 	uv run pytest --cov=climate_health --cov-report html --run-slow
 	uv run pytest --cov=climate_health --cov-report html --cov-append scripts/*_example.py
