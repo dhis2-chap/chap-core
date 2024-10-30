@@ -171,7 +171,7 @@ async def get_exception() -> str:
     Retrieve exception information if the job failed
     """
     cur_job = internal_state.current_job
-    return cur_job.exception_info
+    return cur_job.exception_info or ''
 
 @app.post("/cancel")
 async def cancel() -> dict:

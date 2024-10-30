@@ -22,6 +22,7 @@ get_exception_info = "/v1/get-exception"
 predict_on_json_path = "/v1/predict-from-json"
 predict_path = "/v1/predict"
 evaluate_path = "/v1/evaluate"
+evaluation_result_path = "/v1/get-evaluation-results"
 
 
 @pytest.fixture(scope="session")
@@ -73,7 +74,7 @@ def test_predict_on_json_data(big_request_json, rq_worker_process):
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 def test_evaluate(big_request_json, rq_worker_process):
-    check_job_endpoint(big_request_json, evaluate_path)
+    check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
@@ -88,7 +89,7 @@ def test_model_that_does_not_exist(big_request_json, rq_worker_process):
     check_job_endpoint(request_json, predict_path)
 
 
-def check_job_endpoint(big_request_json, endpoint_path):
+def check_job_endpoint(big_request_json, endpoint_path, result_path=get_result_path):
     response = client.post(endpoint_path, json=json.loads(big_request_json))
     assert response.status_code == 200
     status = client.get(get_status_path)
@@ -101,10 +102,11 @@ def check_job_endpoint(big_request_json, endpoint_path):
     ):
         time.sleep(1)
     assert client.get(get_status_path).json()["ready"]
-    result = client.get(get_result_path)
+    result = client.get(result_path)
     assert result.status_code == 200
     exception_info = client.get(get_exception_info)
-    assert exception_info == ""
+    assert exception_info.status_code == 200
+    assert exception_info.json() == ""
 
 
 @pytest.mark.xfail(reason="Waiting for asyynch test client")
