@@ -295,6 +295,8 @@ class Week(TimePeriod):
         return pd.Period(self._date, freq=("W"))
 
 def clean_timestring(timestring: str):
+    if isinstance(timestring, Number):
+        return str(timestring)
     if 'W' in timestring:
         year, week = timestring.split('W')
         return f'{year}W{int(week):02d}'
