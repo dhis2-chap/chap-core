@@ -2,6 +2,7 @@ from typing import Generic, Iterable, Tuple, Type, Callable
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 
 from ..api_types import PeriodObservation
 from .._legacy_dataset import TemporalIndexType, FeaturesT
@@ -13,7 +14,7 @@ from ..datatypes import (
     TimeSeriesData,
 )
 from ..time_period import PeriodRange
-from ..time_period.date_util_wrapper import TimeStamp
+from ..time_period.date_util_wrapper import TimeStamp, clean_timestring
 import dataclasses
 
 
@@ -235,7 +236,8 @@ class DataSet(Generic[FeaturesT]):
         """
         data_dict = {}
         for location, data in df.groupby("location"):
-            data_dict[location] = TemporalDataclass(dataclass.from_pandas(data, fill_missing))
+            data['time_period'] = data['time_period'].apply(clean_timestring)
+            data_dict[location] = TemporalDataclass(dataclass.from_pandas(data.sort_values(by='time_period'), fill_missing))
         data_dict = cls._fill_missing(data_dict)
 
         return cls(data_dict)
@@ -341,7 +343,16 @@ class DataSet(Generic[FeaturesT]):
             )
         return cls(new_dict)
 
+    def merge(self, other_dataset: 'DataSet', result_dataclass: type[TimeSeriesData]) -> 'DataSet':
+        assert set(self.locations()) == set(other_dataset.locations())
+        return DataSet({location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()})
+
     def plot(self):
-        for location, data in self.items():
-            df = data.to_pandas()
-            df.plot(x="time_period", title=location)
+        for location, value in self.items():
+            df = value.topandas()
+            df.plot(x='time_period', y='disease_cases')
+            plt.title(location)
+            plt.show()
+
+    def resample(self, freq):
+        return self.__class__({loc: data.resample(freq) for loc, data in self.items()})

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 from pydantic_geojson import (
     FeatureCollectionModel as _FeatureCollectionModel,
@@ -16,7 +18,7 @@ class FeatureCollectionModel(_FeatureCollectionModel):
 class DataElement(BaseModel):
     pe: str
     ou: str
-    value: float
+    value: Optional[float]
 
 
 class DataList(BaseModel):
@@ -49,7 +51,6 @@ class EvaluationEntry(BaseModel):
 class EvaluationResponse(BaseModel):
     actualCases: DataList
     predictions: list[EvaluationEntry]
-
 
 
 class PeriodObservation(BaseModel):

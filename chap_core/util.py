@@ -45,5 +45,5 @@ def redis_available():
         r = redis.Redis()
         r.ping()
         return True
-    except:
+    except Exception as _:
         return False
