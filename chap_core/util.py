@@ -45,5 +45,9 @@ def redis_available():
         r = redis.Redis()
         r.ping()
         return True
-    except Exception as _:
-        return False
+    except Exception as e:
+        if e.__class__.__name__ in ('ModuleNotFoundError', 'ConnectionError'):
+            return False
+        else:
+            # Handle other exceptions
+            raise

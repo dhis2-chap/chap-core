@@ -171,8 +171,6 @@ async def get_exception() -> str:
     Retrieve exception information if the job failed
     """
     cur_job = internal_state.current_job
-    if not (cur_job and cur_job.is_finished):
-        raise HTTPException(status_code=400, detail="No response available")
     return cur_job.exception_info
 
 @app.post("/cancel")
