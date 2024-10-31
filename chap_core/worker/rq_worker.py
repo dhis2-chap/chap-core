@@ -33,7 +33,8 @@ class RedisJob(Generic[ReturnType]):
 
     @property
     def result(self) -> ReturnType | None:
-        return self._job.return_value()
+        value = self._job.return_value()
+        return value
 
     @property
     def progress(self) -> float:

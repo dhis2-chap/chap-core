@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -15,6 +15,7 @@ from chap_core.predictor.feature_spec import Feature, all_features
 from chap_core.rest_api_src.data_models import FullPredictionResponse
 import chap_core.rest_api_src.worker_functions as wf
 from chap_core.predictor.model_registry import registry
+from chap_core.worker.interface import SeededJob
 from chap_core.worker.rq_worker import RedisQueue
 
 logger = logging.getLogger(__name__)
@@ -143,7 +144,7 @@ async def list_features() -> list[Feature]:
 
 
 @app.get("/get-results")
-async def get_results() -> Union[FullPredictionResponse, EvaluationResponse]:
+async def get_results() -> FullPredictionResponse:
     """
     Retrieve results made by the model
     """
@@ -153,13 +154,24 @@ async def get_results() -> Union[FullPredictionResponse, EvaluationResponse]:
     result = cur_job.result
     return result
 
+
+@app.get("/get-evaluation-results")
+async def get_evaluation_results() -> EvaluationResponse:
+    """
+    Retrieve evaluation results made by the model
+    """
+    cur_job = internal_state.current_job
+    if not (cur_job and cur_job.is_finished):
+        raise HTTPException(status_code=400, detail="No response available")
+    return cur_job.result
+
 @app.get("/get-exception")
 async def get_exception() -> str:
     """
     Retrieve exception information if the job failed
     """
     cur_job = internal_state.current_job
-    return cur_job.exception_info
+    return cur_job.exception_info or ''
 
 @app.post("/cancel")
 async def cancel() -> dict:
@@ -186,7 +198,14 @@ async def get_status() -> State:
     )
 
 
-def main_backend():
-    import uvicorn
+def seed(data):
+    internal_state.current_job = SeededJob(result=data)
 
+def get_openapi_schema():
+    return app.openapi()
+
+def main_backend(seed_data=None):
+    import uvicorn
+    if seed_data is not None:
+        seed(seed_data)
     uvicorn.run(app, host="0.0.0.0", port=8000)

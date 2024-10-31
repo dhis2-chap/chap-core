@@ -3,10 +3,9 @@ import pickle
 
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
 
 from chap_core.data.open_dengue import OpenDengueDataSet
-from chap_core.datatypes import ClimateHealthData, FullData
+from chap_core.datatypes import FullData
 from chap_core.geometry import get_area_polygons, normalize_name
 from chap_core.fetch import gee_era5
 from chap_core.google_earth_engine.gee_raw import load_credentials
@@ -16,6 +15,7 @@ country_name = 'MEXICO'
 level = 1
 tmp_name = '{country_name}_era5_data_adm{level}.pkl'
 filename = f'{country_name.lower()}_weekly_cases.csv'
+
 if  True or not os.path.exists(tmp_name):
     print('running')
     if True or not os.path.exists(filename):

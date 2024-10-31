@@ -17,7 +17,10 @@ class OpenDengueDataSet:
     def subset(self, country_name: str, spatial_resolution: Literal['Admin1', 'Admin2']='Admin1', temporal_resolution='Week'):
         country_name = country_name.upper()
         df = pd.read_csv(self._filename, compression='zip')
-        df = df[df['adm_0_name'] == country_name]
+        print(df['adm_0_name'].unique())
+        df = df[df['adm_0_name'] == country_name.upper()]
+        print(df['T_res'].value_counts())
+        print(df['S_res'].value_counts())
         df = df[df['T_res'] == temporal_resolution.capitalize()]
         df = df[df['S_res'] == spatial_resolution.capitalize()]
         return df
