@@ -16,7 +16,7 @@ def get_image_collection(period="MONTHLY", dataset="ERA5"):
 
 class ERA5DataBase:
     def __init__(self):
-        # ee.Authenticate()
+        ee.Authenticate()
         ee.Initialize(opt_url="https://earthengine-highvolume.googleapis.com")
         self._monthly_ic = get_image_collection("MONTHLY", "ERA5")
         self._daily_ic = get_image_collection("DAILY", "ERA5")
