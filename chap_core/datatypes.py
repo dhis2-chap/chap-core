@@ -73,7 +73,10 @@ class TimeSeriesData:
     @classmethod
     def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> "TimeSeriesData":
         try:
-            time = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
+            time_strings = data.time_period.astype(str)
+            # check unique
+            assert len(time_strings) == len(set(time_strings)), f'{time_strings} has duplicates'
+            time = PeriodRange.from_strings(time_strings, fill_missing=fill_missing)
         except Exception:
             print("Error in time period: ", data.time_period)
             raise

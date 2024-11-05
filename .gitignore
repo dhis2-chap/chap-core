@@ -142,3 +142,4 @@ tests/future_data.csv
 tests/logs/
 tests/out.tmp
 mlruns/
+/results/

@@ -13,7 +13,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 country_name = 'MEXICO'
 level = 1
-tmp_name = '{country_name}_era5_data_adm{level}.pkl'
+tmp_name = f'{country_name}_era5_data_adm{level}.pkl'
 filename = f'{country_name.lower()}_weekly_cases.csv'
 
 if  True or not os.path.exists(tmp_name):

@@ -33,11 +33,17 @@ class OpenDengueDataSet:
             print(Counter(weekdays))
             most_common_weekday = Counter(weekdays).most_common(1)[0][0]
             print(most_common_weekday)
-            mask  = np.array([date.weekday() == most_common_weekday for date in dates])
+            mask = np.array([date.weekday() == most_common_weekday for date in dates])
+
             print(mask)
             subset = subset[mask]
             subset['time_period'] = [Week(parse(date)).id for date in subset['calendar_start_date']]
-        location_column = 'adm_1_name' if spatial_resolution == 'Admin1' else 'adm_2_name'
+        if spatial_resolution == 'Admin1':
+            location_column = 'adm_1_name'
+        else:
+            subset['location'] = subset['adm_1_name'] + '_' + subset['adm_2_name']
+            location_column = 'location'
+        #location_column = 'adm_1_name' if spatial_resolution == 'Admin1' else 'adm_2_name'
         s = subset.rename(
             columns={location_column: 'location', 'time_period': 'time_period', 'dengue_total': 'disease_cases'})
         assert 'disease_cases' in s.columns, f'No disease_cases column in {s.columns}'
