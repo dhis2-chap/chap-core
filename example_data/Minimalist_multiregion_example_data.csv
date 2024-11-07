@@ -1,0 +1,5 @@
+time_period,rainfall,mean_temperature,disease_cases,location
+2023-05,10,30,200,loc1
+2023-06,2,30,100,loc1
+2023-05,2,30,1000,loc2
+2023-06,10,20,2000,loc2
