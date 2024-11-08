@@ -46,14 +46,14 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
 
 @app.command()
 def evaluate(
-    model_name: ModelType | str,
-    dataset_name: DataSetType,
-    dataset_country: Optional[str] = None,
-    prediction_length: int = 6,
-    n_splits: int = 7,
-    report_filename: Optional[str] = "report.pdf",
-    ignore_environment: bool = False,
-    debug: bool = False,
+        model_name: ModelType | str,
+        dataset_name: DataSetType,
+        dataset_country: Optional[str] = None,
+        prediction_length: int = 6,
+        n_splits: int = 7,
+        report_filename: Optional[str] = "report.pdf",
+        ignore_environment: bool = False,
+        debug: bool = False,
 ):
     """
     Evaluate a model on a dataset using forecast cross validation
@@ -65,7 +65,7 @@ def evaluate(
     if isinstance(dataset, MultiCountryDataSet):
         assert dataset_country is not None, "Must specify a country for multi country datasets"
         assert (
-            dataset_country in dataset.countries
+                dataset_country in dataset.countries
         ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
         dataset = dataset[dataset_country]
 
@@ -88,11 +88,11 @@ def evaluate(
 
 @app.command()
 def forecast(
-    model_name: str,
-    dataset_name: DataSetType,
-    n_months: int,
-    model_path: Optional[str] = None,
-    out_path: Optional[str] = Path("./"),
+        model_name: str,
+        dataset_name: DataSetType,
+        n_months: int,
+        model_path: Optional[str] = None,
+        out_path: Optional[str] = Path("./"),
 ):
     """
     Forecast n_months ahead using the given model and dataset
@@ -115,11 +115,11 @@ def forecast(
 
 @app.command()
 def multi_forecast(
-    model_name: str,
-    dataset_name: DataSetType,
-    n_months: int,
-    pre_train_months: int,
-    out_path: Path = Path(""),
+        model_name: str,
+        dataset_name: DataSetType,
+        n_months: int,
+        pre_train_months: int,
+        out_path: Path = Path(""),
 ):
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
@@ -245,10 +245,10 @@ def convert_geo_json(geo_json_content) -> OurShapeFormat:
 
 @app.command()
 def dhis_zip_flow(
-    zip_file_path: str,
-    out_json: str,
-    model_name: Optional[str] = None,
-    docker_filename: Optional[str] = None,
+        zip_file_path: str,
+        out_json: str,
+        model_name: Optional[str] = None,
+        docker_filename: Optional[str] = None,
 ):
     """
     Run an forecasting evaluation on  data from a zip file from DHIS2, and save the results to a json file
@@ -263,6 +263,7 @@ def dhis_zip_flow(
 
     api.dhis_zip_flow(zip_file_path, out_json, model_name, docker_filename=docker_filename)
 
+
 @app.command()
 def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path):
     """
@@ -276,20 +277,19 @@ def backtest(data_filename: Path, model_name: registry.model_type, out_folder: P
     dataset = DataSet.from_csv(data_filename, FullData)
     estimator = registry.get_model(model_name)
     predictions_list = _backtest(estimator, dataset, prediction_length=12,
-                                n_test_sets=20, stride=2, weather_provider=QuickForecastFetcher)
+                                 n_test_sets=20, stride=2, weather_provider=QuickForecastFetcher)
     response = samples_to_evaluation_response(
         predictions_list,
         quantiles=[0.05, 0.25, 0.5, 0.75, 0.95],
         real_data=dataset_to_datalist(dataset, 'dengue'))
     dataframe = pd.DataFrame([entry.dict() for entry in response.predictions])
     data_name = data_filename.stem
-    dataframe.to_csv(out_folder/f'{data_name}_evaluation_{model_name}.csv')
+    dataframe.to_csv(out_folder / f'{data_name}_evaluation_{model_name}.csv')
     serialized_response = response.json()
     out_filename = out_folder / f'{data_name}_evaluation_response_{model_name}.json'
 
     with open(out_filename, 'w') as out_file:
         out_file.write(serialized_response)
-
 
 
 def main_function():

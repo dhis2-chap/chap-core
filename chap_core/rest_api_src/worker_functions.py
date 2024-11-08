@@ -23,7 +23,7 @@ import dataclasses
 import logging
 
 logger = logging.getLogger(__name__)
-
+DISEASE_NAMES = ["disease", "diseases", "disease_cases"]
 
 def initialize_gee_client(usecwd=False):
     gee_client = Era5LandGoogleEarthEngine(usecwd=usecwd)
@@ -126,10 +126,21 @@ def get_target_id(json_data, target_names):
     target_id = next(data_list.dhis2Id for data_list in json_data.features if data_list.featureId in target_names)
     return target_id
 
+def get_target_name(json_data):
+    data_elements = {d.featureId for d in json_data.features}
+    possible_target_names = set(DISEASE_NAMES)
+    target_name = possible_target_names.intersection(data_elements)
+    if not target_name:
+        raise ValueError(f"No target name found in {data_elements}")
+    if len(target_name) > 1:
+        raise ValueError(f"Multiple target names found in {data_elements}: {target_name}")
+    return target_name.pop()
+
 
 def dataset_from_request_v1(
         json_data: RequestV1, target_name="diseases", usecwd_for_credentials=False
 ) -> DataSet[FullData]:
+    target_name = get_target_name(json_data)
     translations = {target_name: "disease_cases"}
     data = {
         translations.get(feature.featureId, feature.featureId): v1_conversion(
