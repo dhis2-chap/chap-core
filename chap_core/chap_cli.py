@@ -7,7 +7,7 @@ from chap_core.api_types import RequestV1
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.datatypes import FullData
-from chap_core.rest_api_src.worker_functions import dataset_from_request_v1, get_target_id
+from chap_core.rest_api_src.worker_functions import dataset_from_request_v1
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import delta_month
 

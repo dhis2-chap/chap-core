@@ -25,6 +25,7 @@ import logging
 logger = logging.getLogger(__name__)
 DISEASE_NAMES = ["disease", "diseases", "disease_cases"]
 
+
 def initialize_gee_client(usecwd=False):
     gee_client = Era5LandGoogleEarthEngine(usecwd=usecwd)
     return gee_client
@@ -62,15 +63,17 @@ def sample_dataset_to_prediction_response(predictions: DataSet[Samples], target_
 
 def _convert_prediction_request(json_data):
     json_data = PredictionRequest.model_validate_json(json_data)
-    estimator = registry.get_model(json_data.estimator_id, ignore_env=True)
+    estimator = registry.get_model(json_data.estimator_id,
+                                   ignore_env=json_data.estimator_id.startswith('chap_ewars'))
     target_id = get_target_id(json_data, ["disease", "diseases", "disease_cases"])
     train_data = dataset_from_request_v1(json_data)
     return estimator, json_data, target_id, train_data
 
 
 def dataset_to_datalist(dataset: DataSet[HealthData], target_id: str) -> DataList:
-    element_list = [DataElement(pe=row.time_period.id, value=row.disease_cases, ou=location) for location, data in dataset.items()
-         for row in data]
+    element_list = [DataElement(pe=row.time_period.id, value=row.disease_cases, ou=location) for location, data in
+                    dataset.items()
+                    for row in data]
     return DataList(dhis2Id=target_id, featureId='disease_cases', data=element_list)
 
 
@@ -125,6 +128,7 @@ def get_target_id(json_data, target_names):
         target_names = [target_names]
     target_id = next(data_list.dhis2Id for data_list in json_data.features if data_list.featureId in target_names)
     return target_id
+
 
 def get_target_name(json_data):
     data_elements = {d.featureId for d in json_data.features}
