@@ -26,12 +26,12 @@ class ModelRegistry:
     def model_type(self):
         return self._model_type
 
-    def get_model(self, model_id: str):
+    def get_model(self, model_id: str, ignore_env=False):
         if model_id == "naive_model":
             return NaiveEstimator()
         elif model_id in model_dict:
             spec = model_dict[model_id]
-            return get_model_from_directory_or_github_url(spec.github_link)
+            return get_model_from_directory_or_github_url(spec.github_link, ignore_env=ignore_env)
         else:
             raise ValueError(f"Unknown model id: {model_id}, expected one of 'naive_model', {list(model_dict.keys())}")
 
