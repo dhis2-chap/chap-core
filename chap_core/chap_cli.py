@@ -50,7 +50,11 @@ def harmonize(input_filename: Path, output_filename: Path):
     with open(input_filename, "r") as f:
         text = f.read()
     request_data = RequestV1.model_validate_json(text)
-    dataset = dataset_from_request_v1(request_data, target_name="disease", usecwd_for_credentials=True)
+    #data_elements = [d.featureId for d in request_data.features]
+    #target_name = get_target_id(request_data, ["disease", "diseases", "disease_cases"])
+    #print(target_name)
+    #target_name = 'disease' if 'disease' in data_elements else 'disease_cases'
+    dataset = dataset_from_request_v1(request_data, usecwd_for_credentials=True)
     dataset.to_csv(output_filename)
 
 
@@ -83,6 +87,7 @@ def evaluate(
     if n_test_sets is None:
         n_periods = 12 if data_set.period_range.delta == delta_month else 52
         n_test_sets = n_periods - prediction_length + 1
+    logger.info(f"Evaluating {model_id} on {data_filename} with {n_test_sets} test sets for {prediction_length} periods ahead")
     model = registry.get_model(model_id)
     results = evaluate_model(
         model,

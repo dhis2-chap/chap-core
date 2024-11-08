@@ -24,7 +24,8 @@ def create_docker_image(dockerfile_directory: Path | str):
     return name
 
 
-def run_command_through_docker_container(docker_image_name: str, working_directory: str, command: str):
+def run_command_through_docker_container(docker_image_name: str, working_directory: str, command: str,
+                                        remove_after_run: bool = False):
     client = docker.from_env()
     working_dir_full_path = os.path.abspath(working_directory)
     logger.info(f"Running command {command} in docker image {docker_image_name} with mount {working_dir_full_path}")
@@ -33,7 +34,7 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
         command=command,
         volumes=[f"{working_dir_full_path}:/home/run/"],
         working_dir="/home/run",
-        auto_remove=False,
+        auto_remove=remove_after_run,
         detach=True,
     )
 

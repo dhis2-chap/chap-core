@@ -4,9 +4,6 @@ import pytest
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core._legacy_dataset import IsSpatioTemporalDataSet
 from chap_core.datatypes import ClimateHealthTimeSeries, HealthData
-from chap_core.external.external_model import ExternalCommandLineModel
-
-from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from . import EXAMPLE_DATA_PATH, TEST_PATH
 
@@ -63,54 +60,3 @@ def load_data_func(data_path):
 
     return load_data_set
 
-
-class ExternalModelMock:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def get_predictions(
-        self,
-        train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
-        future_climate_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
-    ) -> IsSpatioTemporalDataSet[HealthData]:
-        period = next(iter(future_climate_data.data())).data().time_period[:1]
-        new_dict = {
-            loc: HealthData(period, data.data().disease_cases[-1:])
-            for loc, data in train_data.items()
-        }
-        return DataSet(new_dict)
-
-
-@pytest.mark.skip
-@pytest.mark.parametrize("mode", ["forecast"])
-def test_summary_model_evaluation(dataset_name, output_filename, load_data_func, mode):
-    summary_model = SSM()
-    model_class = SSMWithLinearEffect
-    SSM.n_warmup = 10
-    model_class.n_warmup = 10
-    data_set = load_data_func(dataset_name)
-    report, table = evaluate_model(
-        data_set,
-        summary_model,
-        max_splits=2,
-        naive_model_cls=model_class,
-        mode=mode,
-        return_table=True,
-    )
-    table.to_csv("tmp.csv")
-    for report in report.report:
-        report.show()
-
-
-@pytest.fixture()
-def external_predictive_model(python_model_predict_command, python_model_train_command):
-    runner = CommandLineRunner("./")
-    external_model = ExternalCommandLineModel(
-        "external_model",
-        python_model_train_command,
-        python_model_predict_command,
-        HealthData,
-        runner=runner,
-    )
-    external_model.is_lagged = False
-    return external_model

@@ -9,6 +9,7 @@ from chap_core.time_period import TimePeriod, PeriodRange
 import logging
 logger = logging.getLogger(__name__)
 
+
 class GEECredentials(BaseModel):
     account: str
     private_key: str
@@ -42,9 +43,11 @@ def load_credentials() -> GEECredentials:
 def fetch_single_period(polygons: FeatureCollectionModel, start_dt, end_dt, band_names, reducer="mean") -> ERA5Entry:
     collection = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select(band_names)
     scale = collection.first().select(0).projection().nominalScale()
-    features = ee.FeatureCollection(polygons.model_dump())
+    json_features = polygons.model_dump()
+    features = ee.FeatureCollection(json_features)
     dataset = collection.filterDate(start_dt.strftime("%Y-%m-%d"), end_dt.strftime("%Y-%m-%d"))
     # Reduce the dataset to the mean for the given region and date range
+
     mean_data = (
         getattr(dataset, reducer)()
         .reduceRegions(
@@ -57,7 +60,7 @@ def fetch_single_period(polygons: FeatureCollectionModel, start_dt, end_dt, band
     return {feature["id"]: feature["properties"] for feature in mean_data["features"]}
 
 
-def fetch_era5_data(
+def fetch_era5_data_generator(
     credentials: GEECredentials | dict[str, str],
     polygons: FeatureCollectionModel | str,
     start_period: str,
@@ -111,17 +114,33 @@ def fetch_era5_data(
     start = TimePeriod.from_id(start_period)
     end = TimePeriod.from_id(end_period)
     period_range = PeriodRange.from_time_periods(start, end)
-    data = []
+    #data = []
     n_periods = len(period_range)
     logger.info(f"Fetching gee data for {n_periods} periods")
+    n_simultaneous_requests = 50
+    polygon_subsets = [FeatureCollectionModel(type=polygons.type, features=polygons.features[i:i+n_simultaneous_requests])
+                          for i in range(0, len(polygons.features), n_simultaneous_requests)]
+
     for i, period in enumerate(period_range):
         logger.info(f"Fetching period {period}: {i+1}/{n_periods}")
         start_day = period.start_timestamp.date
         end_day = period.last_day.date
-        res = fetch_single_period(polygons, start_day, end_day, band_names, reducer=reducer)
-        data.extend(
-            ERA5Entry(location=loc, period=period.id, band=band, value=value)
-            for loc, properties in res.items()
-            for band, value in properties.items()
-        )
-    return data
+        for j, subset_polygon in enumerate(polygon_subsets):
+            logger.info(f"Fetching subset {j+1}/{len(polygon_subsets)}")
+            res = fetch_single_period(subset_polygon, start_day, end_day, band_names, reducer=reducer)
+
+            items = (ERA5Entry(location=loc, period=period.id, band=band, value=value) for loc, properties in
+                      res.items() for band, value in properties.items())
+            yield from items
+
+    #return data
+
+def fetch_era5_data(
+    credentials: GEECredentials | dict[str, str],
+    polygons: FeatureCollectionModel | str,
+    start_period: str,
+    end_period: str,
+    band_names=list[str],
+    reducer: str = "mean",
+) -> list[ERA5Entry]:
+    return list(fetch_era5_data_generator(credentials, polygons, start_period, end_period, band_names, reducer=reducer))

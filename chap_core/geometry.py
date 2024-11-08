@@ -8,7 +8,9 @@ from .api_types import (
     FeatureCollectionModel as DFeatureCollectionModel,
     FeatureModel as DFeatureModel,
 )
+
 logger = logging.getLogger(__name__)
+
 
 
 class PFeatureModel(FeatureModel):
@@ -22,7 +24,6 @@ class PFeatureCollectionModel(FeatureCollectionModel):
 data_path = (
     "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_{country_code}_{level}.json.zip"
 )
-
 
 # country_codes= {'vietnam': 'VNM', 'laos': 'LAO', 'cambodia': 'KHM', 'thailand': 'THA', 'myanmar': 'MMR', 'brazil': 'BRA', 'colombia': 'COL', 'peru': 'PER', 'ecuador': 'ECU', 'bolivia': 'BOL', 'paraguay': 'PRY'}
 
@@ -80,7 +81,7 @@ def add_id(feature, admin_level=1):
     return feature
 
 
-def get_area_polygons(country: str, regions: list[str], admin_level: int=1) -> FeatureCollectionModel:
+def get_area_polygons(country: str, regions: list[str], admin_level: int = 1) -> FeatureCollectionModel:
     """
     Get the polygons for the specified regions in the specified country (only ADMIN1 supported)
     Returns only the regions that are found in the data
@@ -145,6 +146,22 @@ def get_country_data(country, admin_level) -> PFeatureCollectionModel:
 
 def get_all_data():
     return ((country, get_country_data(country)) for country in country_codes.keys())
+
+
+class Polygons:
+    def __init__(self, polygons):
+        self._polygons = polygons
+
+    @classmethod
+    def from_file(cls, filename):
+        return cls.from_geojson(json.load(open(filename)))
+
+    @classmethod
+    def from_geojson(cls, geojson: dict):
+        return cls(DFeatureCollectionModel.model_validate(geojson))
+
+    def feature_collection(self):
+        return self._polygons
 
 
 if __name__ == "__main__":

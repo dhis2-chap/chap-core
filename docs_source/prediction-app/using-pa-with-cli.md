@@ -76,7 +76,7 @@ The next step is to evaluate existing models on the dataset to see if some of th
 This is done by running the following command:
 
 ```bash
-chap-cli evaluate <path-to-dataset-file>.csv <path-to-report-file>.pdf --model-id chap_ewars
+chap-cli evaluate <path-to-dataset-file>.csv <path-to-report-file>.pdf --model-id chap_ewars_monthly
 ```
 
 This will generate a report with the evaluation results for the specified model (in this case chap_ewars).
@@ -86,7 +86,7 @@ After evaluating the models, you can predict the values for the dataset using th
 predict command:
 
 ```bash
-chap-cli predict <path-to-dataset-file>.csv <path-to-output-file>.csv --model-id chap_ewars --do-summary
+chap-cli predict <path-to-dataset-file>.csv <path-to-output-file>.csv --model-id chap_ewars_monthly --do-summary
 ```
 
 This will generate a new dataset with the predicted values for the dataset.
@@ -95,8 +95,8 @@ An example of the full workflow would be (for input file `~/Downloads/chap_reque
 
 ```bash
 chap-cli harmonize ~/Downloads/chap_request_data_2024-09-24_two_provinces.json training_data.csv
-chap-cli evaluate training_data.csv evaluation_report.pdf --model-id chap_ewars
-chap-cli predict training_data.csv predictions.csv --model-id chap_ewars --do-summary
+chap-cli evaluate training_data.csv evaluation_report.pdf --model-id chap_ewars_monthly
+chap-cli predict training_data.csv predictions.csv --model-id chap_ewars_monthly --do-summary
 ```
 
 

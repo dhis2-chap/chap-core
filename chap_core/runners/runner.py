@@ -3,6 +3,11 @@ class Runner:
 
     def store_file(self, file_path): ...
 
+    def teardown(self):
+        """To be called after the runner is done with train and predict. This is to clean up the runner, e.g.
+        to remove docker images, etc"""
+        ...
+
 
 class TrainPredictRunner:
     """
@@ -18,3 +23,6 @@ class TrainPredictRunner:
         future_data: str,
         output_file: str,
     ): ...
+
+    def teardown(self): ...
+

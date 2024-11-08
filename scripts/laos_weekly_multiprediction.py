@@ -1,4 +1,3 @@
-import databricks.sdk.service.sql
 import numpy as np
 
 from chap_core.assessment.forecast import forecast_ahead

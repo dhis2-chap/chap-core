@@ -132,9 +132,15 @@ def backtest(estimator: Estimator,
     train, test_generator = train_test_generator(
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
-    predictor = estimator.train(data)
+    predictor = estimator.train(train)
     for historic_data, future_data, _ in test_generator:
         yield predictor.predict(historic_data, future_data)
+
+def relative_cases_mse(predicted: DataSet[Samples], truth: DataSet):
+    ...
+    
+
+
 
 def evaluate_model(
     estimator: Estimator,
@@ -167,7 +173,7 @@ def evaluate_model(
     train, test_generator = train_test_generator(
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
-    predictor = estimator.train(data)
+    predictor = estimator.train(train)
     truth_data = {
         location: pd.DataFrame(
             data[location].disease_cases,

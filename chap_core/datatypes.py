@@ -15,8 +15,12 @@ from .time_period.dataclasses import Period
 from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
 
-tsdataclass = bnp.bnpdataclass.bnpdataclass
+# tsdataclass = bnp.bnpdataclass.bnpdataclass
 
+def tsdataclass(cls):
+    tmp_cls = bnp.bnpdataclass.bnpdataclass(cls)
+    tmp_cls.__annotations__["time_period"] = PeriodRange
+    return tmp_cls
 
 @tsdataclass
 class TimeSeriesData:
@@ -27,6 +31,13 @@ class TimeSeriesData:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+
+    def resample(self, freq):
+        df = self.topandas()
+        df["time_period"] = self.time_period.to_period_index()
+        df = df.set_index('time_period')
+        df = df.resample(freq).interpolate()
+        return self.from_pandas(df.reset_index())
 
     def topandas(self):
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
@@ -62,7 +73,10 @@ class TimeSeriesData:
     @classmethod
     def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> "TimeSeriesData":
         try:
-            time = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
+            time_strings = data.time_period.astype(str)
+            # check unique
+            assert len(time_strings) == len(set(time_strings)), f'{time_strings} has duplicates'
+            time = PeriodRange.from_strings(time_strings, fill_missing=fill_missing)
         except Exception:
             print("Error in time period: ", data.time_period)
             raise
@@ -144,6 +158,22 @@ class TimeSeriesData:
             [getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"]
         ).T
 
+    def merge(self, other: 'TimeSeriesData', result_class: type['TimeSeriesData']):
+        data_dict = {}
+        if self.time_period != other.time_period:
+            raise ValueError(f"{self.time_period} != {other.time_period}")
+        for field in dataclasses.fields(result_class):
+            field_name = field.name
+            if field_name == "time_period":
+                continue
+            if hasattr(self, field_name):
+                assert not hasattr(other, field_name), f"Field {field_name} in both data"
+                data_dict[field_name] = getattr(self, field_name)
+            elif hasattr(other, field_name):
+                data_dict[field_name] = getattr(other, field_name)
+            else:
+                raise ValueError(f"Field {field_name} not in either data")
+        return result_class(self.time_period, **data_dict)
 
 @tsdataclass
 class TimeSeriesArray(TimeSeriesData):

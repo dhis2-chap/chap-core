@@ -112,24 +112,13 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
 
 
 class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
+    """This is basically a CommandLineTrainPredictRunner, but with a DockerRunner
+    instead of a CommandLineRunner as runner"""
     def __init__(self, runner: DockerRunner, train_command: str, predict_command: str):
         super().__init__(runner, train_command, predict_command)
 
-
-    @classmethod
-    def from_mlproject_file(cls, mlproject_file: Path):
-        assert False # Not implemented
-        working_dir = mlproject_file.parent
-        # read yaml file into a dict
-        with open(mlproject_file, "r") as file:
-            data = yaml.load(file, Loader=yaml.FullLoader)
-
-        train_command = data["entry_points"]["train"]["command"]
-        predict_command = data["entry_points"]["predict"]["command"]
-        assert "docker_env" in data, "Only docker supported for now"
-        logging.info(f"Docker image is {data['docker_env']['image']}")
-        command_runner = DockerRunner(data["docker_env"]["image"], working_dir)
-        return cls(command_runner, train_command, predict_command)
+    def teardown(self):
+        self._runner.teardown()
 
 
 class ExternalModel(Generic[FeatureType]):
@@ -139,7 +128,7 @@ class ExternalModel(Generic[FeatureType]):
 
     def __init__(
         self,
-        runner: MlFlowTrainPredictRunner | DockerTrainPredictRunner,
+        runner: MlFlowTrainPredictRunner | DockerTrainPredictRunner | CommandLineRunner,
         name: str = None,
         adapters=None,
         working_dir="./",
@@ -207,7 +196,10 @@ class ExternalModel(Generic[FeatureType]):
                     data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
 
             elif from_name == "month":
-                data[to_name] = data["time_period"].dt.month
+                if hasattr(data["time_period"], "dt"):
+                    data[to_name] = data["time_period"].dt.month
+                else:
+                    data[to_name] = [int(str(p).split("-")[-1]) for p in data["time_period"]]
             elif from_name == "year":
                 if hasattr(data["time_period"], "dt"):
                     data[to_name] = data["time_period"].dt.year
@@ -269,6 +261,9 @@ class ExternalModel(Generic[FeatureType]):
         time_periods = [TimePeriod.parse(s) for s in df.time_period.astype(str)]
         mask = [start_time <= time_period.start_timestamp for time_period in time_periods]
         df = df[mask]
+
+        self._runner.teardown()
+
         return DataSet.from_pandas(df, Samples)
 
 

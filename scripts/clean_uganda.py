@@ -6,7 +6,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 filename = '/home/knut/Downloads/Climate +Malaria data.xlsx'
 df = pd.read_excel(filename)
-column_map = {'District ID': 'location',
+column_map = {'District': 'location',
               'Month': 'time_period',
               'CCH - Max air temperature (ERA5-Land)': 'max_temperature',
               'CCH - Air temperature (ERA5-Land)': 'mean_temperature',

@@ -25,7 +25,7 @@ dependencies = [
     "libpysal",
     "matplotlib",
     "meteostat",
-    "mlflow",
+    "mlflow-skinny",
     "numpy<2.0",
     "pandas",
     "plotly",

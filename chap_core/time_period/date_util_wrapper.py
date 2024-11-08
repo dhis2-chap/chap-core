@@ -270,7 +270,7 @@ class Week(TimePeriod):
         return TimeDelta(self._date - other._date)
 
     def __str__(self):
-        return f"{self.year}{self._sep_strings[self._day_nr]}{self.week}"
+        return f"{self.year}{self._sep_strings[self._day_nr]}{self.week:02d}"
 
     __repr__ = __str__
 
@@ -294,6 +294,13 @@ class Week(TimePeriod):
         #daystr = "MON" if self._day_nr == 1 else "SUN"
         return pd.Period(self._date, freq=("W"))
 
+def clean_timestring(timestring: str):
+    if isinstance(timestring, Number):
+        return str(timestring)
+    if 'W' in timestring:
+        year, week = timestring.split('W')
+        return f'{year}W{int(week):02d}'
+    return timestring
 
 class Month(TimePeriod):
     _used_attributes = ["year", "month"]

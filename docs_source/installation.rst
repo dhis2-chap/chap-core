@@ -52,6 +52,12 @@ Local or server setup with docker
 
 If you want to run models that are already available with CHAP locally on a computer or on a server, we recommend setting up CHAP using docker. :doc:`See this guide for setting up CHAP using Docker Compose <docker-compose-doc>`.
 
+
+Setting up CHAP inside an LXD container
+----------------------------------------
+
+It is also possible to run a full installation of CHAP inside an LXD container. For an example setup, see the `CHAP LXD container setup <https://github.com/dhis2-chap/infrastructure>`_.
+
 Development setup
 ------------------
 
