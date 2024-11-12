@@ -10,7 +10,7 @@ from chap_core.assessment.forecast import forecast_with_predicted_weather, forec
 from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
-from chap_core.datatypes import FullData, TimeSeriesArray, Samples, HealthData
+from chap_core.datatypes import FullData, TimeSeriesArray, Samples, HealthData, HealthPopulationData
 from chap_core.dhis2_interface.json_parsing import predictions_to_datavalue
 from chap_core.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
 from chap_core.external.external_model import (
@@ -152,20 +152,12 @@ def dataset_from_request_v1(
         )
         for feature in json_data.features
     }
+    dataset = DataSet.from_fields(HealthPopulationData, data)
     gee_client = initialize_gee_client(usecwd=usecwd_for_credentials)
     period_range = data["disease_cases"].period_range
     locations = list(data["disease_cases"].keys())
     climate_data = gee_client.get_historical_era5(json_data.orgUnitsGeoJson.model_dump(), periodes=period_range)
-    field_dict = {
-        field_name: DataSet(
-            {
-                location: TimeSeriesArray(period_range, getattr(climate_data[location], field_name))
-                for location in locations
-            }
-        )
-        for field_name in ("mean_temperature", "rainfall")
-    }
-    train_data = DataSet.from_fields(FullData, data | field_dict)
+    train_data = dataset.merge(climate_data, FullData)
     train_data = train_data.interpolate(["population"])
     return train_data
 

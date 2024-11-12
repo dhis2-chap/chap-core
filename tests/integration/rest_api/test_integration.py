@@ -7,7 +7,6 @@ from chap_core.rest_api import app
 from fastapi.testclient import TestClient
 
 from chap_core.util import redis_available
-from tests.conftest import big_request_json
 
 client = TestClient(app)
 

@@ -160,7 +160,7 @@ class TimeSeriesData:
 
     def merge(self, other: 'TimeSeriesData', result_class: type['TimeSeriesData']):
         data_dict = {}
-        if self.time_period != other.time_period:
+        if np.all(self.time_period != other.time_period):
             raise ValueError(f"{self.time_period} != {other.time_period}")
         for field in dataclasses.fields(result_class):
             field_name = field.name

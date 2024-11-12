@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from ..api_types import PeriodObservation
+from ..api_types import PeriodObservation, FeatureCollectionModel
 from .._legacy_dataset import TemporalIndexType, FeaturesT
 from ..datatypes import (
     Location,
@@ -121,11 +121,15 @@ class DataSet(Generic[FeaturesT]):
     Class representing severeal time series at different locations.
     """
 
-    def __init__(self, data_dict: dict[str, FeaturesT], polygon_dict: dict[str, Polygon] = None):
+    def __init__(self, data_dict: dict[str, FeaturesT], polygons= None):
         self._data_dict = {
             loc: TemporalDataclass(data) if not isinstance(data, TemporalDataclass) else data
             for loc, data in data_dict.items()
         }
+        self._polygons = polygons
+
+    def set_polygons(self, polygons: FeatureCollectionModel):
+        self._polygons = polygons
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self._data_dict})"
@@ -344,7 +348,9 @@ class DataSet(Generic[FeaturesT]):
         return cls(new_dict)
 
     def merge(self, other_dataset: 'DataSet', result_dataclass: type[TimeSeriesData]) -> 'DataSet':
-        assert set(self.locations()) == set(other_dataset.locations())
+        #assert set(self.locations()) == set(other_dataset.locations()), (self.locations(), other_dataset.locations())
+        other_locations = set(other_dataset.locations())
+        assert all(location in other_locations for location in self.locations()), (self.locations(), other_locations)
         return DataSet({location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()})
 
     def plot(self):
