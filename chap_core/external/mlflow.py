@@ -7,6 +7,7 @@ import yaml
 from mlflow.utils.process import ShellCommandException
 
 from chap_core.datatypes import HealthData, Samples
+from chap_core.exceptions import ModelFailedException
 from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.runners.docker_runner import DockerRunner
 from chap_core.runners.runner import TrainPredictRunner
@@ -68,7 +69,12 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             logger.error(
                 "Error running mlflow project, might be due to missing pyenv (See: https://github.com/pyenv/pyenv#installation)"
             )
-            raise e
+            raise ModelFailedException(str(e))
+        except mlflow.exceptions.ExecutionException as e:
+            logger.error(
+                "Executation of model failed for some reason. Check the logs for more information"
+            )
+            raise ModelFailedException(str(e))
 
     def predict(self, model_file_name, historic_data, future_data, output_file):
         """

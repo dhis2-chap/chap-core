@@ -1,6 +1,8 @@
 import logging
 from pathlib import Path
-
+from chap_core.assessment.prediction_evaluator import evaluate_model
+from chap_core.exceptions import ModelFailedException
+from chap_core.file_io.example_data_set import datasets, DataSetType
 import pandas as pd
 import pytest
 import yaml
@@ -20,23 +22,20 @@ def test_python_model_from_folder_with_mlproject_file(models_path):
     model = get_model_from_directory_or_github_url(path)
 
 
-def get_dataset_from_yaml(yaml_path: Path, datatype=ClimateHealthTimeSeries):
-    specs = yaml.load(yaml_path.read_text(), Loader=yaml.FullLoader)
-    if "demo_data" in specs:
-        path = yaml_path.parent / specs["demo_data"]
-        df = pd.read_csv(path)
-    if "demo_data_adapter" in specs:
-        for to_name, from_name in specs["demo_data_adapter"].items():
-            if "{" in from_name:
-                new_col = [
-                    from_name.format(**df.iloc[i].to_dict()) for i in range(len(df))
-                ]
-                df[to_name] = new_col
-            else:
-                df[to_name] = df[from_name]
-    # df['disease_cases'] = np.arange(len(df))
+@pytest.fixture
+def dataset():
+    dataset_name = "ISIMIP_dengue_harmonized"
+    dataset = datasets[dataset_name]
+    dataset = dataset.load()
+    dataset = dataset["brazil"]
+    return dataset
 
-    return DataSet.from_pandas(df, datatype)
+
+def test_python_model_from_folder_with_mlproject_file_that_fails(models_path, dataset):
+    path = models_path / "naive_python_model_with_mlproject_file_failing"
+    model = get_model_from_directory_or_github_url(path)
+    with pytest.raises(ModelFailedException):
+        result = evaluate_model(model, dataset)
 
 
 @pytest.mark.skip(reason="This model does not have a mlproject file, using old yml spec")
