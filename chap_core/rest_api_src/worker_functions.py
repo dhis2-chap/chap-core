@@ -144,6 +144,16 @@ def get_target_name(json_data):
 def dataset_from_request_v1(
         json_data: RequestV1, target_name="diseases", usecwd_for_credentials=False
 ) -> DataSet[FullData]:
+    dataset = health_dataset(json_data)
+    gee_client = initialize_gee_client(usecwd=usecwd_for_credentials)
+    period_range = dataset.period_range
+    climate_data = gee_client.get_historical_era5(dataset.polygons.model_dump(), periodes=period_range)
+    train_data = dataset.merge(climate_data, FullData)
+    train_data = train_data.interpolate(["population"])
+    return train_data
+
+
+def health_dataset(json_data):
     target_name = get_target_name(json_data)
     translations = {target_name: "disease_cases"}
     data = {
@@ -153,13 +163,8 @@ def dataset_from_request_v1(
         for feature in json_data.features
     }
     dataset = DataSet.from_fields(HealthPopulationData, data)
-    gee_client = initialize_gee_client(usecwd=usecwd_for_credentials)
-    period_range = data["disease_cases"].period_range
-    locations = list(data["disease_cases"].keys())
-    climate_data = gee_client.get_historical_era5(json_data.orgUnitsGeoJson.model_dump(), periodes=period_range)
-    train_data = dataset.merge(climate_data, FullData)
-    train_data = train_data.interpolate(["population"])
-    return train_data
+    dataset.set_polygons(json_data.orgUnitsGeoJson)
+    return dataset
 
 
 def load_forecasts(data_path):
