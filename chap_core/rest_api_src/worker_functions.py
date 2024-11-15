@@ -48,9 +48,10 @@ def train_on_zip_file(file, model_name, model_path, control=None):
 def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationData], estimator_id: int, n_periods: int, target_id='disease_cases'):
     health_dataset = DataSet.from_dict(health_dataset, HealthPopulationData)
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False)
-    estimator = registry.get_model(estimator_id)
+    estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith('chap_ewars'))
     predictions = forecast_ahead(estimator, dataset, n_periods)
     return sample_dataset_to_prediction_response(predictions, target_id)
+
 
 def predict(json_data: PredictionRequest):
     estimator, json_data, target_id, train_data = _convert_prediction_request(json_data)

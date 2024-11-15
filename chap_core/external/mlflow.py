@@ -27,6 +27,7 @@ def get_train_predict_runner(mlproject_file: Path, runner_type: Literal["mlflow"
     If runner_type is "docker", the mlproject file is parsed to create a runner
     if skip_environment, mlflow and docker is not used, instead returning a TrainPredictRunner that uses the command line
     """
+    logger.info(f'skip_environement: {skip_environment}, runner_type: {runner_type}')
     if skip_environment or runner_type == "docker":
         working_dir = mlproject_file.parent
 
