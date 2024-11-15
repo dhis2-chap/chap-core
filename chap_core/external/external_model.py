@@ -13,6 +13,7 @@ from chap_core.datatypes import (
     ClimateData,
     HealthData,
 )
+from chap_core.exceptions import InvalidModelException
 from chap_core.external.mlflow import (
     ExternalModel,
     get_train_predict_runner,
@@ -119,23 +120,16 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
 
     # assert that a config file exists
     if (working_dir / "MLproject").exists():
-        assert (working_dir / "MLproject").exists(), f"MLproject file not found in {working_dir}"
         return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
-    elif (working_dir / "config.yml").exists():
-        assert False, "config.yml file not supported anymore"
-        #return get_model_from_yaml_file(working_dir / "config.yml", working_dir)
     else:
-        raise Exception("No config.yml or MLproject file found in model directory")
+        raise InvalidModelException("No MLproject file found in model directory")
 
 
 def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
-    #is_in_docker = os.environ.get("IS_IN_DOCKER", False)
-    #if is_in_docker:
-    #    ignore_env = True
-
+    
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
