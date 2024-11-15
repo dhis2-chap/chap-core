@@ -1,5 +1,5 @@
+import logging
 from shutil import which
-
 import numpy as np
 
 
@@ -51,3 +51,4 @@ def redis_available():
         else:
             # Handle other exceptions
             raise
+

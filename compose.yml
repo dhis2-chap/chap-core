@@ -16,14 +16,17 @@ services:
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - CHAP_LOG_FILE=/app/logs/chap.log
     ports:
       - "8000:8000"
     expose:
       - "8000"
-    command: /app/.venv/bin/chap serve
+    command: /app/.venv/bin/chap serve --log-file /app/logs/log.txt
     working_dir: /
     networks:
       - chap-network
+    volumes:
+      - ./logs:/app/logs
 
   worker:
     container_name: worker
@@ -34,9 +37,12 @@ services:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - IS_IN_DOCKER=1
+      - CHAP_LOG_FILE=/app/logs/worker.log
     command: /app/.venv/bin/rq worker --url redis://redis:6379/0
     networks:
         - chap-network
+    volumes:
+      - ./logs:/app/logs
 
 networks:
   chap-network:

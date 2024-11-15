@@ -81,6 +81,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
     Gets the model and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
     """
+    logger.info(f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}")
     is_github = False
     commit = None
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):

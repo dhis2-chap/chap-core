@@ -41,5 +41,5 @@ def run_command(command: str, working_directory=Path(".")):
         # logging.info(output)
     except subprocess.CalledProcessError as e:
         error = e.output.decode()
-        logging.info(error)
+        logger.info(error)
         raise e

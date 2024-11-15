@@ -9,6 +9,8 @@ import time
 import requests
 import logging
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 
 def dataset():
     dataset = "../example_data/anonymous_chap_request.json"
@@ -25,7 +27,17 @@ chap_url = "http://%s:8000" % hostname
 def main():
     model_url = chap_url + "/v1/list-models"
     ensure_up(chap_url)
-    models = requests.get(model_url)
+    try:
+        models = requests.get(model_url)
+    except:
+        print("Failed to connect to %s" % chap_url)
+        logger.error("Failed when fetching models")
+        print("----------------Exception info----------------")
+        exception_info = requests.get(chap_url + "/v1/get-exception").json()
+        print(exception_info) 
+        logger.error(exception_info)
+        logger.error("Failed to connect to %s" % chap_url)
+        raise
 
     for model in models.json():
         evaluate_model(chap_url, dataset(), model)
