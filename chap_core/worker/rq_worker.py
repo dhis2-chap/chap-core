@@ -11,10 +11,12 @@ from redis import Redis
 import os
 from dotenv import load_dotenv, find_dotenv
 
+from chap_core.cli import initialize_logging
 from chap_core.worker.interface import ReturnType
 import logging
 
 logger = logging.getLogger(__name__)
+initialize_logging()
 
 
 class RedisJob(Generic[ReturnType]):
