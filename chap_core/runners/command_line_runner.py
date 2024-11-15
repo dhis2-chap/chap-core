@@ -2,7 +2,7 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
-from chap_core.exceptions import CommandLineException, ModelFailedException
+from chap_core.exceptions import CommandLineException
 from chap_core.runners.runner import Runner
 
 logger = logging.getLogger(__name__)
