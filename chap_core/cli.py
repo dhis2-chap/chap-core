@@ -2,17 +2,17 @@
 
 import dataclasses
 import json
-import os
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from cyclopts import App, Parameter
+from cyclopts import App
 
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
 from chap_core.external.mlflow import NoPredictionsError
+from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import naive_spec, registry
 from chap_core.rest_api import get_openapi_schema
 from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist
@@ -45,28 +45,6 @@ app = App()
 
 def append_to_csv(file_object, data_frame: pd.DataFrame):
     data_frame.to_csv(file_object, mode="a", header=False)
-
-
-def initialize_logging(debug: bool=False, log_file: str=None):
-    if debug:
-        logger.setLevel(logging.DEBUG)
-        logger.debug("Debug mode enabled")
-    
-        # check if environment variable CHAP_LOG_FILE is set, use that as handler
-    if os.getenv("CHAP_LOG_FILE"):
-        #logger.addHandler(logging.FileHandler(os.getenv("CHAP_LOG_FILE")))
-        #logger.info(f"Logging to {os.getenv('CHAP_LOG_FILE')}")
-        log_file = os.getenv("CHAP_LOG_FILE")
-        print("Overwriting log file to specified env variable ", log_file)
-
-    if log_file is not None:
-        # create file if not exist
-        if not Path(log_file).exists():
-            print(f"Creating log file at {log_file}")
-            Path(log_file).touch()
-
-        logger.addHandler(logging.FileHandler(log_file))
-        logger.info(f"Logging to {log_file}")
 
 
 @app.command()

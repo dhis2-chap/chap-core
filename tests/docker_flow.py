@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
+
 def dataset():
     dataset = "../example_data/anonymous_chap_request.json"
     data = json.load(open(dataset))
@@ -21,7 +22,7 @@ def dataset():
 #hostname = "localhost"
 hostname = 'chap'
 chap_url = "http://%s:8000" % hostname
-#chap_with_r_inla_url = "http://localhost:8001"
+# chap_with_r_inla_url = "http://localhost:8001"
 
 
 def main():

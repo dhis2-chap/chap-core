@@ -11,12 +11,14 @@ from redis import Redis
 import os
 from dotenv import load_dotenv, find_dotenv
 
-from chap_core.cli import initialize_logging
+import chap_core.log_config
 from chap_core.worker.interface import ReturnType
 import logging
 
 logger = logging.getLogger(__name__)
-initialize_logging()
+chap_core.log_config.initialize_logging()
+#logger.addHandler(logging.FileHandler('logs/rq_worker.log'))
+#logger.info("Logging initialized")
 
 
 class RedisJob(Generic[ReturnType]):
