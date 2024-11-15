@@ -45,7 +45,7 @@ def test_get_model_from_github():
     model = get_model_from_directory_or_github_url(repo_url)
     assert model.name == "example_model"
 
-@pytest.mark.skip(reason="This model does not have a mlproject file, using old yml spec")
+#@pytest.mark.skip(reason="This model does not have a mlproject file, using old yml spec")
 def test_get_model_from_local_directory(models_path):
     repo_url = models_path / "ewars_Plus"
     model = get_model_from_directory_or_github_url(repo_url)
