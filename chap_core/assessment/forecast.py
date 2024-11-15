@@ -7,6 +7,8 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import TimeDelta, Month, PeriodRange
 import logging
 
+from chap_core.validators import validate_training_data
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,6 +54,7 @@ def forecast_ahead(estimator: Estimator, dataset: DataSet, prediction_length: in
     """
     logger.info(f"Forecasting {prediction_length} months into the future")
     train_data = dataset
+    validate_training_data(train_data, estimator)
     predictor = estimator.train(train_data)
     return forecast_with_predicted_weather(
         predictor,

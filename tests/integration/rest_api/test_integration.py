@@ -7,7 +7,6 @@ from chap_core.rest_api import app
 from fastapi.testclient import TestClient
 
 from chap_core.util import redis_available
-from tests.conftest import big_request_json
 
 client = TestClient(app)
 
@@ -80,6 +79,8 @@ def test_evaluate(big_request_json, rq_worker_process):
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 def test_predict(big_request_json, rq_worker_process):
     check_job_endpoint(big_request_json, predict_path)
+
+
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")

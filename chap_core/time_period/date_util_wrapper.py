@@ -458,7 +458,7 @@ class PeriodRange:
 
     def _vectorize(self, funcname: str, other: TimePeriod):
         if isinstance(other, PeriodRange):
-            assert len(self) == len(other)
+            assert len(self) == len(other), (len(self), len(other), self, other)
             return np.array([getattr(period, funcname)(other_period) for period, other_period in zip(self, other)])
         return np.array([getattr(period, funcname)(other) for period in self])
 
@@ -648,6 +648,9 @@ class PeriodRange:
             "end_timestamp": self._end_timestamp,
             "time_delta": self._time_delta,
         }
+
+    def tolist(self):
+        return [p.to_string() for p in self]
 
 
 delta_month = TimeDelta(relativedelta(months=1))

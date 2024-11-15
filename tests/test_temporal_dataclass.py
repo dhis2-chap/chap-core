@@ -1,3 +1,5 @@
+import pickle
+
 import pytest
 import numpy as np
 from chap_core.api_types import PeriodObservation
