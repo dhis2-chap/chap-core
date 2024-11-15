@@ -3,7 +3,7 @@ name: naive_python
 #docker_env:
 #  image: python:3.10
 
-python_env: python_env.yaml
+#python_env: python_env.yaml
 
 entry_points:
   train:

@@ -7,7 +7,8 @@ import yaml
 from mlflow.utils.process import ShellCommandException
 
 from chap_core.datatypes import HealthData, Samples
-from chap_core.exceptions import ModelFailedException
+from chap_core.exceptions import CommandLineException, ModelFailedException
+from chap_core.exceptions import NoPredictionsError
 from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.runners.docker_runner import DockerRunner
 from chap_core.runners.runner import TrainPredictRunner
@@ -166,16 +167,11 @@ class ExternalModel(Generic[FeatureType]):
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
         new_pd.to_csv(train_file_name_full)
-        self._runner.train(train_file_name, self._model_file_name)
-        """
-        response = mlflow.projects.run(str(self.model_path), entry_point="train",
-                                       parameters={
-                                           "train_data": str(train_file_name),
-                                           "model": str(self._model_file_name)
-                                       },
-                                       build_image=True)
-        """
-
+        try:
+            self._runner.train(train_file_name, self._model_file_name)
+        except CommandLineException as e:
+            logger.error("Error training model, command failed")
+            raise ModelFailedException(str(e))
         return self
 
     def _adapt_data(self, data: pd.DataFrame, inverse=False):
@@ -238,27 +234,22 @@ class ExternalModel(Generic[FeatureType]):
         with open(predictions_file, "w") as _:
             pass
 
-        self._runner.predict(
-            self._model_file_name,
-            "historic_data.csv",
-            "future_data.csv",
-            "predictions.csv",
-        )
-        """
-        response = mlflow.projects.run(str(self.model_path), entry_point="predict",
-                                        parameters={
-                                             "historic_data": str(historic_data_name),
-                                             "future_data": str(future_data_name),
-                                             "model": str(self._model_file_name),
-                                             "out_file": str(predictions_file)
-                                        })
-        """
+        try:
+            self._runner.predict(
+                self._model_file_name,
+                "historic_data.csv",
+                "future_data.csv",
+                "predictions.csv",
+            )
+        except CommandLineException as e:
+            logger.error("Error predicting model, command failed")
+            raise ModelFailedException(str(e))
+
         try:
             df = pd.read_csv(predictions_file)
-
         except pd.errors.EmptyDataError:
             # todo: Probably deal with this in an other way, throw an exception istead
-            logging.warning("No data returned from model (empty file from predictions)")
+            logger.warning("No data returned from model (empty file from predictions)")
             raise NoPredictionsError("No prediction data written")
 
         if self._location_mapping is not None:
@@ -273,5 +264,3 @@ class ExternalModel(Generic[FeatureType]):
         return DataSet.from_pandas(df, Samples)
 
 
-class NoPredictionsError(Exception):
-    pass

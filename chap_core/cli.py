@@ -11,7 +11,7 @@ from cyclopts import App
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
-from chap_core.external.mlflow import NoPredictionsError
+from chap_core.exceptions import NoPredictionsError
 from chap_core.predictor.model_registry import naive_spec, registry
 from chap_core.rest_api import get_openapi_schema
 from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist

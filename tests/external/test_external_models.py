@@ -34,7 +34,7 @@ def dataset():
 #@pytest.mark.skip(reason="Under development")
 def test_python_model_from_folder_with_mlproject_file_that_fails(models_path, dataset):
     path = models_path / "naive_python_model_with_mlproject_file_failing"
-    model = get_model_from_directory_or_github_url(path)
+    model = get_model_from_directory_or_github_url(path, ignore_env=True)
     with pytest.raises(ModelFailedException):
         result = evaluate_model(model, dataset)
 

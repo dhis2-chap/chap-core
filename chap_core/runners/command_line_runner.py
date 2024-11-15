@@ -2,8 +2,10 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
+from chap_core.exceptions import CommandLineException, ModelFailedException
 from chap_core.runners.runner import Runner
 
+logger = logging.getLogger(__name__)
 
 class CommandLineRunner(Runner):
     def __init__(self, working_dir: str | Path):
@@ -31,9 +33,10 @@ def run_command(command: str, working_directory=Path(".")):
         print("finished")
         streamdata = process.communicate()[0]  # finnish before getting return code
         return_code = process.returncode
-        assert (
-            return_code == 0
-        ), f"Command '{command}' failed with return code {return_code}, ({''.join(streamdata)}, {''.join(output)}"
+
+        if return_code != 0:
+            logger.error(f"Command '{command}' failed with return code {return_code}, ({''.join(streamdata)}, {''.join(output)}")
+            raise CommandLineException(f"Command '{command}' failed with return code {return_code}, ({''.join(streamdata)}, {''.join(output)}")
         # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
         # logging.info(output)
     except subprocess.CalledProcessError as e:
