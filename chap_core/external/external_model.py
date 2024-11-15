@@ -13,6 +13,7 @@ from chap_core.datatypes import (
     ClimateData,
     HealthData,
 )
+from chap_core.exceptions import InvalidModelException
 from chap_core.external.mlflow import (
     ExternalModel,
     get_train_predict_runner,
@@ -119,10 +120,9 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
 
     # assert that a config file exists
     if (working_dir / "MLproject").exists():
-        assert (working_dir / "MLproject").exists(), f"MLproject file not found in {working_dir}"
         return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
     else:
-        raise Exception("No MLproject file found in model directory")
+        raise InvalidModelException("No MLproject file found in model directory")
 
 
 def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:

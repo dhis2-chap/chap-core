@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.exceptions import ModelFailedException
+from chap_core.exceptions import InvalidModelException, ModelFailedException
 from chap_core.file_io.example_data_set import datasets, DataSetType
 import pandas as pd
 import pytest
@@ -31,7 +31,7 @@ def dataset():
     return dataset
 
 
-@pytest.mark.skip(reason="Under development")
+#@pytest.mark.skip(reason="Under development")
 def test_python_model_from_folder_with_mlproject_file_that_fails(models_path, dataset):
     path = models_path / "naive_python_model_with_mlproject_file_failing"
     model = get_model_from_directory_or_github_url(path)
@@ -39,13 +39,13 @@ def test_python_model_from_folder_with_mlproject_file_that_fails(models_path, da
         result = evaluate_model(model, dataset)
 
 
-@pytest.mark.skip(reason="This model does not have a mlproject file, using old yml spec")
 def test_get_model_from_github():
     repo_url = "https://github.com/knutdrand/external_rmodel_example.git"
-    model = get_model_from_directory_or_github_url(repo_url)
-    assert model.name == "example_model"
+    with pytest.raises(InvalidModelException):
+        model = get_model_from_directory_or_github_url(repo_url)
 
-#@pytest.mark.skip(reason="This model does not have a mlproject file, using old yml spec")
+
+@pytest.mark.skip(reason="This model does not have a mlproject file, using old yml spec")
 def test_get_model_from_local_directory(models_path):
     repo_url = models_path / "ewars_Plus"
     model = get_model_from_directory_or_github_url(repo_url)
