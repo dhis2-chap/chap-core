@@ -81,6 +81,8 @@ def test_predict(big_request_json, rq_worker_process):
     check_job_endpoint(big_request_json, predict_path)
 
 
+
+
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 def test_model_that_does_not_exist(big_request_json, rq_worker_process):
     request_json = big_request_json

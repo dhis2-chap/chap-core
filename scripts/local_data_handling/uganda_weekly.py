@@ -31,13 +31,13 @@ def harmonize_climate(df):
     df['time_period'] = df['time_period'].apply(clean_week_codes)
     dataset = DataSet.from_pandas(df, dataclass=HealthPopulationData, fill_missing=True)
     dataset = dataset.interpolate(['population'])
-    try:
-        climate_data = Era5LandGoogleEarthEngine().get_historical_era5(polygons.feature_collection().model_dump(), dataset.period_range)
-    except Exception as e:
-        logging.error(f'Failed to fetch climate data: {e}')
-        raise
-    harmonized = dataset.merge(climate_data, FullData)
-    #harmonized = harmonize_health_data_and_polygons(dataset, polygons.feature_collection(), cached=True)
+    # try:
+    #     climate_data = Era5LandGoogleEarthEngine().get_historical_era5(polygons.feature_collection().model_dump(), dataset.period_range)
+    # except Exception as e:
+    #     logging.error(f'Failed to fetch climate data: {e}')
+    #     raise
+    #harmonized = dataset.merge(climate_data, FullData)
+    harmonized = harmonize_health_data_and_polygons(dataset, polygons.feature_collection())
     harmonized = DataSet({k: v[:-10] for k, v in harmonized.items()})
 
     return harmonized

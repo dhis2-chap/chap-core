@@ -54,11 +54,6 @@ internal_state = InternalState(Control({}), {})
 state = State(ready=True, status="idle")
 
 
-class NaiveWorker:
-    def queue(self, func, *args, **kwargs):
-        return NaiveJob(func(*args, **kwargs))
-
-
 class NaiveJob:
     def __init__(self, result):
         self._result = result
@@ -87,6 +82,13 @@ class NaiveJob:
         return True
 
 
+class NaiveWorker:
+    job_class = NaiveJob
+
+    def queue(self, func, *args, **kwargs):
+        return self.job_class(func(*args, **kwargs))
+
+
 # worker = NaiveWorker()
 # worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
 worker = RedisQueue()
@@ -107,17 +109,19 @@ async def predict(data: PredictionRequest) -> dict:
     Start a prediction task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
     """
-    json_data = data.model_dump()
-    str_data = json.dumps(json_data)
-    job = worker.queue(wf.predict, str_data)
+    # dataset = wf.dataset_from_request_v1(data)
+    health_data = wf.get_health_dataset(data)
+    target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
+    job = worker.queue(wf.predict_pipeline_from_health_data, health_data.model_dump(), data.estimator_id,
+                       data.n_periods, target_id)
     internal_state.current_job = job
     return {"status": "success"}
 
 
 @app.post("/evaluate")
-async def evaluate(data: PredictionRequest, n_splits: Optional[int]=2, stride: int = 1) -> dict:
+async def evaluate(data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1) -> dict:
     """
-    Start a prediction task using the given data as training data.
+    Start an evaluation task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
     """
     json_data = data.model_dump()
@@ -165,6 +169,7 @@ async def get_evaluation_results() -> EvaluationResponse:
         raise HTTPException(status_code=400, detail="No response available")
     return cur_job.result
 
+
 @app.get("/get-exception")
 async def get_exception() -> str:
     """
@@ -172,6 +177,7 @@ async def get_exception() -> str:
     """
     cur_job = internal_state.current_job
     return cur_job.exception_info or ''
+
 
 @app.post("/cancel")
 async def cancel() -> dict:
@@ -201,8 +207,10 @@ async def get_status() -> State:
 def seed(data):
     internal_state.current_job = SeededJob(result=data)
 
+
 def get_openapi_schema():
     return app.openapi()
+
 
 def main_backend(seed_data=None):
     import uvicorn

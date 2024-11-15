@@ -10,7 +10,7 @@ from chap_core.assessment.forecast import forecast_with_predicted_weather, forec
 from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
-from chap_core.datatypes import FullData, TimeSeriesArray, Samples, HealthData, HealthPopulationData
+from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData
 from chap_core.dhis2_interface.json_parsing import predictions_to_datavalue
 from chap_core.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
 from chap_core.external.external_model import (
@@ -44,6 +44,13 @@ def train_on_zip_file(file, model_name, model_path, control=None):
 
     return train_on_prediction_data(prediction_data, model_name=model_name, model_path=model_path, control=control)
 
+
+def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationData], estimator_id: int, n_periods: int, target_id='disease_cases'):
+    health_dataset = DataSet.from_dict(health_dataset, HealthPopulationData)
+    dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False)
+    estimator = registry.get_model(estimator_id)
+    predictions = forecast_ahead(estimator, dataset, n_periods)
+    return sample_dataset_to_prediction_response(predictions, target_id)
 
 def predict(json_data: PredictionRequest):
     estimator, json_data, target_id, train_data = _convert_prediction_request(json_data)
@@ -144,16 +151,19 @@ def get_target_name(json_data):
 def dataset_from_request_v1(
         json_data: RequestV1, target_name="diseases", usecwd_for_credentials=False
 ) -> DataSet[FullData]:
-    dataset = health_dataset(json_data)
+    dataset = get_health_dataset(json_data)
+    return harmonize_health_dataset(dataset, usecwd_for_credentials)
+
+
+def harmonize_health_dataset(dataset, usecwd_for_credentials):
     gee_client = initialize_gee_client(usecwd=usecwd_for_credentials)
     period_range = dataset.period_range
     climate_data = gee_client.get_historical_era5(dataset.polygons.model_dump(), periodes=period_range)
     train_data = dataset.merge(climate_data, FullData)
-    train_data = train_data.interpolate(["population"])
     return train_data
 
 
-def health_dataset(json_data):
+def get_health_dataset(json_data: RequestV1):
     target_name = get_target_name(json_data)
     translations = {target_name: "disease_cases"}
     data = {
@@ -163,6 +173,7 @@ def health_dataset(json_data):
         for feature in json_data.features
     }
     dataset = DataSet.from_fields(HealthPopulationData, data)
+    dataset = dataset.interpolate(["population"])
     dataset.set_polygons(json_data.orgUnitsGeoJson)
     return dataset
 

@@ -55,15 +55,13 @@ class TemporalDataclass(Generic[FeaturesT]):
 
         for name, data in d.items():
             d[name] = np.pad(data.astype(float), (0, n_missing), constant_values=np.nan)
-        return TemporalDataclass(self._data.__class__(new_time_period, **d))
+        return self._data.__class__(new_time_period, **d)
 
     def fill_to_range(self, start_timestamp, end_timestamp):
         if self.end_timestamp == end_timestamp and self.start_timestamp == start_timestamp:
             return self
         n_missing_start = self._data.time_period.delta.n_periods(start_timestamp, self.start_timestamp)
-        # n_missing_start = (self.start_timestamp - start_timestamp) // self._data.time_period.delta
         n_missing = self._data.time_period.delta.n_periods(self.end_timestamp, end_timestamp)
-        #n_missing = (end_timestamp - self.end_timestamp) // self._data.time_period.delta
         assert n_missing >= 0, (f"{n_missing} < 0", end_timestamp, self.end_timestamp)
         assert n_missing_start >= 0, (
             f"{n_missing} < 0",
@@ -80,19 +78,19 @@ class TemporalDataclass(Generic[FeaturesT]):
 
         for name, data in d.items():
             d[name] = np.pad(data.astype(float), (n_missing_start, n_missing), constant_values=np.nan)
-        return TemporalDataclass(self._data.__class__(new_time_period, **d))
+        return self._data.__class__(new_time_period, **d)
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> "TemporalDataclass[FeaturesT]":
         assert isinstance(period_range, slice)
         assert period_range.step is None
         if hasattr(self._data.time_period, "searchsorted"):
-            return TemporalDataclass(self._restrict_by_slice(period_range))
+            return self._restrict_by_slice(period_range)
         mask = np.full(len(self._data.time_period), True)
         if period_range.start is not None:
             mask = mask & (self._data.time_period >= period_range.start)
         if period_range.stop is not None:
             mask = mask & (self._data.time_period <= period_range.stop)
-        return TemporalDataclass(self._data[mask])
+        return self._data[mask]
 
     def data(self) -> Iterable[FeaturesT]:
         return self._data
@@ -101,7 +99,7 @@ class TemporalDataclass(Generic[FeaturesT]):
         return self._data.to_pandas()
 
     def join(self, other):
-        return TemporalDataclass(np.concatenate([self._data, other._data]))
+        return np.concatenate([self._data, other._data])
 
     @property
     def start_timestamp(self) -> pd.Timestamp:
@@ -123,10 +121,19 @@ class DataSet(Generic[FeaturesT]):
 
     def __init__(self, data_dict: dict[str, FeaturesT], polygons= None):
         self._data_dict = {
-            loc: TemporalDataclass(data) if not isinstance(data, TemporalDataclass) else data
+            loc: data
             for loc, data in data_dict.items()
         }
         self._polygons = polygons
+
+    def model_dump(self):
+        return {'data_dict': {loc: data.model_dump() for loc, data in self._data_dict.items()},
+                'polygons': self._polygons and self._polygons.model_dump()}
+
+    @classmethod
+    def from_dict(cls, data: dict, dataclass=type[TemporalDataclass]):
+        data_dict = {loc: dataclass.from_dict(val) for loc, val in data['data_dict'].items()}
+        return cls(data_dict, data['polygons'] and FeatureCollectionModel(**data['polygons']))
 
     def set_polygons(self, polygons: FeatureCollectionModel):
         self._polygons = polygons
@@ -172,7 +179,7 @@ class DataSet(Generic[FeaturesT]):
         return self._data_dict[location]
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> "DataSet[FeaturesT]":
-        return self.__class__({loc: data.restrict_time_period(period_range) for loc, data in self._data_dict.items()})
+        return self.__class__({loc: TemporalDataclass(data).restrict_time_period(period_range).data() for loc, data in self._data_dict.items()})
 
     def locations(self) -> Iterable[Location]:
         return self._data_dict.keys()
@@ -245,7 +252,7 @@ class DataSet(Generic[FeaturesT]):
         data_dict = {}
         for location, data in df.groupby("location"):
             data['time_period'] = data['time_period'].apply(clean_timestring)
-            data_dict[location] = TemporalDataclass(dataclass.from_pandas(data.sort_values(by='time_period'), fill_missing))
+            data_dict[location] = dataclass.from_pandas(data.sort_values(by='time_period'), fill_missing)
         data_dict = cls._fill_missing(data_dict)
 
         return cls(data_dict)
@@ -294,7 +301,7 @@ class DataSet(Generic[FeaturesT]):
         """
         data_dict = {}
         for location, observations in observation_dict.items():
-            data_dict[location] = TemporalDataclass(cls.df_from_pydantic_observations(observations))
+            data_dict[location] = cls.df_from_pydantic_observations(observations)
         return cls(data_dict)
 
     @classmethod

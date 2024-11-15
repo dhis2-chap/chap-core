@@ -15,6 +15,7 @@ from .time_period.dataclasses import Period
 from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
 
+
 # tsdataclass = bnp.bnpdataclass.bnpdataclass
 
 def tsdataclass(cls):
@@ -22,15 +23,22 @@ def tsdataclass(cls):
     tmp_cls.__annotations__["time_period"] = PeriodRange
     return tmp_cls
 
+
 @tsdataclass
 class TimeSeriesData:
     time_period: Period
+
+    def model_dump(self):
+        return {field.name: getattr(self, field.name).tolist() for field in dataclasses.fields(self)}
 
     def __getstate__(self):
         return self.todict()
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+
+    def join(self, other):
+        return np.concatenate([self, other])
 
     def resample(self, freq):
         df = self.topandas()
@@ -137,8 +145,10 @@ class TimeSeriesData:
     def fill_to_range(self, start_timestamp, end_timestamp):
         if self.end_timestamp == end_timestamp and self.start_timestamp == start_timestamp:
             return self
-        n_missing_start = (self.start_timestamp - start_timestamp) // self.time_period.delta
-        n_missing = (end_timestamp - self.end_timestamp) // self.time_period.delta
+        n_missing_start = self.time_period.delta.n_periods(start_timestamp, self.start_timestamp)
+        #(self.start_timestamp - start_timestamp) // self.time_period.delta
+        n_missing = self.time_period.delta.n_periods(self.end_timestamp, end_timestamp)
+        # n_missing = (end_timestamp - self.end_timestamp) // self.time_period.delta
         assert n_missing >= 0, (f"{n_missing} < 0", end_timestamp, self.end_timestamp)
         assert n_missing_start >= 0, (
             f"{n_missing} < 0",
@@ -158,9 +168,18 @@ class TimeSeriesData:
             [getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"]
         ).T
 
+    def todict(self):
+        d = super().todict()
+        d["time_period"] = self.time_period.topandas()
+        return d
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(**{key: PeriodRange.from_strings(value)if key=='time_period' else value for key, value in data.items()})
+
     def merge(self, other: 'TimeSeriesData', result_class: type['TimeSeriesData']):
         data_dict = {}
-        if np.all(self.time_period != other.time_period):
+        if len(self.time_period) != len(other.time_period) or np.any(self.time_period != other.time_period):
             raise ValueError(f"{self.time_period} != {other.time_period}")
         for field in dataclasses.fields(result_class):
             field_name = field.name
@@ -174,6 +193,7 @@ class TimeSeriesData:
             else:
                 raise ValueError(f"Field {field_name} not in either data")
         return result_class(self.time_period, **data_dict)
+
 
 @tsdataclass
 class TimeSeriesArray(TimeSeriesData):
@@ -207,7 +227,7 @@ class ClimateHealthTimeSeries(TimeSeriesData):
 
     @classmethod
     def combine(
-        cls, health_data: HealthData, climate_data: ClimateData, fill_missing=False
+            cls, health_data: HealthData, climate_data: ClimateData, fill_missing=False
     ) -> "ClimateHealthTimeSeries":
         return ClimateHealthTimeSeries(
             time_period=health_data.time_period,
@@ -216,10 +236,6 @@ class ClimateHealthTimeSeries(TimeSeriesData):
             disease_cases=health_data.disease_cases,
         )
 
-    def todict(self):
-        d = super().todict()
-        d["time_period"] = self.time_period.topandas()
-        return d
 
 
 ClimateHealthData = ClimateHealthTimeSeries
@@ -231,7 +247,7 @@ class FullData(ClimateHealthData):
 
     @classmethod
     def combine(
-        cls, health_data: HealthData, climate_data: ClimateData, population: float
+            cls, health_data: HealthData, climate_data: ClimateData, population: float
     ) -> "ClimateHealthTimeSeries":
         return cls(
             time_period=health_data.time_period,

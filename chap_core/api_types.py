@@ -69,3 +69,4 @@ class PeriodObservation(BaseModel):
 # class GeoJSON(BaseModel):
 #     type: str
 #     features: list[dict]
+
