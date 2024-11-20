@@ -1,4 +1,3 @@
-import logging
 from shutil import which
 import numpy as np
 
