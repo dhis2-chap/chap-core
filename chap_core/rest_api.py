@@ -17,6 +17,7 @@ import chap_core.rest_api_src.worker_functions as wf
 from chap_core.predictor.model_registry import registry
 from chap_core.worker.interface import SeededJob
 from chap_core.worker.rq_worker import RedisQueue
+from chap_core.routers import crud, analytics
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +42,8 @@ def get_app():
 
 
 app = get_app()
+app.include_router(crud.router)
+app.include_router(analytics.router)
 
 
 class State(BaseModel):

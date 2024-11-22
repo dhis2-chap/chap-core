@@ -136,6 +136,7 @@ def backtest(estimator: Estimator,
     for historic_data, future_data, _ in test_generator:
         yield predictor.predict(historic_data, future_data)
 
+
 def relative_cases_mse(predicted: DataSet[Samples], truth: DataSet):
     ...
     
