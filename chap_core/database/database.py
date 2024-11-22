@@ -2,7 +2,7 @@ import dataclasses
 
 import pandas as pd
 from sqlmodel import SQLModel, create_engine, Session
-from .tables import BackTest, BackTestForecast, BackTestMetric, Observation, DataSet
+from .tables import BackTest, BackTestForecast, Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
 
@@ -12,7 +12,7 @@ from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 if "CHAP_DATABASE_URL" in os.environ:
     database_url = os.environ["CHAP_DATABASE_URL"]
 else:
-    database_url = f"sqlite:///"
+    database_url = "sqlite:///"
 
 engine = create_engine(database_url)
 

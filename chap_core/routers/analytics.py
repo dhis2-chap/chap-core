@@ -2,9 +2,8 @@ from typing import List
 
 import numpy as np
 from pydantic import BaseModel, confloat
-from sqlmodel import select
 
-from fastapi import APIRouter, HTTPException, Depends, Body, Query
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, DataList, DataElement
