@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from chap_core.api_types import PredictionRequest, EvaluationResponse
 from chap_core.internal_state import Control, InternalState
+from chap_core.log_config import get_logs, initialize_logging
 from chap_core.model_spec import ModelSpec
 from chap_core.predictor.feature_spec import Feature, all_features
 from chap_core.rest_api_src.data_models import FullPredictionResponse
@@ -18,8 +19,8 @@ from chap_core.predictor.model_registry import registry
 from chap_core.worker.interface import SeededJob
 from chap_core.worker.rq_worker import RedisQueue
 
+initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 
 def get_app():
@@ -55,16 +56,27 @@ state = State(ready=True, status="idle")
 
 
 class NaiveJob:
-    def __init__(self, result):
-        self._result = result
+    def __init__(self, func, *args, **kwargs):
+        self._exception_info = ""
+        self._result = ""
+        self._status = ""
+        self._finished = False
+        try:
+            self._result = func(*args, **kwargs)
+            self._status = "finished"
+            self._finished = True
+        except Exception as e:
+            self._exception_info = str(e)
+            self._status = "failed"
+            self._result = ""
 
     @property
     def status(self):
-        return "finished"
+        return self._status
 
     @property
     def exception_info(self):
-        return ""
+        return self._exception_info
 
     @property
     def progress(self):
@@ -79,14 +91,16 @@ class NaiveJob:
 
     @property
     def is_finished(self):
-        return True
+        return self._finished
 
 
 class NaiveWorker:
     job_class = NaiveJob
 
     def queue(self, func, *args, **kwargs):
-        return self.job_class(func(*args, **kwargs))
+        #return self.job_class(func(*args, **kwargs))
+        return self.job_class(func, *args, **kwargs)
+
 
 
 # worker = NaiveWorker()
@@ -153,6 +167,9 @@ async def get_results() -> FullPredictionResponse:
     Retrieve results made by the model
     """
     cur_job = internal_state.current_job
+    if cur_job.status == "failed":
+        raise HTTPException(status_code=400, detail="Job failed. Check the exception endpoint for more information")
+
     if not (cur_job and cur_job.is_finished):
         raise HTTPException(status_code=400, detail="No response available")
     result = cur_job.result
@@ -165,6 +182,9 @@ async def get_evaluation_results() -> EvaluationResponse:
     Retrieve evaluation results made by the model
     """
     cur_job = internal_state.current_job
+    if cur_job.status == "failed":
+        raise HTTPException(status_code=400, detail="Job failed. Check the exception endpoint for more information")
+
     if not (cur_job and cur_job.is_finished):
         raise HTTPException(status_code=400, detail="No response available")
     return cur_job.result
@@ -201,6 +221,7 @@ async def get_status() -> State:
         ready=False,
         status=internal_state.current_job.status,
         progress=internal_state.current_job.progress,
+        logs=""  # get_logs() # todo: fix
     )
 
 

@@ -4,16 +4,19 @@ from pathlib import Path
 
 #from chap_core.cli import logger
 logger = logging.getLogger()
+_global_log_file = None
+
 
 def initialize_logging(debug: bool=False, log_file: str=None):
     if debug:
-        logging.basicConfig(level=logging.DEBUG)
-        logging.debug("Debug mode enabled")
+        logger.setLevel(level=logging.DEBUG)
+        logger.debug("Debug mode enabled")
+    else:
+        logger.setLevel(level=logging.INFO)
+        logger.info("Level set to INFO")
 
-        # check if environment variable CHAP_LOG_FILE is set, use that as handler
-    if os.getenv("CHAP_LOG_FILE"):
-        #logger.addHandler(logging.FileHandler(os.getenv("CHAP_LOG_FILE")))
-        #logger.info(f"Logging to {os.getenv('CHAP_LOG_FILE')}")
+    # check if environment variable CHAP_LOG_FILE is set, use that as handler
+    if os.getenv("CHAP_LOG_FILE") and log_file is None:
         log_file = os.getenv("CHAP_LOG_FILE")
         print("Overwriting log file to specified env variable ", log_file)
 
@@ -25,3 +28,16 @@ def initialize_logging(debug: bool=False, log_file: str=None):
 
         logger.addHandler(logging.FileHandler(log_file))
         logger.info(f"Logging to {log_file}")
+        print("Willl log to ", log_file)
+        global _global_log_file
+        _global_log_file = log_file
+
+
+def get_log_file_path():
+    return _global_log_file
+
+
+def get_logs():
+    if _global_log_file is not None:
+        with open(_global_log_file, 'r') as f:
+            return f.read()
