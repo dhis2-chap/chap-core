@@ -68,3 +68,9 @@ The following is an overview of all pages in the documentation:
    api_docs
 
 
+.. toctree::
+   :glob:
+   :maxdepth: 2
+   :caption: CHAP Core on server
+
+   server/running-chap-on-server
