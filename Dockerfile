@@ -12,6 +12,7 @@ RUN apt-get upgrade -y
 RUN apt-get install -y git
 
 COPY ./chap_core ./chap_core
+COPY ./scripts/seed.py ./scripts/seed.py
 COPY ./pyproject.toml .
 COPY ./README.md .
 

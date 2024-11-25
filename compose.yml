@@ -17,6 +17,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CHAP_LOG_FILE=/app/logs/chap.log
+      - CHAP_DATABASE_URL=postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
     ports:
       - "8000:8000"
     expose:
@@ -38,6 +39,7 @@ services:
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - IS_IN_DOCKER=1
       - CHAP_LOG_FILE=/app/logs/worker.log
+      - CHAP_DATABASE_URL=postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
     command: /app/.venv/bin/rq worker --url redis://redis:6379/0
     networks:
         - chap-network

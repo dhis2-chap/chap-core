@@ -63,6 +63,11 @@ def health_population_data(data_path):
     file_name = (data_path / "health_population_data").with_suffix(".csv")
     return DataSet.from_pandas(pd.read_csv(file_name), HealthPopulationData)
 
+@pytest.fixture()
+def weekly_full_data(data_path):
+    file_name = (data_path / "nicaragua_weekly_data").with_suffix(".csv")
+    return DataSet.from_pandas(pd.read_csv(file_name), FullData)
+
 
 @pytest.fixture()
 def google_earth_engine():
