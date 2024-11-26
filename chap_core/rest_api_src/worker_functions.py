@@ -160,6 +160,7 @@ def harmonize_health_dataset(dataset, usecwd_for_credentials):
     gee_client = initialize_gee_client(usecwd=usecwd_for_credentials)
     period_range = dataset.period_range
     climate_data = gee_client.get_historical_era5(dataset.polygons.model_dump(), periodes=period_range)
+    print(dataset.period_range)
     train_data = dataset.merge(climate_data, FullData)
     return train_data
 

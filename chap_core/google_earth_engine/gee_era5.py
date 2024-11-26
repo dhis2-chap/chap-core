@@ -7,6 +7,7 @@ import os
 import pandas as pd
 from pydantic import BaseModel
 from chap_core.datatypes import SimpleClimateData
+from chap_core.exceptions import GEEError
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import PeriodRange, TimePeriod
 
@@ -158,7 +159,8 @@ class Era5LandGoogleEarthEngine:
         load_dotenv(find_dotenv(usecwd=self._usecwd))
         # read environment variables
         account = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")
-        private_key = os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY")
+        private_key = os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY").replace("\\n", "\n")
+        
         if not account:
             logger.warn(
                 "GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables to use Google Earth Engine"
@@ -172,6 +174,8 @@ class Era5LandGoogleEarthEngine:
             return
 
         try:
+            logger.info("Initializing Google Earth Engine with account: " + account)
+            logger.info(f'private_key start/end: {repr(private_key[:29])}-{repr(private_key[-10:])}')
             credentials = ee.ServiceAccountCredentials(account, key_data=private_key)
             #ee.Authenticate()
             ee.Initialize(credentials)
@@ -179,6 +183,7 @@ class Era5LandGoogleEarthEngine:
             self.is_initialized = True
         except ValueError as e:
             logger.error(e)
+            raise GEEError("Could not initialize Google Earth Engine") from e
 
     def get_historical_era5(self, features, periodes: Iterable[TimePeriod]):
         ee_reducer_type = "mean"

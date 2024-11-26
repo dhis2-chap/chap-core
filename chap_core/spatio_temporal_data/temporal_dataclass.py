@@ -136,6 +136,8 @@ class DataSet(Generic[FeaturesT]):
         return cls(data_dict, data['polygons'] and FeatureCollectionModel(**data['polygons']))
 
     def set_polygons(self, polygons: FeatureCollectionModel):
+        polygon_ids= {feature.id for feature in polygons.features}
+        assert all(location in polygon_ids for location in self.locations()), (self.locations(), polygon_ids)
         self._polygons = polygons
 
     @property

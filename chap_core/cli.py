@@ -299,7 +299,7 @@ def dhis_zip_flow(
 
 
 @app.command()
-def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path):
+def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path, prediction_length: int = 12, n_test_sets: int = 20, stride: int = 2):
     """
     Run a backtest on a dataset using the specified model
 
@@ -309,9 +309,12 @@ def backtest(data_filename: Path, model_name: registry.model_type, out_folder: P
         out_folder: Path: Path to the output folder
     """
     dataset = DataSet.from_csv(data_filename, FullData)
+    print(dataset)
+    logger.info(f"Running backtest on {data_filename} with model {model_name}")
+    logger.info(f"Dataset period range: {dataset.period_range}, locations: {list(dataset.locations())}")
     estimator = registry.get_model(model_name)
-    predictions_list = _backtest(estimator, dataset, prediction_length=12,
-                                 n_test_sets=20, stride=2, weather_provider=QuickForecastFetcher)
+    predictions_list = _backtest(estimator, dataset, prediction_length=prediction_length,
+                                 n_test_sets=n_test_sets, stride=stride, weather_provider=QuickForecastFetcher)
     response = samples_to_evaluation_response(
         predictions_list,
         quantiles=[0.05, 0.25, 0.5, 0.75, 0.95],
