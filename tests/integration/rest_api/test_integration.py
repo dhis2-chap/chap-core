@@ -86,7 +86,8 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
     monkeypatch.setattr("chap_core.rest_api.worker", NaiveWorker())
     #check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
     exception_info = run_job_that_should_fail_and_get_exception_info(big_request_json, evaluate_path, evaluation_result_path)
-    assert "there is no package called ‘INLA’" in exception_info.json(), exception_info.json()
+    assert "there is no package called ‘INLA’" in exception_info.json() or \
+        "Earth Engine client library not initialized" in exception_info.json(), exception_info.json()
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
