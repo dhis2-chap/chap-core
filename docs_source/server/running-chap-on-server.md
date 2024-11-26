@@ -3,7 +3,7 @@
 Before you set up CHAP Core on a server, we recommend you familiarize yourself with CHAP Core, the Prediction App, and test it out locally.
 
 **Requirements:**
-  - Access to credentials for Google Earth Engine (Google Service Account Email and Private Key)
+  - Access to credentials to Google Earth Engine (Google Service Account Email and Private Key) Read more here: [https://docs.dhis2.org/en/manage/reference/google-service-account-configuration.html](https://docs.dhis2.org/en/manage/reference/google-service-account-configuration.html)
   - DHIS2 version **2.41.2+**
 
 In the documentation for [Use Prediction App to transfer data directly to CHAP Core’s REST-API](https://dhis2-chap.github.io/chap-core/prediction-app/prediction-app.html), we were running CHAP Core locally and exposed the CHAP Core on http://localhost:8000. In that example, we configured the Prediction App to connect to CHAP Core over http://localhost:8000 by editing the CHAP-Core backend server URL. Data were then transferred directly from the Prediction App to CHAP Core over http://localhost:8000. This is obviously not a recommended solution in a production environment, since it will require the user to have CHAP Core running locally on their machine. Therefore, it makes sense to deploy CHAP to a server. To achieve this, we will deploy CHAP Core to the same server as a DHIS2 backend is running, ensuring that the CHAP Core REST-API is available internally to the DHIS2 backend. The Prediction App will then use the DHIS2 Route API to connect to the CHAP Core endpoint. We will explain the purpose of the Route API later.
