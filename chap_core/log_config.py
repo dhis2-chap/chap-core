@@ -24,6 +24,7 @@ def initialize_logging(debug: bool=False, log_file: str=None):
         # create file if not exist
         if not Path(log_file).exists():
             print(f"Creating log file at {log_file}")
+            Path(log_file).parent.mkdir(parents=True, exist_ok=True)
             Path(log_file).touch()
 
         logger.addHandler(logging.FileHandler(log_file))
