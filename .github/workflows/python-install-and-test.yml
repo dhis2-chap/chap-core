@@ -26,7 +26,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up environment variables
-            run: |
+      run: |
         echo "Service Account Private Key is set"
     - name: Install uv
       uses: astral-sh/setup-uv@v3
