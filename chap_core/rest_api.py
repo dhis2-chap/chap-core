@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from chap_core.api_types import PredictionRequest, EvaluationResponse
 from chap_core.internal_state import Control, InternalState
-from chap_core.log_config import get_logs, initialize_logging
+from chap_core.log_config import initialize_logging
 from chap_core.model_spec import ModelSpec
 from chap_core.predictor.feature_spec import Feature, all_features
 from chap_core.rest_api_src.data_models import FullPredictionResponse
