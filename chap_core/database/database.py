@@ -9,7 +9,7 @@ import os
 from chap_core.time_period import TimePeriod
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 
-if "CHAP_DATABASE_URL" in os.environ:
+if False and "CHAP_DATABASE_URL" in os.environ:
     database_url = os.environ["CHAP_DATABASE_URL"]
 else:
     database_url = "sqlite:///"
