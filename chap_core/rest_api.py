@@ -129,7 +129,7 @@ async def predict(data: PredictionRequest) -> dict:
     Start a prediction task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
     """
-    logger.info(f"Predicting. Worker is {worker}. Data: {data['model']}")
+    #logger.info(f"Predicting. Worker is {worker}. Data: {data['model']}")
     # dataset = wf.dataset_from_request_v1(data)
     health_data = wf.get_health_dataset(data)
     target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
