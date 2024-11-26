@@ -14,7 +14,7 @@ from chap_core.datatypes import (
     HealthData,
 )
 from chap_core.exceptions import InvalidModelException
-from chap_core.external.mlflow import (
+from chap_core.external.mlflow_wrappers import (
     ExternalModel,
     get_train_predict_runner,
 )
