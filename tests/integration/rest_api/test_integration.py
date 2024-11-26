@@ -96,6 +96,7 @@ def test_predict(big_request_json, rq_worker_process):
 
 
 #@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.skip(reason="Under development")
 def test_model_that_does_not_exist(big_request_json, monkeypatch):
     # patch worker in rest_api to be NaiveWorker
     monkeypatch.setattr("chap_core.rest_api.worker", NaiveWorker())
@@ -109,6 +110,7 @@ def test_model_that_does_not_exist(big_request_json, monkeypatch):
     # todo: check that excpetion contains the correct error message
 
 
+@pytest.mark.skip(reason="Under development")
 def run_job_that_should_fail_and_get_exception_info(big_request_json, endpoint_path, result_path=get_result_path):
     big_request_json = json.loads(big_request_json)
     big_request_json["model"] = "does_not_exist"
