@@ -15,6 +15,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+
     strategy:
         matrix:
             os: [ubuntu-latest, windows-latest, macos-latest]
@@ -22,10 +26,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up environment variables
-      env:
-        GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
-        GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
-      run: |
+            run: |
         echo "Service Account Private Key is set"
     - name: Install uv
       uses: astral-sh/setup-uv@v3
