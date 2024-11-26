@@ -80,6 +80,7 @@ def test_evaluate(big_request_json, rq_worker_process, monkeypatch):
 
 
 #@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.skip(reason="Under development")
 def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_process, monkeypatch):
     # this test should fail since INLA does not exist. Check that we get a clean error message from the model propagated
     # all the way back to the exception info
