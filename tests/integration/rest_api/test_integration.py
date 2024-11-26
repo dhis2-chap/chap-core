@@ -86,19 +86,16 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
     big_request_json["estimator_id"] = "chap_ewars_monthly"
     big_request_json = json.dumps(big_request_json)
     monkeypatch.setattr("chap_core.rest_api.worker", NaiveWorker())
-    #check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
     exception_info = run_job_that_should_fail_and_get_exception_info(big_request_json, evaluate_path, evaluation_result_path)
     assert "there is no package called ‘INLA’" in exception_info.json(), exception_info.json()
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
-@pytest.mark.skip(reason="This test is not working")
+#@pytest.mark.skip(reason="This test is not working")
 def test_predict(big_request_json, rq_worker_process):
     check_job_endpoint(big_request_json, predict_path)
 
 
-#@pytest.mark.skipif(not redis_available(), reason="Redis not available")
-#@pytest.mark.skip(reason="Under development")
 def test_model_that_does_not_exist(big_request_json, monkeypatch):
     # patch worker in rest_api to be NaiveWorker
     monkeypatch.setattr("chap_core.rest_api.worker", NaiveWorker())
