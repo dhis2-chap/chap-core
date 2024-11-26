@@ -45,7 +45,7 @@ def train_on_zip_file(file, model_name, model_path, control=None):
     return train_on_prediction_data(prediction_data, model_name=model_name, model_path=model_path, control=control)
 
 
-def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationData], estimator_id: int, n_periods: int, target_id='disease_cases'):
+def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationData], estimator_id: str, n_periods: int, target_id='disease_cases'):
     health_dataset = DataSet.from_dict(health_dataset, HealthPopulationData)
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False)
     estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith('chap_ewars'))
@@ -160,7 +160,6 @@ def harmonize_health_dataset(dataset, usecwd_for_credentials):
     gee_client = initialize_gee_client(usecwd=usecwd_for_credentials)
     period_range = dataset.period_range
     climate_data = gee_client.get_historical_era5(dataset.polygons.model_dump(), periodes=period_range)
-    print(dataset.period_range)
     train_data = dataset.merge(climate_data, FullData)
     return train_data
 

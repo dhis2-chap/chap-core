@@ -79,11 +79,12 @@ def test_evaluate(big_request_json, rq_worker_process, monkeypatch):
     check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
 
-#@pytest.mark.skipif(not redis_available(), reason="Redis not available")
-@pytest.mark.skip(reason="Under development")
 def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_process, monkeypatch):
     # this test should fail since INLA does not exist. Check that we get a clean error message from the model propagated
     # all the way back to the exception info
+    big_request_json = json.loads(big_request_json)
+    big_request_json["estimator_id"] = "chap_ewars_monthly"
+    big_request_json = json.dumps(big_request_json)
     monkeypatch.setattr("chap_core.rest_api.worker", NaiveWorker())
     #check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
     exception_info = run_job_that_should_fail_and_get_exception_info(big_request_json, evaluate_path, evaluation_result_path)
@@ -97,14 +98,13 @@ def test_predict(big_request_json, rq_worker_process):
 
 
 #@pytest.mark.skipif(not redis_available(), reason="Redis not available")
-@pytest.mark.skip(reason="Under development")
+#@pytest.mark.skip(reason="Under development")
 def test_model_that_does_not_exist(big_request_json, monkeypatch):
     # patch worker in rest_api to be NaiveWorker
     monkeypatch.setattr("chap_core.rest_api.worker", NaiveWorker())
-    initialize_logging("log.txt")
     request_json = big_request_json
     request_json = json.loads(request_json)
-    request_json["model"] = "does_not_exist"
+    request_json["estimator_id"] = "does_not_exist"
     request_json = json.dumps(request_json)
     info = run_job_that_should_fail_and_get_exception_info(request_json, predict_path)
     print(info)
