@@ -64,12 +64,15 @@ class NaiveJob:
         self._result = ""
         self._status = ""
         self._finished = False
+        logger.info("Starting naive job")
         try:
             self._result = func(*args, **kwargs)
             self._status = "finished"
+            logger.info("Naive job finished successfully")
             self._finished = True
         except Exception as e:
             self._exception_info = str(e)
+            logger.info("Naive job failed with exception: %s", e)
             self._status = "failed"
             self._result = ""
 
@@ -126,6 +129,7 @@ async def predict(data: PredictionRequest) -> dict:
     Start a prediction task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
     """
+    logger.info(f"Predicting. Worker is {worker}. Data: {data['model']}")
     # dataset = wf.dataset_from_request_v1(data)
     health_data = wf.get_health_dataset(data)
     target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])

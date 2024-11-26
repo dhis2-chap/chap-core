@@ -97,7 +97,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         working_dir = base_working_dir / model_name / "latest"
         # clear working dir
         if working_dir.exists():
-            logging.info(f"Removing previous working dir {working_dir}")
+            logger.info(f"Removing previous working dir {working_dir}")
             shutil.rmtree(working_dir)
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
