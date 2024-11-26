@@ -107,7 +107,7 @@ def test_model_that_does_not_exist(big_request_json, monkeypatch):
     request_json["estimator_id"] = "does_not_exist"
     request_json = json.dumps(request_json)
     info = run_job_that_should_fail_and_get_exception_info(request_json, predict_path)
-    print(info)
+    assert "Unknown model id" in info.json()
     # todo: check that excpetion contains the correct error message
 
 
