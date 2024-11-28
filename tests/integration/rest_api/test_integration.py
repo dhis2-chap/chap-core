@@ -4,7 +4,7 @@ import json
 import pytest
 
 from chap_core.log_config import initialize_logging
-from chap_core.rest_api import NaiveWorker, app
+from chap_core.rest_api_src.v1.rest_api import NaiveWorker, app
 from fastapi.testclient import TestClient
 
 from chap_core.util import redis_available
@@ -85,7 +85,7 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
     big_request_json = json.loads(big_request_json)
     big_request_json["estimator_id"] = "chap_ewars_monthly"
     big_request_json = json.dumps(big_request_json)
-    monkeypatch.setattr("chap_core.rest_api.worker", NaiveWorker())
+    monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
     #check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
     exception_info = run_job_that_should_fail_and_get_exception_info(big_request_json, evaluate_path, evaluation_result_path)
     assert "there is no package called ‘INLA’" in exception_info.json(), exception_info.json()
@@ -101,7 +101,7 @@ def test_predict(big_request_json, rq_worker_process):
 #@pytest.mark.skip(reason="Under development")
 def test_model_that_does_not_exist(big_request_json, monkeypatch):
     # patch worker in rest_api to be NaiveWorker
-    monkeypatch.setattr("chap_core.rest_api.worker", NaiveWorker())
+    monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
     request_json = big_request_json
     request_json = json.loads(request_json)
     request_json["estimator_id"] = "does_not_exist"
