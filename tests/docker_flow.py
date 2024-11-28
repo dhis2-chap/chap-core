@@ -69,14 +69,14 @@ def evaluate_model(chap_url, data, model, timeout=600):
         if job_status['status'] == "failed":
             exception_info = requests.get(chap_url + "/v1/get-exception").json()
             if "Earth Engine client library not initialized" in exception_info:
-                logger.warning("Earth Engine client library not initialized. Ignoring this test")
                 logger.warning("Exception: %s" % exception_info)
-                return
+                raise Exception("Failed, Earth Engine client library not initialized")
 
             raise ValueError("Model evaluation failed. Exception: %s" % exception_info)
 
         logger.info(job_status)
 
+        print("Waiting for model to finish")
         time.sleep(5)
         if job_status['ready']:
             break

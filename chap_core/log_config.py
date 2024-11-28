@@ -2,7 +2,6 @@ import logging
 import os
 from pathlib import Path
 
-#from chap_core.cli import logger
 logger = logging.getLogger()
 _global_log_file = None
 

@@ -161,14 +161,16 @@ class Era5LandGoogleEarthEngine:
         account = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")
         private_key = os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY").replace("\\n", "\n")
         
-        if not account:
+        if not account or account is None:
             logger.warn(
                 "GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables to use Google Earth Engine"
             )
-        if not private_key:
+            raise GEEError("Could not initialize Google Earth Engine. Missing GOOGLE_SERVICE_ACCOUNT_EMAIL")
+        if not private_key or private_key is None:
             logger.warn(
                 "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is not set, you need to set it in the environment variables to use Google Earth Engine"
             )
+            raise GEEError("Could not initialize Google Earth Engine. Missing GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY")
 
         if not account or not private_key:
             return
