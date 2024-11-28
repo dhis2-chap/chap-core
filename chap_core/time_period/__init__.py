@@ -6,6 +6,7 @@ from .date_util_wrapper import (
     PeriodRange,
     delta_month,
     delta_week,
+    delta_day,
     Week,
 )
 
@@ -18,6 +19,7 @@ __all__ = [
     "PeriodRange",
     "delta_month",
     "delta_week",
+    "delta_day",
     "Week",
     "get_period_range",
 ]

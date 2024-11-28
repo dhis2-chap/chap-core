@@ -4,7 +4,7 @@ from sqlmodel import select
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session
 
-from chap_core.routers.dependencies import get_session
+from .dependencies import get_session
 from chap_core.worker.rq_worker import RedisQueue
 from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast
 import chap_core.rest_api_src.db_worker_functions as wf

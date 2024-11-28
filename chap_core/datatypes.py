@@ -4,7 +4,7 @@ import bionumpy as bnp
 import numpy as np
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 import dataclasses
 
 from typing_extensions import deprecated
@@ -272,7 +272,7 @@ class ClimateHealthTimeSeriesModel(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    @validator("time_period")
+    @field_validator("time_period")
     def parse_time_period(cls, data: str | pd.Period) -> pd.Period:
         if isinstance(data, pd.Period):
             return data
