@@ -199,6 +199,10 @@ class TimePeriod:
     def end_timestamp(self):
         return TimeStamp(self._exclusive_end())
 
+    @property
+    def n_days(self):
+        return (self._exclusive_end() - self._date).days
+
 
 class Day(TimePeriod):
     _used_attributes = ["year", "month", "day"]
