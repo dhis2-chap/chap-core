@@ -56,7 +56,7 @@ test: ## run tests quickly with the default Python
 	pytest
 
 test-all: ## run pytest, doctests, examples
-    mkdir -p logs
+	mkdir -p logs/
 	touch logs/rest_api.log
 	touch logs/worker.log
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
