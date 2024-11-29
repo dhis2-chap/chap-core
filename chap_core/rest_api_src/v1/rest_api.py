@@ -137,11 +137,16 @@ async def predict(data: PredictionRequest) -> dict:
     """
     #logger.info(f"Predicting. Worker is {worker}. Data: {data['model']}")
     # dataset = wf.dataset_from_request_v1(data)
-    health_data = wf.get_health_dataset(data)
-    target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
-    job = worker.queue(wf.predict_pipeline_from_health_data, health_data.model_dump(), data.estimator_id,
-                       data.n_periods, target_id)
-    internal_state.current_job = job
+    try:
+        health_data = wf.get_health_dataset(data)
+        target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
+        job = worker.queue(wf.predict_pipeline_from_health_data, health_data.model_dump(), data.estimator_id,
+                        data.n_periods, target_id)
+        internal_state.current_job = job
+    except Exception as e:
+        logger.error("Failed to run predic. Exception: %s", e)
+        return "{status: 'failed', exception: %s}" % e
+
     return {"status": "success"}
 
 

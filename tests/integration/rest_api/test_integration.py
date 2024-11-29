@@ -2,6 +2,7 @@ import os
 import time
 import json
 import pytest
+import requests
 
 from chap_core.log_config import initialize_logging
 from chap_core.rest_api_src.v1.rest_api import NaiveWorker, app
@@ -176,3 +177,29 @@ def test_list_features():
         "rainfall",
         "mean_temperature",
     }
+
+
+def set_model_in_json(json_str, model_id):
+    data = json.loads(json_str)
+    data["estimator_id"] = "naive_model"
+    return json.dumps(data)
+
+
+def test_run_job_with_too_little_data(big_request_json, monkeypatch):
+    # predict-endpoint should give an error message
+    # todo: change to a dataset with too little data
+    # check that a correct message is returned and that status from predict
+    # endpoint is failed
+    # this test requires some functionality to go from json data to a dataset
+    # that we can change and then go back (or to generate api data directory from a dataset)
+    pass
+    """"
+    monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
+    model_name = "naive_model" 
+    data = set_model_in_json(big_request_json, model_name)
+    client = TestClient(app)
+    response = client.post(predict_path, json=json.loads(data))
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    """
+
