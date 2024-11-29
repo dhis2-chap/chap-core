@@ -196,7 +196,6 @@ def serve(seedfile: Optional[str] = None, debug: bool = False):
     """
     Start CHAP as a backend server
     """
-    initialize_logging(debug, log_file)
     from .rest_api_src.v1.rest_api import main_backend
     if seedfile is not None:
         data = json.load(open(seedfile))

@@ -3,11 +3,9 @@ This needs a redis db and a redis queue worker running
 $ rq worker --with-scheduler
 """
 
-from io import StringIO
-import sys
 from typing import Callable, Generic
 
-from rq import Queue, get_current_job
+from rq import Queue
 from rq.job import Job
 from redis import Redis
 import os
