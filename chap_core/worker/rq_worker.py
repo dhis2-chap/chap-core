@@ -81,7 +81,7 @@ class RedisQueue:
         return host, port
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> RedisJob[ReturnType]:
-        return RedisJob(self.q.enqueue(func, *args, **kwargs))
+        return RedisJob(self.q.enqueue(func, *args, **kwargs, result_ttl=604800)) #keep result for a week
 
     def __del__(self):
         self.q.connection.close()

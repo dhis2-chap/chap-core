@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, DataList, DataElement
-from chap_core.routers.dependencies import get_session
+from .dependencies import get_session
 from chap_core.database.tables import BackTest, DataSet
 import logging
 

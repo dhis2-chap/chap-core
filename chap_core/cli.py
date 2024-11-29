@@ -14,7 +14,7 @@ from chap_core.external.external_model import get_model_maybe_yaml, get_model_fr
 from chap_core.external.mlflow_wrappers import NoPredictionsError
 from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import naive_spec, registry
-from chap_core.rest_api import get_openapi_schema
+from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
 from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
@@ -196,7 +196,8 @@ def serve(seedfile: Optional[str] = None, debug: bool = False):
     """
     Start CHAP as a backend server
     """
-    from .rest_api import main_backend
+    initialize_logging(debug, log_file)
+    from .rest_api_src.v1.rest_api import main_backend
     if seedfile is not None:
         data = json.load(open(seedfile))
     else:

@@ -3,7 +3,7 @@ import pickle
 import pytest
 
 from chap_core.api_types import PredictionRequest
-from chap_core.rest_api import predict, NaiveWorker, get_results, NaiveJob
+from chap_core.rest_api_src.v1.rest_api import predict, NaiveWorker, get_results, NaiveJob
 
 from unittest.mock import patch
 
