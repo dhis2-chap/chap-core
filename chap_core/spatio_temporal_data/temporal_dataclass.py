@@ -1,3 +1,4 @@
+import pickle
 from typing import Generic, Iterable, Tuple, Type, Callable
 
 import numpy as np
@@ -262,6 +263,17 @@ class DataSet(Generic[FeaturesT]):
     def to_csv(self, file_name: str, mode="w"):
         self.to_pandas().to_csv(file_name, mode=mode)
 
+    def to_pickle(self, file_name: str):
+        data_dict = {loc: data.to_pickle_dict() for loc, data in self.items()}
+        with open(file_name, "wb") as f:
+            pickle.dump(data_dict, f)
+
+    @classmethod
+    def from_pickle(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
+        with open(file_name, "rb") as f:
+            data_dict = pickle.load(f)
+        return cls({loc: dataclass.from_pickle_dict(val) for loc, val in data_dict.items()})
+
     @classmethod
     def df_from_pydantic_observations(cls, observations: list[PeriodObservation]) -> TimeSeriesData:
         df = pd.DataFrame([obs.model_dump() for obs in observations])
@@ -360,7 +372,14 @@ class DataSet(Generic[FeaturesT]):
             )
         return cls(new_dict)
 
-    def merge(self, other_dataset: 'DataSet', result_dataclass: type[TimeSeriesData]) -> 'DataSet':
+    def merge(self, other_dataset: 'DataSet', result_dataclass: type[TimeSeriesData]=None) -> 'DataSet':
+        # if result_dataclass is None:
+        #     orig_dataclass = type(next(iter(self._data_dict.values())).data())
+        #     other_dataclass = type(next(iter(other_dataset._data_dict.values())).data())
+        #     result_dataclass = create_dataclass(list(set(dataclasses.fields(orig_dataclass)) | set(dataclasses.fields(other_dataclass))))
+        #     class NewClass(orig_dataclass, other_dataclass):
+        #         pass
+        #     result_dataclass = NewClass
         other_locations = set(other_dataset.locations())
         assert all(location in other_locations for location in self.locations()), (self.locations(), other_locations)
         return DataSet({location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()})

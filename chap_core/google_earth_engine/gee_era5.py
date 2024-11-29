@@ -222,3 +222,44 @@ class Era5LandGoogleEarthEngine:
         parsed_result = self.gee_helper.convert_value_by_band_converter(result, bands)
 
         return self.gee_helper.parse_gee_properties(parsed_result)
+
+
+    def get_daily_data(self, regions, periodes: Iterable[TimePeriod]):
+        for i, feature in enumerate(regions['features']):
+            if 'properties' not in feature:
+                feature['properties'] = {}
+            if 'id' not in feature['properties']:
+                feature['properties']['id'] = feature.get('id', f'new_id_{i}')
+        
+        start_date = periodes[0].start_timestamp.date
+        end_date = periodes[-1].end_timestamp.date
+        era5 = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select([band.name for band in bands])
+        # Filter data by date range
+        era5_filtered = era5.filterDate(start_date, end_date)
+
+        # Function to extract daily values
+        def extract_daily_values(image):
+            date = image.date().format("YYYY-MM-dd")
+            stats = image.reduceRegions(
+                collection=regions,
+                reducer=ee.Reducer.mean(),
+                scale=1000
+            )
+            stats = stats.map(lambda feature: feature.set("date", date))
+            return stats
+
+        # Apply the function over the ImageCollection
+        daily_stats = era5_filtered.map(extract_daily_values).flatten()
+
+        # Retrieve data from Earth Engine
+        def ee_to_df(feature_collection):
+            features = feature_collection.getInfo()["features"]
+            data = []
+            for feature in features:
+                properties = feature["properties"]
+                data.append(properties)
+            return pd.DataFrame(data)
+
+        # Convert the FeatureCollection to a DataFrame
+        df = ee_to_df(daily_stats)
+        return df

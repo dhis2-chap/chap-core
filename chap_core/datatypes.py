@@ -4,6 +4,7 @@ import bionumpy as bnp
 import numpy as np
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
+
 from pydantic import BaseModel, field_validator
 import dataclasses
 
@@ -49,8 +50,12 @@ class TimeSeriesData:
 
     def topandas(self):
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
+        for key, value in data_dict.items():
+            if isinstance(value, np.ndarray) and value.ndim > 1:
+                data_dict[key] = value.tolist()
         data_dict["time_period"] = self.time_period.topandas()
         return pd.DataFrame(data_dict)
+
 
     to_pandas = topandas
 
@@ -58,6 +63,15 @@ class TimeSeriesData:
         """Write data to a csv file."""
         data = self.to_pandas()
         data.to_csv(csv_file, index=False, **kwargs)
+
+    def to_pickle_dict(self):
+        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
+        data_dict['time_period'] = self.time_period.tolist()
+        return data_dict
+    
+    @classmethod
+    def from_pickle_dict(cls, data: dict):
+        return cls(**{key: PeriodRange.from_strings(value) if key=='time_period' else value for key, value in data.items()})
 
     @classmethod
     def create_class_from_basemodel(cls, dataclass: type[PeriodObservation]):
@@ -377,3 +391,8 @@ def remove_field(data: BNPDataClass, field_name, new_class=None):
     return new_class(
         **{field.name: getattr(data, field.name) for field in dataclasses.fields(data) if field.name != field_name}
     )
+
+@tsdataclass
+class GEEData(TimeSeriesData):
+    temperature_2m: float
+    total_precipitation_sum: float

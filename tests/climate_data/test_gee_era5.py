@@ -2,8 +2,10 @@ import os
 from datetime import datetime, timezone
 
 from dotenv import find_dotenv, load_dotenv
+import pandas as pd
 
 from chap_core.api_types import FeatureCollectionModel
+from chap_core.datatypes import GEEData, HealthPopulationData, tsdataclass
 from chap_core.google_earth_engine.gee_era5 import (
     Band,
     Era5LandGoogleEarthEngine,
@@ -14,8 +16,9 @@ from chap_core.google_earth_engine.gee_era5 import (
     Era5LandGoogleEarthEngineHelperFunctions,
 )
 from chap_core.google_earth_engine.gee_raw import fetch_era5_data, GEECredentials
+from chap_core.google_earth_engine.multi_resolution import harmonize_with_daily_data, pack_daily_data
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period.date_util_wrapper import Month
+from chap_core.time_period.date_util_wrapper import Month, PeriodRange
 import pytest
 import ee as _ee
 
@@ -329,6 +332,64 @@ def polygons(polygon_json):
 @pytest.fixture()
 def polygon_json(data_path):
     return open(data_path / "Organisation units.geojson").read()
+
+def test_get_daily_data(era5_land_gee, polygons, data_path):
+    polygons.features = polygons.features[:2]
+    period_range = [
+            Month(2023, 1),
+            Month(2023, 2),
+        ]
+    period_range = PeriodRange.from_period_list(False, period_range)
+    
+    data = era5_land_gee.get_daily_data(
+        polygons.model_dump(),
+        period_range,
+    )
+    assert data is not None
+    print(data)
+    assert len(data) > 2 *28* len(polygons.features)
+    data.to_csv(data_path / "era5_land_daily_data.csv", index=False)
+
+
+def test_pack_daily_data(data_path, tmp_path):
+    data = pd.read_csv(data_path / "era5_land_daily_data.csv")
+    period_range = [Month(2023, 1), Month(2023, 2)]
+    period_range = PeriodRange.from_period_list(False, period_range)
+    data = pack_daily_data(data, period_range, GEEData)
+    assert len(data.locations()) == 2
+    for location, d in data.items():
+        assert len(d.time_period) == 2
+        assert d.temperature_2m.shape == (2, 31)
+        assert d.total_precipitation_sum.shape == (2, 31)
+
+    data.to_pickle(tmp_path / "era5_land_daily_data.pkl")
+    new_data = DataSet.from_pickle(tmp_path / "era5_land_daily_data.pkl", GEEData)
+    assert len(new_data.locations()) == 2
+    for location, d in new_data.items():
+        assert len(d.time_period) == 2
+        assert d.temperature_2m.shape == (2, 31), d.temperature_2m
+        assert d.total_precipitation_sum.shape == (2, 31), d.total_precipitation_sum
+
+def test_harmonize_daily_data(polygons):
+    polygons.features = polygons.features[:2]
+    data = HealthPopulationData(PeriodRange.from_period_list(False, [Month(2023, 1), Month(2023, 2)]),
+                                       disease_cases=[1, 2], population=[100, 200])
+    health_population_data = DataSet({f.id: data for f in polygons.features})
+    health_population_data.set_polygons(polygons)
+    
+    @tsdataclass
+    class NewClass(HealthPopulationData):
+        temperature_2m: float
+        total_precipitation_sum: float
+
+    dataset = harmonize_with_daily_data(health_population_data, GEEData, NewClass)
+    assert set(dataset.keys()) == set(health_population_data.keys())
+    for location, d in dataset.items():
+        assert len(d.time_period) == 2
+        assert d.temperature_2m.shape == (2, 31)
+        assert d.total_precipitation_sum.shape == (2, 31)
+        assert d.disease_cases.shape == (2,)
+        assert d.population.shape == (2,)
 
 
 @pytest.mark.skip("Calling actual gee data")
