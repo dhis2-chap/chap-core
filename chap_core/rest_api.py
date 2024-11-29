@@ -22,6 +22,7 @@ from chap_core.routers import crud, analytics
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
+logger.info("Logging initialized")
 
 
 def get_app():
@@ -60,6 +61,7 @@ state = State(ready=True, status="idle")
 
 class NaiveJob:
     def __init__(self, func, *args, **kwargs):
+        # todo: init a root logger to capturea all logs from the job
         self._exception_info = ""
         self._result = ""
         self._status = ""
@@ -98,6 +100,10 @@ class NaiveJob:
     @property
     def is_finished(self):
         return self._finished
+
+    def get_logs(self, n_lines: Optional[int]):
+        """Retrives logs from the current job"""
+        return ""
 
 
 class NaiveWorker:

@@ -71,8 +71,12 @@ def sample_dataset_to_prediction_response(predictions: DataSet[Samples], target_
 
 def _convert_prediction_request(json_data):
     json_data = PredictionRequest.model_validate_json(json_data)
-    estimator = registry.get_model(json_data.estimator_id,
-                                   ignore_env=json_data.estimator_id.startswith('chap_ewars'))
+    skip_env = hasattr(json_data, "ignore_env") and json_data.ignore_env
+    if json_data.estimator_id.startswith('chap_ewars'):
+        skip_env = True
+        logger.warning(f"Hack: Skipping env for {json_data.estimator_id}")
+
+    estimator = registry.get_model(json_data.estimator_id, ignore_env=skip_env)
     target_id = get_target_id(json_data, ["disease", "diseases", "disease_cases"])
     train_data = dataset_from_request_v1(json_data)
     return estimator, json_data, target_id, train_data

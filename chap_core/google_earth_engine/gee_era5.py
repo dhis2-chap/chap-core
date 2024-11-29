@@ -177,9 +177,7 @@ class Era5LandGoogleEarthEngine:
 
         try:
             logger.info("Initializing Google Earth Engine with account: " + account)
-            logger.info(f'private_key start/end: {repr(private_key[:29])}-{repr(private_key[-10:])}')
             credentials = ee.ServiceAccountCredentials(account, key_data=private_key)
-            #ee.Authenticate()
             ee.Initialize(credentials)
             logger.info("Google Earth Engine initialized, with account: " + account)
             self.is_initialized = True

@@ -67,3 +67,12 @@ You can go to [http://localhost:8000/docs](http://localhost:8000/docs) to verify
 ```sh
 docker-compose down
 ```
+
+
+
+## Logs
+
+When running things with docker compose, some logging will be done by each container. These are written to the `logs`-directory, and can be useful for debugging purposes:
+
+- `logs/rest_api.log`: This contains logs part of the chap-core rest api
+- `logs/worker.log`: This contains logs from the worker running the models. This should be checked if a model for some reason fails

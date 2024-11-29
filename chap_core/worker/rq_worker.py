@@ -3,9 +3,11 @@ This needs a redis db and a redis queue worker running
 $ rq worker --with-scheduler
 """
 
+from io import StringIO
+import sys
 from typing import Callable, Generic
 
-from rq import Queue
+from rq import Queue, get_current_job
 from rq.job import Job
 from redis import Redis
 import os
@@ -43,6 +45,9 @@ class RedisJob(Generic[ReturnType]):
     @property
     def progress(self) -> float:
         return 0
+
+    def get_logs(self) -> str:
+        return self._job.meta.get("stdout", "") + "\n" + self._job.meta.get("stderr", "")
 
     def cancel(self):
         self._job.cancel()
