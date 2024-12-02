@@ -143,3 +143,6 @@ tests/logs/
 tests/out.tmp
 mlruns/
 /results/
+
+# ignore mac finder setting files
+.DS_Store
