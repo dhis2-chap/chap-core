@@ -156,12 +156,21 @@ class Polygons:
     def from_file(cls, filename):
         return cls.from_geojson(json.load(open(filename)))
 
+    def to_file(self, filename):
+        json.dump(self.to_geojson(), open(filename, "w"))
+
     @classmethod
     def from_geojson(cls, geojson: dict):
         return cls(DFeatureCollectionModel.model_validate(geojson))
 
+    def to_geojson(self):
+        return self._polygons.model_dump()
+
     def feature_collection(self):
         return self._polygons
+
+    def __eq__(self, other):
+        return self._polygons == other._polygons
 
 
 if __name__ == "__main__":

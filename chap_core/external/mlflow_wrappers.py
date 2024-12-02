@@ -9,6 +9,7 @@ from mlflow.utils.process import ShellCommandException
 from chap_core.datatypes import HealthData, Samples
 from chap_core.exceptions import CommandLineException, ModelFailedException
 from chap_core.exceptions import NoPredictionsError
+from chap_core.geometry import Polygons
 from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.runners.docker_runner import DockerRunner
 from chap_core.runners.runner import TrainPredictRunner
@@ -158,16 +159,28 @@ class ExternalModel(Generic[FeatureType]):
     def __call__(self):
         return self
 
+    def _write_polygons_to_geojson(self, dataset: DataSet, out_file_name):
+        if dataset.polygons is not None:
+            logging.info(f"Writing polygons to {out_file_name}")
+            Polygons(dataset.polygons).to_file(out_file_name)
+
     def train(self, train_data: DataSet, extra_args=None):
         if extra_args is None:
             extra_args = ""
 
         train_file_name = "training_data.csv"
         train_file_name_full = Path(self._working_dir) / Path(train_file_name)
+        geojson_file_name = Path(self._working_dir) / "polygons_train.geojson"
+        self._write_polygons_to_geojson(train_data, geojson_file_name)
+
+        # todo: send polygons file to the train command of the runner
+        # the runner should check the command of the method and send the file to 
+        # the command if it is needed
 
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
         new_pd.to_csv(train_file_name_full)
+
         try:
             self._runner.train(train_file_name, self._model_file_name)
         except CommandLineException as e:
