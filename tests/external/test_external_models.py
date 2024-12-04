@@ -2,6 +2,7 @@ from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.exceptions import InvalidModelException, ModelFailedException
 from chap_core.file_io.example_data_set import datasets
 import pytest
+from chap_core.geometry import Polygons
 from chap_core.testing.external_model import sanity_check_external_model
 from chap_core.external.external_model import get_model_from_directory_or_github_url
 from chap_core.util import docker_available, pyenv_available
@@ -52,3 +53,14 @@ def test_external_sanity(models_path):
 @pytest.mark.slow
 def test_external_sanity_deepar(models_path):
     sanity_check_external_model("https://github.com/dhis2-chap/chap_auto_ewars")
+
+
+@pytest.mark.skip(reason="Under development")
+def test_that_polygons_are_sent_to_runners_through_external_model(data_path, dataset):
+    # todo: implement with dataset/polygons that are compatible
+    # init external model with a runner (create a dummy command line model)
+    # check that commands get polygons correctly by fetching the runner and
+    # inspect the commands
+    polygons = Polygons.from_file(data_path / "example_polygons.geojson").data
+    #dataset.set_polygons(polygons)
+    

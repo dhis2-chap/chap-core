@@ -152,6 +152,10 @@ class Polygons:
     def __init__(self, polygons):
         self._polygons = polygons
 
+    @property
+    def data(self) -> FeatureCollectionModel:
+        return self._polygons
+
     @classmethod
     def from_file(cls, filename):
         return cls.from_geojson(json.load(open(filename)))

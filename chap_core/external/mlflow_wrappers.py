@@ -7,7 +7,7 @@ import yaml
 from mlflow.utils.process import ShellCommandException
 
 from chap_core.datatypes import HealthData, Samples
-from chap_core.exceptions import CommandLineException, ModelFailedException
+from chap_core.exceptions import CommandLineException, ModelConfigurationException, ModelFailedException
 from chap_core.exceptions import NoPredictionsError
 from chap_core.geometry import Polygons
 from chap_core.runners.command_line_runner import CommandLineRunner
@@ -56,7 +56,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
     def __init__(self, model_path):
         self.model_path = model_path
 
-    def train(self, train_file_name, model_file_name):
+    def train(self, train_file_name, model_file_name, polygons_file_name=None):
         logger.info("Training model using MLflow")
         try:
             return mlflow.projects.run(
@@ -79,14 +79,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             )
             raise ModelFailedException(str(e))
 
-    def predict(self, model_file_name, historic_data, future_data, output_file):
-        """
-        Input files are just file names, make them relative to model
-        """
-        # model_file_name = self.model_path / model_file_name
-        # historic_data = self.model_path / historic_data
-        # future_data = self.model_path / future_data
-        # output_file = self.model_path / output_file
+    def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):
         return mlflow.projects.run(
             str(self.model_path),
             entry_point="predict",
@@ -106,17 +99,37 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         self._train_command = train_command
         self._predict_command = predict_command
 
-    def train(self, train_file_name, model_file_name):
-        command = self._train_command.format(train_data=train_file_name, model=model_file_name)
+    def _format_command(self, command, keys):
+        try:
+            return command.format(**keys)
+        except KeyError as e:
+            raise ModelConfigurationException(f"Was not able to format command {command}. Does the command contain wrong keys or keys that there is not data for in the dataset?") from e
+        
+    def _handle_polygons(self, command, keys, polygons_file_name=None):
+        # adds polygons to keys if polygons exist. Does some checking with compatibility with command
+        if polygons_file_name is not None:
+            if not "{polygons}" in command:
+                logger.warning(f"Dataset has polygons, but command {command} does not ask for polygons. Will not insert polygons into command.")
+            else:
+                keys["polygons"] = polygons_file_name
+        return keys
+
+
+    def train(self, train_file_name, model_file_name, polygons_file_name=None):
+        keys = {"train_data": train_file_name, "model": model_file_name}
+        keys = self._handle_polygons(self._train_command, keys, polygons_file_name)
+        command = self._format_command(self._train_command, keys)
         return self._runner.run_command(command)
 
-    def predict(self, model_file_name, historic_data, future_data, output_file):
-        command = self._predict_command.format(
-            historic_data=historic_data,
-            future_data=future_data,
-            model=model_file_name,
-            out_file=output_file,
-        )
+    def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):
+        keys = {
+            "historic_data": historic_data,
+            "future_data": future_data,
+            "model": model_file_name,
+            "out_file": output_file,
+        }
+        keys = self._handle_polygons(self._predict_command, keys, polygons_file_name)
+        command = self._format_command(self._predict_command, keys)
         return self._runner.run_command(command)
 
 
@@ -151,6 +164,7 @@ class ExternalModel(Generic[FeatureType]):
         self._model_file_name = "model"
         self._data_type = data_type
         self._name = name
+        self._polygons_file_name = None
 
     @property
     def name(self):
@@ -170,19 +184,19 @@ class ExternalModel(Generic[FeatureType]):
 
         train_file_name = "training_data.csv"
         train_file_name_full = Path(self._working_dir) / Path(train_file_name)
-        geojson_file_name = Path(self._working_dir) / "polygons_train.geojson"
-        self._write_polygons_to_geojson(train_data, geojson_file_name)
-
-        # todo: send polygons file to the train command of the runner
-        # the runner should check the command of the method and send the file to 
-        # the command if it is needed
+        if train_data.polygons is not None:
+            self._polygons_file_name = Path(self._working_dir) / "polygons.geojson"
+            self._write_polygons_to_geojson(train_data, self._polygons_file_name)
+            logging.info(f"Will pass polygons file {self._polygons_file_name} to train command and predict command")
 
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd)
         new_pd.to_csv(train_file_name_full)
 
         try:
-            self._runner.train(train_file_name, self._model_file_name)
+            self._runner.train(train_file_name, self._model_file_name, 
+                               polygons_file_name="polygons.geojson" if self._polygons_file_name is not None else None
+                               )
         except CommandLineException as e:
             logger.error("Error training model, command failed")
             raise ModelFailedException(str(e))
@@ -232,7 +246,7 @@ class ExternalModel(Generic[FeatureType]):
         future_data_name = Path(self._working_dir) / "future_data.csv"
         historic_data_name = Path(self._working_dir) / "historic_data.csv"
         start_time = future_data.start_timestamp
-        logger.info("Predicting on dataset from %s", start_time)
+        logger.info(f"Predicting on dataset from {start_time} to {future_data.end_timestamp}")
 
         for filename, dataset in [
             (future_data_name, future_data),
@@ -254,6 +268,7 @@ class ExternalModel(Generic[FeatureType]):
                 "historic_data.csv",
                 "future_data.csv",
                 "predictions.csv",
+                "polygons.geojson" if self._polygons_file_name is not None else None,
             )
         except CommandLineException as e:
             logger.error("Error predicting model, command failed")

@@ -17,3 +17,11 @@ class NoPredictionsError(Exception):
 
 class GEEError(Exception):
     pass
+
+
+class ModelConfigurationException(Exception):
+    ...
+
+
+class InvalidDateError(Exception):
+    ...
