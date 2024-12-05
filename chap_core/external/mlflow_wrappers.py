@@ -108,7 +108,7 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
     def _handle_polygons(self, command, keys, polygons_file_name=None):
         # adds polygons to keys if polygons exist. Does some checking with compatibility with command
         if polygons_file_name is not None:
-            if not "{polygons}" in command:
+            if "{polygons}" not in command:
                 logger.warning(f"Dataset has polygons, but command {command} does not ask for polygons. Will not insert polygons into command.")
             else:
                 keys["polygons"] = polygons_file_name
