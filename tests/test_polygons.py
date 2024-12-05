@@ -15,3 +15,4 @@ def test_to_from_geojson_file(data_path):
 
 def test_laos_polygons(data_path):
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson").data
+    polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson", id_property='district').data

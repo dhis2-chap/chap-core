@@ -219,6 +219,7 @@ class ExternalModel(Generic[FeatureType]):
                 continue
 
             if from_name == "week":
+                logger.info("Converting time period to week number")
                 if hasattr(data["time_period"], "dt"):
                     new_val = data["time_period"].dt.week
                     data[to_name] = new_val
@@ -226,11 +227,13 @@ class ExternalModel(Generic[FeatureType]):
                     data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
 
             elif from_name == "month":
+                logger.info("Converting time period to month")
                 if hasattr(data["time_period"], "dt"):
                     data[to_name] = data["time_period"].dt.month
                 else:
                     data[to_name] = [int(str(p).split("-")[-1]) for p in data["time_period"]]
             elif from_name == "year":
+                logger.info("Converting time period to year")
                 if hasattr(data["time_period"], "dt"):
                     data[to_name] = data["time_period"].dt.year
                 else:
