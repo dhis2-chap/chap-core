@@ -17,10 +17,7 @@ class OpenDengueDataSet:
     def subset(self, country_name: str, spatial_resolution: Literal['Admin1', 'Admin2']='Admin1', temporal_resolution='Week'):
         country_name = country_name.upper()
         df = pd.read_csv(self._filename, compression='zip')
-        print(df['adm_0_name'].unique())
         df = df[df['adm_0_name'] == country_name.upper()]
-        print(df['T_res'].value_counts())
-        print(df['S_res'].value_counts())
         df = df[df['T_res'] == temporal_resolution.capitalize()]
         df = df[df['S_res'] == spatial_resolution.capitalize()]
         return df
@@ -30,14 +27,15 @@ class OpenDengueDataSet:
         if temporal_resolution == 'Week':
             dates = [parse(date) for date in subset['calendar_start_date']]
             weekdays = [date.weekday() for date in dates]
-            print(Counter(weekdays))
             most_common_weekday = Counter(weekdays).most_common(1)[0][0]
-            print(most_common_weekday)
             mask = np.array([date.weekday() == most_common_weekday for date in dates])
-
-            print(mask)
             subset = subset[mask]
             subset['time_period'] = [Week(parse(date)).id for date in subset['calendar_start_date']]
+        elif temporal_resolution == 'Month':
+            dates = [parse(date).strftime('%Y-%m') for date in subset['calendar_start_date']]
+            subset['time_period'] = dates
+
+
         if spatial_resolution == 'Admin1':
             location_column = 'adm_1_name'
         else:

@@ -252,14 +252,41 @@ class Era5LandGoogleEarthEngine:
         daily_stats = era5_filtered.map(extract_daily_values).flatten()
 
         # Retrieve data from Earth Engine
-        def ee_to_df(feature_collection):
+        def ee_to_df(feature_collection, chunk_size=5000):
+            """
+            Fetch Earth Engine FeatureCollection in chunks and convert to a Pandas DataFrame.
+
+            Args:
+                feature_collection (ee.FeatureCollection): The FeatureCollection to fetch.
+                chunk_size (int): Number of features to fetch in each chunk.
+
+            Returns:
+                pd.DataFrame: A Pandas DataFrame containing the FeatureCollection data.
+            """
+            # Initialize an empty DataFrame to store results
+            full_data = []
+
+            # Get the total number of elements in the FeatureCollection
+            total_size = feature_collection.size().getInfo()
+
+            # Fetch data in chunks
+            for start in range(0, total_size, chunk_size):
+                # Get a chunk of features
+                features = feature_collection.toList(chunk_size, start).getInfo()
+                # Extract properties and append to the list
+                for feature in features:
+                    full_data.append(feature["properties"])
+
+            # Convert the full data list into a DataFrame
+            return pd.DataFrame(full_data)
+        """ def ee_to_df(feature_collection):
             features = feature_collection.getInfo()["features"]
             data = []
             for feature in features:
                 properties = feature["properties"]
                 data.append(properties)
             return pd.DataFrame(data)
-
+    """
         # Convert the FeatureCollection to a DataFrame
         df = ee_to_df(daily_stats)
         return df

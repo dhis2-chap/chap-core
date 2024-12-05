@@ -184,6 +184,9 @@ class DataSet(Generic[FeaturesT]):
     def restrict_time_period(self, period_range: TemporalIndexType) -> "DataSet[FeaturesT]":
         return self.__class__({loc: TemporalDataclass(data).restrict_time_period(period_range).data() for loc, data in self._data_dict.items()})
 
+    def filter_locations(self, locations: Iterable[str]) -> "DataSet[FeaturesT]":
+        return self.__class__({loc: data for loc, data in self.items() if loc in locations})
+
     def locations(self) -> Iterable[Location]:
         return self._data_dict.keys()
 
@@ -273,6 +276,14 @@ class DataSet(Generic[FeaturesT]):
         with open(file_name, "rb") as f:
             data_dict = pickle.load(f)
         return cls({loc: dataclass.from_pickle_dict(val) for loc, val in data_dict.items()})
+
+    @classmethod
+    def from_file(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
+        if file_name.endswith(".csv"):
+            return cls.from_csv(file_name, dataclass)
+        if file_name.endswith(".pkl"):
+            return cls.from_pickle(file_name, dataclass)
+        raise ValueError("Unknown file type")
 
     @classmethod
     def df_from_pydantic_observations(cls, observations: list[PeriodObservation]) -> TimeSeriesData:

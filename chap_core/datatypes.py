@@ -396,3 +396,8 @@ def remove_field(data: BNPDataClass, field_name, new_class=None):
 class GEEData(TimeSeriesData):
     temperature_2m: float
     total_precipitation_sum: float
+
+@tsdataclass
+class FullGEEData(HealthPopulationData):
+    temperature_2m: float
+    total_precipitation_sum: float
