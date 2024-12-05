@@ -13,8 +13,5 @@ def test_to_from_geojson_file(data_path):
         assert polygons2 == polygons
 
 
-@pytest.mark.xfail
 def test_laos_polygons(data_path):
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson").data
-    print(polygons)
-    assert False

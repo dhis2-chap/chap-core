@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_geojson import (
@@ -9,6 +9,7 @@ from pydantic_geojson import (
 
 class FeatureModel(_FeatureModel):
     id: Optional[str] = None
+    properties: Optional[dict[str, Any]] = None
 
 
 class FeatureCollectionModel(_FeatureCollectionModel):
