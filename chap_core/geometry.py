@@ -156,11 +156,17 @@ class Polygons:
     def __init__(self, polygons):
         self._polygons = polygons
 
+    @property
+    def data(self) -> FeatureCollectionModel:
+        return self._polygons
+
     @classmethod
     def from_file(cls, filename):
         return cls.from_geojson(json.load(open(filename)))
 
-    
+    def to_file(self, filename):
+        json.dump(self.to_geojson(), open(filename, "w"))
+
     @classmethod
     def _add_ids(cls, features: DFeatureCollectionModel, id_property: str):
         for feature in features.features:
@@ -173,8 +179,14 @@ class Polygons:
         features = cls._add_ids(features, id_property)
         return cls(features)
 
+    def to_geojson(self):
+        return self._polygons.model_dump()
+
     def feature_collection(self):
         return self._polygons
+
+    def __eq__(self, other):
+        return self._polygons == other._polygons
 
 
 if __name__ == "__main__":

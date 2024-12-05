@@ -176,13 +176,13 @@ class DataSet(Generic[FeaturesT]):
         return max(data.end_timestamp for data in self.data())
 
     def get_locations(self, location: Iterable[Location]) -> "DataSet[FeaturesT]":
-        return self.__class__({loc: self._data_dict[loc] for loc in location})
+        return self.__class__({loc: self._data_dict[loc] for loc in location}, self._polygons)
 
     def get_location(self, location: Location) -> FeaturesT:
         return self._data_dict[location]
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> "DataSet[FeaturesT]":
-        return self.__class__({loc: TemporalDataclass(data).restrict_time_period(period_range).data() for loc, data in self._data_dict.items()})
+        return self.__class__({loc: TemporalDataclass(data).restrict_time_period(period_range).data() for loc, data in self._data_dict.items()}, self._polygons)
 
     def filter_locations(self, locations: Iterable[str]) -> "DataSet[FeaturesT]":
         return self.__class__({loc: data for loc, data in self.items() if loc in locations})
@@ -205,7 +205,7 @@ class DataSet(Generic[FeaturesT]):
         return pd.concat(tables)
 
     def interpolate(self, field_names=None):
-        return self.__class__({loc: data.interpolate(field_names) for loc, data in self.items()})
+        return self.__class__({loc: data.interpolate(field_names) for loc, data in self.items()}, self._polygons)
 
     @classmethod
     def _fill_missing(cls, data_dict: dict[str, TemporalDataclass[FeaturesT]]):
@@ -337,7 +337,7 @@ class DataSet(Generic[FeaturesT]):
         """Join two SpatioTemporalDicts on time. Returns a new SpatioTemporalDict.
         Assumes other is later in time.
         """
-        return self.__class__({loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()})
+        return self.__class__({loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()}, self._polygons)
 
     def add_fields(self, new_type, **kwargs: dict[str, Callable]):
         return self.__class__(
@@ -352,7 +352,7 @@ class DataSet(Generic[FeaturesT]):
         )
 
     def remove_field(self, field_name, new_class=None):
-        return self.__class__({loc: remove_field(data.data(), field_name, new_class) for loc, data in self.items()})
+        return self.__class__({loc: remove_field(data.data(), field_name, new_class) for loc, data in self.items()}, self._polygons)
 
     @classmethod
     def from_fields(
@@ -383,6 +383,7 @@ class DataSet(Generic[FeaturesT]):
             )
         return cls(new_dict)
 
+<<<<<<< HEAD
     def merge(self, other_dataset: 'DataSet', result_dataclass: type[TimeSeriesData]=None) -> 'DataSet':
         # if result_dataclass is None:
         #     orig_dataclass = type(next(iter(self._data_dict.values())).data())
@@ -391,9 +392,22 @@ class DataSet(Generic[FeaturesT]):
         #     class NewClass(orig_dataclass, other_dataclass):
         #         pass
         #     result_dataclass = NewClass
+=======
+    def merge(self, other_dataset: 'DataSet', result_dataclass: type[TimeSeriesData]) -> 'DataSet':
+        polygons_in_merged = None
+        if self.polygons is not None and other_dataset.polygons is not None:
+            raise Exception("Trying to merge two datasets with polygons, not sure how to do this (not implemented yet)")
+        elif self.polygons is not None:
+            polygons_in_merged = self.polygons
+        elif other_dataset.polygons is not None: 
+            polygons_in_merged = self.polygons
+>>>>>>> 9819eca376acf252af9bd3b51cf405315317b39e
         other_locations = set(other_dataset.locations())
         assert all(location in other_locations for location in self.locations()), (self.locations(), other_locations)
-        return DataSet({location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()})
+        new_dataset = DataSet({location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()})
+        if polygons_in_merged is not None:
+            new_dataset.set_polygons(polygons_in_merged)
+        return new_dataset
 
     def plot(self):
         for location, value in self.items():
@@ -403,4 +417,4 @@ class DataSet(Generic[FeaturesT]):
             plt.show()
 
     def resample(self, freq):
-        return self.__class__({loc: data.resample(freq) for loc, data in self.items()})
+        return self.__class__({loc: data.resample(freq) for loc, data in self.items()}, self._polygons)

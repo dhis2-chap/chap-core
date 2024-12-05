@@ -16,13 +16,13 @@ services:
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - CHAP_LOG_FILE=/app/logs/chap.log
+      #- CHAP_LOG_FILE=/app/logs/chap.log
       - CHAP_DATABASE_URL=postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
     ports:
       - "8000:8000"
     expose:
       - "8000"
-    command: /app/.venv/bin/chap serve --log-file /app/logs/log.txt
+    command: /app/.venv/bin/chap serve 
     working_dir: /
     networks:
       - chap-network
@@ -38,9 +38,9 @@ services:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - IS_IN_DOCKER=1
-      - CHAP_LOG_FILE=/app/logs/worker.log
       - CHAP_DATABASE_URL=postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
-    command: /app/.venv/bin/rq worker --url redis://redis:6379/0
+    # sh -c to get logging as part of the command to work
+    command: 'sh -c "/app/.venv/bin/rq worker --url redis://redis:6379/0 > /app/logs/worker.log 2>&1"'
     networks:
         - chap-network
     volumes:

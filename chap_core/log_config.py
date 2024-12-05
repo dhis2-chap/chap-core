@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 
+# get root logger
 logger = logging.getLogger()
 _global_log_file = None
 
@@ -23,8 +24,10 @@ def initialize_logging(debug: bool=False, log_file: str=None):
         # create file if not exist
         if not Path(log_file).exists():
             print(f"Creating log file at {log_file}")
+            logging.info(f"Creating log file at {log_file}")
             Path(log_file).parent.mkdir(parents=True, exist_ok=True)
             Path(log_file).touch()
+            os.chmod(log_file, 0o664)
 
         logger.addHandler(logging.FileHandler(log_file))
         logger.info(f"Logging to {log_file}")

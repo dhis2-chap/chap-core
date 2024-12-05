@@ -22,6 +22,7 @@ from chap_core.rest_api_src.v1.routers import crud, analytics
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
+logger.info("Logging initialized")
 
 
 def get_app():
@@ -60,6 +61,7 @@ state = State(ready=True, status="idle")
 
 class NaiveJob:
     def __init__(self, func, *args, **kwargs):
+        # todo: init a root logger to capturea all logs from the job
         self._exception_info = ""
         self._result = ""
         self._status = ""
@@ -99,6 +101,10 @@ class NaiveJob:
     def is_finished(self):
         return self._finished
 
+    def get_logs(self, n_lines: Optional[int]):
+        """Retrives logs from the current job"""
+        return ""
+
 
 class NaiveWorker:
     job_class = NaiveJob
@@ -131,11 +137,16 @@ async def predict(data: PredictionRequest) -> dict:
     """
     #logger.info(f"Predicting. Worker is {worker}. Data: {data['model']}")
     # dataset = wf.dataset_from_request_v1(data)
-    health_data = wf.get_health_dataset(data)
-    target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
-    job = worker.queue(wf.predict_pipeline_from_health_data, health_data.model_dump(), data.estimator_id,
-                       data.n_periods, target_id)
-    internal_state.current_job = job
+    try:
+        health_data = wf.get_health_dataset(data)
+        target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
+        job = worker.queue(wf.predict_pipeline_from_health_data, health_data.model_dump(), data.estimator_id,
+                        data.n_periods, target_id)
+        internal_state.current_job = job
+    except Exception as e:
+        logger.error("Failed to run predic. Exception: %s", e)
+        return "{status: 'failed', exception: %s}" % e
+
     return {"status": "success"}
 
 

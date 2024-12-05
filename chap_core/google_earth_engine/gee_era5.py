@@ -156,18 +156,21 @@ class Era5LandGoogleEarthEngine:
         self._initialize_client()
 
     def _initialize_client(self):
-        load_dotenv(find_dotenv(usecwd=self._usecwd))
+        logging.info(f"Initializing Google Earth Engine, usecwd: {self._usecwd}")
+        dotenv_file = find_dotenv(usecwd=self._usecwd)
+        logging.info(f"Loading environment variables from: {dotenv_file}")
+        load_dotenv(dotenv_file)
         # read environment variables
         account = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")
         private_key = os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY").replace("\\n", "\n")
         
         if not account or account is None:
-            logger.warn(
+            logger.warning(
                 "GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables to use Google Earth Engine"
             )
             raise GEEError("Could not initialize Google Earth Engine. Missing GOOGLE_SERVICE_ACCOUNT_EMAIL")
         if not private_key or private_key is None:
-            logger.warn(
+            logger.warning(
                 "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is not set, you need to set it in the environment variables to use Google Earth Engine"
             )
             raise GEEError("Could not initialize Google Earth Engine. Missing GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY")
@@ -177,9 +180,8 @@ class Era5LandGoogleEarthEngine:
 
         try:
             logger.info("Initializing Google Earth Engine with account: " + account)
-            logger.info(f'private_key start/end: {repr(private_key[:29])}-{repr(private_key[-10:])}')
+            logger.info(f"Length of private key: {len(private_key)}")
             credentials = ee.ServiceAccountCredentials(account, key_data=private_key)
-            #ee.Authenticate()
             ee.Initialize(credentials)
             logger.info("Google Earth Engine initialized, with account: " + account)
             self.is_initialized = True

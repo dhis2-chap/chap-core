@@ -44,6 +44,9 @@ class RedisJob(Generic[ReturnType]):
     def progress(self) -> float:
         return 0
 
+    def get_logs(self) -> str:
+        return self._job.meta.get("stdout", "") + "\n" + self._job.meta.get("stderr", "")
+
     def cancel(self):
         self._job.cancel()
 
@@ -76,7 +79,7 @@ class RedisQueue:
         return host, port
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> RedisJob[ReturnType]:
-        return RedisJob(self.q.enqueue(func, *args, **kwargs))
+        return RedisJob(self.q.enqueue(func, *args, **kwargs, result_ttl=604800)) #keep result for a week
 
     def __del__(self):
         self.q.connection.close()

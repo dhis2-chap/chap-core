@@ -1,3 +1,6 @@
+from typing import Optional
+
+
 class Runner:
     def run_command(self, command): ...
 
@@ -14,7 +17,7 @@ class TrainPredictRunner:
     Specific wrapper for runners that only run train/predict commands
     """
 
-    def train(self, train_data: str, model_file_name: str): ...
+    def train(self, train_data: str, model_file_name: str, polygons_file_name: Optional[str]): ...
 
     def predict(
         self,
@@ -22,6 +25,7 @@ class TrainPredictRunner:
         historic_data: str,
         future_data: str,
         output_file: str,
+        polygons_file_name: Optional[str],
     ): ...
 
     def teardown(self): ...

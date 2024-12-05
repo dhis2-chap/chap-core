@@ -192,11 +192,10 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
 
 
 @app.command()
-def serve(seedfile: Optional[str] = None, debug: bool = False, log_file: Optional[str] = "logs/log.txt"):
+def serve(seedfile: Optional[str] = None, debug: bool = False):
     """
     Start CHAP as a backend server
     """
-    initialize_logging(debug, log_file)
     from .rest_api_src.v1.rest_api import main_backend
     if seedfile is not None:
         data = json.load(open(seedfile))

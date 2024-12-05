@@ -1,3 +1,4 @@
+import logging
 import functools
 from datetime import datetime
 from numbers import Number
@@ -9,6 +10,10 @@ import pandas as pd
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 from pytz import utc
+
+from chap_core.exceptions import InvalidDateError
+
+logger = logging.getLogger(__name__)
 
 
 class DateUtilWrapper:
@@ -229,7 +234,11 @@ class WeekNumbering:
 
     @staticmethod
     def get_date(year: int, week: int, day: int) -> datetime:
-        return datetime.strptime(f"{year}-W{week}-{day%7}", "%G-W%V-%w")
+        try:
+            return datetime.strptime(f"{year}-W{week}-{day%7}", "%G-W%V-%w")
+        except ValueError as e:
+            logger.error(f"Invalid date {year}-W{week}-{day%7}")
+            raise InvalidDateError(f"Invalid date {year}-W{week}-{day%7}") from e
 
 
 class Week(TimePeriod):
@@ -575,7 +584,14 @@ class PeriodRange:
 
     @classmethod
     def from_strings(cls, period_strings: Iterable[str], fill_missing=False):
-        periods = [TimePeriod.parse(period_string) for period_string in period_strings]
+        periods = []
+        for period_string in period_strings:
+            try:
+                p = TimePeriod.parse(period_string)
+            except InvalidDateError as e:
+                logger.error(f"Invalid date {period_string}")
+                raise
+            periods.append(p)
         return cls.from_period_list(fill_missing, periods)
 
     @classmethod
