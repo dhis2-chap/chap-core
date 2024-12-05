@@ -383,16 +383,6 @@ class DataSet(Generic[FeaturesT]):
             )
         return cls(new_dict)
 
-<<<<<<< HEAD
-    def merge(self, other_dataset: 'DataSet', result_dataclass: type[TimeSeriesData]=None) -> 'DataSet':
-        # if result_dataclass is None:
-        #     orig_dataclass = type(next(iter(self._data_dict.values())).data())
-        #     other_dataclass = type(next(iter(other_dataset._data_dict.values())).data())
-        #     result_dataclass = create_dataclass(list(set(dataclasses.fields(orig_dataclass)) | set(dataclasses.fields(other_dataclass))))
-        #     class NewClass(orig_dataclass, other_dataclass):
-        #         pass
-        #     result_dataclass = NewClass
-=======
     def merge(self, other_dataset: 'DataSet', result_dataclass: type[TimeSeriesData]) -> 'DataSet':
         polygons_in_merged = None
         if self.polygons is not None and other_dataset.polygons is not None:
@@ -401,7 +391,6 @@ class DataSet(Generic[FeaturesT]):
             polygons_in_merged = self.polygons
         elif other_dataset.polygons is not None: 
             polygons_in_merged = self.polygons
->>>>>>> 9819eca376acf252af9bd3b51cf405315317b39e
         other_locations = set(other_dataset.locations())
         assert all(location in other_locations for location in self.locations()), (self.locations(), other_locations)
         new_dataset = DataSet({location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()})
