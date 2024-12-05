@@ -16,5 +16,4 @@ def test_to_from_geojson_file(data_path):
 def test_laos_polygons(data_path):
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson").data
     print(polygons)
-    assert True
-
+    assert False
