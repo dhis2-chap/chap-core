@@ -4,9 +4,6 @@ from chap_core.simulation.simulator import Simulator
 from chap_core.time_period import PeriodRange, Year
 
 
-# from chap_core.time_period.dataclasses import Year
-
-
 class RandomNoiseSimulator(Simulator):
     """Simulate a random noise model."""
 
