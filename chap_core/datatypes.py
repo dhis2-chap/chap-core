@@ -11,13 +11,10 @@ import dataclasses
 from typing_extensions import deprecated
 
 from .api_types import PeriodObservation
-from .time_period import PeriodRange
-from .time_period.dataclasses import Period
+from .time_period import PeriodRange, TimePeriod
 from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
 
-
-# tsdataclass = bnp.bnpdataclass.bnpdataclass
 
 def tsdataclass(cls):
     tmp_cls = bnp.bnpdataclass.bnpdataclass(cls)
@@ -27,7 +24,7 @@ def tsdataclass(cls):
 
 @tsdataclass
 class TimeSeriesData:
-    time_period: Period
+    time_period: PeriodRange
 
     def model_dump(self):
         return {field.name: getattr(self, field.name).tolist() for field in dataclasses.fields(self)}
@@ -77,7 +74,7 @@ class TimeSeriesData:
     def create_class_from_basemodel(cls, dataclass: type[PeriodObservation]):
         fields = dataclass.model_fields
         fields = [
-            (name, field.annotation) if name != "time_period" else (name, Period) for name, field in fields.items()
+            (name, field.annotation) if name != "time_period" else (name, PeriodRange) for name, field in fields.items()
         ]
         return dataclasses.make_dataclass(dataclass.__name__, fields, bases=(TimeSeriesData,))
 
@@ -299,12 +296,6 @@ class HealthPopulationData(HealthData):
     population: int
 
 
-class LocatedClimateHealthTimeSeriesModel(BaseModel):
-    time_period: Period
-    rainfall: float
-    mean_temperature: float
-    location: str
-    disease_cases: int
 
 
 class Shape:

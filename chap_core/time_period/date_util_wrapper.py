@@ -7,6 +7,7 @@ from typing import Union, Iterable, Tuple
 import dateutil
 import numpy as np
 import pandas as pd
+from bionumpy.bnpdataclass import BNPDataClass
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 from pytz import utc
@@ -417,7 +418,7 @@ class TimeDelta(DateUtilWrapper):
             return (end_stamp - start_stamp) // self
 
 
-class PeriodRange:
+class PeriodRange(BNPDataClass):
     def __init__(
         self,
         start_timestamp: TimeStamp,

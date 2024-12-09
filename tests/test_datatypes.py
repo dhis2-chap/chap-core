@@ -5,6 +5,7 @@ from bionumpy.util.testing import assert_bnpdataclass_equal
 from chap_core.datatypes import ClimateHealthTimeSeries, HealthData, Samples, HealthPopulationData, SimpleClimateData, \
     FullData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.testing.testing import assert_tsdataclass_equal
 from chap_core.time_period import PeriodRange
 
 
@@ -73,7 +74,8 @@ def test_samples(samples, tmp_path):
     path = tmp_path / "samples.csv"
     samples.to_csv(path)
     samples2 = Samples.from_csv(path)
-    assert_bnpdataclass_equal(samples, samples2)
+    assert_tsdataclass_equal(samples, samples2)
+
 
 
 @pytest.fixture()

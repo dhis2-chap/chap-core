@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 
 from chap_core.datatypes import Shape, ClimateData
-from chap_core.time_period import TimePeriod
-from chap_core.time_period.period_range import period_range
+from chap_core.time_period import TimePeriod, PeriodRange
+#from chap_core.time_period.period_range import period_range
 
 
 class ClimateDataBaseMock:
@@ -12,7 +12,7 @@ class ClimateDataBaseMock:
     ):
         assert hasattr(region, "latitude"), f"Expected Location, got {type(region)}"
         assert not exclusive_end
-        period = period_range(start_period, end_period)
+        period = PeriodRange.from_time_periods(start_period, end_period)
         # generate periodic monthly temperature
         w = 365.24 if hasattr(start_period, "day") else 12
         temperature = 20 + 5 * np.sin(2 * np.pi * period.month / w)

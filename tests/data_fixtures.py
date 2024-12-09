@@ -8,7 +8,6 @@ from chap_core.datatypes import (
     FullData,
 )
 from chap_core.time_period import Month, PeriodRange
-from chap_core.time_period.period_range import period_range
 import bionumpy as bnp
 
 
@@ -25,7 +24,7 @@ def full_data() -> DataSet[ClimateHealthData]:
 
 @pytest.fixture()
 def train_data(full_data) -> DataSet[ClimateHealthData]:
-    time_period = period_range(Month(2012, 1), Month(2012, 7))
+    time_period = PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7))
     T = len(time_period)
     d = {
         "oslo": ClimateHealthData(time_period, [1] * T, [1] * T, [20] * T),
@@ -36,7 +35,7 @@ def train_data(full_data) -> DataSet[ClimateHealthData]:
 
 @pytest.fixture()
 def train_data_pop(full_data) -> DataSet[ClimateHealthData]:
-    time_period = period_range(Month(2012, 1), Month(2012, 7))
+    time_period = PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7))
     T = len(time_period)
     d = {
         "oslo": FullData(time_period, [1] * T, [1] * T, [20] * T, [400000] * T),
@@ -47,7 +46,6 @@ def train_data_pop(full_data) -> DataSet[ClimateHealthData]:
 
 @pytest.fixture()
 def train_data_new_period_range(train_data) -> DataSet[ClimateHealthData]:
-    # using PeriodRange instead of period_range
     time_period = PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7))
     return DataSet(
         {
@@ -59,7 +57,7 @@ def train_data_new_period_range(train_data) -> DataSet[ClimateHealthData]:
 
 @pytest.fixture()
 def future_climate_data() -> DataSet[ClimateData]:
-    time_period = period_range(Month(2012, 8), Month(2012, 12))
+    time_period = PeriodRange.from_time_periods(Month(2012, 8), Month(2012, 12))
     T = len(time_period)
     d = {
         "oslo": ClimateData(time_period, [20] * T, [1] * T, [1] * T),

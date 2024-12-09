@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_geojson import (
     FeatureCollectionModel as _FeatureCollectionModel,
     FeatureModel as _FeatureModel,
@@ -9,7 +9,7 @@ from pydantic_geojson import (
 
 class FeatureModel(_FeatureModel):
     id: Optional[str] = None
-    properties: Optional[dict[str, Any]] = None
+    properties: Optional[dict[str, Any]] = Field(default_factory=dict)
 
 
 class FeatureCollectionModel(_FeatureCollectionModel):
