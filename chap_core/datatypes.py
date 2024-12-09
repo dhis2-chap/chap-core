@@ -11,7 +11,7 @@ import dataclasses
 from typing_extensions import deprecated
 
 from .api_types import PeriodObservation
-from .time_period import PeriodRange, TimePeriod
+from .time_period import PeriodRange
 from .time_period.date_util_wrapper import TimeStamp
 from .util import interpolate_nans
 

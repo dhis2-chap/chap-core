@@ -1,7 +1,6 @@
 import dataclasses
 
 import numpy as np
-from bionumpy.util.testing import assert_bnpdataclass_equal
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
