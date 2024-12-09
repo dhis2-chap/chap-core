@@ -161,8 +161,8 @@ class Polygons:
         return self._polygons
 
     @classmethod
-    def from_file(cls, filename):
-        return cls.from_geojson(json.load(open(filename)))
+    def from_file(cls, filename, id_property='id'):
+        return cls.from_geojson(json.load(open(filename)), id_property=id_property)
 
     def to_file(self, filename):
         json.dump(self.to_geojson(), open(filename, "w"))

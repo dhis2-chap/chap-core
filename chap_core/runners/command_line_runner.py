@@ -44,7 +44,7 @@ def run_command(command: str, working_directory=Path(".")):
 
         if return_code != 0:
             logger.error(f"Command '{command}' failed with return code {return_code}, ({''.join(map(str, streamdata))}, {output}")
-            raise CommandLineException(f"Command '{command}' failed with return code {return_code}, Full output from command below: \n ----- \n({''.join(streamdata)}, {output} \n--------")
+            raise CommandLineException(f"Command '{command}' failed with return code {return_code}, Full output from command below: \n ----- \n({''.join(map(str, streamdata))}, {output} \n--------")
         # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
         # logging.info(output)
     except subprocess.CalledProcessError as e:

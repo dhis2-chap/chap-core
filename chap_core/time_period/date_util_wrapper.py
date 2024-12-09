@@ -588,7 +588,7 @@ class PeriodRange:
         for period_string in period_strings:
             try:
                 p = TimePeriod.parse(period_string)
-            except InvalidDateError as e:
+            except InvalidDateError:
                 logger.error(f"Invalid date {period_string}")
                 raise
             periods.append(p)
