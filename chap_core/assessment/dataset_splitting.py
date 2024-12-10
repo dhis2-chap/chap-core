@@ -1,6 +1,5 @@
 from typing import Iterable, Protocol, Optional, Type
 
-from chap_core._legacy_dataset import IsSpatioTemporalDataSet
 from chap_core.climate_predictor import FutureWeatherFetcher
 from chap_core.datatypes import ClimateData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -21,7 +20,7 @@ class IsTimeDelta(Protocol):
 
 
 def split_test_train_on_period(
-    data_set: IsSpatioTemporalDataSet,
+    data_set: DataSet,
     split_points: Iterable[TimePeriod],
     future_length: Optional[IsTimeDelta] = None,
     include_future_weather: bool = False,
@@ -38,7 +37,7 @@ def split_test_train_on_period(
 
 
 def split_train_test_with_future_weather(
-    data_set: IsSpatioTemporalDataSet,
+    data_set: DataSet,
     split_points: Iterable[TimePeriod],
     future_length: Optional[IsTimeDelta] = None,
 ):
@@ -47,7 +46,7 @@ def split_train_test_with_future_weather(
 
 # Should we index on split-timestamp, first time period, or complete time?
 def train_test_split(
-    data_set: IsSpatioTemporalDataSet,
+    data_set: DataSet,
     prediction_start_period: TimePeriod,
     extension: Optional[IsTimeDelta] = None,
     restrict_test=True,
@@ -117,7 +116,7 @@ def train_test_split_with_weather(
 
 
 def get_split_points_for_data_set(
-    data_set: IsSpatioTemporalDataSet, max_splits: int, start_offset=1
+    data_set: DataSet, max_splits: int, start_offset=1
 ) -> list[TimePeriod]:
     periods = (
         next(iter(data_set.data())).data().time_period

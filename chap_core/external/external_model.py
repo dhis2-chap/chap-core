@@ -6,8 +6,7 @@ from typing import Protocol, TypeVar
 
 import git
 import yaml
-
-from chap_core._legacy_dataset import IsSpatioTemporalDataSet
+from chap_core.data import DataSet
 from chap_core.datatypes import (
     ClimateHealthTimeSeries,
     ClimateData,
@@ -28,9 +27,9 @@ logger = logging.getLogger(__name__)
 class IsExternalModel(Protocol):
     def get_predictions(
         self,
-        train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
-        future_climate_data: IsSpatioTemporalDataSet[ClimateData],
-    ) -> IsSpatioTemporalDataSet[HealthData]: ...
+        train_data: DataSet[ClimateHealthTimeSeries],
+        future_climate_data: DataSet[ClimateData],
+    ) -> DataSet[HealthData]: ...
 
 
 FeatureType = TypeVar("FeatureType")

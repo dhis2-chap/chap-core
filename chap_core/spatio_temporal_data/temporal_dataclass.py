@@ -6,7 +6,6 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from ..api_types import PeriodObservation, FeatureCollectionModel
-from .._legacy_dataset import TemporalIndexType, FeaturesT
 from ..datatypes import (
     Location,
     add_field,
@@ -17,7 +16,10 @@ from ..datatypes import (
 from ..time_period import PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp, clean_timestring
 import dataclasses
+from typing import TypeVar
 
+FeaturesT = TypeVar("FeaturesT")
+TemporalIndexType = slice
 
 class TemporalDataclass(Generic[FeaturesT]):
     """

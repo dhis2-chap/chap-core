@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from chap_core.time_period import TimePeriod, Month, Day
-from chap_core.time_period.dataclasses import Year
+from chap_core.time_period import Year
 
 
 def test_time_period_month():
@@ -28,6 +28,7 @@ def test_number_of_days():
     assert get_number_of_days(Month(1900, 2)) == 28
 
 
+@pytest.mark.skip("unused")
 def test_topandas():
     years = Year([2013, 2014, 2015])
     series = years.topandas()

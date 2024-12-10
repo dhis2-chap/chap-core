@@ -2,18 +2,17 @@ from typing import List
 import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_absolute_error
-
-from chap_core._legacy_dataset import IsSpatioTemporalDataSet
+from chap_core.data import DataSet
 from chap_core.datatypes import HealthData, ResultType, SummaryStatistics
 
 
 class MultiLocationEvaluator:
-    def __init__(self, model_names: List[str], truth: IsSpatioTemporalDataSet):
+    def __init__(self, model_names: List[str], truth: DataSet):
         self.model_names = model_names
         self.truth = truth
         self.predictions = {model_name: [] for model_name in model_names}
 
-    def add_predictions(self, model_name: str, predictions: IsSpatioTemporalDataSet):
+    def add_predictions(self, model_name: str, predictions: DataSet):
         self.predictions[model_name].append(predictions)
         return self
 

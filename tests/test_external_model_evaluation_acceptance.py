@@ -2,7 +2,6 @@ import pandas as pd
 import pytest
 
 from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core._legacy_dataset import IsSpatioTemporalDataSet
 from chap_core.datatypes import ClimateHealthTimeSeries, HealthData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from . import EXAMPLE_DATA_PATH, TEST_PATH
@@ -53,7 +52,7 @@ def output_filename(tmp_path) -> str:
 
 @pytest.fixture
 def load_data_func(data_path):
-    def load_data_set(data_set_filename: str) -> IsSpatioTemporalDataSet:
+    def load_data_set(data_set_filename: str) -> DataSet:
         assert data_set_filename == "hydro_met_subset"
         file_name = (data_path / data_set_filename).with_suffix(".csv")
         return DataSet.from_pandas(pd.read_csv(file_name), ClimateHealthTimeSeries)

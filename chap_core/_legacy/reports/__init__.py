@@ -2,7 +2,7 @@ import os.path
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from ..datatypes import ResultType
+from chap_core.datatypes import ResultType
 
 
 class HTMLReport:
