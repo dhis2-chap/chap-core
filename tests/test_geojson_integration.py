@@ -42,7 +42,26 @@ def test(example_prediction_request):
     data.to_csv("data.csv")
 
 
-@pytest.mark.skip(reason="Under development")
+def add_time_periods_to_data(data):
+    data["time_period"] = data["year"].astype(str) + "W" + data["week"].astype(str).str.zfill(2)
+    
+    # find rows with invalid time period
+    time_periods = data["time_period"]
+    valids = []
+    for t in time_periods:
+        try:
+            t = TimePeriod.parse(t)
+        except InvalidDateError:
+            print("INVALID DATE:", t)
+            valids.append(False)
+        else:
+            valids.append(True)
+    data = data[valids]
+    return data
+
+
+
+#@pytest.mark.skip(reason="Under development")
 def test2(data_path):
     """
     Note:
@@ -55,7 +74,7 @@ def test2(data_path):
 
     """
     # hacky stuff to try to make a compatible csv file for now:
-    data = pd.read_csv(data_path / "small_laos_data_with_polygons.csv")
+    #data = pd.read_csv(data_path / "small_laos_data_with_polygons.csv")
     # make time_period column from year and week
     # translate year and week to string "YYYYwWW"
     data["time_period"] = data["year"].astype(str) + "W" + data["week"].astype(str).str.zfill(2)
@@ -77,8 +96,12 @@ def test2(data_path):
     data.to_csv(data_path / "small_laos_data_with_polygons2.csv", index=False)
     """
 
-    data = DataSet.from_csv(data_path / "small_laos_data_with_polygons2.csv", FullData)
-    # todo: This is failing on validattion
+    #data = DataSet.from_csv(data_path / "small_laos_data_with_polygons2.csv", FullData)
+    #data = DataSet.from_csv("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_dengue_and_diarrhea_surv_data_2015_2023_chap_format.csv", FullData)
+    data = pd.read_csv("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_dengue_and_diarrhea_surv_data_2015_2023_chap_format.csv")
+    data = add_time_periods_to_data(data)
+    data = DataSet.from_pandas(data, FullData)
+
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson", id_property="district").data
     #polygons = Polygons.from_file("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_province_shapefile.GEOJSON").data
     data.set_polygons(polygons)
@@ -89,7 +112,6 @@ def test2(data_path):
         ignore_env=True,
         make_run_dir=False
     )
-
     #external_model.train(data) 
-
     evaluate_model(external_model, data, report_filename='test_integration_report.pdf', n_test_sets=1)
+
