@@ -18,6 +18,7 @@ import chap_core.rest_api_src.worker_functions as wf
 from chap_core.predictor.model_registry import registry
 from chap_core.worker.interface import SeededJob
 from chap_core.worker.rq_worker import RedisQueue
+from chap_core.rest_api_src.celery_tasks import CeleryJob, CeleryPool
 from chap_core.rest_api_src.v1.routers import crud, analytics
 from . import debug
 
@@ -62,7 +63,7 @@ state = State(ready=True, status="idle")
 
 class NaiveJob:
     def __init__(self, func, *args, **kwargs):
-        # todo: init a root logger to capturea all logs from the job
+        # todo: init a root logger to capture all logs from the job
         self._exception_info = ""
         self._result = ""
         self._status = ""
@@ -118,8 +119,8 @@ class NaiveWorker:
 
 # worker = NaiveWorker()
 # worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
-worker = RedisQueue()
-
+# worker = RedisQueue()
+worker = CeleryPool()
 
 def set_cur_response(response):
     state["response"] = response
@@ -142,7 +143,7 @@ async def predict(data: PredictionRequest) -> dict:
         health_data = wf.get_health_dataset(data)
         target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
         job = worker.queue(wf.predict_pipeline_from_health_data, health_data.model_dump(), data.estimator_id,
-                        data.n_periods, target_id)
+                           data.n_periods, target_id)
         internal_state.current_job = job
     except Exception as e:
         logger.error("Failed to run predic. Exception: %s", e)

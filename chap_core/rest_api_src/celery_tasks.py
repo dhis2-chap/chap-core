@@ -1,33 +1,75 @@
+import os
+from typing import Callable, Generic
+
 from celery import Celery
+from celery.result import AsyncResult
+from dotenv import find_dotenv, load_dotenv
 
 from .worker_functions import predict_pipeline_from_health_data
 import celery
 
-#predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
+from ..worker.interface import ReturnType
+
+# predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
 celery = Celery(
     "worker",
     broker="redis://redis:6379",
     backend="redis://redis:6379"
 )
-@celery.task()
-def add_numbers(a: int, b: int):
+
+
+def _add_numbers(a: int, b: int):
     return a + b
 
 
-'''
-class CeleryQueue:
-    """Simple abstraction for a Redis Queue"""
+add_numbers = celery.task()(_add_numbers)
+
+
+class CeleryJob(Generic[ReturnType]):
+    """Wrapper for a Celery Job"""
+
+    def __init__(self, job: celery.Task, app: Celery):
+        self._job = job
+        self._app = app
+
+    @property
+    def _result(self):
+        return AsyncResult(self._job.id, app=celery)
+
+    @property
+    def status(self) -> str:
+        return self._result['status']
+
+    @property
+    def result(self) -> ReturnType:
+        return self._result['result']
+
+    @property
+    def progress(self) -> float:
+        return 0
+
+    def cancel(self):
+        self._result.revoke()
+
+    @property
+    def id(self):
+        return self._job.id
+
+    @property
+    def is_finished(self) -> bool:
+        return self._result.state in ("SUCCESS", "FAILURE")
+
+
+class CeleryPool(Generic[ReturnType]):
+    """Simple abstraction for a Celery Worker"""
 
     def __init__(self):
         host, port = self.read_environment_variables()
-        self.celery = Celery(
+        self._celery = Celery(
             "worker",
-            broker=f"redis://{host}:{port}/0",
-            backend=f"redis://{host}:{port}/0",
+            broker=f"redis://{host}:{port}",
+            backend=f"redis://{host}:{port}",
         )
-
-        logger.info("Connecting to Redis queue at %s:%s" % (host, port))
-        self.q = Queue(connection=Redis(host=host, port=int(port)), default_timeout=3600)
 
     def read_environment_variables(self):
         load_dotenv(find_dotenv())
@@ -42,9 +84,13 @@ class CeleryQueue:
 
         return host, port
 
-    def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> RedisJob[ReturnType]:
-        return RedisJob(self.q.enqueue(func, *args, **kwargs, result_ttl=604800)) #keep result for a week
+    def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
+        func = self._celery.task(func)
+        task = func.delay(*args, **kwargs)
+        return CeleryJob(task, app=self._celery)
+
+    def get_job(self, task_id: str) -> CeleryJob[ReturnType]:
+        return CeleryJob(AsyncResult(task_id, app=self._celery), app=self._celery)
 
     def __del__(self):
-        self.q.connection.close()
-'''
+        self._celery.control.revoke()

@@ -32,11 +32,13 @@ def main():
 
     for i in range(5):
         time.sleep(2)
-        status = requests.get(chap_url + "/v1/debug/get-status?task_id=" + response.json()["task_id"])
-        if status.status_code not in  (200, 404):
+        status = requests.get(chap_url + "/v1/debug/get-status") #?task_id=" + response.json()["task_id"])
+        if status.status_code not in (200, 404):
+            print(status)
             break
         if status.json()["status"] == "SUCCESS":
-            break
+            print(status.json())
+
 
 def ensure_up(chap_url):
     for _ in range(5):

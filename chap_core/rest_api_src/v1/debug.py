@@ -1,22 +1,31 @@
 import logging
+from typing import Optional
+
 from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException
-from ..celery_tasks import add_numbers, celery
+from ..celery_tasks import add_numbers, celery, CeleryPool, _add_numbers
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 logger = logging.getLogger(__name__)
+cur_job = None
+celery_pool = CeleryPool()
+
 
 @router.get("/add-numbers")
 def run_add_numbers(a: int, b: int):
     """Trigger a Celery task to add two numbers."""
+    global cur_job
     logger.info(f"Adding {a} and {b}")
-    task = add_numbers.delay(a, b)
-    return {"task_id": task.id, "status": "Task submitted"}
+    # task = add_numbers.delay(a, b)
+    # job= celery_pool._celery.send_task("celery_tasks.add_numbers", args=[a, b])
+    cur_job = celery_pool.queue(_add_numbers, a, b)
+    return {"task_id": cur_job.id, "status": "Task submitted"}
 
 
 @router.get("/get-status")
-def get_status(task_id: str) -> dict:
+def get_status(task_id: Optional[str] = None) -> dict:
     """Get the status and result of a task."""
+    task_id = task_id or cur_job.id
     task_result = AsyncResult(task_id, app=celery)
 
     # Check if task is in a valid state
