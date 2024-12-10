@@ -19,6 +19,7 @@ from chap_core.predictor.model_registry import registry
 from chap_core.worker.interface import SeededJob
 from chap_core.worker.rq_worker import RedisQueue
 from chap_core.rest_api_src.v1.routers import crud, analytics
+from . import debug
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ def get_app():
 app = get_app()
 app.include_router(crud.router)
 app.include_router(analytics.router)
-
+app.include_router(debug.router)
 
 class State(BaseModel):
     ready: bool
