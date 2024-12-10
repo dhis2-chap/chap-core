@@ -10,7 +10,7 @@ from chap_core.assessment.forecast import forecast_with_predicted_weather, forec
 from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
-from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData
+from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData, create_tsdataclass
 from chap_core.dhis2_interface.json_parsing import predictions_to_datavalue
 from chap_core.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
 from chap_core.external.external_model import (
@@ -45,7 +45,9 @@ def train_on_zip_file(file, model_name, model_path, control=None):
     return train_on_prediction_data(prediction_data, model_name=model_name, model_path=model_path, control=control)
 
 
-def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationData], estimator_id: str, n_periods: int, target_id='disease_cases'):
+def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationData],
+                                      estimator_id: str, n_periods: int,
+                                      target_id='disease_cases'):
     health_dataset = DataSet.from_dict(health_dataset, HealthPopulationData)
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False)
     estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith('chap_ewars'))
@@ -168,7 +170,7 @@ def harmonize_health_dataset(dataset, usecwd_for_credentials):
     return train_data
 
 
-def get_health_dataset(json_data: RequestV1):
+def get_health_dataset(json_data: RequestV1, dataclass=HealthPopulationData):
     target_name = get_target_name(json_data)
     translations = {target_name: "disease_cases"}
     data = {
@@ -177,10 +179,16 @@ def get_health_dataset(json_data: RequestV1):
         )
         for feature in json_data.features
     }
-    dataset = DataSet.from_fields(HealthPopulationData, data)
+    dataset = DataSet.from_fields(dataclass, data)
     dataset = dataset.interpolate(["population"])
     dataset.set_polygons(json_data.orgUnitsGeoJson)
     return dataset
+
+
+def get_combined_dataset(json_data: RequestV1):
+    '''Get a dataset of potentially multiple data types from a RequestV1 object.'''
+    dataclass = create_tsdataclass([d.featureId for d in json_data.features])
+    return get_health_dataset(json_data, dataclass)
 
 
 def load_forecasts(data_path):

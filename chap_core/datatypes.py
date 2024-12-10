@@ -53,7 +53,6 @@ class TimeSeriesData:
         data_dict["time_period"] = self.time_period.topandas()
         return pd.DataFrame(data_dict)
 
-
     to_pandas = topandas
 
     def to_csv(self, csv_file: str, **kwargs):
@@ -65,10 +64,11 @@ class TimeSeriesData:
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
         data_dict['time_period'] = self.time_period.tolist()
         return data_dict
-    
+
     @classmethod
     def from_pickle_dict(cls, data: dict):
-        return cls(**{key: PeriodRange.from_strings(value) if key=='time_period' else value for key, value in data.items()})
+        return cls(
+            **{key: PeriodRange.from_strings(value) if key == 'time_period' else value for key, value in data.items()})
 
     @classmethod
     def create_class_from_basemodel(cls, dataclass: type[PeriodObservation]):
@@ -157,7 +157,7 @@ class TimeSeriesData:
         if self.end_timestamp == end_timestamp and self.start_timestamp == start_timestamp:
             return self
         n_missing_start = self.time_period.delta.n_periods(start_timestamp, self.start_timestamp)
-        #(self.start_timestamp - start_timestamp) // self.time_period.delta
+        # (self.start_timestamp - start_timestamp) // self.time_period.delta
         n_missing = self.time_period.delta.n_periods(self.end_timestamp, end_timestamp)
         # n_missing = (end_timestamp - self.end_timestamp) // self.time_period.delta
         assert n_missing >= 0, (f"{n_missing} < 0", end_timestamp, self.end_timestamp)
@@ -186,7 +186,8 @@ class TimeSeriesData:
 
     @classmethod
     def from_dict(cls, data: dict):
-        return cls(**{key: PeriodRange.from_strings(value)if key=='time_period' else value for key, value in data.items()})
+        return cls(
+            **{key: PeriodRange.from_strings(value) if key == 'time_period' else value for key, value in data.items()})
 
     def merge(self, other: 'TimeSeriesData', result_class: type['TimeSeriesData']):
         data_dict = {}
@@ -248,7 +249,6 @@ class ClimateHealthTimeSeries(TimeSeriesData):
         )
 
 
-
 ClimateHealthData = ClimateHealthTimeSeries
 
 
@@ -294,8 +294,6 @@ class ClimateHealthTimeSeriesModel(BaseModel):
 @tsdataclass
 class HealthPopulationData(HealthData):
     population: int
-
-
 
 
 class Shape:
@@ -383,12 +381,24 @@ def remove_field(data: BNPDataClass, field_name, new_class=None):
         **{field.name: getattr(data, field.name) for field in dataclasses.fields(data) if field.name != field_name}
     )
 
+
 @tsdataclass
 class GEEData(TimeSeriesData):
     temperature_2m: float
     total_precipitation_sum: float
 
+
 @tsdataclass
 class FullGEEData(HealthPopulationData):
     temperature_2m: float
     total_precipitation_sum: float
+
+
+def create_tsdataclass(field_names):
+    return tsdataclass(
+        dataclasses.make_dataclass(
+            "TimeSeriesData",
+            [(name, float) for name in field_names],
+            bases=(TimeSeriesData,),
+        )
+    )
