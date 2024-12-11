@@ -32,5 +32,6 @@ ENV PYENV_ROOT /pyenv
 # get uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 RUN uv sync
+
 # RUN pip install --upgrade pip
 # RUN uv pip install --system -e .
