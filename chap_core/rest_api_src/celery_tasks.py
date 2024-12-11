@@ -5,7 +5,6 @@ from celery import Celery, shared_task
 from celery.result import AsyncResult
 from dotenv import find_dotenv, load_dotenv
 
-from .worker_functions import predict_pipeline_from_health_data, evaluate
 import celery
 
 from ..worker.interface import ReturnType
@@ -113,6 +112,9 @@ class CeleryPool(Generic[ReturnType]):
 
     def get_job(self, task_id: str) -> CeleryJob[ReturnType]:
         return CeleryJob(AsyncResult(task_id, app=self._celery), app=self._celery)
+
+    def list_jobs(self):
+        return self._celery.control.inspect().active()
 
     def __del__(self):
         self._celery.control.revoke()

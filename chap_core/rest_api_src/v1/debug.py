@@ -18,7 +18,8 @@ def run_add_numbers(a: int, b: int):
     logger.info(f"Adding {a} and {b}")
     # task = add_numbers.delay(a, b)
     # job= celery_pool._celery.send_task("celery_tasks.add_numbers", args=[a, b])
-    cur_job = celery_pool.queue(_add_numbers, a, b)
+    # cur_job = celery_pool.queue(_add_numbers, a, b)
+    return None
     return {"task_id": cur_job.id, "status": "Task submitted"}
 
 

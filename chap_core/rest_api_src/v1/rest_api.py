@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -17,8 +17,7 @@ from chap_core.rest_api_src.data_models import FullPredictionResponse
 import chap_core.rest_api_src.worker_functions as wf
 from chap_core.predictor.model_registry import registry
 from chap_core.worker.interface import SeededJob
-from chap_core.worker.rq_worker import RedisQueue
-from chap_core.rest_api_src.celery_tasks import CeleryJob, CeleryPool
+from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.rest_api_src.v1.routers import crud, analytics
 from . import debug
 
@@ -194,6 +193,13 @@ async def get_results() -> FullPredictionResponse:
         raise HTTPException(status_code=400, detail="No response available")
     result = cur_job.result
     return result
+
+@app.get("/list-jobs")
+def list_jobs() -> List[dict]:
+    """
+    List all jobs currently in the queue
+    """
+    return worker.list_jobs()
 
 
 @app.get("/get-evaluation-results")
