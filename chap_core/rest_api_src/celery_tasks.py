@@ -1,7 +1,7 @@
 import os
 from typing import Callable, Generic
-
-from celery import Celery
+import logging
+from celery import Celery, shared_task
 from celery.result import AsyncResult
 from dotenv import find_dotenv, load_dotenv
 
@@ -9,26 +9,48 @@ from .worker_functions import predict_pipeline_from_health_data, evaluate
 import celery
 
 from ..worker.interface import ReturnType
+logger = logging.getLogger(__name__)
+@shared_task(name='celery.ping')
+def ping():
+    return 'pong'
 
-# predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
-celery = Celery(
+def read_environment_variables():
+    load_dotenv(find_dotenv())
+    host = os.getenv("CELERY_BROKER", "redis://localhost:6379")
+    return host
+
+url = read_environment_variables()
+logger.info(f"Connecting to {url}")
+app = Celery(
     "worker",
-    broker="redis://redis:6379",
-    backend="redis://redis:6379"
+    broker=url,
+    backend=url
 )
-celery.conf.update(
+app.conf.update(
     task_serializer="pickle",
     accept_content=["pickle"],  # Allow pickle serialization
     result_serializer="pickle",
 )
 
-def _add_numbers(a: int, b: int):
+# predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
+# celery = Celery(
+#     "worker",
+#     broker="redis://redis:6379",
+#     backend="redis://redis:6379"
+# )
+# celery.conf.update(
+#     task_serializer="pickle",
+#     accept_content=["pickle"],  # Allow pickle serialization
+#     result_serializer="pickle",
+# )
+
+def add_numbers(a: int, b: int):
     return a + b
 
 
 #add_numbers = celery.task()(_add_numbers)
-predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
-evaluate = celery.task(evaluate)
+#predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
+#evaluate = celery.task(evaluate)
 
 
 class CeleryJob(Generic[ReturnType]):
@@ -39,8 +61,8 @@ class CeleryJob(Generic[ReturnType]):
         self._app = app
 
     @property
-    def _result(self):
-        return AsyncResult(self._job.id, app=celery)
+    def _result(self)-> AsyncResult:
+        return AsyncResult(self._job.id, app=self._app)
 
     @property
     def status(self) -> str:
@@ -65,39 +87,27 @@ class CeleryJob(Generic[ReturnType]):
     def is_finished(self) -> bool:
         return self._result.state in ("SUCCESS", "FAILURE")
 
+    @property
+    def exception_info(self) -> str:
+        return str(self._result.traceback or "")
 
-@celery.task(name="celery_tasks.celery_run")
+@app.task()
 def celery_run(func, *args, **kwargs):
     return func(*args, **kwargs)
+
 
 
 class CeleryPool(Generic[ReturnType]):
     """Simple abstraction for a Celery Worker"""
 
-    def __init__(self):
-        host, port = self.read_environment_variables()
-        self._celery = Celery(
-            "worker",
-            broker=f"redis://{host}:{port}",
-            backend=f"redis://{host}:{port}",
-        )
-
-    def read_environment_variables(self):
-        load_dotenv(find_dotenv())
-        host = os.environ.get("REDIS_HOST")
-        port = os.environ.get("REDIS_PORT")
-
-        # using default values if environment variables are not set
-        if host is None:
-            host = "localhost"
-        if port is None:
-            port = "6379"
-
-        return host, port
+    def __init__(self, celery: Celery = None):
+        assert celery is None
+        self._celery = app
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
         #task = predict_pipeline_from_health_data if func.__name__ == "predict_pipeline_from_health_data" else celery.task()(func)
         #task = task.delay(*args, **kwargs)
+
         job = celery_run.delay(func, *args, **kwargs)
         return CeleryJob(job, app=self._celery)
 

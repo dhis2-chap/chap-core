@@ -3,7 +3,7 @@ from typing import Optional
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException
-from ..celery_tasks import celery, CeleryPool, _add_numbers
+from ..celery_tasks import celery, CeleryPool
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 logger = logging.getLogger(__name__)

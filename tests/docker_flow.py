@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-
+print("Starting tests")
 
 def dataset():
     dataset = "../example_data/anonymous_chap_request.json"
@@ -40,7 +40,9 @@ def main():
         logger.error("Failed to connect to %s" % chap_url)
         raise
 
-    for model in models.json():
+    model_list = models.json()
+
+    for model in model_list:
         evaluate_model(chap_url, dataset(), model)
 
 
@@ -91,6 +93,7 @@ def evaluate_model(chap_url, data, model, timeout=600):
     assert len(results['dataValues']) == 45, len(results['dataValues'])
 
 if __name__ == "__main__":
+    print('HERE')
     main()
     #
 

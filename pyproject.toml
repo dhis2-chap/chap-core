@@ -48,7 +48,7 @@ dependencies = [
     "virtualenv",
     "xarray",
     "orjson>=3.10.7",
-    "celery"
+    "celery[pytest]"
 ]
 
 [project.urls]
