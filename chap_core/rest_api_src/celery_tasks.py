@@ -5,7 +5,7 @@ from celery import Celery
 from celery.result import AsyncResult
 from dotenv import find_dotenv, load_dotenv
 
-from .worker_functions import predict_pipeline_from_health_data
+from .worker_functions import predict_pipeline_from_health_data, evaluate
 import celery
 
 from ..worker.interface import ReturnType
@@ -16,13 +16,19 @@ celery = Celery(
     broker="redis://redis:6379",
     backend="redis://redis:6379"
 )
-
+celery.conf.update(
+    task_serializer="pickle",
+    accept_content=["pickle"],  # Allow pickle serialization
+    result_serializer="pickle",
+)
 
 def _add_numbers(a: int, b: int):
     return a + b
 
 
-add_numbers = celery.task()(_add_numbers)
+#add_numbers = celery.task()(_add_numbers)
+predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
+evaluate = celery.task(evaluate)
 
 
 class CeleryJob(Generic[ReturnType]):
@@ -38,11 +44,11 @@ class CeleryJob(Generic[ReturnType]):
 
     @property
     def status(self) -> str:
-        return self._result['status']
+        return self._result.state
 
     @property
     def result(self) -> ReturnType:
-        return self._result['result']
+        return self._result.result
 
     @property
     def progress(self) -> float:
@@ -58,6 +64,11 @@ class CeleryJob(Generic[ReturnType]):
     @property
     def is_finished(self) -> bool:
         return self._result.state in ("SUCCESS", "FAILURE")
+
+
+@celery.task(name="celery_tasks.celery_run")
+def celery_run(func, *args, **kwargs):
+    return func(*args, **kwargs)
 
 
 class CeleryPool(Generic[ReturnType]):
@@ -85,9 +96,10 @@ class CeleryPool(Generic[ReturnType]):
         return host, port
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
-        func = self._celery.task(func)
-        task = func.delay(*args, **kwargs)
-        return CeleryJob(task, app=self._celery)
+        #task = predict_pipeline_from_health_data if func.__name__ == "predict_pipeline_from_health_data" else celery.task()(func)
+        #task = task.delay(*args, **kwargs)
+        job = celery_run.delay(func, *args, **kwargs)
+        return CeleryJob(job, app=self._celery)
 
     def get_job(self, task_id: str) -> CeleryJob[ReturnType]:
         return CeleryJob(AsyncResult(task_id, app=self._celery), app=self._celery)

@@ -8,4 +8,4 @@ services:
       - chap
     networks:
       - chap-network
-    command: python celery_flow.py
+    command: python docker_flow.py

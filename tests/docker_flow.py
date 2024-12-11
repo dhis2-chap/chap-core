@@ -65,7 +65,12 @@ def evaluate_model(chap_url, data, model, timeout=600):
     assert response.json()["status"] == "success"
 
     for _ in range(timeout // 5):
-        job_status = requests.get(chap_url + "/v1/status").json()
+        response = requests.get(chap_url + "/v1/status")
+        if response.status_code != 200:
+            logger.error("Failed to get status")
+            logger.error(response)
+            continue
+        job_status = response.json()
         if job_status['status'] == "failed":
             exception_info = requests.get(chap_url + "/v1/get-exception").json()
             if "Earth Engine client library not initialized" in exception_info:
