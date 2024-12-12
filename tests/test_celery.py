@@ -6,6 +6,9 @@ from chap_core.rest_api_src.celery_tasks import celery_run, CeleryPool, add_numb
 from chap_core.rest_api_src.worker_functions import predict_pipeline_from_health_data, get_health_dataset
 from  unittest.mock import patch
 import logging
+
+from chap_core.util import redis_available
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -15,6 +18,7 @@ def f(x, y):
 # @pytest.mark.celery(broker="memory://",
 #                     backend="cache+memory://", include=['chap_core.rest_api_src.v1.celery_tasks'])
 
+@pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
@@ -33,6 +37,7 @@ def test_add_numbers(celery_worker):
     print(job.result)
     assert job.result == 3
 
+@pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
