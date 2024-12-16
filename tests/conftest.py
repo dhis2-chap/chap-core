@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-from test_celery import Celery
+from celery import Celery
 
 
 import pandas as pd
