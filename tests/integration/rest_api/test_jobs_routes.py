@@ -18,7 +18,7 @@ evaluate_path = "/v1/evaluate"
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
-def test_predict(big_request_json, celery_worker, gee_mock):
+def test_predict(big_request_json, celery_session_worker, gee_mock):
     data = json.loads(big_request_json)
     data['estimator_id'] = "naive_model"
     with unittest.mock.patch("chap_core.rest_api_src.worker_functions.Era5LandGoogleEarthEngine", gee_mock):

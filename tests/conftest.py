@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-from celery import Celery
+from test_celery import Celery
 
 
 import pandas as pd
@@ -141,3 +141,8 @@ def celery_config():
         'accept_content': ['pickle'],
         'result_serializer': 'pickle',
     }
+
+
+@pytest.fixture(scope='session')
+def celery_worker_pool():
+    return 'prefork'

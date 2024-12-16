@@ -176,8 +176,3 @@ class CeleryPool(Generic[ReturnType]):
             "scheduled": scheduled or [],
             "reserved": reserved or [],
         }
-
-    def __del__(self):
-        # kill all tasks
-        for job in self.list_jobs():
-            self._celery.control.revoke(job)

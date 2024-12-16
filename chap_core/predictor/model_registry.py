@@ -7,8 +7,6 @@ from ..model_spec import PeriodType, ModelSpec
 import logging
 logger = logging.getLogger(__name__)
 
-NaiveEstimator
-
 naive_spec = ModelSpec(
     name="naive_model",
     parameters={},

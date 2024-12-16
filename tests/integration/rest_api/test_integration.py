@@ -96,14 +96,14 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
-def test_predict(big_request_json, celery_worker):
+def test_predict(big_request_json, celery_session_worker):
     check_job_endpoint(big_request_json, predict_path)
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
-def test_evaluate(big_request_json, celery_worker):
+def test_evaluate(big_request_json, celery_session_worker):
     check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
 @pytest.mark.xfail(reason="Failing, should be fixed")
