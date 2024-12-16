@@ -1,14 +1,59 @@
 import os
+from pathlib import Path
 from typing import Callable, Generic
 import logging
-from celery import Celery, shared_task
+from celery import Celery, shared_task, Task
 from celery.result import AsyncResult
 from dotenv import find_dotenv, load_dotenv
 
 import celery
 
 from ..worker.interface import ReturnType
-logger = logging.getLogger(__name__)
+from celery.utils.log import get_task_logger
+#logger = logging.getLogger(__name__)
+
+# We use get_task_logger to ensure we get the Celery-friendly logger
+# but you could also just use logging.getLogger(__name__) if you prefer.
+logger = get_task_logger(__name__)
+logger.setLevel(logging.INFO)
+
+class TaskWithPerTaskLogging(Task):
+    def __call__(self, *args, **kwargs):
+        print("TaskWithPerTaskLogging")
+        # Extract the current task id
+        task_id = self.request.id
+        
+        # Create a file handler for this task's logs
+        file_handler = logging.FileHandler(Path("logs") / f"logs_{task_id}.txt")
+        file_formatter = logging.Formatter(
+            '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+        )
+        file_handler.setFormatter(file_formatter)
+        
+        # Remember old handlers so we can restore them later
+        old_handlers = logger.handlers[:]
+        
+        # also add this handler to the root-logger, so that logging done by other packages is also logged
+        root_logger = logging.getLogger()
+        old_root_handlers = root_logger.handlers[:]
+        root_logger.addHandler(file_handler)
+        
+        # Replace the logger handlers with our per-task file handler
+        logger.handlers = [file_handler]
+        # also add stdout handler
+        logger.addHandler(logging.StreamHandler())
+        
+        try:
+            # Execute the actual task
+            return super(TaskWithPerTaskLogging, self).__call__(*args, **kwargs)
+        finally:
+            # Close the file handler and restore old handlers after the task is done
+            file_handler.close()
+            logger.handlers = old_handlers
+            root_logger.handlers = old_root_handlers
+
+
+
 @shared_task(name='celery.ping')
 def ping():
     return 'pong'
@@ -44,6 +89,7 @@ app.conf.update(
 # )
 
 def add_numbers(a: int, b: int):
+    logger.info(f"Adding {a} + {b}")
     return a + b
 
 
@@ -90,7 +136,15 @@ class CeleryJob(Generic[ReturnType]):
     def exception_info(self) -> str:
         return str(self._result.traceback or "")
 
-@app.task()
+    def get_logs(self) -> str:
+        log_file = Path("logs") / f"logs_{self._job.id}.txt"
+        if log_file.exists():
+            return log_file.read_text()
+        return None
+
+
+# set base to TaskWithPerTaskLogging to enable per-task logging
+@app.task(base=TaskWithPerTaskLogging)
 def celery_run(func, *args, **kwargs):
     return func(*args, **kwargs)
 
@@ -117,4 +171,6 @@ class CeleryPool(Generic[ReturnType]):
         return self._celery.control.inspect().active()
 
     def __del__(self):
-        self._celery.control.revoke()
+        # kill all tasks
+        for job in self.list_jobs():
+            self._celery.control.revoke(job)

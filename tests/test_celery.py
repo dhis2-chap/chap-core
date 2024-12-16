@@ -37,6 +37,7 @@ def test_add_numbers(celery_worker):
     print(job.result)
     assert job.result == 3
 
+
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
@@ -54,4 +55,26 @@ def test_predict_pipeline_from_health_data(celery_worker, big_request_json):
     assert job.state == "SUCCESS"
 
 
+def function_with_logging(a, b):
+    logger = logging.getLogger(__name__)
+    logger.info("Some testlogging")
+    return add_numbers(a, b)
+
+
+@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.celery(broker="redis://localhost:6379",
+                    backend="redis://localhost:6379",
+                    include=['chap_core.rest_api_src.celery_tasks'])
+def test_celery_logging(celery_worker):
+    pool = CeleryPool()
+    job = pool.queue(function_with_logging, 1, 2)
+    #job = celery_run.delay(add_numbers, 1, 2)
+    job_id = job.id
+    time.sleep(2)
+
+    job2 = pool.get_job(job_id)
+    assert job2.result == 3
+
+    logs = job2.get_logs()
+    assert "Some testlogging" in logs
 

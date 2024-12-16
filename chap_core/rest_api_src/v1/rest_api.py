@@ -172,6 +172,15 @@ async def list_models() -> list[ModelSpec]:
     return registry.list_specifications()
 
 
+@app.get("/jobs/{job_id}/logs")
+async def get_logs(job_id: str, n_lines: Optional[int] = None) -> str:
+    """
+    Retrieve logs from a job
+    """
+    job = worker.get_job(job_id)
+    return job.get_logs(n_lines)
+
+
 @app.get("/list-features")
 async def list_features() -> list[Feature]:
     """

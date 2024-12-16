@@ -61,7 +61,7 @@ def add_time_periods_to_data(data):
 
 
 
-#@pytest.mark.skip(reason="Under development")
+@pytest.mark.skip(reason="Under development")
 def test2(data_path):
     """
     Note:
@@ -98,7 +98,10 @@ def test2(data_path):
 
     #data = DataSet.from_csv(data_path / "small_laos_data_with_polygons2.csv", FullData)
     #data = DataSet.from_csv("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_dengue_and_diarrhea_surv_data_2015_2023_chap_format.csv", FullData)
-    data = pd.read_csv("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_dengue_and_diarrhea_surv_data_2015_2023_chap_format.csv")
+
+    province_name_to_keep = ["01 Vientiane Capital", "09 Xiangkhouang"]
+    data = pd.read_csv("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_dengue_and_diarrhea_surv_data_2015_2023_chap_format_without_Houaphan.csv")
+    data = data[data["province_name"].isin(province_name_to_keep)]
     data = add_time_periods_to_data(data)
     data = DataSet.from_pandas(data, FullData)
 
