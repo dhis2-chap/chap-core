@@ -76,3 +76,4 @@ When running things with docker compose, some logging will be done by each conta
 
 - `logs/rest_api.log`: This contains logs part of the chap-core rest api
 - `logs/worker.log`: This contains logs from the worker running the models. This should be checked if a model for some reason fails
+- `logs/tas_{task_id}.log`: One log file is generated for each task (typically model run). The task_id is the internal task id for the Celery task.
