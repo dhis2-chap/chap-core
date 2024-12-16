@@ -24,7 +24,7 @@ class TaskWithPerTaskLogging(Task):
         task_id = self.request.id
         
         # Create a file handler for this task's logs
-        file_handler = logging.FileHandler(Path("logs") / f"logs_{task_id}.txt")
+        file_handler = logging.FileHandler(Path("logs") / f"task_{task_id}.txt")
         file_formatter = logging.Formatter(
             '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
         )
@@ -137,7 +137,7 @@ class CeleryJob(Generic[ReturnType]):
         return str(self._result.traceback or "")
 
     def get_logs(self) -> str:
-        log_file = Path("logs") / f"logs_{self._job.id}.txt"
+        log_file = Path("logs") / f"task_{self._job.id}.txt"
         if log_file.exists():
             return log_file.read_text()
         return None

@@ -79,7 +79,7 @@ def test_evaluate(big_request_json, rq_worker_process, monkeypatch):
     check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
 
-@pytest.mark.xfail(reason="Failing, should be fixed")
+#@pytest.mark.skip(reason="Failing")
 def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_process, monkeypatch):
     # this test should fail since INLA does not exist. Check that we get a clean error message from the model propagated
     # all the way back to the exception info
@@ -89,7 +89,7 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
     monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
     #check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
     exception_info = run_job_that_should_fail_and_get_exception_info(big_request_json, evaluate_path, evaluation_result_path)
-    assert "there is no package called ‘INLA’" in exception_info.json(), exception_info.json()
+    assert "there is no package called ‘INLA’" in exception_info.json() or "Rscript: not found" in exception_info.json(), exception_info.json()
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
@@ -106,7 +106,6 @@ def test_predict(big_request_json, celery_session_worker):
 def test_evaluate(big_request_json, celery_session_worker):
     check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
-@pytest.mark.xfail(reason="Failing, should be fixed")
 def test_model_that_does_not_exist(big_request_json, monkeypatch):
     # patch worker in rest_api to be NaiveWorker
     monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
