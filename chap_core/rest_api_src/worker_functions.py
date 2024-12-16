@@ -44,7 +44,6 @@ def train_on_zip_file(file, model_name, model_path, control=None):
 
     return train_on_prediction_data(prediction_data, model_name=model_name, model_path=model_path, control=control)
 
-
 def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationData],
                                       estimator_id: str, n_periods: int,
                                       target_id='disease_cases'):

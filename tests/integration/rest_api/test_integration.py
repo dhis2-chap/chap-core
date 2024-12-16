@@ -95,7 +95,10 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 #@pytest.mark.skip(reason="This test is not working")
-def test_predict(big_request_json, rq_worker_process):
+@pytest.mark.celery(broker="redis://localhost:6379",
+                    backend="redis://localhost:6379",
+                    include=['chap_core.rest_api_src.celery_tasks'])
+def test_predict(big_request_json, celery_worker):
     check_job_endpoint(big_request_json, predict_path)
 
 

@@ -1,6 +1,8 @@
 import os
 import shutil
 from pathlib import Path
+from celery import Celery
+
 
 import pandas as pd
 import pytest
@@ -12,6 +14,7 @@ from .data_fixtures import *
 
 # ignore showing plots in tests
 import matplotlib.pyplot as plt
+pytest_plugins = ("celery.contrib.pytest",)
 plt.ion()
 
 
@@ -92,3 +95,32 @@ def big_request_json(data_path):
         pytest.skip()
     with open(filepath, "r") as f:
         return f.read()
+
+
+# @pytest.fixture
+# def celery_app():
+#     app = Celery(
+#         broker="memory://",
+#         backend="cache+memory://",
+#         include=['chap_core.rest_api_src.celery_tasks']
+#     )
+#     #app.conf.task_always_eager = True  # Run tasks synchronously
+#     #app.conf.result_backend = "cache+memory://"
+#     app.conf.update(
+#         task_always_eager=True,
+#         task_eager_propagates=True,
+#         task_serializer="pickle",
+#         accept_content=["pickle"],  # Allow pickle serialization
+#         result_serializer="pickle",
+#     )
+#     return app
+
+@pytest.fixture(scope='session')
+def celery_config():
+    return {
+        'broker_url': 'redis://localhost:6379',
+        'result_backend': 'redis://localhost:6379',
+        'task_serializer': 'pickle',
+        'accept_content': ['pickle'],
+        'result_serializer': 'pickle',
+    }
