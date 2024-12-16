@@ -80,7 +80,6 @@ def test_evaluate(big_request_json, rq_worker_process, monkeypatch):
     check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
 
-@pytest.mark.xfail(reason="Failing, should be fixed")
 def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_process, monkeypatch):
     # this test should fail since INLA does not exist. Check that we get a clean error message from the model propagated
     # all the way back to the exception info
@@ -102,7 +101,6 @@ def test_predict(big_request_json, celery_worker):
     check_job_endpoint(big_request_json, predict_path)
 
 
-@pytest.mark.xfail(reason="Failing, should be fixed")
 def test_model_that_does_not_exist(big_request_json, monkeypatch):
     # patch worker in rest_api to be NaiveWorker
     monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
