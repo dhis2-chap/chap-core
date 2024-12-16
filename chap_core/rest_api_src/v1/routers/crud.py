@@ -5,12 +5,12 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session
 
 from .dependencies import get_session
-from chap_core.worker.rq_worker import RedisQueue
+from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast
 import chap_core.rest_api_src.db_worker_functions as wf
 
 router = APIRouter(prefix="/crud", tags=["crud"])
-worker = RedisQueue()
+worker = CeleryPool()
 
 
 class BackTestCreate(BaseModel):

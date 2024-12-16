@@ -8,7 +8,7 @@ from chap_core.assessment.prediction_evaluator import backtest as _backtest
 def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: int, n_splits: int, stride: int, engine=None):
     with SessionWrapper(engine) as session:
         dataset = session.get_dataset(dataset_id, FullData)
-    estimator = registry.get_model(estimator_id)
+    estimator = registry.get_model(estimator_id, ignore_env=True)
     predictions_list = _backtest(estimator,
                                  dataset,
                                  prediction_length=n_periods,

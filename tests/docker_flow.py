@@ -18,12 +18,8 @@ def dataset():
     data = json.load(open(dataset))
     return data
 
-
-#hostname = "localhost"
 hostname = 'chap'
 chap_url = "http://%s:8000" % hostname
-# chap_with_r_inla_url = "http://localhost:8001"
-
 
 def main():
     model_url = chap_url + "/v1/list-models"
@@ -93,8 +89,4 @@ def evaluate_model(chap_url, data, model, timeout=600):
     assert len(results['dataValues']) == 45, len(results['dataValues'])
 
 if __name__ == "__main__":
-    print('HERE')
     main()
-    #
-
-#evaluate_model(chap_url, dataset(), {"name": "naive_model"})

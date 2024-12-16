@@ -168,7 +168,14 @@ class CeleryPool(Generic[ReturnType]):
         return CeleryJob(AsyncResult(task_id, app=self._celery), app=self._celery)
 
     def list_jobs(self):
-        return self._celery.control.inspect().active()
+        active = self._celery.control.inspect().active()
+        scheduled = self._celery.control.inspect().scheduled()
+        reserved = self._celery.control.inspect().reserved()
+        return {
+            "active": active or [],
+            "scheduled": scheduled or [],
+            "reserved": reserved or [],
+        }
 
     def __del__(self):
         # kill all tasks

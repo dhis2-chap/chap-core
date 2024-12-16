@@ -1,13 +1,15 @@
 import os
 import shutil
 from pathlib import Path
+
+import numpy as np
 from celery import Celery
 
 
 import pandas as pd
 import pytest
 
-from chap_core.datatypes import HealthPopulationData
+from chap_core.datatypes import HealthPopulationData, SimpleClimateData
 from chap_core.services.cache_manager import get_cache
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from .data_fixtures import *
@@ -114,6 +116,21 @@ def big_request_json(data_path):
 #         result_serializer="pickle",
 #     )
 #     return app
+
+class GEEMock:
+    def __init__(self, *args, **kwargs):
+        ...
+
+    def get_historical_era5(self, features, period_range):
+        locations = [f['id'] for f in features]
+        return DataSet({location:
+                SimpleClimateData(period_range, np.random.rand(len(period_range)),
+                                  np.random.rand(len(period_range)))
+                        for location in locations})
+
+@pytest.fixture
+def gee_mock():
+    return GEEMock()
 
 @pytest.fixture(scope='session')
 def celery_config():

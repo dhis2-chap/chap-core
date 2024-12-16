@@ -28,7 +28,6 @@ evaluation_result_path = "/v1/get-evaluation-results"
 
 @pytest.fixture(scope="session")
 def rq_worker_process():
-    # laod environment variables
     has_worker = os.environ.get("HAS_WORKER", False)
     if has_worker:
         yield None
@@ -94,13 +93,18 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
-#@pytest.mark.skip(reason="This test is not working")
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
 def test_predict(big_request_json, celery_worker):
     check_job_endpoint(big_request_json, predict_path)
 
+@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.celery(broker="redis://localhost:6379",
+                    backend="redis://localhost:6379",
+                    include=['chap_core.rest_api_src.celery_tasks'])
+def test_evaluate(big_request_json, celery_worker):
+    check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
 @pytest.mark.xfail(reason="Failing, should be fixed")
 def test_model_that_does_not_exist(big_request_json, monkeypatch):
@@ -129,6 +133,7 @@ def run_job_that_should_fail_and_get_exception_info(big_request_json, endpoint_p
 def check_job_endpoint(big_request_json, endpoint_path, result_path=get_result_path):
     status = run_job_and_get_status(big_request_json, endpoint_path)
     assert status["ready"]
+    print(result_path)
     result = client.get(result_path)
     assert result.status_code == 200
     exception_info = client.get(get_exception_info)

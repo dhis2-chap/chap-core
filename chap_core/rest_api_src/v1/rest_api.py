@@ -19,7 +19,7 @@ from chap_core.predictor.model_registry import registry
 from chap_core.worker.interface import SeededJob
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.rest_api_src.v1.routers import crud, analytics
-from . import debug
+from . import debug, jobs
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ app = get_app()
 app.include_router(crud.router)
 app.include_router(analytics.router)
 app.include_router(debug.router)
+app.include_router(jobs.router)
 
 class State(BaseModel):
     ready: bool
@@ -161,7 +162,8 @@ async def evaluate(data: PredictionRequest, n_splits: Optional[int] = 2, stride:
     str_data = json.dumps(json_data)
     job = worker.queue(wf.evaluate, str_data, n_splits, stride)
     internal_state.current_job = job
-    return {"status": "success"}
+    return {"status": "success",
+            "task_id": job.id}
 
 
 @app.get("/list-models")
@@ -203,12 +205,7 @@ async def get_results() -> FullPredictionResponse:
     result = cur_job.result
     return result
 
-@app.get("/list-jobs")
-def list_jobs() -> List[dict]:
-    """
-    List all jobs currently in the queue
-    """
-    return worker.list_jobs()
+
 
 
 @app.get("/get-evaluation-results")

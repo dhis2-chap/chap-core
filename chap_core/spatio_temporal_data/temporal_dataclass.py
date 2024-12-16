@@ -157,10 +157,10 @@ class DataSet(Generic[FeaturesT]):
         return self._data_dict.keys()
 
     def items(self) -> Iterable[Tuple[str, FeaturesT]]:
-        return ((k, d.data()) for k, d in self._data_dict.items())
+        return ((k, d) for k, d in self._data_dict.items())
 
     def values(self) -> Iterable[FeaturesT]:
-        return (d.data() for d in self._data_dict.values())
+        return (d for d in self._data_dict.values())
 
     @property
     def period_range(self) -> PeriodRange:
