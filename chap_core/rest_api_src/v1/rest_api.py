@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -79,6 +79,10 @@ class NaiveJob:
             logger.info("Naive job failed with exception: %s", e)
             self._status = "failed"
             self._result = ""
+
+    @property
+    def id(self):
+        return "naive_job"
 
     @property
     def status(self):
