@@ -32,11 +32,13 @@ def get_prediction_result(job_id: str) -> FullPredictionResponse:
 
 def get_result(job_id):
     job = worker.get_job(job_id)
-    if job.status == "failed":
+    print(job_id, job.status, job.result)
+    if job.status.lower() == "failed":
         raise HTTPException(status_code=400, detail="Job failed. Check the exception endpoint for more information")
 
     if not (job and job.is_finished):
         raise HTTPException(status_code=400, detail="No response available")
+
     return job.result
 
 
@@ -51,7 +53,9 @@ class DataBaseResponse(BaseModel):
 
 @router.get("/{job_id}/database_result")
 def get_database_result(job_id: str) -> DataBaseResponse:
-    return get_result(job_id)
+    result = get_result(job_id)
+    print(result)
+    return DataBaseResponse(id=result)
 
 
 '''

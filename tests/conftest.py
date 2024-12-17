@@ -1,21 +1,20 @@
 import os
 import shutil
 from pathlib import Path
-
+from sqlalchemy import create_engine
 import numpy as np
-from celery import Celery
-
-
+from sqlmodel import SQLModel
+from chap_core.database.tables import *
 import pandas as pd
 import pytest
 
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
 from chap_core.services.cache_manager import get_cache
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from .data_fixtures import *
 
 # ignore showing plots in tests
 import matplotlib.pyplot as plt
+
 pytest_plugins = ("celery.contrib.pytest",)
 plt.ion()
 
@@ -67,6 +66,7 @@ def use_test_cache():
 def health_population_data(data_path):
     file_name = (data_path / "health_population_data").with_suffix(".csv")
     return DataSet.from_pandas(pd.read_csv(file_name), HealthPopulationData)
+
 
 @pytest.fixture()
 def weekly_full_data(data_path):
@@ -124,22 +124,42 @@ class GEEMock:
     def get_historical_era5(self, features, period_range):
         locations = [f['id'] for f in features]
         return DataSet({location:
-                SimpleClimateData(period_range, np.random.rand(len(period_range)),
-                                  np.random.rand(len(period_range)))
+                            SimpleClimateData(period_range, np.random.rand(len(period_range)),
+                                              np.random.rand(len(period_range)))
                         for location in locations})
+
 
 @pytest.fixture
 def gee_mock():
     return GEEMock()
 
+
 @pytest.fixture(scope='session')
-def celery_config():
+def database_url():
+    cur_dir = Path(__file__).parent
+    return f'sqlite:///{cur_dir}/test.db'
+
+
+@pytest.fixture
+def clean_engine(database_url):
+    engine = create_engine(database_url,
+                           connect_args={"check_same_thread": False})
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+    print(SQLModel.metadata.tables.keys())
+    return engine
+
+
+@pytest.fixture(scope='session')
+def celery_config(database_url):
+    print(f"Using database_url: {database_url}")
     return {
         'broker_url': 'redis://localhost:6379',
         'result_backend': 'redis://localhost:6379',
         'task_serializer': 'pickle',
         'accept_content': ['pickle'],
         'result_serializer': 'pickle',
+        'database_url': database_url,
     }
 
 

@@ -52,6 +52,11 @@ class DataSet(SQLModel, table=True):
     observations: List[Observation] = Relationship()
 
 
+class DebugEntry(SQLModel, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
+    timestamp: float
+
+
 def test():
     engine = create_engine("sqlite://")
     SQLModel.metadata.create_all(engine)

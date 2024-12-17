@@ -10,11 +10,12 @@ from sqlmodel import Session
 from chap_core.api_types import RequestV1
 from .dependencies import get_session
 from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast
+from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry
 import chap_core.rest_api_src.db_worker_functions as wf
 
 router = APIRouter(prefix="/crud", tags=["crud"])
 worker = CeleryPool()
+
 
 class JobResponse(BaseModel):
     id: str
@@ -55,8 +56,9 @@ async def get_backtest(backtest_id: int, session: Session = Depends(get_session)
 @router.post("/backtest", response_model=JobResponse)
 async def create_backtest(backtest: BackTestCreate, session: Session = Depends(get_session)):
     job = worker.queue(wf.run_backtest,
-                 backtest.estimator_id, backtest.dataset_id, 12, 2, 1)
+                       backtest.estimator_id, backtest.dataset_id, 12, 2, 1)
     return JobResponse(id=job.id)
+
 
 class PredictionCreate(BaseModel):
     dataset_id: int
@@ -86,6 +88,18 @@ async def get_dataset(dataset_id: int, session: Session = Depends(get_session)):
 @router.post('/dataset/json')
 async def create_dataset(name: str, data: RequestV1, session: Session = Depends(get_session)) -> JobResponse:
     return HTTPException(status_code=501, detail="Not implemented")
+
+@router.post('/debug')
+async def debug_entry() -> JobResponse:
+    job = worker.queue_db(wf.debug)
+    return JobResponse(id=job.id)
+
+@router.get('/debug/{debug_id}')
+async def get_debug_entry(debug_id: int, session: Session = Depends(get_session)):
+    debug = session.get(DebugEntry, debug_id)
+    if debug is None:
+        raise HTTPException(status_code=404, detail="Debug entry not found")
+    return debug
 
 
 class DataBaseResponse(BaseModel):

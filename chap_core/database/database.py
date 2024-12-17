@@ -1,8 +1,9 @@
 import dataclasses
+import time
 
 import pandas as pd
 from sqlmodel import SQLModel, create_engine, Session
-from .tables import BackTest, BackTestForecast, Observation, DataSet
+from .tables import BackTest, BackTestForecast, Observation, DataSet, DebugEntry
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
 
@@ -65,6 +66,13 @@ class SessionWrapper:
         pivoted = dataframe.pivot(columns="element_id", values="value").reset_index()
         dataset = _DataSet.from_pandas(pivoted, dataclass)
         return dataset
+
+    def add_debug(self):
+        ''' Function for debuginng'''
+        debug_entry = DebugEntry(timestamp=time.time())
+        self.session.add(debug_entry)
+        self.session.commit()
+        return debug_entry.id
 
 
 def create_db_and_tables():

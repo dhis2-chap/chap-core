@@ -7,42 +7,46 @@ from celery.result import AsyncResult
 from dotenv import find_dotenv, load_dotenv
 
 import celery
+from sqlalchemy import create_engine
 
+from ..database.database import SessionWrapper
 from ..worker.interface import ReturnType
 from celery.utils.log import get_task_logger
-#logger = logging.getLogger(__name__)
+
+# logger = logging.getLogger(__name__)
 
 # We use get_task_logger to ensure we get the Celery-friendly logger
 # but you could also just use logging.getLogger(__name__) if you prefer.
 logger = get_task_logger(__name__)
 logger.setLevel(logging.INFO)
 
+
 class TaskWithPerTaskLogging(Task):
     def __call__(self, *args, **kwargs):
         print("TaskWithPerTaskLogging")
         # Extract the current task id
         task_id = self.request.id
-        
+
         # Create a file handler for this task's logs
         file_handler = logging.FileHandler(Path("logs") / f"task_{task_id}.txt")
         file_formatter = logging.Formatter(
             '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
         )
         file_handler.setFormatter(file_formatter)
-        
+
         # Remember old handlers so we can restore them later
         old_handlers = logger.handlers[:]
-        
+
         # also add this handler to the root-logger, so that logging done by other packages is also logged
         root_logger = logging.getLogger()
         old_root_handlers = root_logger.handlers[:]
         root_logger.addHandler(file_handler)
-        
+
         # Replace the logger handlers with our per-task file handler
         logger.handlers = [file_handler]
         # also add stdout handler
         logger.addHandler(logging.StreamHandler())
-        
+
         try:
             # Execute the actual task
             return super(TaskWithPerTaskLogging, self).__call__(*args, **kwargs)
@@ -53,15 +57,16 @@ class TaskWithPerTaskLogging(Task):
             root_logger.handlers = old_root_handlers
 
 
-
 @shared_task(name='celery.ping')
 def ping():
     return 'pong'
+
 
 def read_environment_variables():
     load_dotenv(find_dotenv())
     host = os.getenv("CELERY_BROKER", "redis://localhost:6379")
     return host
+
 
 url = read_environment_variables()
 logger.info(f"Connecting to {url}")
@@ -74,7 +79,15 @@ app.conf.update(
     task_serializer="pickle",
     accept_content=["pickle"],  # Allow pickle serialization
     result_serializer="pickle",
+    database_url=os.getenv("CHAP_DATABASE_URL")
 )
+
+if app.conf.database_url:
+    engine = create_engine(app.conf.database_url)
+else:
+    logger.warning("No database URL set")
+    engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
+
 
 # predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
 # celery = Celery(
@@ -93,9 +106,9 @@ def add_numbers(a: int, b: int):
     return a + b
 
 
-#add_numbers = celery.task()(_add_numbers)
-#predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
-#evaluate = celery.task(evaluate)
+# add_numbers = celery.task()(_add_numbers)
+# predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
+# evaluate = celery.task(evaluate)
 
 
 class CeleryJob(Generic[ReturnType]):
@@ -106,7 +119,7 @@ class CeleryJob(Generic[ReturnType]):
         self._app = app
 
     @property
-    def _result(self)-> AsyncResult:
+    def _result(self) -> AsyncResult:
         return AsyncResult(self._job.id, app=self._app)
 
     @property
@@ -149,6 +162,11 @@ def celery_run(func, *args, **kwargs):
     return func(*args, **kwargs)
 
 
+@app.task(base=TaskWithPerTaskLogging)
+def celery_run_with_session(func, *args, **kwargs):
+    with SessionWrapper(engine) as session:
+        return func(*args, **kwargs | {"session": session})
+
 
 class CeleryPool(Generic[ReturnType]):
     """Simple abstraction for a Celery Worker"""
@@ -158,10 +176,15 @@ class CeleryPool(Generic[ReturnType]):
         self._celery = app
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
-        #task = predict_pipeline_from_health_data if func.__name__ == "predict_pipeline_from_health_data" else celery.task()(func)
-        #task = task.delay(*args, **kwargs)
+        # task = predict_pipeline_from_health_data if func.__name__ == "predict_pipeline_from_health_data" else celery.task()(func)
+        # task = task.delay(*args, **kwargs)
 
         job = celery_run.delay(func, *args, **kwargs)
+        return CeleryJob(job, app=self._celery)
+
+    def queue_db(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
+        assert engine is not None, app.conf
+        job = celery_run_with_session.delay(func, *args, **kwargs)
         return CeleryJob(job, app=self._celery)
 
     def get_job(self, task_id: str) -> CeleryJob[ReturnType]:

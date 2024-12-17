@@ -34,8 +34,9 @@ def test_dataset_roundrip(health_population_data, engine):
 def test_backtest(seeded_engine):
     with Session(seeded_engine) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
-    with patch('chap_core.database.database.engine', seeded_engine):
-        res = run_backtest('naive_model', dataset_id, 12, 2, 1, engine=seeded_engine)
+    #with patch('chap_core.database.database.engine', seeded_engine):
+    with SessionWrapper(seeded_engine) as session:
+        res = run_backtest('naive_model', dataset_id, 12, 2, 1, session=session)
     # res = run_backtest('naive_model', dataset_id, 12, 2, 1)
     with Session(seeded_engine) as session:
         backtests = session.exec(select(BackTest)).all()
