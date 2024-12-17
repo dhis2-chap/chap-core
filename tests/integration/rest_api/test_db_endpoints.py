@@ -5,13 +5,13 @@ import pytest
 import requests
 from sqlmodel import Session
 
-from chap_core.api_types import EvaluationEntry
+from chap_core.api_types import EvaluationEntry, RequestV1
 from chap_core.database.database import SessionWrapper
 from chap_core.log_config import initialize_logging
 from chap_core.rest_api_src.v1.rest_api import NaiveWorker, app
 from fastapi.testclient import TestClient
 
-from chap_core.rest_api_src.v1.routers.crud import BackTestFull
+from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DataSet
 from chap_core.rest_api_src.v1.routers.dependencies import get_session
 from chap_core.util import redis_available
 
@@ -69,3 +69,12 @@ def test_backtest_flow(celery_session_worker,clean_engine, dependency_overrides,
     evaluation_entries = client.get(f'/v1/analytics/evaluation_entry', params={'backtest_id': db_id, 'quantiles': [0.1, 0.5, 0.9]})
     for entry in evaluation_entries.json():
         EvaluationEntry.model_validate(entry)
+
+def test_add_dataset_flow(celery_session_worker, dependency_overrides, big_request_json):
+    data = json.loads(big_request_json)
+    data['name'] = 'test'
+    response = client.post("/v1/crud/dataset/json", data=json.dumps(data))
+    assert response.status_code == 200
+    db_id = await_result_id(response.json()['id'])
+    response = client.get(f"/v1/crud/dataset/{db_id}")
+    DataSet.model_validate(response.json())

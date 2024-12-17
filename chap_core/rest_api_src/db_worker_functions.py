@@ -1,9 +1,11 @@
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.database import SessionWrapper
-from chap_core.datatypes import FullData
+from chap_core.database.tables import DataSet
+from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.predictor.model_registry import registry
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
-
+from chap_core.rest_api_src.worker_functions import harmonize_health_dataset
+from chap_core.data import DataSet as InMemoryDataSet
 
 def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: int, n_splits: int, stride: int,
                  session: SessionWrapper):
@@ -22,3 +24,9 @@ def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: 
 
 def debug(session: SessionWrapper):
     return session.add_debug()
+
+def harmonize_and_add_health_dataset(health_dataset: FullData, name: str, session: SessionWrapper) -> FullData:
+    health_dataset = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)
+    dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False)
+    db_id = session.add_dataset(name, dataset, polygons=health_dataset.polygons.model_dump_json())
+    return db_id

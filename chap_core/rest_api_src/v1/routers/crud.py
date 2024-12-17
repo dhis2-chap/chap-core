@@ -12,6 +12,7 @@ from .dependencies import get_session
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry
 import chap_core.rest_api_src.db_worker_functions as wf
+import chap_core.rest_api_src.worker_functions as normal_wf
 
 router = APIRouter(prefix="/crud", tags=["crud"])
 worker = CeleryPool()
@@ -84,10 +85,15 @@ async def get_dataset(dataset_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
 
+class DatasetCreate(RequestV1):
+    name: str
+
 
 @router.post('/dataset/json')
-async def create_dataset(name: str, data: RequestV1, session: Session = Depends(get_session)) -> JobResponse:
-    return HTTPException(status_code=501, detail="Not implemented")
+async def create_dataset(data: DatasetCreate) -> JobResponse:
+    health_data = normal_wf.get_health_dataset(data)
+    job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name)
+    return JobResponse(id=job.id)
 
 @router.post('/debug')
 async def debug_entry() -> JobResponse:
