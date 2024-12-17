@@ -2,6 +2,7 @@ from http.client import HTTPException
 from typing import Any
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 from chap_core.api_types import EvaluationResponse
 from chap_core.rest_api_src.celery_tasks import CeleryPool
@@ -29,7 +30,6 @@ def get_prediction_result(job_id: str) -> FullPredictionResponse:
     return get_result(job_id)
 
 
-
 def get_result(job_id):
     job = worker.get_job(job_id)
     if job.status == "failed":
@@ -44,6 +44,14 @@ def get_result(job_id):
 def get_evaluation_result(job_id: str) -> EvaluationResponse:
     return get_result(job_id)
 
+
+class DataBaseResponse(BaseModel):
+    id: int
+
+
+@router.get("/{job_id}/database_result")
+def get_database_result(job_id: str) -> DataBaseResponse:
+    return get_result(job_id)
 
 
 '''

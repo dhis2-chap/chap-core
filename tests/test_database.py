@@ -32,7 +32,6 @@ def test_dataset_roundrip(health_population_data, engine):
 
 
 def test_backtest(seeded_engine):
-
     with Session(seeded_engine) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
     with patch('chap_core.database.database.engine', seeded_engine):

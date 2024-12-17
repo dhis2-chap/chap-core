@@ -41,11 +41,14 @@ class PredictionRequest(RequestV2):
     n_periods: int = 3
 
 
-class EvaluationEntry(BaseModel):
+class PredictionEntry(BaseModel):
     orgUnit: str
     period: str
     quantile: float
     value: float
+
+
+class EvaluationEntry(PredictionEntry):
     splitPeriod: str
 
 
@@ -70,4 +73,3 @@ class PeriodObservation(BaseModel):
 # class GeoJSON(BaseModel):
 #     type: str
 #     features: list[dict]
-

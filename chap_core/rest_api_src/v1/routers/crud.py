@@ -1,9 +1,13 @@
-from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional, List
+
+from pydantic import BaseModel, Field
 from sqlmodel import select
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session
 
+from chap_core.api_types import RequestV1
 from .dependencies import get_session
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast
@@ -11,6 +15,9 @@ import chap_core.rest_api_src.db_worker_functions as wf
 
 router = APIRouter(prefix="/crud", tags=["crud"])
 worker = CeleryPool()
+
+class JobResponse(BaseModel):
+    id: str
 
 
 class BackTestCreate(BaseModel):
@@ -20,6 +27,13 @@ class BackTestCreate(BaseModel):
 
 class BackTestRead(BackTestCreate):
     id: int
+    name: Optional[str] = None
+    timestamp: Optional[datetime] = None
+
+    # THis is dataset properties
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    org_unit_ids: List[str] = Field(default_factory=list)
 
     class Config:
         orm_mode = True  # Enable compatibility with ORM models
@@ -38,11 +52,21 @@ async def get_backtest(backtest_id: int, session: Session = Depends(get_session)
     return backtest
 
 
-@router.post("/backtest", response_model=BackTestCreate)
+@router.post("/backtest", response_model=JobResponse)
 async def create_backtest(backtest: BackTestCreate, session: Session = Depends(get_session)):
-    worker.queue(wf.run_backtest,
+    job = worker.queue(wf.run_backtest,
                  backtest.estimator_id, backtest.dataset_id, 12, 2, 1)
-    return backtest
+    return JobResponse(id=job.id)
+
+class PredictionCreate(BaseModel):
+    dataset_id: int
+    estimator_id: str
+    n_periods: int
+
+
+@router.post("/prediction", response_model=JobResponse)
+async def create_prediction(prediction: PredictionCreate):
+    raise HTTPException(status_code=501, detail="Not implemented")
 
 
 @router.get("/backtest", response_model=list[BackTestRead])
@@ -57,6 +81,15 @@ async def get_dataset(dataset_id: int, session: Session = Depends(get_session)):
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
+
+
+@router.post('/dataset/json')
+async def create_dataset(name: str, data: RequestV1, session: Session = Depends(get_session)) -> JobResponse:
+    return HTTPException(status_code=501, detail="Not implemented")
+
+
+class DataBaseResponse(BaseModel):
+    id: int
 
 
 class DataSetRead(BaseModel):

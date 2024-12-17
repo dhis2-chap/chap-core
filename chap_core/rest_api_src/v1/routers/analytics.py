@@ -6,7 +6,7 @@ from pydantic import BaseModel, confloat
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlmodel import Session
 
-from chap_core.api_types import EvaluationEntry, DataList, DataElement
+from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry
 from .dependencies import get_session
 from chap_core.database.tables import BackTest, DataSet
 import logging
@@ -14,6 +14,7 @@ import logging
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 logger = logging.getLogger(__name__)
+
 
 class EvaluationEntryRequest(BaseModel):
     backtest_id: int
@@ -36,6 +37,12 @@ async def get_evaluation_entries(
         quantiles
     ]
 
+
+@router.get("/prediction_entry/{prediction_id}", response_model=List[PredictionEntry])
+def get_prediction_entries(prediction_id: int, session: Session = Depends(get_session)):
+    raise HTTPException(status_code=501, detail="Not implemented")
+
+
 @router.get("/actual_cases/{backtest_id}", response_model=DataList)
 async def get_actual_cases(backtest_id: int, session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
@@ -44,8 +51,9 @@ async def get_actual_cases(backtest_id: int, session: Session = Depends(get_sess
     logger.info(f"Data: {data}")
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
-    data_list = [DataElement(pe=observation.period_id, ou=observation.region_id, value=float(observation.value) if not (np.isnan(observation.value) or observation.value is None) else None) for
-                     observation in data.observations if observation.element_id == "disease_cases"]
+    data_list = [DataElement(pe=observation.period_id, ou=observation.region_id, value=float(observation.value) if not (
+                np.isnan(observation.value) or observation.value is None) else None) for
+                 observation in data.observations if observation.element_id == "disease_cases"]
     logger.info(f"DataList: {data_list}")
     return DataList(
         featureId="disease_cases",
