@@ -166,3 +166,16 @@ def celery_config(database_url):
 @pytest.fixture(scope='session')
 def celery_worker_pool():
     return 'prefork'
+
+@pytest.fixture(scope='session')
+def redis_available():
+    import redis
+    try:
+        redis.Redis().ping()
+        return True
+    except redis.exceptions.ConnectionError:
+        pytest.skip("Redis not available")
+
+@pytest.fixture(scope='session')
+def celery_session_worker(celery_session_worker, redis_available):
+    return celery_session_worker
