@@ -56,8 +56,7 @@ async def get_backtest(backtest_id: int, session: Session = Depends(get_session)
 
 @router.post("/backtest", response_model=JobResponse)
 async def create_backtest(backtest: BackTestCreate, session: Session = Depends(get_session)):
-    job = worker.queue_db(wf.run_backtest,
-                       backtest.estimator_id, backtest.dataset_id, 12, 2, 1)
+    job = worker.queue_db(wf.run_backtest, backtest.estimator_id, backtest.dataset_id, 12, 2, 1)
     return JobResponse(id=job.id)
 
 

@@ -21,7 +21,7 @@ from chap_core.util import redis_available
 client = TestClient(app)
 
 
-def test_debug():
+def test_debug(celery_session_worker):
     response = client.post("/v1/crud/debug")
     assert response.status_code == 200
     assert response.json()['id']
