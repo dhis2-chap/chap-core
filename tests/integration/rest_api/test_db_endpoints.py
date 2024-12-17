@@ -5,6 +5,7 @@ import pytest
 import requests
 from sqlmodel import Session
 
+from chap_core.api_types import EvaluationEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.log_config import initialize_logging
 from chap_core.rest_api_src.v1.rest_api import NaiveWorker, app
@@ -59,10 +60,12 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
 def test_backtest_flow(celery_session_worker,clean_engine, dependency_overrides, weekly_full_data):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons')
-    start_timestamp = time.time()
     response = client.post("/v1/crud/backtest", json={"dataset_id": dataset_id, "estimator_id": "naive_model"})
     assert response.status_code == 200
     job_id = response.json()['id']
     db_id = await_result_id(job_id)
     response = client.get(f"/v1/crud/backtest/{db_id}")
     BackTestFull.model_validate(response.json())
+    evaluation_entries = client.get(f'/v1/analytics/evaluation_entry', params={'backtest_id': db_id, 'quantiles': [0.1, 0.5, 0.9]})
+    for entry in evaluation_entries.json():
+        EvaluationEntry.model_validate(entry)

@@ -25,7 +25,6 @@ class EvaluationEntryRequest(BaseModel):
 async def get_evaluation_entries(
         backtest_id: int,
         quantiles: List[float] = Query(...),
-        # request: EvaluationEntryRequest = Body(...),
         session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
