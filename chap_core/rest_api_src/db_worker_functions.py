@@ -1,6 +1,5 @@
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.database import SessionWrapper
-from chap_core.database.tables import DataSet
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.predictor.model_registry import registry
 from chap_core.assessment.prediction_evaluator import backtest as _backtest

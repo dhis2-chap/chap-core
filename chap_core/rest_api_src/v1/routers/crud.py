@@ -104,7 +104,7 @@ async def create_dataset(data: DatasetCreate) -> JobResponse:
     return JobResponse(id=job.id)
 
 @router.post('/dataset/csv_file')
-async def create_dataset(csv_file: UploadFile = File(...),
+async def create_dataset_csv(csv_file: UploadFile = File(...),
                          geojson_file: UploadFile = File(...),
                          session: Session = Depends(get_session)) -> DataBaseResponse:
     csv_content = await csv_file.read()
