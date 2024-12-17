@@ -16,8 +16,9 @@ def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: 
                                  stride=stride,
                                  weather_provider=QuickForecastFetcher)
     last_train_period = dataset.period_range[-1]
-    session.add_evaluation_results(predictions_list, last_train_period, dataset_id, estimator_id)
-
+    db_id = session.add_evaluation_results(predictions_list, last_train_period, dataset_id, estimator_id)
+    assert db_id is not None
+    return db_id
 
 def debug(session: SessionWrapper):
     return session.add_debug()

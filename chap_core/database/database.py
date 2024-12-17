@@ -42,7 +42,7 @@ class SessionWrapper:
                                                 last_seen_period_id=first_period.id, values=value.tolist())
                     backtest.forecasts.append(forecast)
         self.session.commit()
-        return evaluation_results
+        return backtest.id
 
     def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons):
         dataset = DataSet(name=dataset_name, polygons=polygons)
