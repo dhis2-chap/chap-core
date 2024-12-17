@@ -179,5 +179,5 @@ def redis_available():
 
 
 @pytest.fixture(scope='session')
-def celery_session_worker(celery_session_worker, redis_available):
+def celery_session_worker(redis_available, celery_session_worker):
     return celery_session_worker
