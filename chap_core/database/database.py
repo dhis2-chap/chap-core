@@ -19,8 +19,9 @@ engine = create_engine(database_url)
 
 
 class SessionWrapper:
-    def __init__(self, local_engine=None):
+    def __init__(self, local_engine=None, session=None):
         self.engine = local_engine or engine
+        self.session = session
 
     def __enter__(self):
         self.session = Session(self.engine)

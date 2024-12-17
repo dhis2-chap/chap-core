@@ -78,3 +78,9 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, big_reque
     db_id = await_result_id(response.json()['id'])
     response = client.get(f"/v1/crud/dataset/{db_id}")
     DataSet.model_validate(response.json())
+
+def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):
+    csv_data = open(data_path/'nicaragua_weekly_data.csv', 'rb')
+    geojson_data = open(data_path/'nicaragua.json', 'rb')
+    response = client.post('/v1/crud/dataset/csv_file', files={"csv_file": csv_data, "geojson_file": geojson_data})
+    assert response.status_code == 200

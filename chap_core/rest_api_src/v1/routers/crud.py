@@ -1,16 +1,22 @@
+import json
 from datetime import datetime
 from typing import Optional, List
 
+import pandas as pd
 from pydantic import BaseModel, Field
 from sqlmodel import select
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from sqlmodel import Session
 
 from chap_core.api_types import RequestV1
+from chap_core.database.database import SessionWrapper
+from chap_core.datatypes import FullData
+from chap_core.geometry import Polygons
 from .dependencies import get_session
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry
+from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
 import chap_core.rest_api_src.worker_functions as normal_wf
 
@@ -88,11 +94,27 @@ class DatasetCreate(RequestV1):
     name: str
 
 
+class DataBaseResponse(BaseModel):
+    id: int
+
 @router.post('/dataset/json')
 async def create_dataset(data: DatasetCreate) -> JobResponse:
     health_data = normal_wf.get_health_dataset(data)
     job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name)
     return JobResponse(id=job.id)
+
+@router.post('/dataset/csv_file')
+async def create_dataset(csv_file: UploadFile = File(...),
+                         geojson_file: UploadFile = File(...),
+                         session: Session = Depends(get_session)) -> DataBaseResponse:
+    csv_content = await csv_file.read()
+    dataset = InMemoryDataSet.from_csv(pd.io.common.BytesIO(csv_content), dataclass=FullData)
+    geo_json_content = await geojson_file.read()
+    features = Polygons.from_geojson(json.loads(geo_json_content), id_property='NAME_1').feature_collection()
+    dataset_id = SessionWrapper(session=session).add_dataset('csv_file', dataset, features.model_dump_json())
+    return DataBaseResponse(id=dataset_id)
+
+
 
 @router.post('/debug')
 async def debug_entry() -> JobResponse:
