@@ -13,7 +13,7 @@ from chap_core.api_types import RequestV1
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData
 from chap_core.geometry import Polygons
-from .dependencies import get_session
+from .dependencies import get_session, get_database_url
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry
 from chap_core.data import DataSet as InMemoryDataSet
@@ -61,8 +61,8 @@ async def get_backtest(backtest_id: int, session: Session = Depends(get_session)
 
 
 @router.post("/backtest", response_model=JobResponse)
-async def create_backtest(backtest: BackTestCreate, session: Session = Depends(get_session)):
-    job = worker.queue_db(wf.run_backtest, backtest.estimator_id, backtest.dataset_id, 12, 2, 1)
+async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
+    job = worker.queue_db(wf.run_backtest, backtest.estimator_id, backtest.dataset_id, 12, 2, 1, database_url=database_url)
     return JobResponse(id=job.id)
 
 
@@ -90,6 +90,7 @@ async def get_dataset(dataset_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
 
+
 class DatasetCreate(RequestV1):
     name: str
 
@@ -97,16 +98,18 @@ class DatasetCreate(RequestV1):
 class DataBaseResponse(BaseModel):
     id: int
 
+
 @router.post('/dataset/json')
-async def create_dataset(data: DatasetCreate) -> JobResponse:
+async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_database_url)) -> JobResponse:
     health_data = normal_wf.get_health_dataset(data)
-    job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name)
+    job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name, database_url=datababase_url)
     return JobResponse(id=job.id)
+
 
 @router.post('/dataset/csv_file')
 async def create_dataset_csv(csv_file: UploadFile = File(...),
-                         geojson_file: UploadFile = File(...),
-                         session: Session = Depends(get_session)) -> DataBaseResponse:
+                             geojson_file: UploadFile = File(...),
+                             session: Session = Depends(get_session)) -> DataBaseResponse:
     csv_content = await csv_file.read()
     dataset = InMemoryDataSet.from_csv(pd.io.common.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()
@@ -115,11 +118,11 @@ async def create_dataset_csv(csv_file: UploadFile = File(...),
     return DataBaseResponse(id=dataset_id)
 
 
-
 @router.post('/debug')
-async def debug_entry() -> JobResponse:
-    job = worker.queue_db(wf.debug)
+async def debug_entry(database_url: str = Depends(get_database_url)) -> JobResponse:
+    job = worker.queue_db(wf.debug, database_url=database_url)
     return JobResponse(id=job.id)
+
 
 @router.get('/debug/{debug_id}')
 async def get_debug_entry(debug_id: int, session: Session = Depends(get_session)):

@@ -8,18 +8,20 @@ import time
 
 import requests
 import logging
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-print("Starting tests")
 
 def dataset():
     dataset = "../example_data/anonymous_chap_request.json"
     data = json.load(open(dataset))
     return data
 
+
 hostname = 'chap'
 chap_url = "http://%s:8000" % hostname
+
 
 def main():
     model_url = chap_url + "/v1/list-models"
@@ -31,7 +33,7 @@ def main():
         logger.error("Failed when fetching models")
         print("----------------Exception info----------------")
         exception_info = requests.get(chap_url + "/v1/get-exception").json()
-        print(exception_info) 
+        print(exception_info)
         logger.error(exception_info)
         logger.error("Failed to connect to %s" % chap_url)
         raise
@@ -87,6 +89,7 @@ def evaluate_model(chap_url, data, model, timeout=600):
         raise TimeoutError("Model evaluation took too long")
     results = requests.get(chap_url + "/v1/get-results").json()
     assert len(results['dataValues']) == 45, len(results['dataValues'])
+
 
 if __name__ == "__main__":
     main()

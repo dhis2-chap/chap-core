@@ -54,7 +54,6 @@ class DataBaseResponse(BaseModel):
 @router.get("/{job_id}/database_result")
 def get_database_result(job_id: str) -> DataBaseResponse:
     result = get_result(job_id)
-    print(result)
     return DataBaseResponse(id=result)
 
 

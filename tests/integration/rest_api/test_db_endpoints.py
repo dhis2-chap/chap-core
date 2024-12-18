@@ -1,19 +1,15 @@
-import os
 import time
 import json
 import pytest
-import requests
 from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, RequestV1
 from chap_core.database.database import SessionWrapper
-from chap_core.log_config import initialize_logging
 from chap_core.rest_api_src.v1.rest_api import NaiveWorker, app
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DataSet
-from chap_core.rest_api_src.v1.routers.dependencies import get_session
-from chap_core.util import redis_available
+from chap_core.rest_api_src.v1.routers.dependencies import get_session, get_database_url
 
 
 #app.dependency_overrides[get_session] = get_test_session
@@ -32,6 +28,7 @@ def dependency_overrides(clean_engine):
         with Session(clean_engine) as session:
             yield session
     app.dependency_overrides[get_session] = get_test_session
+    app.dependency_overrides[get_database_url] = lambda: clean_engine.url
     yield
     app.dependency_overrides.clear()
 

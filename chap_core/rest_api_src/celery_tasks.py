@@ -19,6 +19,8 @@ logger = get_task_logger(__name__)
 logger.setLevel(logging.INFO)
 
 
+# Send database url in function queue call. Have a dict in module of database url to engines. Look up engine in dict
+
 class TaskWithPerTaskLogging(Task):
     def __call__(self, *args, **kwargs):
         print("TaskWithPerTaskLogging")
@@ -77,15 +79,12 @@ app.conf.update(
     task_serializer="pickle",
     accept_content=["pickle"],  # Allow pickle serialization
     result_serializer="pickle",
-    database_url=os.getenv("CHAP_DATABASE_URL")
 )
 
-if app.conf.database_url:
-    engine = create_engine(app.conf.database_url)
-else:
-    logger.warning("No database URL set")
-    # This is hacky, but defaults to using the test database. Should be synched with what is setup in conftest
-    engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
+# logger.warning("No database URL set")
+# This is hacky, but defaults to using the test database. Should be synched with what is setup in conftest
+#engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
+
 
 def add_numbers(a: int, b: int):
     logger.info(f"Adding {a} + {b}")
@@ -142,9 +141,14 @@ class CeleryJob(Generic[ReturnType]):
 def celery_run(func, *args, **kwargs):
     return func(*args, **kwargs)
 
+ENGINES_CACHE = {}
 
 @app.task(base=TaskWithPerTaskLogging)
 def celery_run_with_session(func, *args, **kwargs):
+    database_url = kwargs.pop("database_url")
+    if database_url not in ENGINES_CACHE:
+        ENGINES_CACHE[database_url] = create_engine(database_url)
+    engine = ENGINES_CACHE[database_url]
     with SessionWrapper(engine) as session:
         return func(*args, **kwargs | {"session": session})
 
@@ -157,14 +161,10 @@ class CeleryPool(Generic[ReturnType]):
         self._celery = app
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
-        # task = predict_pipeline_from_health_data if func.__name__ == "predict_pipeline_from_health_data" else celery.task()(func)
-        # task = task.delay(*args, **kwargs)
-
         job = celery_run.delay(func, *args, **kwargs)
         return CeleryJob(job, app=self._celery)
 
     def queue_db(self, func: Callable[..., ReturnType], *args, **kwargs) -> CeleryJob[ReturnType]:
-        assert engine is not None, app.conf
         job = celery_run_with_session.delay(func, *args, **kwargs)
         return CeleryJob(job, app=self._celery)
 
