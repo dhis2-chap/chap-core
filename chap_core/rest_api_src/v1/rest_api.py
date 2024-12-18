@@ -20,6 +20,7 @@ from chap_core.worker.interface import SeededJob
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.rest_api_src.v1.routers import crud, analytics
 from . import debug, jobs
+from ...database.database import create_db_and_tables
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ app.include_router(crud.router)
 app.include_router(analytics.router)
 app.include_router(debug.router)
 app.include_router(jobs.router)
+
 
 class State(BaseModel):
     ready: bool
@@ -116,15 +118,15 @@ class NaiveWorker:
     job_class = NaiveJob
 
     def queue(self, func, *args, **kwargs):
-        #return self.job_class(func(*args, **kwargs))
+        # return self.job_class(func(*args, **kwargs))
         return self.job_class(func, *args, **kwargs)
-
 
 
 # worker = NaiveWorker()
 # worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
 # worker = RedisQueue()
 worker = CeleryPool()
+
 
 def set_cur_response(response):
     state["response"] = response
@@ -141,7 +143,7 @@ async def predict(data: PredictionRequest) -> dict:
     Start a prediction task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
     """
-    #logger.info(f"Predicting. Worker is {worker}. Data: {data['model']}")
+    # logger.info(f"Predicting. Worker is {worker}. Data: {data['model']}")
     # dataset = wf.dataset_from_request_v1(data)
     try:
         health_data = wf.get_health_dataset(data)
@@ -210,8 +212,6 @@ async def get_results() -> FullPredictionResponse:
     return result
 
 
-
-
 @app.get("/get-evaluation-results")
 async def get_evaluation_results() -> EvaluationResponse:
     """
@@ -259,6 +259,12 @@ async def get_status() -> State:
         progress=internal_state.current_job.progress,
         logs=""  # get_logs() # todo: fix
     )
+
+
+@app.on_event("startup")
+def on_startup():
+    logger.info("Starting up")
+    create_db_and_tables()
 
 
 def seed(data):
