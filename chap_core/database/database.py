@@ -10,17 +10,15 @@ import os
 from chap_core.time_period import TimePeriod
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 
-if False and "CHAP_DATABASE_URL" in os.environ:
-    database_url = os.environ["CHAP_DATABASE_URL"]
-else:
-    database_url = "sqlite:///"
-
-engine = create_engine(database_url)
+engine = None
+database_url = os.getenv("CHAP_DATABASE_URL", default=None)
+if database_url is not None:
+    engine = create_engine(database_url)
 
 
 class SessionWrapper:
     def __init__(self, local_engine=None, session=None):
-        self.engine = local_engine or engine
+        self.engine = local_engine#  or engine
         self.session = session
 
     def __enter__(self):
@@ -77,6 +75,7 @@ class SessionWrapper:
 
 
 def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+    if engine is not None:
+        SQLModel.metadata.create_all(engine)
 
-create_db_and_tables()
+#create_db_and_tables()
