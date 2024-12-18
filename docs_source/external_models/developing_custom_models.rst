@@ -1,7 +1,7 @@
 .. _developing_custom_models:
 
-Developing custom models with CHAP
-==================================
+Developing your own custom model with CHAP
+============================================
 
 CHAP is designed to allow model developers to easily develop their own models outside CHAP and use CHAP to benchmark/evaluate their models, or to import and use utility functions from CHAP in their own models.
 
