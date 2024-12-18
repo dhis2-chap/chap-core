@@ -13,8 +13,6 @@ from ..database.database import SessionWrapper
 from ..worker.interface import ReturnType
 from celery.utils.log import get_task_logger
 
-# logger = logging.getLogger(__name__)
-
 # We use get_task_logger to ensure we get the Celery-friendly logger
 # but you could also just use logging.getLogger(__name__) if you prefer.
 logger = get_task_logger(__name__)
@@ -86,29 +84,12 @@ if app.conf.database_url:
     engine = create_engine(app.conf.database_url)
 else:
     logger.warning("No database URL set")
+    # This is hacky, but defaults to using the test database. Should be synched with what is setup in conftest
     engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
-
-
-# predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
-# celery = Celery(
-#     "worker",
-#     broker="redis://redis:6379",
-#     backend="redis://redis:6379"
-# )
-# celery.conf.update(
-#     task_serializer="pickle",
-#     accept_content=["pickle"],  # Allow pickle serialization
-#     result_serializer="pickle",
-# )
 
 def add_numbers(a: int, b: int):
     logger.info(f"Adding {a} + {b}")
     return a + b
-
-
-# add_numbers = celery.task()(_add_numbers)
-# predict_pipeline_from_health_data = celery.task(predict_pipeline_from_health_data)
-# evaluate = celery.task(evaluate)
 
 
 class CeleryJob(Generic[ReturnType]):

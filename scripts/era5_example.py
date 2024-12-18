@@ -1,4 +1,6 @@
 import sys
+import logging
+logger = logging.getLogger(__name__)
 from multiprocessing.managers import Value
 
 import chap_core.fetch
@@ -7,7 +9,12 @@ try:
     credentials = load_credentials()#dict(account='demoaccount@demo.gserviceaccount.com', private_key='private_key')
 
     # polygons = open("../example_data/Organisation units.geojson").read()
-    polygons = chap_core.fetch.get_area_polygons('norway', ['Oslo', 'Akershus'])
+    try:
+        polygons = chap_core.fetch.get_area_polygons('norway', ['Oslo', 'Akershus'])
+    except Exception as e:
+        logger.warning("Could not find polygons for Norway")
+        logger.waring(e)
+        sys.exit(0)
     start_period = '202001'  # January 2020
     end_period = '202011'  # December 2020
     band_names = ['temperature_2m', 'total_precipitation_sum']
