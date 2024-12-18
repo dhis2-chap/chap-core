@@ -13,7 +13,8 @@ This documentation contains technical information about installing and using CHA
 
 **Full installation and integration with DHIS2**
 
-For users who want to fully install CHAP locally or on a server, e.g. to integrate with DHIS2, we recommend :doc:`setting up CHAP with docker compose <docker-compose-doc>` and :doc:`using the Prediction app <prediction-app/prediction-app>`.
+For users who want to fully install CHAP locally or on a server, e.g. to integrate with DHIS2, we recommend 
+:doc:`setting up CHAP with docker compose <docker-compose-doc>` and :doc:`using the Prediction app <prediction-app/prediction-app>`.
 
 -----
 
@@ -80,3 +81,10 @@ The following is an overview of all pages in the documentation:
    :caption: CHAP Core on server
 
    server/running-chap-on-server
+
+.. toctree::
+   :glob:
+   :maxdepth: 2
+   :caption: Development guide 
+
+   developer/getting_started
