@@ -62,6 +62,7 @@ The following is an overview of all pages in the documentation:
    external_models/developing_custom_models.rst
    external_models/external_model_specification.rst
    external_models/running_external_models.rst
+   external_models/integrating_external_models_with_dhis2.rst
 
 
 .. toctree::
