@@ -19,7 +19,8 @@ For users who want to fully install CHAP locally or on a server, e.g. to integra
 
 **Integrating external or custom models with CHAP**
 
-For users who want to develop custom forecasting models and run or benchmark these through CHAP, or to simply evaluate external models on small example datasets, we recommend :ref:`installing the chap-core Python package <installation>` and folowing the guides on :ref:`integrating external models <external_models>` and :ref:`developing custom models <developing_custom_models>`.
+For users who want to develop custom forecasting models and run or benchmark these through CHAP, or to simply evaluate external models on small example datasets, we recommend :ref:`installing the chap-core Python package <installation>` and 
+folowing the guides on :ref:`integrating external models <external_models_overview>` and :ref:`developing custom models <developing_custom_models>`.
 
 -----
 
@@ -41,6 +42,7 @@ The following is an overview of all pages in the documentation:
 
    installation
    docker-compose-doc
+   changelog
 
 .. toctree::
    :glob:
@@ -56,7 +58,10 @@ The following is an overview of all pages in the documentation:
    :maxdepth: 2
    :caption: Integrating external or custom models with CHAP
 
-   external_models/*
+   external_models/making_external_models_compatible.rst
+   external_models/external_model_specification.rst
+   external_models/running_external_models.rst
+   external_models/developing_custom_models.rst
 
 
 .. toctree::
