@@ -75,10 +75,12 @@ def normalize_name(name: str) -> str:
     return unidecode(name.replace(" ", "").lower())
 
 
-def add_id(feature, admin_level=1):
+def add_id(feature, admin_level=1, lookup_dict=None):
     id = feature.properties[f"NAME_{admin_level}"]
+    if lookup_dict:
+        id = lookup_dict[normalize_name(id)]
     return DFeatureModel(**feature.dict(), id=id)
-    return feature
+    
 
 
 def get_area_polygons(country: str, regions: list[str], admin_level: int = 1) -> FeatureCollectionModel:
@@ -108,10 +110,12 @@ def get_area_polygons(country: str, regions: list[str], admin_level: int = 1) ->
     }
     logger.info(f'Polygon data available for regions: {list(feature_dict.keys())}')
     logger.info(f'Requested regions: {[normalize_name(region) for region in regions]}')
+    normalized_to_original = {normalize_name(region): region for region in regions}
+    
     return DFeatureCollectionModel(
         type="FeatureCollection",
         features=[
-            add_id(feature_dict[normalize_name(region)], admin_level)
+            add_id(feature_dict[normalize_name(region)], admin_level, normalized_to_original)
             for region in regions
             if normalize_name(region) in feature_dict
         ],
@@ -152,16 +156,37 @@ class Polygons:
     def __init__(self, polygons):
         self._polygons = polygons
 
-    @classmethod
-    def from_file(cls, filename):
-        return cls.from_geojson(json.load(open(filename)))
+    @property
+    def data(self) -> FeatureCollectionModel:
+        return self._polygons
 
     @classmethod
-    def from_geojson(cls, geojson: dict):
-        return cls(DFeatureCollectionModel.model_validate(geojson))
+    def from_file(cls, filename, id_property='id'):
+        return cls.from_geojson(json.load(open(filename)), id_property=id_property)
+
+    def to_file(self, filename):
+        json.dump(self.to_geojson(), open(filename, "w"))
+
+    @classmethod
+    def _add_ids(cls, features: DFeatureCollectionModel, id_property: str):
+        for feature in features.features:
+            feature.id = feature.id or feature.properties[id_property]
+        return features     
+    
+    @classmethod
+    def from_geojson(cls, geojson: dict, id_property: str='id'):
+        features = DFeatureCollectionModel.model_validate(geojson)
+        features = cls._add_ids(features, id_property)
+        return cls(features)
+
+    def to_geojson(self):
+        return self._polygons.model_dump()
 
     def feature_collection(self):
         return self._polygons
+
+    def __eq__(self, other):
+        return self._polygons == other._polygons
 
 
 if __name__ == "__main__":

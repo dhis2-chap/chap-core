@@ -7,6 +7,7 @@ import os
 import pandas as pd
 from pydantic import BaseModel
 from chap_core.datatypes import SimpleClimateData
+from chap_core.exceptions import GEEError
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import PeriodRange, TimePeriod
 
@@ -155,30 +156,38 @@ class Era5LandGoogleEarthEngine:
         self._initialize_client()
 
     def _initialize_client(self):
-        load_dotenv(find_dotenv(usecwd=self._usecwd))
+        logging.info(f"Initializing Google Earth Engine, usecwd: {self._usecwd}")
+        dotenv_file = find_dotenv(usecwd=self._usecwd)
+        logging.info(f"Loading environment variables from: {dotenv_file}")
+        load_dotenv(dotenv_file)
         # read environment variables
         account = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")
-        private_key = os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY")
-        if not account:
-            logger.warn(
+        private_key = os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY").replace("\\n", "\n")
+        
+        if not account or account is None:
+            logger.warning(
                 "GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables to use Google Earth Engine"
             )
-        if not private_key:
-            logger.warn(
+            raise GEEError("Could not initialize Google Earth Engine. Missing GOOGLE_SERVICE_ACCOUNT_EMAIL")
+        if not private_key or private_key is None:
+            logger.warning(
                 "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is not set, you need to set it in the environment variables to use Google Earth Engine"
             )
+            raise GEEError("Could not initialize Google Earth Engine. Missing GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY")
 
         if not account or not private_key:
             return
 
         try:
+            logger.info("Initializing Google Earth Engine with account: " + account)
+            logger.info(f"Length of private key: {len(private_key)}")
             credentials = ee.ServiceAccountCredentials(account, key_data=private_key)
-            #ee.Authenticate()
             ee.Initialize(credentials)
             logger.info("Google Earth Engine initialized, with account: " + account)
             self.is_initialized = True
         except ValueError as e:
             logger.error(e)
+            raise GEEError("Could not initialize Google Earth Engine") from e
 
     def get_historical_era5(self, features, periodes: Iterable[TimePeriod]):
         ee_reducer_type = "mean"
@@ -215,3 +224,71 @@ class Era5LandGoogleEarthEngine:
         parsed_result = self.gee_helper.convert_value_by_band_converter(result, bands)
 
         return self.gee_helper.parse_gee_properties(parsed_result)
+
+
+    def get_daily_data(self, regions, periodes: Iterable[TimePeriod]):
+        for i, feature in enumerate(regions['features']):
+            if 'properties' not in feature:
+                feature['properties'] = {}
+            if 'id' not in feature['properties']:
+                feature['properties']['id'] = feature.get('id', f'new_id_{i}')
+        
+        start_date = periodes[0].start_timestamp.date
+        end_date = periodes[-1].end_timestamp.date
+        era5 = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select([band.name for band in bands])
+        # Filter data by date range
+        era5_filtered = era5.filterDate(start_date, end_date)
+
+        # Function to extract daily values
+        def extract_daily_values(image):
+            date = image.date().format("YYYY-MM-dd")
+            stats = image.reduceRegions(
+                collection=regions,
+                reducer=ee.Reducer.mean(),
+                scale=1000
+            )
+            stats = stats.map(lambda feature: feature.set("date", date))
+            return stats
+
+        # Apply the function over the ImageCollection
+        daily_stats = era5_filtered.map(extract_daily_values).flatten()
+
+        # Retrieve data from Earth Engine
+        def ee_to_df(feature_collection, chunk_size=5000):
+            """
+            Fetch Earth Engine FeatureCollection in chunks and convert to a Pandas DataFrame.
+
+            Args:
+                feature_collection (ee.FeatureCollection): The FeatureCollection to fetch.
+                chunk_size (int): Number of features to fetch in each chunk.
+
+            Returns:
+                pd.DataFrame: A Pandas DataFrame containing the FeatureCollection data.
+            """
+            # Initialize an empty DataFrame to store results
+            full_data = []
+
+            # Get the total number of elements in the FeatureCollection
+            total_size = feature_collection.size().getInfo()
+
+            # Fetch data in chunks
+            for start in range(0, total_size, chunk_size):
+                # Get a chunk of features
+                features = feature_collection.toList(chunk_size, start).getInfo()
+                # Extract properties and append to the list
+                for feature in features:
+                    full_data.append(feature["properties"])
+
+            # Convert the full data list into a DataFrame
+            return pd.DataFrame(full_data)
+        """ def ee_to_df(feature_collection):
+            features = feature_collection.getInfo()["features"]
+            data = []
+            for feature in features:
+                properties = feature["properties"]
+                data.append(properties)
+            return pd.DataFrame(data)
+    """
+        # Convert the FeatureCollection to a DataFrame
+        df = ee_to_df(daily_stats)
+        return df

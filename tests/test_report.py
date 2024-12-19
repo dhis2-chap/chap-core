@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from chap_core.reports import HTMLReport
+from chap_core._legacy.reports import HTMLReport
 
 
 @pytest.fixture

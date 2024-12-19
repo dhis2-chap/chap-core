@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.time_period import TimePeriod, PeriodRange
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,12 +62,12 @@ def fetch_single_period(polygons: FeatureCollectionModel, start_dt, end_dt, band
 
 
 def fetch_era5_data_generator(
-    credentials: GEECredentials | dict[str, str],
-    polygons: FeatureCollectionModel | str,
-    start_period: str,
-    end_period: str,
-    band_names=list[str],
-    reducer: str = "mean",
+        credentials: GEECredentials | dict[str, str],
+        polygons: FeatureCollectionModel | str,
+        start_period: str,
+        end_period: str,
+        band_names=list[str],
+        reducer: str = "mean",
 ) -> list[ERA5Entry]:
     """
     Fetch ERA5 data for the given polygons, time periods, and band names.
@@ -114,33 +115,35 @@ def fetch_era5_data_generator(
     start = TimePeriod.from_id(start_period)
     end = TimePeriod.from_id(end_period)
     period_range = PeriodRange.from_time_periods(start, end)
-    #data = []
+    # data = []
     n_periods = len(period_range)
     logger.info(f"Fetching gee data for {n_periods} periods")
     n_simultaneous_requests = 50
-    polygon_subsets = [FeatureCollectionModel(type=polygons.type, features=polygons.features[i:i+n_simultaneous_requests])
-                          for i in range(0, len(polygons.features), n_simultaneous_requests)]
+    polygon_subsets = [
+        FeatureCollectionModel(type=polygons.type, features=polygons.features[i:i + n_simultaneous_requests])
+        for i in range(0, len(polygons.features), n_simultaneous_requests)]
 
     for i, period in enumerate(period_range):
-        logger.info(f"Fetching period {period}: {i+1}/{n_periods}")
+        logger.info(f"Fetching period {period}: {i + 1}/{n_periods}")
         start_day = period.start_timestamp.date
         end_day = period.last_day.date
         for j, subset_polygon in enumerate(polygon_subsets):
-            logger.info(f"Fetching subset {j+1}/{len(polygon_subsets)}")
+            logger.info(f"Fetching subset {j + 1}/{len(polygon_subsets)}")
             res = fetch_single_period(subset_polygon, start_day, end_day, band_names, reducer=reducer)
 
             items = (ERA5Entry(location=loc, period=period.id, band=band, value=value) for loc, properties in
-                      res.items() for band, value in properties.items())
+                     res.items() for band, value in properties.items())
             yield from items
 
-    #return data
+    # return data
+
 
 def fetch_era5_data(
-    credentials: GEECredentials | dict[str, str],
-    polygons: FeatureCollectionModel | str,
-    start_period: str,
-    end_period: str,
-    band_names=list[str],
-    reducer: str = "mean",
+        credentials: GEECredentials | dict[str, str],
+        polygons: FeatureCollectionModel | str,
+        start_period: str,
+        end_period: str,
+        band_names=list[str],
+        reducer: str = "mean",
 ) -> list[ERA5Entry]:
     return list(fetch_era5_data_generator(credentials, polygons, start_period, end_period, band_names, reducer=reducer))

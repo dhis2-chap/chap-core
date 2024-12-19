@@ -8,17 +8,17 @@ from npstructures import RaggedArray
 from numpy.testing import assert_array_equal
 
 from chap_core.datatypes import Location
-from chap_core.time_period.dataclasses import Day, Month
+from chap_core.time_period import Day, Month, PeriodRange
 from chap_core.time_period.multi_resolution import pack_to_period
-from chap_core.time_period.period_range import period_range
+
 
 
 @pytest.mark.skip("legacy")
 def test_pack_to_period():
-    day_range = period_range(
+    day_range = PeriodRange.from_time_periods(
         Day.single_entry(2020, 0, 0), Day.single_entry(2020, 1, 28)
     )
-    month_range = period_range(Month.single_entry(2020, 0), Month.single_entry(2020, 1))
+    month_range = PeriodRange.from_time_periods(Month.single_entry(2020, 0), Month.single_entry(2020, 1))
     data = np.arange(31 + 29) * 2
     new_index, new_data = pack_to_period(day_range, data, Month)
     assert_bnpdataclass_equal(new_index, month_range)

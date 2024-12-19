@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 
 from chap_core.chap_cli import harmonize, evaluate, predict
@@ -21,7 +23,7 @@ def data_filename(data_path):
     return path
 
 
-def test_harmonize(v2_path, tmp_path):
+def test_harmonize(v2_path, tmp_path, mocked_gee):
     output_path = tmp_path / "output.csv"
     harmonize(v2_path, output_path)
     assert output_path.exists()

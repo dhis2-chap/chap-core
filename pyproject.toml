@@ -16,7 +16,9 @@ dependencies = [
     "diskcache",
     "docker",
     "earthengine-api",
-    "fastapi[standard]",
+    "fastapi",
+    "sqlmodel",
+    "psycopg2-binary",
     "geopandas",
     "geopy",
     "gitpython",
@@ -46,6 +48,7 @@ dependencies = [
     "virtualenv",
     "xarray",
     "orjson>=3.10.7",
+    "celery[pytest]"
 ]
 
 [project.urls]
@@ -95,6 +98,7 @@ docstring-code-line-length = "dynamic"
 
 [tool.pytest.ini_options]
 log_cli = true
+log_level = "DEBUG"
 norecursedirs = [
     "tests/data_wrangling",
     "tests/spatio_temporal_data",

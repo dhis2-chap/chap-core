@@ -6,14 +6,14 @@ from typing import Protocol, TypeVar
 
 import git
 import yaml
-
-from chap_core._legacy_dataset import IsSpatioTemporalDataSet
+from chap_core.data import DataSet
 from chap_core.datatypes import (
     ClimateHealthTimeSeries,
     ClimateData,
     HealthData,
 )
-from chap_core.external.mlflow import (
+from chap_core.exceptions import InvalidModelException
+from chap_core.external.mlflow_wrappers import (
     ExternalModel,
     get_train_predict_runner,
 )
@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 class IsExternalModel(Protocol):
     def get_predictions(
         self,
-        train_data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries],
-        future_climate_data: IsSpatioTemporalDataSet[ClimateData],
-    ) -> IsSpatioTemporalDataSet[HealthData]: ...
+        train_data: DataSet[ClimateHealthTimeSeries],
+        future_climate_data: DataSet[ClimateData],
+    ) -> DataSet[HealthData]: ...
 
 
 FeatureType = TypeVar("FeatureType")
@@ -80,6 +80,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
     Gets the model and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
     """
+    logger.info(f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}")
     is_github = False
     commit = None
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):
@@ -95,7 +96,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         working_dir = base_working_dir / model_name / "latest"
         # clear working dir
         if working_dir.exists():
-            logging.info(f"Removing previous working dir {working_dir}")
+            logger.info(f"Removing previous working dir {working_dir}")
             shutil.rmtree(working_dir)
     else:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -119,23 +120,16 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
 
     # assert that a config file exists
     if (working_dir / "MLproject").exists():
-        assert (working_dir / "MLproject").exists(), f"MLproject file not found in {working_dir}"
         return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
-    elif (working_dir / "config.yml").exists():
-        assert False, "config.yml file not supported anymore"
-        #return get_model_from_yaml_file(working_dir / "config.yml", working_dir)
     else:
-        raise Exception("No config.yml or MLproject file found in model directory")
+        raise InvalidModelException("No MLproject file found in model directory")
 
 
 def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
-    #is_in_docker = os.environ.get("IS_IN_DOCKER", False)
-    #if is_in_docker:
-    #    ignore_env = True
-
+    
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 

@@ -16,14 +16,19 @@ services:
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - CHAP_DATABASE_URL=postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
+      - CELERY_BROKER=redis://redis:6379/0
+      - IS_IN_DOCKER=1
     ports:
       - "8000:8000"
     expose:
       - "8000"
-    command: /app/.venv/bin/chap serve
+    command: /app/.venv/bin/chap serve 
     working_dir: /
     networks:
       - chap-network
+    volumes:
+      - ./logs:/app/logs
 
   worker:
     container_name: worker
@@ -34,7 +39,28 @@ services:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - IS_IN_DOCKER=1
-    command: /app/.venv/bin/rq worker --url redis://redis:6379/0
+      - CHAP_DATABASE_URL=postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
+      - CELERY_BROKER=redis://redis:6379
+      - C_FORCE_ROOT=1 #TODO: Remove this when we have a proper user
+    # sh -c to get logging as part of the command to work
+    command: '/app/.venv/bin/celery -A chap_core.rest_api_src.celery_tasks worker --loglevel=info'
+    # 'sh -c "/app/.venv/bin/rq worker --url redis://redis:6379/0 > /app/logs/worker.log 2>&1"'
+    networks:
+        - chap-network
+    volumes:
+      - ./logs:/app/logs
+
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: thisisnotgoingtobeexposed
+      POSTGRES_DB: chap_core
+    volumes:
+      - /var/lib/postgresql/chap_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
     networks:
         - chap-network
 

@@ -3,7 +3,6 @@ import dataclasses
 import numpy as np
 from sklearn import linear_model
 
-from chap_core._legacy_dataset import IsSpatioTemporalDataSet
 from chap_core.spatio_temporal_data.temporal_dataclass import (
     DataSet,
     TemporalDataclass,
@@ -40,11 +39,11 @@ class MultiRegionNaivePredictor:
         return y.mean()
         # return data.data().disease_cases.mean()
 
-    def train(self, data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]):
+    def train(self, data: DataSet[ClimateHealthTimeSeries]):
         self._average_cases = {location: self._get_mean(data) for location, data in data.items()}
         # self._buffer = next(iter(data.values())).time_period[-1]
 
-    def predict(self, future_weather: IsSpatioTemporalDataSet[ClimateData]) -> HealthData:
+    def predict(self, future_weather: DataSet[ClimateData]) -> HealthData:
         prediction_dict = {
             location: HealthData(entry.data().time_period[:1], np.full(1, self._average_cases[location]))
             for location, entry in future_weather.items()
@@ -65,7 +64,7 @@ class MultiRegionPoissonModel:
         season = month[1:, None] == np.arange(1, 13)
         return np.hstack([lagged_values, season])
 
-    def train(self, data: IsSpatioTemporalDataSet[ClimateHealthTimeSeries]):
+    def train(self, data: DataSet[ClimateHealthTimeSeries]):
         for location, location_data in data.items():
             X = self._create_feature_matrix(location_data)
             y = location_data.data().disease_cases[1:]
@@ -81,7 +80,7 @@ class MultiRegionPoissonModel:
             assert not np.any(np.isnan(saved_data.disease_cases)), f"{saved_data.disease_cases}"
             self._saved_state[location] = TemporalDataclass(saved_data)
 
-    def predict(self, data: IsSpatioTemporalDataSet[ClimateData]) -> IsSpatioTemporalDataSet[HealthData]:
+    def predict(self, data: DataSet[ClimateData]) -> DataSet[HealthData]:
         prediction_dict = {}
         for location, location_data in data.items():
             state_values = self._saved_state[location]

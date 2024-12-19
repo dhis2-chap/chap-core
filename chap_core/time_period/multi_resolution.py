@@ -1,6 +1,6 @@
 import numpy as np
 
-from chap_core.time_period.dataclasses import Month
+from chap_core.time_period import Month
 from npstructures import RaggedArray
 
 

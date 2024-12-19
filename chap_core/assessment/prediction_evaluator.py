@@ -17,7 +17,7 @@ from chap_core.assessment.multi_location_evaluator import MultiLocationEvaluator
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
 from chap_core.datatypes import TimeSeriesData, Samples
 from chap_core.predictor.naive_predictor import MultiRegionPoissonModel
-from chap_core.reports import HTMLReport, HTMLSummaryReport
+from chap_core._legacy.reports import HTMLReport, HTMLSummaryReport
 import logging
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -135,6 +135,7 @@ def backtest(estimator: Estimator,
     predictor = estimator.train(train)
     for historic_data, future_data, _ in test_generator:
         yield predictor.predict(historic_data, future_data)
+
 
 def relative_cases_mse(predicted: DataSet[Samples], truth: DataSet):
     ...

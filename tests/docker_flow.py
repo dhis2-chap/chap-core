@@ -8,7 +8,10 @@ import time
 
 import requests
 import logging
+
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 
 def dataset():
     dataset = "../example_data/anonymous_chap_request.json"
@@ -16,18 +19,28 @@ def dataset():
     return data
 
 
-#hostname = "localhost"
 hostname = 'chap'
 chap_url = "http://%s:8000" % hostname
-#chap_with_r_inla_url = "http://localhost:8001"
 
 
 def main():
     model_url = chap_url + "/v1/list-models"
     ensure_up(chap_url)
-    models = requests.get(model_url)
+    try:
+        models = requests.get(model_url)
+    except:
+        print("Failed to connect to %s" % chap_url)
+        logger.error("Failed when fetching models")
+        print("----------------Exception info----------------")
+        exception_info = requests.get(chap_url + "/v1/get-exception").json()
+        print(exception_info)
+        logger.error(exception_info)
+        logger.error("Failed to connect to %s" % chap_url)
+        raise
 
-    for model in models.json():
+    model_list = models.json()
+
+    for model in model_list:
         evaluate_model(chap_url, dataset(), model)
 
 
@@ -52,18 +65,23 @@ def evaluate_model(chap_url, data, model, timeout=600):
     assert response.json()["status"] == "success"
 
     for _ in range(timeout // 5):
-        job_status = requests.get(chap_url + "/v1/status").json()
+        response = requests.get(chap_url + "/v1/status")
+        if response.status_code != 200:
+            logger.error("Failed to get status")
+            logger.error(response)
+            continue
+        job_status = response.json()
         if job_status['status'] == "failed":
             exception_info = requests.get(chap_url + "/v1/get-exception").json()
             if "Earth Engine client library not initialized" in exception_info:
-                logger.warning("Earth Engine client library not initialized. Ignoring this test")
                 logger.warning("Exception: %s" % exception_info)
-                return
+                raise Exception("Failed, Earth Engine client library not initialized")
 
             raise ValueError("Model evaluation failed. Exception: %s" % exception_info)
 
         logger.info(job_status)
 
+        print("Waiting for model to finish")
         time.sleep(5)
         if job_status['ready']:
             break
@@ -72,8 +90,6 @@ def evaluate_model(chap_url, data, model, timeout=600):
     results = requests.get(chap_url + "/v1/get-results").json()
     assert len(results['dataValues']) == 45, len(results['dataValues'])
 
+
 if __name__ == "__main__":
     main()
-    #
-
-#evaluate_model(chap_url, dataset(), {"name": "naive_model"})

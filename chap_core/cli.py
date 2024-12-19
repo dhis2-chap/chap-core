@@ -11,9 +11,10 @@ from cyclopts import App
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
-from chap_core.external.mlflow import NoPredictionsError
+from chap_core.external.mlflow_wrappers import NoPredictionsError
+from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import naive_spec, registry
-from chap_core.rest_api import get_openapi_schema
+from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
 from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
@@ -34,9 +35,11 @@ from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month, Week
 from .assessment.prediction_evaluator import evaluate_model, backtest as _backtest
 from .assessment.forecast import multi_forecast as do_multi_forecast
-import logging
 
-logging.basicConfig(level=logging.INFO)
+import logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
 app = App()
 
 
@@ -54,11 +57,14 @@ def evaluate(
         report_filename: Optional[str] = "report.pdf",
         ignore_environment: bool = False,
         debug: bool = False,
+        log_file: Optional[str] = None,
 ):
     """
     Evaluate a model on a dataset using forecast cross validation
     """
-    logging.basicConfig(level=logging.INFO)
+    initialize_logging(debug, log_file)
+    logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
+    
     dataset = datasets[dataset_name]
     dataset = dataset.load()
 
@@ -81,7 +87,7 @@ def evaluate(
             report_filename=report_filename,
         )
     except NoPredictionsError as e:
-        logging.error(f"No predictions were made: {e}")
+        logger.error(f"No predictions were made: {e}")
         return
     print(results)
 
@@ -124,7 +130,7 @@ def multi_forecast(
     model, model_name = get_model_maybe_yaml(model_name)
     model = model()
     filename = out_path / f"{model_name}_{dataset_name}_multi_forecast_results_{n_months}.html"
-    logging.info(f"Saving to {filename}")
+    logger.info(f"Saving to {filename}")
     f = open(filename, "w")
     dataset = datasets[dataset_name].load()
     predictions_list = list(
@@ -186,11 +192,11 @@ def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
 
 
 @app.command()
-def serve(seedfile: Optional[str] = None):
+def serve(seedfile: Optional[str] = None, debug: bool = False):
     """
     Start CHAP as a backend server
     """
-    from .rest_api import main_backend
+    from .rest_api_src.v1.rest_api import main_backend
     if seedfile is not None:
         data = json.load(open(seedfile))
     else:
@@ -207,6 +213,33 @@ def write_open_api_spec(out_path: str):
     with open(out_path, "w") as f:
         json.dump(schema, f, indent=4)
 
+
+def base_args(func, *args, **kwargs):
+    """
+    Decorator that adds some base arguments to a command
+    """
+    base_args = [
+        ("debug", bool, False),
+        ("log_file", Optional[str], None)
+    ]
+
+    def new_func(*args, **kwargs):
+        for arg_name, arg_type, default in base_args:
+            if arg_name not in kwargs:
+                kwargs[arg_name] = default
+        return func(*args, **kwargs)
+
+
+@app.command()
+def test(**base_kwargs):
+    """
+    Simple test-command to check that the chap command works
+    """
+    initialize_logging()
+   
+    logger.debug("Debug message")
+    logger.info("Info message")
+    
 
 @dataclasses.dataclass
 class AreaPolygons: ...
@@ -265,7 +298,7 @@ def dhis_zip_flow(
 
 
 @app.command()
-def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path):
+def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path, prediction_length: int = 12, n_test_sets: int = 20, stride: int = 2):
     """
     Run a backtest on a dataset using the specified model
 
@@ -275,9 +308,12 @@ def backtest(data_filename: Path, model_name: registry.model_type, out_folder: P
         out_folder: Path: Path to the output folder
     """
     dataset = DataSet.from_csv(data_filename, FullData)
+    print(dataset)
+    logger.info(f"Running backtest on {data_filename} with model {model_name}")
+    logger.info(f"Dataset period range: {dataset.period_range}, locations: {list(dataset.locations())}")
     estimator = registry.get_model(model_name)
-    predictions_list = _backtest(estimator, dataset, prediction_length=12,
-                                 n_test_sets=20, stride=2, weather_provider=QuickForecastFetcher)
+    predictions_list = _backtest(estimator, dataset, prediction_length=prediction_length,
+                                 n_test_sets=n_test_sets, stride=stride, weather_provider=QuickForecastFetcher)
     response = samples_to_evaluation_response(
         predictions_list,
         quantiles=[0.05, 0.25, 0.5, 0.75, 0.95],
@@ -302,6 +338,7 @@ def main_function():
 
     """
     return
+
 
 
 def main():

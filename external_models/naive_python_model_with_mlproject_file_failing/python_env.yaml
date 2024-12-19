@@ -1,0 +1,6 @@
+python: 3.11.3
+
+dependencies:
+  - virtualenv
+  - chap-core
+

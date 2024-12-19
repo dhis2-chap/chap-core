@@ -67,7 +67,6 @@ def extract_disease_name(health_data: dict) -> str:
 
 def read_zip_folder(zip_file_path: str) -> PredictionData:
     # read zipfile, create PredictionData
-    print(zip_file_path)
     ziparchive = zipfile.ZipFile(zip_file_path)
     expected_files = {
         "area_polygons": "orgUnits.geojson",

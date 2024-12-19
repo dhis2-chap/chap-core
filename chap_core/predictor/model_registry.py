@@ -4,8 +4,8 @@ from .naive_estimator import NaiveEstimator
 from .published_models import model_dict
 from ..external.external_model import get_model_from_directory_or_github_url
 from ..model_spec import PeriodType, ModelSpec
-
-NaiveEstimator
+import logging
+logger = logging.getLogger(__name__)
 
 naive_spec = ModelSpec(
     name="naive_model",
@@ -27,6 +27,7 @@ class ModelRegistry:
         return self._model_type
 
     def get_model(self, model_id: str, ignore_env=False):
+        logger.info(f"Getting model with id: {model_id}")
         if model_id == "naive_model":
             return NaiveEstimator()
         elif model_id in model_dict:

@@ -11,10 +11,14 @@ from redis import Redis
 import os
 from dotenv import load_dotenv, find_dotenv
 
+import chap_core.log_config
 from chap_core.worker.interface import ReturnType
 import logging
 
 logger = logging.getLogger(__name__)
+chap_core.log_config.initialize_logging()
+#logger.addHandler(logging.FileHandler('logs/rq_worker.log'))
+#logger.info("Logging initialized")
 
 
 class RedisJob(Generic[ReturnType]):
@@ -39,6 +43,9 @@ class RedisJob(Generic[ReturnType]):
     @property
     def progress(self) -> float:
         return 0
+
+    def get_logs(self) -> str:
+        return self._job.meta.get("stdout", "") + "\n" + self._job.meta.get("stderr", "")
 
     def cancel(self):
         self._job.cancel()
@@ -72,7 +79,7 @@ class RedisQueue:
         return host, port
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> RedisJob[ReturnType]:
-        return RedisJob(self.q.enqueue(func, *args, **kwargs))
+        return RedisJob(self.q.enqueue(func, *args, **kwargs, result_ttl=604800)) #keep result for a week
 
     def __del__(self):
         self.q.connection.close()

@@ -50,10 +50,6 @@ def harmonize(input_filename: Path, output_filename: Path):
     with open(input_filename, "r") as f:
         text = f.read()
     request_data = RequestV1.model_validate_json(text)
-    #data_elements = [d.featureId for d in request_data.features]
-    #target_name = get_target_id(request_data, ["disease", "diseases", "disease_cases"])
-    #print(target_name)
-    #target_name = 'disease' if 'disease' in data_elements else 'disease_cases'
     dataset = dataset_from_request_v1(request_data, usecwd_for_credentials=True)
     dataset.to_csv(output_filename)
 
@@ -75,7 +71,7 @@ def evaluate(
     output_filename: Path
         The path to the output pdf-file with the evaluation report
     model_id: str
-        The id of the model to evaluate. Currently supports 'naive_model' and 'chap_ewars'
+        The id of the model to evaluate.
     prediction_length: int
         The number of periods to predict ahead. Defaults to 3 months for monthly data and 12 weeks for weekly data
     n_test_sets: int
@@ -102,7 +98,7 @@ def evaluate(
 def predict(
     data_filename: Path,
     output_filename: Path,
-    model_id: str,
+    model_id: registry.model_type,
     prediction_length: int = None,
     do_summary=False,
 ):
@@ -117,7 +113,7 @@ def predict(
     output_filename: Path
         The path to the output csv-file with the predictions
     model_id: str
-        The id of the model to predict with. Currently supports 'naive_model' and 'chap_ewars'
+        The id of the model to predict with.
     """
     data_set = DataSet.from_csv(data_filename, FullData)
     if prediction_length is None:

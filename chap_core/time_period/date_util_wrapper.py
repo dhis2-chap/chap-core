@@ -1,3 +1,4 @@
+import logging
 import functools
 from datetime import datetime
 from numbers import Number
@@ -6,9 +7,14 @@ from typing import Union, Iterable, Tuple
 import dateutil
 import numpy as np
 import pandas as pd
+from bionumpy.bnpdataclass import BNPDataClass
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 from pytz import utc
+
+from chap_core.exceptions import InvalidDateError
+
+logger = logging.getLogger(__name__)
 
 
 class DateUtilWrapper:
@@ -199,6 +205,10 @@ class TimePeriod:
     def end_timestamp(self):
         return TimeStamp(self._exclusive_end())
 
+    @property
+    def n_days(self):
+        return (self._exclusive_end() - self._date).days
+
 
 class Day(TimePeriod):
     _used_attributes = ["year", "month", "day"]
@@ -225,7 +235,11 @@ class WeekNumbering:
 
     @staticmethod
     def get_date(year: int, week: int, day: int) -> datetime:
-        return datetime.strptime(f"{year}-W{week}-{day%7}", "%G-W%V-%w")
+        try:
+            return datetime.strptime(f"{year}-W{week}-{day%7}", "%G-W%V-%w")
+        except ValueError as e:
+            logger.error(f"Invalid date {year}-W{week}-{day%7}")
+            raise InvalidDateError(f"Invalid date {year}-W{week}-{day%7}") from e
 
 
 class Week(TimePeriod):
@@ -404,7 +418,7 @@ class TimeDelta(DateUtilWrapper):
             return (end_stamp - start_stamp) // self
 
 
-class PeriodRange:
+class PeriodRange(BNPDataClass):
     def __init__(
         self,
         start_timestamp: TimeStamp,
@@ -458,7 +472,7 @@ class PeriodRange:
 
     def _vectorize(self, funcname: str, other: TimePeriod):
         if isinstance(other, PeriodRange):
-            assert len(self) == len(other)
+            assert len(self) == len(other), (len(self), len(other), self, other)
             return np.array([getattr(period, funcname)(other_period) for period, other_period in zip(self, other)])
         return np.array([getattr(period, funcname)(other) for period in self])
 
@@ -571,7 +585,14 @@ class PeriodRange:
 
     @classmethod
     def from_strings(cls, period_strings: Iterable[str], fill_missing=False):
-        periods = [TimePeriod.parse(period_string) for period_string in period_strings]
+        periods = []
+        for period_string in period_strings:
+            try:
+                p = TimePeriod.parse(period_string)
+            except InvalidDateError:
+                logger.error(f"Invalid date {period_string}")
+                raise
+            periods.append(p)
         return cls.from_period_list(fill_missing, periods)
 
     @classmethod
@@ -648,6 +669,9 @@ class PeriodRange:
             "end_timestamp": self._end_timestamp,
             "time_delta": self._time_delta,
         }
+
+    def tolist(self):
+        return [p.to_string() for p in self]
 
 
 delta_month = TimeDelta(relativedelta(months=1))
