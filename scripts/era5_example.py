@@ -13,7 +13,7 @@ try:
         polygons = chap_core.fetch.get_area_polygons('norway', ['Oslo', 'Akershus'])
     except Exception as e:
         logger.warning("Could not find polygons for Norway")
-        logger.waring(e)
+        logger.warning(e)
         sys.exit(0)
     start_period = '202001'  # January 2020
     end_period = '202011'  # December 2020
