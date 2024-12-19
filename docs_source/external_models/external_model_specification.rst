@@ -1,10 +1,9 @@
-.. _external_models:
+.. _external_model_specification:
 
+External model specification 
+============================
 
-Integrating external models
-------------------------------
-
-CHAP can run external models in two ways:
+An external model can be provided to CHAP in two ways: 
 
 - By specifying a path to a local code base
 - or by specifying a github URL to a git repo. The url needs to start with https://github.com/
@@ -23,23 +22,14 @@ The following shows how you can run models that follow the specification above. 
 The MLproject file can specify a docker image or Python virtual environment that will be used when running the commands.
 
 
-Running an external model on the command line
-...............................................
+Defining an environment for the model
+--------------------------------------
 
-External models can be run on the command line using the `chap evaluate` command. See `chap evaluate --help` for details.
+If needed, CHAP currently supports specifying a docker image or a python environment file that will be used when running your model.
 
-This example runs an auto ewars R model on public ISMIP data for Brazil using a public docker image with the R inla package. After running, a report file `report.pdf` should be made.
+For models that are to be run in a production environment, this is necessary for handling dependencies.
 
-.. code-block:: bash
+We implement the MLProject standard, as described in the `MLflow documentation <https://www.mlflow.org/docs/latest/projects.html#project-format>`_ (except for conda support). 
 
-    chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
-
-
-Running an external model in Python
-...................................
-
-CHAP contains an API for loading models through Python. The following shows an example of loading and evaluating three different models by specifying paths/github urls, and evaluating those models:
-
-.. literalinclude :: ../../scripts/external_model_example.py
-   :language: python
+Specifying a Python environment requires that you have pyenv installed and available.
 

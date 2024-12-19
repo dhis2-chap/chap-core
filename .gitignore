@@ -146,3 +146,7 @@ mlruns/
 
 # ignore mac finder setting files
 .DS_Store
+
+
+#ignore 
+/logs/*
