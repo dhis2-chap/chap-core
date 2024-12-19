@@ -53,7 +53,7 @@ async def get_actual_cases(backtest_id: int, session: Session = Depends(get_sess
     data_list = [DataElement(pe=observation.period_id, ou=observation.region_id, value=float(observation.value) if not (
                 np.isnan(observation.value) or observation.value is None) else None) for
                  observation in data.observations if observation.element_id == "disease_cases"]
-    logger.info(f"DataList: {data_list}")
+    logger.info(f"DataList: {len(data_list)}")
     return DataList(
         featureId="disease_cases",
         dhis2Id="disease_cases",

@@ -50,10 +50,6 @@ def harmonize(input_filename: Path, output_filename: Path):
     with open(input_filename, "r") as f:
         text = f.read()
     request_data = RequestV1.model_validate_json(text)
-    #data_elements = [d.featureId for d in request_data.features]
-    #target_name = get_target_id(request_data, ["disease", "diseases", "disease_cases"])
-    #print(target_name)
-    #target_name = 'disease' if 'disease' in data_elements else 'disease_cases'
     dataset = dataset_from_request_v1(request_data, usecwd_for_credentials=True)
     dataset.to_csv(output_filename)
 

@@ -1,12 +1,11 @@
 import os
 import shutil
+from unittest.mock import patch
 from pathlib import Path
-from sqlalchemy import create_engine
 import numpy as np
-from sqlmodel import SQLModel
+
 from chap_core.database.tables import *
 import pandas as pd
-import pytest
 
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
 from chap_core.services.cache_manager import get_cache
@@ -83,6 +82,15 @@ def google_earth_engine():
     except:
         pytest.skip("Google Earth Engine not available")
 
+@pytest.fixture()
+def mocked_gee(gee_mock):
+    with patch('chap_core.rest_api_src.worker_functions.Era5LandGoogleEarthEngine', gee_mock):
+        yield
+
+@pytest.fixture()
+def gee_mock():
+    return GEEMock
+
 
 @pytest.fixture
 def request_json(data_path):
@@ -121,17 +129,14 @@ class GEEMock:
     def __init__(self, *args, **kwargs):
         ...
 
-    def get_historical_era5(self, features, period_range):
-        locations = [f['id'] for f in features]
+    def get_historical_era5(self, features, periodes):
+        locations = [f['id'] for f in features['features']]
         return DataSet({location:
-                            SimpleClimateData(period_range, np.random.rand(len(period_range)),
-                                              np.random.rand(len(period_range)))
+                            SimpleClimateData(periodes, np.random.rand(len(periodes)),
+                                              np.random.rand(len(periodes)))
                         for location in locations})
 
 
-@pytest.fixture
-def gee_mock():
-    return GEEMock()
 
 
 @pytest.fixture(scope='session')
