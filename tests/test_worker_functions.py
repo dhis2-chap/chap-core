@@ -20,22 +20,22 @@ def test_train_on_json_data_big(big_request_json):
     train_on_json_data(big_request_json, "ProbabilisticFlaxModel", "test_model_path")
 
 
-def test_train_on_json_data_new(big_request_json):
+def test_train_on_json_data_new(big_request_json, mocked_gee):
     train_on_json_data(
         big_request_json, "https://github.com/sandvelab/chap_auto_ewars", None
     )
 
 
-def test_predict(big_request_json):
+def test_predict(big_request_json, mocked_gee):
     predict(big_request_json)
 
 
-def test_evaluate(big_request_json):
+def test_evaluate(big_request_json, mocked_gee):
     results = evaluate(big_request_json, n_splits=2, stride=1)
     print(results)
 
 
-def test_dataset_from_request_v1(big_request_json):
+def test_dataset_from_request_v1(big_request_json, mocked_gee):
     from chap_core.rest_api_src.worker_functions import dataset_from_request_v1
     data = RequestV1.model_validate_json(big_request_json)
     dataset = dataset_from_request_v1(data)
