@@ -23,8 +23,8 @@ def test_train_on_json_data_big(big_request_json):
 def test_train_on_json_data_new(big_request_json, mocked_gee, models_path):
     train_on_json_data(
         big_request_json,
-        models_path/'naive_python_model_with_mlproject_file',
-        #"https://github.com/sandvelab/chap_auto_ewars",
+        #models_path/'naive_python_model_with_mlproject_file_and_docker',
+        "https://github.com/sandvelab/chap_auto_ewars",
         None
     )
 

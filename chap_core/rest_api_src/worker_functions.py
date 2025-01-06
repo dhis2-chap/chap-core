@@ -13,7 +13,7 @@ from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData, create_tsdataclass, TimeSeriesArray
 from chap_core.time_period.date_util_wrapper import convert_time_period_string
-from chap_core.dhis2_interface.src.PushResult import DataValue
+#from chap_core.dhis2_interface.src.PushResult import DataValue
 from chap_core.external.external_model import (
     get_model_from_directory_or_github_url,
 )
@@ -26,6 +26,13 @@ import logging
 logger = logging.getLogger(__name__)
 DISEASE_NAMES = ["disease", "diseases", "disease_cases"]
 
+
+@dataclasses.dataclass
+class DataValue:
+    value: int
+    orgUnit: str
+    dataElement: str
+    period: str
 
 class WorkerConfig(BaseModel):
     is_test: bool = False
