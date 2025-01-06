@@ -1,14 +1,8 @@
 import dataclasses
 import json
-
-import numpy as np
-import pandas as pd
 import pytest
 
-from chap_core.datatypes import HealthPopulationData, SummaryStatistics
-from chap_core.dhis2_interface.json_parsing import (
-    parse_disease_data,
-)
+from chap_core.datatypes import SummaryStatistics
 from chap_core.rest_api_src.worker_functions import predictions_to_datavalue
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
@@ -22,15 +16,6 @@ def json_data(data_path):
 @pytest.fixture()
 def population_data(data_path):
     return json.load(open(data_path / "population_Laos.json"))
-
-
-@pytest.mark.skip(reason="This test is not yet implemented")
-def test_parse_json(json_data):
-    parsed = parse_disease_data(json_data)
-    assert isinstance(parsed, pd.DataFrame)
-
-
-
 
 
 @pytest.fixture()

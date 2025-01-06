@@ -2,11 +2,10 @@ import numpy as np
 import pandas as pd
 
 from chap_core.datatypes import FullData, HealthData
-from chap_core.dhis2_interface.periods import convert_time_period_string
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
-#from chap_core.time_period.dataclasses import Month
-from chap_core.time_period.date_util_wrapper import Month
+from chap_core.time_period.date_util_wrapper import Month, convert_time_period_string
+
 
 def hydromet(filename):
     df = pd.read_csv(filename)

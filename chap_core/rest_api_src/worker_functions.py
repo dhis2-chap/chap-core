@@ -3,6 +3,7 @@ import os
 from typing import Optional, Tuple, List
 
 import numpy as np
+import pandas as pd
 from pydantic import BaseModel
 
 from chap_core.api_types import RequestV1, PredictionRequest, EvaluationEntry, EvaluationResponse, DataList, DataElement
@@ -10,8 +11,8 @@ from chap_core.assessment.forecast import forecast_with_predicted_weather, forec
 from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
-from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData, create_tsdataclass
-from chap_core.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
+from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData, create_tsdataclass, TimeSeriesArray
+from chap_core.time_period.date_util_wrapper import convert_time_period_string
 from chap_core.dhis2_interface.src.PushResult import DataValue
 from chap_core.external.external_model import (
     get_model_from_directory_or_github_url,
@@ -217,3 +218,19 @@ def predictions_to_datavalue(data: DataSet[HealthData], attribute_mapping: dict[
 
                 entries.append(entry)
     return entries
+
+
+def v1_conversion(data_list: list[DataElement], fill_missing=False) -> DataSet[TimeSeriesArray]:
+    """
+    Convert a list of DataElement objects to a SpatioTemporalDict[TimeSeriesArray] object.
+    """
+    df = pd.DataFrame([d.dict() for d in data_list])
+    df.sort_values(by=["ou", "pe"], inplace=True)
+    d = dict(
+        time_period=[convert_time_period_string(row) for row in df["pe"]],
+        location=df.ou,
+        value=df.value,
+    )
+    converted_df = pd.DataFrame(d)
+    ds = DataSet.from_pandas(converted_df, TimeSeriesArray, fill_missing=fill_missing)
+    return ds

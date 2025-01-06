@@ -678,3 +678,9 @@ delta_month = TimeDelta(relativedelta(months=1))
 delta_year = TimeDelta(relativedelta(years=1))
 delta_day = TimeDelta(relativedelta(days=1))
 delta_week = TimeDelta(relativedelta(weeks=1))
+
+
+def convert_time_period_string(row):
+    if len(row) == 6 and "W" not in row:
+        return f"{row[:4]}-{row[4:]}"
+    return row
