@@ -191,3 +191,4 @@ def celery_session_worker(redis_available, celery_session_worker):
 @pytest.fixture
 def test_config():
     return WorkerConfig(is_test=True)
+

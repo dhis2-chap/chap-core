@@ -83,7 +83,7 @@ def sample_dataset_to_prediction_response(predictions: DataSet[Samples], target_
     return response
 
 
-def _convert_prediction_request(json_data):
+def _convert_prediction_request(json_data: PredictionRequest, worker_config: WorkerConfig = WorkerConfig()):
     json_data = PredictionRequest.model_validate_json(json_data)
     skip_env = hasattr(json_data, "ignore_env") and json_data.ignore_env
     if json_data.estimator_id.startswith('chap_ewars'):
@@ -92,7 +92,7 @@ def _convert_prediction_request(json_data):
 
     estimator = registry.get_model(json_data.estimator_id, ignore_env=skip_env)
     target_id = get_target_id(json_data, ["disease", "diseases", "disease_cases"])
-    train_data = dataset_from_request_v1(json_data)
+    train_data = dataset_from_request_v1(json_data, worker_config=worker_config)
     return estimator, json_data, target_id, train_data
 
 
@@ -104,8 +104,10 @@ def dataset_to_datalist(dataset: DataSet[HealthData], target_id: str) -> DataLis
 
 
 def evaluate(json_data: PredictionRequest, n_splits: Optional[int] = None, stride: int = 1,
-             quantiles: Tuple[float] = (0.25, 0.75)) -> EvaluationResponse:
-    estimator, json_data, target_id, train_data = _convert_prediction_request(json_data)
+             quantiles: Tuple[float] = (0.25, 0.75),
+             worker_config: WorkerConfig = WorkerConfig()
+             ) -> EvaluationResponse:
+    estimator, json_data, target_id, train_data = _convert_prediction_request(json_data, worker_config=worker_config)
     real_data = next(data_list for data_list in json_data.features if data_list.dhis2Id == target_id)
     predictions_list = backtest(estimator, train_data, prediction_length=json_data.n_periods,
                                 n_test_sets=n_splits, stride=stride, weather_provider=QuickForecastFetcher)
@@ -168,10 +170,11 @@ def get_target_name(json_data):
 
 
 def dataset_from_request_v1(
-        json_data: RequestV1, target_name="diseases", usecwd_for_credentials=False
+        json_data: RequestV1, target_name="diseases", usecwd_for_credentials=False,
+        worker_config: WorkerConfig = WorkerConfig()
 ) -> DataSet[FullData]:
     dataset = get_health_dataset(json_data)
-    return harmonize_health_dataset(dataset, usecwd_for_credentials)
+    return harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config=worker_config)
 
 
 def harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config: WorkerConfig = WorkerConfig()):
