@@ -1,7 +1,6 @@
-from chap_core.climate_data.harmonization import harmonize_health_data_and_polygons
-from chap_core.datatypes import FullData, HealthData, HealthPopulationData
-from chap_core.geometry import get_area_polygons, Polygons
-from chap_core.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
+from chap_core._legacy.harmonization import harmonize_health_data_and_polygons
+from chap_core.datatypes import HealthPopulationData
+from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 import pandas as pd
 import logging
