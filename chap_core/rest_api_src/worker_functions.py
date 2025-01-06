@@ -5,15 +5,14 @@ from typing import Optional, Tuple, List
 import numpy as np
 from pydantic import BaseModel
 
-from chap_core.api import read_zip_folder, train_on_prediction_data
 from chap_core.api_types import RequestV1, PredictionRequest, EvaluationEntry, EvaluationResponse, DataList, DataElement
 from chap_core.assessment.forecast import forecast_with_predicted_weather, forecast_ahead
 from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData, create_tsdataclass
-from chap_core.dhis2_interface.json_parsing import predictions_to_datavalue
 from chap_core.dhis2_interface.pydantic_to_spatiotemporal import v1_conversion
+from chap_core.dhis2_interface.src.PushResult import DataValue
 from chap_core.external.external_model import (
     get_model_from_directory_or_github_url,
 )
@@ -41,20 +40,6 @@ def initialize_gee_client(usecwd=False, worker_config: WorkerConfig = WorkerConf
         return GEEMock()
     gee_client = Era5LandGoogleEarthEngine(usecwd=usecwd)
     return gee_client
-
-
-def train_on_zip_file(file, model_name, model_path, control=None):
-    gee_client = initialize_gee_client()
-
-    print("train_on_zip_file")
-    print("F", file)
-    prediction_data = read_zip_folder(file.file)
-
-    prediction_data.climate_data = gee_client.get_historical_era5(
-        prediction_data.features, prediction_data.health_data.period_range
-    )
-
-    return train_on_prediction_data(prediction_data, model_name=model_name, model_path=model_path, control=control)
 
 
 def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationData],
@@ -215,3 +200,20 @@ def load_forecasts(data_path):
             with open(data_path / file_name) as f:
                 climate_forecasts.add_json(variable_type, json.load(f))
     return climate_forecasts
+
+
+def predictions_to_datavalue(data: DataSet[HealthData], attribute_mapping: dict[str, str]):
+    entries = []
+    for location, data in data.items():
+        data = data.data()
+        for i, time_period in enumerate(data.time_period):
+            for from_name, to_name in attribute_mapping.items():
+                entry = DataValue(
+                    getattr(data, from_name)[i],
+                    location,
+                    to_name,
+                    time_period.to_string().replace("-", ""),
+                )
+
+                entries.append(entry)
+    return entries
