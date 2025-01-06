@@ -3,6 +3,7 @@ import os
 from typing import Optional, Tuple, List
 
 import numpy as np
+from pydantic import BaseModel
 
 from chap_core.api import read_zip_folder, train_on_prediction_data
 from chap_core.api_types import RequestV1, PredictionRequest, EvaluationEntry, EvaluationResponse, DataList, DataElement
@@ -26,7 +27,18 @@ logger = logging.getLogger(__name__)
 DISEASE_NAMES = ["disease", "diseases", "disease_cases"]
 
 
-def initialize_gee_client(usecwd=False):
+class WorkerConfig(BaseModel):
+    is_test: bool = False
+
+    # Make it frozen so that we can't accidentally change it
+    class Config:
+        frozen = True
+
+
+def initialize_gee_client(usecwd=False, worker_config: WorkerConfig = WorkerConfig()):
+    if worker_config.is_test:
+        from chap_core.testing.mocks import GEEMock
+        return GEEMock()
     gee_client = Era5LandGoogleEarthEngine(usecwd=usecwd)
     return gee_client
 
@@ -44,11 +56,12 @@ def train_on_zip_file(file, model_name, model_path, control=None):
 
     return train_on_prediction_data(prediction_data, model_name=model_name, model_path=model_path, control=control)
 
+
 def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationData],
                                       estimator_id: str, n_periods: int,
-                                      target_id='disease_cases'):
+                                      target_id='disease_cases', worker_config: WorkerConfig = WorkerConfig()):
     health_dataset = DataSet.from_dict(health_dataset, HealthPopulationData)
-    dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False)
+    dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False, worker_config=worker_config)
     estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith('chap_ewars'))
     predictions = forecast_ahead(estimator, dataset, n_periods)
     return sample_dataset_to_prediction_response(predictions, target_id)
@@ -161,8 +174,8 @@ def dataset_from_request_v1(
     return harmonize_health_dataset(dataset, usecwd_for_credentials)
 
 
-def harmonize_health_dataset(dataset, usecwd_for_credentials):
-    gee_client = initialize_gee_client(usecwd=usecwd_for_credentials)
+def harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config: WorkerConfig = WorkerConfig()):
+    gee_client = initialize_gee_client(usecwd=usecwd_for_credentials, worker_config=worker_config)
     period_range = dataset.period_range
     climate_data = gee_client.get_historical_era5(dataset.polygons.model_dump(), periodes=period_range)
     train_data = dataset.merge(climate_data, FullData)

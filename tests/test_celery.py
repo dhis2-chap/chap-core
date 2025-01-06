@@ -42,14 +42,18 @@ def test_add_numbers(celery_session_worker):
     assert job.result == 3
 
 
+
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
-def test_predict_pipeline_from_health_data(celery_session_worker, big_request_json):
+def test_predict_pipeline_from_health_data(celery_session_worker, big_request_json, test_config):
     data = RequestV2.model_validate_json(big_request_json)
     health_data = get_health_dataset(data).model_dump()
-    job = celery_run.delay(predict_pipeline_from_health_data, health_data, 'naive_model', 2, 'disease')
+    job = celery_run.delay(
+        predict_pipeline_from_health_data, health_data, 'naive_model', 2, 'disease',
+        worker_config=test_config)
+
     for i in range(30):
         time.sleep(2)
         if job.state == "SUCCESS":
@@ -73,7 +77,6 @@ def function_with_logging(a, b):
 def test_celery_logging(celery_session_worker):
     pool = CeleryPool()
     job = pool.queue(function_with_logging, 1, 2)
-    #job = celery_run.delay(add_numbers, 1, 2)
     job_id = job.id
     n_tries = 0
     while job.status != "SUCCESS":

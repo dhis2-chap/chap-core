@@ -8,6 +8,7 @@ from chap_core.database.tables import *
 import pandas as pd
 
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
+from chap_core.rest_api_src.worker_functions import WorkerConfig
 from chap_core.services.cache_manager import get_cache
 from .data_fixtures import *
 
@@ -186,3 +187,7 @@ def redis_available():
 @pytest.fixture(scope='session')
 def celery_session_worker(redis_available, celery_session_worker):
     return celery_session_worker
+
+@pytest.fixture
+def test_config():
+    return WorkerConfig(is_test=True)

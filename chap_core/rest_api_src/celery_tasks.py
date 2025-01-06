@@ -9,6 +9,7 @@ from dotenv import find_dotenv, load_dotenv
 import celery
 from sqlalchemy import create_engine
 
+from .worker_functions import WorkerConfig
 from ..database.database import SessionWrapper
 from ..worker.interface import ReturnType
 from celery.utils.log import get_task_logger
@@ -81,9 +82,10 @@ app.conf.update(
     result_serializer="pickle",
 )
 
+
 # logger.warning("No database URL set")
 # This is hacky, but defaults to using the test database. Should be synched with what is setup in conftest
-#engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
+# engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
 
 
 def add_numbers(a: int, b: int):
@@ -141,7 +143,9 @@ class CeleryJob(Generic[ReturnType]):
 def celery_run(func, *args, **kwargs):
     return func(*args, **kwargs)
 
+
 ENGINES_CACHE = {}
+
 
 @app.task(base=TaskWithPerTaskLogging)
 def celery_run_with_session(func, *args, **kwargs):
