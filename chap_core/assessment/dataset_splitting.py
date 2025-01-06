@@ -3,7 +3,7 @@ from typing import Iterable, Protocol, Optional, Type
 from chap_core.climate_predictor import FutureWeatherFetcher
 from chap_core.datatypes import ClimateData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period import Month, TimePeriod
+from chap_core.time_period import TimePeriod
 from chap_core.time_period.relationships import previous
 
 

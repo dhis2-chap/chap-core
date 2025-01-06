@@ -13,7 +13,7 @@ from chap_core.api_types import RequestV1
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData
 from chap_core.geometry import Polygons
-from .dependencies import get_session, get_database_url, get_gee, get_settings
+from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry
 from chap_core.data import DataSet as InMemoryDataSet

@@ -1,5 +1,4 @@
 import logging
-import json
 
 from .assessment.forecast import forecast as do_forecast
 from typing import Optional, List

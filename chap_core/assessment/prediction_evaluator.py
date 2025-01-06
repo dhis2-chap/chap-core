@@ -5,9 +5,7 @@ from gluonts.evaluation import Evaluator
 from gluonts.model import Forecast
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from sklearn.metrics import root_mean_squared_error
 import pandas as pd
-import plotly.express as px
 from chap_core.assessment.dataset_splitting import (
     train_test_generator,
 )

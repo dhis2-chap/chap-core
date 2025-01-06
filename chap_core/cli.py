@@ -13,7 +13,7 @@ from chap_core.datatypes import FullData
 from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
 from chap_core.external.mlflow_wrappers import NoPredictionsError
 from chap_core.log_config import initialize_logging
-from chap_core.predictor.model_registry import naive_spec, registry
+from chap_core.predictor.model_registry import registry
 from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
 from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist
 from chap_core.spatio_temporal_data.multi_country_dataset import (
@@ -22,9 +22,9 @@ from chap_core.spatio_temporal_data.multi_country_dataset import (
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from . import api
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
-from chap_core.predictor import ModelType, model_registry
+from chap_core.predictor import ModelType
 from chap_core.file_io.example_data_set import datasets, DataSetType
-from chap_core.time_period.date_util_wrapper import delta_month, Week
+from chap_core.time_period.date_util_wrapper import delta_month
 from .assessment.prediction_evaluator import evaluate_model, backtest as _backtest
 from .assessment.forecast import multi_forecast as do_multi_forecast
 

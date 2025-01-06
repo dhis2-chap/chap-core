@@ -9,7 +9,6 @@ from dotenv import find_dotenv, load_dotenv
 import celery
 from sqlalchemy import create_engine
 
-from .worker_functions import WorkerConfig
 from ..database.database import SessionWrapper
 from ..worker.interface import ReturnType
 from celery.utils.log import get_task_logger
