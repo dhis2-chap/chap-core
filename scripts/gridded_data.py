@@ -2,7 +2,7 @@ import ee
 import xarray
 from matplotlib import pyplot as plt
 
-from ..google_earth_engine.gee_raw import load_credentials
+from chap_core.google_earth_engine.gee_raw import load_credentials
 import geopandas as gpd
 
 

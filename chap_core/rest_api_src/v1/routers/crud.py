@@ -13,7 +13,7 @@ from chap_core.api_types import RequestV1
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData
 from chap_core.geometry import Polygons
-from .dependencies import get_session, get_database_url
+from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry
 from chap_core.data import DataSet as InMemoryDataSet
@@ -100,16 +100,17 @@ class DataBaseResponse(BaseModel):
 
 
 @router.post('/dataset/json')
-async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_database_url)) -> JobResponse:
+async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)) -> JobResponse:
     health_data = normal_wf.get_health_dataset(data)
-    job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name, database_url=datababase_url)
+    job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name, database_url=datababase_url, worker_config=worker_settings)
     return JobResponse(id=job.id)
 
 
 @router.post('/dataset/csv_file')
 async def create_dataset_csv(csv_file: UploadFile = File(...),
                              geojson_file: UploadFile = File(...),
-                             session: Session = Depends(get_session)) -> DataBaseResponse:
+                             session: Session = Depends(get_session),
+                             ) -> DataBaseResponse:
     csv_content = await csv_file.read()
     dataset = InMemoryDataSet.from_csv(pd.io.common.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()

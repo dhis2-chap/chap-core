@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
 from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -20,6 +20,7 @@ from chap_core.worker.interface import SeededJob
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.rest_api_src.v1.routers import crud, analytics
 from . import debug, jobs
+from .routers.dependencies import get_settings
 from ...database.database import create_db_and_tables
 
 initialize_logging(True, "logs/rest_api.log")
@@ -138,7 +139,7 @@ async def favicon() -> FileResponse:
 
 
 @app.post("/predict")
-async def predict(data: PredictionRequest) -> dict:
+async def predict(data: PredictionRequest, worker_settings=Depends(get_settings)) -> dict:
     """
     Start a prediction task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
@@ -149,7 +150,7 @@ async def predict(data: PredictionRequest) -> dict:
         health_data = wf.get_health_dataset(data)
         target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
         job = worker.queue(wf.predict_pipeline_from_health_data, health_data.model_dump(), data.estimator_id,
-                           data.n_periods, target_id)
+                           data.n_periods, target_id, worker_config=worker_settings)
         internal_state.current_job = job
     except Exception as e:
         logger.error("Failed to run predic. Exception: %s", e)
@@ -159,14 +160,14 @@ async def predict(data: PredictionRequest) -> dict:
 
 
 @app.post("/evaluate")
-async def evaluate(data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1) -> dict:
+async def evaluate(data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1, worker_settings=Depends(get_settings)) -> dict:
     """
     Start an evaluation task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
     """
     json_data = data.model_dump()
     str_data = json.dumps(json_data)
-    job = worker.queue(wf.evaluate, str_data, n_splits, stride)
+    job = worker.queue(wf.evaluate, str_data, n_splits, stride, worker_config=worker_settings)
     internal_state.current_job = job
     return {"status": "success",
             "task_id": job.id}

@@ -1,6 +1,5 @@
 from matplotlib import pyplot as plt
 
-from chap_core.climate_data.harmonization import harmonize_health_dataset
 from chap_core.data.open_dengue import OpenDengueDataSet
 from chap_core.datatypes import HealthData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet

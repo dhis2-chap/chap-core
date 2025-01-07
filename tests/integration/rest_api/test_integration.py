@@ -87,8 +87,9 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
     big_request_json["estimator_id"] = "chap_ewars_monthly"
     big_request_json = json.dumps(big_request_json)
     monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
-    #check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
-    exception_info = run_job_that_should_fail_and_get_exception_info(big_request_json, evaluate_path, evaluation_result_path)
+    # check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
+    exception_info = run_job_that_should_fail_and_get_exception_info(big_request_json, evaluate_path,
+                                                                     evaluation_result_path)
     assert "there is no package called ‘INLA’" in exception_info.json() or "Rscript: not found" in exception_info.json(), exception_info.json()
 
 
@@ -96,17 +97,19 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
-def test_predict(big_request_json, celery_session_worker):
+def test_predict(big_request_json, celery_session_worker, dependency_overrides):
     check_job_endpoint(big_request_json, predict_path)
+
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
-def test_evaluate(big_request_json, celery_session_worker):
+def test_evaluate(big_request_json, celery_session_worker, dependency_overrides):
     check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
-def test_model_that_does_not_exist(big_request_json, monkeypatch):
+
+def test_model_that_does_not_exist(big_request_json, monkeypatch, dependency_overrides):
     # patch worker in rest_api to be NaiveWorker
     monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
     request_json = big_request_json
@@ -123,7 +126,7 @@ def run_job_that_should_fail_and_get_exception_info(big_request_json, endpoint_p
     big_request_json["model"] = "does_not_exist"
     big_request_json = json.dumps(big_request_json)
     status = run_job_and_get_status(big_request_json, endpoint_path)
-    assert not status["ready"]  
+    assert not status["ready"]
     exception_info = client.get(get_exception_info)
     print(exception_info.json())
     return exception_info
@@ -138,7 +141,7 @@ def check_job_endpoint(big_request_json, endpoint_path, result_path=get_result_p
     exception_info = client.get(get_exception_info)
     assert exception_info.status_code == 200
     assert exception_info.json() == ""
-    return status 
+    return status
 
 
 def run_job_and_get_status(big_request_json, endpoint_path):
@@ -163,7 +166,6 @@ def test_get_status():
     response = client.get(get_status_path)
     assert response.status_code == 200
     assert response.json()["ready"] == False
-
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
@@ -211,4 +213,3 @@ def test_run_job_with_too_little_data(big_request_json, monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "success"
     """
-

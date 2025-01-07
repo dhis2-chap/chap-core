@@ -8,6 +8,7 @@ from chap_core.database.tables import *
 import pandas as pd
 
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
+from chap_core.rest_api_src.worker_functions import WorkerConfig
 from chap_core.services.cache_manager import get_cache
 from .data_fixtures import *
 
@@ -82,10 +83,12 @@ def google_earth_engine():
     except:
         pytest.skip("Google Earth Engine not available")
 
+
 @pytest.fixture()
 def mocked_gee(gee_mock):
     with patch('chap_core.rest_api_src.worker_functions.Era5LandGoogleEarthEngine', gee_mock):
         yield
+
 
 @pytest.fixture()
 def gee_mock():
@@ -137,8 +140,6 @@ class GEEMock:
                         for location in locations})
 
 
-
-
 @pytest.fixture(scope='session')
 def database_url():
     cur_dir = Path(__file__).parent
@@ -186,3 +187,8 @@ def redis_available():
 @pytest.fixture(scope='session')
 def celery_session_worker(redis_available, celery_session_worker):
     return celery_session_worker
+
+
+@pytest.fixture
+def test_config():
+    return WorkerConfig(is_test=True)
