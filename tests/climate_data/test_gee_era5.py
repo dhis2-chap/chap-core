@@ -375,7 +375,7 @@ def test_pack_daily_data(data_path, tmp_path):
         assert d.temperature_2m.shape == (2, 31), d.temperature_2m
         assert d.total_precipitation_sum.shape == (2, 31), d.total_precipitation_sum
 
-def test_harmonize_daily_data(polygons):
+def test_harmonize_daily_data(polygons, ee):
     polygons.features = polygons.features[:2]
     data = HealthPopulationData(PeriodRange.from_period_list(False, [Month(2023, 1), Month(2023, 2)]),
                                        disease_cases=[1, 2], population=[100, 200])
