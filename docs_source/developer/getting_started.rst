@@ -85,3 +85,4 @@ will have to have a clone of the chap-core repository on github (which is possib
 
 Some internal developers can also push directly to the main chap-core repository.
 
+For an overview of the code base, see the :ref:`code_overview` guide.
