@@ -6,6 +6,7 @@ import pandas as pd
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.datatypes import GEEData, HealthPopulationData, tsdataclass
+from chap_core.exceptions import GEEError
 from chap_core.google_earth_engine.gee_era5 import (
     Band,
     Era5LandGoogleEarthEngine,
@@ -32,7 +33,11 @@ def ee(era5_land_gee):
 
 @pytest.fixture()
 def era5_land_gee():
-    t = Era5LandGoogleEarthEngine()
+    try:
+        t = Era5LandGoogleEarthEngine()
+    except GEEError:
+        pytest.skip("Google Earth Engine not available")
+        return
     if not t.is_initialized:
         pytest.skip("Google Earth Engine not available")
     return t
