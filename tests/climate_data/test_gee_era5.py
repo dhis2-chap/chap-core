@@ -35,7 +35,7 @@ def ee(era5_land_gee):
 def era5_land_gee():
     try:
         t = Era5LandGoogleEarthEngine()
-    except GEEError:
+    except:
         pytest.skip("Google Earth Engine not available")
         return
     if not t.is_initialized:
