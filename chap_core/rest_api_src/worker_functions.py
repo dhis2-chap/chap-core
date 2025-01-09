@@ -191,7 +191,7 @@ def harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config: Wor
 
 def get_health_dataset(json_data: PredictionRequest, dataclass=None):
     if dataclass is None:
-        dataclass = FullData if json_data.include_data else HealthPopulationData
+        dataclass = FullData if hasattr(json_data, 'include_data') and json_data.include_data else HealthPopulationData
 
     target_name = get_target_name(json_data)
     translations = {target_name: "disease_cases"}
