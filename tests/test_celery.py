@@ -1,7 +1,7 @@
 import time
 import pytest
 
-from chap_core.api_types import RequestV2
+from chap_core.api_types import PredictionRequest
 from chap_core.rest_api_src.celery_tasks import celery_run, CeleryPool, add_numbers
 from chap_core.rest_api_src.worker_functions import predict_pipeline_from_health_data, get_health_dataset
 from  unittest.mock import patch
@@ -48,7 +48,7 @@ def test_add_numbers(celery_session_worker):
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
 def test_predict_pipeline_from_health_data(celery_session_worker, big_request_json, test_config):
-    data = RequestV2.model_validate_json(big_request_json)
+    data = PredictionRequest.model_validate_json(big_request_json)
     health_data = get_health_dataset(data).model_dump()
     job = celery_run.delay(
         predict_pipeline_from_health_data, health_data, 'naive_model', 2, 'disease',

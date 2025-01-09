@@ -5,8 +5,10 @@ import pytest
 from ee import FeatureCollection
 from pydantic_geojson import PointModel
 
-from chap_core.api_types import RequestV1, DataList, DataElement, FeatureCollectionModel, FeatureModel
-from chap_core.rest_api_src.worker_functions import train_on_json_data, predict, evaluate, get_combined_dataset
+from chap_core.api_types import RequestV1, DataList, DataElement, FeatureCollectionModel, FeatureModel, \
+    PredictionRequest
+from chap_core.rest_api_src.worker_functions import train_on_json_data, predict, evaluate, get_combined_dataset, \
+    get_health_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
@@ -23,10 +25,35 @@ def test_train_on_json_data_big(big_request_json):
 def test_train_on_json_data_new(big_request_json, mocked_gee, models_path):
     train_on_json_data(
         big_request_json,
-        #models_path/'naive_python_model_with_mlproject_file_and_docker',
+        # models_path/'naive_python_model_with_mlproject_file_and_docker',
         "https://github.com/sandvelab/chap_auto_ewars",
         None
     )
+
+
+def test_get_health_dataset():
+    prediction_request = PredictionRequest(
+        orgUnitsGeoJson=FeatureCollectionModel(
+            features=[FeatureModel(
+                id="location1", properties={"name": "location1"},
+                geometry=PointModel(coordinates=[0, 0]),
+                type='Point')
+            ]),
+        features=[
+            DataList(dhis2Id='disease_cases', featureId='disease_cases',
+                     data=[DataElement(pe='202101', value=1, ou='location1')]),
+            DataList(dhis2Id='population', featureId='population',
+                     data=[DataElement(pe='202101', value=1, ou='location1')]),
+            DataList(dhis2Id='rainfall', featureId='rainfall',
+                     data=[DataElement(pe='202101', value=1, ou='location1')]),
+            DataList(dhis2Id='something', featureId='mean_temperature',
+                     data=[DataElement(pe='202101', value=23.0, ou='location1')])
+        ],
+        include_data=True
+    )
+    data = get_health_dataset(prediction_request)
+    assert data['location1'].disease_cases[0] == 1
+    assert data['location1'].mean_temperature[0] == 23.0
 
 
 def test_predict(big_request_json, mocked_gee):
@@ -40,7 +67,7 @@ def test_evaluate(big_request_json, mocked_gee):
 
 def test_dataset_from_request_v1(big_request_json, mocked_gee):
     from chap_core.rest_api_src.worker_functions import dataset_from_request_v1
-    data = RequestV1.model_validate_json(big_request_json)
+    data = PredictionRequest.model_validate_json(big_request_json)
     dataset = dataset_from_request_v1(data)
     print(dataset)
 
@@ -51,7 +78,7 @@ def combined_dataset():
     locations = ['location1', 'location2']
     data_elements = ['disease_cases', 'population', 'rainfall']
     data_lists = [
-        DataList(dhis2Id='wierd'+data_element, featureId=data_element,
+        DataList(dhis2Id='wierd' + data_element, featureId=data_element,
                  data=[DataElement(pe=period, value=i * j * k % 7, ou=location)
                        for i, period in enumerate(periods) for j, location in enumerate(locations)])
         for k, data_element in enumerate(data_elements)]
@@ -60,7 +87,7 @@ def combined_dataset():
             id=location, properties={"name": location},
             geometry=PointModel(coordinates=[0, 0]),
             type='Point')
-                    for location in locations])
+            for location in locations])
 
     return RequestV1(orgUnitsGeoJson=geojson, features=data_lists)
 

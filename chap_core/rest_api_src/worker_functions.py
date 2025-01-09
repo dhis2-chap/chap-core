@@ -13,7 +13,6 @@ from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData, create_tsdataclass, TimeSeriesArray
 from chap_core.time_period.date_util_wrapper import convert_time_period_string
-#from chap_core.dhis2_interface.src.PushResult import DataValue
 from chap_core.external.external_model import (
     get_model_from_directory_or_github_url,
 )
@@ -33,6 +32,7 @@ class DataValue:
     orgUnit: str
     dataElement: str
     period: str
+
 
 class WorkerConfig(BaseModel):
     is_test: bool = False
@@ -55,7 +55,18 @@ def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationDa
                                       target_id='disease_cases', worker_config: WorkerConfig = WorkerConfig()):
     health_dataset = DataSet.from_dict(health_dataset, HealthPopulationData)
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False, worker_config=worker_config)
-    estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith('chap_ewars'))
+    estimator = registry.get_model(estimator_id,
+                                   ignore_env=estimator_id.startswith('chap_ewars'))
+    predictions = forecast_ahead(estimator, dataset, n_periods)
+    return sample_dataset_to_prediction_response(predictions, target_id)
+
+
+def predict_pipeline_from_full_data(dataset: dict,
+                                    estimator_id: str, n_periods: int,
+                                    target_id='disease_cases', worker_config:WorkerConfig = WorkerConfig()):
+    dataset = DataSet.from_dict(dataset, FullData)
+    estimator = registry.get_model(estimator_id,
+                                   ignore_env=estimator_id.startswith('chap_ewars'))
     predictions = forecast_ahead(estimator, dataset, n_periods)
     return sample_dataset_to_prediction_response(predictions, target_id)
 
@@ -126,7 +137,7 @@ def samples_to_evaluation_response(predictions_list, quantiles, real_data):
 
 def train_on_json_data(json_data: RequestV1, model_name, model_path, control=None):
     model_path = model_name
-    json_data = RequestV1.model_validate_json(json_data)
+    json_data = PredictionRequest.model_validate_json(json_data)
     target_name = "diseases"
     target_id = get_target_id(json_data, target_name)
     train_data = dataset_from_request_v1(json_data)
@@ -178,7 +189,10 @@ def harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config: Wor
     return train_data
 
 
-def get_health_dataset(json_data: RequestV1, dataclass=HealthPopulationData):
+def get_health_dataset(json_data: PredictionRequest, dataclass=None):
+    if dataclass is None:
+        dataclass = FullData if json_data.include_data else HealthPopulationData
+
     target_name = get_target_name(json_data)
     translations = {target_name: "disease_cases"}
     data = {

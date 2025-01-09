@@ -144,13 +144,16 @@ async def predict(data: PredictionRequest, worker_settings=Depends(get_settings)
     Start a prediction task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
     """
-    # logger.info(f"Predicting. Worker is {worker}. Data: {data['model']}")
-    # dataset = wf.dataset_from_request_v1(data)
     try:
         health_data = wf.get_health_dataset(data)
-        target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
-        job = worker.queue(wf.predict_pipeline_from_health_data, health_data.model_dump(), data.estimator_id,
-                           data.n_periods, target_id, worker_config=worker_settings)
+        target_id = wf.get_target_id(
+            data, ["disease", "diseases", "disease_cases"])
+
+        func = wf.predict_pipeline_from_health_data if not data.include_data else wf.predict_pipeline_from_full_data
+        job = worker.queue(
+            func,
+            health_data.model_dump(), data.estimator_id,
+            data.n_periods, target_id, worker_config=worker_settings)
         internal_state.current_job = job
     except Exception as e:
         logger.error("Failed to run predic. Exception: %s", e)

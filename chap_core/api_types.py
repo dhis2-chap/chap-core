@@ -39,6 +39,7 @@ class RequestV2(RequestV1):
 
 class PredictionRequest(RequestV2):
     n_periods: int = 3
+    include_data: bool = False
 
 
 class PredictionEntry(BaseModel):

@@ -29,6 +29,7 @@ from .assessment.prediction_evaluator import evaluate_model, backtest as _backte
 from .assessment.forecast import multi_forecast as do_multi_forecast
 
 import logging
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -56,7 +57,7 @@ def evaluate(
     """
     initialize_logging(debug, log_file)
     logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
-    
+
     dataset = datasets[dataset_name]
     dataset = dataset.load()
 
@@ -140,6 +141,7 @@ def multi_forecast(
         f.write(fig.to_html())
     f.close()
 
+
 @app.command()
 def serve(seedfile: Optional[str] = None, debug: bool = False):
     """
@@ -185,18 +187,18 @@ def test(**base_kwargs):
     Simple test-command to check that the chap command works
     """
     initialize_logging()
-   
+
     logger.debug("Debug message")
     logger.info("Info message")
-    
+
 
 @dataclasses.dataclass
 class AreaPolygons: ...
 
 
-
 @app.command()
-def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path, prediction_length: int = 12, n_test_sets: int = 20, stride: int = 2):
+def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path, prediction_length: int = 12,
+             n_test_sets: int = 20, stride: int = 2):
     """
     Run a backtest on a dataset using the specified model
 
@@ -236,7 +238,6 @@ def main_function():
 
     """
     return
-
 
 
 def main():
