@@ -1,11 +1,11 @@
 from http.client import HTTPException
-from typing import Any
+from typing import Any, List
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from chap_core.api_types import EvaluationResponse
-from chap_core.rest_api_src.celery_tasks import CeleryPool
+from chap_core.rest_api_src.celery_tasks import CeleryPool, JobDescription
 from chap_core.rest_api_src.data_models import FullPredictionResponse
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -13,9 +13,9 @@ worker = CeleryPool()
 
 
 @router.get("")
-def list_jobs() -> dict[str, Any]:
+def list_jobs() -> List[JobDescription]:
     """
-nn    List all jobs currently in the queue
+    List all jobs currently in the queue
     """
     return worker.list_jobs()
 
