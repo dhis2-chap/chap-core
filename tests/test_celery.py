@@ -18,6 +18,7 @@ def f(x, y):
 # @pytest.mark.celery(broker="memory://",
 #                     backend="cache+memory://", include=['chap_core.rest_api_src.v1.celery_tasks'])
 
+
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",

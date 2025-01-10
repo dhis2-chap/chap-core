@@ -3,6 +3,7 @@ import shutil
 from unittest.mock import patch
 from pathlib import Path
 import numpy as np
+import pytest
 
 from chap_core.database.tables import *
 import pandas as pd
@@ -15,7 +16,31 @@ from .data_fixtures import *
 # ignore showing plots in tests
 import matplotlib.pyplot as plt
 
-pytest_plugins = ("celery.contrib.pytest",)
+# Don't use pytest-celery if on windows
+IS_WINDOWS = os.name == "nt"
+
+
+@pytest.fixture(scope='session')
+def redis_available():
+    import redis
+    try:
+        redis.Redis().ping()
+        return True
+    except redis.exceptions.ConnectionError:
+        pytest.skip("Redis not available")
+
+
+if not IS_WINDOWS:
+    pytest_plugins = ("celery.contrib.pytest",)
+
+    @pytest.fixture(scope='session')
+    def celery_session_worker(redis_available, celery_session_worker):
+        return celery_session_worker
+else:
+    @pytest.fixture(scope='session')
+    def celery_session_worker():
+        pytest.skip("pytest-celery not available on Windows")
+
 plt.ion()
 
 
@@ -172,21 +197,6 @@ def celery_config(database_url):
 @pytest.fixture(scope='session')
 def celery_worker_pool():
     return 'prefork'
-
-
-@pytest.fixture(scope='session')
-def redis_available():
-    import redis
-    try:
-        redis.Redis().ping()
-        return True
-    except redis.exceptions.ConnectionError:
-        pytest.skip("Redis not available")
-
-
-@pytest.fixture(scope='session')
-def celery_session_worker(redis_available, celery_session_worker):
-    return celery_session_worker
 
 
 @pytest.fixture
