@@ -8,6 +8,7 @@ from typing import Optional
 import pandas as pd
 from cyclopts import App
 
+from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
@@ -83,6 +84,34 @@ def evaluate(
         logger.error(f"No predictions were made: {e}")
         return
     print(results)
+
+
+@app.command()
+def sanity_check_model(model_url: str, use_local_environement: bool = False):
+    '''
+    Check that a model can be loaded, trained and used to make predictions
+    '''
+    dataset = datasets["hydromet_5_filtered"].load()
+    train, tests = train_test_generator(dataset, 3, n_test_sets=1)
+    context, future, truth = next(tests)
+    try:
+        model = get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
+        estimator = model()
+    except Exception as e:
+        logger.error(f"Error while creating model: {e}")
+        return False
+    try:
+        predictor = estimator.train(train)
+    except Exception as e:
+        logger.error(f"Error while training model: {e}")
+        return False
+    try:
+        predictions = predictor.predict(context, future)
+    except Exception as e:
+        logger.error(f"Error while forecasting: {e}")
+        return False
+    assert predictions is not None, "Predictions are None"
+
 
 
 @app.command()
