@@ -30,16 +30,20 @@ def redis_available():
         pytest.skip("Redis not available")
 
 
-if not IS_WINDOWS:
-    pytest_plugins = ("celery.contrib.pytest",)
+pytest_plugins = ("celery.contrib.pytest",)
 
-    @pytest.fixture(scope='session')
-    def celery_session_worker(redis_available, celery_session_worker):
-        return celery_session_worker
-else:
-    @pytest.fixture(scope='session')
-    def celery_session_worker():
-        pytest.skip("pytest-celery not available on Windows")
+
+@pytest.fixture(scope='session')
+def celery_session_worker(redis_available, celery_session_worker):
+    return celery_session_worker
+
+
+# if not IS_WINDOWS:
+#
+# else:
+#     @pytest.fixture(scope='session')
+#     def celery_session_worker():
+#         pytest.skip("pytest-celery not available on Windows")
 
 plt.ion()
 

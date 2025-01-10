@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 from cyclopts import App
 
@@ -15,7 +16,7 @@ from chap_core.external.external_model import get_model_maybe_yaml, get_model_fr
 from chap_core.external.mlflow_wrappers import NoPredictionsError
 from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import registry
-from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
+
 from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
@@ -92,7 +93,7 @@ def sanity_check_model(model_url: str, use_local_environement: bool = False):
     Check that a model can be loaded, trained and used to make predictions
     '''
     dataset = datasets["hydromet_5_filtered"].load()
-    train, tests = train_test_generator(dataset, 3, n_test_sets=1)
+    train, tests = train_test_generator(dataset, 3, n_test_sets=2)
     context, future, truth = next(tests)
     try:
         model = get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
@@ -110,7 +111,16 @@ def sanity_check_model(model_url: str, use_local_environement: bool = False):
     except Exception as e:
         logger.error(f"Error while forecasting: {e}")
         return False
-    assert predictions is not None, "Predictions are None"
+    for location, prediction in predictions.items():
+        assert not np.isnan(prediction.samples).any(), f"NaNs in predictions for location {location}, {prediction.samples}"
+    context, future, truth = next(tests)
+    try:
+        predictions = predictor.predict(context, future)
+    except Exception as e:
+        logger.error(f"Error while forecasting from a future time point: {e}")
+        return False
+    for location, prediction in predictions.items():
+        assert not np.isnan(prediction.samples).any(), f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
 
 
 
@@ -189,6 +199,7 @@ def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
     """
+    from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
     schema = get_openapi_schema()
     with open(out_path, "w") as f:
         json.dump(schema, f, indent=4)

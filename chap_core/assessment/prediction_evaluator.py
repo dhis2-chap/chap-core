@@ -78,6 +78,7 @@ def evaluate_model(
     tuple
         Summary and individual evaluation results
     """
+    logger.info(f"Evaluating {estimator} on {data} with {n_test_sets} test sets for {prediction_length} periods ahead")
     train, test_generator = train_test_generator(
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
@@ -90,13 +91,17 @@ def evaluate_model(
         for location in data.keys()
     }
     if report_filename is not None:
+        logger.info(f"Plotting forecasts to {report_filename}")
         _, plot_test_generatro = train_test_generator(
             data, prediction_length, n_test_sets, future_weather_provider=weather_provider
         )
         plot_forecasts(predictor, plot_test_generatro, truth_data, report_filename)
+    logger.info("Getting forecasts")
     forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
-    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
+    logger.info("Evaluating")
+    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9], num_workers=None)
     results = evaluator(tss, forecast_list)
+    logger.info('Finished Evaluating')
     return results
 
 
