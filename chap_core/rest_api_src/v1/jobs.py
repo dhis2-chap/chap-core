@@ -1,5 +1,5 @@
 from http.client import HTTPException
-from typing import Any, List
+from typing import List
 
 from fastapi import APIRouter
 from pydantic import BaseModel
