@@ -15,7 +15,8 @@ from chap_core.datatypes import FullData
 from chap_core.geometry import Polygons
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry, DataSetWithObservations
+from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry, \
+    DataSetWithObservations, DBModel, BackTestBase
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
 import chap_core.rest_api_src.worker_functions as normal_wf
@@ -28,12 +29,11 @@ class JobResponse(BaseModel):
     id: str
 
 
-class BackTestCreate(BaseModel):
-    dataset_id: int
-    estimator_id: str
+class BackTestCreate(BackTestBase):
+    ...
 
 
-class BackTestRead(BackTestCreate):
+class BackTestRead(BackTestBase):
     id: int
     name: Optional[str] = None
     timestamp: Optional[datetime] = None
@@ -43,16 +43,13 @@ class BackTestRead(BackTestCreate):
     end_date: Optional[datetime] = None
     org_unit_ids: List[str] = Field(default_factory=list)
 
-    class Config:
-        orm_mode = True  # Enable compatibility with ORM models
-
 
 class BackTestFull(BackTestRead):
     metrics: list[BackTestMetric]
     forecasts: list[BackTestForecast]
 
 
-@router.get("/backtest/{backtest_id}", response_model=BackTestFull)
+@router.get("/backtest/{backtest_id}", response_model=BackTestFull, response_model_by_alias=True)
 async def get_backtest(backtest_id: int, session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
@@ -67,7 +64,7 @@ async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(
     return JobResponse(id=job.id)
 
 
-class PredictionCreate(BaseModel):
+class PredictionCreate(DBModel):
     dataset_id: int
     estimator_id: str
     n_periods: int
@@ -84,27 +81,27 @@ async def get_backtests(session: Session = Depends(get_session)):
     return backtests
 
 
-class DatasetCreate(BaseModel):
+class DatasetCreate(DBModel):
     name: str
     orgUnitsGeoJson: FeatureCollectionModel
     features: list[DataListV2]
 
 
-@router.get('/dataset/{dataset_id}', response_model=DataSetWithObservations)
+@router.get('/datasets/{dataset_id}', response_model=DataSetWithObservations)
 async def get_dataset(dataset_id: int, session: Session = Depends(get_session)):
     dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     assert len(dataset.observations) > 0
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
-    #return DataSetFull(id=dataset.id, name=dataset.name, polygons=dataset.polygons, observations=dataset.observations)
+    # return DataSetFull(id=dataset.id, name=dataset.name, polygons=dataset.polygons, observations=dataset.observations)
 
 
-class DataBaseResponse(BaseModel):
+class DataBaseResponse(DBModel):
     id: int
 
 
-@router.post('/dataset/json')
+@router.post('/datasets/json')
 async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_database_url),
                          worker_settings=Depends(get_settings)) -> JobResponse:
     health_data = normal_wf.get_health_dataset(data, colnames=['orgUnit', 'period'])
@@ -113,7 +110,7 @@ async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_databas
     return JobResponse(id=job.id)
 
 
-@router.post('/dataset/csv_file')
+@router.post('/datasets/csvFile')
 async def create_dataset_csv(csv_file: UploadFile = File(...),
                              geojson_file: UploadFile = File(...),
                              session: Session = Depends(get_session),
@@ -133,18 +130,18 @@ async def debug_entry(database_url: str = Depends(get_database_url)) -> JobRespo
 
 
 @router.get('/debug/{debug_id}')
-async def get_debug_entry(debug_id: int, session: Session = Depends(get_session)):
+async def get_debug_entry(debug_id: int, session: Session = Depends(get_session)) -> DebugEntry:
     debug = session.get(DebugEntry, debug_id)
     if debug is None:
         raise HTTPException(status_code=404, detail="Debug entry not found")
     return debug
 
 
-class DataBaseResponse(BaseModel):
+class DataBaseResponse(DBModel):
     id: int
 
 
-class DataSetRead(BaseModel):
+class DataSetRead(DBModel):
     id: int
     name: str
 

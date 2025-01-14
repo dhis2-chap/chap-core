@@ -4,7 +4,7 @@ from unittest.mock import patch
 from pathlib import Path
 import numpy as np
 import pytest
-
+from sqlmodel import SQLModel
 from chap_core.api_types import RequestV1, DataListV2, DataElementV2
 from chap_core.database.tables import *
 import pandas as pd

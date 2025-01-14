@@ -32,15 +32,17 @@ class SessionWrapper:
         return False
 
     def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, dataset_id, model_id):
-        backtest = BackTest(dataset_id=dataset_id, estimator_id=model_id, last_train_period_id=last_train_period.id)
+        backtest = BackTest(dataset_id=dataset_id,
+                            estimator_id=model_id,
+                            last_train_period=last_train_period.id)
         self.session.add(backtest)
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
             for location, samples in eval_result.items():
                 for period, value in zip(eval_result.period_range, samples.samples):
-                    forecast = BackTestForecast(period_id=period.id, region_id=location,
-                                                last_train_period_id=last_train_period.id,
-                                                last_seen_period_id=first_period.id, values=value.tolist())
+                    forecast = BackTestForecast(period=period.id, org_unit=location,
+                                                last_train_period=last_train_period.id,
+                                                last_seen_period=first_period.id, values=value.tolist())
                     backtest.forecasts.append(forecast)
         self.session.commit()
         return backtest.id
@@ -52,7 +54,7 @@ class SessionWrapper:
             field_names = [field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]]
             for row in data:
                 for field in field_names:
-                    observation = Observation(period_id=row.time_period.id, region_id=location, value=float(getattr(row, field)),
+                    observation = Observation(period=row.time_period.id, org_unit=location, value=float(getattr(row, field)),
                                               element_id=field)
                     dataset.observations.append(observation)
         self.session.add(dataset)
@@ -61,10 +63,9 @@ class SessionWrapper:
         return dataset.id
 
     def get_dataset(self, dataset_id, dataclass: type) -> _DataSet:
-        # field_names = [field.name for field in dataclasses.fields(dataclass) if field.name not in ["time_period", "location"]]
         dataset = self.session.get(DataSet, dataset_id)
         observations = dataset.observations
-        dataframe = pd.DataFrame([obs.model_dump() for obs in observations]).rename(columns={'region_id': 'location', 'period_id': 'time_period'})
+        dataframe = pd.DataFrame([obs.model_dump() for obs in observations]).rename(columns={'org_unit': 'location', 'period': 'time_period'})
         dataframe = dataframe.set_index(["location", "time_period"])
         pivoted = dataframe.pivot(columns="element_id", values="value").reset_index()
         dataset = _DataSet.from_pandas(pivoted, dataclass)

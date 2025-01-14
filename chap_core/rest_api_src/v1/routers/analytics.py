@@ -30,8 +30,8 @@ async def get_evaluation_entries(
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     return [
-        EvaluationEntry(period=forecast.period_id, orgUnit=forecast.region_id, quantile=q,
-                        splitPeriod=forecast.last_seen_period_id,
+        EvaluationEntry(period=forecast.period, orgUnit=forecast.org_unit, quantile=q,
+                        splitPeriod=forecast.last_seen_period,
                         value=np.quantile(forecast.values, q)) for forecast in backtest.forecasts for q in
         quantiles
     ]
@@ -50,7 +50,7 @@ async def get_actual_cases(backtest_id: int, session: Session = Depends(get_sess
     logger.info(f"Data: {data}")
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
-    data_list = [DataElement(pe=observation.period_id, ou=observation.region_id, value=float(observation.value) if not (
+    data_list = [DataElement(pe=observation.period, ou=observation.org_unit, value=float(observation.value) if not (
                 np.isnan(observation.value) or observation.value is None) else None) for
                  observation in data.observations if observation.element_id == "disease_cases"]
     logger.info(f"DataList: {len(data_list)}")

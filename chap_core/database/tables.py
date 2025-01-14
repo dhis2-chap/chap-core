@@ -1,10 +1,23 @@
 from typing import Optional, List
 
+from pydantic import ConfigDict
 from sqlalchemy import create_engine, Column, JSON
 from sqlmodel import Field, SQLModel, Relationship, Session, select
+from pydantic.alias_generators import to_camel
+
+# def to_camel(string: str) -> str:
+#     parts = string.split('_')
+#     return parts[0] + ''.join(word.capitalize() for word in parts[1:])
+
 
 PeriodID = str
 
+
+class DBModel(SQLModel):
+    ''' Simple wrapper that uses camelCase for the field names for the rest-api'''
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True)
 
 # class FeatureTypes(SQLModel, table=True):
 #     name: str = Field(str, primary_key=True)
@@ -31,42 +44,58 @@ PeriodID = str
 #     dhis2_id: str = Field(primary_key=True)
 #     feature_types: List[FeatureTypes] = Relationship(back_populates="source")
 
-
-class BackTest(SQLModel, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
+class BackTestBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
     estimator_id: str
+
+
+class BackTest(BackTestBase, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
     forecasts: List['BackTestForecast'] = Relationship(back_populates="backtest")
     metrics: List['BackTestMetric'] = Relationship(back_populates="backtest")
 
 
-class BackTestForecast(SQLModel, table=True):
+class BackTestForecast(DBModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     backtest_id: int = Field(foreign_key="backtest.id")
-    period_id: PeriodID
-    region_id: str
-    last_train_period_id: PeriodID
-    last_seen_period_id: PeriodID
+    period: PeriodID
+    org_unit: str
+    last_train_period: PeriodID
+    last_seen_period: PeriodID
     values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
     backtest: BackTest = Relationship(back_populates="forecasts")  # TODO: maybe remove this
 
 
-class BackTestMetric(SQLModel, table=True):
+class BackTestMetric(DBModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     backtest_id: int = Field(foreign_key="backtest.id")
     metric_id: str
-    period_id: PeriodID
-    last_train_period_id: PeriodID
-    last_seen_period_id: PeriodID
+    period: PeriodID
+    last_train_period: PeriodID
+    last_seen_period: PeriodID
     value: float
     backtest: BackTest = Relationship(back_populates="metrics")
 
 
-class ObservationBase(SQLModel):
-    period_id: PeriodID
-    region_id: str
+class ObservationBase(DBModel):
+    period: PeriodID
+    org_unit: str
     value: Optional[float]
     element_id: str
+
+
+# estimator_id to model_id
+# rename polygons to geojson
+# merge request json/csv -
+# change crud to v2
+# remove json endpoint
+# add dataset pure
+# maybe have geometry in table
+# direct predictions endpoint
+# add dataset type to dataset
+# maybe add list of string to evaluate
+# maybe add id to health data
+# Maybe add a way to get the health data
 
 
 class Observation(ObservationBase, table=True):
@@ -75,7 +104,7 @@ class Observation(ObservationBase, table=True):
     dataset: 'DataSet' = Relationship(back_populates="observations")
 
 
-class DataSetBase(SQLModel):
+class DataSetBase(DBModel):
     name: str
     polygons: Optional[str] = Field(default=None)
 
@@ -90,20 +119,20 @@ class DataSetWithObservations(DataSetBase):
     observations: List[ObservationBase]
 
 
-class DebugEntry(SQLModel, table=True):
+class DebugEntry(DBModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     timestamp: float
 
 
 def test():
     engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
+    DBModel.metadata.create_all(engine)
     with Session(engine) as session:
         backtest = BackTest(dataset_id="dataset_id", model_id="model_id")
-        forecast = BackTestForecast(period_id="202101", region_id="RegionA", last_train_period_id="202012",
-                                    last_seen_period_id="202012", values=[1.0, 2.0, 3.0])
-        metric = BackTestMetric(metric_id="metric_id", period_id="202101", last_train_period_id="202012",
-                                last_seen_period_id="202012", value=0.5)
+        forecast = BackTestForecast(period="202101", org_unity="RegionA", last_train_period="202012",
+                                    last_seen_period="202012", values=[1.0, 2.0, 3.0])
+        metric = BackTestMetric(metric_id="metric_id", period="202101", last_train_period="202012",
+                                last_seen_period="202012", value=0.5)
         backtest.forecasts.append(forecast)
         backtest.metrics.append(metric)
         session.add(backtest)
