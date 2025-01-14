@@ -6,6 +6,7 @@ from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.rest_api_src.worker_functions import harmonize_health_dataset, WorkerConfig
 from chap_core.data import DataSet as InMemoryDataSet
 
+
 def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: int, n_splits: int, stride: int,
                  session: SessionWrapper):
     dataset = session.get_dataset(dataset_id, FullData)
@@ -21,11 +22,13 @@ def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: 
     assert db_id is not None
     return db_id
 
+
 def debug(session: SessionWrapper):
     return session.add_debug()
 
 
-def harmonize_and_add_health_dataset(health_dataset: FullData, name: str, session: SessionWrapper, worker_config=WorkerConfig()) -> FullData:
+def harmonize_and_add_health_dataset(health_dataset: FullData, name: str, session: SessionWrapper,
+                                     worker_config=WorkerConfig()) -> FullData:
     health_dataset = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False, worker_config=worker_config)
     db_id = session.add_dataset(name, dataset, polygons=health_dataset.polygons.model_dump_json())

@@ -6,6 +6,32 @@ from sqlmodel import Field, SQLModel, Relationship, Session, select
 PeriodID = str
 
 
+# class FeatureTypes(SQLModel, table=True):
+#     name: str = Field(str, primary_key=True)
+#     display_name: str
+#     description: str
+#
+#
+# class Model(SQLModel, table=True):
+#     id: Optional[int] = Field(primary_key=True, default=None)
+#     name: str
+#     estimator_id: str
+#     features: List[FeatureTypes] = Relationship(back_populates="model")
+#
+#
+# class FeatureSources(SQLModel, table=True):
+#     id: Optional[int] = Field(primary_key=True, default=None)
+#     name: str
+#     feature_type: str
+#     url: str
+#     #metadata: Optional[str] = Field(default=None)
+#
+#
+# class LocalDataSource(SQLModel, table=True):
+#     dhis2_id: str = Field(primary_key=True)
+#     feature_types: List[FeatureTypes] = Relationship(back_populates="source")
+
+
 class BackTest(SQLModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     dataset_id: int = Field(foreign_key="dataset.id")
@@ -36,21 +62,32 @@ class BackTestMetric(SQLModel, table=True):
     backtest: BackTest = Relationship(back_populates="metrics")
 
 
-class Observation(SQLModel, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
+class ObservationBase(SQLModel):
     period_id: PeriodID
     region_id: str
     value: Optional[float]
     element_id: str
+
+
+class Observation(ObservationBase, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
     dataset_id: int = Field(foreign_key="dataset.id")
     dataset: 'DataSet' = Relationship(back_populates="observations")
 
 
-class DataSet(SQLModel, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
+class DataSetBase(SQLModel):
     name: str
     polygons: Optional[str] = Field(default=None)
+
+
+class DataSet(DataSetBase, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
     observations: List[Observation] = Relationship(back_populates="dataset")
+
+
+class DataSetWithObservations(DataSetBase):
+    id: int
+    observations: List[ObservationBase]
 
 
 class DebugEntry(SQLModel, table=True):

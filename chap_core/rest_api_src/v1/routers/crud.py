@@ -15,7 +15,8 @@ from chap_core.datatypes import FullData
 from chap_core.geometry import Polygons
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry
+from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry, Observation, \
+    DataSetWithObservations
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
 import chap_core.rest_api_src.worker_functions as normal_wf
@@ -84,17 +85,20 @@ async def get_backtests(session: Session = Depends(get_session)):
     return backtests
 
 
-@router.get('/dataset/{dataset_id}', response_model=DataSet)
-async def get_dataset(dataset_id: int, session: Session = Depends(get_session)):
-    dataset = session.get(DataSet, dataset_id)
-    if dataset is None:
-        raise HTTPException(status_code=404, detail="Dataset not found")
-    return dataset
-
 class DatasetCreate(BaseModel):
     name: str
     orgUnitsGeoJson: FeatureCollectionModel
     features: list[DataListV2]
+
+
+@router.get('/dataset/{dataset_id}', response_model=DataSetWithObservations)
+async def get_dataset(dataset_id: int, session: Session = Depends(get_session)):
+    dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
+    assert len(dataset.observations) > 0
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return dataset
+    #return DataSetFull(id=dataset.id, name=dataset.name, polygons=dataset.polygons, observations=dataset.observations)
 
 
 class DataBaseResponse(BaseModel):

@@ -6,7 +6,7 @@ from chap_core.util import redis_available
 
 def time_consuming_function():
     import time
-    time.sleep(2)
+    time.sleep(3)
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")

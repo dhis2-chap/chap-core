@@ -57,8 +57,7 @@ class SessionWrapper:
                     dataset.observations.append(observation)
         self.session.add(dataset)
         self.session.commit()
-        n_observations = len(self.session.exec(select(Observation).where(Observation.dataset_id==dataset.id)).all())
-        logger.info(f"Added dataset {dataset_name} with {n_observations} observations")
+        assert self.session.exec(select(Observation).where(Observation.dataset_id==dataset.id)).first() is not None
         return dataset.id
 
     def get_dataset(self, dataset_id, dataclass: type) -> _DataSet:
