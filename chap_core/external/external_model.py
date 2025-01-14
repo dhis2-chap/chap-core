@@ -133,7 +133,7 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalM
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
-    if "docker_env" in config:
+    if "docker_env" in config or 'r_env' in config:
         runner_type = "docker"
     else:
         runner_type = "mlflow"

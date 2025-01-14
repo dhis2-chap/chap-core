@@ -9,7 +9,7 @@ from sqlmodel import select
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from sqlmodel import Session
 
-from chap_core.api_types import RequestV1
+from chap_core.api_types import RequestV1, FeatureCollectionModel, DataListV2
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData
 from chap_core.geometry import Polygons
@@ -62,7 +62,8 @@ async def get_backtest(backtest_id: int, session: Session = Depends(get_session)
 
 @router.post("/backtest", response_model=JobResponse)
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
-    job = worker.queue_db(wf.run_backtest, backtest.estimator_id, backtest.dataset_id, 12, 2, 1, database_url=database_url)
+    job = worker.queue_db(wf.run_backtest, backtest.estimator_id, backtest.dataset_id, 12, 2, 1,
+                          database_url=database_url)
     return JobResponse(id=job.id)
 
 
@@ -90,9 +91,10 @@ async def get_dataset(dataset_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
 
-
-class DatasetCreate(RequestV1):
+class DatasetCreate(BaseModel):
     name: str
+    orgUnitsGeoJson: FeatureCollectionModel
+    features: list[DataListV2]
 
 
 class DataBaseResponse(BaseModel):
@@ -100,9 +102,11 @@ class DataBaseResponse(BaseModel):
 
 
 @router.post('/dataset/json')
-async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)) -> JobResponse:
-    health_data = normal_wf.get_health_dataset(data)
-    job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name, database_url=datababase_url, worker_config=worker_settings)
+async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_database_url),
+                         worker_settings=Depends(get_settings)) -> JobResponse:
+    health_data = normal_wf.get_health_dataset(data, colnames=['orgUnit', 'period'])
+    job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name,
+                          database_url=datababase_url, worker_config=worker_settings)
     return JobResponse(id=job.id)
 
 

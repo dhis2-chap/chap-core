@@ -1,12 +1,13 @@
 import json
 import os
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel
 
-from chap_core.api_types import RequestV1, PredictionRequest, EvaluationEntry, EvaluationResponse, DataList, DataElement
+from chap_core.api_types import RequestV1, PredictionRequest, EvaluationEntry, EvaluationResponse, DataList, \
+    DataElement, DataElementV2
 from chap_core.assessment.forecast import forecast_with_predicted_weather, forecast_ahead
 from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
@@ -189,7 +190,7 @@ def harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config: Wor
     return train_data
 
 
-def get_health_dataset(json_data: PredictionRequest, dataclass=None):
+def get_health_dataset(json_data: PredictionRequest, dataclass=None, colnames=('ou', 'pe')):
     if dataclass is None:
         dataclass = FullData if hasattr(json_data, 'include_data') and json_data.include_data else HealthPopulationData
 
@@ -197,7 +198,7 @@ def get_health_dataset(json_data: PredictionRequest, dataclass=None):
     translations = {target_name: "disease_cases"}
     data = {
         translations.get(feature.featureId, feature.featureId): v1_conversion(
-            feature.data, fill_missing=feature.featureId in (target_name, "population")
+            feature.data, fill_missing=feature.featureId in (target_name, "population"), colnames=colnames
         )
         for feature in json_data.features
     }
@@ -241,15 +242,16 @@ def predictions_to_datavalue(data: DataSet[HealthData], attribute_mapping: dict[
     return entries
 
 
-def v1_conversion(data_list: list[DataElement], fill_missing=False) -> DataSet[TimeSeriesArray]:
+def v1_conversion(data_list: list[Union[DataElement, DataElementV2]], fill_missing=False, colnames=('ou', 'pe')) -> DataSet[TimeSeriesArray]:
     """
     Convert a list of DataElement objects to a SpatioTemporalDict[TimeSeriesArray] object.
     """
+    location_col, period_col = colnames
     df = pd.DataFrame([d.dict() for d in data_list])
-    df.sort_values(by=["ou", "pe"], inplace=True)
+    df.sort_values(by=[location_col, period_col], inplace=True)
     d = dict(
-        time_period=[convert_time_period_string(row) for row in df["pe"]],
-        location=df.ou,
+        time_period=[convert_time_period_string(row) for row in df[period_col]],
+        location=df[location_col],
         value=df.value,
     )
     converted_df = pd.DataFrame(d)

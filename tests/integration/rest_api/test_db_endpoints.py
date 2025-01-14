@@ -8,7 +8,7 @@ from chap_core.database.database import SessionWrapper
 from chap_core.rest_api_src.v1.rest_api import NaiveWorker, app
 from fastapi.testclient import TestClient
 
-from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DataSet
+from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DataSet, DatasetCreate
 from chap_core.rest_api_src.v1.routers.dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.worker_functions import WorkerConfig
 
@@ -62,14 +62,15 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
         EvaluationEntry.model_validate(entry)
 
 
-def test_add_dataset_flow(celery_session_worker, dependency_overrides, big_request_json):
-    data = json.loads(big_request_json)
-    data['name'] = 'test'
-    response = client.post("/v1/crud/dataset/json", data=json.dumps(data))
+def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
+    #data = json.loads(big_request_json)
+    #data['name'] = 'test'
+    response = client.post("/v1/crud/dataset/json", data=dataset_create.model_dump_json())
     assert response.status_code == 200
     db_id = await_result_id(response.json()['id'])
     response = client.get(f"/v1/crud/dataset/{db_id}")
-    DataSet.model_validate(response.json())
+    ds = DataSet.model_validate(response.json())
+    #assert len(ds.observations) > 0
 
 
 def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):

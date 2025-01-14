@@ -9,18 +9,22 @@ def create_docker_image(dockerfile_directory: Path | str):
     Uses the final directory name as the name for the image (e.g. /path/to/name/ -> name)
     Returns the name.
     """
-    client = docker.from_env()
     name = Path(dockerfile_directory).stem
     logging.info(f"Creating docker image {name} from Dockerfile in {dockerfile_directory}")
     dockerfile = Path(dockerfile_directory) / "Dockerfile"
     logging.info(f"Looking for dockerfile {dockerfile}")
-    response = client.api.build(fileobj=open(dockerfile, "rb"), tag=name, decode=True)
+    fileobject = open(dockerfile, "rb")
+    return docker_image_from_fo(fileobject, name)
+
+
+def docker_image_from_fo(fileobject, name):
+    client = docker.from_env()
+    response = client.api.build(fileobj=fileobject, tag=name, decode=True)
     for line in response:
         if "stream" in line:
             print(line["stream"])  # .encode("utf-8"))
         else:
             print(line)
-
     return name
 
 

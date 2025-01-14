@@ -5,10 +5,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from chap_core.api_types import RequestV1, DataListV2, DataElementV2
 from chap_core.database.tables import *
 import pandas as pd
 
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
+from chap_core.rest_api_src.v1.routers.crud import DatasetCreate
 from chap_core.rest_api_src.worker_functions import WorkerConfig
 from chap_core.services.cache_manager import get_cache
 from .data_fixtures import *
@@ -137,6 +139,17 @@ def big_request_json(data_path):
         pytest.skip()
     with open(filepath, "r") as f:
         return f.read()
+
+
+@pytest.fixture
+def dataset_create(big_request_json):
+    data = RequestV1.model_validate_json(big_request_json)
+    return DatasetCreate(name='test',
+                         orgUnitsGeoJson=data.orgUnitsGeoJson,
+                         features=[DataListV2(featureId=f.featureId, dataElement=f.dhis2Id,
+                                              data=[DataElementV2(period=d.pe, orgUnit=d.ou, value=d.value) for d in
+                                                    f.data])
+                                   for f in data.features])
 
 
 # @pytest.fixture

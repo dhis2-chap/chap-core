@@ -43,13 +43,13 @@ class Observation(SQLModel, table=True):
     value: Optional[float]
     element_id: str
     dataset_id: int = Field(foreign_key="dataset.id")
-
+    dataset: 'DataSet' = Relationship(back_populates="observations")
 
 class DataSet(SQLModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     name: str
     polygons: Optional[str] = Field(default=None)
-    observations: List[Observation] = Relationship()
+    observations: List[Observation] = Relationship(back_populates="dataset")
 
 
 class DebugEntry(SQLModel, table=True):

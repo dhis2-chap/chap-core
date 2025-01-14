@@ -2,14 +2,15 @@ import dataclasses
 import time
 
 import pandas as pd
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Observation, DataSet, DebugEntry
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
 
 from chap_core.time_period import TimePeriod
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-
+import logging
+logger = logging.getLogger(__name__)
 engine = None
 database_url = os.getenv("CHAP_DATABASE_URL", default=None)
 if database_url is not None:
@@ -44,6 +45,7 @@ class SessionWrapper:
         return backtest.id
 
     def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons):
+        logger.info(f"Adding dataset {dataset_name} wiht {len(list(orig_dataset.locations()))} locations")
         dataset = DataSet(name=dataset_name, polygons=polygons)
         for location, data in orig_dataset.items():
             field_names = [field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]]
