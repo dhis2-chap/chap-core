@@ -1,5 +1,6 @@
 import dataclasses
 import time
+from typing import Optional
 
 import pandas as pd
 from sqlmodel import SQLModel, create_engine, Session, select
@@ -20,7 +21,7 @@ if database_url is not None:
 class SessionWrapper:
     def __init__(self, local_engine=None, session=None):
         self.engine = local_engine#  or engine
-        self.session = session
+        self.session: Optional[Session] = session
 
     def __enter__(self):
         self.session = Session(self.engine)
@@ -56,13 +57,15 @@ class SessionWrapper:
                     dataset.observations.append(observation)
         self.session.add(dataset)
         self.session.commit()
+        n_observations = len(self.session.exec(select(Observation).where(Observation.dataset_id==dataset.id)).all())
+        logger.info(f"Added dataset {dataset_name} with {n_observations} observations")
         return dataset.id
 
     def get_dataset(self, dataset_id, dataclass: type) -> _DataSet:
         # field_names = [field.name for field in dataclasses.fields(dataclass) if field.name not in ["time_period", "location"]]
         dataset = self.session.get(DataSet, dataset_id)
         observations = dataset.observations
-        dataframe = pd.DataFrame([obs.dict() for obs in observations]).rename(columns={'region_id': 'location', 'period_id': 'time_period'})
+        dataframe = pd.DataFrame([obs.model_dump() for obs in observations]).rename(columns={'region_id': 'location', 'period_id': 'time_period'})
         dataframe = dataframe.set_index(["location", "time_period"])
         pivoted = dataframe.pivot(columns="element_id", values="value").reset_index()
         dataset = _DataSet.from_pandas(pivoted, dataclass)

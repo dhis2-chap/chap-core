@@ -151,7 +151,7 @@ class DataSet(Generic[FeaturesT]):
         return f"{self.__class__.__name__}({self._data_dict})"
 
     def __getitem__(self, location: str) -> FeaturesT:
-        return self._data_dict[location].data()
+        return self._data_dict[location]
 
     def keys(self) -> Iterable[str]:
         return self._data_dict.keys()
@@ -164,7 +164,7 @@ class DataSet(Generic[FeaturesT]):
 
     @property
     def period_range(self) -> PeriodRange:
-        first_period_range = self._data_dict[next(iter(self._data_dict))].data().time_period
+        first_period_range = self._data_dict[next(iter(self._data_dict))].time_period
         assert first_period_range.start_timestamp == first_period_range.start_timestamp
         assert first_period_range.end_timestamp == first_period_range.end_timestamp
         return first_period_range
@@ -345,16 +345,16 @@ class DataSet(Generic[FeaturesT]):
         return self.__class__(
             {
                 loc: add_field(
-                    data.data(),
+                    data,
                     new_type,
-                    **{key: func(data.data()) for key, func in kwargs.items()},
+                    **{key: func(data) for key, func in kwargs.items()},
                 )
                 for loc, data in self.items()
             }
         )
 
     def remove_field(self, field_name, new_class=None):
-        return self.__class__({loc: remove_field(data.data(), field_name, new_class) for loc, data in self.items()}, self._polygons)
+        return self.__class__({loc: remove_field(data, field_name, new_class) for loc, data in self.items()}, self._polygons)
 
     @classmethod
     def from_fields(

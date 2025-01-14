@@ -22,7 +22,7 @@ class BackTestForecast(SQLModel, table=True):
     last_train_period_id: PeriodID
     last_seen_period_id: PeriodID
     values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
-    backtest: BackTest = Relationship(back_populates="forecasts") # TODO: maybe remove this
+    backtest: BackTest = Relationship(back_populates="forecasts")  # TODO: maybe remove this
 
 
 class BackTestMetric(SQLModel, table=True):
@@ -44,6 +44,7 @@ class Observation(SQLModel, table=True):
     element_id: str
     dataset_id: int = Field(foreign_key="dataset.id")
     dataset: 'DataSet' = Relationship(back_populates="observations")
+
 
 class DataSet(SQLModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)

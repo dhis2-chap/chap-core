@@ -34,10 +34,7 @@ def test_add_numbers(celery_session_worker):
         time.sleep(2)
         if job.status == "FAILURE":
             assert False, "Job failed"
-    # print(type(job._job))
-    # print(type(job._result))
     time.sleep(2)
-    # print(job.id)
     print(job.status)
     print(job.result)
     assert job.result == 3

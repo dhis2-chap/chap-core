@@ -247,7 +247,7 @@ def v1_conversion(data_list: list[Union[DataElement, DataElementV2]], fill_missi
     Convert a list of DataElement objects to a SpatioTemporalDict[TimeSeriesArray] object.
     """
     location_col, period_col = colnames
-    df = pd.DataFrame([d.dict() for d in data_list])
+    df = pd.DataFrame([d.model_dump() for d in data_list])
     df.sort_values(by=[location_col, period_col], inplace=True)
     d = dict(
         time_period=[convert_time_period_string(row) for row in df[period_col]],

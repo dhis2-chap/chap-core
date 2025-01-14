@@ -79,7 +79,7 @@ def add_id(feature, admin_level=1, lookup_dict=None):
     id = feature.properties[f"NAME_{admin_level}"]
     if lookup_dict:
         id = lookup_dict[normalize_name(id)]
-    return DFeatureModel(**feature.dict(), id=id)
+    return DFeatureModel(**feature.model_dump(), id=id)
     
 
 

@@ -258,7 +258,7 @@ def backtest(data_filename: Path, model_name: registry.model_type, out_folder: P
         predictions_list,
         quantiles=[0.05, 0.25, 0.5, 0.75, 0.95],
         real_data=dataset_to_datalist(dataset, 'dengue'))
-    dataframe = pd.DataFrame([entry.dict() for entry in response.predictions])
+    dataframe = pd.DataFrame([entry.model_dump() for entry in response.predictions])
     data_name = data_filename.stem
     dataframe.to_csv(out_folder / f'{data_name}_evaluation_{model_name}.csv')
     serialized_response = response.json()
