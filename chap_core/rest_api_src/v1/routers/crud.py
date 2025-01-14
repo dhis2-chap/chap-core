@@ -9,14 +9,13 @@ from sqlmodel import select
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from sqlmodel import Session
 
-from chap_core.api_types import RequestV1, FeatureCollectionModel, DataListV2
+from chap_core.api_types import FeatureCollectionModel, DataListV2
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData
 from chap_core.geometry import Polygons
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry, Observation, \
-    DataSetWithObservations
+from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry, DataSetWithObservations
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
 import chap_core.rest_api_src.worker_functions as normal_wf
