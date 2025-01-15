@@ -92,8 +92,8 @@ class DatasetCreate(DBModel):
     features: list[DataListV2]
 
 
-@router.get('/datasets/{dataset_id}', response_model=DataSetWithObservations)
-async def get_dataset(dataset_id: int, session: Session = Depends(get_session)):
+@router.get('/datasets/{datasetId}', response_model=DataSetWithObservations)
+async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], session: Session = Depends(get_session)):
     dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     assert len(dataset.observations) > 0
     if dataset is None:
@@ -134,8 +134,8 @@ async def debug_entry(database_url: str = Depends(get_database_url)) -> JobRespo
     return JobResponse(id=job.id)
 
 
-@router.get('/debug/{debug_id}')
-async def get_debug_entry(debug_id: int, session: Session = Depends(get_session)) -> DebugEntry:
+@router.get('/debug/{debugId}')
+async def get_debug_entry(debug_id: Annotated[int, Path(alias='debugId')], session: Session = Depends(get_session)) -> DebugEntry:
     debug = session.get(DebugEntry, debug_id)
     if debug is None:
         raise HTTPException(status_code=404, detail="Debug entry not found")

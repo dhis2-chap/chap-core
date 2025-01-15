@@ -23,7 +23,7 @@ class EvaluationEntryRequest(BaseModel):
 
 @router.get("/evaluation_entry", response_model=List[EvaluationEntry])
 async def get_evaluation_entries(
-        backtest_id: int,
+        backtest_id: Annotated[int, Query(alias="backtestId")],
         quantiles: List[float] = Query(...),
         session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)

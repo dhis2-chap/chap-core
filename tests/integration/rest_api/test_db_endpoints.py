@@ -53,7 +53,7 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     assert response.status_code == 200, response.json()
     BackTestFull.model_validate(response.json())
     response = client.get(f'/v1/analytics/evaluation_entry',
-                          params={'backtest_id': db_id, 'quantiles': [0.1, 0.5, 0.9]})
+                          params={'backtestId': db_id, 'quantiles': [0.1, 0.5, 0.9]})
     assert response.status_code == 200, response.json()
     evaluation_entries = response.json()
 
