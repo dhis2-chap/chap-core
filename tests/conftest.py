@@ -145,11 +145,11 @@ def big_request_json(data_path):
 def dataset_create(big_request_json):
     data = RequestV1.model_validate_json(big_request_json)
     return DatasetCreate(name='test',
-                         orgUnitsGeoJson=data.orgUnitsGeoJson,
-                         features=[DataListV2(featureId=f.featureId, dataElement=f.dhis2Id,
-                                              data=[DataElementV2(period=d.pe, orgUnit=d.ou, value=d.value) for d in
-                                                    f.data])
-                                   for f in data.features])
+                         geojson=data.orgUnitsGeoJson.model_dump_json(),
+                         observations=[ObservationBase(
+                             element_id=f.featureId if f.featureId != 'diseases' else 'disease_cases',
+                             period=d.pe, orgUnit=d.ou,
+                             value=d.value) for f in data.features for d in f.data])
 
 
 # @pytest.fixture

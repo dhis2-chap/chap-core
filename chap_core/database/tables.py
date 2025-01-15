@@ -19,6 +19,7 @@ class DBModel(SQLModel):
         alias_generator=to_camel,
         populate_by_name=True)
 
+
 # class FeatureTypes(SQLModel, table=True):
 #     name: str = Field(str, primary_key=True)
 #     display_name: str
@@ -84,19 +85,18 @@ class ObservationBase(DBModel):
     element_id: str
 
 
-# estimator_id to model_id
 # rename polygons to geojson
 # merge request json/csv -
-# change crud to v2
+# change crud to v2 ?
 # remove json endpoint
 # add dataset pure
 # maybe have geometry in table
 # direct predictions endpoint
 # add dataset type to dataset
-# maybe add list of string to evaluate
+# maybe add list of models to evaluate
 # maybe add id to health data
 # Maybe add a way to get the health data
-
+# Hide session objects
 
 class Observation(ObservationBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
@@ -106,7 +106,7 @@ class Observation(ObservationBase, table=True):
 
 class DataSetBase(DBModel):
     name: str
-    polygons: Optional[str] = Field(default=None)
+    geojson: Optional[str] = Field(default=None)
 
 
 class DataSet(DataSetBase, table=True):

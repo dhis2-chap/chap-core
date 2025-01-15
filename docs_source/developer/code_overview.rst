@@ -16,16 +16,21 @@ By looking at the code in the `cli.py` file, you can see how the different comma
 The REST API
 ==============
 
-The REST API is the main entry point for the Prediction app, and supports functionality like training models, predicting, harmonizing data etc.
+The REST API is the main entry point for the Prediction app, and supports functionality like training models, predicting, harmonizing data etc. We are using FastAPI to make the API which has very good documentation here: https://fastapi.tiangolo.com/
 
 - The main entry point for the API is in `rest_api_src/v1/rest_api.py` (newer versions will have a different version number than v1).
 - The API is built using the `fastapi` library, and we are currently using Celery to handle asynchronous tasks (like training a model).
 - Celery is currently abstracted away using the `CeleryPool` and `CeleryJob` classes. 
 
+The Database
+============
+All database tables are defined in `database/tables.py`. We're using SQLModel to handle the database interactions which
+has a very good documentation here: https://sqlmodel.tiangolo.com/
+
 External models
 ================
 
-The codebase contains various abtractions for external models. The general idea is that an external model is defined by what commands 
+The codebase contains various abstractions for external models. The general idea is that an external model is defined by what commands
 it uses to train and predict, and what kind of environment (e.g. docker) it needs to run these commands. CHAP then handles the necessary steps
 to call these commands in the given environment with correct data files.
 

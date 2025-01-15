@@ -45,7 +45,8 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons')
-    response = client.post("/v1/crud/backtest", json={"datasetId": dataset_id, "modelId": "naive_model"})
+    response = client.post("/v1/crud/backtest",
+                           json={"datasetId": dataset_id, "modelId": "naive_model"})
     assert response.status_code == 200, response.json()
     job_id = response.json()['id']
     db_id = await_result_id(job_id)
@@ -63,7 +64,7 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
 
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
-    response = client.post("/v1/crud/datasets/json", data=dataset_create.model_dump_json())
+    response = client.post("/v1/crud/datasets", data=dataset_create.model_dump_json())
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
     response = client.get(f"/v1/crud/datasets/{db_id}")

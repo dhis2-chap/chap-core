@@ -2,13 +2,13 @@ import dataclasses
 import time
 from typing import Optional
 
-import pandas as pd
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Observation, DataSet, DebugEntry
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
 
 from chap_core.time_period import TimePeriod
+from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 import logging
 logger = logging.getLogger(__name__)
@@ -65,14 +65,11 @@ class SessionWrapper:
     def get_dataset(self, dataset_id, dataclass: type) -> _DataSet:
         dataset = self.session.get(DataSet, dataset_id)
         observations = dataset.observations
-        dataframe = pd.DataFrame([obs.model_dump() for obs in observations]).rename(columns={'org_unit': 'location', 'period': 'time_period'})
-        dataframe = dataframe.set_index(["location", "time_period"])
-        pivoted = dataframe.pivot(columns="element_id", values="value").reset_index()
-        dataset = _DataSet.from_pandas(pivoted, dataclass)
-        return dataset
+        new_dataset = observations_to_dataset(dataclass, observations)
+        return new_dataset
 
     def add_debug(self):
-        ''' Function for debuginng'''
+        ''' Function for debuging'''
         debug_entry = DebugEntry(timestamp=time.time())
         self.session.add(debug_entry)
         self.session.commit()

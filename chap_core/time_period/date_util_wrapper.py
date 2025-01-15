@@ -8,13 +8,19 @@ import dateutil
 import numpy as np
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
-from dateutil.parser import parse
+from dateutil.parser import parse as _parse
 from dateutil.relativedelta import relativedelta
 from pytz import utc
 
 from chap_core.exceptions import InvalidDateError
 
 logger = logging.getLogger(__name__)
+
+
+def parse(date_string: str, default: datetime = None):
+    if len(date_string) == 6 and date_string.isdigit():
+        date_string = date_string[:4] + '-' + date_string[4:6]
+    return _parse(date_string, default=default)
 
 
 class DateUtilWrapper:
@@ -236,17 +242,18 @@ class WeekNumbering:
     @staticmethod
     def get_date(year: int, week: int, day: int) -> datetime:
         try:
-            return datetime.strptime(f"{year}-W{week}-{day%7}", "%G-W%V-%w")
+            return datetime.strptime(f"{year}-W{week}-{day % 7}", "%G-W%V-%w")
         except ValueError as e:
-            logger.error(f"Invalid date {year}-W{week}-{day%7}")
-            raise InvalidDateError(f"Invalid date {year}-W{week}-{day%7}") from e
+            logger.error(f"Invalid date {year}-W{week}-{day % 7}")
+            raise InvalidDateError(f"Invalid date {year}-W{week}-{day % 7}") from e
 
 
 class Week(TimePeriod):
-    _used_attributes = []  #'year']
+    _used_attributes = []  # 'year']
     _extension = relativedelta(weeks=1)
     _week_numbering = WeekNumbering
     _sep_strings = {1: "W", 7: "SunW"}
+
     @property
     def id(self):
         if self._day_nr != 1:
@@ -305,8 +312,9 @@ class Week(TimePeriod):
     def topandas(self):
         # return self.__str__()
         assert self._day_nr in (1, 0, 7), self._day_nr
-        #daystr = "MON" if self._day_nr == 1 else "SUN"
+        # daystr = "MON" if self._day_nr == 1 else "SUN"
         return pd.Period(self._date, freq=("W"))
+
 
 def clean_timestring(timestring: str):
     if isinstance(timestring, Number):
@@ -315,6 +323,7 @@ def clean_timestring(timestring: str):
         year, week = timestring.split('W')
         return f'{year}W{int(week):02d}'
     return timestring
+
 
 class Month(TimePeriod):
     _used_attributes = ["year", "month"]
@@ -406,7 +415,7 @@ class TimeDelta(DateUtilWrapper):
 
     def n_periods(self, start_stamp: TimeStamp, end_stamp: TimeStamp):
         assert (
-            sum(bool(getattr(self._relative_delta, name, 0)) for name in ("days", "months", "years")) == 1
+                sum(bool(getattr(self._relative_delta, name, 0)) for name in ("days", "months", "years")) == 1
         ), f"Cannot get number of periods for {self}"
         if self._relative_delta.days != 0:
             n_days_diff = (end_stamp.date - start_stamp.date).days
@@ -420,10 +429,10 @@ class TimeDelta(DateUtilWrapper):
 
 class PeriodRange(BNPDataClass):
     def __init__(
-        self,
-        start_timestamp: TimeStamp,
-        end_timestamp: TimeStamp,
-        time_delta: TimeDelta,
+            self,
+            start_timestamp: TimeStamp,
+            end_timestamp: TimeStamp,
+            time_delta: TimeDelta,
     ):
         self._start_timestamp = start_timestamp
         self._end_timestamp = end_timestamp

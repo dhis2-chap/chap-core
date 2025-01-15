@@ -13,12 +13,13 @@ from sqlmodel import Session
 
 from chap_core.api_types import FeatureCollectionModel, DataListV2
 from chap_core.database.database import SessionWrapper
-from chap_core.datatypes import FullData
+from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
+from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry, \
-    DataSetWithObservations, DBModel, BackTestBase
+    DataSetWithObservations, DBModel, BackTestBase, DataSetBase, ObservationBase
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
 import chap_core.rest_api_src.worker_functions as normal_wf
@@ -86,10 +87,8 @@ async def get_backtests(session: Session = Depends(get_session)):
     return backtests
 
 
-class DatasetCreate(DBModel):
-    name: str
-    orgUnitsGeoJson: FeatureCollectionModel
-    features: list[DataListV2]
+class DatasetCreate(DataSetBase):
+    observations: List[ObservationBase]
 
 
 @router.get('/datasets/{datasetId}', response_model=DataSetWithObservations)
@@ -99,17 +98,17 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], sessi
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
-    # return DataSetFull(id=dataset.id, name=dataset.name, polygons=dataset.polygons, observations=dataset.observations)
-
 
 class DataBaseResponse(DBModel):
     id: int
 
 
-@router.post('/datasets/json')
+@router.post('/datasets')
 async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_database_url),
                          worker_settings=Depends(get_settings)) -> JobResponse:
-    health_data = normal_wf.get_health_dataset(data, colnames=['orgUnit', 'period'])
+    health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
+    health_data.set_polygons(FeatureCollectionModel.model_validate_json(data.geojson))
+    #health_data = normal_wf.get_health_dataset(data, colnames=['orgUnit', 'period'])
     job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name,
                           database_url=datababase_url, worker_config=worker_settings)
     return JobResponse(id=job.id)
