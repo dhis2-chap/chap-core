@@ -50,6 +50,7 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     job_id = response.json()['id']
     db_id = await_result_id(job_id)
     response = client.get(f"/v1/crud/backtest/{db_id}")
+    assert response.status_code == 200, response.json()
     BackTestFull.model_validate(response.json())
     response = client.get(f'/v1/analytics/evaluation_entry',
                           params={'backtest_id': db_id, 'quantiles': [0.1, 0.5, 0.9]})

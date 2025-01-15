@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 from functools import partial
+from fastapi import Path
 from typing import Optional, List, Annotated
 
 import pandas as pd
@@ -52,8 +53,9 @@ class BackTestFull(BackTestRead):
     forecasts: list[BackTestForecast]
 
 
-@router_get("/backtest/{backtest_id}", response_model=BackTestFull)
-async def get_backtest(backtest_id: int, session: Session = Depends(get_session)):
+@router_get("/backtest/{backtestId}", response_model=BackTestFull)
+async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
+                       session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")

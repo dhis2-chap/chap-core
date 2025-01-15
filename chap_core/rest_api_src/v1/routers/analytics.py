@@ -1,9 +1,9 @@
-from typing import List
+from typing import List, Annotated
 
 import numpy as np
 from pydantic import BaseModel, confloat
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Path
 from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry
