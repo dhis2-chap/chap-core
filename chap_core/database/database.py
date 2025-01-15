@@ -33,7 +33,7 @@ class SessionWrapper:
 
     def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, dataset_id, model_id):
         backtest = BackTest(dataset_id=dataset_id,
-                            estimator_id=model_id,
+                            model_id=model_id,
                             last_train_period=last_train_period.id)
         self.session.add(backtest)
         for eval_result in evaluation_results:

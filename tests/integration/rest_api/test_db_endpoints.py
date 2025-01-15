@@ -45,7 +45,7 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons')
-    response = client.post("/v1/crud/backtest", json={"datasetId": dataset_id, "estimatorId": "naive_model"})
+    response = client.post("/v1/crud/backtest", json={"datasetId": dataset_id, "modelId": "naive_model"})
     assert response.status_code == 200, response.json()
     job_id = response.json()['id']
     db_id = await_result_id(job_id)
@@ -57,6 +57,7 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     evaluation_entries = response.json()
 
     for entry in evaluation_entries:
+        #assert 'splitPeriod' in entry, f'splitPeriod not in entry: {entry.keys()}'
         EvaluationEntry.model_validate(entry)
 
 

@@ -46,7 +46,7 @@ class DBModel(SQLModel):
 
 class BackTestBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
-    estimator_id: str
+    model_id: str
 
 
 class BackTest(BackTestBase, table=True):

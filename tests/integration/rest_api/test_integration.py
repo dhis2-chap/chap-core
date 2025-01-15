@@ -84,7 +84,7 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
     # this test should fail since INLA does not exist. Check that we get a clean error message from the model propagated
     # all the way back to the exception info
     big_request_json = json.loads(big_request_json)
-    big_request_json["estimator_id"] = "chap_ewars_monthly"
+    big_request_json["model_id"] = "chap_ewars_monthly"
     big_request_json = json.dumps(big_request_json)
     monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
     # check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
@@ -114,7 +114,7 @@ def test_model_that_does_not_exist(big_request_json, monkeypatch, dependency_ove
     monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
     request_json = big_request_json
     request_json = json.loads(request_json)
-    request_json["estimator_id"] = "does_not_exist"
+    request_json["model_id"] = "does_not_exist"
     request_json = json.dumps(request_json)
     info = run_job_that_should_fail_and_get_exception_info(request_json, predict_path)
     assert "Unknown model id" in info.json()
