@@ -21,7 +21,7 @@ class EvaluationEntryRequest(BaseModel):
     quantiles: List[confloat(ge=0, le=1)]
 
 
-@router.get("/evaluation_entry", response_model=List[EvaluationEntry])
+@router.get("/evaluation-entry", response_model=List[EvaluationEntry])
 async def get_evaluation_entries(
         backtest_id: Annotated[int, Query(alias="backtestId")],
         quantiles: List[float] = Query(...),
@@ -37,13 +37,15 @@ async def get_evaluation_entries(
     ]
 
 
-@router.get("/prediction_entry/{prediction_id}", response_model=List[PredictionEntry])
-def get_prediction_entries(prediction_id: int, session: Session = Depends(get_session)):
+@router.get("/prediction-entry/{predictionId}", response_model=List[PredictionEntry])
+def get_prediction_entries(prediction_id: Annotated[int, Path(alias="predictionId")],
+                           session: Session = Depends(get_session)):
     raise HTTPException(status_code=501, detail="Not implemented")
 
 
-@router.get("/actual_cases/{backtest_id}", response_model=DataList)
-async def get_actual_cases(backtest_id: int, session: Session = Depends(get_session)):
+@router.get("/actual-cases/{backtestId}", response_model=DataList)
+async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")],
+                           session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     logger.info(f"Backtest: {backtest}")
     data = session.get(DataSet, backtest.dataset_id)
