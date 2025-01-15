@@ -57,7 +57,7 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     evaluation_entries = response.json()
 
     for entry in evaluation_entries:
-        #assert 'splitPeriod' in entry, f'splitPeriod not in entry: {entry.keys()}'
+        assert 'splitPeriod' in entry, f'splitPeriod not in entry: {entry.keys()}'
         EvaluationEntry.model_validate(entry)
 
 
@@ -68,11 +68,14 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     response = client.get(f"/v1/crud/datasets/{db_id}")
     assert response.status_code == 200, response.json()
     ds = DataSetWithObservations.model_validate(response.json())
+
     assert len(ds.observations) > 0
+    print(response.json())
+    assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
 
 
 def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):
     csv_data = open(data_path / 'nicaragua_weekly_data.csv', 'rb')
     geojson_data = open(data_path / 'nicaragua.json', 'rb')
-    response = client.post('/v1/crud/datasets/csvFile', files={"csv_file": csv_data, "geojson_file": geojson_data})
+    response = client.post('/v1/crud/datasets/csvFile', files={"csvFile": csv_data, "geojsonFile": geojson_data})
     assert response.status_code == 200, response.json()

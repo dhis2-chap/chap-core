@@ -114,7 +114,7 @@ def test_model_that_does_not_exist(big_request_json, monkeypatch, dependency_ove
     monkeypatch.setattr("chap_core.rest_api_src.v1.rest_api.worker", NaiveWorker())
     request_json = big_request_json
     request_json = json.loads(request_json)
-    request_json["model_id"] = "does_not_exist"
+    request_json["estimator_id"] = "does_not_exist"
     request_json = json.dumps(request_json)
     info = run_job_that_should_fail_and_get_exception_info(request_json, predict_path)
     assert "Unknown model id" in info.json()

@@ -1,12 +1,13 @@
 import json
 from datetime import datetime
-from typing import Optional, List
+from functools import partial
+from typing import Optional, List, Annotated
 
 import pandas as pd
 from pydantic import BaseModel, Field
 from sqlmodel import select
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Query
 from sqlmodel import Session
 
 from chap_core.api_types import FeatureCollectionModel, DataListV2
@@ -22,6 +23,8 @@ import chap_core.rest_api_src.db_worker_functions as wf
 import chap_core.rest_api_src.worker_functions as normal_wf
 
 router = APIRouter(prefix="/crud", tags=["crud"])
+
+router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 worker = CeleryPool()
 
 
@@ -49,7 +52,7 @@ class BackTestFull(BackTestRead):
     forecasts: list[BackTestForecast]
 
 
-@router.get("/backtest/{backtest_id}", response_model=BackTestFull, response_model_by_alias=True)
+@router_get("/backtest/{backtest_id}", response_model=BackTestFull)
 async def get_backtest(backtest_id: int, session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
@@ -111,8 +114,8 @@ async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_databas
 
 
 @router.post('/datasets/csvFile')
-async def create_dataset_csv(csv_file: UploadFile = File(...),
-                             geojson_file: UploadFile = File(...),
+async def create_dataset_csv(csv_file: UploadFile = File(..., alias='csvFile'),
+                             geojson_file: UploadFile = File(..., alias='geojsonFile'),
                              session: Session = Depends(get_session),
                              ) -> DataBaseResponse:
     csv_content = await csv_file.read()
