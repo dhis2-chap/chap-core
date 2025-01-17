@@ -1,3 +1,4 @@
+from chap_core.assessment.forecast import forecast_ahead
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData, HealthPopulationData
@@ -23,6 +24,15 @@ def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: 
     return db_id
 
 
+def run_prediction(estimator_id: registry.model_type, dataset_id: str, n_periods: int, session: SessionWrapper):
+    dataset = session.get_dataset(dataset_id, FullData)
+    estimator = registry.get_model(estimator_id, ignore_env=True)
+    predictions = forecast_ahead(estimator, dataset, n_periods)
+    db_id = session.add_predictions(predictions, dataset_id, estimator_id)
+    assert db_id is not None
+    return db_id
+
+
 def debug(session: SessionWrapper):
     return session.add_debug()
 
@@ -39,4 +49,5 @@ def predict_pipeline_from_health_dataset(health_dataset: HealthPopulationData,
                                          name: str, model_id: registry.model_type, session: SessionWrapper,
                                          worker_config=WorkerConfig()):
     dataset_id = harmonize_and_add_health_dataset(health_dataset, name, session, worker_config)
-    return run_backtest(model_id, dataset_id, 3, 4, 1, session)
+    return run_prediction(model_id, dataset_id, 3, session)
+    #return run_backtest(model_id, dataset_id, 3, 4, 1, session)

@@ -11,6 +11,7 @@ import pandas as pd
 
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
 from chap_core.rest_api_src.v1.routers.crud import DatasetCreate
+from chap_core.rest_api_src.v1.routers.analytics import PredictionCreate
 from chap_core.rest_api_src.worker_functions import WorkerConfig
 from chap_core.services.cache_manager import get_cache
 from .data_fixtures import *
@@ -151,6 +152,9 @@ def dataset_create(big_request_json):
                              period=d.pe, orgUnit=d.ou,
                              value=d.value) for f in data.features for d in f.data])
 
+@pytest.fixture
+def make_prediction_request(dataset_create):
+    return PredictionCreate(model_id='naive_model', **dataset_create.dict())
 
 # @pytest.fixture
 # def celery_app():

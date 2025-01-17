@@ -103,8 +103,10 @@ async def create_prediction(prediction: PredictionCreate):
 @router.get("/predictions/{predictionId}", response_model=PredictionRead)
 async def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId")],
                          session: Session = Depends(get_session)):
-    return session.get(Prediction, prediction_id)
-
+    prediction = session.get(Prediction, prediction_id)
+    if prediction is None:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    return prediction
 
 @router.get("/backtest", response_model=list[BackTestRead])
 async def get_backtests(session: Session = Depends(get_session)):

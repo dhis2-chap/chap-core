@@ -39,14 +39,12 @@ class ForecastRead(ForecastBase):
 
 class PredictionRead(PredictionBase):
     id: int
-    forecasts: List[ForecastBase]
+    forecasts: List[ForecastRead]
 
 
 class PredictionForecast(ForecastBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     prediction_id: int = Field(foreign_key="prediction.id")
-    last_train_period: PeriodID
-    last_seen_period: PeriodID
     prediction: 'Prediction' = Relationship(back_populates="forecasts")
     values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
 

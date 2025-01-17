@@ -3,7 +3,7 @@ import time
 from typing import Optional
 
 from sqlmodel import SQLModel, create_engine, Session, select
-from .tables import BackTest, BackTestForecast
+from .tables import BackTest, BackTestForecast, Prediction, PredictionForecast
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
@@ -52,6 +52,21 @@ class SessionWrapper:
                     backtest.forecasts.append(forecast)
         self.session.commit()
         return backtest.id
+
+    def add_predictions(self, predictions, dataset_id, model_id):
+        n_periods = len(list(predictions.values())[0])
+        prediction = Prediction(dataset_id=dataset_id,
+                                estimator_id=model_id,
+                                n_periods=n_periods,
+                                forecasts = [
+                                    PredictionForecast(period=period.id,
+                                                       org_unit=location,
+                                                       values=value.tolist())
+                                for location, data in predictions.items() for period, value in zip(data.time_period, data.samples)])
+        self.session.add(prediction)
+        self.session.commit()
+        return prediction.id
+
 
     def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons):
         logger.info(f"Adding dataset {dataset_name} wiht {len(list(orig_dataset.locations()))} locations")

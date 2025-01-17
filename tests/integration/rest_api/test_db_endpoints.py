@@ -1,12 +1,17 @@
+import json
 import time
 
+from pydantic import BaseModel
+
 from chap_core.api_types import EvaluationEntry
+from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
+from chap_core.database.tables import PredictionRead
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
 
-from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DatasetCreate
+from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DatasetCreate, PredictionCreate
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations
 
 client = TestClient(app)
@@ -76,16 +81,18 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
 
 
-def test_make_prediction_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
-    response = client.post("/v1/analytics/prediction", data=dataset_create.model_dump_json())
+def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
+    data = make_prediction_request.model_dump_json()
+    response = client.post("/v1/analytics/prediction",
+                           data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
-    response = client.get(f"/v1/crud/prediction/{db_id}")
+    response = client.get(f"/v1/crud/predictions/{db_id}")
     assert response.status_code == 200, response.json()
     ds = PredictionRead.model_validate(response.json())
     assert len(ds.forecasts) > 0
-    assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
-
+    assert all(len(f.values) for f in ds.forecasts)
+    #assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
 
 
 def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):

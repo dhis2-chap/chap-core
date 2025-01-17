@@ -1,4 +1,5 @@
 from typing import List, Annotated
+
 import chap_core.rest_api_src.db_worker_functions as wf
 import numpy as np
 from pydantic import BaseModel, confloat
@@ -7,7 +8,8 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Path
 from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry
-from chap_core.datatypes import HealthPopulationData
+from chap_core.database.base_tables import DBModel
+from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
 from .crud import JobResponse, DatasetCreate
 from .dependencies import get_session, get_database_url, get_settings
@@ -44,12 +46,16 @@ async def get_evaluation_entries(
     ]
 
 
+class PredictionCreate(DatasetCreate):
+    model_id: str
+
+
 @router.post('/prediction', response_model=JobResponse)
-async def make_prediction(dataset: DatasetCreate, model_id: str,
+async def make_prediction(dataset: PredictionCreate,
                           datababase_url=Depends(get_database_url),
                           worker_settings=Depends(get_settings)):
-
-    data = dataset_model_to_dataset(dataset)
+    model_id = dataset.model_id
+    data = dataset_model_to_dataset(HealthPopulationData, dataset)
 
     job = worker.queue_db(wf.predict_pipeline_from_health_dataset,
                           data.model_dump(), dataset.name, model_id,

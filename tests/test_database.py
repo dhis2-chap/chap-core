@@ -5,11 +5,12 @@ from sqlmodel import SQLModel, Session, select
 from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
-from chap_core.rest_api_src.db_worker_functions import run_backtest
+from chap_core.rest_api_src.db_worker_functions import run_backtest, run_prediction
 from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database
 from unittest.mock import patch
+
 
 @pytest.fixture
 def engine():
@@ -35,7 +36,7 @@ def test_dataset_roundrip(health_population_data, engine):
 def test_backtest(seeded_engine):
     with Session(seeded_engine) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
-    #with patch('chap_core.database.database.engine', seeded_engine):
+    # with patch('chap_core.database.database.engine', seeded_engine):
     with SessionWrapper(seeded_engine) as session:
         res = run_backtest('naive_model', dataset_id, 12, 2, 1, session=session)
     # res = run_backtest('naive_model', dataset_id, 12, 2, 1)
@@ -45,3 +46,12 @@ def test_backtest(seeded_engine):
         backtest = backtests[0]
         assert backtest.dataset_id == dataset_id
         assert len(backtest.forecasts) == 12 * 2 * 10
+
+
+def test_add_predictions(seeded_engine):
+    with SessionWrapper(seeded_engine) as session:
+        run_prediction('naive_model', 1, 3, session=session)
+
+
+
+
