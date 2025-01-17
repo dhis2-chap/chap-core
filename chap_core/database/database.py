@@ -3,7 +3,9 @@ import time
 from typing import Optional
 
 from sqlmodel import SQLModel, create_engine, Session, select
-from .tables import BackTest, BackTestForecast, Observation, DataSet, DebugEntry
+from .tables import BackTest, BackTestForecast
+from .debug import DebugEntry
+from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
 
@@ -19,6 +21,10 @@ if database_url is not None:
 
 
 class SessionWrapper:
+    '''
+    This is a wrapper around data access operations
+    '''
+
     def __init__(self, local_engine=None, session=None):
         self.engine = local_engine#  or engine
         self.session: Optional[Session] = session
@@ -79,5 +85,3 @@ class SessionWrapper:
 def create_db_and_tables():
     if engine is not None:
         SQLModel.metadata.create_all(engine)
-
-#create_db_and_tables()

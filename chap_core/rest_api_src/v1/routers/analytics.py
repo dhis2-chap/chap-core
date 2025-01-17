@@ -1,5 +1,5 @@
 from typing import List, Annotated
-
+import chap_core.rest_api_src.db_worker_functions as wf
 import numpy as np
 from pydantic import BaseModel, confloat
 
@@ -7,13 +7,20 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Path
 from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry
-from .dependencies import get_session
-from chap_core.database.tables import BackTest, DataSet
+from chap_core.datatypes import HealthPopulationData
+from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
+from .crud import JobResponse, DatasetCreate
+from .dependencies import get_session, get_database_url, get_settings
+from chap_core.database.tables import BackTest
+from chap_core.database.dataset_tables import DataSet
 import logging
+
+from ...celery_tasks import CeleryPool
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 logger = logging.getLogger(__name__)
+worker = CeleryPool()
 
 
 class EvaluationEntryRequest(BaseModel):
@@ -37,6 +44,20 @@ async def get_evaluation_entries(
     ]
 
 
+@router.post('/prediction', response_model=JobResponse)
+async def make_prediction(dataset: DatasetCreate, model_id: str,
+                          datababase_url=Depends(get_database_url),
+                          worker_settings=Depends(get_settings)):
+
+    data = dataset_model_to_dataset(dataset)
+
+    job = worker.queue_db(wf.predict_pipeline_from_health_dataset,
+                          data.model_dump(), dataset.name, model_id,
+                          database_url=datababase_url, worker_config=worker_settings)
+
+    return JobResponse(id=job.id)
+
+
 @router.get("/prediction-entry/{predictionId}", response_model=List[PredictionEntry])
 def get_prediction_entries(prediction_id: Annotated[int, Path(alias="predictionId")],
                            session: Session = Depends(get_session)):
@@ -53,7 +74,7 @@ async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")]
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     data_list = [DataElement(pe=observation.period, ou=observation.org_unit, value=float(observation.value) if not (
-                np.isnan(observation.value) or observation.value is None) else None) for
+            np.isnan(observation.value) or observation.value is None) else None) for
                  observation in data.observations if observation.element_id == "disease_cases"]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(

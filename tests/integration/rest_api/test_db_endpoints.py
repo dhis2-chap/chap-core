@@ -2,11 +2,12 @@ import time
 
 from chap_core.api_types import EvaluationEntry
 from chap_core.database.database import SessionWrapper
-from chap_core.database.tables import DebugEntry
+from chap_core.database.debug import DebugEntry
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
 
-from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DataSet, DatasetCreate, DataSetWithObservations
+from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DatasetCreate
+from chap_core.database.dataset_tables import DataSet, DataSetWithObservations
 
 client = TestClient(app)
 
@@ -39,7 +40,6 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
     response = client.get(path)
     data = DebugEntry.model_validate(response.json())
     assert data.timestamp > start_timestamp
-    # assert response.json()['timestamp'] > start_timestamp
 
 
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
@@ -74,6 +74,18 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     assert len(ds.observations) > 0
     print(response.json())
     assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
+
+
+def test_make_prediction_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
+    response = client.post("/v1/analytics/prediction", data=dataset_create.model_dump_json())
+    assert response.status_code == 200, response.json()
+    db_id = await_result_id(response.json()['id'])
+    response = client.get(f"/v1/crud/prediction/{db_id}")
+    assert response.status_code == 200, response.json()
+    ds = PredictionRead.model_validate(response.json())
+    assert len(ds.forecasts) > 0
+    assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
+
 
 
 def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):

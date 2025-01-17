@@ -12,6 +12,8 @@ def get_session():
     with Session(engine) as session:
         yield session
 
+def get_session_wrapper():
+    ...
 
 def get_gee():
     '''
@@ -19,9 +21,11 @@ def get_gee():
     '''
     return Era5LandGoogleEarthEngine()
 
+
 @lru_cache
 def get_settings():
     return WorkerConfig()
+
 
 def get_database_url():
     return os.getenv("CHAP_DATABASE_URL")

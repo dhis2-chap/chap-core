@@ -10,3 +10,9 @@ def observations_to_dataset(dataclass, observations, fill_missing=False):
     pivoted = dataframe.pivot(columns="element_id", values="value").reset_index()
     new_dataset = _DataSet.from_pandas(pivoted, dataclass, fill_missing=fill_missing)
     return new_dataset
+
+
+def dataset_model_to_dataset(dataclass, dataset, fill_missing=False):
+    ds = observations_to_dataset(dataclass, dataset.observations, fill_missing=fill_missing)
+    ds.set_polygons(dataset.polygons)
+    return ds

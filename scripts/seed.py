@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 
 from chap_core.database.database import SessionWrapper, engine
 from chap_core.data.datasets import ISIMIP_dengue_harmonized
-from chap_core.database.tables import DataSet
+from chap_core.database.dataset_tables import DataSet
 from chap_core.data import DataSet as _DataSet
 from chap_core.datatypes import FullData
 

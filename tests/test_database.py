@@ -2,7 +2,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel, Session, select
 
-from chap_core.database.tables import BackTest, DataSet
+from chap_core.database.tables import BackTest
+from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
 from chap_core.rest_api_src.db_worker_functions import run_backtest
 from chap_core.testing.testing import assert_dataset_equal

@@ -33,3 +33,10 @@ def harmonize_and_add_health_dataset(health_dataset: FullData, name: str, sessio
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False, worker_config=worker_config)
     db_id = session.add_dataset(name, dataset, polygons=health_dataset.polygons.model_dump_json())
     return db_id
+
+
+def predict_pipeline_from_health_dataset(health_dataset: HealthPopulationData,
+                                         name: str, model_id: registry.model_type, session: SessionWrapper,
+                                         worker_config=WorkerConfig()):
+    dataset_id = harmonize_and_add_health_dataset(health_dataset, name, session, worker_config)
+    return run_backtest(model_id, dataset_id, 3, 4, 1, session)

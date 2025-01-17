@@ -1,3 +1,19 @@
+"""
+This module contains rest api endpoints for CRUDish operations on the database
+Create/Post endpoints will either return the database id of the created object or a job id
+that can later be used to retrieve the database id of the created object.
+
+List endpoints will return a list of objects in the database without full data
+
+Get endpoints will return a single object with full data
+
+We try to make the returned objects look as much as possible like the objects in the database
+This is achieved by subclassing common basemodels in the read objects and database table objects
+
+Magic is used to make the returned objects camelCase while internal objects are snake_case
+
+"""
+
 import json
 from datetime import datetime
 from functools import partial
@@ -18,16 +34,19 @@ from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, DataSet, BackTestMetric, BackTestForecast, DebugEntry, \
-    DataSetWithObservations, DBModel, BackTestBase, DataSetBase, ObservationBase
+from chap_core.database.tables import BackTest, BackTestMetric, BackTestForecast, BackTestBase, Prediction, PredictionRead
+from chap_core.database.debug import DebugEntry
+from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
+from chap_core.database.base_tables import DBModel
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
-import chap_core.rest_api_src.worker_functions as normal_wf
 
 router = APIRouter(prefix="/crud", tags=["crud"])
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 worker = CeleryPool()
+
+
 
 
 class JobResponse(BaseModel):
@@ -76,9 +95,15 @@ class PredictionCreate(DBModel):
     n_periods: int
 
 
-@router.post("/prediction", response_model=JobResponse)
+@router.post("/predictions", response_model=JobResponse)
 async def create_prediction(prediction: PredictionCreate):
     raise HTTPException(status_code=501, detail="Not implemented")
+
+
+@router.get("/predictions/{predictionId}", response_model=PredictionRead)
+async def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId")],
+                         session: Session = Depends(get_session)):
+    return session.get(Prediction, prediction_id)
 
 
 @router.get("/backtest", response_model=list[BackTestRead])
@@ -93,11 +118,13 @@ class DatasetCreate(DataSetBase):
 
 @router.get('/datasets/{datasetId}', response_model=DataSetWithObservations)
 async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], session: Session = Depends(get_session)):
-    dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
+    # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
+    dataset = session.get(DataSet, dataset_id)
     assert len(dataset.observations) > 0
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
+
 
 class DataBaseResponse(DBModel):
     id: int
@@ -108,7 +135,6 @@ async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_databas
                          worker_settings=Depends(get_settings)) -> JobResponse:
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate_json(data.geojson))
-    #health_data = normal_wf.get_health_dataset(data, colnames=['orgUnit', 'period'])
     job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name,
                           database_url=datababase_url, worker_config=worker_settings)
     return JobResponse(id=job.id)
@@ -134,7 +160,8 @@ async def debug_entry(database_url: str = Depends(get_database_url)) -> JobRespo
 
 
 @router.get('/debug/{debugId}')
-async def get_debug_entry(debug_id: Annotated[int, Path(alias='debugId')], session: Session = Depends(get_session)) -> DebugEntry:
+async def get_debug_entry(debug_id: Annotated[int, Path(alias='debugId')],
+                          session: Session = Depends(get_session)) -> DebugEntry:
     debug = session.get(DebugEntry, debug_id)
     if debug is None:
         raise HTTPException(status_code=404, detail="Debug entry not found")

@@ -1,4 +1,4 @@
-from chap_core.database.tables import DBModel
+from chap_core.database.base_tables import DBModel
 
 
 def test_dbmodel():

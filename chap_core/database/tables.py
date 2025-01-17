@@ -1,49 +1,10 @@
 from typing import Optional, List
 
-from pydantic import ConfigDict
 from sqlalchemy import create_engine, Column, JSON
-from sqlmodel import Field, SQLModel, Relationship, Session, select
-from pydantic.alias_generators import to_camel
+from sqlmodel import Field, Relationship, Session, select
 
-# def to_camel(string: str) -> str:
-#     parts = string.split('_')
-#     return parts[0] + ''.join(word.capitalize() for word in parts[1:])
+from chap_core.database.base_tables import PeriodID, DBModel
 
-
-PeriodID = str
-
-
-class DBModel(SQLModel):
-    ''' Simple wrapper that uses camelCase for the field names for the rest-api'''
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True)
-
-
-# class FeatureTypes(SQLModel, table=True):
-#     name: str = Field(str, primary_key=True)
-#     display_name: str
-#     description: str
-#
-#
-# class Model(SQLModel, table=True):
-#     id: Optional[int] = Field(primary_key=True, default=None)
-#     name: str
-#     estimator_id: str
-#     features: List[FeatureTypes] = Relationship(back_populates="model")
-#
-#
-# class FeatureSources(SQLModel, table=True):
-#     id: Optional[int] = Field(primary_key=True, default=None)
-#     name: str
-#     feature_type: str
-#     url: str
-#     #metadata: Optional[str] = Field(default=None)
-#
-#
-# class LocalDataSource(SQLModel, table=True):
-#     dhis2_id: str = Field(primary_key=True)
-#     feature_types: List[FeatureTypes] = Relationship(back_populates="source")
 
 class BackTestBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
@@ -56,15 +17,47 @@ class BackTest(BackTestBase, table=True):
     metrics: List['BackTestMetric'] = Relationship(back_populates="backtest")
 
 
-class BackTestForecast(DBModel, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
-    backtest_id: int = Field(foreign_key="backtest.id")
+class ForecastBase(DBModel):
     period: PeriodID
     org_unit: str
+
+
+class PredictionBase(DBModel):
+    dataset_id: int = Field(foreign_key="dataset.id")
+    estimator_id: str
+    n_periods: int
+
+
+class Prediction(PredictionBase, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
+    forecasts: List['PredictionForecast'] = Relationship(back_populates="prediction")
+
+
+class ForecastRead(ForecastBase):
+    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
+
+
+class PredictionRead(PredictionBase):
+    id: int
+    forecasts: List[ForecastBase]
+
+
+class PredictionForecast(ForecastBase, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
+    prediction_id: int = Field(foreign_key="prediction.id")
     last_train_period: PeriodID
     last_seen_period: PeriodID
+    prediction: 'Prediction' = Relationship(back_populates="forecasts")
     values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
+
+
+class BackTestForecast(ForecastBase, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
+    backtest_id: int = Field(foreign_key="backtest.id")
+    last_train_period: PeriodID
+    last_seen_period: PeriodID
     backtest: BackTest = Relationship(back_populates="forecasts")  # TODO: maybe remove this
+    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class BackTestMetric(DBModel, table=True):
@@ -78,50 +71,14 @@ class BackTestMetric(DBModel, table=True):
     backtest: BackTest = Relationship(back_populates="metrics")
 
 
-class ObservationBase(DBModel):
-    period: PeriodID
-    org_unit: str
-    value: Optional[float]
-    element_id: str
-
-
-# rename polygons to geojson
 # merge request json/csv -
 # change crud to v2 ?
-# remove json endpoint
-# add dataset pure
 # maybe have geometry in table
 # direct predictions endpoint
-# add dataset type to dataset
 # maybe add list of models to evaluate
 # maybe add id to health data
 # Maybe add a way to get the health data
 # Hide session objects
-
-class Observation(ObservationBase, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
-    dataset_id: int = Field(foreign_key="dataset.id")
-    dataset: 'DataSet' = Relationship(back_populates="observations")
-
-
-class DataSetBase(DBModel):
-    name: str
-    geojson: Optional[str] = Field(default=None)
-
-
-class DataSet(DataSetBase, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
-    observations: List[Observation] = Relationship(back_populates="dataset")
-
-
-class DataSetWithObservations(DataSetBase):
-    id: int
-    observations: List[ObservationBase]
-
-
-class DebugEntry(DBModel, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
-    timestamp: float
 
 
 def test():
