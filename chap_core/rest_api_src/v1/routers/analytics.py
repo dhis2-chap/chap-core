@@ -9,9 +9,9 @@ from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry
 from chap_core.database.base_tables import DBModel
-from chap_core.datatypes import FullData, HealthPopulationData
+from chap_core.datatypes import HealthPopulationData
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
-from .crud import JobResponse, DatasetCreate
+from .crud import JobResponse, DatasetCreate, BackTestCreate
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
@@ -48,6 +48,21 @@ async def get_evaluation_entries(
 
 class PredictionCreate(DatasetCreate):
     model_id: str
+
+
+class MultiBacktestCreate(DBModel):
+    model_ids: List[str]
+    dataset_id: int
+
+
+@router.post("/create_backtests", response_model=List[JobResponse])
+async def create_backtest(backtests: MultiBacktestCreate, database_url: str = Depends(get_database_url)):
+    job_ids = []
+    for model_id in backtests.model_ids:
+        job = worker.queue_db(wf.run_backtest, model_id, backtests.dataset_id, 12, 2, 1, database_url=database_url)
+        job_ids.append(job.id)
+
+    return [JobResponse(id=job_id) for job_id in job_ids]
 
 
 @router.post('/prediction', response_model=JobResponse)

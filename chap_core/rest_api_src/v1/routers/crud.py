@@ -24,17 +24,18 @@ import pandas as pd
 from pydantic import BaseModel, Field
 from sqlmodel import select
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Query
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from sqlmodel import Session
 
-from chap_core.api_types import FeatureCollectionModel, DataListV2
+from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, BackTestMetric, BackTestForecast, BackTestBase, Prediction, PredictionRead
+from chap_core.database.tables import BackTest, BackTestMetric, BackTestForecast, BackTestBase, Prediction, \
+    PredictionRead
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
 from chap_core.database.base_tables import DBModel
@@ -45,8 +46,6 @@ router = APIRouter(prefix="/crud", tags=["crud"])
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 worker = CeleryPool()
-
-
 
 
 class JobResponse(BaseModel):
@@ -107,6 +106,7 @@ async def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId"
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
     return prediction
+
 
 @router.get("/backtest", response_model=list[BackTestRead])
 async def get_backtests(session: Session = Depends(get_session)):
