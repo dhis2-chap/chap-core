@@ -72,7 +72,7 @@ seeded_feature_types = [
     target_type]
 base_features = [seeded_feature_types[0], seeded_feature_types[1], seeded_feature_types[2]]
 
-seeded_models = (
+seeded_models = [
     ModelSpec(
         name="chap_ewars_monthly",
         parameters={},
@@ -113,4 +113,4 @@ seeded_models = (
         github_link="https://github.com/sandvelab/monthly_ar_model@cadd785872624b4bcd839a39f5e7020c25254c31",
         target=target_type
     ),
-)
+]
