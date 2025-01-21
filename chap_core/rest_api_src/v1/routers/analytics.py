@@ -37,8 +37,8 @@ class FetchRequest(DBModel):
 
 class DatasetMakeRequest(DataSetBase):
     name: str
-    data_to_be_fetched: List[ObservationBase]
-    provided_data: List[FetchRequest]
+    provided_data: List[ObservationBase]
+    data_to_be_fetched: List[FetchRequest]
 
 
 @router.post("/make-dataset", response_model=JobResponse)
