@@ -9,7 +9,6 @@ from sqlmodel import Field, SQLModel, Relationship
 
 
 class FeatureTypeBase(DBModel):
-
     display_name: str
     description: str
 

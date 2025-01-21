@@ -42,10 +42,12 @@ class SessionWrapper:
         return self.session.exec(select(model)).all()
 
     def create_if_not_exists(self, model):
-        if not self.session.exec(select(model)).first():
+        logger.warning(f'Create if not exists does not work as expected')
+        if not self.session.exec(select(type(model))).first():
             self.session.add(model)
             self.session.commit()
         return model
+
 
     def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, dataset_id, model_id):
         backtest = BackTest(dataset_id=dataset_id,
