@@ -14,7 +14,7 @@ from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
 from .crud import JobResponse, DatasetCreate, BackTestCreate
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.database.tables import BackTest
-from chap_core.database.dataset_tables import DataSet
+from chap_core.database.dataset_tables import DataSet, DataSetBase, Observation, ObservationBase
 import logging
 
 from ...celery_tasks import CeleryPool
@@ -28,6 +28,24 @@ worker = CeleryPool()
 class EvaluationEntryRequest(BaseModel):
     backtest_id: int
     quantiles: List[confloat(ge=0, le=1)]
+
+
+class FetchRequest(DBModel):
+    data_source_id: str
+    feature_id: str
+
+
+class DatasetMakeRequest(DataSetBase):
+    name: str
+    data_to_be_fetched: List[ObservationBase]
+    provided_data: List[FetchRequest]
+
+
+@router.post("/make-dataset", response_model=JobResponse)
+def make_dataset(request: DatasetMakeRequest,
+                 database_url=Depends(get_database_url),
+                 worker_settings=Depends(get_settings)):
+    raise HTTPException(status_code=501, detail="Not implemented")
 
 
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])

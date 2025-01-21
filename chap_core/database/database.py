@@ -4,6 +4,7 @@ from typing import Optional
 
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionForecast
+from .model_spec_tables import seeded_feature_types, seeded_models
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
@@ -36,6 +37,15 @@ class SessionWrapper:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.session.close()
         return False
+
+    def list_all(self, model):
+        return self.session.exec(select(model)).all()
+
+    def create_if_not_exists(self, model):
+        if not self.session.exec(select(model)).first():
+            self.session.add(model)
+            self.session.commit()
+        return model
 
     def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, dataset_id, model_id):
         backtest = BackTest(dataset_id=dataset_id,
@@ -100,3 +110,8 @@ class SessionWrapper:
 def create_db_and_tables():
     if engine is not None:
         SQLModel.metadata.create_all(engine)
+        with SessionWrapper(engine) as session:
+            for feature_type in seeded_feature_types + seeded_models:
+                session.create_if_not_exists(feature_type)
+            session.commit()
+

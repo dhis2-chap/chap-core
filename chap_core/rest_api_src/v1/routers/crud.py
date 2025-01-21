@@ -29,6 +29,7 @@ from sqlmodel import Session
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.database import SessionWrapper
+from chap_core.database.model_spec_tables import FeatureType, FeatureSource, ModelSpecRead, ModelSpec
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -170,6 +171,16 @@ async def get_debug_entry(debug_id: Annotated[int, Path(alias='debugId')],
     return debug
 
 
+@router.get('/feature-types', response_model=list[FeatureType])
+def list_feature_types(session: Session = Depends(get_session)):
+    return SessionWrapper(session=session).list_all(FeatureType)
+
+
+@router.get('/feature-sources', response_model=list[FeatureSource])
+def list_feature_types(session: Session = Depends(get_session)):
+    return SessionWrapper(session=session).list_all(FeatureSource)
+
+
 class DataBaseResponse(DBModel):
     id: int
 
@@ -186,3 +197,7 @@ class DataSetRead(DBModel):
 async def get_datasets(session: Session = Depends(get_session)):
     datasets = session.exec(select(DataSet)).all()
     return datasets
+
+@router.get('/models', response_model=list[ModelSpecRead])
+def list_models(session: Session = Depends(get_session)):
+    return SessionWrapper(session=session).list_all(ModelSpec)

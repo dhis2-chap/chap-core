@@ -37,6 +37,7 @@ class EwarsParamSpec(ParameterSpec):
 EmptyParameterSpec = {}
 
 
+# TODO: Move to db spec
 class ModelSpec(BaseModel):
     name: str
     parameters: dict
