@@ -93,7 +93,7 @@ def _convert_prediction_request(json_data: PredictionRequest, worker_config: Wor
     skip_env = hasattr(json_data, "ignore_env") and json_data.ignore_env
     if json_data.estimator_id.startswith('chap_ewars'):
         skip_env = True
-        logger.warning(f"Hack: Skipping env for {json_data.model_id}")
+        logger.warning(f"Hack: Skipping env for {json_data.model_id if hasattr(json_data, 'model_id') else json_data.estimator_id}")
 
     estimator = registry.get_model(json_data.estimator_id, ignore_env=skip_env)
     target_id = get_target_id(json_data, ["disease", "diseases", "disease_cases"])
