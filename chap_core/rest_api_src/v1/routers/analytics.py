@@ -53,7 +53,12 @@ class DatasetMakeRequest(DataSetBase):
 def make_dataset(request: DatasetMakeRequest,
                  database_url=Depends(get_database_url),
                  worker_settings=Depends(get_settings)):
-    raise HTTPException(status_code=501, detail="Not implemented")
+    """
+    This endpoint creates a dataset from the provided data and the data to be fetched
+    and puts it in the database
+    """
+    wf.make_composite_dataset(request, database_url=database_url, worker_config=worker_settings)
+    # raise HTTPException(status_code=501, detail="Not implemented")
 
 
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])
