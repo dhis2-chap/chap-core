@@ -29,6 +29,7 @@ services:
       - chap-network
     volumes:
       - ./logs:/app/logs
+      
 
   worker:
     container_name: worker
