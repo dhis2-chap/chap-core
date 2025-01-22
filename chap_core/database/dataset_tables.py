@@ -10,9 +10,11 @@ from pydantic_geojson import (
     FeatureModel as _FeatureModel,
 )
 
+
 class FeatureCollectionModel(_FeatureCollectionModel):
     features: list[FeatureModel]
-    
+
+
 class ObservationBase(DBModel):
     period: PeriodID
     org_unit: str
@@ -28,8 +30,9 @@ class Observation(ObservationBase, table=True):
 
 class DataSetBase(DBModel):
     name: str
-    geojson: Optional[str] = None # Optional[FeatureCollectionModel] = Field(default=None, sa_type=AutoString) #fix from https://github.com/fastapi/sqlmodel/discussions/730#discussioncomment-7952622
-    type: Optional[str] = None 
+    geojson: Optional[
+        str] = None  # Optional[FeatureCollectionModel] = Field(default=None, sa_type=AutoString) #fix from https://github.com/fastapi/sqlmodel/discussions/730#discussioncomment-7952622
+    type: Optional[str] = None
 
 
 class DataSet(DataSetBase, table=True):

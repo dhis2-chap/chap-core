@@ -33,18 +33,20 @@ class EvaluationEntryRequest(BaseModel):
 class FetchRequest(DBModel):
     data_source_name: str
 
-class MetaDataEntry():
-    element_id : str
-    element_name : str
-    feature_name : str
+
+class MetaDataEntry(BaseModel):
+    element_id: str
+    element_name: str
+    feature_name: str
 
 
-class MetaData():
+class MetaData(BaseModel):
     data_name_mapping: List[MetaDataEntry]
-    
+
+
 class DatasetMakeRequest(DataSetBase):
     name: str
-    metadata : MetaData
+    metadata: MetaData
     provided_data: List[ObservationBase]
     data_to_be_fetched: List[FetchRequest]
 
