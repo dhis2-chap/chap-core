@@ -46,7 +46,7 @@ class MetaData(BaseModel):
 
 class DatasetMakeRequest(DataSetBase):
     name: str
-    metadata: MetaData
+    # metadata: MetaData
     provided_data: List[ObservationBase]
     data_to_be_fetched: List[FetchRequest]
 
