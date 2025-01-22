@@ -78,7 +78,11 @@ class BackTestMetric(DBModel, table=True):
 # Maybe add a way to get the health data
 # Hide session objects
 
-
+# TODO:
+# Maybe version the database ala flyway
+# Alembic, maybe check out south
+# Discuss metadata storing for showing informally to the user
+# MAybe do it when doing landcover
 def test():
     engine = create_engine("sqlite://")
     DBModel.metadata.create_all(engine)

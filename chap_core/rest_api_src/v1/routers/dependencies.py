@@ -8,12 +8,15 @@ from chap_core.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from chap_core.rest_api_src.worker_functions import WorkerConfig
 
 
+# TODO: make dependency injection in celery worker
 def get_session():
     with Session(engine) as session:
         yield session
 
+
 def get_session_wrapper():
     ...
+
 
 def get_gee():
     '''

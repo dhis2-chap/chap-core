@@ -48,7 +48,6 @@ class SessionWrapper:
             self.session.commit()
         return model
 
-
     def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, dataset_id, model_id):
         backtest = BackTest(dataset_id=dataset_id,
                             model_id=model_id,
@@ -110,10 +109,11 @@ class SessionWrapper:
 
 
 def create_db_and_tables():
+    # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
     if engine is not None:
         SQLModel.metadata.create_all(engine)
         with SessionWrapper(engine) as session:
             for feature_type in seeded_feature_types + seeded_models:
                 session.create_if_not_exists(feature_type)
-            session.commit()
+
 
