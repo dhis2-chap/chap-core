@@ -31,7 +31,7 @@ class EvaluationEntryRequest(BaseModel):
 
 
 class FetchRequest(DBModel):
-    data_source_id: str
+    data_source_name: str
 
 
 class DatasetMakeRequest(DataSetBase):
