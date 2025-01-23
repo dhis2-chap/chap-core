@@ -33,6 +33,8 @@ services:
 
   worker:
     container_name: worker
+    depends_on:
+      - postgres
     build:
       context: .
       dockerfile: Dockerfile.inla
