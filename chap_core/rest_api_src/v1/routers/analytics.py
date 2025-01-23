@@ -11,10 +11,10 @@ from chap_core.api_types import EvaluationEntry, DataList, DataElement, Predicti
 from chap_core.database.base_tables import DBModel
 from chap_core.datatypes import HealthPopulationData
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
-from .crud import JobResponse, DatasetCreate, BackTestCreate
+from .crud import JobResponse, DatasetCreate
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.database.tables import BackTest
-from chap_core.database.dataset_tables import DataSet, DataSetBase, Observation, ObservationBase
+from chap_core.database.dataset_tables import DataSet, DataSetBase, ObservationBase
 import logging
 
 from ...celery_tasks import CeleryPool

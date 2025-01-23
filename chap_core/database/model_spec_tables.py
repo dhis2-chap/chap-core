@@ -1,11 +1,10 @@
-import enum
 from typing import Optional, List
 
 from sqlalchemy import JSON, Column
 
 from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, Relationship
 
 
 class FeatureTypeBase(DBModel):

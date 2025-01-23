@@ -1,13 +1,12 @@
 from typing import Optional, List
 
-from pydantic_geojson import FeatureCollectionModel, FeatureModel
+from pydantic_geojson import FeatureModel
 
-from sqlmodel import Field, Relationship, AutoString
+from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import DBModel, PeriodID
 from pydantic_geojson import (
     FeatureCollectionModel as _FeatureCollectionModel,
-    FeatureModel as _FeatureModel,
 )
 
 
