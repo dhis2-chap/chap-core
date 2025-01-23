@@ -2,6 +2,8 @@ import dataclasses
 import time
 from typing import Optional
 
+import psycopg2
+import sqlalchemy
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionForecast
 from .model_spec_tables import seeded_feature_types, seeded_models
@@ -18,7 +20,21 @@ logger = logging.getLogger(__name__)
 engine = None
 database_url = os.getenv("CHAP_DATABASE_URL", default=None)
 if database_url is not None:
-    engine = create_engine(database_url)
+    n = 0
+    while n < 30:
+        try:
+            engine = create_engine(database_url)
+            break
+        except sqlalchemy.exc.OperationalErr as e:
+            logger.error(f"Failed to connect to database: {e}. Trying again")
+            n += 1
+            time.sleep(1)
+        except psycopg2.OperationalError as e:
+            logger.error(f"Failed to connect to database: {e}. Trying again")
+            n += 1
+            time.sleep(1)
+    else:
+        raise ValueError("Failed to connect to database")
 
 
 class SessionWrapper:
