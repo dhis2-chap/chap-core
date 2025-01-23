@@ -77,8 +77,6 @@ def evaluate(
     else:
         model_list = [model_name]
     
-
-    # split on comma
     results_dict = {}
     for name in model_list:
         model = get_model_from_directory_or_github_url(name, ignore_env=ignore_environment, make_run_dir=make_run_dir)
@@ -113,9 +111,11 @@ def evaluate(
             first_model = False
         data.append(row)
     dataframe = pd.DataFrame(data)
-    csvname = Path(report_filename).split(".")[0] + "." + "csv" #assumes the filename has no . before .pdf
+    csvname = Path(report_filename).with_suffix(".csv")
 
     # write dataframe to csvname
+    dataframe.to_csv(csvname, index=False, header=False)
+    logger.info(f"Evaluation complete. Results saved to {csvname}")
 
 
 
