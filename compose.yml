@@ -9,6 +9,7 @@ services:
     depends_on:
         -  redis
         -  worker
+        -  postgres
     container_name: chap
     build: .
     environment:
