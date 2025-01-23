@@ -27,6 +27,7 @@ initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
 logger.info("Logging initialized")
 
+# Job id and database id
 
 def get_app():
     app = FastAPI(root_path="/v1")

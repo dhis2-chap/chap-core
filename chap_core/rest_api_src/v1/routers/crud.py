@@ -49,6 +49,9 @@ router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This m
 worker = CeleryPool()
 
 
+# TODO camel in paths
+
+
 class JobResponse(BaseModel):
     id: str
 
@@ -86,6 +89,7 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
     job = worker.queue_db(wf.run_backtest, backtest.model_id, backtest.dataset_id, 12, 2, 1,
                           database_url=database_url)
+
     return JobResponse(id=job.id)
 
 
@@ -197,6 +201,7 @@ class DataSetRead(DBModel):
 async def get_datasets(session: Session = Depends(get_session)):
     datasets = session.exec(select(DataSet)).all()
     return datasets
+
 
 @router.get('/models', response_model=list[ModelSpecRead])
 def list_models(session: Session = Depends(get_session)):

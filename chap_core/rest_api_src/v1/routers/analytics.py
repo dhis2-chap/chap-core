@@ -34,8 +34,19 @@ class FetchRequest(DBModel):
     data_source_name: str
 
 
+class MetaDataEntry(BaseModel):
+    element_id: str
+    element_name: str
+    feature_name: str
+
+
+class MetaData(BaseModel):
+    data_name_mapping: List[MetaDataEntry]
+
+
 class DatasetMakeRequest(DataSetBase):
     name: str
+    # metadata: MetaData
     provided_data: List[ObservationBase]
     data_to_be_fetched: List[FetchRequest]
 
@@ -44,7 +55,12 @@ class DatasetMakeRequest(DataSetBase):
 def make_dataset(request: DatasetMakeRequest,
                  database_url=Depends(get_database_url),
                  worker_settings=Depends(get_settings)):
-    raise HTTPException(status_code=501, detail="Not implemented")
+    """
+    This endpoint creates a dataset from the provided data and the data to be fetched
+    and puts it in the database
+    """
+    wf.make_composite_dataset(request, database_url=database_url, worker_config=worker_settings)
+    # raise HTTPException(status_code=501, detail="Not implemented")
 
 
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])

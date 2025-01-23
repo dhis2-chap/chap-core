@@ -53,6 +53,7 @@ services:
     volumes:
       - ./logs:/app/logs
 
+
   postgres:
     image: postgres
     restart: always
