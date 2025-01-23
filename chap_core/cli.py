@@ -71,20 +71,52 @@ def evaluate(
         dataset = dataset[dataset_country]
 
     make_run_dir = debug
-    model = get_model_from_directory_or_github_url(model_name, ignore_env=ignore_environment, make_run_dir=make_run_dir)
-    model = model()
-    try:
-        results = evaluate_model(
-            model,
-            dataset,
-            prediction_length=prediction_length,
-            n_test_sets=n_splits,
-            report_filename=report_filename,
-        )
-    except NoPredictionsError as e:
-        logger.error(f"No predictions were made: {e}")
-        return
-    print(results)
+    if "," in model_name:
+        # model_name is not only one model, but contains a list of models
+        model_list = model_name.split(",")
+    else:
+        model_list = [model_name]
+    
+    results_dict = {}
+    for name in model_list:
+        model = get_model_from_directory_or_github_url(name, ignore_env=ignore_environment, make_run_dir=make_run_dir)
+        model = model()
+        try:
+            results = evaluate_model(
+                model,
+                dataset,
+                prediction_length=prediction_length,
+                n_test_sets=n_splits,
+                report_filename=report_filename,
+            )
+        except NoPredictionsError as e:
+            logger.error(f"No predictions were made: {e}")
+            return
+        print(results)
+        results_dict[name] = results
+    
+    #need to iterate through the dict, like key and value or something and then extract the relevant metrics
+    #to a pandas dataframe, and save it as a csv file.
+    #it seems like results contain two dictionairies, one for aggregate metrics and one with seperate ones for each ts
+    
+    data = []
+    first_model = True
+    for key, value in results_dict.items():
+        aggregate_metric_dist = value[0]
+        row = [key]
+        for k, v in aggregate_metric_dist.items():
+            row.append(v)
+        if first_model:
+            data.append(["Model"] + list(aggregate_metric_dist.keys()))
+            first_model = False
+        data.append(row)
+    dataframe = pd.DataFrame(data)
+    csvname = Path(report_filename).with_suffix(".csv")
+
+    # write dataframe to csvname
+    dataframe.to_csv(csvname, index=False, header=False)
+    logger.info(f"Evaluation complete. Results saved to {csvname}")
+
 
 
 @app.command()
