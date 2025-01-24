@@ -19,13 +19,14 @@ import logging
 logger = logging.getLogger(__name__)
 engine = None
 database_url = os.getenv("CHAP_DATABASE_URL", default=None)
+logger.info(f"Database url: {database_url}")
 if database_url is not None:
     n = 0
     while n < 30:
         try:
             engine = create_engine(database_url)
             break
-        except sqlalchemy.exc.OperationalErr as e:
+        except sqlalchemy.exc.OperationalError as e:
             logger.error(f"Failed to connect to database: {e}. Trying again")
             n += 1
             time.sleep(1)
@@ -35,7 +36,8 @@ if database_url is not None:
             time.sleep(1)
     else:
         raise ValueError("Failed to connect to database")
-
+else:
+    logger.warning(f"Database url not set. Database operations will not work")
 
 class SessionWrapper:
     '''
