@@ -27,6 +27,7 @@ initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
 logger.info("Logging initialized")
 
+
 # Job id and database id
 
 def get_app():
@@ -159,9 +160,11 @@ async def predict(data: PredictionRequest, worker_settings=Depends(get_settings)
 
     return {"status": "success"}
 
+
 # TODO: include data flag etc
 @app.post("/evaluate")
-async def evaluate(data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1, worker_settings=Depends(get_settings)) -> dict:
+async def evaluate(data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1,
+                   worker_settings=Depends(get_settings)) -> dict:
     """
     Start an evaluation task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
