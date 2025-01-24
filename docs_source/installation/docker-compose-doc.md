@@ -1,4 +1,4 @@
-# CHAP-Core docker compose setup
+# Setting up CHAP REST-API locally
 
 This is a short example for how to setup CHAP-core locally as a service using docker-compose. 
 

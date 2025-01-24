@@ -4,55 +4,9 @@
 
 Prediction App enables integration between [CHAP Core](https://github.com/dhis2-chap/chap-core) and [DHIS2](https://dhis2.org/) (2.41+). 
 
-## Requirements:
-
-- Access to credentials for Google Earth Engine. (Google Service Account Email and Private Key)
 
 
-
-
-## 1 Setting Up Prediction App
-
-### 1.1 Setting up CHAP-Core REST API
-
-1. For using the Prediction App in a production environment, it's recommended that the Chap REST-API has been set up on a permanent server by a system admin. See more about how to do so [here](#../rest-api/running-chap-on-server.md). 
-
-    > &#x1F6C8; Alternatively, you can follow [the instructions on how to setup a Chap REST-API locally using Docker](../rest-api/docker-compose-doc.md). 
-
-2. Verify that you have access to the CHAP REST-API and that it's running correctly, by visiting `<your-url-to-chap-server>/docs`. A Swagger page (REST-API documentation) should display. 
-
-    > &#x1F6C8; If you're running the REST-API as a local Docker container, verify by going to `http://localhost:8000/docs`.
-
-### 1.2 Download and Install Prediction App
-
-Currently the Prediction App is not yet available on the DHIS2 App Hub. 
-Until then you need to download the Prediction App as a ZIP file for installing it on your DHIS2 instance.
-
-1. Download Prediction App from [https://github.com/dhis2/prediction-app/raw/refs/heads/main/build/bundle/prediction-app-1.0.0.zip](https://github.com/dhis2/prediction-app/raw/refs/heads/main/build/bundle/prediction-app-1.0.0.zip)
-
-2. Upload the ZIP file (Prediction App) to your DHIS2 instance ([Learn how to install a custom DHIS2 app](https://dhis2-app-course.ifi.uio.no/learn/dhis2/app-development-guides/build-publish-app-platform-app/manual-install/))
-
-> &#x1F6C8; Alternatively for developers, you can run a local development version of the Prediction App [as described here](https://github.com/dhis2/prediction-app/blob/main/doc/development/README.md). 
-
-### 1.3 Configure CHAP Core URL
-
-Finally, the Prediction App needs to know which URL to use to communicate with the CHAP Core REST-API. By clicking "Edit CHAP Core URL" located at the right side menu, a modal should display where you can configure this setting.
-
-Set this value to `<your-url-to-chap-server>`. 
-
-> &#x1F6C8; If you're running the REST-API as a local Docker container, this value should be set to `http://localhost:8000`. 
-
-<img src="../_static/edit-chap-url.png" alt="drawing" width="400"/>
-
-After clicking "Save", Prediction App should reload and start to fetch and send data to the provided URL. 
-
-
-
-
-
-## 2 Using Prediction App
-
-### 2.1 Selecting prediction data
+## 1 Selecting prediction data
 
 **Find the Prediction App at your DHIS2 instance and open it**
 
@@ -77,7 +31,7 @@ Click **"Send data to CHAP ➔"** to use Prediction App to transfer data directl
 
 
 
-### 2.2 Status for predictions and prediction import
+## 2 Status for predictions and prediction import
 
 After you have clicked **"Send data to CHAP ➔"**, you will be redirected to the "CHAP Core status" page. On this page, the status of the prediction will be shown. See the image below.
 
@@ -89,19 +43,19 @@ When the information about the status disappears (as shown below), the predictio
 
 
 
-### 2.3 Import prediction page
+## 3 Import prediction page
 
 You will then be redirected to the "Import prediction" page, where you can import the prediction into DHIS2. At the top, you will see a chart, as shown below, describing what you are about to import.
 
 ![](../_static/the_data_you_import.png)
 
-#### Add data elements
+### Add data elements
 
 If you have not yet created a data element to store CHAP prediction, you need to click "Add data elements" and follow the given instructions.
 
 <img src="../_static/add_dataelements_if_not_exists.png" alt="drawing" width="540">
 
-#### Import prediction
+### Import prediction
 
 After you have selected the data elements, click on "Import prediction."
 
@@ -109,7 +63,7 @@ After you have selected the data elements, click on "Import prediction."
 
 
 
-### 2.4 Visualize
+## 4 Visualize
 
 Finally, you have imported the prediction into DHIS2. You can now visualize the prediction in the Data Visualizer App. If you want the visualization immediately, you need to export analytic tables in the "Data Administrator" app first.
 
