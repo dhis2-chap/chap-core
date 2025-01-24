@@ -159,6 +159,7 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
     forecast_dict = _get_forecast_dict(predictor, test_instance)
     with PdfPages(pdf_filename) as pdf:
         for location, forecasts in forecast_dict.items():
+            logging.info(f"Running on location {location}")
             _t = truth[location]
             for forecast in forecasts:
                 plt.figure(figsize=(8, 4))  # Set the figure size
