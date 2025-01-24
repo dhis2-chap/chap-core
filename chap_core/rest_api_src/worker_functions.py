@@ -109,7 +109,7 @@ def dataset_to_datalist(dataset: DataSet[HealthData], target_id: str) -> DataLis
 
 
 def evaluate(json_data: PredictionRequest, n_splits: Optional[int] = None, stride: int = 1,
-             quantiles: Tuple[float] = (0.25, 0.5, 0.75),
+             quantiles: Tuple[float] = (0.25, 0.5, 0.75, 0.1, 0.9),
              worker_config: WorkerConfig = WorkerConfig()
              ) -> EvaluationResponse:
     estimator, json_data, target_id, train_data = _convert_prediction_request(json_data, worker_config=worker_config)
