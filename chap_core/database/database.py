@@ -39,6 +39,7 @@ if database_url is not None:
 else:
     logger.warning("Database url not set. Database operations will not work")
 
+
 class SessionWrapper:
     '''
     This is a wrapper around data access operations
@@ -130,7 +131,16 @@ def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
     if engine is not None:
         logger.info("Engin set. Creating tables")
-        SQLModel.metadata.create_all(engine)
+        n = 0
+        while n < 30:
+            try:
+                SQLModel.metadata.create_all(engine)
+                break
+            except sqlalchemy.exc.OperationalError as e:
+                logger.error(f"Failed to create tables: {e}. Trying again")
+                n += 1
+                time.sleep(1)
+            
         with SessionWrapper(engine) as session:
             for feature_type in seeded_feature_types + seeded_models:
                 session.create_if_not_exists(feature_type)
