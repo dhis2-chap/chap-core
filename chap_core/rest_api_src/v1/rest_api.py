@@ -124,9 +124,6 @@ class NaiveWorker:
         return self.job_class(func, *args, **kwargs)
 
 
-# worker = NaiveWorker()
-# worker = BGTaskWorker(BackgroundTasks(), internal_state, state)
-# worker = RedisQueue()
 worker = CeleryPool()
 
 
@@ -162,7 +159,7 @@ async def predict(data: PredictionRequest, worker_settings=Depends(get_settings)
 
     return {"status": "success"}
 
-
+# TODO: include data flag etc
 @app.post("/evaluate")
 async def evaluate(data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1, worker_settings=Depends(get_settings)) -> dict:
     """

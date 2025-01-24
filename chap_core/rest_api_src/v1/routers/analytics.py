@@ -7,17 +7,18 @@ from pydantic import BaseModel, confloat
 from fastapi import APIRouter, HTTPException, Depends, Query, Path
 from sqlmodel import Session
 
-from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry
+from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry, FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
 from chap_core.datatypes import HealthPopulationData
-from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
-from .crud import JobResponse, DatasetCreate, BackTestCreate
+from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset, observations_to_dataset
+from .crud import JobResponse, DatasetCreate
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.database.tables import BackTest
-from chap_core.database.dataset_tables import DataSet, DataSetBase, Observation, ObservationBase
+from chap_core.database.dataset_tables import DataSet
 import logging
 
 from ...celery_tasks import CeleryPool
+from ...data_models import DatasetMakeRequest
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -30,8 +31,6 @@ class EvaluationEntryRequest(BaseModel):
     quantiles: List[confloat(ge=0, le=1)]
 
 
-class FetchRequest(DBModel):
-    data_source_name: str
 
 
 class MetaDataEntry(BaseModel):
@@ -44,23 +43,21 @@ class MetaData(BaseModel):
     data_name_mapping: List[MetaDataEntry]
 
 
-class DatasetMakeRequest(DataSetBase):
-    name: str
-    # metadata: MetaData
-    provided_data: List[ObservationBase]
-    data_to_be_fetched: List[FetchRequest]
-
-
 @router.post("/make-dataset", response_model=JobResponse)
 def make_dataset(request: DatasetMakeRequest,
-                 database_url=Depends(get_database_url),
+                 database_url: str=Depends(get_database_url),
                  worker_settings=Depends(get_settings)):
     """
-    This endpoint creates a dataset from the provided data and the data to be fetched
+    This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
     """
-    wf.make_composite_dataset(request, database_url=database_url, worker_config=worker_settings)
-    # raise HTTPException(status_code=501, detail="Not implemented")
+    health_data = observations_to_dataset(HealthPopulationData, request.provided_data, fill_missing=True)
+    provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
+    health_data.set_polygons(FeatureCollectionModel.model_validate_json(request.geojson))
+    job = worker.queue_db(wf.make_composite_dataset,
+                          health_data.model_dump(), request.name,
+                          database_url=database_url, worker_config=worker_settings)
+    return JobResponse(id=job.id)
 
 
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])

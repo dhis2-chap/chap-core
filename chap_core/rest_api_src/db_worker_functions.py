@@ -4,6 +4,7 @@ from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.predictor.model_registry import registry
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
+from chap_core.rest_api_src.data_models import DatasetMakeRequest
 from chap_core.rest_api_src.worker_functions import harmonize_health_dataset, WorkerConfig
 from chap_core.data import DataSet as InMemoryDataSet
 
@@ -43,6 +44,15 @@ def harmonize_and_add_health_dataset(health_dataset: FullData, name: str, sessio
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False, worker_config=worker_config)
     db_id = session.add_dataset(name, dataset, polygons=health_dataset.polygons.model_dump_json())
     return db_id
+
+def harmonize_and_add_composite_dataset(
+        health_dataset: InMemoryDataSet[HealthPopulationData],
+        request: DatasetMakeRequest,
+        name: str,
+        session: SessionWrapper,
+        worker_config=WorkerConfig()) -> FullData:
+    raise NotImplementedError('This function is not implemented yet')
+
 
 
 def predict_pipeline_from_health_dataset(health_dataset: HealthPopulationData,
