@@ -92,3 +92,4 @@ The following is an overview of all pages in the documentation:
    developer/testing
    developer/writing_building_documentation
    developer/code_guidelines
+   developer/manual_runs

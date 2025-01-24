@@ -90,14 +90,20 @@ def evaluate_model(
         )
         for location in data.keys()
     }
+    if report_filename is None:
+        report_filename = "evaluation_report.pdf"
+
     if report_filename is not None:
         logger.info(f"Plotting forecasts to {report_filename}")
         _, plot_test_generatro = train_test_generator(
             data, prediction_length, n_test_sets, future_weather_provider=weather_provider
         )
-        plot_forecasts(predictor, plot_test_generatro, truth_data, report_filename)
+        forecasts_and_truths_generator = plot_forecasts(predictor, plot_test_generatro, truth_data, report_filename)
+
     logger.info("Getting forecasts")
-    forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
+    #forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
+    forecast_list, tss = zip(*forecasts_and_truths_generator)
+
     logger.info("Evaluating")
     evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9], num_workers=None)
     results = evaluator(tss, forecast_list)
@@ -164,6 +170,7 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
                 plt.legend()
                 pdf.savefig()
                 plt.close()  # Close the figure
+                yield forecast, t
 
 
 def plot_predictions(predictions: DataSet[Samples], truth: DataSet, pdf_filename):

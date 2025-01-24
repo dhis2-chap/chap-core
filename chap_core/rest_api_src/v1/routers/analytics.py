@@ -51,8 +51,9 @@ def make_dataset(request: DatasetMakeRequest,
     This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
     """
+    raise NotImplementedError("Not implemented")
     health_data = observations_to_dataset(HealthPopulationData, request.provided_data, fill_missing=True)
-    provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
+    #provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     health_data.set_polygons(FeatureCollectionModel.model_validate_json(request.geojson))
     job = worker.queue_db(wf.make_composite_dataset,
                           health_data.model_dump(), request.name,
