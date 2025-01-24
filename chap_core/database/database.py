@@ -2,6 +2,8 @@ import dataclasses
 import time
 from typing import Optional
 
+import psycopg2
+import sqlalchemy
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionForecast
 from .model_spec_tables import seeded_feature_types, seeded_models
@@ -17,8 +19,25 @@ import logging
 logger = logging.getLogger(__name__)
 engine = None
 database_url = os.getenv("CHAP_DATABASE_URL", default=None)
+logger.info(f"Database url: {database_url}")
 if database_url is not None:
-    engine = create_engine(database_url)
+    n = 0
+    while n < 30:
+        try:
+            engine = create_engine(database_url)
+            break
+        except sqlalchemy.exc.OperationalError as e:
+            logger.error(f"Failed to connect to database: {e}. Trying again")
+            n += 1
+            time.sleep(1)
+        except psycopg2.OperationalError as e:
+            logger.error(f"Failed to connect to database: {e}. Trying again")
+            n += 1
+            time.sleep(1)
+    else:
+        raise ValueError("Failed to connect to database")
+else:
+    logger.warning("Database url not set. Database operations will not work")
 
 
 class SessionWrapper:
@@ -42,7 +61,7 @@ class SessionWrapper:
         return self.session.exec(select(model)).all()
 
     def create_if_not_exists(self, model):
-        logger.warning(f'Create if not exists does not work as expected')
+        logger.warning('Create if not exists does not work as expected')
         if not self.session.exec(select(type(model))).first():
             self.session.add(model)
             self.session.commit()
@@ -111,9 +130,21 @@ class SessionWrapper:
 def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
     if engine is not None:
-        SQLModel.metadata.create_all(engine)
+        logger.info("Engin set. Creating tables")
+        n = 0
+        while n < 30:
+            try:
+                SQLModel.metadata.create_all(engine)
+                break
+            except sqlalchemy.exc.OperationalError as e:
+                logger.error(f"Failed to create tables: {e}. Trying again")
+                n += 1
+                time.sleep(1)
+            
         with SessionWrapper(engine) as session:
             for feature_type in seeded_feature_types + seeded_models:
                 session.create_if_not_exists(feature_type)
+    else:
+        logger.warning("Engine not set. Tables not created")
 
 
