@@ -1,12 +1,14 @@
 import os
+from datetime import datetime
 from pathlib import Path
-from typing import Callable, Generic
+from typing import Callable, Generic, List
 import logging
 from celery import Celery, shared_task, Task
 from celery.result import AsyncResult
 from dotenv import find_dotenv, load_dotenv
 
 import celery
+from pydantic import BaseModel
 from sqlalchemy import create_engine
 
 from ..database.database import SessionWrapper
@@ -20,6 +22,13 @@ logger.setLevel(logging.INFO)
 
 
 # Send database url in function queue call. Have a dict in module of database url to engines. Look up engine in dict
+class JobDescription(BaseModel):
+    id: str
+    description: str
+    status: str
+    start_time: datetime
+    hostname: str
+
 
 class TaskWithPerTaskLogging(Task):
     def __call__(self, *args, **kwargs):
@@ -81,9 +90,10 @@ app.conf.update(
     result_serializer="pickle",
 )
 
+
 # logger.warning("No database URL set")
 # This is hacky, but defaults to using the test database. Should be synched with what is setup in conftest
-#engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
+# engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
 
 
 def add_numbers(a: int, b: int):
@@ -141,7 +151,9 @@ class CeleryJob(Generic[ReturnType]):
 def celery_run(func, *args, **kwargs):
     return func(*args, **kwargs)
 
+
 ENGINES_CACHE = {}
+
 
 @app.task(base=TaskWithPerTaskLogging)
 def celery_run_with_session(func, *args, **kwargs):
@@ -171,12 +183,21 @@ class CeleryPool(Generic[ReturnType]):
     def get_job(self, task_id: str) -> CeleryJob[ReturnType]:
         return CeleryJob(AsyncResult(task_id, app=self._celery), app=self._celery)
 
-    def list_jobs(self):
-        active = self._celery.control.inspect().active()
-        scheduled = self._celery.control.inspect().scheduled()
-        reserved = self._celery.control.inspect().reserved()
-        return {
-            "active": active or [],
-            "scheduled": scheduled or [],
-            "reserved": reserved or [],
-        }
+    def _describe_job(self, job_info: dict) -> str:
+        func, *args = job_info["args"]
+        func_name = func.__name__
+        return f"{func_name}({', '.join(map(str, args))})"
+
+    def list_jobs(self)-> List[JobDescription]:
+
+        all_jobs = {'active': self._celery.control.inspect().active(),
+                    'scheduled': self._celery.control.inspect().scheduled(),
+                    'reserved': self._celery.control.inspect().reserved()}
+        print(all_jobs)
+        return [JobDescription(id=info['id'],
+                               description=self._describe_job(info),
+                               status=status,
+                               start_time=datetime.fromtimestamp(info["time_start"]),
+                               hostname=hostname)
+                for status, host_dict in all_jobs.items() for hostname, jobs in host_dict.items() for info in jobs]
+

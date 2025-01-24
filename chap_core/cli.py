@@ -5,38 +5,33 @@ import json
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 from cyclopts import App
 
+from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
 from chap_core.external.mlflow_wrappers import NoPredictionsError
 from chap_core.log_config import initialize_logging
-from chap_core.predictor.model_registry import naive_spec, registry
-from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
+from chap_core.predictor.model_registry import registry
+
 from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from . import api
-from chap_core.dhis2_interface.ChapProgram import ChapPullPost
-from chap_core.dhis2_interface.json_parsing import add_population_data
-
-# from chap_core.external.models.jax_models.model_spec import (
-#    SSMForecasterNuts,
-#    NutsParams,
-# )
-# from chap_core.external.models.jax_models.specs import SSMWithoutWeather
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
-from chap_core.predictor import ModelType, model_registry
+from chap_core.predictor import ModelType
 from chap_core.file_io.example_data_set import datasets, DataSetType
-from chap_core.time_period.date_util_wrapper import delta_month, Week
+from chap_core.time_period.date_util_wrapper import delta_month
 from .assessment.prediction_evaluator import evaluate_model, backtest as _backtest
 from .assessment.forecast import multi_forecast as do_multi_forecast
 
 import logging
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -64,7 +59,7 @@ def evaluate(
     """
     initialize_logging(debug, log_file)
     logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
-    
+
     dataset = datasets[dataset_name]
     dataset = dataset.load()
 
@@ -76,20 +71,89 @@ def evaluate(
         dataset = dataset[dataset_country]
 
     make_run_dir = debug
-    model = get_model_from_directory_or_github_url(model_name, ignore_env=ignore_environment, make_run_dir=make_run_dir)
-    model = model()
+    if "," in model_name:
+        # model_name is not only one model, but contains a list of models
+        model_list = model_name.split(",")
+    else:
+        model_list = [model_name]
+    
+    results_dict = {}
+    for name in model_list:
+        model = get_model_from_directory_or_github_url(name, ignore_env=ignore_environment, make_run_dir=make_run_dir)
+        model = model()
+        try:
+            results = evaluate_model(
+                model,
+                dataset,
+                prediction_length=prediction_length,
+                n_test_sets=n_splits,
+                report_filename=report_filename,
+            )
+        except NoPredictionsError as e:
+            logger.error(f"No predictions were made: {e}")
+            return
+        print(results)
+        results_dict[name] = results
+    
+    #need to iterate through the dict, like key and value or something and then extract the relevant metrics
+    #to a pandas dataframe, and save it as a csv file.
+    #it seems like results contain two dictionairies, one for aggregate metrics and one with seperate ones for each ts
+    
+    data = []
+    first_model = True
+    for key, value in results_dict.items():
+        aggregate_metric_dist = value[0]
+        row = [key]
+        for k, v in aggregate_metric_dist.items():
+            row.append(v)
+        if first_model:
+            data.append(["Model"] + list(aggregate_metric_dist.keys()))
+            first_model = False
+        data.append(row)
+    dataframe = pd.DataFrame(data)
+    csvname = Path(report_filename).with_suffix(".csv")
+
+    # write dataframe to csvname
+    dataframe.to_csv(csvname, index=False, header=False)
+    logger.info(f"Evaluation complete. Results saved to {csvname}")
+
+
+
+@app.command()
+def sanity_check_model(model_url: str, use_local_environement: bool = False):
+    '''
+    Check that a model can be loaded, trained and used to make predictions
+    '''
+    dataset = datasets["hydromet_5_filtered"].load()
+    train, tests = train_test_generator(dataset, 3, n_test_sets=2)
+    context, future, truth = next(tests)
     try:
-        results = evaluate_model(
-            model,
-            dataset,
-            prediction_length=prediction_length,
-            n_test_sets=n_splits,
-            report_filename=report_filename,
-        )
-    except NoPredictionsError as e:
-        logger.error(f"No predictions were made: {e}")
-        return
-    print(results)
+        model = get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
+        estimator = model()
+    except Exception as e:
+        logger.error(f"Error while creating model: {e}")
+        return False
+    try:
+        predictor = estimator.train(train)
+    except Exception as e:
+        logger.error(f"Error while training model: {e}")
+        return False
+    try:
+        predictions = predictor.predict(context, future)
+    except Exception as e:
+        logger.error(f"Error while forecasting: {e}")
+        return False
+    for location, prediction in predictions.items():
+        assert not np.isnan(prediction.samples).any(), f"NaNs in predictions for location {location}, {prediction.samples}"
+    context, future, truth = next(tests)
+    try:
+        predictions = predictor.predict(context, future)
+    except Exception as e:
+        logger.error(f"Error while forecasting from a future time point: {e}")
+        return False
+    for location, prediction in predictions.items():
+        assert not np.isnan(prediction.samples).any(), f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
+
 
 
 @app.command()
@@ -150,53 +214,12 @@ def multi_forecast(
 
 
 @app.command()
-def dhis_pull(base_url: str, username: str, password: str):
-    path = Path("dhis2analyticsResponses/")
-    path.mkdir(exist_ok=True, parents=True)
-    from chap_core.dhis2_interface.ChapProgram import ChapPullPost
-
-    process = ChapPullPost(
-        dhis2Baseurl=base_url.rstrip("/"),
-        dhis2Username=username,
-        dhis2Password=password,
-    )
-    full_data_frame = get_full_dataframe(process)
-    disease_filename = (path / process.DHIS2HealthPullConfig.get_id()).with_suffix(".csv")
-    full_data_frame.to_csv(disease_filename)
-
-
-def get_full_dataframe(process):
-    disease_data_frame = process.pullDHIS2Analytics()
-    population_data_frame = process.pullPopulationData()
-    full_data_frame = add_population_data(disease_data_frame, population_data_frame)
-    return full_data_frame
-
-
-@app.command()
-def dhis_flow(base_url: str, username: str, password: str, n_periods=1):
-    process = ChapPullPost(
-        dhis2Baseurl=base_url.rstrip("/"),
-        dhis2Username=username,
-        dhis2Password=password,
-    )
-    full_data_frame = get_full_dataframe(process)
-    modelspec = naive_spec
-    model = model_registry['naive_model']()
-    model.train(full_data_frame)
-    predictions = model.prediction_summary(Week(full_data_frame.end_timestamp))
-    json_response = process.pushDataToDHIS2(predictions, modelspec.__class__.__name__, do_dict=False)
-    # save json
-    json_filename = Path("dhis2analyticsResponses/") / f"{modelspec.__class__.__name__}.json"
-    with open(json_filename, "w") as f:
-        json.dump(json_response, f, indent=4)
-
-
-@app.command()
 def serve(seedfile: Optional[str] = None, debug: bool = False):
     """
     Start CHAP as a backend server
     """
     from .rest_api_src.v1.rest_api import main_backend
+    logger.info("Running chap serve")
     if seedfile is not None:
         data = json.load(open(seedfile))
     else:
@@ -209,6 +232,7 @@ def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
     """
+    from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
     schema = get_openapi_schema()
     with open(out_path, "w") as f:
         json.dump(schema, f, indent=4)
@@ -236,69 +260,18 @@ def test(**base_kwargs):
     Simple test-command to check that the chap command works
     """
     initialize_logging()
-   
+
     logger.debug("Debug message")
     logger.info("Info message")
-    
+
 
 @dataclasses.dataclass
 class AreaPolygons: ...
 
 
-"""@dataclasses.dataclass
-class PredictionData:
-    area_polygons: AreaPolygons
-    health_data: SpatioTemporalDict[HealthData]
-    climate_data: SpatioTemporalDict[ClimateData]
-    population_data: SpatioTemporalDict[PopulationData]
-
-
-def read_zip_folder(zip_file_path: str):
-    #
-    zip_file_reader = ZipFileReader(zip_file_path)
-    ...
-
-
-def convert_geo_json(geo_json_content) -> OurShapeFormat:
-    ...
-
-# def write_graph_data(geo_json_content) -> None:
-#    ...
-
-
-
-
-
-# GeoJson convertion
-# zip folder reading
-# GOthenburg
-# Create prediction csv
-"""
-
-
 @app.command()
-def dhis_zip_flow(
-        zip_file_path: str,
-        out_json: str,
-        model_name: Optional[str] = None,
-        docker_filename: Optional[str] = None,
-):
-    """
-    Run an forecasting evaluation on  data from a zip file from DHIS2, and save the results to a json file
-    Run using the specified model_name, which can also be a path to a yaml file. Optionally specify a docker filename
-
-    Parameters:
-        zip_file_path: str: Path to the zip file
-        out_json: str: Path to the output json file
-        model_name: Optional[str]: Name of the model to use, or path to a yaml file
-        docker_filename: Optional[str]: Path to a docker file
-    """
-
-    api.dhis_zip_flow(zip_file_path, out_json, model_name, docker_filename=docker_filename)
-
-
-@app.command()
-def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path, prediction_length: int = 12, n_test_sets: int = 20, stride: int = 2):
+def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path, prediction_length: int = 12,
+             n_test_sets: int = 20, stride: int = 2):
     """
     Run a backtest on a dataset using the specified model
 
@@ -318,7 +291,7 @@ def backtest(data_filename: Path, model_name: registry.model_type, out_folder: P
         predictions_list,
         quantiles=[0.05, 0.25, 0.5, 0.75, 0.95],
         real_data=dataset_to_datalist(dataset, 'dengue'))
-    dataframe = pd.DataFrame([entry.dict() for entry in response.predictions])
+    dataframe = pd.DataFrame([entry.model_dump() for entry in response.predictions])
     data_name = data_filename.stem
     dataframe.to_csv(out_folder / f'{data_name}_evaluation_{model_name}.csv')
     serialized_response = response.json()
@@ -338,7 +311,6 @@ def main_function():
 
     """
     return
-
 
 
 def main():

@@ -10,3 +10,5 @@ The main documentation is located at [https://dhis2-chap.github.io/chap-core/](h
 ## Development
 We have an open Github board with plans, roadmaps and todo here: [https://github.com/orgs/dhis2-chap/projects/4](https://github.com/orgs/dhis2-chap/projects/4).
 
+## Issues/Bugs
+If you find any bugs or issues when using CHAP, we appreciate it if you file a bug report here: https://github.com/dhis2-chap/chap-core/issues/new

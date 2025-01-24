@@ -1,9 +1,14 @@
+"""
+NOTE: This file is not used in the current implementation of the CHAP-app. The functionanality is deprecated and this file will
+be removed in the future.
+"""
+
 from pathlib import Path
 import logging
 
 from cyclopts import App
 
-from chap_core.api_types import RequestV1
+from chap_core.api_types import PredictionRequest
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.datatypes import FullData
@@ -49,7 +54,7 @@ def harmonize(input_filename: Path, output_filename: Path):
 
     with open(input_filename, "r") as f:
         text = f.read()
-    request_data = RequestV1.model_validate_json(text)
+    request_data = PredictionRequest.model_validate_json(text)
     dataset = dataset_from_request_v1(request_data, usecwd_for_credentials=True)
     dataset.to_csv(output_filename)
 
@@ -129,6 +134,7 @@ def predict(
 
 def main():
     app = App()
+    print("!!!\nTHE COMMANDS UNDER CHAP-CLI ARE DEPRECATED AND WILL BE REMOVED IN THE FUTURE\n!!!")
     app.command(harmonize)
     app.command(evaluate)
     app.command(predict)

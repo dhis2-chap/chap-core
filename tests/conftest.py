@@ -1,20 +1,55 @@
+import json
 import os
 import shutil
 from unittest.mock import patch
 from pathlib import Path
 import numpy as np
-
+import pytest
+from sqlmodel import SQLModel
+from chap_core.api_types import RequestV1
+from chap_core.database.dataset_tables import ObservationBase, DataSet
 from chap_core.database.tables import *
 import pandas as pd
 
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
+from chap_core.rest_api_src.v1.routers.crud import DatasetCreate
+from chap_core.rest_api_src.v1.routers.analytics import PredictionCreate
+from chap_core.rest_api_src.worker_functions import WorkerConfig
 from chap_core.services.cache_manager import get_cache
 from .data_fixtures import *
 
 # ignore showing plots in tests
 import matplotlib.pyplot as plt
 
+# Don't use pytest-celery if on windows
+IS_WINDOWS = os.name == "nt"
+
+
+@pytest.fixture(scope='session')
+def redis_available():
+    import redis
+    try:
+        redis.Redis().ping()
+        return True
+    except redis.exceptions.ConnectionError:
+        pytest.skip("Redis not available")
+
+
 pytest_plugins = ("celery.contrib.pytest",)
+
+
+@pytest.fixture(scope='session')
+def celery_session_worker(redis_available, celery_session_worker):
+    return celery_session_worker
+
+
+# if not IS_WINDOWS:
+#
+# else:
+#     @pytest.fixture(scope='session')
+#     def celery_session_worker():
+#         pytest.skip("pytest-celery not available on Windows")
+
 plt.ion()
 
 
@@ -44,6 +79,13 @@ def data_path():
 @pytest.fixture
 def models_path():
     return Path(__file__).parent.parent / "external_models"
+
+@pytest.fixture
+def local_data_path():
+    path =  Path('/home/knut/Data/ch_data/')
+    if not path.exists():
+        pytest.skip("Data path does not exist")
+    return path
 
 
 @pytest.fixture
@@ -82,10 +124,12 @@ def google_earth_engine():
     except:
         pytest.skip("Google Earth Engine not available")
 
+
 @pytest.fixture()
 def mocked_gee(gee_mock):
     with patch('chap_core.rest_api_src.worker_functions.Era5LandGoogleEarthEngine', gee_mock):
         yield
+
 
 @pytest.fixture()
 def gee_mock():
@@ -106,6 +150,31 @@ def big_request_json(data_path):
     with open(filepath, "r") as f:
         return f.read()
 
+@pytest.fixture
+def laos_request(local_data_path):
+    filepath = local_data_path / "laos_requet.json"
+    with open(filepath, "r") as f:
+        text  = f.read()
+    dicts = json.loads(text)
+    dicts['estimator_id'] = 'naive_model'
+    return json.dumps(dicts)
+
+
+
+
+@pytest.fixture
+def dataset_create(big_request_json):
+    data = RequestV1.model_validate_json(big_request_json)
+    return DatasetCreate(name='test',
+                         geojson=data.orgUnitsGeoJson.model_dump_json(),
+                         observations=[ObservationBase(
+                             element_id=f.featureId if f.featureId != 'diseases' else 'disease_cases',
+                             period=d.pe, orgUnit=d.ou,
+                             value=d.value) for f in data.features for d in f.data])
+
+@pytest.fixture
+def make_prediction_request(dataset_create):
+    return PredictionCreate(model_id='naive_model', **dataset_create.dict())
 
 # @pytest.fixture
 # def celery_app():
@@ -135,8 +204,6 @@ class GEEMock:
                             SimpleClimateData(periodes, np.random.rand(len(periodes)),
                                               np.random.rand(len(periodes)))
                         for location in locations})
-
-
 
 
 @pytest.fixture(scope='session')
@@ -173,16 +240,6 @@ def celery_worker_pool():
     return 'prefork'
 
 
-@pytest.fixture(scope='session')
-def redis_available():
-    import redis
-    try:
-        redis.Redis().ping()
-        return True
-    except redis.exceptions.ConnectionError:
-        pytest.skip("Redis not available")
-
-
-@pytest.fixture(scope='session')
-def celery_session_worker(redis_available, celery_session_worker):
-    return celery_session_worker
+@pytest.fixture
+def test_config():
+    return WorkerConfig(is_test=True)

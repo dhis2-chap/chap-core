@@ -2,10 +2,11 @@ from pathlib import Path
 from typing import Generic, TypeVar, Literal
 import logging
 import pandas as pd
-import mlflow
+#import mlflow
 import yaml
 from mlflow.utils.process import ShellCommandException
-
+import mlflow.projects
+import mlflow.exceptions
 from chap_core.datatypes import HealthData, Samples
 from chap_core.exceptions import CommandLineException, ModelConfigurationException, ModelFailedException
 from chap_core.exceptions import NoPredictionsError
@@ -21,7 +22,8 @@ logger = logging.getLogger(__name__)
 FeatureType = TypeVar("FeatureType")
 
 
-def get_train_predict_runner(mlproject_file: Path, runner_type: Literal["mlflow", "docker"], skip_environment=False) -> TrainPredictRunner:
+def get_train_predict_runner(mlproject_file: Path, runner_type: Literal["mlflow", "docker"],
+                             skip_environment=False) -> TrainPredictRunner:
     """
     Returns a TrainPredictRunner based on the runner_type.
     If runner_type is "mlflow", returns an MlFlowTrainPredictRunner.
@@ -92,7 +94,6 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         )
 
 
-
 class CommandLineTrainPredictRunner(TrainPredictRunner):
     def __init__(self, runner: CommandLineRunner, train_command: str, predict_command: str):
         self._runner = runner
@@ -103,17 +104,18 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         try:
             return command.format(**keys)
         except KeyError as e:
-            raise ModelConfigurationException(f"Was not able to format command {command}. Does the command contain wrong keys or keys that there is not data for in the dataset?") from e
-        
+            raise ModelConfigurationException(
+                f"Was not able to format command {command}. Does the command contain wrong keys or keys that there is not data for in the dataset?") from e
+
     def _handle_polygons(self, command, keys, polygons_file_name=None):
         # adds polygons to keys if polygons exist. Does some checking with compatibility with command
         if polygons_file_name is not None:
             if "{polygons}" not in command:
-                logger.warning(f"Dataset has polygons, but command {command} does not ask for polygons. Will not insert polygons into command.")
+                logger.warning(
+                    f"Dataset has polygons, but command {command} does not ask for polygons. Will not insert polygons into command.")
             else:
                 keys["polygons"] = polygons_file_name
         return keys
-
 
     def train(self, train_file_name, model_file_name, polygons_file_name=None):
         keys = {"train_data": train_file_name, "model": model_file_name}
@@ -136,6 +138,7 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
 class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
     """This is basically a CommandLineTrainPredictRunner, but with a DockerRunner
     instead of a CommandLineRunner as runner"""
+
     def __init__(self, runner: DockerRunner, train_command: str, predict_command: str):
         super().__init__(runner, train_command, predict_command)
 
@@ -149,12 +152,12 @@ class ExternalModel(Generic[FeatureType]):
     """
 
     def __init__(
-        self,
-        runner: MlFlowTrainPredictRunner | DockerTrainPredictRunner | CommandLineRunner,
-        name: str = None,
-        adapters=None,
-        working_dir="./",
-        data_type=HealthData,
+            self,
+            runner: MlFlowTrainPredictRunner | DockerTrainPredictRunner | CommandLineRunner,
+            name: str = None,
+            adapters=None,
+            working_dir="./",
+            data_type=HealthData,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
@@ -194,7 +197,7 @@ class ExternalModel(Generic[FeatureType]):
         new_pd.to_csv(train_file_name_full)
 
         try:
-            self._runner.train(train_file_name, self._model_file_name, 
+            self._runner.train(train_file_name, self._model_file_name,
                                polygons_file_name="polygons.geojson" if self._polygons_file_name is not None else None
                                )
         except CommandLineException as e:
@@ -294,5 +297,3 @@ class ExternalModel(Generic[FeatureType]):
         self._runner.teardown()
 
         return DataSet.from_pandas(df, Samples)
-
-

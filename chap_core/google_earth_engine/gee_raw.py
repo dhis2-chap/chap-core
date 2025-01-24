@@ -135,8 +135,6 @@ def fetch_era5_data_generator(
                      res.items() for band, value in properties.items())
             yield from items
 
-    # return data
-
 
 def fetch_era5_data(
         credentials: GEECredentials | dict[str, str],

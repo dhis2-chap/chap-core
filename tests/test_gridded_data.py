@@ -18,6 +18,6 @@ def polygons_filename(data_path):
 
 @pytest.mark.skip("Not implemented")
 def test_get_gridded_data(polygons_filename):
-    from chap_core.climate_data.gridded_data import get_gridded_data
+    from scripts.gridded_data import get_gridded_data
 
     get_gridded_data(polygons_filename)

@@ -50,7 +50,7 @@ To verify that the installation worked, check that you have the `chap` and `chap
 Local or server setup with docker
 ----------------------------------
 
-If you want to run models that are already available with CHAP locally on a computer or on a server, we recommend setting up CHAP using docker. :doc:`See this guide for setting up CHAP using Docker Compose <docker-compose-doc>`.
+If you want to run models that are already available with CHAP locally on a computer or on a server, we recommend setting up CHAP using docker. A guide for setting up CHAP using Docker will be provided here shortly.
 
 
 Setting up CHAP inside an LXD container

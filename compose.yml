@@ -9,6 +9,7 @@ services:
     depends_on:
         -  redis
         -  worker
+        -  postgres
     container_name: chap
     build: .
     environment:
@@ -29,9 +30,12 @@ services:
       - chap-network
     volumes:
       - ./logs:/app/logs
+      
 
   worker:
     container_name: worker
+    depends_on:
+      - postgres
     build:
       context: .
       dockerfile: Dockerfile.inla
@@ -49,6 +53,7 @@ services:
         - chap-network
     volumes:
       - ./logs:/app/logs
+
 
   postgres:
     image: postgres

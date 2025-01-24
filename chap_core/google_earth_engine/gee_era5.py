@@ -189,13 +189,11 @@ class Era5LandGoogleEarthEngine:
             logger.error(e)
             raise GEEError("Could not initialize Google Earth Engine") from e
 
-    def get_historical_era5(self, features, periodes: Iterable[TimePeriod]):
+    def get_historical_era5(self, features: dict, periodes: Iterable[TimePeriod]):
         ee_reducer_type = "mean"
 
         collection = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select([band.name for band in bands])
         feature_collection: ee.FeatureCollection = ee.FeatureCollection(features)
-
-        # Creates a ee.List for every periode, containing id (periodeId), start_date and end_date for each period
         periode_list = ee.List([self.gee_helper.create_ee_dict(p) for p in periodes])
 
         ee_scale = collection.first().select(0).projection().nominalScale()
@@ -225,8 +223,8 @@ class Era5LandGoogleEarthEngine:
 
         return self.gee_helper.parse_gee_properties(parsed_result)
 
-
     def get_daily_data(self, regions, periodes: Iterable[TimePeriod]):
+
         for i, feature in enumerate(regions['features']):
             if 'properties' not in feature:
                 feature['properties'] = {}

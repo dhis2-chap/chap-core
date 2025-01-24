@@ -28,6 +28,18 @@ class DataList(BaseModel):
     data: list[DataElement] = Field(..., min_items=1)
 
 
+class DataElementV2(BaseModel):
+    period: str
+    orgUnit: str
+    value: Optional[float]
+
+
+class DataListV2(BaseModel):
+    featureId: str
+    dataElement: str
+    data: list[DataElementV2] = Field(..., min_items=1)
+
+
 class RequestV1(BaseModel):
     orgUnitsGeoJson: FeatureCollectionModel
     features: list[DataList]
@@ -39,6 +51,7 @@ class RequestV2(RequestV1):
 
 class PredictionRequest(RequestV2):
     n_periods: int = 3
+    include_data: bool = False
 
 
 class PredictionEntry(BaseModel):
@@ -59,6 +72,7 @@ class EvaluationResponse(BaseModel):
 
 class PeriodObservation(BaseModel):
     time_period: str
+
 
 # class Geometry:
 #     type: str
