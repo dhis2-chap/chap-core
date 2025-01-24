@@ -127,7 +127,7 @@ def __clean_actual_cases(real_data: DataList) -> DataList:
     dataset = DataSet.from_pandas(df, TimeSeriesArray, fill_missing=True)
     return DataList(featureId=real_data.featureId,
                     dhis2Id=real_data.dhis2Id,
-                    data=[DataElement(pe=row.time_period.id, ou=location, value=row.value)
+                    data=[DataElement(pe=row.time_period.id, ou=location, value=row.value if not np.isnan(row.value) else None)
                           for location, ts_array in dataset.items() for row in ts_array])
 
 
