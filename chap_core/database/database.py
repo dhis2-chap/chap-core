@@ -37,7 +37,7 @@ if database_url is not None:
     else:
         raise ValueError("Failed to connect to database")
 else:
-    logger.warning(f"Database url not set. Database operations will not work")
+    logger.warning("Database url not set. Database operations will not work")
 
 class SessionWrapper:
     '''
@@ -129,9 +129,12 @@ class SessionWrapper:
 def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
     if engine is not None:
+        logger.info("Engin set. Creating tables")
         SQLModel.metadata.create_all(engine)
         with SessionWrapper(engine) as session:
             for feature_type in seeded_feature_types + seeded_models:
                 session.create_if_not_exists(feature_type)
+    else:
+        logger.warning("Engine not set. Tables not created")
 
 

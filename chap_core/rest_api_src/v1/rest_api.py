@@ -268,7 +268,7 @@ async def get_status() -> State:
 
 @app.on_event("startup")
 def on_startup():
-    logger.info("Starting up")
+    logger.info("Starting up.")
     create_db_and_tables()
 
 
