@@ -1,4 +1,4 @@
-# Running CHAP Core on a server with DHIS2 to be used with the Prediction App
+# Setting up CHAP REST-API on a server
 
 Before you set up CHAP Core on a server, we recommend you familiarize yourself with CHAP Core, the Prediction App, and test it out locally.
 

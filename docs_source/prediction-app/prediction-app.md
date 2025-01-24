@@ -1,52 +1,12 @@
-# Prediction App
+# Prediction App for end-users
 
 **This page contains documentation on how to install and use Prediction App to create predictions.**
+
 Prediction App enables integration between [CHAP Core](https://github.com/dhis2-chap/chap-core) and [DHIS2](https://dhis2.org/) (2.41+). 
 
-[Click here if you are looking for Prediction App development documentation ➔](https://github.com/dhis2/prediction-app/blob/main/doc/development/README.md) 
-
-#### Requirements:
-- Access to credentials for Google Earth Engine. (Google Service Account Email and Private Key)
-
-### 1. Ways of interacting with CHAP Core
-Prediction App supports two ways of interacting with CHAP Core. This will further in this documentation be referred to as "Solution 1" and "Solution 2". The solutions are as follows:
-
-- **Solution 1:** Download disease data from DHIS2 to use with CHAP Core CLI.
-- **Solution 2:** Use Prediction App to transfer data directly to CHAP Core's REST-API
-
-For both solutions, there are some common steps. We will go through this first.
-
-### 2. Download Prediction App
-You need to download the Prediction App as a ZIP file for installing it on your DHIS2 instance.
-
-1. Download Prediction App from [https://github.com/dhis2/prediction-app/raw/refs/heads/main/build/bundle/prediction-app-1.0.0.zip](https://github.com/dhis2/prediction-app/raw/refs/heads/main/build/bundle/prediction-app-1.0.0.zip)
-
-2. Upload the ZIP file (Prediction App) to your DHIS2 instance ([Learn how to install a custom DHIS2 app](https://dhis2-app-course.ifi.uio.no/learn/dhis2/app-development-guides/build-publish-app-platform-app/manual-install/))
-
-### 3. Starting REST-API and edit URL
-
-<div style="background-color: orangered; padding: 10px; color : white; margin-top: 20px; margin-bottom: 20px">
-<b>NB!</b> Step 3 is only required if you choose solution 2 (Start CHAP Core's REST-API locally and transfer data directly from Prediction App to CHAP Core). If you, choose solution 1 (Download disease data from DHIS2 to use CHAP Core CLI), proceed to step 4
-</div>
-
-#### 3.1 Start CHAP Core with REST-API
-First, go to [CHAP Docker Compose documentation](../docker-compose-doc.md) and follow the documentation for how to start CHAP Core with REST-API.
-Verify you have CHAP Core running, by visiting [http://localhost:8000/docs](http://localhost:8000/docs), a Swagger page (REST-API documentation) should display.
-
-#### 3.2 Set CHAP Core URL
-Next, the Prediction App needs to know which URL to use to communicate with CHAP Core. By clicking "Edit CHAP Core URL" located at the right side menu, a modal should display where you could set this setting.
-
-Set this value to:
-```python
-http://localhost:8000
-```
-
-<img src="../_static/edit-chap-url.png" alt="drawing" width="400"/>
-
-After clicking "Save", Prediction App would reload and start to fetch and send data to [http://localhost:8000](http://localhost:8000)
 
 
-### 4 Selecting prediction data
+## 1 Selecting prediction data
 
 **Find the Prediction App at your DHIS2 instance and open it**
 
@@ -65,14 +25,56 @@ Below is an example of how a filled form could look like:
 <br/>
 <img src="../_static/form_filled.png" alt="drawing" width="350"/>
 
-Click **"Download data"** if you chose Solution 1 (Download disease data from DHIS2 into a CHAP Core-supported format) and **"Send data to CHAP ➔"** if you chose Solution 2 (Use Prediction App to transfer data directly to CHAP Core's REST-API).
+Click **"Send data to CHAP ➔"** to use Prediction App to transfer data directly to CHAP Core's REST-API.
+
+> &#x1F6C8; At this point, it's also possible to click **"Download data"** to download the specified disease data from DHIS2 into a CHAP Core-supported format, and continue the remaining analysis [programmatically with the CHAP-cli](using-pa-with-cli). 
+
+
+
+## 2 Status for predictions and prediction import
+
+After you have clicked **"Send data to CHAP ➔"**, you will be redirected to the "CHAP Core status" page. On this page, the status of the prediction will be shown. See the image below.
+
+<img src="../_static/traning_prediction_status.png" alt="drawing" width="540"/>
+
+When the information about the status disappears (as shown below), the prediction is completed. Click **"Import latest prediction"** to see the result.
+
+<img src="../_static/traning_prediction_status_completed.png" alt="drawing" width="540">
+
+
+
+## 3 Import prediction page
+
+You will then be redirected to the "Import prediction" page, where you can import the prediction into DHIS2. At the top, you will see a chart, as shown below, describing what you are about to import.
+
+![](../_static/the_data_you_import.png)
+
+### Add data elements
+
+If you have not yet created a data element to store CHAP prediction, you need to click "Add data elements" and follow the given instructions.
+
+<img src="../_static/add_dataelements_if_not_exists.png" alt="drawing" width="540">
+
+### Import prediction
+
+After you have selected the data elements, click on "Import prediction."
+
+<img src="../_static/is_imported.png" alt="drawing" width="540">
+
+
+
+## 4 Visualize
+
+Finally, you have imported the prediction into DHIS2. You can now visualize the prediction in the Data Visualizer App. If you want the visualization immediately, you need to export analytic tables in the "Data Administrator" app first.
+
+![](../_static/visualization_data_app.png)
+
+
+
 
 <br/>
 <br/>
-
-**Next, follow instructions for either "Solution 1" or "Solution 2"**
-
-#### Solution 1. [Download disease data from DHIS2 into a CHAP Core-supported format ➔](using-pa-with-cli.md)
-#### Solution 2. [Use Prediction App to transfer data directly to CHAP Core's REST-API ➔](using-pa-with-rest-api) 
 
 <div style="height: 40px"></div>
+
+
