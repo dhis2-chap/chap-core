@@ -64,7 +64,7 @@ def predict_pipeline_from_health_data(health_dataset: DataSet[HealthPopulationDa
 
 def predict_pipeline_from_full_data(dataset: dict,
                                     estimator_id: str, n_periods: int,
-                                    target_id='disease_cases', worker_config:WorkerConfig = WorkerConfig()):
+                                    target_id='disease_cases', worker_config: WorkerConfig = WorkerConfig()):
     dataset = DataSet.from_dict(dataset, FullData)
     estimator = registry.get_model(estimator_id,
                                    ignore_env=estimator_id.startswith('chap_ewars'))
@@ -93,7 +93,8 @@ def _convert_prediction_request(json_data: PredictionRequest, worker_config: Wor
     skip_env = hasattr(json_data, "ignore_env") and json_data.ignore_env
     if json_data.estimator_id.startswith('chap_ewars'):
         skip_env = True
-        logger.warning(f"Hack: Skipping env for {json_data.model_id if hasattr(json_data, 'model_id') else json_data.estimator_id}")
+        logger.warning(
+            f"Hack: Skipping env for {json_data.model_id if hasattr(json_data, 'model_id') else json_data.estimator_id}")
 
     estimator = registry.get_model(json_data.estimator_id, ignore_env=skip_env)
     target_id = get_target_id(json_data, ["disease", "diseases", "disease_cases"])
@@ -109,7 +110,7 @@ def dataset_to_datalist(dataset: DataSet[HealthData], target_id: str) -> DataLis
 
 
 def evaluate(json_data: PredictionRequest, n_splits: Optional[int] = None, stride: int = 1,
-             quantiles: Tuple[float] = (0.25, 0.5, 0.75),
+             quantiles: Tuple[float] = (0.25, 0.5, 0.75, 0.1, 0.9),
              worker_config: WorkerConfig = WorkerConfig()
              ) -> EvaluationResponse:
     estimator, json_data, target_id, train_data = _convert_prediction_request(json_data, worker_config=worker_config)
@@ -119,7 +120,19 @@ def evaluate(json_data: PredictionRequest, n_splits: Optional[int] = None, strid
     return samples_to_evaluation_response(predictions_list, quantiles, real_data)
 
 
-def samples_to_evaluation_response(predictions_list, quantiles, real_data):
+def __clean_actual_cases(real_data: DataList) -> DataList:
+    ''' Temporary function to clean time period names and fill nan valuse to a datalist of real cases'''
+    df = pd.DataFrame([{'time_period': row.pe, 'location': row.ou, 'value': row.value} for row in real_data.data])
+    print(df['time_period'])
+    dataset = DataSet.from_pandas(df, TimeSeriesArray, fill_missing=True)
+    return DataList(featureId=real_data.featureId,
+                    dhis2Id=real_data.dhis2Id,
+                    data=[DataElement(pe=row.time_period.id, ou=location, value=row.value)
+                          for location, ts_array in dataset.items() for row in ts_array])
+
+
+
+def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataList):
     evaluation_entries: List[EvaluationEntry] = []
     for predictions in predictions_list:
         first_period = predictions.period_range[0]
@@ -133,7 +146,9 @@ def samples_to_evaluation_response(predictions_list, quantiles, real_data):
                                             value=value,
                                             splitPeriod=first_period.id)
                     evaluation_entries.append(entry)
-    return EvaluationResponse(actualCases=real_data, predictions=evaluation_entries)  # .model_dump()
+    real_data = __clean_actual_cases(real_data)
+    return EvaluationResponse(actualCases=real_data,
+                              predictions=evaluation_entries)  # .model_dump()
 
 
 def train_on_json_data(json_data: RequestV1, model_name, model_path, control=None):
@@ -242,7 +257,8 @@ def predictions_to_datavalue(data: DataSet[HealthData], attribute_mapping: dict[
     return entries
 
 
-def v1_conversion(data_list: list[Union[DataElement, DataElementV2]], fill_missing=False, colnames=('ou', 'pe')) -> DataSet[TimeSeriesArray]:
+def v1_conversion(data_list: list[Union[DataElement, DataElementV2]], fill_missing=False, colnames=('ou', 'pe')) -> \
+        DataSet[TimeSeriesArray]:
     """
     Convert a list of DataElement objects to a SpatioTemporalDict[TimeSeriesArray] object.
     """

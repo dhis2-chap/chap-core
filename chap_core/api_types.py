@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from pydantic import BaseModel, Field
 from pydantic_geojson import (
@@ -72,6 +72,7 @@ class EvaluationResponse(BaseModel):
 
 class PeriodObservation(BaseModel):
     time_period: str
+
 
 # class Geometry:
 #     type: str

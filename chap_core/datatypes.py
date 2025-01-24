@@ -90,7 +90,7 @@ class TimeSeriesData:
         return filled_data
 
     @classmethod
-    def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> "TimeSeriesData":
+    def from_pandas(cls, data: pd.DataFrame, fill_missing: bool = False) -> "TimeSeriesData":
         try:
             time_strings = data.time_period.astype(str)
             # check unique

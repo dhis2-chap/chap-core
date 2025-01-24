@@ -223,8 +223,8 @@ class Era5LandGoogleEarthEngine:
 
         return self.gee_helper.parse_gee_properties(parsed_result)
 
-
     def get_daily_data(self, regions, periodes: Iterable[TimePeriod]):
+
         for i, feature in enumerate(regions['features']):
             if 'properties' not in feature:
                 feature['properties'] = {}

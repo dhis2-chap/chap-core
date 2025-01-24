@@ -1,8 +1,10 @@
+import json
 import os
 import shutil
 from unittest.mock import patch
 from pathlib import Path
 import numpy as np
+import pytest
 from sqlmodel import SQLModel
 from chap_core.api_types import RequestV1
 from chap_core.database.dataset_tables import ObservationBase, DataSet
@@ -78,6 +80,13 @@ def data_path():
 def models_path():
     return Path(__file__).parent.parent / "external_models"
 
+@pytest.fixture
+def local_data_path():
+    path =  Path('/home/knut/Data/ch_data/')
+    if not path.exists():
+        pytest.skip("Data path does not exist")
+    return path
+
 
 @pytest.fixture
 def tests_path():
@@ -140,6 +149,17 @@ def big_request_json(data_path):
         pytest.skip()
     with open(filepath, "r") as f:
         return f.read()
+
+@pytest.fixture
+def laos_request(local_data_path):
+    filepath = local_data_path / "laos_requet.json"
+    with open(filepath, "r") as f:
+        text  = f.read()
+    dicts = json.loads(text)
+    dicts['estimator_id'] = 'naive_model'
+    return json.dumps(dicts)
+
+
 
 
 @pytest.fixture
