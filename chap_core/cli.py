@@ -14,6 +14,7 @@ from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
 from chap_core.external.mlflow_wrappers import NoPredictionsError
+from chap_core.geometry import Polygons
 from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import registry
 
@@ -45,8 +46,10 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
 @app.command()
 def evaluate(
         model_name: ModelType | str,
-        dataset_name: DataSetType,
+        dataset_name: Optional[DataSetType] = None,
         dataset_country: Optional[str] = None,
+        dataset_csv: Optional[Path] = None,
+        polygons_json: Optional[Path] = None,
         prediction_length: int = 6,
         n_splits: int = 7,
         report_filename: Optional[str] = "report.pdf",
@@ -58,17 +61,26 @@ def evaluate(
     Evaluate a model on a dataset using forecast cross validation
     """
     initialize_logging(debug, log_file)
-    logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
+    if dataset_name is None:
+        assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
+        logging.info(f"Loading dataset from {dataset_csv}")
+        dataset = DataSet.from_csv(dataset_csv, FullData)
+        if polygons_json is not None:
+            logging.info(f"Loading polygons from {polygons_json}")
+            polygons = Polygons.from_file(polygons_json)
+            dataset.set_polygons(polygons.data)
+    else:
+        logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
 
-    dataset = datasets[dataset_name]
-    dataset = dataset.load()
+        dataset = datasets[dataset_name]
+        dataset = dataset.load()
 
-    if isinstance(dataset, MultiCountryDataSet):
-        assert dataset_country is not None, "Must specify a country for multi country datasets"
-        assert (
-                dataset_country in dataset.countries
-        ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
-        dataset = dataset[dataset_country]
+        if isinstance(dataset, MultiCountryDataSet):
+            assert dataset_country is not None, "Must specify a country for multi country datasets"
+            assert (
+                    dataset_country in dataset.countries
+            ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            dataset = dataset[dataset_country]
 
     make_run_dir = debug
     if "," in model_name:
