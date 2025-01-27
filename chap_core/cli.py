@@ -50,6 +50,7 @@ def evaluate(
         dataset_country: Optional[str] = None,
         dataset_csv: Optional[Path] = None,
         polygons_json: Optional[Path] = None,
+        polygons_id_field: Optional[str] = "id",
         prediction_length: int = 6,
         n_splits: int = 7,
         report_filename: Optional[str] = "report.pdf",
@@ -67,7 +68,7 @@ def evaluate(
         dataset = DataSet.from_csv(dataset_csv, FullData)
         if polygons_json is not None:
             logging.info(f"Loading polygons from {polygons_json}")
-            polygons = Polygons.from_file(polygons_json, id_property="district")
+            polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)
             dataset.set_polygons(polygons.data)
     else:
         logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
