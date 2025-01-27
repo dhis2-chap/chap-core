@@ -79,7 +79,7 @@ def evaluate(
     
     results_dict = {}
     for name in model_list:
-        model = get_model_from_directory_or_github_url(name, ignore_env=ignore_environment, make_run_dir=make_run_dir)
+        model = get_model_from_directory_or_github_url(name, ignore_env=ignore_environment, run_dir_type="latest" if not make_run_dir else "timestamp")
         model = model()
         try:
             results = evaluate_model(

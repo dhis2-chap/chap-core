@@ -113,7 +113,7 @@ def test2(data_path):
         #"https://github.com/dhis2-chap/ewars_plus_python_wrapper",
         "/home/ivargry/dev/ewars_plus_python_wrapper",
         ignore_env=True,
-        make_run_dir=False
+        run_dir_type="latest"
     )
     #external_model.train(data) 
     evaluate_model(external_model, data, report_filename='test_integration_report.pdf', n_test_sets=1)
