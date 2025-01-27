@@ -67,7 +67,7 @@ def evaluate(
         dataset = DataSet.from_csv(dataset_csv, FullData)
         if polygons_json is not None:
             logging.info(f"Loading polygons from {polygons_json}")
-            polygons = Polygons.from_file(polygons_json)
+            polygons = Polygons.from_file(polygons_json, id_property="district")
             dataset.set_polygons(polygons.data)
     else:
         logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
