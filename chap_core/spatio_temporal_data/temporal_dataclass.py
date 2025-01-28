@@ -140,7 +140,8 @@ class DataSet(Generic[FeaturesT]):
 
     def set_polygons(self, polygons: FeatureCollectionModel):
         polygon_ids = {feature.id for feature in polygons.features}
-        assert all(location in polygon_ids for location in self.locations()), (self.locations(), polygon_ids)
+        for location in self.locations():
+            assert location in polygon_ids, f"Found a location in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids} "
         self._polygons = polygons
 
     @property
