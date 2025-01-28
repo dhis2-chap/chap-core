@@ -3,7 +3,7 @@
 import dataclasses
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -57,6 +57,7 @@ def evaluate(
         ignore_environment: bool = False,
         debug: bool = False,
         log_file: Optional[str] = None,
+        run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
 ):
     """
     Evaluate a model on a dataset using forecast cross validation
