@@ -31,7 +31,13 @@ def docker_image_from_fo(fileobject, name):
 def run_command_through_docker_container(docker_image_name: str, working_directory: str, command: str,
                                         remove_after_run: bool = False):
     client = docker.from_env()
-    working_dir_full_path = os.path.abspath(working_directory)
+    try:
+        working_dir_full_path = os.path.abspath(working_directory)
+    except FileNotFoundError:
+        logging.error(f"Could not find working dir {working_directory}.")
+        logging.error(f"Current directory is {os.getcwd()}")
+        raise
+
     logger.info(f"Running command {command} in docker image {docker_image_name} with mount {working_dir_full_path}")
     container = client.containers.run(
         docker_image_name,
