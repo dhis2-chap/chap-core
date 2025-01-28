@@ -95,7 +95,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
 
-    logger.info(f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}")
+    logger.info(f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}")
     is_github = False
     commit = None
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):
@@ -137,6 +137,8 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
             logger.info(f'Checking out commit {commit}')
             repo.git.checkout(commit)
 
+    elif run_dir_type == "use_existing":
+        logging.info("Not copying any model files, using existing directory")
     else:
         # copy contents of model_path to working_dir
         logger.info(f"Copying files from {model_path} to {working_dir}")

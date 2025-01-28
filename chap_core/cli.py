@@ -84,7 +84,6 @@ def evaluate(
             ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
             dataset = dataset[dataset_country]
 
-    make_run_dir = debug
     if "," in model_name:
         # model_name is not only one model, but contains a list of models
         model_list = model_name.split(",")
@@ -93,7 +92,7 @@ def evaluate(
     
     results_dict = {}
     for name in model_list:
-        model = get_model_from_directory_or_github_url(name, ignore_env=ignore_environment, run_dir_type="latest" if not make_run_dir else "timestamp")
+        model = get_model_from_directory_or_github_url(name, ignore_env=ignore_environment, run_dir_type=run_directory_type)
         model = model()
         try:
             results = evaluate_model(
