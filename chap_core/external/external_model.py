@@ -3,7 +3,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, Protocol, TypeVar
-
+import os
 import git
 import yaml
 from chap_core.data import DataSet
@@ -142,6 +142,11 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         logger.info(f"Copying files from {model_path} to {working_dir}")
         shutil.copytree(model_path, working_dir)
 
+
+    logging.error(f"Current directory is {os.getcwd()}")
+    logging.error(f"Working dir is {working_dir}")
+    assert os.path.isdir(working_dir), working_dir
+    assert os.path.isdir(os.path.abspath(working_dir)), working_dir
     # assert that a config file exists
     if (working_dir / "MLproject").exists():
         return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
