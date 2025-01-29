@@ -36,7 +36,7 @@ Windows users should use wsl to operate in a Linux environment. If this is the f
 
 2. Clone the chap-core dev branch to a folder of your choice:
 
-    ```
+    ```bash
     $ git clone https://github.com/dhis2-chap/chap-core/tree/dev
     $ cd chap-core
     ```
@@ -48,7 +48,7 @@ To read more, check out [their documentation](https://docs.astral.sh/uv/getting-
 
     * Start by installing uv as per the official documentation:
 
-      ```
+      ```bash
       $ curl -LsSf https://astral.sh/uv/install.sh | sh
       ```
 
@@ -56,7 +56,7 @@ To read more, check out [their documentation](https://docs.astral.sh/uv/getting-
 
 4. Install the dependencies. Inside the project folder, run:
 
-      ```
+      ```bash
       $ uv sync --dev
       ```
 
@@ -65,7 +65,7 @@ This environment exists in the `.venv` directory.
 
 5. Activate the environment and run the tests to make sure everything is working:
 
-      ```
+      ```bash
       $ source .venv/bin/activate 
       $ pytest
       ```
@@ -76,7 +76,7 @@ Make sure that your IDE is using the correct Python environment.
 6. Finally, if the tests are passing, you should now be connected to the development version of Chap, directly reflecting 
 any changes you make to the code. Check to ensure that the chap command line interface (CLI) is available in your terminal:
 
-      ```
+      ```bash
       $ chap-cli --help
       ```
 

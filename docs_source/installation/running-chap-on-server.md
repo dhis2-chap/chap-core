@@ -21,8 +21,8 @@ To run CHAP Core on a server that is using LXC, you need to create a new LXC con
 Within your LXC container dedicated to CHAP Core, you need to use git to clone the CHAP Core repo by using **git clone https://github.com/dhis2-chap/chap-core.git**. If you follow the [infrastructure repo](https://github.com/dhis2-chap/infrastructure), you can see that we fetch the CHAP Core repo and start CHAP Core immediately after the LXC container is created. If you do so, you will need to store your Google Earth Engine credentials outside the LXC container as environment variables. See these two lines, for how to insert environment variables into the LXC container.
 
 ```bash
-  lxc config set chap-core environment.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY "$GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"
-  lxc config set chap-core environment.GOOGLE_SERVICE_ACCOUNT_EMAIL "$GOOGLE_SERVICE_ACCOUNT_EMAIL"
+lxc config set chap-core environment.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY "$GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"
+lxc config set chap-core environment.GOOGLE_SERVICE_ACCOUNT_EMAIL "$GOOGLE_SERVICE_ACCOUNT_EMAIL"
 ```
 
 ## Add Google Earth Engine credentials directly to the container
@@ -30,21 +30,18 @@ If you have not stored the Google Earth Engine credentials outside the LXC conta
 
 The **.env** file should look similar to the following content:
 
-```bash
-  GOOGLE_SERVICE_ACCOUNT_EMAIL="your-google-service-account@company.iam.gserviceaccount.com"
-  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----<your-private-key>-----END PRIVATE KEY-----"
-```
+    GOOGLE_SERVICE_ACCOUNT_EMAIL="your-google-service-account@company.iam.gserviceaccount.com"
+    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----<your-private-key>-----END PRIVATE KEY-----"
 
 The file should be stored at the same level where you find the Docker compose file, such as below:
 
-```
-/chap-core
-|-- compose.integration.test.yml
-|-- compose.test.yml
-|-- compose.yml
-|-- .env
-|-- chap_core/
-```
+    /chap-core
+    |-- compose.integration.test.yml
+    |-- compose.test.yml
+    |-- compose.yml
+    |-- .env
+    |-- chap_core/
+
 *Not all files are included in this file-structure snippet*
 
 **NB!** If you were already running CHAP Core when discovering that these variables were missing, you need to run **docker compose down** before starting CHAP Core with **docker compose up**. Warnings about missing environment variables should disappear.

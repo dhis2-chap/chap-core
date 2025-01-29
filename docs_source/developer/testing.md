@@ -19,7 +19,7 @@ problems ideally before pushing new code.
 
 These can simply be run by running `pytest` in the root folder of the project:
 
-```
+```bash
 $ pytest
 ```
 
@@ -57,7 +57,7 @@ The comprehensive tests include the quick tests (see above) in addition to:
 
 The comprehensive tests are run by running this in the root folder of the project:
 
-```
+```bash
 $ make test-all
 ```
 

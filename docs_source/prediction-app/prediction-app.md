@@ -69,9 +69,6 @@ Finally, you have imported the prediction into DHIS2. You can now visualize the 
 
 ![](../_static/visualization_data_app.png)
 
-
-
-
 <br/>
 <br/>
 

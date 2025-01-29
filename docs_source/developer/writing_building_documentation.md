@@ -15,7 +15,7 @@ Edit or add files in this directory to edit the documentation.
 
 Inside the docs_source folder, run:
 
-```
+```bash
 $ make html
 ```
 

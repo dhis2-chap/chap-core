@@ -4,7 +4,9 @@
 
 Models that are compatible with CHAP can be used with the `chap evaluate` command:
 
-    $ chap evaluate --model-name /path/to/your/model/directory --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil --report-filename report.pdf --ignore-environment  --debug
+```bash
+$ chap evaluate --model-name /path/to/your/model/directory --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil --report-filename report.pdf --ignore-environment  --debug
+```
 
 Note the `--ignore-environment` in the above command. 
 This means that we don't ask CHAP to use Docker or a Python environment when running the model. 
@@ -15,7 +17,9 @@ This usually works fine when developing a model, but requires you to have both c
 As an example, the following command runs the chap_auto_ewars model on public ISMIP data for Brazil (this does not use --ignore-environment and will set up
 a docker container based on the specifications in the MLproject file of the model):
 
-    $ chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
+```bash
+$ chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
+```
 
 If the above command runs without any error messages, you have successfully evaluated the model through CHAP, and a file `report.pdf` should have been generated with predictions for various regions.
 
