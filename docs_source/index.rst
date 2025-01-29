@@ -40,7 +40,7 @@ The following is an overview of all pages in the documentation:
    :maxdepth: 2
    :caption: Using CHAP as a library
 
-   api_docs
+   library_api/api_docs
    tutorials/wrapping_gluonts
 
 
@@ -74,5 +74,3 @@ The following is an overview of all pages in the documentation:
    developer/testing
    developer/writing_building_documentation
    developer/code_guidelines
-   developer/manual_runs
-   developer/r_docker_image
