@@ -65,7 +65,7 @@ build-backend = "hatchling.build"
 [tool.uv]
 dev-dependencies = [
     "build",
-    "bump2version>=1.0.2",
+    "bump2version",
     "coverage>=7.6.2",
     "earthengine-api==1.4.6",
     "furo>=2024.8.6",
