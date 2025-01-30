@@ -9,7 +9,7 @@
 
 ## Install CHAP Core
 
-Follow [the installation instructions to install the chap-core package](<installation>). After installation, the CHAP command-line interface (CLI) should be available in your terminal.
+Follow [the installation instructions to install the chap-core package](../installation/chap-core-setup). After installation, the CHAP command-line interface (CLI) should be available in your terminal.
 
 We recommend you run CHAP Core with Conda. If you don't have Conda, you can install Miniconda 
 ([minimal installer for Conda](https://docs.anaconda.com/miniconda/#latest-miniconda-installer-links)).

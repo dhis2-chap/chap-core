@@ -1,7 +1,7 @@
 # Developer getting started
 
 The main intended way of contributing to CHAP-Core is by contributing with models, for which we have a modularized system that makes it easy to contribute.
-For this, we have guides/tutorials that [explain how to make models compatible with CHAP](../external_models/making_external_models_compatible.rst).
+For this, we have guides/tutorials that [explain how to make models compatible with CHAP](../external_models/making_external_models_compatible).
 
 We are also working on adding similar guides for contributing with custom code for evaluating models and visualizing results.
 The code for evaluating and visualizing results is currently tightly integrated into the chap-core code base, but the plan is to 
@@ -14,7 +14,7 @@ This document describes how to get started for contributing to the chap-core cod
 
 Contributing to the chap-core code base requires that you have a clone of the chap-core repository.
 
-It can also be useful to see [the code overview guide](code_overview.rst) for a brief overview of the code base.
+It can also be useful to see [the code overview guide](code_overview) for a brief overview of the code base.
 
 ### Development setup
 
@@ -83,7 +83,7 @@ any changes you make to the code. Check to ensure that the chap command line int
 At this point you have a development version of the chap-cli tool and you are ready to start developing. 
 If you have any problems installing or setting up the environment, feel free to [contact us](https://github.com/dhis2-chap/chap-core/wiki>). 
 
-See more about testing in the [testing guide](testing.rst).
+See more about testing in the [testing guide](testing).
 
 
 ### Contributing code

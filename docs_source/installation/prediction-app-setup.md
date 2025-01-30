@@ -8,7 +8,7 @@
 
 ## 1 Setting up CHAP-Core REST API
 
-1. The Prediction App requires communication with an instance of the CHAP-Core REST-API. For using the Prediction App in a production environment, it's recommended that the Chap REST-API has been set up on a permanent server by a system admin. See more about how to do so [here](#../installation/running-chap-on-server.md). 
+1. The Prediction App requires communication with an instance of the CHAP-Core REST-API. For using the Prediction App in a production environment, it's recommended that the Chap REST-API has been [set up on a permanent server by a system admin](running-chap-on-server). 
 
     > &#x1F6C8; Alternatively, you can follow [the instructions on how to setup a Chap REST-API locally using Docker](../installation/docker-compose-doc.md). 
 
@@ -21,7 +21,7 @@
 Currently the Prediction App is not yet available on the DHIS2 App Hub. 
 Until then you need to download the Prediction App as a ZIP file for installing it on your DHIS2 instance.
 
-1. Download Prediction App from [https://github.com/dhis2/prediction-app/raw/refs/heads/main/build/bundle/prediction-app-1.0.0.zip](https://github.com/dhis2/prediction-app/raw/refs/heads/main/build/bundle/prediction-app-1.0.0.zip)
+1. Download Prediction App from the versions available at [https://github.com/dhis2/prediction-app/tree/refs/heads/main/build/bundle](https://github.com/dhis2/prediction-app/tree/refs/heads/main/build/bundle)
 
 2. Upload the ZIP file (Prediction App) to your DHIS2 instance ([Learn how to install a custom DHIS2 app](https://dhis2-app-course.ifi.uio.no/learn/dhis2/app-development-guides/build-publish-app-platform-app/manual-install/))
 

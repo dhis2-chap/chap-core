@@ -27,7 +27,7 @@ Below is an example of how a filled form could look like:
 
 Click **"Send data to CHAP ➔"** to use Prediction App to transfer data directly to CHAP Core's REST-API.
 
-> &#x1F6C8; At this point, it's also possible to click **"Download data"** to download the specified disease data from DHIS2 into a CHAP Core-supported format, and continue the remaining analysis [programmatically with the CHAP-cli](using-pa-with-cli). 
+> &#x1F6C8; At this point, it's also possible to click **"Download data"** to download the specified disease data from DHIS2 into a CHAP Core-supported format, and continue the remaining analysis [programmatically with the CHAP-cli](../chap-cli/using-pa-with-cli). 
 
 
 

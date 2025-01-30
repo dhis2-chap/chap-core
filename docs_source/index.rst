@@ -18,11 +18,10 @@ The following is an overview of all pages in the documentation:
 
 .. toctree::
    :glob:
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Installation and getting started
 
-   installation
-   installation/*
+   installation/installation
    changelog
 
 
@@ -32,7 +31,6 @@ The following is an overview of all pages in the documentation:
    :caption: Using the Predictions App with CHAP (and integration with DHIS2)
 
    prediction-app/*
-   tutorials/downloaded_json_data
 
 
 .. toctree::
@@ -40,8 +38,7 @@ The following is an overview of all pages in the documentation:
    :maxdepth: 2
    :caption: Using CHAP as a library
 
-   library_api/api_docs
-   tutorials/wrapping_gluonts
+   chap-cli/*
 
 
 .. toctree::
@@ -57,11 +54,12 @@ The following is an overview of all pages in the documentation:
    :maxdepth: 2
    :caption: Integrating external or custom models with CHAP
 
-   external_models/making_external_models_compatible.rst
-   external_models/developing_custom_models.rst
-   external_models/external_model_specification.rst
-   external_models/running_external_models.rst
-   external_models/integrating_external_models_with_dhis2.rst
+   external_models/making_external_models_compatible
+   external_models/developing_custom_models
+   external_models/external_model_specification
+   external_models/running_external_models
+   external_models/integrating_external_models_with_dhis2
+   external_models/wrapping_gluonts
 
 
 .. toctree::
