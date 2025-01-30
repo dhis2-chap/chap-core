@@ -1,6 +1,6 @@
 [project]
 name = "chap_core"
-version = "1.0.1"
+version = "1.0.2"
 description = "Climate Health Analysis Platform (CHAP)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -65,7 +65,7 @@ build-backend = "hatchling.build"
 [tool.uv]
 dev-dependencies = [
     "build",
-    "bump2version>=1.0.1",
+    "bump2version>=1.0.2",
     "coverage>=7.6.2",
     "earthengine-api==1.4.6",
     "furo>=2024.8.6",
