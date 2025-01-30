@@ -75,3 +75,4 @@ The following is an overview of all pages in the documentation:
    developer/writing_building_documentation
    developer/code_guidelines
    developer/manual_runs
+   developer/r_docker_image
