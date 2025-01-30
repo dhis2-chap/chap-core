@@ -1,10 +1,9 @@
 # Setting up CHAP Prediction App in DHIS2
 
-## Requirements:
+This document describes how to install the Prediction App in your DHIS2 instance. 
 
-- Access to credentials for Google Earth Engine. (Google Service Account Email and Private Key)
-    - TODO: Add note that this is only needed for some use cases...
-    - TODO: Write more on where to input these credentials...
+**Requirements:**
+  - DHIS2 version **2.39+**
 
 ## 1 Setting up CHAP-Core REST API
 

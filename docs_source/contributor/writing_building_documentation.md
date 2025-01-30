@@ -13,6 +13,12 @@ Edit or add files in this directory to edit the documentation.
 
 ## How to build the documentation locally
 
+First make sure you have activated your local development environment:
+
+```bash
+$ source .venv/bin/activate
+```
+
 Inside the `docs_source` folder, run:
 
 ```bash

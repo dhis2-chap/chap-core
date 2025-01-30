@@ -28,7 +28,7 @@ The following is an overview of all pages in the documentation:
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Using the Predictions App with CHAP (and integration with DHIS2)
+   :caption: Using the Predictions App with CHAP and DHIS2
 
    prediction-app/*
 
@@ -36,7 +36,7 @@ The following is an overview of all pages in the documentation:
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Using CHAP as a library
+   :caption: Using CHAP as a CLI Tool
 
    chap-cli/*
 
@@ -44,9 +44,9 @@ The following is an overview of all pages in the documentation:
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Using the CHAP Core REST-API
+   :caption: Using CHAP as a Python library
 
-   rest-api/*
+   python-api/*
 
 
 .. toctree::
@@ -68,6 +68,7 @@ The following is an overview of all pages in the documentation:
    :caption: Contributor guide 
 
    contributor/getting_started
+   contributor/windows_contributors
    contributor/code_overview
    contributor/testing
    contributor/writing_building_documentation

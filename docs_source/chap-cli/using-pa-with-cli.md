@@ -1,6 +1,6 @@
 # Use JSON-file from Prediction App with CHAP Core CLI
 
-This document describes how to use the CHAP Core CLI to analyze the JSON file you get when pressing the "Download button" in the Prediction App. If you have not completed this step, you need to [learn how to install and use the Prediction App to download a JSON file](../prediction-app/prediction-app) first. 
+This document describes how to use the CHAP Core CLI to analyze the JSON file you get when pressing the "Download button" in the Prediction App. If you have not completed this step, you need to [learn how to use the Prediction App to download a JSON file](../prediction-app/prediction-app) first. 
 
 The JSON file you download from the Prediction App should look similar to this:
 
@@ -34,34 +34,7 @@ The JSON file you download from the Prediction App should look similar to this:
 }
 ```
 
-## Get started with CHAP Cli
-
-#### Requirements:
-- Docker is installed **AND** running on your computer (Installation instructions can be found at [https://docs.docker.com/get-started/get-docker/](https://docs.docker.com/get-started/get-docker/)).
-- Access to the credentials for Google Earth Engine. (Google Service Account Email and Private Key)
-
-## Install CHAP Core CLI
-
-Follow [the installation instructions to install the chap-core package](../installation/installation).
-After installation, the chap command line interface (CLI) should be available in your terminal.
-
-## Credentials for Google Earth Engine
-
-You need to have credentials for Google Earth Engine. We recommend you create a new folder named "chap-core-cli" where you will later run CHAP Core. Inside
-this folder, create a new file named ".env" with the two environment variables: **"GOOGLE_SERVICE_ACCOUNT_EMAIL"** and **"GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"**.
-
-<div style="border-radius: 1px; border-style: dotted; border-color: orange; padding: 10px; color : black; background-color: white; margin-top: 20px; margin-bottom: 20px">
-**Note**: It's recommended to use a terminal or a code editor when creating the ".env" file. If you, for instance, are using Windows File Explorer to create this file, you may end up with a text file named .env.txt instead.
-
-</div>
-
-The file should look similar to the following content:
-
-    GOOGLE_SERVICE_ACCOUNT_EMAIL="your-google-service-account@company.iam.gserviceaccount.com"
-    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----<your-private-key>-----END PRIVATE KEY-----"
-
-Convert the JSON data into a CHAP-DataSet
------------------------------------------
+## Convert the JSON data into a CHAP-DataSet
 After downloading the JSON data from the Prediction App, it's practical to first convert the data into a CHAP-DataSet. This
 fetches the climate data from the Google Earth Engine dataset ERA5-Land Daily Aggregated and harmonizes the data into a single dataSet.This is done by running the following command (replace the placeholders with the actual values):
 

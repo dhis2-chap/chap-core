@@ -17,7 +17,13 @@ problems ideally before pushing new code.
 
 ## The quick tests
 
-These can simply be run by running `pytest` in the root folder of the project:
+First make sure you have activated your local development environment:
+
+```bash
+$ source .venv/bin/activate
+```
+
+The quick test can be run simply by running `pytest` in the root folder of the project:
 
 ```bash
 $ pytest
