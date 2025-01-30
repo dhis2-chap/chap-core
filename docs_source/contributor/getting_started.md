@@ -1,4 +1,4 @@
-# Developer getting started
+# Contributor getting started
 
 The main intended way of contributing to CHAP-Core is by contributing with models, for which we have a modularized system that makes it easy to contribute.
 For this, we have guides/tutorials that [explain how to make models compatible with CHAP](../external_models/making_external_models_compatible).

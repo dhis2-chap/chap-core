@@ -65,10 +65,10 @@ The following is an overview of all pages in the documentation:
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Development guide 
+   :caption: Contributor guide 
 
-   developer/getting_started
-   developer/code_overview
-   developer/testing
-   developer/writing_building_documentation
-   developer/code_guidelines
+   contributor/getting_started
+   contributor/code_overview
+   contributor/testing
+   contributor/writing_building_documentation
+   contributor/code_guidelines

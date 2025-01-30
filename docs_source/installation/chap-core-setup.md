@@ -3,7 +3,7 @@
 If you are developing custom models or integrating external forecasting models with CHAP, you should install the 
 `chap-core` Python package.
 
-**Important: This guide is meant for end-users who need a stable version of CHAP Core.** If you are a developer and want to make changes or contribute to the CHAP Core codebase, you should follow the [getting started guide for developers instead](../developer/getting_started).
+**Important: This guide is meant for end-users who need a stable version of CHAP Core.** If you are a developer and want to make changes or contribute to the CHAP Core codebase, you should follow the [getting started guide for contributors instead](../contributor/getting_started).
 
 We recommend installing `chap-core` inside a Python [virtual environment](https://docs.python.org/3/tutorial/venv.html) 
 to avoid conflicts with other Python packages. 
