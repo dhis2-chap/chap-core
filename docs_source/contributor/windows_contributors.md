@@ -7,16 +7,18 @@ Windows users should always use wsl to operate in a Linux environment.
 
 If this is the first time you're using wsl on Windows:
 
-    * First create a wsl linux environment with `wsl install`
+* First create a wsl linux environment with `wsl install`
 
-    * Make docker available from within the wsl environment:
+* Make docker available from within the wsl environment:
 
-      * In Docker Desktop, go to Settings - Resources - WSL Integration and check off the Linux distro used by wsl, e.g. `Ubuntu`
+  * In Docker Desktop, go to Settings - Resources - WSL Integration and check off the Linux distro used by wsl, e.g. `Ubuntu`
 
 ## Running commands through WSL
 
-If you're a Windows contributor, always remember to first enter the linux environment before you run any commands or tests: 
+If you're a Windows contributor, always remember to first enter the linux environment before you run any commands CHAP CLI commands or Python testing: 
 
 ```bash
 $ wsl
 ```
+
+The only exception to this is that docker commands such as `docker compose up` should be run through a regular Windows commandline (*not wsl*). 

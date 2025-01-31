@@ -3,7 +3,7 @@
 **Requirements:**
 
 - CHAP has been tested to run on Windows, Linux, and MacOS. 
-- CHAP can either be installed as a Python package, or setup using Docker (see details below). 
+- CHAP can either be installed as a Python package, a commandline tool, a Docker container, or a DHIS2 App (see details below). 
 - CHAP comes with a series of built-in forecasting models that are not very resource-intensive - 4 GB of RAM should be sufficient to run them. 
 
 There are three main ways to interact with CHAP. Below we describe how to install CHAP for each of these use-cases:
