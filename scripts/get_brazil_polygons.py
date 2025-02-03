@@ -24,3 +24,4 @@ polygons = get_area_polygons(country_name, admin_1_names)
 polygons = Polygons(polygons)
 polygons.to_file('brazil_polygons.geojson')
 #json.dump(polygons.model_dump(), open('brazil_polygons.json', 'w'))
+
