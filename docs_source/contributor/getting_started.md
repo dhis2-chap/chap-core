@@ -22,6 +22,20 @@ Windows users who wish to contribute to CHAP Core should [start by reading this 
 
 In order to make changes and contribute back to the chap-core Python codebase, you will need to [set up a development environment](../installation/chap-contributor-setup.md). 
 
+### CHAP Core versions
+
+Most of the time, contributors should work with the latest code in the `dev` branch. However, in some cases it may be relevant to work with and test specific stable versions of CHAP Core. Versions are stored as git tags, so to see which versions of CHAP Core are available, you can write: 
+
+```bash
+git tag
+```
+
+Then you can switch to a desired version using, for instance: 
+
+```bash
+git switch tags/v1.0.3
+```
+
 ### Testing
 
 The CHAP Core codebase relies heavily on testing to ensure that the code works properly. See more about our guidelines for testing in the [testing guide](testing). 

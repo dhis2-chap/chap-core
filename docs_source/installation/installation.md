@@ -12,7 +12,7 @@ There are three main ways to interact with CHAP. Below we describe how to instal
 
 For most users we recommend interacting with CHAP through the DHIS2 Prediction App interface. 
 
-[Click here for instructions to setup the CHAP Prediction App in DHIS2](prediction-app-setup)
+* [Click here for instructions to setup the CHAP Prediction App in DHIS2](prediction-app-setup)
 
 ## Option 2: Setting up CHAP REST-API
 
@@ -27,6 +27,6 @@ There are two main ways to setup the CHAP REST-API:
 
 If you want to interact with CHAP Core programmatically, you can do this through the CHAP Core commandline (CLI) tool. This lets you use CHAP Core on the commandline to do tasks like training and connecting to models, using the models to run predictions, or evaluating the results. 
 
-[Click here for instructions to install the CHAP Core CLI tool](chap-core-setup). 
+* [Click here for instructions to install the CHAP Core CLI tool](chap-core-setup). 
 
-> &#x1F6C8; If you are a contributor and would like to make changes to the CHAP Core codebase, you should instead follow [these instruction to setup CHAP Core in a development environment](chap-contributor-setup). 
+> &#x1F6C8; **If you are a contributor** and would like to make changes to the CHAP Core codebase, you should instead follow [these instruction to setup CHAP Core in a development environment](chap-contributor-setup). 

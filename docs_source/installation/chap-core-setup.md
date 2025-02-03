@@ -16,10 +16,16 @@ $ conda create -n chap-core python=3.11
 $ conda activate chap-core
 ```
 
-After activating the environment, installing `chap-core` can be done easily using pip:
+After activating the environment, installing the latest version of `chap-core` can be done easily using pip: 
 
 ```bash
 $ pip install chap-core
+```
+
+To install an older version of CHAP, for instance v1.0.1, you can instead do: 
+
+```bash
+$ pip install chap-core==1.0.1
 ```
 
 To verify that the installation worked, check that you have the `chap` and `chap-cli` commands available in your terminal. 
