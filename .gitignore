@@ -144,6 +144,8 @@ tests/out.tmp
 mlruns/
 /results/
 
+tests/__test_plots__
+
 # ignore mac finder setting files
 .DS_Store
 
