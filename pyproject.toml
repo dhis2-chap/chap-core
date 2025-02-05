@@ -43,6 +43,7 @@ dependencies = [
     "rq",
     "scikit-learn",
     "scipy",
+    "topojson",
     "unidecode",
     "uvicorn",
     "virtualenv",
