@@ -6,6 +6,7 @@ from typing import Literal, Protocol, TypeVar
 import os
 import git
 import yaml
+import uuid
 from chap_core.data import DataSet
 from chap_core.datatypes import (
     ClimateHealthTimeSeries,
@@ -119,8 +120,9 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
             shutil.rmtree(working_dir)
     elif run_dir_type == "timestamp":
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        #timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
-        working_dir = base_working_dir / model_name / timestamp
+        unique_identifier = timestamp + "_" + str(uuid.uuid4())[:8]
+        #timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S%f")
+        working_dir = base_working_dir / model_name / unique_identifier
         # check that working dir does not exist
         assert not working_dir.exists(), f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
     elif run_dir_type == "use_existing":
