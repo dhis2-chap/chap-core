@@ -2,7 +2,8 @@
 tests for external models with geojson, checking that geojson polygons
 are correctly sent through all layers
 """
-
+import logging
+logger = logging.getLogger(__name__)
 import json
 import pandas as pd
 import pytest
@@ -103,7 +104,9 @@ def test2(data_path):
     data = pd.read_csv("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_dengue_and_diarrhea_surv_data_2015_2023_chap_format.csv")
     #data = data[data["province_name"].isin(province_name_to_keep)]
     data = add_time_periods_to_data(data)
+    logger.error(data["time_period"])
     data = DataSet.from_pandas(data, FullData)
+    logger.error(data.to_pandas()["time_period"])
     data.to_csv("test.csv")
     return
 
