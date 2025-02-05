@@ -4,7 +4,6 @@ from typing import Protocol, TypeVar, Iterable, Dict
 from gluonts.evaluation import Evaluator
 from gluonts.model import Forecast
 from matplotlib import pyplot as plt
-plt.set_loglevel (level = 'warning')
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
 from chap_core.assessment.dataset_splitting import (
@@ -17,6 +16,7 @@ import logging
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
+plt.set_loglevel (level = 'warning')
 logger = logging.getLogger(__name__)
 
 
