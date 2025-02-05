@@ -38,7 +38,8 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
         logging.error(f"Current directory is {os.getcwd()}")
         raise
 
-    logger.info(f"Running command {command} in docker image {docker_image_name} with mount {working_dir_full_path}")
+    logger.info(f"Running command {command} in docker image {docker_image_name} with mount {working_dir_full_path}:/home/run/")
+    logger.info(f"Equivalent docker command: docker run -w /home/run -v {working_dir_full_path}:/home/run/ {docker_image_name} {command}")
     container = client.containers.run(
         docker_image_name,
         command=command,

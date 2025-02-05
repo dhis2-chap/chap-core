@@ -4,6 +4,7 @@ from typing import Protocol, TypeVar, Iterable, Dict
 from gluonts.evaluation import Evaluator
 from gluonts.model import Forecast
 from matplotlib import pyplot as plt
+plt.set_loglevel (level = 'warning')
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
 from chap_core.assessment.dataset_splitting import (
@@ -78,7 +79,7 @@ def evaluate_model(
     tuple
         Summary and individual evaluation results
     """
-    logger.info(f"Evaluating {estimator} on {data} with {n_test_sets} test sets for {prediction_length} periods ahead")
+    logger.info(f"Evaluating {estimator} with {n_test_sets} test sets for {prediction_length} periods ahead")
     train, test_generator = train_test_generator(
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
