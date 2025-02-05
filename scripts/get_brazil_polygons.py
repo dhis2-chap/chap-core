@@ -14,8 +14,8 @@ dataset.to_csv("brazil.csv")
 print(set(dataset.keys()))
 admin_1_names = list(dataset.keys())
 #admin_1_names = list(dataset["adm_1_name"].unique())
-
 #admin_1_names = list(dataset["adm_1_name"].unique())
+
 
 country_name = 'BRAZIL'
 #df = pd.read_csv('brazil_weekly_data.csv')
