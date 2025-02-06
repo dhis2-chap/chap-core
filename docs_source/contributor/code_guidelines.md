@@ -1,6 +1,5 @@
 
-Code guidelines
-----------------
+# Code guidelines
 
 In the current phase we are moving quite fast, and the code guidelines are not very strict. 
 

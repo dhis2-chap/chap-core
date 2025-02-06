@@ -1,6 +1,6 @@
-# Prediction App for end-users
+# How to use Prediction App
 
-**This page contains documentation on how to install and use Prediction App to create predictions.**
+**This page contains documentation on how to use Prediction App to create predictions.**
 
 Prediction App enables integration between [CHAP Core](https://github.com/dhis2-chap/chap-core) and [DHIS2](https://dhis2.org/) (2.41+). 
 
@@ -27,7 +27,7 @@ Below is an example of how a filled form could look like:
 
 Click **"Send data to CHAP ➔"** to use Prediction App to transfer data directly to CHAP Core's REST-API.
 
-> &#x1F6C8; At this point, it's also possible to click **"Download data"** to download the specified disease data from DHIS2 into a CHAP Core-supported format, and continue the remaining analysis [programmatically with the CHAP-cli](using-pa-with-cli). 
+> &#x1F6C8; At this point, it's also possible to click **"Download data"** to download the specified disease data from DHIS2 into a CHAP Core-supported format, and continue the remaining analysis [programmatically with the CHAP-cli](../chap-cli/using-pa-with-cli). 
 
 
 
@@ -68,9 +68,6 @@ After you have selected the data elements, click on "Import prediction."
 Finally, you have imported the prediction into DHIS2. You can now visualize the prediction in the Data Visualizer App. If you want the visualization immediately, you need to export analytic tables in the "Data Administrator" app first.
 
 ![](../_static/visualization_data_app.png)
-
-
-
 
 <br/>
 <br/>

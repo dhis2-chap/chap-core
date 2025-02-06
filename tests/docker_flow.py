@@ -87,9 +87,12 @@ def evaluate_model(chap_url, data, model, timeout=600):
             break
     else:
         raise TimeoutError("Model evaluation took too long")
-    results = requests.get(chap_url + "/v1/get-results").json()
+    results = requests.get(chap_url + "/v1/get-results")
+    print("RESULTS", results)
+    results = results.json()
     assert len(results['dataValues']) == 45, len(results['dataValues'])
 
 
 if __name__ == "__main__":
     main()
+

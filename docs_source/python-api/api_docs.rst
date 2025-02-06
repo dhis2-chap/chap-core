@@ -1,8 +1,8 @@
 
-API documentation
+Python API documentation
 ===================
 
-The following is API docs for the current functionality of chap-core that is available for use.
+The following is the Python API docs for the current functionality of chap-core that is available for use.
 
 
 Data Fetching

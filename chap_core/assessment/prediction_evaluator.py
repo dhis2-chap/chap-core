@@ -16,6 +16,7 @@ import logging
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
+plt.set_loglevel (level = 'warning')
 logger = logging.getLogger(__name__)
 
 
@@ -78,7 +79,7 @@ def evaluate_model(
     tuple
         Summary and individual evaluation results
     """
-    logger.info(f"Evaluating {estimator} on {data} with {n_test_sets} test sets for {prediction_length} periods ahead")
+    logger.info(f"Evaluating {estimator} with {n_test_sets} test sets for {prediction_length} periods ahead")
     train, test_generator = train_test_generator(
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )

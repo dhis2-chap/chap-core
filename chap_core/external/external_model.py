@@ -2,10 +2,11 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol, TypeVar
-
+from typing import Literal, Protocol, TypeVar
+import os
 import git
 import yaml
+import uuid
 from chap_core.data import DataSet
 from chap_core.datatypes import (
     ClimateHealthTimeSeries,
@@ -75,12 +76,27 @@ def get_runner_from_yaml_file(yaml_file: str) -> Runner:
 
 
 def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/"), ignore_env=False,
-                                           make_run_dir=True):
+                                           run_dir_type:Literal["timestamp", "latest", "use_existing"] = "timestamp",
+                                           ):
     """
     Gets the model and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
+
+    Parameters
+    ----------
+    model_path : str
+        Path to the model. Can be a local directory or a github url
+    base_working_dir : Path, optional
+        Base directory to store the working directory, by default Path("runs/")
+    ignore_env : bool, optional
+        If True, will ignore the environment specified in the MLproject file, by default False
+    run_dir_type : Literal["timestamp", "latest", "use_existing"], optional
+        Type of run directory to create, by default "timestamp", which creates a new directory based on current timestamp for the run.
+        "latest" will create a new directory based on the model name, but will remove any existing directory with the same name.
+        "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
-    logger.info(f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}")
+
+    logger.info(f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}")
     is_github = False
     commit = None
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):
@@ -92,17 +108,28 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
     else:
         model_name = Path(model_path).name
 
-    if not make_run_dir:
+    if run_dir_type == "use_existing" and not Path(model_path).exists():
+        logging.warning(f"Model path {model_path} does not exist. Will create a directory for the run (using the name 'latest')")
+        run_dir_type = "latest"
+
+    if run_dir_type == "latest":
         working_dir = base_working_dir / model_name / "latest"
         # clear working dir
         if working_dir.exists():
             logger.info(f"Removing previous working dir {working_dir}")
             shutil.rmtree(working_dir)
-    else:
+    elif run_dir_type == "timestamp":
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        working_dir = base_working_dir / model_name / timestamp
+        unique_identifier = timestamp + "_" + str(uuid.uuid4())[:8]
+        #timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S%f")
+        working_dir = base_working_dir / model_name / unique_identifier
         # check that working dir does not exist
         assert not working_dir.exists(), f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
+    elif run_dir_type == "use_existing":
+        working_dir = Path(model_path)
+    else:
+        raise ValueError(f"Invalid run_dir_type: {run_dir_type}")
+
 
     logger.info(f"Writing results to {working_dir}")
 
@@ -113,11 +140,18 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
             logger.info(f'Checking out commit {commit}')
             repo.git.checkout(commit)
 
+    elif run_dir_type == "use_existing":
+        logging.info("Not copying any model files, using existing directory")
     else:
         # copy contents of model_path to working_dir
         logger.info(f"Copying files from {model_path} to {working_dir}")
         shutil.copytree(model_path, working_dir)
 
+
+    logging.error(f"Current directory is {os.getcwd()}")
+    logging.error(f"Working dir is {working_dir}")
+    assert os.path.isdir(working_dir), working_dir
+    assert os.path.isdir(os.path.abspath(working_dir)), working_dir
     # assert that a config file exists
     if (working_dir / "MLproject").exists():
         return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)

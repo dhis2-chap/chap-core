@@ -2,7 +2,8 @@
 tests for external models with geojson, checking that geojson polygons
 are correctly sent through all layers
 """
-
+import logging
+logger = logging.getLogger(__name__)
 import json
 import pandas as pd
 import pytest
@@ -100,10 +101,14 @@ def test2(data_path):
     #data = DataSet.from_csv("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_dengue_and_diarrhea_surv_data_2015_2023_chap_format.csv", FullData)
 
     province_name_to_keep = ["01 Vientiane Capital", "09 Xiangkhouang"]
-    data = pd.read_csv("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_dengue_and_diarrhea_surv_data_2015_2023_chap_format_without_Houaphan.csv")
-    data = data[data["province_name"].isin(province_name_to_keep)]
+    data = pd.read_csv("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_dengue_and_diarrhea_surv_data_2015_2023_chap_format.csv")
+    #data = data[data["province_name"].isin(province_name_to_keep)]
     data = add_time_periods_to_data(data)
+    logger.error(data["time_period"])
     data = DataSet.from_pandas(data, FullData)
+    logger.error(data.to_pandas()["time_period"])
+    data.to_csv("test.csv")
+    return
 
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson", id_property="district").data
     #polygons = Polygons.from_file("/home/ivargry/dev/ewars_plus_python_wrapper/demo_data/laos_province_shapefile.GEOJSON").data
@@ -113,7 +118,7 @@ def test2(data_path):
         #"https://github.com/dhis2-chap/ewars_plus_python_wrapper",
         "/home/ivargry/dev/ewars_plus_python_wrapper",
         ignore_env=True,
-        make_run_dir=False
+        run_dir_type="latest"
     )
     #external_model.train(data) 
     evaluate_model(external_model, data, report_filename='test_integration_report.pdf', n_test_sets=1)

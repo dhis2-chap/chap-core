@@ -18,38 +18,35 @@ The following is an overview of all pages in the documentation:
 
 .. toctree::
    :glob:
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Installation and getting started
 
-   installation
-   installation/*
+   installation/installation
    changelog
 
 
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Using the Predictions App with CHAP (and integration with DHIS2)
+   :caption: Using the Predictions App with CHAP and DHIS2
 
    prediction-app/*
-   tutorials/downloaded_json_data
 
 
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Using CHAP as a library
+   :caption: Using CHAP as a CLI Tool
 
-   api_docs
-   tutorials/wrapping_gluonts
+   chap-cli/*
 
 
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Using the CHAP Core REST-API
+   :caption: Using CHAP as a Python library
 
-   rest-api/*
+   python-api/*
 
 
 .. toctree::
@@ -57,21 +54,23 @@ The following is an overview of all pages in the documentation:
    :maxdepth: 2
    :caption: Integrating external or custom models with CHAP
 
-   external_models/making_external_models_compatible.rst
-   external_models/developing_custom_models.rst
-   external_models/external_model_specification.rst
-   external_models/running_external_models.rst
-   external_models/integrating_external_models_with_dhis2.rst
+   external_models/making_external_models_compatible
+   external_models/developing_custom_models
+   external_models/external_model_specification
+   external_models/running_external_models
+   external_models/integrating_external_models_with_dhis2
+   external_models/wrapping_gluonts
 
 
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Development guide 
+   :caption: Contributor guide 
 
-   developer/getting_started
-   developer/code_overview
-   developer/testing
-   developer/writing_building_documentation
-   developer/code_guidelines
-   developer/manual_runs
+   contributor/getting_started
+   contributor/windows_contributors
+   contributor/code_overview
+   contributor/testing
+   contributor/writing_building_documentation
+   contributor/code_guidelines
+   contributor/r_docker_image
