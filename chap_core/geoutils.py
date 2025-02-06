@@ -6,34 +6,14 @@ import io
 from .geometry import Polygons
 from .api_types import FeatureModel
 
-# def count_coordinates(feature : FeatureModel):
-#     # TODO: not sure if needed... 
-#     geom = feature.geometry
-
-#     geotype = geom.type
-#     coords = geom.coordinates
-
-#     if geotype == "Point":
-#         xs = [coords[0]]
-#     elif geotype in ("MultiPoint","LineString"):
-#         xs = (x for x,y in coords)
-#     elif geotype == "MultiLineString":
-#         xs = (x for line in coords for x,y in line)
-#     elif geotype == "Polygon":
-#         xs = (x for ring in coords for x,y in ring)
-#     elif geotype == "MultiPolygon":
-#         xs = (x for poly in coords for ring in poly for x,y in ring)
-    
-#     return len(list(xs))
-
 def feature_bbox(feature : FeatureModel):
     '''
-    Calculates the combined bounding box for all members of a Polygons object.
+    Calculates the bounding box for a FeatureModel object.
 
     Parameters
     ----------
-    polygons : Polygons
-        A Polygons object representing the set of polygons to be simplified.
+    feature : FeatureModel
+        A `FeatureModel` object representing a feature with a geometry.
 
     Returns
     -------
@@ -67,16 +47,16 @@ def feature_bbox(feature : FeatureModel):
 
 def render(polygons : Polygons):
     '''
-    Simple utility to render a Polygons object on a map for inspecting and debugging purposes.
+    Simple utility to render a `Polygons` object on a map for inspecting and debugging purposes.
 
     Parameters
     ----------
     polygons : Polygons
-        A Polygons object representing the set of polygons to be simplified.
+        A `Polygons` object representing the set of polygons to be rendered.
 
     Returns
     -------
-    PIL.Image
+    PIL.Image.Image
         The rendered map image. 
     '''
     import geopandas as gpd
@@ -97,25 +77,14 @@ def render(polygons : Polygons):
     img = Image.open(buf)
     return img
 
-# def show(img):
-#     # TODO: not yet working in WSL
-#     import matplotlib.pyplot as plt
-#     import numpy as np
-    
-#     # Convert image to NumPy array and display using Matplotlib (works in WSL)
-#     img_array = np.array(img)
-#     plt.imshow(img_array)
-#     plt.axis("off")  # Hide axes
-#     plt.show()
-
 def toposimplify(polygons : Polygons, threshold=None):
     '''
-    Simplifies a Polygons object while preserving topology between adjacent polygons.
+    Simplifies a `Polygons` object while preserving topology between adjacent polygons.
 
     Parameters
     ----------
     polygons : Polygons
-        A Polygons object representing the set of polygons to be simplified.
+        A `Polygons` object representing the set of polygons to be simplified.
     threshold : float, optional
         Coordinate distance threshold used to simplify/round coordinates. If None, the distance 
         threshold will be automatically calculated relative to the bounding box of all polygons, 
@@ -129,7 +98,7 @@ def toposimplify(polygons : Polygons, threshold=None):
     Returns
     -------
     Polygons
-        A simplified Polygons object with preserved topology.
+        A simplified `Polygons` object with preserved topology.
     '''
     import topojson as tp
 

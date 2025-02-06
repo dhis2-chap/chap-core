@@ -75,6 +75,11 @@ def pytest_collection_modifyitems(config, items):
 def data_path():
     return Path(__file__).parent.parent / "example_data"
 
+@pytest.fixture
+def output_path():
+    path = Path(__file__).parent / "test_outputs"
+    path.mkdir(exist_ok=True)
+    return path
 
 @pytest.fixture
 def models_path():

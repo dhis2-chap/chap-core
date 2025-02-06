@@ -144,7 +144,7 @@ tests/out.tmp
 mlruns/
 /results/
 
-tests/__test_plots__
+tests/test_outputs
 example_data/era5_land_daily_data.csv
 tests/test.db
 

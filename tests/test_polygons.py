@@ -7,11 +7,6 @@ from chap_core.geometry import Polygons
 from chap_core.geoutils import toposimplify, render
 
 
-TEST_PLOTS_FOLDER = pathlib.Path(__file__).parent / '__test_plots__'
-if not TEST_PLOTS_FOLDER.exists():
-    TEST_PLOTS_FOLDER.mkdir()
-
-
 def test_to_from_geojson_file(data_path):
     polygons = Polygons.from_file(data_path / "example_polygons.geojson")
 
@@ -22,27 +17,21 @@ def test_to_from_geojson_file(data_path):
         assert polygons2 == polygons
 
 
-def test_geometry_simplify(data_path):
+def test_geometry_simplify(data_path, output_path):
     # load data
     print('loading')
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson")
-    render(polygons).save(TEST_PLOTS_FOLDER / 'test_geometry_simplify - before.png')
+    render(polygons).save(output_path / 'test_geometry_simplify - before.png')
     
     # simplify data
     print('simplifying')
     simplified = toposimplify(polygons)
-    render(simplified).save(TEST_PLOTS_FOLDER / 'test_geometry_simplify - after.png')
+    render(simplified).save(output_path / 'test_geometry_simplify - after.png')
 
     # simplify must return same number of features
     count1 = len(polygons)
     count2 = len(simplified)
     assert count1 == count2
-
-    # simplify must return fewer number of totalt coordinates
-    #coords1 = sum(count_coordinates(feat) for feat in polygons)
-    #coords2 = sum(count_coordinates(feat) for feat in simplified)
-    #print(f'total polygon coordinates reduced from {coords1} to {coords2}')
-    #assert coords2 < coords1
 
     # simplify must return smaller json data size
     print('geo interface')
