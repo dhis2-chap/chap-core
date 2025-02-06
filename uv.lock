@@ -1,14 +1,14 @@
 version = 1
 requires-python = ">=3.10"
 resolution-markers = [
-    "python_full_version < '3.11' and platform_system != 'Windows'",
-    "python_full_version == '3.11.*' and platform_system != 'Windows'",
-    "python_full_version == '3.12.*' and platform_system != 'Windows'",
-    "python_full_version >= '3.13' and platform_system != 'Windows'",
-    "python_full_version < '3.11' and platform_system == 'Windows'",
-    "python_full_version == '3.11.*' and platform_system == 'Windows'",
-    "python_full_version == '3.12.*' and platform_system == 'Windows'",
-    "python_full_version >= '3.13' and platform_system == 'Windows'",
+    "python_full_version < '3.11' and sys_platform != 'win32'",
+    "python_full_version == '3.11.*' and sys_platform != 'win32'",
+    "python_full_version == '3.12.*' and sys_platform != 'win32'",
+    "python_full_version >= '3.13' and sys_platform != 'win32'",
+    "python_full_version < '3.11' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and sys_platform == 'win32'",
 ]
 
 [[package]]
@@ -224,7 +224,7 @@ wheels = [
 
 [[package]]
 name = "chap-core"
-version = "0.0.17"
+version = "1.0.3"
 source = { editable = "." }
 dependencies = [
     { name = "annotated-types" },
@@ -262,6 +262,7 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "sqlmodel" },
+    { name = "topojson" },
     { name = "unidecode" },
     { name = "uvicorn" },
     { name = "virtualenv" },
@@ -295,7 +296,7 @@ requires-dist = [
     { name = "cyclopts" },
     { name = "diskcache" },
     { name = "docker" },
-    { name = "earthengine-api" },
+    { name = "earthengine-api", specifier = "==1.4.6" },
     { name = "fastapi" },
     { name = "geopandas" },
     { name = "geopy" },
@@ -324,6 +325,7 @@ requires-dist = [
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "sqlmodel" },
+    { name = "topojson" },
     { name = "unidecode" },
     { name = "uvicorn" },
     { name = "virtualenv" },
@@ -333,9 +335,9 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "build" },
-    { name = "bump2version", specifier = ">=1.0.1" },
+    { name = "bump2version" },
     { name = "coverage", specifier = ">=7.6.2" },
-    { name = "earthengine-api", specifier = ">=1.1.3" },
+    { name = "earthengine-api", specifier = "==1.4.6" },
     { name = "furo", specifier = ">=2024.8.6" },
     { name = "myst-parser", specifier = ">=4.0.0" },
     { name = "pre-commit", specifier = ">=4.0.1" },
@@ -423,7 +425,7 @@ name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/96/d3/f04c7bfcf5c1862a2a5b845c6b2b360488cf47af55dfa79c98f6a6bf98b5/click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de", size = 336121 }
 wheels = [
@@ -722,7 +724,7 @@ wheels = [
 
 [[package]]
 name = "earthengine-api"
-version = "1.1.3"
+version = "1.4.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-api-python-client" },
@@ -732,9 +734,9 @@ dependencies = [
     { name = "httplib2" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/56/49/3606a892b754ea31520b126bf879797a5775d5f40320386d842f73531f78/earthengine_api-1.1.3.tar.gz", hash = "sha256:65f0960cc83c1aa19780944276257fb8e5f563448632858f306bde54aac160b9", size = 408593 }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/d4/9d0dd3002ca7b6aaf3ea5d73a0cbcc76f9d8bca112fe2b780c1201c49bba/earthengine_api-1.4.6.tar.gz", hash = "sha256:4f51987e7cb52abeb5bcc70d8482ebe6a9f1b67ac0ad96029dfc079a0e43d953", size = 413276 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/80/d6/c944474949897535c8dbdc772cf311744864db4300fb5a52034f7ac5d9b7/earthengine_api-1.1.3-py3-none-any.whl", hash = "sha256:d2ecfb57c841e368bbef5c859068171be4de5d33e5d20ca6a767cbea824064a4", size = 454331 },
+    { url = "https://files.pythonhosted.org/packages/f4/b0/67c121cfacecd8e02d78935272058e079bc97bf48b446512f056b4645dc2/earthengine_api-1.4.6-py3-none-any.whl", hash = "sha256:d3d73d02ed671e13a109464de2444777e467bd662279ebd0e7aff7d4e3c8ace5", size = 458954 },
 ]
 
 [[package]]
@@ -2916,11 +2918,25 @@ wheels = [
 ]
 
 [[package]]
+name = "topojson"
+version = "1.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "shapely" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e9/c5/41006f71491f29428f1c72713ad26225434a2dd7225bbeb8e3e9a82bceb3/topojson-1.9.tar.gz", hash = "sha256:5a8389ff576d5540660d4430dab56fcadef7c1f90b9f1aa486b1cb140033ff3b", size = 25451372 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e0/67/bf9a1786862565b12798fd6d9b7aa72ec2b4d6a10e82fb9936ac01f39d97/topojson-1.9-py3-none-any.whl", hash = "sha256:122e6e91fb422549644504580eee86f8a37703dc5ccb1a8e6d8928b750706fe7", size = 82680 },
+]
+
+[[package]]
 name = "tqdm"
 version = "4.66.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/58/83/6ba9844a41128c62e810fddddd72473201f3eacde02046066142a2d96cc5/tqdm-4.66.5.tar.gz", hash = "sha256:e1020aef2e5096702d8a025ac7d16b1577279c9d63f8375b63083e9a5f0fcbad", size = 169504 }
 wheels = [

@@ -156,9 +156,31 @@ class Polygons:
     def __init__(self, polygons):
         self._polygons = polygons
 
+    def __eq__(self, other):
+        return self._polygons == other._polygons
+    
+    def __len__(self):
+        return len(self._polygons.features)
+    
+    def __iter__(self):
+        for feat in self._polygons.features:
+            yield feat
+    
+    @property
+    def __geo_interface__(self):
+        return self.to_geojson()
+
     @property
     def data(self) -> FeatureCollectionModel:
         return self._polygons
+
+    @property
+    def bbox(self):
+        from .geoutils import feature_bbox
+        boxes = (feature_bbox(feat) for feat in self)
+        xmins, ymins, xmaxs, ymaxs = zip(*boxes)
+        bbox = min(xmins),min(ymins),max(xmaxs),max(ymaxs)
+        return bbox
 
     @classmethod
     def from_file(cls, filename, id_property='id'):
@@ -171,12 +193,33 @@ class Polygons:
     def _add_ids(cls, features: DFeatureCollectionModel, id_property: str):
         for feature in features.features:
             feature.id = feature.id or feature.properties[id_property]
-        return features     
+        return features
     
     @classmethod
     def from_geojson(cls, geojson: dict, id_property: str='id'):
-        features = DFeatureCollectionModel.model_validate(geojson)
+        # TODO: check or skip non-Polygon features
+        # ... 
+
+        # validate features one-by-one
+        errors = 0
+        features = []
+        for feat in geojson['features']:
+            # skip invalid features
+            try:
+                feat = DFeatureModel.model_validate(feat)
+                features.append(feat)
+            except Exception:
+                errors += 1
+
+        # warn user about skipped features
+        if errors:
+            logger.warning(f'Skipped {errors} geojson features due to failed validation')
+
+        # create pydantic feature collection and add ids
+        features = DFeatureCollectionModel(features=features)
         features = cls._add_ids(features, id_property)
+
+        # init class object
         return cls(features)
 
     def to_geojson(self):
@@ -184,9 +227,6 @@ class Polygons:
 
     def feature_collection(self):
         return self._polygons
-
-    def __eq__(self, other):
-        return self._polygons == other._polygons
 
 
 if __name__ == "__main__":

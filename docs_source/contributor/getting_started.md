@@ -40,6 +40,10 @@ git switch tags/v1.0.3
 
 The CHAP Core codebase relies heavily on testing to ensure that the code works properly. See more about our guidelines for testing in the [testing guide](testing). 
 
+### Docstring style guide
+
+All docstrings should follow the [NumPy style guide](https://numpydoc.readthedocs.io/en/latest/format.html) for consistency and clarity. Ensure that function and class docstrings include appropriate sections such as **Parameters** and **Returns**. 
+
 ### Contributing code
 
 Code contributions should mainly happen by creating a pull request in the chap-core repository. In order to do this, you

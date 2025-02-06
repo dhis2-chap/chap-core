@@ -4,6 +4,7 @@ The documentation is built using [Sphinx](https://www.sphinx-doc.org/en/master/)
 
 The documentation is written mostly in [Markdown format](https://www.markdownguide.org/basic-syntax/) which is simple to learn and easy to read. In some cases when more advanced documentation is required we use [reStructuredText](https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html) (rst). 
 
+
 ## How to edit the documentation
 
 All documentation is in the `docs_source` folder. The main file is `index.rst`, which includes all other files in the documentation. This file also generates the menu. 
