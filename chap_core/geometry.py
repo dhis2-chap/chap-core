@@ -208,7 +208,7 @@ class Polygons:
             try:
                 feat = DFeatureModel.model_validate(feat)
                 features.append(feat)
-            except:
+            except Exception:
                 errors += 1
 
         # warn user about skipped features
