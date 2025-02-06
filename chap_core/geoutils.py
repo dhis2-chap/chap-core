@@ -27,6 +27,19 @@ from .api_types import FeatureModel
 #     return len(list(xs))
 
 def feature_bbox(feature : FeatureModel):
+    '''
+    Calculates the combined bounding box for all members of a Polygons object.
+
+    Parameters
+    ----------
+    polygons : Polygons
+        A Polygons object representing the set of polygons to be simplified.
+
+    Returns
+    -------
+    tuple
+        A 4-tuple in the form of (xmin,ymin,xmax,ymax)
+    '''
     geom = feature.geometry
 
     geotype = geom.type
@@ -53,6 +66,19 @@ def feature_bbox(feature : FeatureModel):
     return bbox
 
 def render(polygons : Polygons):
+    '''
+    Simple utility to render a Polygons object on a map for inspecting and debugging purposes.
+
+    Parameters
+    ----------
+    polygons : Polygons
+        A Polygons object representing the set of polygons to be simplified.
+
+    Returns
+    -------
+    PIL.Image
+        The rendered map image. 
+    '''
     import geopandas as gpd
     import matplotlib.pyplot as plt
     from PIL import Image
@@ -83,17 +109,27 @@ def render(polygons : Polygons):
 #     plt.show()
 
 def toposimplify(polygons : Polygons, threshold=None):
-    '''Simplifies a Polygons object while preserving topology between adjacent polygons.
-    
-    Args:
-    - polygons: Polygons object
-    - threshold: Coordinate distance threshold used to simplify/round coordinates. 
-        If None, distance threshold will be auto calculated relative to the bbox of all polygons, specifically 
-        one-thousandth of longest of bbox width or height. 
-        Threshold distance is specified in coordinate units, so for lat-long coordinates the threshold should be 
-        specified in decimal degrees, where 0.01 decimal degrees is roughly 1 km at the equator but increases 
-        towards the poles. 
-        For more accurate thresholds, the Polygons object should be created using projected coordinates (not lat-long). 
+    '''
+    Simplifies a Polygons object while preserving topology between adjacent polygons.
+
+    Parameters
+    ----------
+    polygons : Polygons
+        A Polygons object representing the set of polygons to be simplified.
+    threshold : float, optional
+        Coordinate distance threshold used to simplify/round coordinates. If None, the distance 
+        threshold will be automatically calculated relative to the bounding box of all polygons, 
+        specifically one-thousandth of the longest of the bounding box width or height. 
+        The threshold distance is specified in coordinate units. For latitude-longitude coordinates, 
+        the threshold should be specified in decimal degrees, where 0.01 decimal degrees is roughly 
+        1 km at the equator but increases towards the poles. 
+        For more accurate thresholds, the Polygons object should be created using projected coordinates 
+        instead of latitude-longitude.
+
+    Returns
+    -------
+    Polygons
+        A simplified Polygons object with preserved topology.
     '''
     import topojson as tp
 
@@ -107,6 +143,10 @@ def toposimplify(polygons : Polygons, threshold=None):
         threshold = longest * frac
 
     # generate topology and simplify
+    # This is where the topology is created and simplified. Right now only sets the toposimplify parameter, 
+    # which sets the distance threshold used for simplifying. Other parameters that are also relevant and 
+    # might need to be specified in the future are prequantize, presimplify, and topoquantize.
+    # See https://mattijn.github.io/topojson/example/settings-tuning.html#prevent_oversimplify.
     kwargs = {
         'toposimplify': threshold,
         'prevent_oversimplify': True,
