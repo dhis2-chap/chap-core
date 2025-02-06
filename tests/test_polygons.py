@@ -4,7 +4,7 @@ import json
 import pathlib
 import logging
 from chap_core.geometry import Polygons
-from chap_core.geoutils import toposimplify, render
+from chap_core.geoutils import simplify_topology, render
 
 
 def test_to_from_geojson_file(data_path):
@@ -25,7 +25,7 @@ def test_geometry_simplify(data_path, output_path):
     
     # simplify data
     print('simplifying')
-    simplified = toposimplify(polygons)
+    simplified = simplify_topology(polygons)
     render(simplified).save(output_path / 'test_geometry_simplify - after.png')
 
     # simplify must return same number of features
