@@ -197,8 +197,29 @@ class Polygons:
     
     @classmethod
     def from_geojson(cls, geojson: dict, id_property: str='id'):
-        features = DFeatureCollectionModel.model_validate(geojson)
+        # TODO: check or skip non-Polygon features
+        # ... 
+
+        # validate features one-by-one
+        errors = 0
+        features = []
+        for feat in geojson['features']:
+            # skip invalid features
+            try:
+                feat = DFeatureModel.model_validate(feat)
+                features.append(feat)
+            except:
+                errors += 1
+
+        # warn user about skipped features
+        if errors:
+            logger.warning(f'Skipped {errors} geojson features due to failed validation')
+
+        # create pydantic feature collection and add ids
+        features = DFeatureCollectionModel(features=features)
         features = cls._add_ids(features, id_property)
+
+        # init class object
         return cls(features)
 
     def to_geojson(self):

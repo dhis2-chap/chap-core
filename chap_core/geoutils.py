@@ -87,8 +87,13 @@ def toposimplify(polygons : Polygons, threshold=None):
     
     Args:
     - polygons: Polygons object
-    - threshold: coordinate distance threshold used to simplify/round coordinates. If None, distance threshold
-        will be auto calculated relative to the bbox of all polygons, specifically one-thousandth of longest of bbox width or height. 
+    - threshold: Coordinate distance threshold used to simplify/round coordinates. 
+        If None, distance threshold will be auto calculated relative to the bbox of all polygons, specifically 
+        one-thousandth of longest of bbox width or height. 
+        Threshold distance is specified in coordinate units, so for lat-long coordinates the threshold should be 
+        specified in decimal degrees, where 0.01 decimal degrees is roughly 1 km at the equator but increases 
+        towards the poles. 
+        For more accurate thresholds, the Polygons object should be created using projected coordinates (not lat-long). 
     '''
     import topojson as tp
 
@@ -102,7 +107,11 @@ def toposimplify(polygons : Polygons, threshold=None):
         threshold = longest * frac
 
     # generate topology and simplify
-    kwargs = {'toposimplify':threshold}
+    kwargs = {
+        'toposimplify': threshold,
+        'prevent_oversimplify': True,
+        #'simplify_with': 'simplification',
+    }
     topo = tp.Topology(polygons.__geo_interface__, **kwargs)
 
     # convert back to geojson

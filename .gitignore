@@ -145,6 +145,8 @@ mlruns/
 /results/
 
 tests/__test_plots__
+example_data/era5_land_daily_data.csv
+tests/test.db
 
 # ignore mac finder setting files
 .DS_Store
