@@ -1,6 +1,6 @@
 
 Python API documentation
-===================
+=========================
 
 The following is the Python API docs for the current functionality of chap-core that is available for use.
 

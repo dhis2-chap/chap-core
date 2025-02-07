@@ -75,5 +75,3 @@ The following is an overview of all pages in the documentation:
    contributor/code_overview
    contributor/testing
    contributor/writing_building_documentation
-   contributor/code_guidelines
-   contributor/r_docker_image

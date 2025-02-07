@@ -22,31 +22,66 @@ Windows users who wish to contribute to CHAP Core should [start by reading this 
 
 In order to make changes and contribute back to the chap-core Python codebase, you will need to [set up a development environment](../installation/chap-contributor-setup.md). 
 
-### CHAP Core versions
+Installing and activating the development environment above is a required step for the remaining steps below. 
 
-Most of the time, contributors should work with the latest code in the `dev` branch. However, in some cases it may be relevant to work with and test specific stable versions of CHAP Core. Versions are stored as git tags, so to see which versions of CHAP Core are available, you can write: 
+### Code guidelines
 
-```bash
-git tag
-```
+In the current phase we are moving quite fast, and the code guidelines are not very strict. 
+However, we have some general guidelines that we try to follow:
 
-Then you can switch to a desired version using, for instance: 
+- Alle code that is meant to be used should be tested (see the guidelines about testing)
+- It is okay to have code that is not currently being used (just write a comment to explain)
 
-```bash
-git switch tags/v1.0.3
-```
+### Debugging
+
+Debugging can be done as usual in your favorite code editor. 
+
+For Windows users using VSCode, since the code should be run and tested on WSL, follow these steps to enable debugging in VSCode:
+- Install the [WSL extension for WSL](https://code.visualstudio.com/docs/remote/wsl).
+- Inside a wsl commandline session in your chap-core folder, type `code .`
+- This will open your chap-core folder in VSCode using the WSL Linux/Python development environment. You can now use the VSCode debugger as usual.
 
 ### Testing
 
-The CHAP Core codebase relies heavily on testing to ensure that the code works properly. See more about our guidelines for testing in the [testing guide](testing). 
+The CHAP Core codebase relies heavily on testing to ensure that the code works properly. A quick example to run a specific test file would be to write: 
+
+```bash
+$ pytest tests/test_polygons.py
+```
+
+See more about our guidelines for testing in the [testing guide](testing). 
+
+### Code formatting
+
+To ensure consistent and standardized code formatting we recommend running the `ruff` tool available from the development environment before making commits which will automatically check and report any formatting issues: 
+
+```bash
+$ ruff check
+```
 
 ### Docstring style guide
 
-All docstrings should follow the [NumPy style guide](https://numpydoc.readthedocs.io/en/latest/format.html) for consistency and clarity. Ensure that function and class docstrings include appropriate sections such as **Parameters** and **Returns**. 
+All docstrings should follow the [NumPy style guide](https://numpydoc.readthedocs.io/en/latest/format.html) for consistency and clarity. 
+
+Ensure that function and class docstrings include appropriate sections such as 'Parameters' and 'Returns'. 
+
+### Documentation
+
+Changes to the CHAP Core documentation is done inside the `docs_source` folder, and can be built by writing:
+
+```bash
+$ cd docs_source
+$ make html
+```
+
+More detailed guidelines for how to write and build the documentation [can be found here](writing_building_documentation.md). 
 
 ### Contributing code
 
-Code contributions should mainly happen by creating a pull request in the chap-core repository. In order to do this, you
-will have to have a clone of the chap-core repository on github (which is possible for anyone with a github account).
+Code contributions should always be made to the `dev` branch first. When the `dev` branch has been used and tested for some time, the CHAP team will merge this into the `master` branch. 
 
-Some internal developers can also push directly to the main chap-core repository.
+Before making your contribution, always [run the quick test suite](testing) to make sure everything works. 
+
+Most of the time, contributions should be made on a new branch, and creating a [Pull Request](https://github.com/dhis2-chap/chap-core/pulls) targeting the `dev` branch of the chap-core repository. 
+
+If you're an internal developer and only making small changes it's sometimes fine to push directly to the `dev` branch. However, for major changes or code refactoring, internal developers should still consider creating and submitting a PR for more systematic review of the code. 
