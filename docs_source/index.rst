@@ -60,6 +60,9 @@ The following is an overview of all pages in the documentation:
    external_models/running_external_models
    external_models/integrating_external_models_with_dhis2
    external_models/wrapping_gluonts
+   external_models/overview_of_supported_models
+   external_models/data_requirements_in_chap
+   external_models/running_models_with_examples
 
 
 .. toctree::
