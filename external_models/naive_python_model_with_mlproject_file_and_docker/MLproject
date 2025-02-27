@@ -17,4 +17,53 @@ entry_points:
       future_data: str
       model: str
       out_file: str
-    command: "python  predict.py {model} {historic_data} {future_data} {out_file}"
+    command: "python  predict.py {model} {historic_data} {future_data} {out_file} {number_of_iterations} {user_config_yaml} {polygons}"
+
+
+# Example of how required and optional fields can be specified
+required_covariates: 
+  - population
+  - rainfall
+
+
+#optional_covariates:
+#  - humidity
+#  - wind_speed
+
+
+# if set to true, model allows any extra covariate that is continuous (i.e. not categorical)
+allow_free_additional_continuous_covariates: true
+
+allows_free_optional_covariates: true
+
+# Set to True if this model allows any optional covariates
+allows_optional_covariates: true
+
+user_options:
+  rainfall:
+    type: dataset
+    description: "Select data that gives rainfall"
+    required: False
+  
+  polygons:
+    type: polygons
+    description: "Select polygons"
+    required: True
+
+  number_of_iterations:
+    type: int
+    min: 1
+    max: 100
+    description: "Number of iterations"
+
+  use_shapepolygons:
+    type: bool
+    description: "Use polygons"
+    required: False
+
+  do_population_multiplication_in_then_end:
+    type: bool
+    description: "Do population multiplication in the end"
+    required: False
+
+

@@ -2,9 +2,10 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Protocol, TypeVar
+from typing import List, Literal, Optional, Protocol, TypeVar
 import os
 import git
+from pydantic import BaseModel
 import yaml
 import uuid
 from chap_core.data import DataSet
@@ -17,7 +18,9 @@ from chap_core.exceptions import InvalidModelException
 from chap_core.external.mlflow_wrappers import (
     ExternalModel,
     get_train_predict_runner,
+    get_train_predict_runner_from_model_template_config,
 )
+from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.runners.docker_runner import DockerImageRunner, DockerRunner
 from chap_core.runners.runner import Runner
@@ -159,26 +162,33 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         raise InvalidModelException("No MLproject file found in model directory")
 
 
+
 def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
     
+    
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
-    if "docker_env" in config or 'r_env' in config:
+    if "docker_env" in config:
         runner_type = "docker"
     else:
         runner_type = "mlflow"
 
-    runner = get_train_predict_runner(mlproject_file, runner_type, skip_environment=ignore_env)
+    working_dir = Path(mlproject_file).parent
+    config = ModelTemplateConfig.model_validate(config)
+    runner = get_train_predict_runner_from_model_template_config(config, working_dir, ignore_env)   
+    #runner = get_train_predict_runner(mlproject_file, runner_type, skip_environment=ignore_env)
+
     logging.info("Runner is %s", runner)
     logging.info("Will create ExternalMlflowModel")
-    name = config["name"]
-    adapters = config.get("adapters", None)
-    allowed_data_types = {"HealthData": HealthData}
-    data_type = allowed_data_types.get(config.get("data_type", None), None)
+    name = config.name  
+    adapters = config.adapters  #config.get("adapters", None)
+    #allowed_data_types = {"HealthData": HealthData}
+    #data_type = allowed_data_types.get(config.get("data_type", None), None)
+    data_type = HealthData
     return ExternalModel(
         runner,
         name=name,

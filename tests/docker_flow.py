@@ -88,6 +88,15 @@ def evaluate_model(chap_url, data, model, timeout=600):
     else:
         raise TimeoutError("Model evaluation took too long")
     results = requests.get(chap_url + "/v1/get-results")
+    
+    if results.status_code != 200:
+        exception_info = requests.get(chap_url + "/v1/get-exception").json()
+        logger.error("Failed to get results")
+        logger.error(exception_info)
+        raise ValueError("Failed to get results")
+
+    assert results.status_code == 200, results.status_code
+    print("STatus code", results.status_code)
     print("RESULTS", results)
     results = results.json()
     assert len(results['dataValues']) == 45, len(results['dataValues'])

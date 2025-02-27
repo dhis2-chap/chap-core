@@ -1,8 +1,10 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TypeVar, Literal
+from typing import Generic, Optional, TypeVar, Literal
 import logging
 import pandas as pd
 #import mlflow
+from pydantic import BaseModel
 import yaml
 from mlflow.utils.process import ShellCommandException
 import mlflow.projects
@@ -10,6 +12,7 @@ import mlflow.exceptions
 from chap_core.datatypes import HealthData, Samples
 from chap_core.exceptions import CommandLineException, ModelConfigurationException, ModelFailedException
 from chap_core.exceptions import NoPredictionsError
+from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.geometry import Polygons
 from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.runners.docker_runner import DockerRunner
@@ -20,6 +23,38 @@ from chap_core.time_period import TimePeriod
 logger = logging.getLogger(__name__)
 
 FeatureType = TypeVar("FeatureType")
+
+
+def get_train_predict_runner_from_model_template_config(model_template_config: ModelTemplateConfig,
+                                                        working_dir: Path,
+                                                        skip_environment=False,
+                                                    ) -> TrainPredictRunner:
+
+    if model_template_config.docker_env is not None:
+        runner_type = "docker"
+    else:
+        runner_type = "mlflow"
+
+    logger.info(f'skip_environement: {skip_environment}, runner_type: {runner_type}')
+
+    if skip_environment or runner_type == "docker":
+
+        # read yaml file into a dict
+        train_command = model_template_config.entry_points.train.command #data["entry_points"]["train"]["command"]
+        predict_command = model_template_config.entry_points.predict.command #data["entry_points"]["predict"]["command"]    
+
+        if skip_environment:
+            return CommandLineTrainPredictRunner(CommandLineRunner(working_dir), train_command, predict_command)
+        else:
+            assert model_template_config.docker_env is not None
+
+        logging.info(f"Docker image is {model_template_config.docker_env.image}")
+        command_runner = DockerRunner(model_template_config.docker_env.image, working_dir)
+        return DockerTrainPredictRunner(command_runner, train_command, predict_command)
+    else:
+        assert runner_type == "mlflow"
+        return MlFlowTrainPredictRunner(working_dir)
+
 
 
 def get_train_predict_runner(mlproject_file: Path, runner_type: Literal["mlflow", "docker"],
@@ -148,7 +183,7 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
 
 class ExternalModel(Generic[FeatureType]):
     """
-    Wrapper around an mlflow model with commands for training and predicting
+    Wrapper around an configured model with commands for training and predicting.
     """
 
     def __init__(
@@ -176,12 +211,30 @@ class ExternalModel(Generic[FeatureType]):
     def __call__(self):
         return self
 
+    @property
+    def required_fields(self):
+        return self._required_fields
+
+    @property
+    def optional_fields(self):
+        return self._optional_fields
+
     def _write_polygons_to_geojson(self, dataset: DataSet, out_file_name):
         if dataset.polygons is not None:
             logging.info(f"Writing polygons to {out_file_name}")
             Polygons(dataset.polygons).to_file(out_file_name)
 
     def train(self, train_data: DataSet, extra_args=None):
+        """
+        Trains this model on the given dataset
+
+        Parameters 
+        ----------
+        train_data : DataSet
+            The data to train the model on
+        extra_args : str
+            Extra arguments to pass to the train command
+        """
         if extra_args is None:
             extra_args = ""
 
