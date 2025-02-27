@@ -2,10 +2,9 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Literal, Optional, Protocol, TypeVar
+from typing import Literal, Protocol, TypeVar
 import os
 import git
-from pydantic import BaseModel
 import yaml
 import uuid
 from chap_core.data import DataSet
@@ -18,7 +17,6 @@ from chap_core.exceptions import InvalidModelException
 from chap_core.external.mlflow_wrappers import (
     ExternalModel,
     ModelTemplate,
-    get_train_predict_runner,
     get_train_predict_runner_from_model_template_config,
 )
 from chap_core.external.model_configuration import ModelTemplateConfig
@@ -184,11 +182,6 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalM
     
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
-
-    if "docker_env" in config:
-        runner_type = "docker"
-    else:
-        runner_type = "mlflow"
 
     working_dir = Path(mlproject_file).parent
     config = ModelTemplateConfig.model_validate(config)
