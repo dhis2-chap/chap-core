@@ -181,9 +181,41 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
         self._runner.teardown()
 
 
+class ModelTemplate:
+    """
+    Represents a Model Template that can generate concrete models. A template defines the choices allowed for a model
+    """
+    def __init__(self, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
+        self._model_template_config = model_template_config
+        self._working_dir = working_dir
+        self._ignore_env = ignore_env
+
+    def get_config_class(self):
+        return ModelTemplateConfig()
+
+    def get_model(self, model_configuration: BaseModel = None) -> 'ExternalModel':
+        assert model_configuration is None, "Configuration not supported yet"
+        #config = ModelTemplateConfig.model_validate(model_configuration)
+        runner = get_train_predict_runner_from_model_template_config(self._model_template_config, 
+                                                                     self._working_dir, self._ignore_env)   
+
+        config = self._model_template_config
+        name = config.name  
+        adapters = config.adapters  #config.get("adapters", None)
+        data_type = HealthData
+        return ExternalModel(
+            runner,
+            name=name,
+            adapters=adapters,
+            data_type=data_type,
+            working_dir=self._working_dir,
+        )
+
+
 class ExternalModel(Generic[FeatureType]):
     """
     Wrapper around an configured model with commands for training and predicting.
+    TODO: rename to Model
     """
 
     def __init__(

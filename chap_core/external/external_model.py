@@ -17,6 +17,7 @@ from chap_core.datatypes import (
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.mlflow_wrappers import (
     ExternalModel,
+    ModelTemplate,
     get_train_predict_runner,
     get_train_predict_runner_from_model_template_config,
 )
@@ -157,10 +158,22 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
     assert os.path.isdir(os.path.abspath(working_dir)), working_dir
     # assert that a config file exists
     if (working_dir / "MLproject").exists():
+        return get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env).get_model(model_configuration=None)
         return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
     else:
         raise InvalidModelException("No MLproject file found in model directory")
 
+
+def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
+    working_dir = Path(mlproject_file).parent
+
+    with open(mlproject_file, "r") as file:
+        config = yaml.load(file, Loader=yaml.FullLoader)
+    config = ModelTemplateConfig.model_validate(config)
+    
+    model_template = ModelTemplate(config, working_dir, ignore_env)
+    return model_template
+ 
 
 
 def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:

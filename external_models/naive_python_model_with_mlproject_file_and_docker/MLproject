@@ -26,6 +26,9 @@ required_covariates:
   - rainfall
 
 
+requires_polygons: true
+
+
 #optional_covariates:
 #  - humidity
 #  - wind_speed
@@ -65,5 +68,4 @@ user_options:
     type: bool
     description: "Do population multiplication in the end"
     required: False
-
 
