@@ -1,5 +1,6 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TypeVar, Literal
+from typing import Generic, Optional, TypeVar, Literal
 import logging
 import pandas as pd
 #import mlflow
@@ -182,7 +183,8 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
 
 class ModelTemplate:
     """
-    Represents a Model Template that can generate concrete models. A template defines the choices allowed for a model
+    Represents a Model Template that can generate concrete models. 
+    A template defines the choices allowed for a model
     """
     def __init__(self, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
         self._model_template_config = model_template_config
@@ -190,7 +192,12 @@ class ModelTemplate:
         self._ignore_env = ignore_env
 
     def get_config_class(self):
-        return ModelTemplateConfig()
+        if self._model_template_config.allow_free_additional_continuous_covariates:
+            class SimpleConfig(BaseModel):
+                additional_continuous_covariates: list[str] = []
+            return SimpleConfig
+        else:
+            return BaseModel
 
     def get_model(self, model_configuration: BaseModel = None) -> 'ExternalModel':
         assert model_configuration is None, "Configuration not supported yet"
