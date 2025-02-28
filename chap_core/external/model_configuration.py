@@ -28,3 +28,5 @@ class ModelTemplateConfig(BaseModel):
     adapters: Optional[dict[str, str]] = None
 
 
+
+

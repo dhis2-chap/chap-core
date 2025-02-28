@@ -182,7 +182,6 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalM
     
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
-
     working_dir = Path(mlproject_file).parent
     config = ModelTemplateConfig.model_validate(config)
     runner = get_train_predict_runner_from_model_template_config(config, working_dir, ignore_env)   
