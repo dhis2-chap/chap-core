@@ -51,12 +51,19 @@ def harmonize(input_filename: Path, output_filename: Path):
     """
 
     logger.info(f"Converting {input_filename} to {output_filename}")
+    polygons_filename = output_filename.with_suffix(".geojson")
 
     with open(input_filename, "r") as f:
         text = f.read()
     request_data = PredictionRequest.model_validate_json(text)
+    geojson = request_data.orgUnitsGeoJson.model_dump_json()
+    with open(polygons_filename, "w") as f:
+        f.write(geojson)
     dataset = dataset_from_request_v1(request_data, usecwd_for_credentials=True)
     dataset.to_csv(output_filename)
+
+
+
 
 
 def evaluate(

@@ -164,6 +164,25 @@ def laos_request(local_data_path):
     dicts['estimator_id'] = 'naive_model'
     return json.dumps(dicts)
 
+@pytest.fixture
+def laos_request_2(local_data_path):
+    filepath = local_data_path / "laos_request_2.json"
+    with open(filepath, "r") as f:
+        text  = f.read()
+    dicts = json.loads(text)
+    dicts['estimator_id'] = 'naive_model'
+    return json.dumps(dicts)
+
+
+@pytest.fixture
+def laos_request_3(local_data_path):
+    filepath = local_data_path / "laos_request_3.json"
+    with open(filepath, "r") as f:
+        text = f.read()
+    dicts = json.loads(text)
+    dicts['estimator_id'] = 'naive_model'
+    return json.dumps(dicts)
+
 
 
 

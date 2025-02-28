@@ -68,12 +68,15 @@ def test_evaluate(big_request_json, mocked_gee):
     assert len(actual_cases.data) > 100
 
 
-def test_evaluate_laos(laos_request, mocked_gee):
-    results = evaluate(laos_request, n_splits=2, stride=1)
+def test_evaluate_laos(laos_request_2, mocked_gee):
+    results = evaluate(laos_request_2, n_splits=2, stride=1)
     actual_cases = results.actualCases
     assert all(len(element.pe) == 6 for element in actual_cases.data), [element.pe for element in actual_cases.data]
     print(actual_cases.data)
     assert len(actual_cases.data) == len({element.pe for element in actual_cases.data}) * len({element.ou for element in actual_cases.data})
+
+def test_predict_laos(laos_request_3, mocked_gee):
+    results = predict(laos_request_3)
 
 
 def test_dataset_from_request_v1(big_request_json, mocked_gee):
