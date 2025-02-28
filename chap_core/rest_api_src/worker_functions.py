@@ -127,9 +127,9 @@ def __clean_actual_cases(real_data: DataList) -> DataList:
     dataset = DataSet.from_pandas(df, TimeSeriesArray, fill_missing=True)
     return DataList(featureId=real_data.featureId,
                     dhis2Id=real_data.dhis2Id,
-                    data=[DataElement(pe=row.time_period.id, ou=location, value=row.value if not np.isnan(row.value) else None)
+                    data=[DataElement(pe=row.time_period.id, ou=location,
+                                      value=row.value if not np.isnan(row.value) else None)
                           for location, ts_array in dataset.items() for row in ts_array])
-
 
 
 def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataList):
@@ -211,6 +211,15 @@ def get_health_dataset(json_data: PredictionRequest, dataclass=None, colnames=('
 
     target_name = get_target_name(json_data)
     translations = {target_name: "disease_cases"}
+    population_feature = next(f for f in json_data.features if f.featureId == "population")
+    if not len(population_feature.data):
+        other_feature = next(f for f in json_data.features if f.featureId != "population")
+        locations = {d.ou for d in other_feature.data}
+        periods = {d.pe for d in other_feature.data}
+        population_feature.data = [
+            DataElement(pe=period, ou=location, value=10000000) for period in periods
+            for location in locations]
+
     data = {
         translations.get(feature.featureId, feature.featureId): v1_conversion(
             feature.data, fill_missing=feature.featureId in (target_name, "population"), colnames=colnames

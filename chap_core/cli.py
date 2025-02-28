@@ -283,8 +283,10 @@ class AreaPolygons: ...
 
 
 @app.command()
-def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path, prediction_length: int = 12,
-             n_test_sets: int = 20, stride: int = 2):
+def backtest(data_filename: Path, model_name: registry.model_type|str, out_folder: Path,
+             prediction_length: int = 12,
+             n_test_sets: int = 20,
+             stride: int = 2):
     """
     Run a backtest on a dataset using the specified model
 
@@ -294,10 +296,14 @@ def backtest(data_filename: Path, model_name: registry.model_type, out_folder: P
         out_folder: Path: Path to the output folder
     """
     dataset = DataSet.from_csv(data_filename, FullData)
-    print(dataset)
     logger.info(f"Running backtest on {data_filename} with model {model_name}")
     logger.info(f"Dataset period range: {dataset.period_range}, locations: {list(dataset.locations())}")
-    estimator = registry.get_model(model_name)
+
+    if '/' in model_name:
+        estimator = get_model_from_directory_or_github_url(model_name)
+        model_name = 'development_model'
+    else:
+        estimator = registry.get_model(model_name)
     predictions_list = _backtest(estimator, dataset, prediction_length=prediction_length,
                                  n_test_sets=n_test_sets, stride=stride, weather_provider=QuickForecastFetcher)
     response = samples_to_evaluation_response(

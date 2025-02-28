@@ -1,4 +1,6 @@
+import os
 import pickle
+from pathlib import Path
 from typing import Generic, Iterable, Tuple, Type, Callable
 
 import numpy as np
@@ -334,7 +336,13 @@ class DataSet(Generic[FeaturesT]):
 
     @classmethod
     def from_csv(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
-        return cls.from_pandas(pd.read_csv(file_name), dataclass)
+        obj = cls.from_pandas(pd.read_csv(file_name), dataclass)
+        if isinstance(file_name, (str, Path)):
+            path = Path(file_name).with_suffix(".geojson")
+            if path.exists():
+                with open(path, "r") as f:
+                    obj.set_polygons(FeatureCollectionModel.model_validate_json(f.read()))
+        return obj
 
     def join_on_time(self, other: "DataSet[FeaturesT]") -> "DataSet[Tuple[FeaturesT, FeaturesT]]":
         """Join two SpatioTemporalDicts on time. Returns a new SpatioTemporalDict.

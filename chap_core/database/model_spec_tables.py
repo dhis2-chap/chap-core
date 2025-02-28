@@ -11,8 +11,10 @@ class FeatureTypeBase(DBModel):
     display_name: str
     description: str
 
+
 class FeatureTypeRead(FeatureTypeBase):
     name: str
+
 
 class FeatureType(FeatureTypeBase, table=True):
     name: str = Field(str, primary_key=True)
