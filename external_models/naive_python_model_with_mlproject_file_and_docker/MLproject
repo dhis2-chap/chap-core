@@ -35,7 +35,7 @@ requires_polygons: true
 
 
 # if set to true, model allows any extra covariate that is continuous (i.e. not categorical)
-allow_free_additional_continuous_covariates: true
+allow_free_additional_continuous_timevarying_covariates: true
 
 allows_free_optional_covariates: true
 
