@@ -77,7 +77,7 @@ def render(polygons : Polygons):
     img = Image.open(buf)
     return img
 
-def simplify_topology(polygons : Polygons, threshold=None):
+def simplify_topology(polygons : Polygons, threshold=None)-> Polygons:
     '''
     Simplifies a `Polygons` object while preserving topology between adjacent polygons.
 

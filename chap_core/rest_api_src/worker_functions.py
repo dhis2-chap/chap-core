@@ -2,6 +2,7 @@ import json
 import os
 from typing import Optional, Tuple, List, Union
 
+import ee
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel
@@ -13,6 +14,8 @@ from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData, create_tsdataclass, TimeSeriesArray
+from chap_core.geometry import Polygons
+from chap_core.geoutils import simplify_topology
 from chap_core.time_period.date_util_wrapper import convert_time_period_string
 from chap_core.external.external_model import (
     get_model_from_directory_or_github_url,
@@ -137,8 +140,8 @@ def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataL
     for predictions in predictions_list:
         first_period = predictions.period_range[0]
         for location, samples in predictions.items():
-            quantiles = {q: np.quantile(samples.samples, q, axis=-1) for q in quantiles}
-            for q, quantile in quantiles.items():
+            calculated_quantiles = {q: np.quantile(samples.samples, q, axis=-1) for q in quantiles}
+            for q, quantile in calculated_quantiles.items():
                 for period, value in zip(predictions.period_range, quantile):
                     entry = EvaluationEntry(orgUnit=location,
                                             period=period.id,
