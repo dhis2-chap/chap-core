@@ -15,6 +15,6 @@ def observations_to_dataset(dataclass, observations, fill_missing=False):
 
 def dataset_model_to_dataset(dataclass, dataset, fill_missing=False):
     ds = observations_to_dataset(dataclass, dataset.observations, fill_missing=fill_missing)
-    polygons = FeatureCollectionModel.model_validate_json(dataset.geojson)
+    polygons = FeatureCollectionModel.model_validate(dataset.geojson)
     ds.set_polygons(polygons)
     return ds

@@ -190,7 +190,7 @@ def laos_request_3(local_data_path):
 def dataset_create(big_request_json):
     data = RequestV1.model_validate_json(big_request_json)
     return DatasetCreate(name='test',
-                         geojson=data.orgUnitsGeoJson.model_dump_json(),
+                         geojson=data.orgUnitsGeoJson.model_dump(),
                          observations=[ObservationBase(
                              element_id=f.featureId if f.featureId != 'diseases' else 'disease_cases',
                              period=d.pe, orgUnit=d.ou,

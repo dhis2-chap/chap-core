@@ -121,7 +121,7 @@ async def get_backtests(session: Session = Depends(get_session)):
 
 class DatasetCreate(DataSetBase):
     observations: List[ObservationBase]
-
+    geojson: FeatureCollectionModel
 
 @router.get('/datasets/{datasetId}', response_model=DataSetWithObservations)
 async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], session: Session = Depends(get_session)):
@@ -141,7 +141,7 @@ class DataBaseResponse(DBModel):
 async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_database_url),
                          worker_settings=Depends(get_settings)) -> JobResponse:
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
-    health_data.set_polygons(FeatureCollectionModel.model_validate_json(data.geojson))
+    health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
     job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name,
                           database_url=datababase_url, worker_config=worker_settings)
     return JobResponse(id=job.id)

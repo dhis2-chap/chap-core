@@ -70,7 +70,9 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
 
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
-    response = client.post("/v1/crud/datasets", data=dataset_create.model_dump_json())
+    data = dataset_create.model_dump_json()
+    print(json.dumps(data, indent=2))
+    response = client.post("/v1/crud/datasets", data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
     response = client.get(f"/v1/crud/datasets/{db_id}")
