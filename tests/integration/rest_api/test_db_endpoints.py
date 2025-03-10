@@ -8,6 +8,7 @@ from chap_core.api_types import EvaluationEntry
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
+from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import PredictionRead
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
@@ -84,6 +85,13 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
 
 
+def test_list_models(celery_session_worker, dependency_overrides):
+    response = client.get("/v1/crud/models")
+    assert response.status_code == 200, response.json()
+    assert len(response.json()) > 0
+    assert 'id' in response.json()[0]
+    models = [ModelSpecRead.model_validate(m) for m in response.json()]
+
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
     data = make_prediction_request.model_dump_json()
     response = client.post("/v1/analytics/prediction",
@@ -95,7 +103,7 @@ def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_
     ds = PredictionRead.model_validate(response.json())
     assert len(ds.forecasts) > 0
     assert all(len(f.values) for f in ds.forecasts)
-    #assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
+    # assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
 
 
 @pytest.mark.skip(reason="Failing because of missing geojson file")

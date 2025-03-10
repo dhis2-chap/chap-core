@@ -34,24 +34,27 @@ class ModelFeatureLink(DBModel, table=True):
 
 
 # TODO: Move to db spec
+# ModelTags = Literal["bayesian", "deep learning"]
 
 class ModelSpecBase(DBModel):
     name: str
     supported_period_types: PeriodType = PeriodType.any
     description: str = "No Description yet"
     author: str = "Unknown Author"
+    author_logo_url: Optional[str] = None
+    source_url: Optional[str] = None
 
 
 class ModelSpecRead(ModelSpecBase):
     id: int
-    features: List[FeatureTypeRead]
+    covariates: List[FeatureTypeRead]
     target: FeatureTypeRead
 
 
 class ModelSpec(ModelSpecBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
-    features: List[FeatureType] = Relationship(link_model=ModelFeatureLink)
-    target_id: str = Field(foreign_key="featuretype.name")
+    covariates: List[FeatureType] = Relationship(link_model=ModelFeatureLink) # TODO: rename to covariates
+    target_name: str = Field(foreign_key="featuretype.name") # TODO: rename to name
     target: FeatureType = Relationship()
 
 
@@ -61,8 +64,8 @@ target_type = FeatureType(name='disease_cases',
 
 seeded_feature_types = [
     FeatureType(name='rainfall',
-                display_name='Rainfall',
-                description='Rainfall'),
+                display_name='Precipitation',
+                description='Precipitation in mm'),
     FeatureType(name='mean_temperature',
                 display_name='Mean Temperature',
                 description='A measurement of mean temperature'),
@@ -70,13 +73,13 @@ seeded_feature_types = [
                 display_name='Population',
                 description='Population'),
     target_type]
-base_features = [seeded_feature_types[0], seeded_feature_types[1], seeded_feature_types[2]]
+base_covariates = [seeded_feature_types[0], seeded_feature_types[1], seeded_feature_types[2]]
 
 seeded_models = [
     ModelSpec(
         name="chap_ewars_monthly",
         parameters={},
-        features=base_features,
+        covariates=base_covariates,
         period=PeriodType.month,
         description="Monthly EWARS model",
         author="CHAP",
@@ -86,31 +89,31 @@ seeded_models = [
     ModelSpec(
         name="chap_ewars_weekly",
         parameters={},
-        features=base_features,
+        covariates=base_covariates,
         period=PeriodType.week,
         description="Weekly EWARS model",
         author="CHAP",
-        github_link="https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6",
+        source_url="https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6",
         target=target_type
     ),
     ModelSpec(
         name="auto_regressive_weekly",
         parameters={},
-        features=base_features,
+        covariates=base_covariates,
         period=PeriodType.week,
         description="Weekly Deep Auto Regressive model",
         author="knutdrand",
-        github_link="https://github.com/knutdrand/weekly_ar_model@36a537dac138af428a4167b2a89eac7dafd5d762",
+        source_url="https://github.com/knutdrand/weekly_ar_model@36a537dac138af428a4167b2a89eac7dafd5d762",
         target=target_type
     ),
     ModelSpec(
         name="auto_regressive_monthly",
         parameters={},
-        features=base_features,
+        covariates=base_covariates,
         period=PeriodType.month,
         description="Monthly Deep Auto Regressive model",
         author="knutdrand",
-        github_link="https://github.com/sandvelab/monthly_ar_model@cadd785872624b4bcd839a39f5e7020c25254c31",
+        source_url="https://github.com/sandvelab/monthly_ar_model@cadd785872624b4bcd839a39f5e7020c25254c31",
         target=target_type
     ),
 ]
