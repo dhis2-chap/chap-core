@@ -9,7 +9,7 @@ from chap_core.rest_api_src.db_worker_functions import run_backtest, run_predict
 from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database
-from chap_core.database.model_spec_tables import seeded_feature_types, seeded_models
+from chap_core.database.model_spec_tables import seed_with_session_wrapper
 from unittest.mock import patch
 
 
@@ -54,9 +54,8 @@ def test_add_predictions(seeded_engine):
         run_prediction('naive_model', 1, 3, session=session)
 
 
-def test_seed(seeded_engine):
-    with SessionWrapper(seeded_engine) as session:
-        for feature_type in seeded_feature_types + seeded_models:
-            session.create_if_not_exists(feature_type)
 
+# def test_seed(seeded_engine):
+#     with SessionWrapper(seeded_engine) as session:
+#         seed_with_session_wrapper(session)
 

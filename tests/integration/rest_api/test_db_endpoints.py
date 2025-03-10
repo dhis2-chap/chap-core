@@ -85,12 +85,17 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
 
 
+
 def test_list_models(celery_session_worker, dependency_overrides):
     response = client.get("/v1/crud/models")
     assert response.status_code == 200, response.json()
     assert len(response.json()) > 0
     assert 'id' in response.json()[0]
     models = [ModelSpecRead.model_validate(m) for m in response.json()]
+    assert 'chap_ewars_monthly' in (m.name for m in models)
+    ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
+    assert 'population' in (f.name for f in ewars_model.covariates)
+
 
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
     data = make_prediction_request.model_dump_json()

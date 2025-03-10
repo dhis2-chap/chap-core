@@ -6,7 +6,7 @@ import psycopg2
 import sqlalchemy
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionForecast
-from .model_spec_tables import seeded_feature_types, seeded_models
+from .model_spec_tables import seed_with_session_wrapper
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
@@ -60,9 +60,10 @@ class SessionWrapper:
     def list_all(self, model):
         return self.session.exec(select(model)).all()
 
-    def create_if_not_exists(self, model):
+    def create_if_not_exists(self, model, id_name='id'):
         logger.warning('Create if not exists does not work as expected')
-        if not self.session.exec(select(type(model))).first():
+        T = type(model)
+        if not self.session.exec(select(T).where(getattr(T, id_name) == getattr(model, id_name))).first():
             self.session.add(model)
             self.session.commit()
         return model
@@ -140,10 +141,14 @@ def create_db_and_tables():
                 logger.error(f"Failed to create tables: {e}. Trying again")
                 n += 1
                 time.sleep(1)
-            
+
         with SessionWrapper(engine) as session:
-            for feature_type in seeded_feature_types + seeded_models:
-                session.create_if_not_exists(feature_type)
+            seed_with_session_wrapper(session)
+            # seeded_feature_types, seeded_models = get_seeded_objects()
+            # for feature_type in seeded_feature_types:
+            #     session.create_if_not_exists(feature_type, id_name='name')
+            # for model in seeded_models:
+            #     session.create_if_not_exists(model, id_name='id')
     else:
         logger.warning("Engine not set. Tables not created")
 

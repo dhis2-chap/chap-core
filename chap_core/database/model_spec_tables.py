@@ -53,8 +53,8 @@ class ModelSpecRead(ModelSpecBase):
 
 class ModelSpec(ModelSpecBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
-    covariates: List[FeatureType] = Relationship(link_model=ModelFeatureLink) # TODO: rename to covariates
-    target_name: str = Field(foreign_key="featuretype.name") # TODO: rename to name
+    covariates: List[FeatureType] = Relationship(link_model=ModelFeatureLink)  # TODO: rename to covariates
+    target_name: str = Field(foreign_key="featuretype.name")  # TODO: rename to name
     target: FeatureType = Relationship()
 
 
@@ -62,58 +62,66 @@ target_type = FeatureType(name='disease_cases',
                           display_name='Disease Cases',
                           description='Disease Cases')
 
-seeded_feature_types = [
-    FeatureType(name='rainfall',
-                display_name='Precipitation',
-                description='Precipitation in mm'),
-    FeatureType(name='mean_temperature',
-                display_name='Mean Temperature',
-                description='A measurement of mean temperature'),
-    FeatureType(name='population',
-                display_name='Population',
-                description='Population'),
-    target_type]
-base_covariates = [seeded_feature_types[0], seeded_feature_types[1], seeded_feature_types[2]]
 
-seeded_models = [
-    ModelSpec(
-        name="chap_ewars_monthly",
-        parameters={},
-        covariates=base_covariates,
-        period=PeriodType.month,
-        description="Monthly EWARS model",
-        author="CHAP",
-        github_link="https://github.com/sandvelab/chap_auto_ewars@58d56f86641f4c7b09bbb635afd61740deff0640",
-        target=target_type
-    ),
-    ModelSpec(
-        name="chap_ewars_weekly",
-        parameters={},
-        covariates=base_covariates,
-        period=PeriodType.week,
-        description="Weekly EWARS model",
-        author="CHAP",
-        source_url="https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6",
-        target=target_type
-    ),
-    ModelSpec(
-        name="auto_regressive_weekly",
-        parameters={},
-        covariates=base_covariates,
-        period=PeriodType.week,
-        description="Weekly Deep Auto Regressive model",
-        author="knutdrand",
-        source_url="https://github.com/knutdrand/weekly_ar_model@36a537dac138af428a4167b2a89eac7dafd5d762",
-        target=target_type
-    ),
-    ModelSpec(
-        name="auto_regressive_monthly",
-        parameters={},
-        covariates=base_covariates,
-        period=PeriodType.month,
-        description="Monthly Deep Auto Regressive model",
-        author="knutdrand",
-        source_url="https://github.com/sandvelab/monthly_ar_model@cadd785872624b4bcd839a39f5e7020c25254c31",
-        target=target_type
-    ),
-]
+def seed_with_session_wrapper(session_wrapper):
+    seeded_feature_types = [
+        FeatureType(name='rainfall',
+                    display_name='Precipitation',
+                    description='Precipitation in mm'),
+        FeatureType(name='mean_temperature',
+                    display_name='Mean Temperature',
+                    description='A measurement of mean temperature'),
+        FeatureType(name='population',
+                    display_name='Population',
+                    description='Population'),
+        target_type]
+
+    base_covariates = [seeded_feature_types[0], seeded_feature_types[1], seeded_feature_types[2]]
+
+    seeded_models = [
+        ModelSpec(
+            name="chap_ewars_monthly",
+            parameters={},
+            covariates=base_covariates,
+            period=PeriodType.month,
+            description="Monthly EWARS model",
+            author="CHAP",
+            github_link="https://github.com/sandvelab/chap_auto_ewars@58d56f86641f4c7b09bbb635afd61740deff0640",
+            target=target_type
+        ),
+        ModelSpec(
+            name="chap_ewars_weekly",
+            parameters={},
+            covariates=base_covariates,
+            period=PeriodType.week,
+            description="Weekly EWARS model",
+            author="CHAP",
+            source_url="https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6",
+            target=target_type
+        ),
+        ModelSpec(
+            name="auto_regressive_weekly",
+            parameters={},
+            covariates=base_covariates,
+            period=PeriodType.week,
+            description="Weekly Deep Auto Regressive model",
+            author="knutdrand",
+            source_url="https://github.com/knutdrand/weekly_ar_model@36a537dac138af428a4167b2a89eac7dafd5d762",
+            target=target_type
+        ),
+        ModelSpec(
+            name="auto_regressive_monthly",
+            parameters={},
+            covariates=base_covariates,
+            period=PeriodType.month,
+            description="Monthly Deep Auto Regressive model",
+            author="knutdrand",
+            source_url="https://github.com/sandvelab/monthly_ar_model@cadd785872624b4bcd839a39f5e7020c25254c31",
+            target=target_type
+        ),
+    ]
+    for feature_type in seeded_feature_types:
+        session_wrapper.create_if_not_exists(feature_type, id_name='name')
+    for model in seeded_models:
+        session_wrapper.create_if_not_exists(model, id_name='id')
+

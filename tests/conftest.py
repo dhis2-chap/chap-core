@@ -7,7 +7,9 @@ import numpy as np
 import pytest
 from sqlmodel import SQLModel
 from chap_core.api_types import RequestV1
+from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import ObservationBase, DataSet
+from chap_core.database.model_spec_tables import seed_with_session_wrapper
 from chap_core.database.tables import *
 import pandas as pd
 
@@ -236,13 +238,14 @@ def database_url():
     return f'sqlite:///{cur_dir}/test.db'
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def clean_engine(database_url):
     engine = create_engine(database_url,
                            connect_args={"check_same_thread": False})
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
-    print(SQLModel.metadata.tables.keys())
+    with SessionWrapper(engine) as session:
+        seed_with_session_wrapper(session)
     return engine
 
 
