@@ -16,7 +16,7 @@ import pandas as pd
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
 from chap_core.geometry import Polygons
 from chap_core.rest_api_src.v1.routers.crud import DatasetCreate
-from chap_core.rest_api_src.v1.routers.analytics import PredictionCreate
+from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api_src.worker_functions import WorkerConfig
 from chap_core.services.cache_manager import get_cache
 from .data_fixtures import *

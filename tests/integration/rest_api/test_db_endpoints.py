@@ -16,6 +16,7 @@ from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
 
+from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DatasetCreate, PredictionCreate
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 
@@ -108,6 +109,11 @@ def test_get_data_sources():
     assert next(ds for ds in data if 'rainfall' in ds['supportedFeatures'])['dataset'] == 'era5'
 
 
+@pytest.fixture
+def make_prediction_request(make_dataset_request):
+    return MakePredictionRequest(model_id='naive_model', **make_dataset_request.dict())
+
+
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
     data = make_prediction_request.model_dump_json()
     response = client.post("/v1/analytics/prediction",
@@ -124,7 +130,8 @@ def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_
 @pytest.fixture()
 def make_dataset_request(example_polygons) -> DatasetMakeRequest:
     locations = [f.id for f in example_polygons.features]
-    combinations = itertools.product(['rainfall', 'disease_cases', 'population'], ['2021-01', '2021-02'], locations)
+    periods = [f'{year}-{month:02d}' for year in range(2020, 2024) for month in range(1, 13)]
+    combinations = itertools.product(['rainfall', 'disease_cases', 'population'], periods, locations)
     request = DatasetMakeRequest(
         name='testing',
         geojson=example_polygons,

@@ -53,17 +53,15 @@ def harmonize_and_add_dataset(
         name: str,
         session: SessionWrapper,
         worker_config=WorkerConfig()) -> FullData:
-
     provided_dataclass = create_tsdataclass(provided_field_names)
     health_dataset = InMemoryDataSet.from_dict(
         health_dataset, provided_dataclass)
     full_dataset = harmonize_health_dataset(health_dataset,
-                             fetch_requests=data_to_be_fetched,
-                             usecwd_for_credentials=False,
-                             worker_config=worker_config)
+                                            fetch_requests=data_to_be_fetched,
+                                            usecwd_for_credentials=False,
+                                            worker_config=worker_config)
     db_id = session.add_dataset(name, full_dataset, polygons=health_dataset.polygons.model_dump_json())
     return db_id
-
 
 
 def predict_pipeline_from_health_dataset(health_dataset: HealthPopulationData,
@@ -72,3 +70,16 @@ def predict_pipeline_from_health_dataset(health_dataset: HealthPopulationData,
     dataset_id = harmonize_and_add_health_dataset(health_dataset, name, session, worker_config)
     return run_prediction(model_id, dataset_id, 3, session)
     # return run_backtest(model_id, dataset_id, 3, 4, 1, session)
+
+
+def predict_pipeline_from_composite_dataset(provided_field_names: list[str],
+                                            data_to_be_fetched: list[FetchRequest],
+                                            health_dataset: InMemoryDataSet,
+                                            name: str,
+                                            model_id: registry.model_type,
+                                            session: SessionWrapper,
+                                            worker_config=WorkerConfig()) -> int:
+    dataset_id = harmonize_and_add_dataset(provided_field_names, data_to_be_fetched, health_dataset, name,
+                                           session,
+                                           worker_config)
+    return run_prediction(model_id, dataset_id, 3, session)

@@ -81,7 +81,7 @@ async def get_evaluation_entries(
     ]
 
 
-class PredictionCreate(DatasetCreate):
+class MakePredictionRequest(DatasetMakeRequest):
     model_id: str
 
 
@@ -101,16 +101,32 @@ async def create_backtest(backtests: MultiBacktestCreate, database_url: str = De
 
 
 @router.post('/prediction', response_model=JobResponse)
-async def make_prediction(dataset: PredictionCreate,
-                          datababase_url=Depends(get_database_url),
+async def make_prediction(request: MakePredictionRequest,
+                          database_url=Depends(get_database_url),
                           worker_settings=Depends(get_settings)):
-    model_id = dataset.model_id
-    data = dataset_model_to_dataset(HealthPopulationData, dataset)
-    job = worker.queue_db(wf.predict_pipeline_from_health_dataset,
-                          data.model_dump(), dataset.name, model_id,
-                          database_url=datababase_url, worker_config=worker_settings)
-
+    feature_names = list({entry.element_id for entry in request.provided_data})
+    dataclass = create_tsdataclass(feature_names)
+    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
+    provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+    job = worker.queue_db(wf.predict_pipeline_from_composite_dataset,
+                          feature_names,
+                          request.data_to_be_fetched,
+                          provided_data.model_dump(),
+                          request.name,
+                          request.model_id,
+                          database_url=database_url,
+                          worker_config=worker_settings)
     return JobResponse(id=job.id)
+    # return JobResponse(id=job.id)
+    #
+    # model_id = dataset.model_id
+    # data = dataset_model_to_dataset(HealthPopulationData, dataset)
+    # job = worker.queue_db(wf.predict_pipeline_from_health_dataset,
+    #                       data.model_dump(), dataset.name, model_id,
+    #                       database_url=datababase_url, worker_config=worker_settings)
+    #
+    # return JobResponse(id=job.id)
 
 
 @router.get("/prediction-entry/{predictionId}", response_model=List[PredictionEntry])
