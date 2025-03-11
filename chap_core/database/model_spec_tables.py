@@ -94,6 +94,17 @@ def seed_with_session_wrapper(session_wrapper):
             target=target_type
         ),
         ModelSpec(
+            name="naive_model",
+            parameters={},
+            covariates=base_covariates,
+            period=PeriodType.month,
+            description="Naive model used for testing",
+            author="CHAP team",
+            organization="CHAP",
+            source_url="...",
+            target=target_type
+        ),
+        ModelSpec(
             name="chap_ewars_weekly",
             parameters={},
             covariates=base_covariates,

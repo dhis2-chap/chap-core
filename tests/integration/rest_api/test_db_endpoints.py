@@ -129,15 +129,24 @@ def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_
 
 @pytest.fixture()
 def make_dataset_request(example_polygons) -> DatasetMakeRequest:
+    fetch_request = [FetchRequest(feature_name='mean_temperature',
+                                  data_source_name='mean_2m_air_temperature')]
+    proivided_features = ['rainfall', 'disease_cases', 'population']
+    return create_make_data_request(example_polygons, fetch_request, proivided_features)
+
+
+def create_make_data_request(example_polygons, fetch_request, proivided_features):
     locations = [f.id for f in example_polygons.features]
     periods = [f'{year}-{month:02d}' for year in range(2020, 2024) for month in range(1, 13)]
-    combinations = itertools.product(['rainfall', 'disease_cases', 'population'], periods, locations)
+    combinations = itertools.product(proivided_features, periods, locations)
+
     request = DatasetMakeRequest(
         name='testing',
         geojson=example_polygons,
-        provided_data=[ObservationBase(element_id=e, period=p, value=i, org_unit=l) for i, (e, p, l) in enumerate(combinations)],
-        data_to_be_fetched=[FetchRequest(feature_name='mean_temperature',
-                                         data_source_name='mean_2m_air_temperature')])
+        provided_data=[ObservationBase(element_id=e, period=p, value=i, org_unit=l) for i, (e, p, l) in
+                       enumerate(combinations)],
+        data_to_be_fetched=fetch_request)
+
     return request
 
 
@@ -157,9 +166,6 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
     assert 'population' in field_names
     assert 'mean_temperature' in field_names
     assert len(field_names) == 4
-    # ds = PredictionRead.model_validate(response.json())
-    # assert len(ds.forecasts) > 0
-    # assert all(len(f.values) for f in ds.forecasts)
 
 
 @pytest.mark.skip(reason="Failing because of missing geojson file")
@@ -168,3 +174,25 @@ def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path)
     geojson_data = open(data_path / 'nicaragua.json', 'rb')
     response = client.post('/v1/crud/datasets/csvFile', files={"csvFile": csv_data, "geojsonFile": geojson_data})
     assert response.status_code == 200, response.json()
+
+def test_full_prediction_flow(celery_session_worker, dependency_overrides, example_polygons):
+    model_list = client.get("/v1/crud/models").json()
+    models = [ModelSpecRead.model_validate(m) for m in model_list]
+    model = next(m for m in models if m.name == 'naive_model')
+    features = [f.name for f in model.covariates]
+    fetched_feature, *provided_features = features
+    provided_features = provided_features + ['disease_cases']
+    data_sources = client.get("/v1/analytics/data-sources").json()
+    data_source = next(ds for ds in data_sources if fetched_feature in ds['supportedFeatures'])
+    fetch_request = [FetchRequest(feature_name=fetched_feature, data_source_name=data_source['name'])]
+    request = create_make_data_request(example_polygons, fetch_request, provided_features)
+    request = MakePredictionRequest(model_id=model.name, **request.dict())
+    data = request.model_dump_json()
+    response = client.post("/v1/analytics/prediction",
+                           data=data)
+    assert response.status_code == 200, response.json()
+    db_id = await_result_id(response.json()['id'])
+    response = client.get(f"/v1/crud/predictions/{db_id}")
+    assert response.status_code == 200, response.json()
+    ds = PredictionRead.model_validate(response.json())
+    assert len(ds.forecasts) > 0
