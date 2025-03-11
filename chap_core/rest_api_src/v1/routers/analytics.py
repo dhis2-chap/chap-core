@@ -50,12 +50,14 @@ def make_dataset(request: DatasetMakeRequest,
     This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
     """
-    feature_names = {entry.element_id for entry in request.provided_data}
+    feature_names = list({entry.element_id for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
-    provided_data.set_polygons(FeatureCollectionModel.model_validate_json(request.geojson))
+    provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     job = worker.queue_db(wf.harmonize_and_add_dataset,
+                          feature_names,
+                          request.data_to_be_fetched,
                           provided_data.model_dump(),
                           request.name,
                           database_url=database_url,
@@ -104,7 +106,6 @@ async def make_prediction(dataset: PredictionCreate,
                           worker_settings=Depends(get_settings)):
     model_id = dataset.model_id
     data = dataset_model_to_dataset(HealthPopulationData, dataset)
-
     job = worker.queue_db(wf.predict_pipeline_from_health_dataset,
                           data.model_dump(), dataset.name, model_id,
                           database_url=datababase_url, worker_config=worker_settings)

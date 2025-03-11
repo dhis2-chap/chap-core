@@ -1,5 +1,7 @@
+import itertools
 import json
 import time
+from itertools import combinations
 
 from pydantic import BaseModel
 import pytest
@@ -10,11 +12,12 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import PredictionRead
+from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DatasetCreate, PredictionCreate
-from chap_core.database.dataset_tables import DataSet, DataSetWithObservations
+from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 
 client = TestClient(app)
 
@@ -116,6 +119,40 @@ def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_
     ds = PredictionRead.model_validate(response.json())
     assert len(ds.forecasts) > 0
     assert all(len(f.values) for f in ds.forecasts)
+
+
+@pytest.fixture()
+def make_dataset_request(example_polygons) -> DatasetMakeRequest:
+    locations = [f.id for f in example_polygons.features]
+    combinations = itertools.product(['rainfall', 'disease_cases', 'population'], ['2021-01', '2021-02'], locations)
+    request = DatasetMakeRequest(
+        name='testing',
+        geojson=example_polygons,
+        provided_data=[ObservationBase(element_id=e, period=p, value=i, org_unit=l) for i, (e, p, l) in enumerate(combinations)],
+        data_to_be_fetched=[FetchRequest(feature_name='mean_temperature',
+                                         data_source_name='mean_2m_air_temperature')])
+    return request
+
+
+def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_request):
+    data = make_dataset_request.model_dump_json()
+    response = client.post("/v1/analytics/make-dataset",
+                           data=data)
+    assert response.status_code == 200, response.json()
+    db_id = await_result_id(response.json()['id'])
+    response = client.get(f"/v1/crud/datasets/{db_id}")
+    assert response.status_code == 200, response.json()
+    ds = DataSetWithObservations.model_validate(response.json())
+    print(ds)
+    field_names = {o.element_id for o in ds.observations}
+    assert 'rainfall' in field_names
+    assert 'disease_cases' in field_names
+    assert 'population' in field_names
+    assert 'mean_temperature' in field_names
+    assert len(field_names) == 4
+    # ds = PredictionRead.model_validate(response.json())
+    # assert len(ds.forecasts) > 0
+    # assert all(len(f.values) for f in ds.forecasts)
 
 
 @pytest.mark.skip(reason="Failing because of missing geojson file")

@@ -14,6 +14,7 @@ from chap_core.database.tables import *
 import pandas as pd
 
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
+from chap_core.geometry import Polygons
 from chap_core.rest_api_src.v1.routers.crud import DatasetCreate
 from chap_core.rest_api_src.v1.routers.analytics import PredictionCreate
 from chap_core.rest_api_src.worker_functions import WorkerConfig
@@ -197,6 +198,10 @@ def dataset_create(big_request_json):
                              element_id=f.featureId if f.featureId != 'diseases' else 'disease_cases',
                              period=d.pe, orgUnit=d.ou,
                              value=d.value) for f in data.features for d in f.data])
+
+@pytest.fixture()
+def example_polygons(data_path):
+    return Polygons.from_file(data_path / "example_polygons.geojson").data
 
 @pytest.fixture
 def make_prediction_request(dataset_create):

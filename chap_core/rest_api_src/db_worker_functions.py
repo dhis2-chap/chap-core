@@ -1,7 +1,7 @@
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.database import SessionWrapper
-from chap_core.datatypes import FullData, HealthPopulationData
+from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.predictor.model_registry import registry
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest
@@ -50,11 +50,20 @@ def harmonize_and_add_dataset(
         provided_field_names: list[str],
         data_to_be_fetched: list[FetchRequest],
         health_dataset: InMemoryDataSet,
-        request: DatasetMakeRequest,
         name: str,
         session: SessionWrapper,
         worker_config=WorkerConfig()) -> FullData:
-    raise NotImplementedError('This function is not implemented yet')
+
+    provided_dataclass = create_tsdataclass(provided_field_names)
+    health_dataset = InMemoryDataSet.from_dict(
+        health_dataset, provided_dataclass)
+    full_dataset = harmonize_health_dataset(health_dataset,
+                             fetch_requests=data_to_be_fetched,
+                             usecwd_for_credentials=False,
+                             worker_config=worker_config)
+    db_id = session.add_dataset(name, full_dataset, polygons=health_dataset.polygons.model_dump_json())
+    return db_id
+
 
 
 def predict_pipeline_from_health_dataset(health_dataset: HealthPopulationData,

@@ -2,6 +2,7 @@ from typing import List
 
 from pydantic import BaseModel
 
+from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetBase, ObservationBase
 
@@ -36,5 +37,6 @@ class FetchRequest(DBModel):
 
 
 class DatasetMakeRequest(DataSetBase):
+    geojson: FeatureCollectionModel
     provided_data: List[ObservationBase]
     data_to_be_fetched: List[FetchRequest]
