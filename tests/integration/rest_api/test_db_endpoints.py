@@ -197,3 +197,4 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     assert response.status_code == 200, response.json()
     ds = PredictionRead.model_validate(response.json())
     assert len(ds.forecasts) > 0
+

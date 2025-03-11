@@ -25,11 +25,11 @@ def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: 
     return db_id
 
 
-def run_prediction(estimator_id: registry.model_type, dataset_id: str, n_periods: int, session: SessionWrapper):
+def run_prediction(estimator_id: registry.model_type, dataset_id: str, n_periods: int, name: str, session: SessionWrapper):
     dataset = session.get_dataset(dataset_id, FullData)
     estimator = registry.get_model(estimator_id, ignore_env=True)
     predictions = forecast_ahead(estimator, dataset, n_periods)
-    db_id = session.add_predictions(predictions, dataset_id, estimator_id)
+    db_id = session.add_predictions(predictions, dataset_id, estimator_id, name)
     assert db_id is not None
     return db_id
 
@@ -82,4 +82,4 @@ def predict_pipeline_from_composite_dataset(provided_field_names: list[str],
     dataset_id = harmonize_and_add_dataset(provided_field_names, data_to_be_fetched, health_dataset, name,
                                            session,
                                            worker_config)
-    return run_prediction(model_id, dataset_id, 3, session)
+    return run_prediction(model_id, dataset_id, 3, name, session)

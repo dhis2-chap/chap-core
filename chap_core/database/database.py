@@ -1,11 +1,12 @@
 import dataclasses
+import datetime
 import time
 from typing import Optional
 
 import psycopg2
 import sqlalchemy
 from sqlmodel import SQLModel, create_engine, Session, select
-from .tables import BackTest, BackTestForecast, Prediction, PredictionForecast
+from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
 from .model_spec_tables import seed_with_session_wrapper
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
@@ -84,15 +85,17 @@ class SessionWrapper:
         self.session.commit()
         return backtest.id
 
-    def add_predictions(self, predictions, dataset_id, model_id):
+    def add_predictions(self, predictions, dataset_id, model_id, name):
         n_periods = len(list(predictions.values())[0])
         prediction = Prediction(dataset_id=dataset_id,
                                 estimator_id=model_id,
+                                name=name,
+                                created=datetime.datetime.now(),
                                 n_periods=n_periods,
                                 forecasts = [
-                                    PredictionForecast(period=period.id,
-                                                       org_unit=location,
-                                                       values=value.tolist())
+                                    PredictionSamplesEntry(period=period.id,
+                                                           org_unit=location,
+                                                           values=value.tolist())
                                 for location, data in predictions.items() for period, value in zip(data.time_period, data.samples)])
         self.session.add(prediction)
         self.session.commit()

@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional, List
 
 from sqlalchemy import create_engine, Column, JSON
@@ -26,11 +27,13 @@ class PredictionBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
     estimator_id: str
     n_periods: int
+    name: str
+    created: datetime.datetime
 
 
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
-    forecasts: List['PredictionForecast'] = Relationship(back_populates="prediction")
+    forecasts: List['PredictionSamplesEntry'] = Relationship(back_populates="prediction")
 
 
 class ForecastRead(ForecastBase):
@@ -42,7 +45,7 @@ class PredictionRead(PredictionBase):
     forecasts: List[ForecastRead]
 
 
-class PredictionForecast(ForecastBase, table=True):
+class PredictionSamplesEntry(ForecastBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     prediction_id: int = Field(foreign_key="prediction.id")
     prediction: 'Prediction' = Relationship(back_populates="forecasts")
