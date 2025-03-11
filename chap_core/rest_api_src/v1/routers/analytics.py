@@ -10,7 +10,7 @@ from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry, FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
-from chap_core.datatypes import HealthPopulationData
+from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset, observations_to_dataset
 from .crud import JobResponse, DatasetCreate
 from .dependencies import get_session, get_database_url, get_settings
@@ -50,13 +50,16 @@ def make_dataset(request: DatasetMakeRequest,
     This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
     """
-    raise NotImplementedError("Not implemented")
-    health_data = observations_to_dataset(HealthPopulationData, request.provided_data, fill_missing=True)
+    feature_names = {entry.element_id for entry in request.provided_data}
+    dataclass = create_tsdataclass(feature_names)
+    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
-    health_data.set_polygons(FeatureCollectionModel.model_validate_json(request.geojson))
-    job = worker.queue_db(wf.make_composite_dataset,
-                          health_data.model_dump(), request.name,
-                          database_url=database_url, worker_config=worker_settings)
+    provided_data.set_polygons(FeatureCollectionModel.model_validate_json(request.geojson))
+    job = worker.queue_db(wf.harmonize_and_add_dataset,
+                          provided_data.model_dump(),
+                          request.name,
+                          database_url=database_url,
+                          worker_config=worker_settings)
     return JobResponse(id=job.id)
 
 
@@ -151,17 +154,17 @@ data_sources = [
                dataset='era5'),
     DataSource(name='minimum_2m_air_temperature',
                display_name='Minimum 2m Air Temperature',
-               supported_features=['mean_temperature'],
+               supported_features=[''],
                description='Minimum air temperature at 2m height (daily minimum)',
                dataset='era5'),
     DataSource(name='maximum_2m_air_temperature',
                display_name='Maximum 2m Air Temperature',
-               supported_features=['mean_temperature'],
+               supported_features=[''],
                description='Maximum air temperature at 2m height (daily maximum)',
                dataset='era5'),
     DataSource(name='dewpoint_2m_temperature',
                display_name='Dewpoint 2m Temperature',
-               supported_features=['mean_temperature'],
+               supported_features=[''],
                description='Dewpoint temperature at 2m height (daily average)',
                dataset='era5'),
     DataSource(name='total_precipitation',
@@ -193,11 +196,5 @@ data_sources = [
 
 
 @router.get('/data-sources')
-async def get_data_sources(feature_names: list[str] = Query(..., alias='featureNames')) -> dict[str, list[DataSource]]:
-    print(feature_names)
-    source_mapping = {feature: [] for feature in feature_names}
-    for data_source in data_sources:
-        for feature in data_source.supported_features:
-            if feature in source_mapping:
-                source_mapping[feature].append(data_source)
-    return source_mapping
+async def get_data_sources() -> list[DataSource]:
+    return data_sources

@@ -4,7 +4,7 @@ from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.predictor.model_registry import registry
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
-from chap_core.rest_api_src.data_models import DatasetMakeRequest
+from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest
 from chap_core.rest_api_src.worker_functions import harmonize_health_dataset, WorkerConfig
 from chap_core.data import DataSet as InMemoryDataSet
 
@@ -45,8 +45,11 @@ def harmonize_and_add_health_dataset(health_dataset: FullData, name: str, sessio
     db_id = session.add_dataset(name, dataset, polygons=health_dataset.polygons.model_dump_json())
     return db_id
 
-def harmonize_and_add_composite_dataset(
-        health_dataset: InMemoryDataSet[HealthPopulationData],
+
+def harmonize_and_add_dataset(
+        provided_field_names: list[str],
+        data_to_be_fetched: list[FetchRequest],
+        health_dataset: InMemoryDataSet,
         request: DatasetMakeRequest,
         name: str,
         session: SessionWrapper,
@@ -54,10 +57,9 @@ def harmonize_and_add_composite_dataset(
     raise NotImplementedError('This function is not implemented yet')
 
 
-
 def predict_pipeline_from_health_dataset(health_dataset: HealthPopulationData,
                                          name: str, model_id: registry.model_type, session: SessionWrapper,
                                          worker_config=WorkerConfig()):
     dataset_id = harmonize_and_add_health_dataset(health_dataset, name, session, worker_config)
     return run_prediction(model_id, dataset_id, 3, session)
-    #return run_backtest(model_id, dataset_id, 3, 4, 1, session)
+    # return run_backtest(model_id, dataset_id, 3, 4, 1, session)

@@ -45,7 +45,7 @@ class ModelSpecBase(DBModel):
     author_logo_url: Optional[str] = None
     source_url: Optional[str] = None
     contact_email: Optional[str] = None
-
+    citation_info: Optional[str] = None
 
 class ModelSpecRead(ModelSpecBase):
     id: int

@@ -85,7 +85,6 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
 
 
-
 def test_list_models(celery_session_worker, dependency_overrides):
     response = client.get("/v1/crud/models")
     assert response.status_code == 200, response.json()
@@ -97,12 +96,14 @@ def test_list_models(celery_session_worker, dependency_overrides):
     assert 'population' in (f.name for f in ewars_model.covariates)
     assert ewars_model.source_url.startswith('https:/')
 
+
 def test_get_data_sources():
-    response = client.get("/v1/analytics/data-sources", params = {'featureNames': ['rainfall', 'mean_temperature']})
+    response = client.get("/v1/analytics/data-sources")
     data = response.json()
     assert response.status_code == 200, data
-    assert len(data) == 2, data
-    assert data['rainfall'][0]['dataset'] == 'era5'
+    assert len(data) == 9, data
+    assert next(ds for ds in data if 'rainfall' in ds['supportedFeatures'])['dataset'] == 'era5'
+
 
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
     data = make_prediction_request.model_dump_json()
@@ -115,7 +116,6 @@ def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_
     ds = PredictionRead.model_validate(response.json())
     assert len(ds.forecasts) > 0
     assert all(len(f.values) for f in ds.forecasts)
-    # assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
 
 
 @pytest.mark.skip(reason="Failing because of missing geojson file")
