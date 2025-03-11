@@ -18,7 +18,7 @@ class ObservationBase(DBModel):
     period: PeriodID
     org_unit: str
     value: Optional[float]
-    element_id: Optional[str]
+    feature_name: Optional[str]
 
 
 class Observation(ObservationBase, table=True):

@@ -6,7 +6,7 @@ from itertools import combinations
 from pydantic import BaseModel
 import pytest
 
-from chap_core.api_types import EvaluationEntry
+from chap_core.api_types import EvaluationEntry, PredictionEntry
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
@@ -143,7 +143,7 @@ def create_make_data_request(example_polygons, fetch_request, proivided_features
     request = DatasetMakeRequest(
         name='testing',
         geojson=example_polygons,
-        provided_data=[ObservationBase(element_id=e, period=p, value=i, org_unit=l) for i, (e, p, l) in
+        provided_data=[ObservationBase(feature_name=e, period=p, value=i, org_unit=l) for i, (e, p, l) in
                        enumerate(combinations)],
         data_to_be_fetched=fetch_request)
 
@@ -160,7 +160,7 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
     assert response.status_code == 200, response.json()
     ds = DataSetWithObservations.model_validate(response.json())
     print(ds)
-    field_names = {o.element_id for o in ds.observations}
+    field_names = {o.feature_name for o in ds.observations}
     assert 'rainfall' in field_names
     assert 'disease_cases' in field_names
     assert 'population' in field_names
@@ -193,8 +193,11 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
                            data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
-    response = client.get(f"/v1/crud/predictions/{db_id}")
+
+    #response = client.get(f"/v1/crud/predictions/{db_id}")
+    response = client.get(f"/v1/analytics/prediction-entry/{db_id}", params={'quantiles': [0.1, 0.5, 0.9]})
     assert response.status_code == 200, response.json()
-    ds = PredictionRead.model_validate(response.json())
-    assert len(ds.forecasts) > 0
+    ds = [PredictionEntry.model_validate(entry) for entry in response.json()]
+    assert len(ds) > 0
+    assert all(pe.quantile in (0.1, 0.5, 0.9) for pe in ds)
 

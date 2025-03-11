@@ -110,7 +110,7 @@ class SessionWrapper:
             for row in data:
                 for field in field_names:
                     observation = Observation(period=row.time_period.id, org_unit=location, value=float(getattr(row, field)),
-                                              element_id=field)
+                                              feature_name=field)
                     dataset.observations.append(observation)
         self.session.add(dataset)
         self.session.commit()

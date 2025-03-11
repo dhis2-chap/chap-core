@@ -13,7 +13,7 @@ from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .crud import JobResponse
 from .dependencies import get_session, get_database_url, get_settings
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import BackTest, Prediction
 from chap_core.database.dataset_tables import DataSet
 import logging
 
@@ -49,7 +49,7 @@ def make_dataset(request: DatasetMakeRequest,
     This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
     """
-    feature_names = list({entry.element_id for entry in request.provided_data})
+    feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
@@ -103,7 +103,7 @@ async def create_backtest(backtests: MultiBacktestCreate, database_url: str = De
 async def make_prediction(request: MakePredictionRequest,
                           database_url=Depends(get_database_url),
                           worker_settings=Depends(get_settings)):
-    feature_names = list({entry.element_id for entry in request.provided_data})
+    feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
@@ -130,7 +130,17 @@ async def make_prediction(request: MakePredictionRequest,
 
 @router.get("/prediction-entry/{predictionId}", response_model=List[PredictionEntry])
 def get_prediction_entries(prediction_id: Annotated[int, Path(alias="predictionId")],
+                           quantiles: List[float] = Query(...),
                            session: Session = Depends(get_session)):
+    prediction = session.get(Prediction, prediction_id)
+    if prediction is None:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    return [
+        PredictionEntry(
+            period=forecast.period, orgUnit=forecast.org_unit, quantile=q,
+            value=np.quantile(forecast.values, q)) for forecast in prediction.forecasts for q in
+        quantiles
+    ]
     raise HTTPException(status_code=501, detail="Not implemented")
 
 
@@ -145,7 +155,7 @@ async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")]
         raise HTTPException(status_code=404, detail="BackTest not found")
     data_list = [DataElement(pe=observation.period, ou=observation.org_unit, value=float(observation.value) if not (
             np.isnan(observation.value) or observation.value is None) else None) for
-                 observation in data.observations if observation.element_id == "disease_cases"]
+                 observation in data.observations if observation.feature_name == "disease_cases"]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(
         featureId="disease_cases",

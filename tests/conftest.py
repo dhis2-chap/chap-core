@@ -196,7 +196,7 @@ def dataset_create(big_request_json):
     return DatasetCreate(name='test',
                          geojson=data.orgUnitsGeoJson.model_dump(),
                          observations=[ObservationBase(
-                             element_id=f.featureId if f.featureId != 'diseases' else 'disease_cases',
+                             feature_name=f.featureId if f.featureId != 'diseases' else 'disease_cases',
                              period=d.pe, orgUnit=d.ou,
                              value=d.value) for f in data.features for d in f.data])
 

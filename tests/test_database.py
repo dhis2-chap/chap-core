@@ -51,8 +51,7 @@ def test_backtest(seeded_engine):
 
 def test_add_predictions(seeded_engine):
     with SessionWrapper(seeded_engine) as session:
-        run_prediction('naive_model', 1, 3, session=session)
-
+        run_prediction('naive_model', 1, 3, name='testing', session=session)
 
 
 # def test_seed(seeded_engine):
