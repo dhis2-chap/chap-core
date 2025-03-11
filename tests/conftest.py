@@ -15,6 +15,7 @@ import pandas as pd
 
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
 from chap_core.geometry import Polygons
+from chap_core.rest_api_src.data_models import FetchRequest
 from chap_core.rest_api_src.v1.routers.crud import DatasetCreate
 from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api_src.worker_functions import WorkerConfig
@@ -229,7 +230,7 @@ class GEEMock:
     def __init__(self, *args, **kwargs):
         ...
 
-    def get_historical_era5(self, features, periodes):
+    def get_historical_era5(self, features, periodes, fetch_requests: Optional[List[FetchRequest]] = None):
         locations = [f['id'] for f in features['features']]
         return DataSet({location:
                             SimpleClimateData(periodes, np.random.rand(len(periodes)),
