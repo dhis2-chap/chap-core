@@ -95,7 +95,14 @@ def test_list_models(celery_session_worker, dependency_overrides):
     assert 'chap_ewars_monthly' in (m.name for m in models)
     ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
     assert 'population' in (f.name for f in ewars_model.covariates)
+    assert ewars_model.source_url.startswith('https:/')
 
+def test_get_data_sources():
+    response = client.get("/v1/analytics/data-sources", params = {'featureNames': ['rainfall', 'mean_temperature']})
+    data = response.json()
+    assert response.status_code == 200, data
+    assert len(data) == 2, data
+    assert data['rainfall'][0]['dataset'] == 'era5'
 
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
     data = make_prediction_request.model_dump_json()

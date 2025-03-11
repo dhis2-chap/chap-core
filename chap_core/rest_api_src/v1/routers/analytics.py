@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import List, Annotated
 
 import chap_core.rest_api_src.db_worker_functions as wf
@@ -31,8 +32,6 @@ class EvaluationEntryRequest(BaseModel):
     quantiles: List[confloat(ge=0, le=1)]
 
 
-
-
 class MetaDataEntry(BaseModel):
     element_id: str
     element_name: str
@@ -45,7 +44,7 @@ class MetaData(BaseModel):
 
 @router.post("/make-dataset", response_model=JobResponse)
 def make_dataset(request: DatasetMakeRequest,
-                 database_url: str=Depends(get_database_url),
+                 database_url: str = Depends(get_database_url),
                  worker_settings=Depends(get_settings)):
     """
     This endpoint creates a dataset from the provided data and the data to be fetched3
@@ -53,7 +52,7 @@ def make_dataset(request: DatasetMakeRequest,
     """
     raise NotImplementedError("Not implemented")
     health_data = observations_to_dataset(HealthPopulationData, request.provided_data, fill_missing=True)
-    #provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
+    # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     health_data.set_polygons(FeatureCollectionModel.model_validate_json(request.geojson))
     job = worker.queue_db(wf.make_composite_dataset,
                           health_data.model_dump(), request.name,
@@ -134,3 +133,71 @@ async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")]
         dhis2Id="disease_cases",
         data=data_list
     )
+
+
+class DataSource(DBModel):
+    name: str
+    display_name: str
+    supported_features: List[str]
+    description: str
+    dataset: str
+
+
+data_sources = [
+    DataSource(name='mean_2m_air_temperature',
+               display_name='Mean 2m Air Temperature',
+               supported_features=['mean_temperature'],
+               description='Average air temperature at 2m height (daily average)',
+               dataset='era5'),
+    DataSource(name='minimum_2m_air_temperature',
+               display_name='Minimum 2m Air Temperature',
+               supported_features=['mean_temperature'],
+               description='Minimum air temperature at 2m height (daily minimum)',
+               dataset='era5'),
+    DataSource(name='maximum_2m_air_temperature',
+               display_name='Maximum 2m Air Temperature',
+               supported_features=['mean_temperature'],
+               description='Maximum air temperature at 2m height (daily maximum)',
+               dataset='era5'),
+    DataSource(name='dewpoint_2m_temperature',
+               display_name='Dewpoint 2m Temperature',
+               supported_features=['mean_temperature'],
+               description='Dewpoint temperature at 2m height (daily average)',
+               dataset='era5'),
+    DataSource(name='total_precipitation',
+               display_name='Total Precipitation',
+               supported_features=['rainfall'],
+               description='Total precipitation (daily sums)',
+               dataset='era5'),
+    DataSource(name='surface_pressure',
+               display_name='Surface Pressure',
+               supported_features=['surface_pressure'],
+               description='Surface pressure (daily average)',
+               dataset='era5'),
+    DataSource(name='mean_sea_level_pressure',
+               display_name='Mean Sea Level Pressure',
+               supported_features=['mean_sea_level_pressure'],
+               description='Mean sea level pressure (daily average)',
+               dataset='era5'),
+    DataSource(name='u_component_of_wind_10m',
+               display_name='U Component of Wind 10m',
+               supported_features=['u_component_of_wind_10m'],
+               description='10m u-component of wind (daily average)',
+               dataset='era5'),
+    DataSource(name='v_component_of_wind_10m',
+               display_name='V Component of Wind 10m',
+               supported_features=['v_component_of_wind_10m'],
+               description='10m v-component of wind (daily average)',
+               dataset='era5'),
+]
+
+
+@router.get('/data-sources')
+async def get_data_sources(feature_names: list[str] = Query(..., alias='featureNames')) -> dict[str, list[DataSource]]:
+    print(feature_names)
+    source_mapping = {feature: [] for feature in feature_names}
+    for data_source in data_sources:
+        for feature in data_source.supported_features:
+            if feature in source_mapping:
+                source_mapping[feature].append(data_source)
+    return source_mapping
