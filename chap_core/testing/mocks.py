@@ -2,7 +2,7 @@ from typing import Optional, List
 
 import numpy as np
 
-from chap_core.datatypes import SimpleClimateData, create_tsdataclass
+from chap_core.datatypes import create_tsdataclass
 from chap_core.rest_api_src.data_models import FetchRequest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 

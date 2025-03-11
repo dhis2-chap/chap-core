@@ -1,4 +1,3 @@
-from collections import defaultdict
 from typing import List, Annotated
 
 import chap_core.rest_api_src.db_worker_functions as wf
@@ -10,9 +9,9 @@ from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry, FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
-from chap_core.datatypes import HealthPopulationData, create_tsdataclass
-from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset, observations_to_dataset
-from .crud import JobResponse, DatasetCreate
+from chap_core.datatypes import create_tsdataclass
+from chap_core.spatio_temporal_data.converters import observations_to_dataset
+from .crud import JobResponse
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet

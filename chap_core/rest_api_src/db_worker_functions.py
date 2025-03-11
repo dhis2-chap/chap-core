@@ -4,7 +4,7 @@ from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.predictor.model_registry import registry
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
-from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest
+from chap_core.rest_api_src.data_models import FetchRequest
 from chap_core.rest_api_src.worker_functions import harmonize_health_dataset, WorkerConfig
 from chap_core.data import DataSet as InMemoryDataSet
 

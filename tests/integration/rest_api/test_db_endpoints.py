@@ -175,6 +175,7 @@ def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path)
     response = client.post('/v1/crud/datasets/csvFile', files={"csvFile": csv_data, "geojsonFile": geojson_data})
     assert response.status_code == 200, response.json()
 
+
 def test_full_prediction_flow(celery_session_worker, dependency_overrides, example_polygons):
     model_list = client.get("/v1/crud/models").json()
     models = [ModelSpecRead.model_validate(m) for m in model_list]
