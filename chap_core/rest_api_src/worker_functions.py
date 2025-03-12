@@ -16,6 +16,7 @@ from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData, create_tsdataclass, TimeSeriesArray
 from chap_core.geometry import Polygons
 from chap_core.geoutils import simplify_topology
+from chap_core.rest_api_src.data_models import FetchRequest
 from chap_core.time_period.date_util_wrapper import convert_time_period_string
 from chap_core.external.external_model import (
     get_model_from_directory_or_github_url,
@@ -40,7 +41,7 @@ class DataValue:
 
 class WorkerConfig(BaseModel):
     is_test: bool = False
-
+    failing_services: Tuple[str] = ()
     # Make it frozen so that we can't accidentally change it
     class Config:
         frozen = True
@@ -49,7 +50,7 @@ class WorkerConfig(BaseModel):
 def initialize_gee_client(usecwd=False, worker_config: WorkerConfig = WorkerConfig()):
     if worker_config.is_test:
         from chap_core.testing.mocks import GEEMock
-        return GEEMock()
+        return GEEMock(worker_config)
     gee_client = Era5LandGoogleEarthEngine(usecwd=usecwd)
     return gee_client
 
@@ -200,11 +201,21 @@ def dataset_from_request_v1(
     return harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config=worker_config)
 
 
-def harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config: WorkerConfig = WorkerConfig()):
+base_fetch_requests = (FetchRequest(feature_name='rainfall', data_source_name='total_precipitation'),
+                       FetchRequest(feature_name='mean_temperature', data_source_name='mean_2m_air_temperature'))
+
+
+def harmonize_health_dataset(dataset, usecwd_for_credentials, fetch_requests: List[FetchRequest] = base_fetch_requests,
+                             worker_config: WorkerConfig = WorkerConfig()):
     gee_client = initialize_gee_client(usecwd=usecwd_for_credentials, worker_config=worker_config)
     period_range = dataset.period_range
-    
-    climate_data = gee_client.get_historical_era5(dataset.polygons.model_dump(), periodes=period_range)
+
+    try:
+        climate_data = gee_client.get_historical_era5(dataset.polygons.model_dump(), periodes=period_range, fetch_requests=fetch_requests)
+    except ee.EEException as e:
+        logger.error(f"Failed to get climate data: {e}, trying to downsample")
+        polygons = simplify_topology(Polygons(dataset.polygons)).feature_collection()
+        climate_data = gee_client.get_historical_era5(polygons.model_dump(), periodes=period_range)
     train_data = dataset.merge(climate_data, FullData)
     return train_data
 
@@ -245,7 +256,6 @@ def get_combined_dataset(json_data: RequestV1):
 def load_forecasts(data_path):
     climate_forecasts = SeasonalForecast()
     for file_name in os.listdir(data_path):
-        print(file_name)
         variable_type = file_name.split(".")[0]
         if file_name.endswith(".json"):
             with open(data_path / file_name) as f:
