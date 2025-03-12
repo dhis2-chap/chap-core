@@ -22,6 +22,7 @@ from chap_core.rest_api_src.v1.routers import crud, analytics
 from . import debug, jobs
 from .routers.dependencies import get_settings
 from ...database.database import create_db_and_tables
+from ...exceptions import GEEError
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
@@ -264,6 +265,20 @@ async def get_status() -> State:
         progress=internal_state.current_job.progress,
         logs=""  # get_logs() # todo: fix
     )
+
+
+class HealthResponse(BaseModel):
+    status: str
+    message: str
+
+
+@app.get("/health")
+async def health(worker_config=Depends(get_settings)) -> HealthResponse:
+    try:
+        wf.initialize_gee_client(usecwd=True, worker_config=worker_config)
+    except GEEError as e:
+        return HealthResponse(status="failed", message='GEE authentication might not be set up properly: ' + str(e))
+    return HealthResponse(status="success", message="GEE client initialized")
 
 
 @app.on_event("startup")
