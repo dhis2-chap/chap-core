@@ -221,6 +221,6 @@ data_sources = [
 ]
 
 
-@router.get('/data-sources')
-async def get_data_sources() -> list[DataSource]:
+@router.get('/data-sources', response_model=List[DataSource])
+async def get_data_sources() -> List[DataSource]:
     return data_sources
