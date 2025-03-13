@@ -11,4 +11,4 @@ def model_template(data_path):
 
 def test_model_template(model_template: ModelTemplate):
     config_class = model_template.get_config_class()
-    assert 'additional_continous_covariates' in config_class.__annotations__, config_class.__annotations__
+    assert 'additional_continuous_covariates' in config_class.__annotations__, config_class.__annotations__

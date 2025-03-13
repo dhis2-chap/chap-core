@@ -3,7 +3,7 @@ from typing import Generic, TypeVar, Literal
 import logging
 import pandas as pd
 #import mlflow
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 import yaml
 from mlflow.utils.process import ShellCommandException
 import mlflow.projects
@@ -194,12 +194,10 @@ class ModelTemplate:
         return f'ModelTemplate: {self._model_template_config}'
 
     def get_config_class(self):
+        fields = {}
         if self._model_template_config.allow_free_additional_continuous_covariates:
-            class SimpleConfig(BaseModel):
-                additional_continuous_covariates: list[str] = []
-            return SimpleConfig
-        else:
-            return BaseModel
+            fields["additional_continuous_covariates"] = (list[str], [])
+        return create_model('ModelConfiguration', **fields)
 
     def get_model(self, model_configuration: BaseModel = None) -> 'ExternalModel':
         assert model_configuration is None, "Configuration not supported yet"
