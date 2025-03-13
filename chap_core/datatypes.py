@@ -230,7 +230,6 @@ class ClimateData(TimeSeriesData):
 class HealthData(TimeSeriesData):
     disease_cases: int
 
-
 @tsdataclass
 class ClimateHealthTimeSeries(TimeSeriesData):
     rainfall: float
