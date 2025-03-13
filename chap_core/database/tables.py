@@ -43,6 +43,7 @@ class ForecastRead(ForecastBase):
 class PredictionInfo(PredictionBase):
     id: int
 
+
 class PredictionRead(PredictionInfo):
     forecasts: List[ForecastRead]
 
@@ -72,6 +73,17 @@ class BackTestMetric(DBModel, table=True):
     last_seen_period: PeriodID
     value: float
     backtest: BackTest = Relationship(back_populates="metrics")
+
+
+class FailedJobBase(DBModel):
+    message: str
+    created: datetime.datetime
+
+class FailedJobRead(FailedJobBase):
+    id: int
+
+class FailedJob(FailedJobRead, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
 
 
 # merge request json/csv -

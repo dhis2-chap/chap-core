@@ -2,7 +2,11 @@ import logging
 from typing import Optional
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+import chap_core.rest_api_src.db_worker_functions as wf
+from .jobs import worker
+from .routers.crud import JobResponse
+from .routers.dependencies import get_settings, get_database_url
 from ..celery_tasks import celery, CeleryPool
 
 router = APIRouter(prefix="/debug", tags=["debug"])
@@ -22,6 +26,12 @@ def run_add_numbers(a: int, b: int):
     return None
     return {"task_id": cur_job.id, "status": "Task submitted"}
 
+@router.post('/trigger-exception', response_model=JobResponse)
+def trigger_exception(database_url: str = Depends(get_database_url), worker_settings=Depends(get_settings)):
+    job = worker.queue_db(wf.trigger_exception,
+                          database_url=database_url,
+                          worker_config=worker_settings)
+    return JobResponse(id=job.id)
 
 @router.get("/get-status")
 def get_status(task_id: Optional[str] = None) -> dict:

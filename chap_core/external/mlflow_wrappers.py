@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import Generic, TypeVar, Literal
 import logging
 import pandas as pd
+
 #import mlflow
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, create_model, Field
 import yaml
 from mlflow.utils.process import ShellCommandException
 import mlflow.projects
@@ -195,8 +196,15 @@ class ModelTemplate:
 
     def get_config_class(self):
         fields = {}
+        types = {'string': str, 'integer': int, 'float': float, 'boolean': bool}
         if self._model_template_config.allow_free_additional_continuous_covariates:
             fields["additional_continuous_covariates"] = (list[str], [])
+        for user_option in self._model_template_config.user_options:
+            T = types[user_option.type]
+            if user_option.default is not None:
+                fields[user_option.name] = (T, Field(default=T(user_option.default)))
+            else:
+                fields[user_option.name] = (T, ...)
         return create_model('ModelConfiguration', **fields)
 
     def get_model(self, model_configuration: BaseModel = None) -> 'ExternalModel':

@@ -1,6 +1,4 @@
-
-
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel, ConfigDict
 
 
@@ -18,6 +16,13 @@ class EntryPointConfig(BaseModel):
     predict: CommandConfig
 
 
+class UserOption(BaseModel):
+    name: str
+    type: Literal["string", "integer", "float", "boolean"]
+    description: str
+    default: Optional[str] = None
+
+
 class ModelTemplateConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
@@ -27,5 +32,4 @@ class ModelTemplateConfig(BaseModel):
     required_fields: list[str] = ["rainfall", "mean_temperature"]
     allow_free_additional_continuous_covariates: bool = False
     adapters: Optional[dict[str, str]] = None
-
-
+    user_options: list[UserOption] = []

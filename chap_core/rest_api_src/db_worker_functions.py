@@ -9,6 +9,10 @@ from chap_core.rest_api_src.worker_functions import harmonize_health_dataset, Wo
 from chap_core.data import DataSet as InMemoryDataSet
 
 
+def trigger_exception(*args, **kwargs):
+    raise Exception("Triggered exception")
+
+
 def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: int, n_splits: int, stride: int,
                  session: SessionWrapper):
     dataset = session.get_dataset(dataset_id, FullData)

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine
 
 from ..database.database import SessionWrapper
+from ..database.tables import FailedJob
 from ..worker.interface import ReturnType
 from celery.utils.log import get_task_logger
 
@@ -155,6 +156,20 @@ def celery_run(func, *args, **kwargs):
 ENGINES_CACHE = {}
 
 
+def failed_job_wrapper(func):
+    def new_func(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Failed job: {e}")
+            kwargs['session'].create_if_not_exists(
+                FailedJob(message=str(e), created=datetime.now())
+            )
+            raise e
+
+    return new_func
+
+
 @app.task(base=TaskWithPerTaskLogging)
 def celery_run_with_session(func, *args, **kwargs):
     database_url = kwargs.pop("database_url")
@@ -162,7 +177,7 @@ def celery_run_with_session(func, *args, **kwargs):
         ENGINES_CACHE[database_url] = create_engine(database_url)
     engine = ENGINES_CACHE[database_url]
     with SessionWrapper(engine) as session:
-        return func(*args, **kwargs | {"session": session})
+        return failed_job_wrapper(func)(*args, **kwargs | {"session": session})
 
 
 class CeleryPool(Generic[ReturnType]):
@@ -188,8 +203,7 @@ class CeleryPool(Generic[ReturnType]):
         func_name = func.__name__
         return f"{func_name}({', '.join(map(str, args))})"
 
-    def list_jobs(self)-> List[JobDescription]:
-
+    def list_jobs(self) -> List[JobDescription]:
         all_jobs = {'active': self._celery.control.inspect().active(),
                     'scheduled': self._celery.control.inspect().scheduled(),
                     'reserved': self._celery.control.inspect().reserved()}
@@ -200,4 +214,3 @@ class CeleryPool(Generic[ReturnType]):
                                start_time=datetime.fromtimestamp(info["time_start"]),
                                hostname=hostname)
                 for status, host_dict in all_jobs.items() for hostname, jobs in host_dict.items() for info in jobs]
-

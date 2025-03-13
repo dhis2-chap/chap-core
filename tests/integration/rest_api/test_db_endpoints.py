@@ -3,6 +3,7 @@ import json
 import time
 from itertools import combinations
 
+import flask
 from pydantic import BaseModel
 import pytest
 
@@ -11,7 +12,7 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.tables import PredictionRead, PredictionInfo
+from chap_core.database.tables import PredictionRead, PredictionInfo, FailedJobRead
 from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
@@ -37,6 +38,18 @@ def await_result_id(job_id, timeout=30):
             return client.get(f"/v1/jobs/{job_id}/database_result").json()['id']
         if status == 'FAILURE':
             assert False, ("Job failed", response.json())
+        time.sleep(1)
+    assert False, "Timed out"
+
+
+def await_failure(job_id, timeout=30):
+    for _ in range(timeout):
+        response = client.get(f"/v1/jobs/{job_id}")
+        status = response.json()
+        if status == 'SUCCESS':
+            assert False, ("Job succeeded", response.json())
+        if status == 'FAILURE':
+            return
         time.sleep(1)
     assert False, "Timed out"
 
@@ -193,7 +206,7 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
                            data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
-    response=  client.get('/v1/crud/predictions')
+    response = client.get('/v1/crud/predictions')
     assert response.status_code == 200, response.json()
     assert len(response.json()) > 0
     print([PredictionInfo.model_validate(entry) for entry in response.json()])
@@ -203,3 +216,17 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     assert len(ds) > 0
     assert all(pe.quantile in (0.1, 0.5, 0.9) for pe in ds)
 
+
+def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
+    response = client.post("/v1/debug/trigger-exception")
+    assert response.status_code == 200
+    job_id = response.json()['id']
+    await_failure(job_id)
+    response = client.get(f"/v1/crud/failedJobs/")
+    assert response.status_code == 200
+    assert len(response.json()) > 0
+    failed_jobs = [FailedJobRead.model_validate(entry) for entry in response.json()]
+    assert ("Triggered exception" in f.message for f in failed_jobs), failed_jobs
+    db_id = failed_jobs[0].id
+    response = client.delete(f"/v1/crud/failedJobs/{db_id}")
+    assert response.status_code == 200

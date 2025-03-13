@@ -36,7 +36,7 @@ from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, BackTestMetric, BackTestForecast, BackTestBase, Prediction, \
-    PredictionRead, PredictionInfo
+    PredictionRead, PredictionInfo, FailedJobRead, FailedJob
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
 from chap_core.database.base_tables import DBModel
@@ -197,6 +197,22 @@ class DataSetRead(DBModel):
 
     class Config:
         orm_mode = True  # Enable compatibility with ORM models
+
+
+@router.get('/failedJobs', response_model=list[FailedJobRead])
+async def get_failed_jobs(session: Session = Depends(get_session)):
+    failed_jobs = session.exec(select(FailedJob)).all()
+    return failed_jobs
+
+@router.delete('/failedJobs/{failedJobId}')
+async def delete_failed_job(failed_job_id: Annotated[int, Path(alias='failedJobId')],
+                            session: Session = Depends(get_session)):
+    failed_job = session.get(FailedJob, failed_job_id)
+    if failed_job is None:
+        raise HTTPException(status_code=404, detail="Failed job not found")
+    session.delete(failed_job)
+    session.commit()
+    return {"message": "Deleted"}
 
 
 @router.get('/datasets', response_model=list[DataSetRead])
