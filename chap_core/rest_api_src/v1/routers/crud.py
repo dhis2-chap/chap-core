@@ -36,7 +36,7 @@ from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, BackTestMetric, BackTestForecast, BackTestBase, Prediction, \
-    PredictionRead
+    PredictionRead, PredictionInfo
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
 from chap_core.database.base_tables import DBModel
@@ -104,6 +104,12 @@ async def create_prediction(prediction: PredictionCreate):
     raise HTTPException(status_code=501, detail="Not implemented")
 
 
+@router.get("/predictions", response_model=list[PredictionInfo])
+async def get_predictions(session: Session = Depends(get_session)):
+    session_wrapper = SessionWrapper(session=session)
+    return session_wrapper.list_all(Prediction)
+
+
 @router.get("/predictions/{predictionId}", response_model=PredictionRead)
 async def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId")],
                          session: Session = Depends(get_session)):
@@ -122,6 +128,7 @@ async def get_backtests(session: Session = Depends(get_session)):
 class DatasetCreate(DataSetBase):
     observations: List[ObservationBase]
     geojson: FeatureCollectionModel
+
 
 @router.get('/datasets/{datasetId}', response_model=DataSetWithObservations)
 async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], session: Session = Depends(get_session)):

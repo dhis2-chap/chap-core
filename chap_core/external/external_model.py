@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 class IsExternalModel(Protocol):
     def get_predictions(
-        self,
-        train_data: DataSet[ClimateHealthTimeSeries],
-        future_climate_data: DataSet[ClimateData],
+            self,
+            train_data: DataSet[ClimateHealthTimeSeries],
+            future_climate_data: DataSet[ClimateData],
     ) -> DataSet[HealthData]: ...
 
 
@@ -61,7 +61,6 @@ class SimpleFileContextManager:
             return self.file.read()
 
 
-
 def get_runner_from_yaml_file(yaml_file: str) -> Runner:
     with open(yaml_file, "r") as file:
         data = yaml.load(file, Loader=yaml.FullLoader)
@@ -78,7 +77,7 @@ def get_runner_from_yaml_file(yaml_file: str) -> Runner:
 
 
 def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/"), ignore_env=False,
-                                           run_dir_type:Literal["timestamp", "latest", "use_existing"] = "timestamp",
+                                           run_dir_type: Literal["timestamp", "latest", "use_existing"] = "timestamp",
                                            ):
     """
     Gets the model and initializes a working directory with the code for the model.
@@ -98,7 +97,8 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
 
-    logger.info(f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}")
+    logger.info(
+        f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}")
     is_github = False
     commit = None
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):
@@ -111,7 +111,8 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         model_name = Path(model_path).name
 
     if run_dir_type == "use_existing" and not Path(model_path).exists():
-        logging.warning(f"Model path {model_path} does not exist. Will create a directory for the run (using the name 'latest')")
+        logging.warning(
+            f"Model path {model_path} does not exist. Will create a directory for the run (using the name 'latest')")
         run_dir_type = "latest"
 
     if run_dir_type == "latest":
@@ -123,7 +124,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
     elif run_dir_type == "timestamp":
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         unique_identifier = timestamp + "_" + str(uuid.uuid4())[:8]
-        #timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S%f")
+        # timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S%f")
         working_dir = base_working_dir / model_name / unique_identifier
         # check that working dir does not exist
         assert not working_dir.exists(), f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
@@ -131,7 +132,6 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         working_dir = Path(model_path)
     else:
         raise ValueError(f"Invalid run_dir_type: {run_dir_type}")
-
 
     logger.info(f"Writing results to {working_dir}")
 
@@ -149,14 +149,14 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
         logger.info(f"Copying files from {model_path} to {working_dir}")
         shutil.copytree(model_path, working_dir)
 
-
     logging.error(f"Current directory is {os.getcwd()}")
     logging.error(f"Working dir is {working_dir}")
     assert os.path.isdir(working_dir), working_dir
     assert os.path.isdir(os.path.abspath(working_dir)), working_dir
     # assert that a config file exists
     if (working_dir / "MLproject").exists():
-        return get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env).get_model(model_configuration=None)
+        return get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env).get_model(
+            model_configuration=None)
         return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
     else:
         raise InvalidModelException("No MLproject file found in model directory")
@@ -168,31 +168,29 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> 
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
     config = ModelTemplateConfig.model_validate(config)
-    
+
     model_template = ModelTemplate(config, working_dir, ignore_env)
     return model_template
- 
 
 
 def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
-    
-    
+
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
     working_dir = Path(mlproject_file).parent
     config = ModelTemplateConfig.model_validate(config)
-    runner = get_train_predict_runner_from_model_template_config(config, working_dir, ignore_env)   
-    #runner = get_train_predict_runner(mlproject_file, runner_type, skip_environment=ignore_env)
+    runner = get_train_predict_runner_from_model_template_config(config, working_dir, ignore_env)
+    # runner = get_train_predict_runner(mlproject_file, runner_type, skip_environment=ignore_env)
 
     logging.info("Runner is %s", runner)
     logging.info("Will create ExternalMlflowModel")
-    name = config.name  
-    adapters = config.adapters  #config.get("adapters", None)
-    #allowed_data_types = {"HealthData": HealthData}
-    #data_type = allowed_data_types.get(config.get("data_type", None), None)
+    name = config.name
+    adapters = config.adapters  # config.get("adapters", None)
+    # allowed_data_types = {"HealthData": HealthData}
+    # data_type = allowed_data_types.get(config.get("data_type", None), None)
     data_type = HealthData
     return ExternalModel(
         runner,

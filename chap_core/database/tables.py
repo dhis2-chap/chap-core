@@ -40,8 +40,10 @@ class ForecastRead(ForecastBase):
     values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
 
 
-class PredictionRead(PredictionBase):
+class PredictionInfo(PredictionBase):
     id: int
+
+class PredictionRead(PredictionInfo):
     forecasts: List[ForecastRead]
 
 

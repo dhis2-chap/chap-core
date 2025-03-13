@@ -1,0 +1,19 @@
+name: 'Debug Model'
+entry_points:
+  train:
+    parameters:
+      model: 'str'
+      data: 'str'
+    command: 'echo "Hello World"'
+  predict:
+    parameters:
+      model: 'str'
+      data: 'str'
+    command: 'echo "Hello World"'
+required_fields:
+  - 'population'
+allow_free_additional_continuous_covariates: true
+# allow_additional_free_continous_covariates: true
+
+
+

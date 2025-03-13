@@ -190,6 +190,9 @@ class ModelTemplate:
         self._working_dir = working_dir
         self._ignore_env = ignore_env
 
+    def __str__(self):
+        return f'ModelTemplate: {self._model_template_config}'
+
     def get_config_class(self):
         if self._model_template_config.allow_free_additional_continuous_covariates:
             class SimpleConfig(BaseModel):
@@ -200,14 +203,17 @@ class ModelTemplate:
 
     def get_model(self, model_configuration: BaseModel = None) -> 'ExternalModel':
         assert model_configuration is None, "Configuration not supported yet"
-        #config = ModelTemplateConfig.model_validate(model_configuration)
-        runner = get_train_predict_runner_from_model_template_config(self._model_template_config, 
-                                                                     self._working_dir, self._ignore_env)   
+        # config = ModelTemplateConfig.model_validate(model_configuration)
+        runner = get_train_predict_runner_from_model_template_config(
+            self._model_template_config,
+            self._working_dir,
+            self._ignore_env)
 
         config = self._model_template_config
         name = config.name  
         adapters = config.adapters  #config.get("adapters", None)
         data_type = HealthData
+
         return ExternalModel(
             runner,
             name=name,

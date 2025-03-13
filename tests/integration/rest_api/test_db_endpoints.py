@@ -11,7 +11,7 @@ from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.tables import PredictionRead
+from chap_core.database.tables import PredictionRead, PredictionInfo
 from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
@@ -36,7 +36,7 @@ def await_result_id(job_id, timeout=30):
         if status == 'SUCCESS':
             return client.get(f"/v1/jobs/{job_id}/database_result").json()['id']
         if status == 'FAILURE':
-            assert False, "Job failed"
+            assert False, ("Job failed", response.json())
         time.sleep(1)
     assert False, "Timed out"
 
@@ -193,7 +193,10 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
                            data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
-
+    response=  client.get('/v1/crud/predictions')
+    assert response.status_code == 200, response.json()
+    assert len(response.json()) > 0
+    print([PredictionInfo.model_validate(entry) for entry in response.json()])
     #response = client.get(f"/v1/crud/predictions/{db_id}")
     response = client.get(f"/v1/analytics/prediction-entry/{db_id}", params={'quantiles': [0.1, 0.5, 0.9]})
     assert response.status_code == 200, response.json()
