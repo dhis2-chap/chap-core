@@ -92,7 +92,7 @@ class SessionWrapper:
                                 name=name,
                                 created=datetime.datetime.now(),
                                 n_periods=n_periods,
-                                metadata=metadata,
+                                meta_data=metadata,
                                 forecasts=[
                                     PredictionSamplesEntry(period=period.id,
                                                            org_unit=location,

@@ -83,7 +83,7 @@ async def get_evaluation_entries(
 
 class MakePredictionRequest(DatasetMakeRequest):
     model_id: str
-    meta_data: Optional[dict] = None
+    meta_data: dict = {}
 
 
 class MultiBacktestCreate(DBModel):
@@ -110,7 +110,7 @@ async def make_prediction(request: MakePredictionRequest,
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if 'population' in feature_names:
         provided_data = provided_data.interpolate(['population'])
-    # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
+
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     job = worker.queue_db(wf.predict_pipeline_from_composite_dataset,
                           feature_names,

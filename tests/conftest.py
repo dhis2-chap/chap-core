@@ -16,7 +16,7 @@ import pandas as pd
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
 from chap_core.geometry import Polygons
 from chap_core.rest_api_src.data_models import FetchRequest
-from chap_core.rest_api_src.v1.routers.crud import DatasetCreate
+from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCreate
 from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api_src.worker_functions import WorkerConfig
 from chap_core.services.cache_manager import get_cache
@@ -206,7 +206,9 @@ def example_polygons(data_path):
 
 @pytest.fixture
 def make_prediction_request(dataset_create):
-    return PredictionCreate(model_id='naive_model', **dataset_create.dict())
+    return PredictionCreate(model_id='naive_model',
+                            metaData= {'test': 'test2'},
+                            **dataset_create.dict())
 
 # @pytest.fixture
 # def celery_app():
