@@ -1,4 +1,5 @@
-from typing import List, Annotated
+import json
+from typing import List, Annotated, Optional
 
 import chap_core.rest_api_src.db_worker_functions as wf
 import numpy as np
@@ -82,6 +83,7 @@ async def get_evaluation_entries(
 
 class MakePredictionRequest(DatasetMakeRequest):
     model_id: str
+    meta_data: Optional[dict] = None
 
 
 class MultiBacktestCreate(DBModel):
@@ -116,6 +118,7 @@ async def make_prediction(request: MakePredictionRequest,
                           provided_data.model_dump(),
                           request.name,
                           request.model_id,
+                          request.meta_data if request.meta_data is not None else '',
                           database_url=database_url,
                           worker_config=worker_settings)
     return JobResponse(id=job.id)

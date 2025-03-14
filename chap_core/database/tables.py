@@ -29,11 +29,12 @@ class PredictionBase(DBModel):
     n_periods: int
     name: str
     created: datetime.datetime
-
+    meta_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     forecasts: List['PredictionSamplesEntry'] = Relationship(back_populates="prediction")
+
 
 
 class ForecastRead(ForecastBase):
@@ -79,8 +80,10 @@ class FailedJobBase(DBModel):
     message: str
     created: datetime.datetime
 
+
 class FailedJobRead(FailedJobBase):
     id: int
+
 
 class FailedJob(FailedJobRead, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
