@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 
 authors = [{ name = "Sandvelab", email = "knutdrand@gmail.com" }]
-license = { text = "MIT license" }
+license = { text = "AGPLv3 license" }
 keywords = ["chap_core"]
 
 dependencies = [

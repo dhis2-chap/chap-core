@@ -23,13 +23,13 @@ from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from . import api
+from chap_core import api
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
 from chap_core.predictor import ModelType
 from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
-from .assessment.prediction_evaluator import evaluate_model, backtest as _backtest
-from .assessment.forecast import multi_forecast as do_multi_forecast
+from chap_core.assessment.prediction_evaluator import evaluate_model, backtest as _backtest
+from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
 
 import logging
 
@@ -62,6 +62,7 @@ def evaluate(
     """
     Evaluate a model on a dataset using forecast cross validation
     """
+
     initialize_logging(debug, log_file)
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
