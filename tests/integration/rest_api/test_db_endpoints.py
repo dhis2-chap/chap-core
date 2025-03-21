@@ -119,7 +119,9 @@ def test_get_data_sources():
 
 @pytest.fixture
 def make_prediction_request(make_dataset_request):
-    return MakePredictionRequest(model_id='naive_model', **make_dataset_request.dict())
+    return MakePredictionRequest(model_id='naive_model',
+                                 meta_data = {'test': 'test'},
+                                 **make_dataset_request.dict())
 
 
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
@@ -131,6 +133,7 @@ def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_
     response = client.get(f"/v1/crud/predictions/{db_id}")
     assert response.status_code == 200, response.json()
     ds = PredictionRead.model_validate(response.json())
+    assert ds.meta_data == make_prediction_request.meta_data
     assert len(ds.forecasts) > 0
     assert all(len(f.values) for f in ds.forecasts)
 

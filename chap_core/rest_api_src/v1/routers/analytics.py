@@ -1,4 +1,5 @@
-from typing import List, Annotated
+import json
+from typing import List, Annotated, Optional
 
 import chap_core.rest_api_src.db_worker_functions as wf
 import numpy as np
@@ -82,6 +83,7 @@ async def get_evaluation_entries(
 
 class MakePredictionRequest(DatasetMakeRequest):
     model_id: str
+    meta_data: dict = {}
 
 
 class MultiBacktestCreate(DBModel):
@@ -108,7 +110,7 @@ async def make_prediction(request: MakePredictionRequest,
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if 'population' in feature_names:
         provided_data = provided_data.interpolate(['population'])
-    # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
+
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     job = worker.queue_db(wf.predict_pipeline_from_composite_dataset,
                           feature_names,
@@ -116,6 +118,7 @@ async def make_prediction(request: MakePredictionRequest,
                           provided_data.model_dump(),
                           request.name,
                           request.model_id,
+                          request.meta_data if request.meta_data is not None else '',
                           database_url=database_url,
                           worker_config=worker_settings)
     return JobResponse(id=job.id)
