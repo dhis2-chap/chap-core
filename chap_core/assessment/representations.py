@@ -16,6 +16,7 @@ class DiseaseTimeSeries:
 @dataclass
 class MultiLocationDiseaseTimeSeries:
     timeseries_dict: Dict[str,DiseaseTimeSeries]
+
     def __getitem__(self, location):
         return self.timeseries_dict[location]
 
@@ -34,14 +35,7 @@ class Error:
 @dataclass
 class ErrorTimeSeries:
     observations: List[Error]
-class DiseaseTimeSeries:
-    observations: List[DiseaseObservation]
 
-    def __getitem__(self, time_period: str) -> DiseaseObservation:
-        for observation in self.observations:
-            if observation.time_period == time_period:
-                return observation
-        raise KeyError(f"No observation found for time period {time_period}")
 
 @dataclass
 class MultiLocationErrorTimeSeries:
