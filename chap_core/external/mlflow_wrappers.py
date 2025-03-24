@@ -211,7 +211,25 @@ class ModelTemplate:
         return self.get_model()
 
     def get_model(self, model_configuration: BaseModel = None) -> 'ExternalModel':
-        assert model_configuration is None, "Configuration not supported yet"
+        """
+        Returns a model based on the model configuration. The model configuration is an object of the class
+        returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default
+        choices are used. 
+
+        Parameters
+        ----------
+        model_configuration : BaseModel, optional
+            The configuration for the model, by default None
+
+        Returns
+        -------
+        ExternalModel
+            The model
+
+        """
+        # some choices are handled here, others are simply passedd on to the model
+        config_passed_to_model = model_configuration
+
         # config = ModelTemplateConfig.model_validate(model_configuration)
         runner = get_train_predict_runner_from_model_template_config(
             self._model_template_config,
@@ -229,6 +247,7 @@ class ModelTemplate:
             adapters=adapters,
             data_type=data_type,
             working_dir=self._working_dir,
+            configuration=config_passed_to_model
         )
 
 
@@ -245,6 +264,7 @@ class ExternalModel(Generic[FeatureType]):
             adapters=None,
             working_dir="./",
             data_type=HealthData,
+            configuration: 'ModelConfiguration' = None,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
@@ -255,6 +275,7 @@ class ExternalModel(Generic[FeatureType]):
         self._data_type = data_type
         self._name = name
         self._polygons_file_name = None
+        self._configuration = configuration  # configuration passed from the user to the model, e.g. about covariates or parameters 
 
     @property
     def name(self):
@@ -262,6 +283,10 @@ class ExternalModel(Generic[FeatureType]):
 
     def __call__(self):
         return self
+
+    @property
+    def configuration(self):
+        return self._configuration
 
     @property
     def required_fields(self):

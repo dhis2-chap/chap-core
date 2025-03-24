@@ -12,3 +12,13 @@ def model_template(data_path):
 def test_model_template(model_template: ModelTemplate):
     config_class = model_template.get_config_class()
     assert 'additional_continuous_covariates' in config_class.__annotations__, config_class.__annotations__
+
+
+def test_get_model_from_model_template_with_user_choices(model_template: ModelTemplate):
+    user_choices = model_template.get_config_class()
+
+    # fill out some choices that works with this model_template
+    user_choices.additional_continuous_covariates = ["elevation", "population_density"]
+
+    model = model_template.get_model(user_choices)
+    assert model.configuration.additional_continuous_covariates == ["elevation", "population_density"]

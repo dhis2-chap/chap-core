@@ -76,7 +76,7 @@ def get_runner_from_yaml_file(yaml_file: str) -> Runner:
             return CommandLineRunner(working_dir)
 
 
-def get_model_from_directory_or_github_url(model_path, 
+def get_model_from_directory_or_github_url(model_template_path, 
                                            base_working_dir=Path("runs/"), 
                                            ignore_env=False,
                                            run_dir_type: Literal["timestamp", "latest", "use_existing"] = "timestamp",
@@ -87,7 +87,7 @@ def get_model_from_directory_or_github_url(model_path,
 
     Parameters
     ----------
-    model_path : str
+    model_template_path : str
         Path to the model. Can be a local directory or a github url
     base_working_dir : Path, optional
         Base directory to store the working directory, by default Path("runs/")
@@ -100,8 +100,8 @@ def get_model_from_directory_or_github_url(model_path,
     """
 
     logger.info(
-        f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}")
-    working_dir = _get_model_code_base(model_path, base_working_dir, run_dir_type)
+        f"Getting model template from {model_template_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}")
+    working_dir = _get_model_code_base(model_template_path, base_working_dir, run_dir_type)
 
     logging.error(f"Current directory is {os.getcwd()}, working dir is {working_dir}")
     assert os.path.isdir(working_dir), working_dir

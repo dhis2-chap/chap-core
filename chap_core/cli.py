@@ -58,6 +58,7 @@ def evaluate(
         debug: bool = False,
         log_file: Optional[str] = None,
         run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+        model_configuration_yaml: Optional[str] = None,
 ):
     """
     Evaluate a model on a dataset using forecast cross validation
