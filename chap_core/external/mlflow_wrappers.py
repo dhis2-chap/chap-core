@@ -264,7 +264,7 @@ class ExternalModel(Generic[FeatureType]):
             adapters=None,
             working_dir="./",
             data_type=HealthData,
-            configuration: 'ModelConfiguration' = None,
+            configuration: BaseModel = None,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
