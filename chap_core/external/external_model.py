@@ -76,9 +76,11 @@ def get_runner_from_yaml_file(yaml_file: str) -> Runner:
             return CommandLineRunner(working_dir)
 
 
-def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("runs/"), ignore_env=False,
+def get_model_from_directory_or_github_url(model_path, 
+                                           base_working_dir=Path("runs/"), 
+                                           ignore_env=False,
                                            run_dir_type: Literal["timestamp", "latest", "use_existing"] = "timestamp",
-                                           ):
+                                           ) -> 'ExternalModel':
     """
     Gets the model and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
@@ -114,6 +116,7 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
 
 
 def _get_model_code_base(model_path, base_working_dir, run_dir_type):
+    is_github = False
     commit = None
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):
         dir_name = model_path.split("/")[-1].replace(".git", "")

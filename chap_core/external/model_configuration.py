@@ -33,3 +33,4 @@ class ModelTemplateConfig(BaseModel):
     allow_free_additional_continuous_covariates: bool = False
     adapters: Optional[dict[str, str]] = None
     user_options: list[UserOption] = []
+
