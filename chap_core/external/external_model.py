@@ -99,7 +99,21 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
 
     logger.info(
         f"Getting model from {model_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}")
-    is_github = False
+    working_dir = _get_model_code_base(model_path, base_working_dir, run_dir_type)
+
+    logging.error(f"Current directory is {os.getcwd()}, working dir is {working_dir}")
+    assert os.path.isdir(working_dir), working_dir
+    assert os.path.isdir(os.path.abspath(working_dir)), working_dir
+
+    # assert that a config file exists
+    if (working_dir / "MLproject").exists():
+        return get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env).get_model(
+            model_configuration=None)
+    else:
+        raise InvalidModelException("No MLproject file found in model directory")
+
+
+def _get_model_code_base(model_path, base_working_dir, run_dir_type):
     commit = None
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):
         dir_name = model_path.split("/")[-1].replace(".git", "")
@@ -110,6 +124,25 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
     else:
         model_name = Path(model_path).name
 
+    run_dir_type, working_dir = _get_working_dir(model_path, base_working_dir, run_dir_type, model_name)
+    logger.info(f"Writing results to {working_dir}")
+
+    if is_github:
+        working_dir.mkdir(parents=True)
+        repo = git.Repo.clone_from(model_path, working_dir)
+        if commit:
+            logger.info(f'Checking out commit {commit}')
+            repo.git.checkout(commit)
+    elif run_dir_type == "use_existing":
+        logging.info("Not copying any model files, using existing directory")
+    else:
+        # copy contents of model_path to working_dir
+        logger.info(f"Copying files from {model_path} to {working_dir}")
+        shutil.copytree(model_path, working_dir)
+    return working_dir
+
+
+def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
     if run_dir_type == "use_existing" and not Path(model_path).exists():
         logging.warning(
             f"Model path {model_path} does not exist. Will create a directory for the run (using the name 'latest')")
@@ -133,36 +166,10 @@ def get_model_from_directory_or_github_url(model_path, base_working_dir=Path("ru
     else:
         raise ValueError(f"Invalid run_dir_type: {run_dir_type}")
 
-    logger.info(f"Writing results to {working_dir}")
-
-    if is_github:
-        working_dir.mkdir(parents=True)
-        repo = git.Repo.clone_from(model_path, working_dir)
-        if commit:
-            logger.info(f'Checking out commit {commit}')
-            repo.git.checkout(commit)
-
-    elif run_dir_type == "use_existing":
-        logging.info("Not copying any model files, using existing directory")
-    else:
-        # copy contents of model_path to working_dir
-        logger.info(f"Copying files from {model_path} to {working_dir}")
-        shutil.copytree(model_path, working_dir)
-
-    logging.error(f"Current directory is {os.getcwd()}")
-    logging.error(f"Working dir is {working_dir}")
-    assert os.path.isdir(working_dir), working_dir
-    assert os.path.isdir(os.path.abspath(working_dir)), working_dir
-    # assert that a config file exists
-    if (working_dir / "MLproject").exists():
-        return get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env).get_model(
-            model_configuration=None)
-        return get_model_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
-    else:
-        raise InvalidModelException("No MLproject file found in model directory")
+    return run_dir_type,working_dir
 
 
-def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
+def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> ModelTemplate:
     working_dir = Path(mlproject_file).parent
 
     with open(mlproject_file, "r") as file:

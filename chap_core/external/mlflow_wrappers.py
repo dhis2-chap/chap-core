@@ -207,6 +207,9 @@ class ModelTemplate:
                 fields[user_option.name] = (T, ...)
         return create_model('ModelConfiguration', **fields)
 
+    def get_default_model(self) -> 'ExternalModel':
+        return self.get_model()
+
     def get_model(self, model_configuration: BaseModel = None) -> 'ExternalModel':
         assert model_configuration is None, "Configuration not supported yet"
         # config = ModelTemplateConfig.model_validate(model_configuration)
