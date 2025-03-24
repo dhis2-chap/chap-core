@@ -80,6 +80,7 @@ def get_model_from_directory_or_github_url(model_template_path,
                                            base_working_dir=Path("runs/"), 
                                            ignore_env=False,
                                            run_dir_type: Literal["timestamp", "latest", "use_existing"] = "timestamp",
+                                           model_configuration_yaml: str=None
                                            ) -> 'ExternalModel':
     """
     Gets the model and initializes a working directory with the code for the model.
@@ -97,6 +98,8 @@ def get_model_from_directory_or_github_url(model_template_path,
         Type of run directory to create, by default "timestamp", which creates a new directory based on current timestamp for the run.
         "latest" will create a new directory based on the model name, but will remove any existing directory with the same name.
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
+    model_configuration_yaml : str, optional
+        Path to the model configuration yaml file, by default None. This has to be a yaml that is compatible with the model configuration class given by the ModelTemplate.
     """
 
     logger.info(
@@ -109,8 +112,15 @@ def get_model_from_directory_or_github_url(model_template_path,
 
     # assert that a config file exists
     if (working_dir / "MLproject").exists():
-        return get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env).get_model(
-            model_configuration=None)
+        template = get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
+        model_configuration = None
+        config_class = template.get_config_class()
+        if model_configuration_yaml:
+            with open(model_configuration_yaml, "r") as file:
+                model_configuration = yaml.load(file, Loader=yaml.FullLoader)
+                model_configuration = config_class.model_validate(model_configuration)
+
+        return template.get_model(model_configuration=model_configuration)
     else:
         raise InvalidModelException("No MLproject file found in model directory")
 
