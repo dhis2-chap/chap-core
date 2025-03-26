@@ -180,6 +180,12 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
     def teardown(self):
         self._runner.teardown()
 
+class ModelConfiguration(BaseModel):
+    """
+    BaseClass used for configuration that a ModelTemplate takes for creating specific Models
+    """
+    pass
+
 
 class ModelTemplate:
     """
@@ -210,7 +216,7 @@ class ModelTemplate:
     def get_default_model(self) -> 'ExternalModel':
         return self.get_model()
 
-    def get_model(self, model_configuration: BaseModel = None) -> 'ExternalModel':
+    def get_model(self, model_configuration: ModelConfiguration = None) -> 'ExternalModel':
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default
@@ -218,7 +224,7 @@ class ModelTemplate:
 
         Parameters
         ----------
-        model_configuration : BaseModel, optional
+        model_configuration : ModelConfiguration, optional
             The configuration for the model, by default None
 
         Returns
