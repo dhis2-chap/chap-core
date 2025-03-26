@@ -51,3 +51,34 @@ Currently, the main evaluation flow does not compute metrics, but simply plots t
 
 
 
+## Models and ModelTemplates
+
+The following is a draft mermaid notation overview:
+
+```
+flowchart TD
+    
+
+    ModelTemplate_get_config_class --> ModelConfiguration
+
+
+
+     E[evaluate or predict or backtest]--> get_model_template_from_directory_or_github_url --> 
+    get_model_template_from_mlproject_file --> ModelTemplate
+
+    ModelTemplate --> A[get_model with object of ModelConfiguratio] --> Model
+
+    ModelTemplate --> B["get_default_model()"] --> Model
+    ModelTemplate --> get_train_predict_runner --> TrainPredictRunner
+
+
+    deprecated --> get_model_from_directory_or_github_url --> get_model_from_mlproject_file
+
+
+
+
+    Runner --> CommandLineRunner
+
+    TrainPredictRunner --> DockerTrainPredictRunner 
+    TrainPredictRunner --> CommandLineTrainPredictRunner --> CommandLineRunner
+```

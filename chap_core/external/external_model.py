@@ -20,9 +20,6 @@ from chap_core.external.mlflow_wrappers import (
     get_train_predict_runner_from_model_template_config,
 )
 from chap_core.external.model_configuration import ModelTemplateConfig
-from chap_core.runners.command_line_runner import CommandLineRunner
-from chap_core.runners.docker_runner import DockerImageRunner, DockerRunner
-from chap_core.runners.runner import Runner
 
 logger = logging.getLogger(__name__)
 
@@ -60,20 +57,6 @@ class SimpleFileContextManager:
         if self.file:
             return self.file.read()
 
-
-def get_runner_from_yaml_file(yaml_file: str) -> Runner:
-    with open(yaml_file, "r") as file:
-        data = yaml.load(file, Loader=yaml.FullLoader)
-        working_dir = Path(yaml_file).parent
-
-        if "dockerfile" in data:
-            return DockerImageRunner(data["dockerfile"], working_dir)
-        elif "dockername" in data:
-            return DockerRunner(data["dockername"], working_dir)
-        elif "conda" in data:
-            raise Exception("Conda runner not implemented")
-        else:
-            return CommandLineRunner(working_dir)
 
 
 def get_model_from_directory_or_github_url(model_template_path, 
@@ -245,7 +228,3 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalM
         working_dir=Path(mlproject_file).parent,
     )
 
-
-def get_model_maybe_yaml(model_name):
-    model = get_model_from_directory_or_github_url(model_name)
-    return model, model.name

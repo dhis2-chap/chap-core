@@ -23,7 +23,7 @@ class UserOption(BaseModel):
     default: Optional[str] = None
 
 
-class ModelInfo:
+class ModelInfo(BaseModel):
     author: str
     description: str
 
