@@ -1,5 +1,6 @@
+import abc
 from pathlib import Path
-from typing import Generic, TypeVar, Literal
+from typing import Optional, TypeVar, Literal
 import logging
 import pandas as pd
 
@@ -20,6 +21,7 @@ from chap_core.runners.runner import TrainPredictRunner
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import TimePeriod
 
+
 logger = logging.getLogger(__name__)
 
 FeatureType = TypeVar("FeatureType")
@@ -28,12 +30,16 @@ FeatureType = TypeVar("FeatureType")
 def get_train_predict_runner_from_model_template_config(model_template_config: ModelTemplateConfig,
                                                         working_dir: Path,
                                                         skip_environment=False,
+                                                        model_configuration: Optional['ModelConfiguration'] = None
                                                     ) -> TrainPredictRunner:
 
     if model_template_config.docker_env is not None:
         runner_type = "docker"
-    else:
+    elif model_template_config.python_env is not None:
         runner_type = "mlflow"
+    else:
+        runner_type = ""
+        skip_environment = True
 
     logger.info(f'skip_environement: {skip_environment}, runner_type: {runner_type}')
 
@@ -42,6 +48,16 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
         # read yaml file into a dict
         train_command = model_template_config.entry_points.train.command #data["entry_points"]["train"]["command"]
         predict_command = model_template_config.entry_points.predict.command #data["entry_points"]["predict"]["command"]    
+
+        # dump model configuration to a tmp file in working_dir, pass this file to the train and predict command
+        # pydantic write to yaml
+        # under development
+        if False and model_configuration is not None:
+            model_configuration_file = working_dir / "model_configuration.yaml"
+            with open(model_configuration_file, "w") as file:
+                yaml.dump(model_configuration.dict(), file)
+            train_command += f" --model_configuration {model_configuration_file}"
+            predict_command += f" --model_configuration {model_configuration_file}"
 
         if skip_environment:
             return CommandLineTrainPredictRunner(CommandLineRunner(working_dir), train_command, predict_command)
@@ -52,6 +68,7 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
         command_runner = DockerRunner(model_template_config.docker_env.image, working_dir)
         return DockerTrainPredictRunner(command_runner, train_command, predict_command)
     else:
+        assert model_configuration is None, "ModelConfiguration (for templates) not supported when runner is mlflow for now"
         assert runner_type == "mlflow"
         return MlFlowTrainPredictRunner(working_dir)
 
@@ -180,6 +197,49 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
     def teardown(self):
         self._runner.teardown()
 
+class ModelConfiguration(BaseModel):
+    """
+    BaseClass used for configuration that a ModelTemplate takes for creating specific Models
+    """
+    pass
+
+
+class ConfiguredModel(abc.ABC):
+    @abc.abstractmethod
+    def train(self, train_data: DataSet, extra_args=None):
+        pass
+
+    @abc.abstractmethod
+    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+        pass
+
+
+class ModelTemplateInterface(abc.ABC):
+
+    @abc.abstractmethod
+    def get_config_class(self) -> type[ModelConfiguration]: # gives a custom class of type ModelConfiguration
+        # todo: could maybe be a property and not class
+        pass
+
+    @abc.abstractmethod
+    def get_model(self, model_configuration: ModelConfiguration = None) -> 'ConfiguredModel':
+        pass
+
+    @abc.abstractmethod
+    def get_default_model(self) -> 'ConfiguredModel':
+        pass
+
+
+class ExternalModelTemplate(ModelTemplateInterface):
+    def __init__(self, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
+        self._model_template_config = model_template_config
+        self._working_dir = working_dir
+        self._ignore_env = ignore_env
+
+    @classmethod
+    def from_model_template_config(cls, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
+        return cls(ModelTemplate(model_template_config, working_dir, ignore_env))
+
 
 class ModelTemplate:
     """
@@ -190,6 +250,9 @@ class ModelTemplate:
         self._model_template_config = model_template_config
         self._working_dir = working_dir
         self._ignore_env = ignore_env
+
+    def get_train_predict_runner(self) -> TrainPredictRunner:
+        pass
 
     def __str__(self):
         return f'ModelTemplate: {self._model_template_config}'
@@ -207,13 +270,35 @@ class ModelTemplate:
                 fields[user_option.name] = (T, ...)
         return create_model('ModelConfiguration', **fields)
 
-    def get_model(self, model_configuration: BaseModel = None) -> 'ExternalModel':
-        assert model_configuration is None, "Configuration not supported yet"
+    def get_default_model(self) -> 'ExternalModel':
+        return self.get_model()
+
+    def get_model(self, model_configuration: ModelConfiguration = None) -> 'ExternalModel':
+        """
+        Returns a model based on the model configuration. The model configuration is an object of the class
+        returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default
+        choices are used. 
+
+        Parameters
+        ----------
+        model_configuration : ModelConfiguration, optional
+            The configuration for the model, by default None
+
+        Returns
+        -------
+        ExternalModel
+            The model
+
+        """
+        # some choices are handled here, others are simply passedd on to the model
+        config_passed_to_model = model_configuration
+
         # config = ModelTemplateConfig.model_validate(model_configuration)
         runner = get_train_predict_runner_from_model_template_config(
             self._model_template_config,
             self._working_dir,
-            self._ignore_env)
+            self._ignore_env,
+            model_configuration)
 
         config = self._model_template_config
         name = config.name  
@@ -226,13 +311,14 @@ class ModelTemplate:
             adapters=adapters,
             data_type=data_type,
             working_dir=self._working_dir,
+            configuration=config_passed_to_model
         )
 
 
-class ExternalModel(Generic[FeatureType]):
+class ExternalModel(ConfiguredModel):
     """
     Wrapper around an configured model with commands for training and predicting.
-    TODO: rename to Model
+    Note: This is what we refer to as a ConfiguredModel in the vocabulary
     """
 
     def __init__(
@@ -242,6 +328,7 @@ class ExternalModel(Generic[FeatureType]):
             adapters=None,
             working_dir="./",
             data_type=HealthData,
+            configuration: BaseModel = None,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
@@ -252,6 +339,7 @@ class ExternalModel(Generic[FeatureType]):
         self._data_type = data_type
         self._name = name
         self._polygons_file_name = None
+        self._configuration = configuration  # configuration passed from the user to the model, e.g. about covariates or parameters 
 
     @property
     def name(self):
@@ -259,6 +347,10 @@ class ExternalModel(Generic[FeatureType]):
 
     def __call__(self):
         return self
+
+    @property
+    def configuration(self):
+        return self._configuration
 
     @property
     def required_fields(self):

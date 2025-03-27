@@ -1,4 +1,3 @@
-from typing import Optional
 
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.climate_predictor import QuickForecastFetcher

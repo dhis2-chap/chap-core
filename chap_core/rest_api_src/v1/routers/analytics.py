@@ -1,5 +1,4 @@
-import json
-from typing import List, Annotated, Optional
+from typing import List, Annotated
 
 import chap_core.rest_api_src.db_worker_functions as wf
 import numpy as np

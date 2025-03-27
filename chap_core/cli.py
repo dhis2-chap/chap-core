@@ -12,7 +12,7 @@ from cyclopts import App
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
-from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
+from chap_core.external.external_model import get_model_from_directory_or_github_url, get_model_template_from_directory_or_github_url
 from chap_core.external.mlflow_wrappers import NoPredictionsError
 from chap_core.geometry import Polygons
 from chap_core.log_config import initialize_logging
@@ -58,6 +58,7 @@ def evaluate(
         debug: bool = False,
         log_file: Optional[str] = None,
         run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+        model_configuration_yaml: Optional[str] = None,
 ):
     """
     Evaluate a model on a dataset using forecast cross validation
@@ -93,7 +94,10 @@ def evaluate(
     
     results_dict = {}
     for name in model_list:
-        model = get_model_from_directory_or_github_url(name, ignore_env=ignore_environment, run_dir_type=run_directory_type)
+        template = get_model_template_from_directory_or_github_url(name, ignore_env=ignore_environment, 
+                                                       run_dir_type=run_directory_type, 
+                                                       )
+        model = template.get_model()
         model = model()
         try:
             results = evaluate_model(
@@ -205,7 +209,9 @@ def multi_forecast(
         pre_train_months: int,
         out_path: Path = Path(""),
 ):
-    model, model_name = get_model_maybe_yaml(model_name)
+    model = get_model_from_directory_or_github_url(model_name)
+    model_name = model.name
+
     model = model()
     filename = out_path / f"{model_name}_{dataset_name}_multi_forecast_results_{n_months}.html"
     logger.info(f"Saving to {filename}")

@@ -23,8 +23,13 @@ class UserOption(BaseModel):
     default: Optional[str] = None
 
 
+class ModelInfo(BaseModel):
+    author: str
+    description: str
+
+
 class ModelTemplateConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")  # pydantic-specific config to forbid extra fields
     name: str
     entry_points: EntryPointConfig
     docker_env: Optional[DockerEnvConfig] = None
@@ -33,3 +38,5 @@ class ModelTemplateConfig(BaseModel):
     allow_free_additional_continuous_covariates: bool = False
     adapters: Optional[dict[str, str]] = None
     user_options: list[UserOption] = []
+    model_info: Optional[ModelInfo] = None
+

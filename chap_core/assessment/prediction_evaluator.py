@@ -91,6 +91,8 @@ def evaluate_model(
         )
         for location in data.keys()
     }
+    #create_multiloc_timeseries(truth_data)
+
     if report_filename is None:
         report_filename = "evaluation_report.pdf"
 
@@ -110,6 +112,19 @@ def evaluate_model(
     results = evaluator(tss, forecast_list)
     logger.info('Finished Evaluating')
     return results
+
+
+def create_multiloc_timeseries(truth_data):
+    from chap_core.assessment.representations import MultiLocationDiseaseTimeSeries
+    multi_location_disease_time_series = MultiLocationDiseaseTimeSeries()
+    for location, df in truth_data.items():
+        from chap_core.assessment.representations import DiseaseTimeSeries
+        from chap_core.assessment.representations import DiseaseObservation
+        disease_time_series = DiseaseTimeSeries(observations=[
+            DiseaseObservation(time_period=period, disease_cases=cases)
+            for period, cases in df.itertuples(index=True, name='Pandas')
+        ])
+        multi_location_disease_time_series[location] = disease_time_series
 
 
 def _get_forecast_generators(
