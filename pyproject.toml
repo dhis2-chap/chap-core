@@ -28,7 +28,7 @@ dependencies = [
     "matplotlib",
     "meteostat",
     "mlflow-skinny",
-    "numpy<2.0",
+    "numpy",
     "pandas",
     "plotly",
     "pooch",

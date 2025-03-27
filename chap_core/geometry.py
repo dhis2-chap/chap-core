@@ -1,5 +1,7 @@
 import json
 import logging
+from typing import Tuple, Dict, List
+
 import pooch
 import pycountry
 from pydantic_geojson import FeatureModel, FeatureCollectionModel
@@ -165,7 +167,7 @@ class Polygons:
     def __iter__(self):
         for feat in self._polygons.features:
             yield feat
-    
+
     @property
     def __geo_interface__(self):
         return self.to_geojson()
@@ -188,6 +190,22 @@ class Polygons:
 
     def to_file(self, filename):
         json.dump(self.to_geojson(), open(filename, "w"))
+
+    def id_to_name_tuple_dict(self)-> Dict[str, Tuple[str]]:
+        '''Returns a dictionary with the id as key and a tuple with the name and parent as value'''
+        lookup = {}
+        for feat in self.feature_collection().features:
+            if feat.properties is None:
+                lookup[feat.id] = (feat.id, '-')
+                continue
+            lookup[feat.id] = (feat.properties.get('name', feat.id),
+                               feat.properties.get('parent', '-'))
+        return lookup
+
+    def get_parent_dict(self):
+        return {feature.id: feature.properties.get('parent', '-') if feature.properties else '-'
+                for feature in self._polygons.features}
+
 
     @classmethod
     def _add_ids(cls, features: DFeatureCollectionModel, id_property: str):
