@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict
 
 import pooch
 import pycountry
