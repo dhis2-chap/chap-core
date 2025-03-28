@@ -10,11 +10,12 @@ import time
 import logging
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+#Alogger.setLevel(logging.DEBUG)
 
 
 def make_prediction_request(model_name):
-    #ds = "../example_data/anonymous_chap_request.json"
+    # ds = "../example_data/anonymous_chap_request.json"
     filename = '/home/knut/Data/ch_data/test_data/make_prediction_request.json'
     data = json.load(open(filename))
     data['modelId'] = model_name
@@ -33,7 +34,7 @@ class IntegrationTest:
 
     def ensure_up(self):
         response = None
-        for _ in range(5):
+        for _ in range(20):
             try:
                 response = requests.get(self._chap_url + "/v1/health")
                 break
@@ -57,17 +58,27 @@ class IntegrationTest:
         assert response.status_code == 200, (response.status_code, response.text)
         return response.json()
 
+    def _post(self, url, json):
+        try:
+            response = requests.post(url, json=json)
+        except:
+            logger.error("Failed to connect to %s" % chap_url)
+            logger.error('Failed to get %s' % url)
+            exception_info = requests.get(chap_url + "/v1/get-exception").json()
+            logger.error(exception_info)
+            raise
+        assert response.status_code == 200, (response.status_code, response.text)
+        return response.json()
+
     def get_models(self):
         model_url = self._chap_url + "/v1/crud/models"
         models = self._get(model_url)
         return models
 
-
     def make_prediction(self, data):
         make_prediction_url = self._chap_url + "/v1/analytics/prediction"
-        response = requests.post(make_prediction_url, json=data)
-        assert response.status_code == 200, (response, response.text)
-        job_id = response.json()['id']
+        response = self._post(make_prediction_url, json=data)
+        job_id = response['id']
         db_id = self.wait_for_db_id(job_id)
         return db_id
 
@@ -82,9 +93,19 @@ class IntegrationTest:
             self.make_prediction(make_prediction_request('naive_model'))
 
     def wait_for_db_id(self, job_id):
-        ...
-
-
+        for _ in range(10):
+            job_url = self._chap_url + f"/v1/jobs/{job_id}"
+            job_status = self._get(job_url).lower()
+            logger.info(job_status)
+            if job_status == "failed":
+                exception_info = requests.get(chap_url + "/v1/get-exception").json()
+                logger.error("Failed job")
+                logger.error(exception_info)
+                raise ValueError("Failed job")
+            if job_status == "success":
+                return self._get(job_url + "/database_result/")['id']
+            time.sleep(1)
+        raise TimeoutError("Job took too long")
 
 
 def evaluate_model(chap_url, data, model, timeout=600):
