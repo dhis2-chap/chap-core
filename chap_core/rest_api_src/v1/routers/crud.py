@@ -17,6 +17,8 @@ Magic is used to make the returned objects camelCase while internal objects are 
 import json
 from datetime import datetime
 from functools import partial
+
+import numpy as np
 from fastapi import Path
 from typing import Optional, List, Annotated
 
@@ -135,6 +137,8 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], sessi
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
     assert len(dataset.observations) > 0
+    for obs in dataset.observations:
+        obs.value = obs.value if np.isfinite(obs.value) else None
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
@@ -155,8 +159,8 @@ async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_databas
 
 
 @router.post('/datasets/csvFile')
-async def create_dataset_csv(csv_file: UploadFile = File(..., alias='csvFile'),
-                             geojson_file: UploadFile = File(..., alias='geojsonFile'),
+async def create_dataset_csv(csv_file: UploadFile = File(...),
+                             geojson_file: UploadFile = File(...),
                              session: Session = Depends(get_session),
                              ) -> DataBaseResponse:
     csv_content = await csv_file.read()

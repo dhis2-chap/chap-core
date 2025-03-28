@@ -359,6 +359,12 @@ class DataSet(Generic[FeaturesT]):
             if path.exists():
                 with open(path, "r") as f:
                     obj.set_polygons(FeatureCollectionModel.model_validate_json(f.read()))
+            else:
+                path = Path(file_name).with_suffix(".json")
+                if path.exists():
+                    polygons = Polygons.from_file(path, id_property="NAME_1")
+                    with open(path, "r") as f:
+                        obj.set_polygons(polygons.feature_collection())
         return obj
 
     def join_on_time(self, other: "DataSet[FeaturesT]") -> "DataSet[Tuple[FeaturesT, FeaturesT]]":

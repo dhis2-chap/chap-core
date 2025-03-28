@@ -210,7 +210,7 @@ class Polygons:
     @classmethod
     def _add_ids(cls, features: DFeatureCollectionModel, id_property: str):
         for feature in features.features:
-            feature.id = feature.id or feature.properties[id_property]
+            feature.id = feature.id or unidecode(feature.properties[id_property])
         return features
     
     @classmethod

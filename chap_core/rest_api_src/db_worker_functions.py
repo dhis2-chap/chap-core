@@ -14,7 +14,11 @@ def trigger_exception(*args, **kwargs):
     raise Exception("Triggered exception")
 
 
-def run_backtest(estimator_id: registry.model_type, dataset_id: str, n_periods: int, n_splits: int, stride: int,
+def run_backtest(estimator_id: registry.model_type,
+                 dataset_id: str,
+                 n_periods: int,
+                 n_splits: int,
+                 stride: int,
                  session: SessionWrapper):
     dataset = session.get_dataset(dataset_id, FullData)
     estimator = registry.get_model(estimator_id, ignore_env=True)
