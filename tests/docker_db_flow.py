@@ -31,55 +31,60 @@ class IntegrationTest:
         self._chap_url = chap_url
         self._run_all = run_all
 
-    def main(self):
-        ensure_up(self._chap_url)
-        model_url = self._chap_url + "/v1/crud/models"
+    def ensure_up(self):
+        response = None
+        for _ in range(5):
+            try:
+                response = requests.get(self._chap_url + "/v1/health")
+                break
+            except requests.exceptions.ConnectionError as e:
+                logger.error("Failed to connect to %s" % self._chap_url)
+                logger.error(e)
+                time.sleep(5)
+        assert response is not None
+        assert response.status_code == 200, response.status_code
+        assert response.json()["status"] == "success"
+
+    def _get(self, url):
         try:
-            models = requests.get(model_url)
+            response = requests.get(url)
         except:
-            print("Failed to connect to %s" % chap_url)
-            logger.error("Failed when fetching models")
-            print("----------------Exception info----------------")
-            exception_info = requests.get(chap_url + "/v1/get-exception").json()
-            print(exception_info)
-            logger.error(exception_info)
             logger.error("Failed to connect to %s" % chap_url)
+            logger.error('Failed to get %s' % url)
+            exception_info = requests.get(chap_url + "/v1/get-exception").json()
+            logger.error(exception_info)
             raise
+        assert response.status_code == 200, (response.status_code, response.text)
+        return response.json()
 
-        model_list = models.json()
+    def get_models(self):
+        model_url = self._chap_url + "/v1/crud/models"
+        models = self._get(model_url)
+        return models
+
+
+    def make_prediction(self, data):
+        make_prediction_url = self._chap_url + "/v1/analytics/prediction"
+        response = requests.post(make_prediction_url, json=data)
+        assert response.status_code == 200, (response, response.text)
+        job_id = response.json()['id']
+        db_id = self.wait_for_db_id(job_id)
+        return db_id
+
+    def main(self):
+        self.ensure_up()
+        model_list = self.get_models()
         assert 'naive_model' in {model['name'] for model in model_list}
-
         if self._run_all:
             for model in model_list:
-                make_prediction(chap_url, make_prediction_request(model['name']))
+                self.make_prediction(make_prediction_request(model['name']))
         else:
-            make_prediction(chap_url, make_prediction_request('naive_model'))
+            self.make_prediction(make_prediction_request('naive_model'))
+
+    def wait_for_db_id(self, job_id):
+        ...
 
 
-def wait_for_db_id(chap_url, job_id):
-    ...
-
-
-def make_prediction(chap_url, data):
-    make_prediction_url = chap_url + "/v1/analytics/prediction"
-    response = requests.post(make_prediction_url, json=data)
-    assert response.status_code == 200, (response, response.text)
-    return response.json()['id']
-
-
-def ensure_up(chap_url):
-    response = None
-    for _ in range(5):
-        try:
-            response = requests.get(chap_url + "/v1/health")
-            break
-        except requests.exceptions.ConnectionError as e:
-            logger.error("Failed to connect to %s" % chap_url)
-            logger.error(e)
-            time.sleep(5)
-    assert response is not None
-    assert response.status_code == 200, response.status_code
-    assert response.json()["status"] == "success"
 
 
 def evaluate_model(chap_url, data, model, timeout=600):
