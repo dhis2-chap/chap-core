@@ -88,7 +88,7 @@ class SessionWrapper:
     def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict={}):
         n_periods = len(list(predictions.values())[0])
         prediction = Prediction(dataset_id=dataset_id,
-                                estimator_id=model_id,
+                                model_id=model_id,
                                 name=name,
                                 created=datetime.datetime.now(),
                                 n_periods=n_periods,

@@ -25,7 +25,7 @@ class ForecastBase(DBModel):
 
 class PredictionBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
-    estimator_id: str
+    model_id: str
     n_periods: int
     name: str
     created: datetime.datetime

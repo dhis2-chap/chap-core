@@ -11,11 +11,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-#Alogger.setLevel(logging.DEBUG)
 
 
 def make_prediction_request(model_name):
-    # ds = "../example_data/anonymous_chap_request.json"
     filename = '/home/knut/Data/ch_data/test_data/make_prediction_request.json'
     data = json.load(open(filename))
     data['modelId'] = model_name
@@ -80,9 +78,13 @@ class IntegrationTest:
         response = self._post(make_prediction_url, json=data)
         job_id = response['id']
         db_id = self.wait_for_db_id(job_id)
-        return db_id
+        prediction_result = self._get(self._chap_url + f"/v1/crud/predictions/{db_id}")
+        assert prediction_result['modelId'] == data['modelId']
+        return prediction_result
 
-    def main(self):
+
+
+    def prediction_flow(self):
         self.ensure_up()
         model_list = self.get_models()
         assert 'naive_model' in {model['name'] for model in model_list}
@@ -108,55 +110,6 @@ class IntegrationTest:
         raise TimeoutError("Job took too long")
 
 
-def evaluate_model(chap_url, data, model, timeout=600):
-    print("Evaluating", model)
-    ensure_up(chap_url)
-    model_name = model["name"]
-    data["estimator_id"] = model_name
-    logger.info(model_name)
-    evalute_url = chap_url + f"/v1/predict/"
-    response = requests.post(evalute_url, json=data)
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-
-    for _ in range(timeout // 5):
-        response = requests.get(chap_url + "/v1/status")
-        if response.status_code != 200:
-            logger.error("Failed to get status")
-            logger.error(response)
-            continue
-        job_status = response.json()
-        if job_status['status'] == "failed":
-            exception_info = requests.get(chap_url + "/v1/get-exception").json()
-            if "Earth Engine client library not initialized" in exception_info:
-                logger.warning("Exception: %s" % exception_info)
-                raise Exception("Failed, Earth Engine client library not initialized")
-
-            raise ValueError("Model evaluation failed. Exception: %s" % exception_info)
-
-        logger.info(job_status)
-
-        print("Waiting for model to finish")
-        time.sleep(5)
-        if job_status['ready']:
-            break
-    else:
-        raise TimeoutError("Model evaluation took too long")
-    results = requests.get(chap_url + "/v1/get-results")
-
-    if results.status_code != 200:
-        exception_info = requests.get(chap_url + "/v1/get-exception").json()
-        logger.error("Failed to get results")
-        logger.error(exception_info)
-        raise ValueError("Failed to get results")
-
-    assert results.status_code == 200, results.status_code
-    print("STatus code", results.status_code)
-    print("RESULTS", results)
-    results = results.json()
-    assert len(results['dataValues']) == 45, len(results['dataValues'])
-
-
 if __name__ == "__main__":
     import sys
 
@@ -165,4 +118,4 @@ if __name__ == "__main__":
     else:
         hostname = 'localhost'
     chap_url = "http://%s:8000" % hostname
-    IntegrationTest(chap_url, False).main()
+    IntegrationTest(chap_url, False).prediction_flow()
