@@ -13,9 +13,12 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def dataset():
-    ds = "../example_data/anonymous_chap_request.json"
-    data = json.load(open(ds))
+def make_prediction_request(model_name):
+    #ds = "../example_data/anonymous_chap_request.json"
+    filename = '/home/knut/Data/ch_data/test_data/make_prediction_request.json'
+    data = json.load(open(filename))
+    data['modelId'] = model_name
+    print(data.keys())
     return data
 
 
@@ -23,27 +26,45 @@ hostname = 'chap'
 chap_url = "http://%s:8000" % hostname
 
 
-def main(chap_url):
+class IntegrationTest:
+    def __init__(self, chap_url, run_all):
+        self._chap_url = chap_url
+        self._run_all = run_all
 
-    ensure_up(chap_url)
-    model_url = chap_url + "/v1/list-models"
-    return
-    try:
-        models = requests.get(model_url)
-    except:
-        print("Failed to connect to %s" % chap_url)
-        logger.error("Failed when fetching models")
-        print("----------------Exception info----------------")
-        exception_info = requests.get(chap_url + "/v1/get-exception").json()
-        print(exception_info)
-        logger.error(exception_info)
-        logger.error("Failed to connect to %s" % chap_url)
-        raise
+    def main(self):
+        ensure_up(self._chap_url)
+        model_url = self._chap_url + "/v1/crud/models"
+        try:
+            models = requests.get(model_url)
+        except:
+            print("Failed to connect to %s" % chap_url)
+            logger.error("Failed when fetching models")
+            print("----------------Exception info----------------")
+            exception_info = requests.get(chap_url + "/v1/get-exception").json()
+            print(exception_info)
+            logger.error(exception_info)
+            logger.error("Failed to connect to %s" % chap_url)
+            raise
 
-    model_list = models.json()
+        model_list = models.json()
+        assert 'naive_model' in {model['name'] for model in model_list}
 
-    for model in model_list:
-        evaluate_model(chap_url, dataset(), model)
+        if self._run_all:
+            for model in model_list:
+                make_prediction(chap_url, make_prediction_request(model['name']))
+        else:
+            make_prediction(chap_url, make_prediction_request('naive_model'))
+
+
+def wait_for_db_id(chap_url, job_id):
+    ...
+
+
+def make_prediction(chap_url, data):
+    make_prediction_url = chap_url + "/v1/analytics/prediction"
+    response = requests.post(make_prediction_url, json=data)
+    assert response.status_code == 200, (response, response.text)
+    return response.json()['id']
 
 
 def ensure_up(chap_url):
@@ -56,7 +77,7 @@ def ensure_up(chap_url):
             logger.error("Failed to connect to %s" % chap_url)
             logger.error(e)
             time.sleep(5)
-    assert response is not  None
+    assert response is not None
     assert response.status_code == 200, response.status_code
     assert response.json()["status"] == "success"
 
@@ -112,10 +133,10 @@ def evaluate_model(chap_url, data, model, timeout=600):
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) > 1:
         hostname = sys.argv[1]
     else:
         hostname = 'localhost'
     chap_url = "http://%s:8000" % hostname
-    main(chap_url)
-
+    IntegrationTest(chap_url, False).main()
