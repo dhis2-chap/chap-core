@@ -118,9 +118,13 @@ class IntegrationTest:
 
     def evaluate_model(self, dataset_id, model):
         job_id = self._post(self._chap_url + "/v1/crud/backtests/",
-                            json={"modelId": model, "datasetId": dataset_id})['id']
+                            json={"modelId": model, "datasetId": dataset_id, 'name': 'integration_test'})['id']
         db_id = self.wait_for_db_id(job_id)
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
+        assert evaluation_result['modelId'] == model
+        assert evaluation_result['datasetId'] == dataset_id
+        assert evaluation_result['name'] == 'integration_test', evaluation_result
+        assert evaluation_result['created'], evaluation_result['created']
         url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
         print(url_string)
         evaluation_entries = self._get(url_string)

@@ -192,6 +192,8 @@ def test_backtest_flow_from_request(celery_session_worker,
     assert response.status_code == 200, response.json()
     data = response.json()
     assert data['name'] == 'testing'
+    assert data['created'] is not None
+
 
 def _make_dataset(make_dataset_request):
     data = make_dataset_request.model_dump_json()

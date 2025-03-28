@@ -70,7 +70,9 @@ class SessionWrapper:
         return model
 
     def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, info: 'BackTestCreate'):
-        backtest = BackTest(last_train_period=last_train_period.id, **info.dict())
+        info.created = datetime.datetime.now()
+        backtest = BackTest(last_train_period=last_train_period.id,
+                            **info.dict())
         self.session.add(backtest)
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
