@@ -138,7 +138,10 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], sessi
     dataset = session.get(DataSet, dataset_id)
     assert len(dataset.observations) > 0
     for obs in dataset.observations:
-        obs.value = obs.value if np.isfinite(obs.value) else None
+        try:
+            obs.value = obs.value if obs.value is None or np.isfinite(obs.value) else None
+        except:
+            raise
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
@@ -198,7 +201,7 @@ class DataBaseResponse(DBModel):
 class DataSetRead(DBModel):
     id: int
     name: str
-    created: Optional[datetime] = None
+    created: Optional[datetime]
 
 
 @router.get('/failedJobs', response_model=list[FailedJobRead])

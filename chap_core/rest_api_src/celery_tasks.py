@@ -182,7 +182,9 @@ def celery_run_with_session(func, *args, **kwargs):
     with SessionWrapper(engine) as session:
         return failed_job_wrapper(func)(*args, **kwargs | {"session": session})
 
+
 JOB_NAME_KW = '__job_name__'
+
 
 class CeleryPool(Generic[ReturnType]):
     """Simple abstraction for a Celery Worker"""
@@ -204,7 +206,6 @@ class CeleryPool(Generic[ReturnType]):
 
     def _describe_job(self, job_info: dict) -> str:
         func, *args = job_info["args"]
-        job_name = job_info['kwargs'].get(JOB_NAME_KW, 'default')
         func_name = func.__name__
         return f"{func_name}({', '.join(map(str, args))})"
 

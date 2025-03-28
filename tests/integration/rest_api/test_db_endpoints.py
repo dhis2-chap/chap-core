@@ -120,7 +120,7 @@ def test_get_data_sources():
 @pytest.fixture
 def make_prediction_request(make_dataset_request):
     return MakePredictionRequest(model_id='naive_model',
-                                 meta_data = {'test': 'test'},
+                                 meta_data={'test': 'test'},
                                  **make_dataset_request.dict())
 
 
@@ -161,7 +161,30 @@ def create_make_data_request(example_polygons, fetch_request, proivided_features
     return request
 
 
+@pytest.fixture()
+def anonymous_make_dataset_request(data_path):
+    with open(data_path / 'anonymous_make_dataset_request.json', 'r') as f:
+        return DatasetMakeRequest.model_validate_json(f.read())
+
+
 def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_request):
+    _make_dataset(make_dataset_request)
+
+
+def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
+    _make_dataset(anonymous_make_dataset_request)
+
+def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, anonymous_make_dataset_request):
+    db_id = _make_dataset(anonymous_make_dataset_request)
+    response = client.post("/v1/crud/backtests",
+                            json={"datasetId": db_id, "modelId": "naive_model"})
+    assert response.status_code == 200, response.json()
+    job_id = response.json()['id']
+    db_id = await_result_id(job_id)
+    response = client.get(f"/v1/crud/backtests/{db_id}")
+    assert response.status_code == 200, response.json()
+
+def _make_dataset(make_dataset_request):
     data = make_dataset_request.model_dump_json()
     response = client.post("/v1/analytics/make-dataset",
                            data=data)
@@ -170,7 +193,6 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
     dataset_list = client.get("/v1/crud/datasets").json()
     assert len(dataset_list) > 0
     assert db_id in {ds['id'] for ds in dataset_list}
-
     response = client.get(f"/v1/crud/datasets/{db_id}")
     assert response.status_code == 200, response.json()
     ds = DataSetWithObservations.model_validate(response.json())
@@ -182,7 +204,7 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
     assert 'population' in field_names
     assert 'mean_temperature' in field_names
     assert len(field_names) == 4
-
+    return db_id
 
 @pytest.mark.skip(reason="Failing because of missing geojson file")
 def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):

@@ -22,7 +22,8 @@ def make_prediction_request(model_name):
 
 
 def make_dataset_request():
-    filename = '/home/knut/Data/ch_data/test_data/make_dataset_request.json'
+    #filename = '/home/knut/Data/ch_data/test_data/make_dataset_request.json'
+    filename = '../example_data/anonymous_make_dataset_request.json'
     data = json.load(open(filename))
     return data
 
@@ -143,5 +144,5 @@ if __name__ == "__main__":
         hostname = 'localhost'
     chap_url = "http://%s:8000" % hostname
     suite = IntegrationTest(chap_url, False)
-    # suite.evaluation_flow()
-    suite.prediction_flow()
+    suite.evaluation_flow()
+    # suite.prediction_flow()
