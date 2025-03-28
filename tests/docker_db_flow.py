@@ -14,7 +14,8 @@ logging.basicConfig(level=logging.INFO)
 
 
 def make_prediction_request(model_name):
-    filename = '/home/knut/Data/ch_data/test_data/make_prediction_request.json'
+    #filename = '/home/knut/Data/ch_data/test_data/make_prediction_request.json'
+    filename = '../example_data/anonymous_make_prediction_request.json'
     data = json.load(open(filename))
     data['modelId'] = model_name
     print(data.keys())
@@ -81,8 +82,6 @@ class IntegrationTest:
         prediction_result = self._get(self._chap_url + f"/v1/crud/predictions/{db_id}")
         assert prediction_result['modelId'] == data['modelId']
         return prediction_result
-
-
 
     def prediction_flow(self):
         self.ensure_up()

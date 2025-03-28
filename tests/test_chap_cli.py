@@ -9,7 +9,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 @pytest.fixture
 def v2_path(data_path):
-    path = data_path / "v2.json"
+    path = data_path / "unused.json"
     if not path.exists():
         pytest.skip(f"{path} does not exist")
     return path

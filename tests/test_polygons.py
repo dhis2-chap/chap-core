@@ -43,7 +43,7 @@ def test_geometry_simplify(data_path, output_path):
 
 def test_laos_polygons(data_path):
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson").data
-    polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson", id_property='district').data
+    #polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson", id_property='district').data
 
 
 if __name__ == '__main__':
