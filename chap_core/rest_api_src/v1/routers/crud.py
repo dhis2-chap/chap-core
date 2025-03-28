@@ -78,7 +78,7 @@ class BackTestFull(BackTestRead):
     forecasts: list[BackTestForecast]
 
 
-@router_get("/backtest/{backtestId}", response_model=BackTestFull)
+@router_get("/backtests/{backtestId}", response_model=BackTestFull)
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
                        session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
@@ -87,7 +87,7 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
     return backtest
 
 
-@router.post("/backtest", response_model=JobResponse)
+@router.post("/backtests", response_model=JobResponse)
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
     job = worker.queue_db(wf.run_backtest, backtest.model_id, backtest.dataset_id, 12, 2, 1,
                           database_url=database_url)
@@ -121,7 +121,7 @@ async def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId"
     return prediction
 
 
-@router.get("/backtest", response_model=list[BackTestRead])
+@router.get("/backtests", response_model=list[BackTestRead])
 async def get_backtests(session: Session = Depends(get_session)):
     backtests = session.exec(select(BackTest)).all()
     return backtests

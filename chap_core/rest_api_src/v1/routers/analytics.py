@@ -17,7 +17,7 @@ from chap_core.database.tables import BackTest, Prediction
 from chap_core.database.dataset_tables import DataSet
 import logging
 
-from ...celery_tasks import CeleryPool
+from ...celery_tasks import CeleryPool, JOB_NAME_KW
 from ...data_models import DatasetMakeRequest
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -61,7 +61,8 @@ def make_dataset(request: DatasetMakeRequest,
                           provided_data.model_dump(),
                           request.name,
                           database_url=database_url,
-                          worker_config=worker_settings)
+                          worker_config=worker_settings,
+                          **{JOB_NAME_KW: 'create_dataset'})
     return JobResponse(id=job.id)
 
 
@@ -95,7 +96,7 @@ class MultiBacktestCreate(DBModel):
 async def create_backtest(backtests: MultiBacktestCreate, database_url: str = Depends(get_database_url)):
     job_ids = []
     for model_id in backtests.model_ids:
-        job = worker.queue_db(wf.run_backtest, model_id, backtests.dataset_id, 12, 2, 1, database_url=database_url)
+        job = worker.queue_db(wf.run_backtest, model_id, backtests.dataset_id, 12, 2, 1, database_url=database_url, **{JOB_NAME_KW: 'backtest'})
         job_ids.append(job.id)
 
     return [JobResponse(id=job_id) for job_id in job_ids]
@@ -121,7 +122,8 @@ async def make_prediction(request: MakePredictionRequest,
                           request.model_id,
                           request.meta_data if request.meta_data is not None else '',
                           database_url=database_url,
-                          worker_config=worker_settings)
+                          worker_config=worker_settings,
+                          **{JOB_NAME_KW: 'prediction'})
     return JobResponse(id=job.id)
     # return JobResponse(id=job.id)
     #
