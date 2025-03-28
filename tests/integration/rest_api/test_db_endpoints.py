@@ -191,7 +191,7 @@ def test_backtest_flow_from_request(celery_session_worker,
     response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
     data = response.json()
-    #assert data['name'] == 'testing'
+    assert data['name'] == 'testing'
 
 def _make_dataset(make_dataset_request):
     data = make_dataset_request.model_dump_json()

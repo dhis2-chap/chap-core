@@ -69,10 +69,8 @@ class SessionWrapper:
             self.session.commit()
         return model
 
-    def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, dataset_id, model_id):
-        backtest = BackTest(dataset_id=dataset_id,
-                            model_id=model_id,
-                            last_train_period=last_train_period.id)
+    def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, info: 'BackTestCreate'):
+        backtest = BackTest(last_train_period=last_train_period.id, **info.dict())
         self.session.add(backtest)
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]

@@ -29,7 +29,7 @@ def run_backtest(info: 'BackTestCreate',
                                  stride=stride,
                                  weather_provider=QuickForecastFetcher)
     last_train_period = dataset.period_range[-1]
-    db_id = session.add_evaluation_results(predictions_list, last_train_period, info.dataset_id, info.model_id)
+    db_id = session.add_evaluation_results(predictions_list, last_train_period, info)
     assert db_id is not None
     return db_id
 
