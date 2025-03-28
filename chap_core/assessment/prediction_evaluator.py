@@ -91,7 +91,7 @@ def evaluate_model(
         )
         for location in data.keys()
     }
-    create_multiloc_timeseries(truth_data)
+    transformed = create_multiloc_timeseries(truth_data)
 
     if report_filename is None:
         report_filename = "evaluation_report.pdf"
@@ -125,7 +125,7 @@ def create_multiloc_timeseries(truth_data):
             for period, cases in df.itertuples(index=True, name='Pandas')
         ])
         multi_location_disease_time_series[location] = disease_time_series
-
+    return multi_location_disease_time_series
 
 def _get_forecast_generators(
         predictor: Predictor,
