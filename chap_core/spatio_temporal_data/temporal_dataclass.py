@@ -1,6 +1,6 @@
 import pickle
 from pathlib import Path
-from typing import Generic, Iterable, Tuple, Type, Callable
+from typing import Generic, Iterable, Tuple, Type, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -14,6 +14,7 @@ from ..datatypes import (
     TimeSeriesArray,
     TimeSeriesData,
 )
+from ..geometry import Polygons
 from ..time_period import PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp, clean_timestring
 import dataclasses
@@ -21,6 +22,7 @@ from typing import TypeVar
 
 FeaturesT = TypeVar("FeaturesT")
 TemporalIndexType = slice
+
 
 class TemporalDataclass(Generic[FeaturesT]):
     """
@@ -123,12 +125,13 @@ class DataSet(Generic[FeaturesT]):
     Class representing severeal time series at different locations.
     """
 
-    def __init__(self, data_dict: dict[str, FeaturesT], polygons= None):
+    def __init__(self, data_dict: dict[str, FeaturesT], polygons=None):
         self._data_dict = {
             loc: data
             for loc, data in data_dict.items()
         }
         self._polygons = polygons
+        self._parent_dict = None
 
     def model_dump(self):
         return {'data_dict': {loc: data.model_dump() for loc, data in self._data_dict.items()},
@@ -144,6 +147,11 @@ class DataSet(Generic[FeaturesT]):
         for location in self.locations():
             assert location in polygon_ids, f"Found a location in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids} "
         self._polygons = polygons
+
+    def get_parent_dict(self) -> Optional[dict[str, str]]:
+        if not self._polygons:
+            return {location: '-' for location in self.locations()}
+        return Polygons(self._polygons).get_parent_dict()
 
     @property
     def polygons(self):
@@ -186,7 +194,8 @@ class DataSet(Generic[FeaturesT]):
         return self._data_dict[location]
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> "DataSet[FeaturesT]":
-        return self.__class__({loc: TemporalDataclass(data).restrict_time_period(period_range).data() for loc, data in self._data_dict.items()}, self._polygons)
+        return self.__class__({loc: TemporalDataclass(data).restrict_time_period(period_range).data() for loc, data in
+                               self._data_dict.items()}, self._polygons)
 
     def filter_locations(self, locations: Iterable[str]) -> "DataSet[FeaturesT]":
         return self.__class__({loc: data for loc, data in self.items() if loc in locations})
@@ -197,14 +206,23 @@ class DataSet(Generic[FeaturesT]):
     def data(self) -> Iterable[FeaturesT]:
         return self._data_dict.values()
 
-    def _add_location_to_dataframe(self, df, location):
-        df["location"] = location
+    def _add_location_to_dataframe(self, df, location, field_name="location"):
+        df[field_name] = location
+        return df
+
+    def _add_location_info_to_dataframe(self, df, location, parent_dict):
+        if parent_dict is not None:
+            df['parent'] = parent_dict[location]
+        df['location'] = location
         return df
 
     def to_pandas(self) -> pd.DataFrame:
         """Join the pandas frame for all locations with locations as column"""
+        parent_dict = self.get_parent_dict()
+
         tables = [
-            self._add_location_to_dataframe(data.to_pandas(), location) for location, data in self._data_dict.items()
+            self._add_location_info_to_dataframe(data.to_pandas(), location, parent_dict) for location, data in
+            self._data_dict.items()
         ]
         return pd.concat(tables)
 
@@ -297,7 +315,7 @@ class DataSet(Generic[FeaturesT]):
 
     @classmethod
     def from_period_observations(
-        cls, observation_dict: dict[str, list[PeriodObservation]]
+            cls, observation_dict: dict[str, list[PeriodObservation]]
     ) -> "DataSet[TimeSeriesData]":
         """
         Create a SpatioTemporalDict from a dictionary of PeriodObservations.
@@ -341,13 +359,20 @@ class DataSet(Generic[FeaturesT]):
             if path.exists():
                 with open(path, "r") as f:
                     obj.set_polygons(FeatureCollectionModel.model_validate_json(f.read()))
+            else:
+                path = Path(file_name).with_suffix(".json")
+                if path.exists():
+                    polygons = Polygons.from_file(path, id_property="NAME_1")
+                    with open(path, "r") as f:
+                        obj.set_polygons(polygons.feature_collection())
         return obj
 
     def join_on_time(self, other: "DataSet[FeaturesT]") -> "DataSet[Tuple[FeaturesT, FeaturesT]]":
         """Join two SpatioTemporalDicts on time. Returns a new SpatioTemporalDict.
         Assumes other is later in time.
         """
-        return self.__class__({loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()}, self._polygons)
+        return self.__class__({loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()},
+                              self._polygons)
 
     def add_fields(self, new_type, **kwargs: dict[str, Callable]):
         return self.__class__(
@@ -362,13 +387,14 @@ class DataSet(Generic[FeaturesT]):
         )
 
     def remove_field(self, field_name, new_class=None):
-        return self.__class__({loc: remove_field(data, field_name, new_class) for loc, data in self.items()}, self._polygons)
+        return self.__class__({loc: remove_field(data, field_name, new_class) for loc, data in self.items()},
+                              self._polygons)
 
     @classmethod
     def from_fields(
-        cls,
-        dataclass: type[TimeSeriesData],
-        fields: dict[str, "DataSet[TimeSeriesArray]"],
+            cls,
+            dataclass: type[TimeSeriesData],
+            fields: dict[str, "DataSet[TimeSeriesArray]"],
     ):
         start_timestamp = min(data.start_timestamp for data in fields.values())
         end_timestamp = max(data.end_timestamp for data in fields.values())
@@ -399,11 +425,12 @@ class DataSet(Generic[FeaturesT]):
             raise Exception("Trying to merge two datasets with polygons, not sure how to do this (not implemented yet)")
         elif self.polygons is not None:
             polygons_in_merged = self.polygons
-        elif other_dataset.polygons is not None: 
+        elif other_dataset.polygons is not None:
             polygons_in_merged = self.polygons
         other_locations = set(other_dataset.locations())
         assert all(location in other_locations for location in self.locations()), (self.locations(), other_locations)
-        new_dataset = DataSet({location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()})
+        new_dataset = DataSet({location: self[location].merge(other_dataset[location], result_dataclass) for location in
+                               self.locations()})
         if polygons_in_merged is not None:
             new_dataset.set_polygons(polygons_in_merged)
         return new_dataset
@@ -414,6 +441,17 @@ class DataSet(Generic[FeaturesT]):
             df.plot(x='time_period', y='disease_cases')
             plt.title(location)
             plt.show()
+
+    def to_report(self, pdf_filename: str):
+        from matplotlib.backends.backend_pdf import PdfPages
+        with PdfPages(pdf_filename) as pdf:
+            for location, value in self.items():
+                df = value.to_pandas()
+                df.plot(x='time_period', y='disease_cases')
+                df.plot(x='time_period', y='population')
+                plt.title(location)
+                pdf.savefig()
+                plt.close()
 
     def resample(self, freq):
         return self.__class__({loc: data.resample(freq) for loc, data in self.items()}, self._polygons)

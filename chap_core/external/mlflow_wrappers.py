@@ -4,7 +4,7 @@ from typing import Optional, TypeVar, Literal
 import logging
 import pandas as pd
 
-#import mlflow
+# import mlflow
 from pydantic import BaseModel, create_model, Field
 import yaml
 from mlflow.utils.process import ShellCommandException
@@ -21,7 +21,6 @@ from chap_core.runners.runner import TrainPredictRunner
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import TimePeriod
 
-
 logger = logging.getLogger(__name__)
 
 FeatureType = TypeVar("FeatureType")
@@ -31,8 +30,7 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
                                                         working_dir: Path,
                                                         skip_environment=False,
                                                         model_configuration: Optional['ModelConfiguration'] = None
-                                                    ) -> TrainPredictRunner:
-
+                                                        ) -> TrainPredictRunner:
     if model_template_config.docker_env is not None:
         runner_type = "docker"
     elif model_template_config.python_env is not None:
@@ -46,8 +44,8 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
     if skip_environment or runner_type == "docker":
 
         # read yaml file into a dict
-        train_command = model_template_config.entry_points.train.command #data["entry_points"]["train"]["command"]
-        predict_command = model_template_config.entry_points.predict.command #data["entry_points"]["predict"]["command"]    
+        train_command = model_template_config.entry_points.train.command  # data["entry_points"]["train"]["command"]
+        predict_command = model_template_config.entry_points.predict.command  # data["entry_points"]["predict"]["command"]
 
         # dump model configuration to a tmp file in working_dir, pass this file to the train and predict command
         # pydantic write to yaml
@@ -71,7 +69,6 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
         assert model_configuration is None, "ModelConfiguration (for templates) not supported when runner is mlflow for now"
         assert runner_type == "mlflow"
         return MlFlowTrainPredictRunner(working_dir)
-
 
 
 def get_train_predict_runner(mlproject_file: Path, runner_type: Literal["mlflow", "docker"],
@@ -197,6 +194,7 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
     def teardown(self):
         self._runner.teardown()
 
+
 class ModelConfiguration(BaseModel):
     """
     BaseClass used for configuration that a ModelTemplate takes for creating specific Models
@@ -217,7 +215,7 @@ class ConfiguredModel(abc.ABC):
 class ModelTemplateInterface(abc.ABC):
 
     @abc.abstractmethod
-    def get_config_class(self) -> type[ModelConfiguration]: # gives a custom class of type ModelConfiguration
+    def get_config_class(self) -> type[ModelConfiguration]:  # gives a custom class of type ModelConfiguration
         # todo: could maybe be a property and not class
         pass
 
@@ -225,9 +223,8 @@ class ModelTemplateInterface(abc.ABC):
     def get_model(self, model_configuration: ModelConfiguration = None) -> 'ConfiguredModel':
         pass
 
-    @abc.abstractmethod
     def get_default_model(self) -> 'ConfiguredModel':
-        pass
+        return self.get_model()
 
 
 class ExternalModelTemplate(ModelTemplateInterface):
@@ -246,6 +243,7 @@ class ModelTemplate:
     Represents a Model Template that can generate concrete models. 
     A template defines the choices allowed for a model
     """
+
     def __init__(self, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
         self._model_template_config = model_template_config
         self._working_dir = working_dir
@@ -301,8 +299,8 @@ class ModelTemplate:
             model_configuration)
 
         config = self._model_template_config
-        name = config.name  
-        adapters = config.adapters  #config.get("adapters", None)
+        name = config.name
+        adapters = config.adapters  # config.get("adapters", None)
         data_type = HealthData
 
         return ExternalModel(

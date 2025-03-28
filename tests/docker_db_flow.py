@@ -1,0 +1,121 @@
+"""
+This is meant to be a standalone python file for testing the flow with docker compose
+
+This file should be possible to run without chap installed, only with the necessary requirements
+"""
+
+import requests
+import json
+import time
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+
+def make_prediction_request(model_name):
+    filename = '/home/knut/Data/ch_data/test_data/make_prediction_request.json'
+    data = json.load(open(filename))
+    data['modelId'] = model_name
+    print(data.keys())
+    return data
+
+
+hostname = 'chap'
+chap_url = "http://%s:8000" % hostname
+
+
+class IntegrationTest:
+    def __init__(self, chap_url, run_all):
+        self._chap_url = chap_url
+        self._run_all = run_all
+
+    def ensure_up(self):
+        response = None
+        for _ in range(20):
+            try:
+                response = requests.get(self._chap_url + "/v1/health")
+                break
+            except requests.exceptions.ConnectionError as e:
+                logger.error("Failed to connect to %s" % self._chap_url)
+                logger.error(e)
+                time.sleep(5)
+        assert response is not None
+        assert response.status_code == 200, response.status_code
+        assert response.json()["status"] == "success"
+
+    def _get(self, url):
+        try:
+            response = requests.get(url)
+        except:
+            logger.error("Failed to connect to %s" % chap_url)
+            logger.error('Failed to get %s' % url)
+            exception_info = requests.get(chap_url + "/v1/get-exception").json()
+            logger.error(exception_info)
+            raise
+        assert response.status_code == 200, (response.status_code, response.text)
+        return response.json()
+
+    def _post(self, url, json):
+        try:
+            response = requests.post(url, json=json)
+        except:
+            logger.error("Failed to connect to %s" % chap_url)
+            logger.error('Failed to get %s' % url)
+            exception_info = requests.get(chap_url + "/v1/get-exception").json()
+            logger.error(exception_info)
+            raise
+        assert response.status_code == 200, (response.status_code, response.text)
+        return response.json()
+
+    def get_models(self):
+        model_url = self._chap_url + "/v1/crud/models"
+        models = self._get(model_url)
+        return models
+
+    def make_prediction(self, data):
+        make_prediction_url = self._chap_url + "/v1/analytics/prediction"
+        response = self._post(make_prediction_url, json=data)
+        job_id = response['id']
+        db_id = self.wait_for_db_id(job_id)
+        prediction_result = self._get(self._chap_url + f"/v1/crud/predictions/{db_id}")
+        assert prediction_result['modelId'] == data['modelId']
+        return prediction_result
+
+
+
+    def prediction_flow(self):
+        self.ensure_up()
+        model_list = self.get_models()
+        assert 'naive_model' in {model['name'] for model in model_list}
+        if self._run_all:
+            for model in model_list:
+                self.make_prediction(make_prediction_request(model['name']))
+        else:
+            self.make_prediction(make_prediction_request('naive_model'))
+
+    def wait_for_db_id(self, job_id):
+        for _ in range(10):
+            job_url = self._chap_url + f"/v1/jobs/{job_id}"
+            job_status = self._get(job_url).lower()
+            logger.info(job_status)
+            if job_status == "failed":
+                exception_info = requests.get(chap_url + "/v1/get-exception").json()
+                logger.error("Failed job")
+                logger.error(exception_info)
+                raise ValueError("Failed job")
+            if job_status == "success":
+                return self._get(job_url + "/database_result/")['id']
+            time.sleep(1)
+        raise TimeoutError("Job took too long")
+
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) > 1:
+        hostname = sys.argv[1]
+    else:
+        hostname = 'localhost'
+    chap_url = "http://%s:8000" % hostname
+    IntegrationTest(chap_url, False).prediction_flow()

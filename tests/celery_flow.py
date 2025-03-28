@@ -8,15 +8,17 @@ import time
 
 import requests
 import logging
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 hostname = 'chap'
 chap_url = "http://%s:8000" % hostname
 
+
 def main():
     add_url = chap_url + "/v1/debug/add-numbers?a=1&b=2"
-    print(add_url)
+
     ensure_up(chap_url)
     try:
         response = requests.get(add_url)
@@ -32,7 +34,7 @@ def main():
 
     for i in range(5):
         time.sleep(2)
-        status = requests.get(chap_url + "/v1/debug/get-status") #?task_id=" + response.json()["task_id"])
+        status = requests.get(chap_url + "/v1/debug/get-status")  # ?task_id=" + response.json()["task_id"])
         if status.status_code not in (200, 404):
             print(status)
             break
@@ -53,4 +55,4 @@ if __name__ == "__main__":
     main()
     #
 
-#evaluate_model(chap_url, dataset(), {"name": "naive_model"})
+# evaluate_model(chap_url, dataset(), {"name": "naive_model"})

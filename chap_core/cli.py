@@ -91,7 +91,7 @@ def evaluate(
         model_list = model_name.split(",")
     else:
         model_list = [model_name]
-    
+
     results_dict = {}
     for name in model_list:
         template = get_model_template_from_directory_or_github_url(name, 

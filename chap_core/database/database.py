@@ -88,7 +88,7 @@ class SessionWrapper:
     def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict={}):
         n_periods = len(list(predictions.values())[0])
         prediction = Prediction(dataset_id=dataset_id,
-                                estimator_id=model_id,
+                                model_id=model_id,
                                 name=name,
                                 created=datetime.datetime.now(),
                                 n_periods=n_periods,
@@ -101,7 +101,6 @@ class SessionWrapper:
         self.session.add(prediction)
         self.session.commit()
         return prediction.id
-
 
     def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons):
         logger.info(f"Adding dataset {dataset_name} wiht {len(list(orig_dataset.locations()))} locations")
@@ -134,21 +133,23 @@ class SessionWrapper:
 
 def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
+    new_database = True
     if engine is not None:
         logger.info("Engin set. Creating tables")
         n = 0
         while n < 30:
             try:
-                SQLModel.metadata.drop_all(engine)
+                if new_database:
+                    SQLModel.metadata.drop_all(engine)
                 SQLModel.metadata.create_all(engine)
                 break
             except sqlalchemy.exc.OperationalError as e:
                 logger.error(f"Failed to create tables: {e}. Trying again")
                 n += 1
                 time.sleep(1)
-
-        with SessionWrapper(engine) as session:
-            seed_with_session_wrapper(session)
+        if new_database:
+            with SessionWrapper(engine) as session:
+                seed_with_session_wrapper(session)
             # seeded_feature_types, seeded_models = get_seeded_objects()
             # for feature_type in seeded_feature_types:
             #     session.create_if_not_exists(feature_type, id_name='name')
