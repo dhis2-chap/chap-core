@@ -126,7 +126,6 @@ class IntegrationTest:
         assert evaluation_result['name'] == 'integration_test', evaluation_result
         assert evaluation_result['created'], evaluation_result['created']
         url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
-        print(url_string)
         evaluation_entries = self._get(url_string)
         return evaluation_entries
 
@@ -153,4 +152,4 @@ if __name__ == "__main__":
     chap_url = "http://%s:8000" % hostname
     suite = IntegrationTest(chap_url, False)
     suite.evaluation_flow()
-    # suite.prediction_flow()
+

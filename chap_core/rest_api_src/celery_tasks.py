@@ -213,9 +213,9 @@ class CeleryPool(Generic[ReturnType]):
         return job_info["kwargs"].get(JOB_NAME_KW, "default")
 
     def list_jobs(self) -> List[JobDescription]:
-        all_jobs = {'active': self._celery.control.inspect().active(),
-                    'scheduled': self._celery.control.inspect().scheduled(),
-                    'reserved': self._celery.control.inspect().reserved()}
+        all_jobs = {'active': self._celery.control.inspect().active(),}
+                    #'scheduled': self._celery.control.inspect().scheduled(),
+                    #'reserved': self._celery.control.inspect().reserved()}
         print(all_jobs)
 
         return [JobDescription(id=info['id'],
