@@ -21,6 +21,12 @@ def make_prediction_request(model_name):
     return data
 
 
+def make_dataset_request():
+    filename = '/home/knut/Data/ch_data/test_data/make_dataset_request.json'
+    data = json.load(open(filename))
+    return data
+
+
 hostname = 'chap'
 chap_url = "http://%s:8000" % hostname
 
@@ -92,6 +98,29 @@ class IntegrationTest:
         else:
             self.make_prediction(make_prediction_request('naive_model'))
 
+    def evaluation_flow(self):
+        self.ensure_up()
+        model_list = self.get_models()
+        assert 'naive_model' in {model['name'] for model in model_list}
+        if self._run_all:
+            for model in model_list:
+                self.evaluate_model(make_dataset_request(), model)
+        else:
+            self.evaluate_model(make_dataset_request(), 'naive_model')
+
+    def make_dataset(self, data):
+        make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
+        response = self._post(make_dataset_url, json=data)
+        job_id = response['id']
+        db_id = self.wait_for_db_id(job_id)
+        return db_id
+        #prediction_result = self._get(self._chap_url + f"/v1/crud/predictions/{db_id}")
+        #assert prediction_result['modelId'] == data['modelId']
+        #return prediction_result
+
+    def evaluate_model(self, data, model):
+        dataset_id = self.make_dataset(data)
+
     def wait_for_db_id(self, job_id):
         for _ in range(10):
             job_url = self._chap_url + f"/v1/jobs/{job_id}"
@@ -116,4 +145,6 @@ if __name__ == "__main__":
     else:
         hostname = 'localhost'
     chap_url = "http://%s:8000" % hostname
-    IntegrationTest(chap_url, False).prediction_flow()
+    suite = IntegrationTest(chap_url, False)
+    suite.evaluation_flow()
+    #suite.prediction_flow()

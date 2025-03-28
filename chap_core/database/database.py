@@ -104,7 +104,7 @@ class SessionWrapper:
 
     def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons):
         logger.info(f"Adding dataset {dataset_name} wiht {len(list(orig_dataset.locations()))} locations")
-        dataset = DataSet(name=dataset_name, polygons=polygons)
+        dataset = DataSet(name=dataset_name, polygons=polygons, created=datetime.datetime.now())
         for location, data in orig_dataset.items():
             field_names = [field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]]
             for row in data:

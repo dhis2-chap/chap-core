@@ -2,7 +2,7 @@ import itertools
 import json
 import time
 import pytest
-
+from datetime import datetime
 from chap_core.api_types import EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
@@ -167,9 +167,14 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
                            data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
+    dataset_list = client.get("/v1/crud/datasets").json()
+    assert len(dataset_list) > 0
+    assert db_id in {ds['id'] for ds in dataset_list}
+
     response = client.get(f"/v1/crud/datasets/{db_id}")
     assert response.status_code == 200, response.json()
     ds = DataSetWithObservations.model_validate(response.json())
+    assert ds.created is not None
     print(ds)
     field_names = {o.feature_name for o in ds.observations}
     assert 'rainfall' in field_names

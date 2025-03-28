@@ -198,9 +198,7 @@ class DataBaseResponse(DBModel):
 class DataSetRead(DBModel):
     id: int
     name: str
-
-    class Config:
-        orm_mode = True  # Enable compatibility with ORM models
+    created: Optional[datetime] = None
 
 
 @router.get('/failedJobs', response_model=list[FailedJobRead])

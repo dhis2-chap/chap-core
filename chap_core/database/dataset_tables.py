@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, List
 
 from pydantic_geojson import FeatureModel
@@ -37,8 +38,10 @@ class DataSetBase(DBModel):
 class DataSet(DataSetBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     observations: List[Observation] = Relationship(back_populates="dataset")
+    created: Optional[datetime] = None
 
 
 class DataSetWithObservations(DataSetBase):
     id: int
     observations: List[ObservationBase]
+    created: Optional[datetime]
