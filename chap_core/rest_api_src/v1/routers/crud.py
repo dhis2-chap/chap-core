@@ -64,7 +64,7 @@ class BackTestCreate(BackTestBase):
 
 class BackTestRead(BackTestBase):
     id: int
-    name: Optional[str] = None
+    # name: Optional[str] = None
     timestamp: Optional[datetime] = None
 
     # THis is dataset properties

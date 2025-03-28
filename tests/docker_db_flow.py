@@ -103,7 +103,8 @@ class IntegrationTest:
         assert 'naive_model' in {model['name'] for model in model_list}
         data = make_dataset_request()
         dataset_id = self.make_dataset(data)
-        self.evaluate_model(dataset_id, 'naive_model')
+        result = self.evaluate_model(dataset_id, 'naive_model')
+        print(result)
 
     def make_dataset(self, data):
         make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
@@ -120,7 +121,10 @@ class IntegrationTest:
                             json={"modelId": model, "datasetId": dataset_id})['id']
         db_id = self.wait_for_db_id(job_id)
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
-        return evaluation_result
+        url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
+        print(url_string)
+        evaluation_entries = self._get(url_string)
+        return evaluation_entries
 
     def wait_for_db_id(self, job_id):
         for _ in range(60):

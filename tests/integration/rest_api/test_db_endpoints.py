@@ -182,13 +182,16 @@ def test_backtest_flow_from_request(celery_session_worker,
                                     anonymous_make_dataset_request):
     db_id = _make_dataset(anonymous_make_dataset_request)
     response = client.post("/v1/crud/backtests",
-                           json={"datasetId": db_id, "modelId": "naive_model"})
+                           json={"datasetId": db_id,
+                                 "name": 'testing',
+                                 "modelId": "naive_model"})
     assert response.status_code == 200, response.json()
     job_id = response.json()['id']
     db_id = await_result_id(job_id, timeout=120)
     response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
-
+    data = response.json()
+    #assert data['name'] == 'testing'
 
 def _make_dataset(make_dataset_request):
     data = make_dataset_request.model_dump_json()
