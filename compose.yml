@@ -3,13 +3,13 @@ services:
     image: redis:7.4.0
     container_name: redis
     networks:
-        - chap-network
+      - chap-network
 
   chap:
     depends_on:
-        -  redis
-        -  worker
-        -  postgres
+      - redis
+      - worker
+      - postgres
     container_name: chap
     build: .
     environment:
@@ -24,13 +24,12 @@ services:
       - "8000:8000"
     expose:
       - "8000"
-    command: /app/.venv/bin/chap serve 
+    command: /app/.venv/bin/chap serve
     working_dir: /
     networks:
       - chap-network
     volumes:
       - ./logs:/app/logs
-      
 
   worker:
     container_name: worker
@@ -47,13 +46,12 @@ services:
       - CELERY_BROKER=redis://redis:6379
       - C_FORCE_ROOT=1 #TODO: Remove this when we have a proper user
     # sh -c to get logging as part of the command to work
-    command: '/app/.venv/bin/celery -A chap_core.rest_api_src.celery_tasks worker --loglevel=info'
+    command: "/app/.venv/bin/celery -A chap_core.rest_api_src.celery_tasks worker --loglevel=info"
     # 'sh -c "/app/.venv/bin/rq worker --url redis://redis:6379/0 > /app/logs/worker.log 2>&1"'
     networks:
-        - chap-network
+      - chap-network
     volumes:
       - ./logs:/app/logs
-
 
   postgres:
     image: postgres
@@ -63,12 +61,15 @@ services:
       POSTGRES_PASSWORD: thisisnotgoingtobeexposed
       POSTGRES_DB: chap_core
     volumes:
-      - /var/lib/postgresql/chap_data:/var/lib/postgresql/data
+      - chap-db:/var/lib/postgresql/data
     expose:
       - "5432"
     networks:
-        - chap-network
+      - chap-network
 
 networks:
   chap-network:
     driver: bridge
+
+volumes:
+  chap-db: {}
