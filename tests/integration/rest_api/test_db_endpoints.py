@@ -17,7 +17,9 @@ from fastapi.testclient import TestClient
 from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DatasetCreate, PredictionCreate
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
-
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 client = TestClient(app)
 
 
@@ -35,6 +37,7 @@ def await_result_id(job_id, timeout=30):
             return client.get(f"/v1/jobs/{job_id}/database_result").json()['id']
         if status == 'FAILURE':
             assert False, ("Job failed", response.json())
+        logger.info(status)
         time.sleep(1)
     assert False, "Timed out"
 
@@ -82,6 +85,16 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     for entry in evaluation_entries:
         assert 'splitPeriod' in entry, f'splitPeriod not in entry: {entry.keys()}'
         EvaluationEntry.model_validate(entry)
+
+
+def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_overrides, local_data_path):
+    filepath = local_data_path / 'test_data/make_dataset_failing_request.json'
+
+    with open(filepath, 'r') as f:
+        data = f.read()
+        request = DatasetMakeRequest.model_validate_json(data)
+    print(request)
+    _make_dataset(request, wanted_field_names=['rainfall', 'mean_temperature'])
 
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
@@ -195,7 +208,7 @@ def test_backtest_flow_from_request(celery_session_worker,
     assert data['created'] is not None
 
 
-def _make_dataset(make_dataset_request):
+def _make_dataset(make_dataset_request, wanted_field_names =['rainfall','disease_cases', 'population', 'mean_temperature']):
     data = make_dataset_request.model_dump_json()
     response = client.post("/v1/analytics/make-dataset",
                            data=data)
@@ -210,13 +223,14 @@ def _make_dataset(make_dataset_request):
     population_entries = [o for o in ds.observations if o.feature_name == 'population']
     assert all((o.value is not None) and np.isfinite(o.value) for o in population_entries), population_entries
     assert ds.created is not None
-    print(ds)
     field_names = {o.feature_name for o in ds.observations}
-    assert 'rainfall' in field_names
-    assert 'disease_cases' in field_names
-    assert 'population' in field_names
-    assert 'mean_temperature' in field_names
-    assert len(field_names) == 4
+    for wfn in wanted_field_names:
+        assert wfn in field_names, (field_names, wfn)
+    # assert 'rainfall' in field_names
+    # assert 'disease_cases' in field_names
+    # assert 'population' in field_names
+    # assert 'mean_temperature' in field_names
+    assert len(field_names) == len(wanted_field_names)
     return db_id
 
 
