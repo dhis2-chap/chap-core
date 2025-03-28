@@ -6,6 +6,7 @@ from chap_core.datatypes import FullData, HealthPopulationData, create_tsdatacla
 from chap_core.predictor.model_registry import registry
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.rest_api_src.data_models import FetchRequest
+#from chap_core.rest_api_src.v1.routers.crud import BackTestCreate
 from chap_core.rest_api_src.worker_functions import harmonize_health_dataset, WorkerConfig
 from chap_core.data import DataSet as InMemoryDataSet
 
@@ -14,14 +15,13 @@ def trigger_exception(*args, **kwargs):
     raise Exception("Triggered exception")
 
 
-def run_backtest(estimator_id: registry.model_type,
-                 dataset_id: str,
+def run_backtest(info: 'BackTestCreate',
                  n_periods: int,
                  n_splits: int,
                  stride: int,
                  session: SessionWrapper):
-    dataset = session.get_dataset(dataset_id, FullData)
-    estimator = registry.get_model(estimator_id, ignore_env=True)
+    dataset = session.get_dataset(info.dataset_id, FullData)
+    estimator = registry.get_model(info.model_id, ignore_env=True)
     predictions_list = _backtest(estimator,
                                  dataset,
                                  prediction_length=n_periods,
@@ -29,7 +29,7 @@ def run_backtest(estimator_id: registry.model_type,
                                  stride=stride,
                                  weather_provider=QuickForecastFetcher)
     last_train_period = dataset.period_range[-1]
-    db_id = session.add_evaluation_results(predictions_list, last_train_period, dataset_id, estimator_id)
+    db_id = session.add_evaluation_results(predictions_list, last_train_period, info.dataset_id, info.model_id)
     assert db_id is not None
     return db_id
 

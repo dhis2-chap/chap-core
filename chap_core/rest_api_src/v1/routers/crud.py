@@ -89,7 +89,8 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
 
 @router.post("/backtests", response_model=JobResponse)
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
-    job = worker.queue_db(wf.run_backtest, backtest.model_id, backtest.dataset_id, 12, 2, 1,
+    job = worker.queue_db(wf.run_backtest,
+                          backtest, 12, 2, 1,
                           database_url=database_url)
 
     return JobResponse(id=job.id)

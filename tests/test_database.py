@@ -6,6 +6,7 @@ from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
 from chap_core.rest_api_src.db_worker_functions import run_backtest, run_prediction
+from chap_core.rest_api_src.v1.routers.crud import BackTestCreate
 from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database
@@ -39,7 +40,7 @@ def test_backtest(seeded_engine):
         dataset_id = session.exec(select(DataSet.id)).first()
     # with patch('chap_core.database.database.engine', seeded_engine):
     with SessionWrapper(seeded_engine) as session:
-        res = run_backtest('naive_model', dataset_id, 12, 2, 1, session=session)
+        res = run_backtest(BackTestCreate(model_id='naive_model', dataset_id=dataset_id), 12, 2, 1, session=session)
     # res = run_backtest('naive_model', dataset_id, 12, 2, 1)
     with Session(seeded_engine) as session:
         backtests = session.exec(select(BackTest)).all()

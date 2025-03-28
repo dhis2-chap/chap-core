@@ -11,7 +11,7 @@ from chap_core.api_types import EvaluationEntry, DataList, DataElement, Predicti
 from chap_core.database.base_tables import DBModel
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
-from .crud import JobResponse
+from .crud import JobResponse, BackTestCreate
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.database.tables import BackTest, Prediction
 from chap_core.database.dataset_tables import DataSet
@@ -98,7 +98,7 @@ class MultiBacktestCreate(DBModel):
 async def create_backtest(backtests: MultiBacktestCreate, database_url: str = Depends(get_database_url)):
     job_ids = []
     for model_id in backtests.model_ids:
-        job = worker.queue_db(wf.run_backtest, model_id, backtests.dataset_id, 12, 2, 1, database_url=database_url, **{JOB_NAME_KW: 'backtest'})
+        job = worker.queue_db(wf.run_backtest, BackTestCreate(dataset_id=backtests.dataset_id, model_id=model_id), 12, 2, 1, database_url=database_url, **{JOB_NAME_KW: 'backtest'})
         job_ids.append(job.id)
 
     return [JobResponse(id=job_id) for job_id in job_ids]
