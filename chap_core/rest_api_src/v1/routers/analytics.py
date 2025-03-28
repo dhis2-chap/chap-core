@@ -52,6 +52,7 @@ def make_dataset(request: DatasetMakeRequest,
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    request.type = 'evaluation'
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     job = worker.queue_db(wf.harmonize_and_add_dataset,
@@ -104,6 +105,7 @@ async def create_backtest(backtests: MultiBacktestCreate, database_url: str = De
 async def make_prediction(request: MakePredictionRequest,
                           database_url=Depends(get_database_url),
                           worker_settings=Depends(get_settings)):
+    request.type = 'prediction'
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
