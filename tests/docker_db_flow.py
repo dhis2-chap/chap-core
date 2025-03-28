@@ -14,7 +14,6 @@ logging.basicConfig(level=logging.INFO)
 
 
 def make_prediction_request(model_name):
-    #filename = '/home/knut/Data/ch_data/test_data/make_prediction_request.json'
     filename = '../example_data/anonymous_make_prediction_request.json'
     data = json.load(open(filename))
     data['modelId'] = model_name
