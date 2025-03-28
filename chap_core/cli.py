@@ -94,7 +94,9 @@ def evaluate(
 
     results_dict = {}
     for name in model_list:
-        template = get_model_template_from_directory_or_github_url(name, ignore_env=ignore_environment, 
+        template = get_model_template_from_directory_or_github_url(name, 
+                                                                   Path("./"), 
+                                                                   ignore_env=ignore_environment, 
                                                        run_dir_type=run_directory_type, 
                                                        )
         model = template.get_model()

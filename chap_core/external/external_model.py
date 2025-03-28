@@ -87,7 +87,7 @@ def get_model_from_directory_or_github_url(model_template_path,
         Path to the model configuration yaml file, by default None. This has to be a yaml that is compatible with the model configuration class given by the ModelTemplate.
     """
 
-    template = get_model_template_from_directory_or_github_url(model_template_path, base_working_dir, ignore_env, run_dir_type)
+    template = get_model_template_from_directory_or_github_url(model_template_path, ignore_env=ignore_env, run_dir_type=run_dir_type)
     model_configuration = None
     config_class = template.get_config_class()
     if model_configuration_yaml:
@@ -98,7 +98,10 @@ def get_model_from_directory_or_github_url(model_template_path,
     return template.get_model(model_configuration=model_configuration)
 
 
-def get_model_template_from_directory_or_github_url(model_template_path, base_working_dir, ignore_env, run_dir_type) -> ModelTemplate:
+def get_model_template_from_directory_or_github_url(model_template_path, 
+                                                    base_working_dir=Path("runs/"), 
+                                                    ignore_env=False, 
+                                                    run_dir_type="timestamp") -> ModelTemplate:
     """
     Gets the model template and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
