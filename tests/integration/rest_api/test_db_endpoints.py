@@ -1,6 +1,8 @@
 import itertools
 import json
 import time
+
+import numpy as np
 import pytest
 from datetime import datetime
 from chap_core.api_types import EvaluationEntry, PredictionEntry
@@ -174,15 +176,19 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
 def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
     _make_dataset(anonymous_make_dataset_request)
 
-def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, anonymous_make_dataset_request):
+
+def test_backtest_flow_from_request(celery_session_worker,
+                                    clean_engine, dependency_overrides,
+                                    anonymous_make_dataset_request):
     db_id = _make_dataset(anonymous_make_dataset_request)
     response = client.post("/v1/crud/backtests",
-                            json={"datasetId": db_id, "modelId": "naive_model"})
+                           json={"datasetId": db_id, "modelId": "naive_model"})
     assert response.status_code == 200, response.json()
     job_id = response.json()['id']
-    db_id = await_result_id(job_id)
+    db_id = await_result_id(job_id, timeout=120)
     response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
+
 
 def _make_dataset(make_dataset_request):
     data = make_dataset_request.model_dump_json()
@@ -196,6 +202,8 @@ def _make_dataset(make_dataset_request):
     response = client.get(f"/v1/crud/datasets/{db_id}")
     assert response.status_code == 200, response.json()
     ds = DataSetWithObservations.model_validate(response.json())
+    population_entries = [o for o in ds.observations if o.feature_name == 'population']
+    assert all((o.value is not None) and np.isfinite(o.value) for o in population_entries), population_entries
     assert ds.created is not None
     print(ds)
     field_names = {o.feature_name for o in ds.observations}
@@ -205,6 +213,7 @@ def _make_dataset(make_dataset_request):
     assert 'mean_temperature' in field_names
     assert len(field_names) == 4
     return db_id
+
 
 @pytest.mark.skip(reason="Failing because of missing geojson file")
 def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path):

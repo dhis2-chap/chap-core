@@ -209,6 +209,7 @@ async def get_failed_jobs(session: Session = Depends(get_session)):
     failed_jobs = session.exec(select(FailedJob)).all()
     return failed_jobs
 
+
 @router.delete('/failedJobs/{failedJobId}')
 async def delete_failed_job(failed_job_id: Annotated[int, Path(alias='failedJobId')],
                             session: Session = Depends(get_session)):

@@ -52,6 +52,8 @@ def make_dataset(request: DatasetMakeRequest,
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if 'population' in feature_names:
+        provided_data = provided_data.interpolate(['population'])
     request.type = 'evaluation'
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
