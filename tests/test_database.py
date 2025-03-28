@@ -6,7 +6,7 @@ from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
 from chap_core.rest_api_src.db_worker_functions import run_backtest, run_prediction
-from chap_core.rest_api_src.v1.routers.crud import BackTestCreate
+from chap_core.rest_api_src.data_models import BackTestCreate
 from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database

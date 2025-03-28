@@ -14,6 +14,7 @@ from .dataset_tables import Observation, DataSet
 import os
 
 from chap_core.time_period import TimePeriod
+from ..rest_api_src.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 import logging
@@ -69,7 +70,7 @@ class SessionWrapper:
             self.session.commit()
         return model
 
-    def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, info: 'BackTestCreate'):
+    def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, info: BackTestCreate):
         info.created = datetime.datetime.now()
         backtest = BackTest(last_train_period=last_train_period.id,
                             **info.dict())

@@ -5,7 +5,7 @@ from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException, Depends
 import chap_core.rest_api_src.db_worker_functions as wf
 from .jobs import worker
-from .routers.crud import JobResponse
+from ..data_models import JobResponse
 from .routers.dependencies import get_settings, get_database_url
 from ..celery_tasks import celery, CeleryPool
 

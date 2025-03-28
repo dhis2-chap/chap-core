@@ -23,7 +23,6 @@ from fastapi import Path
 from typing import Optional, List, Annotated
 
 import pandas as pd
-from pydantic import BaseModel, Field
 from sqlmodel import select
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
@@ -37,13 +36,14 @@ from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, BackTestMetric, BackTestForecast, BackTestBase, Prediction, \
+from chap_core.database.tables import BackTest, Prediction, \
     PredictionRead, PredictionInfo, FailedJobRead, FailedJob
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
 from chap_core.database.base_tables import DBModel
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
+from ...data_models import JobResponse, BackTestCreate, BackTestRead, BackTestFull
 
 router = APIRouter(prefix="/crud", tags=["crud"])
 
@@ -52,30 +52,6 @@ worker = CeleryPool()
 
 
 # TODO camel in paths
-
-
-class JobResponse(BaseModel):
-    id: str
-
-
-class BackTestCreate(BackTestBase):
-    ...
-
-
-class BackTestRead(BackTestBase):
-    id: int
-    # name: Optional[str] = None
-
-
-    # THis is dataset properties
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    org_unit_ids: List[str] = Field(default_factory=list)
-
-
-class BackTestFull(BackTestRead):
-    metrics: list[BackTestMetric]
-    forecasts: list[BackTestForecast]
 
 
 @router_get("/backtests/{backtestId}", response_model=BackTestFull)
