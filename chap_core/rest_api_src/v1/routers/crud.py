@@ -203,6 +203,7 @@ class DataSetRead(DBModel):
     id: int
     name: str
     created: Optional[datetime]
+    covariates: List[str]
 
 
 @router.get('/failedJobs', response_model=list[FailedJobRead])
