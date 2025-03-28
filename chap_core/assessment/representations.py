@@ -14,7 +14,10 @@ class DiseaseTimeSeries:
 
 @dataclass
 class MultiLocationDiseaseTimeSeries:
-    timeseries_dict: Dict[str,DiseaseTimeSeries]
+    timeseries_dict: Dict[str,DiseaseTimeSeries] = field(default_factory=dict)
+
+    def __setitem__(self, location, timeseries):
+        self.timeseries_dict[location] = timeseries
 
     def __getitem__(self, location):
         return self.timeseries_dict[location]
