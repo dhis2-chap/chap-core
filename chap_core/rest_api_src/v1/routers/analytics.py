@@ -98,7 +98,8 @@ class MultiBacktestCreate(DBModel):
 async def create_backtest(backtests: MultiBacktestCreate, database_url: str = Depends(get_database_url)):
     job_ids = []
     for model_id in backtests.model_ids:
-        job = worker.queue_db(wf.run_backtest, BackTestCreate(dataset_id=backtests.dataset_id, model_id=model_id), 12, 2, 1, database_url=database_url, **{JOB_NAME_KW: 'backtest'})
+        job = worker.queue_db(wf.run_backtest,
+                              BackTestCreate(dataset_id=backtests.dataset_id, model_id=model_id), 12, 2, 1, database_url=database_url, **{JOB_NAME_KW: 'backtest'})
         job_ids.append(job.id)
 
     return [JobResponse(id=job_id) for job_id in job_ids]
