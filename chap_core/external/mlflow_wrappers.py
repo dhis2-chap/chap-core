@@ -249,6 +249,10 @@ class ModelTemplate:
         self._working_dir = working_dir
         self._ignore_env = ignore_env
 
+    @property
+    def name(self):
+        return self._model_template_config.name
+
     def get_train_predict_runner(self) -> TrainPredictRunner:
         pass
 
