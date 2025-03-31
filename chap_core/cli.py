@@ -12,10 +12,11 @@ from cyclopts import App
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
-from chap_core.external.external_model import get_model_from_directory_or_github_url, get_model_template_from_directory_or_github_url
-from chap_core.external.mlflow_wrappers import NoPredictionsError
+from chap_core.exceptions import NoPredictionsError
+from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.geometry import Polygons
 from chap_core.log_config import initialize_logging
+from chap_core.models.utils import get_model_template_from_directory_or_github_url
 from chap_core.predictor.model_registry import registry
 
 from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist

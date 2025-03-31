@@ -18,9 +18,6 @@ from chap_core.geometry import Polygons
 from chap_core.geoutils import simplify_topology
 from chap_core.rest_api_src.data_models import FetchRequest
 from chap_core.time_period.date_util_wrapper import convert_time_period_string
-from chap_core.external.external_model import (
-    get_model_from_directory_or_github_url,
-)
 from chap_core.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from chap_core.predictor.model_registry import registry
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -161,6 +158,8 @@ def train_on_json_data(json_data: RequestV1, model_name, model_path, control=Non
     target_name = "diseases"
     target_id = get_target_id(json_data, target_name)
     train_data = dataset_from_request_v1(json_data)
+
+    from chap_core.models.utils import get_model_from_directory_or_github_url
     model = get_model_from_directory_or_github_url(model_path)
     if hasattr(model, "set_graph"):
         logger.warning(f"Not setting graph on {model}")

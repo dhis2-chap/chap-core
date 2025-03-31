@@ -3,8 +3,9 @@ from chap_core.exceptions import InvalidModelException, ModelFailedException
 from chap_core.file_io.example_data_set import datasets
 import pytest
 from chap_core.geometry import Polygons
+from chap_core.models.utils import get_model_template_from_directory_or_github_url
 from chap_core.testing.external_model import sanity_check_external_model
-from chap_core.external.external_model import get_model_from_directory_or_github_url, get_model_template_from_directory_or_github_url
+from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.util import docker_available, pyenv_available
 
 

@@ -6,6 +6,6 @@ __version__ = "1.0.4"
 
 from . import fetch
 from . import data
-from .external.mlflow_wrappers import ModelTemplateInterface
+from .models.model_template_interface import ModelTemplateInterface
 
 __all__ = ["fetch", "data", 'ModelTemplateInterface']

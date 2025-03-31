@@ -1,7 +1,7 @@
 import pytest
 
-from chap_core.external.external_model import get_model_template_from_mlproject_file
-from chap_core.external.mlflow_wrappers import ModelTemplate
+from chap_core.models.utils import get_model_template_from_mlproject_file
+from chap_core.models.model_template import ModelTemplate
 
 
 @pytest.fixture

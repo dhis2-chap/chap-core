@@ -15,6 +15,7 @@ class CommandLineException(Exception):
 class NoPredictionsError(Exception):
     pass
 
+
 class GEEError(Exception):
     pass
 
