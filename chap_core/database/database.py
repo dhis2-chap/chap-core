@@ -14,6 +14,7 @@ from .dataset_tables import Observation, DataSet
 import os
 
 from chap_core.time_period import TimePeriod
+from ..rest_api_src.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 import logging
@@ -69,10 +70,10 @@ class SessionWrapper:
             self.session.commit()
         return model
 
-    def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, dataset_id, model_id):
-        backtest = BackTest(dataset_id=dataset_id,
-                            model_id=model_id,
-                            last_train_period=last_train_period.id)
+    def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, info: BackTestCreate):
+        info.created = datetime.datetime.now()
+        backtest = BackTest(last_train_period=last_train_period.id,
+                            **info.dict())
         self.session.add(backtest)
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
@@ -104,7 +105,8 @@ class SessionWrapper:
 
     def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons):
         logger.info(f"Adding dataset {dataset_name} wiht {len(list(orig_dataset.locations()))} locations")
-        dataset = DataSet(name=dataset_name, polygons=polygons)
+        field_names = [field.name for field in dataclasses.fields(next(iter(orig_dataset.values()))) if field.name not in ["time_period", "location"]]
+        dataset = DataSet(name=dataset_name, polygons=polygons, created=datetime.datetime.now(), covariates=field_names)
         for location, data in orig_dataset.items():
             field_names = [field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]]
             for row in data:

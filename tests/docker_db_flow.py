@@ -14,11 +14,17 @@ logging.basicConfig(level=logging.INFO)
 
 
 def make_prediction_request(model_name):
-    #filename = '/home/knut/Data/ch_data/test_data/make_prediction_request.json'
     filename = '../example_data/anonymous_make_prediction_request.json'
     data = json.load(open(filename))
     data['modelId'] = model_name
     print(data.keys())
+    return data
+
+
+def make_dataset_request():
+    #filename = '/home/knut/Data/ch_data/test_data/make_dataset_request.json'
+    filename = '../example_data/anonymous_make_dataset_request.json'
+    data = json.load(open(filename))
     return data
 
 
@@ -63,8 +69,6 @@ class IntegrationTest:
         except:
             logger.error("Failed to connect to %s" % chap_url)
             logger.error('Failed to get %s' % url)
-            exception_info = requests.get(chap_url + "/v1/get-exception").json()
-            logger.error(exception_info)
             raise
         assert response.status_code == 200, (response.status_code, response.text)
         return response.json()
@@ -93,15 +97,44 @@ class IntegrationTest:
         else:
             self.make_prediction(make_prediction_request('naive_model'))
 
+    def evaluation_flow(self):
+        self.ensure_up()
+        model_list = self.get_models()
+        assert 'naive_model' in {model['name'] for model in model_list}
+        data = make_dataset_request()
+        dataset_id = self.make_dataset(data)
+        result = self.evaluate_model(dataset_id, 'naive_model')
+        print(result)
+
+    def make_dataset(self, data):
+        make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
+        response = self._post(make_dataset_url, json=data)
+        job_id = response['id']
+        db_id = self.wait_for_db_id(job_id)
+        return db_id
+        # prediction_result = self._get(self._chap_url + f"/v1/crud/predictions/{db_id}")
+        # assert prediction_result['modelId'] == data['modelId']
+        # return prediction_result
+
+    def evaluate_model(self, dataset_id, model):
+        job_id = self._post(self._chap_url + "/v1/crud/backtests/",
+                            json={"modelId": model, "datasetId": dataset_id, 'name': 'integration_test'})['id']
+        db_id = self.wait_for_db_id(job_id)
+        evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
+        assert evaluation_result['modelId'] == model
+        assert evaluation_result['datasetId'] == dataset_id
+        assert evaluation_result['name'] == 'integration_test', evaluation_result
+        assert evaluation_result['created'], evaluation_result['created']
+        url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
+        evaluation_entries = self._get(url_string)
+        return evaluation_entries
+
     def wait_for_db_id(self, job_id):
-        for _ in range(10):
+        for _ in range(60):
             job_url = self._chap_url + f"/v1/jobs/{job_id}"
             job_status = self._get(job_url).lower()
             logger.info(job_status)
-            if job_status == "failed":
-                exception_info = requests.get(chap_url + "/v1/get-exception").json()
-                logger.error("Failed job")
-                logger.error(exception_info)
+            if job_status == "failure":
                 raise ValueError("Failed job")
             if job_status == "success":
                 return self._get(job_url + "/database_result/")['id']
@@ -117,4 +150,6 @@ if __name__ == "__main__":
     else:
         hostname = 'localhost'
     chap_url = "http://%s:8000" % hostname
-    IntegrationTest(chap_url, False).prediction_flow()
+    suite = IntegrationTest(chap_url, False)
+    suite.evaluation_flow()
+

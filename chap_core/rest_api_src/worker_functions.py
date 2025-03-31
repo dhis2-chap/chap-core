@@ -205,7 +205,8 @@ base_fetch_requests = (FetchRequest(feature_name='rainfall', data_source_name='t
                        FetchRequest(feature_name='mean_temperature', data_source_name='mean_2m_air_temperature'))
 
 
-def harmonize_health_dataset(dataset, usecwd_for_credentials, fetch_requests: List[FetchRequest] = base_fetch_requests,
+def harmonize_health_dataset(dataset, usecwd_for_credentials,
+                             fetch_requests: List[FetchRequest] = base_fetch_requests,
                              worker_config: WorkerConfig = WorkerConfig()):
     gee_client = initialize_gee_client(usecwd=usecwd_for_credentials, worker_config=worker_config)
     period_range = dataset.period_range
@@ -215,8 +216,10 @@ def harmonize_health_dataset(dataset, usecwd_for_credentials, fetch_requests: Li
     except ee.EEException as e:
         logger.error(f"Failed to get climate data: {e}, trying to downsample")
         polygons = simplify_topology(Polygons(dataset.polygons)).feature_collection()
-        climate_data = gee_client.get_historical_era5(polygons.model_dump(), periodes=period_range)
-    train_data = dataset.merge(climate_data, FullData)
+        climate_data = gee_client.get_historical_era5(polygons.model_dump(), periodes=period_range, fetch_requests=fetch_requests)
+
+    dataclass = create_tsdataclass(dataset.field_names()+[d.feature_name for d in fetch_requests])
+    train_data = dataset.merge(climate_data, dataclass)
     return train_data
 
 

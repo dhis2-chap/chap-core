@@ -29,6 +29,7 @@ class JobDescription(BaseModel):
     status: str
     start_time: datetime
     hostname: str
+    type: str
 
 
 class TaskWithPerTaskLogging(Task):
@@ -150,6 +151,7 @@ class CeleryJob(Generic[ReturnType]):
 # set base to TaskWithPerTaskLogging to enable per-task logging
 @app.task(base=TaskWithPerTaskLogging)
 def celery_run(func, *args, **kwargs):
+    kwargs.pop(JOB_NAME_KW, None)
     return func(*args, **kwargs)
 
 
@@ -173,11 +175,15 @@ def failed_job_wrapper(func):
 @app.task(base=TaskWithPerTaskLogging)
 def celery_run_with_session(func, *args, **kwargs):
     database_url = kwargs.pop("database_url")
+    kwargs.pop(JOB_NAME_KW, None)
     if database_url not in ENGINES_CACHE:
         ENGINES_CACHE[database_url] = create_engine(database_url)
     engine = ENGINES_CACHE[database_url]
     with SessionWrapper(engine) as session:
         return failed_job_wrapper(func)(*args, **kwargs | {"session": session})
+
+
+JOB_NAME_KW = '__job_name__'
 
 
 class CeleryPool(Generic[ReturnType]):
@@ -203,14 +209,19 @@ class CeleryPool(Generic[ReturnType]):
         func_name = func.__name__
         return f"{func_name}({', '.join(map(str, args))})"
 
+    def _get_job_type(self, job_info: dict):
+        return job_info["kwargs"].get(JOB_NAME_KW, "default")
+
     def list_jobs(self) -> List[JobDescription]:
-        all_jobs = {'active': self._celery.control.inspect().active(),
-                    'scheduled': self._celery.control.inspect().scheduled(),
-                    'reserved': self._celery.control.inspect().reserved()}
+        all_jobs = {'active': self._celery.control.inspect().active(),}
+                    #'scheduled': self._celery.control.inspect().scheduled(),
+                    #'reserved': self._celery.control.inspect().reserved()}
         print(all_jobs)
+
         return [JobDescription(id=info['id'],
                                description=self._describe_job(info),
                                status=status,
                                start_time=datetime.fromtimestamp(info["time_start"]),
-                               hostname=hostname)
+                               hostname=hostname,
+                               type=self._get_job_type(info))
                 for status, host_dict in all_jobs.items() for hostname, jobs in host_dict.items() for info in jobs]

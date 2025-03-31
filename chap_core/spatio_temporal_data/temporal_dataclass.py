@@ -133,6 +133,9 @@ class DataSet(Generic[FeaturesT]):
         self._polygons = polygons
         self._parent_dict = None
 
+    def field_names(self):
+        return [field.name for field in  dataclasses.fields(next(iter(self._data_dict.values()))) if field.name not in  ("time_period", "location")]
+
     def model_dump(self):
         return {'data_dict': {loc: data.model_dump() for loc, data in self._data_dict.items()},
                 'polygons': self._polygons and self._polygons.model_dump()}

@@ -1,5 +1,9 @@
 FROM python:3.12.0-slim
 
 COPY tests/docker_flow.py docker_flow.py
+COPY tests/docker_db_flow.py docker_db_flow.py
+
 COPY example_data/anonymous_chap_request.json example_data/anonymous_chap_request.json
+COPY example_data/anonymous_make_prediction_request.json example_data/anonymous_make_prediction_request.json
+COPY example_data/anonymous_make_dataset_request.json example_data/anonymous_make_dataset_request.json
 RUN pip install requests

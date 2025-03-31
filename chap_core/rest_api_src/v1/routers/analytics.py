@@ -11,14 +11,13 @@ from chap_core.api_types import EvaluationEntry, DataList, DataElement, Predicti
 from chap_core.database.base_tables import DBModel
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
-from .crud import JobResponse
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.database.tables import BackTest, Prediction
 from chap_core.database.dataset_tables import DataSet
 import logging
 
-from ...celery_tasks import CeleryPool
-from ...data_models import DatasetMakeRequest
+from ...celery_tasks import CeleryPool, JOB_NAME_KW
+from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -52,6 +51,9 @@ def make_dataset(request: DatasetMakeRequest,
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if 'population' in feature_names:
+        provided_data = provided_data.interpolate(['population'])
+    request.type = 'evaluation'
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     job = worker.queue_db(wf.harmonize_and_add_dataset,
@@ -60,7 +62,8 @@ def make_dataset(request: DatasetMakeRequest,
                           provided_data.model_dump(),
                           request.name,
                           database_url=database_url,
-                          worker_config=worker_settings)
+                          worker_config=worker_settings,
+                          **{JOB_NAME_KW: 'create_dataset'})
     return JobResponse(id=job.id)
 
 
@@ -94,7 +97,8 @@ class MultiBacktestCreate(DBModel):
 async def create_backtest(backtests: MultiBacktestCreate, database_url: str = Depends(get_database_url)):
     job_ids = []
     for model_id in backtests.model_ids:
-        job = worker.queue_db(wf.run_backtest, model_id, backtests.dataset_id, 12, 2, 1, database_url=database_url)
+        job = worker.queue_db(wf.run_backtest,
+                              BackTestCreate(dataset_id=backtests.dataset_id, model_id=model_id), 12, 2, 1, database_url=database_url, **{JOB_NAME_KW: 'backtest'})
         job_ids.append(job.id)
 
     return [JobResponse(id=job_id) for job_id in job_ids]
@@ -104,6 +108,7 @@ async def create_backtest(backtests: MultiBacktestCreate, database_url: str = De
 async def make_prediction(request: MakePredictionRequest,
                           database_url=Depends(get_database_url),
                           worker_settings=Depends(get_settings)):
+    request.type = 'prediction'
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
@@ -119,7 +124,8 @@ async def make_prediction(request: MakePredictionRequest,
                           request.model_id,
                           request.meta_data if request.meta_data is not None else '',
                           database_url=database_url,
-                          worker_config=worker_settings)
+                          worker_config=worker_settings,
+                          **{JOB_NAME_KW: 'prediction'})
     return JobResponse(id=job.id)
     # return JobResponse(id=job.id)
     #

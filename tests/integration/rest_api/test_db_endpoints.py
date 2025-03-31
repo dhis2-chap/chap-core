@@ -1,21 +1,25 @@
 import itertools
 import json
 import time
-import pytest
 
+import numpy as np
+import pytest
+from datetime import datetime
 from chap_core.api_types import EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import PredictionRead, PredictionInfo, FailedJobRead
-from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest
+from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest, BackTestFull
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
-from chap_core.rest_api_src.v1.routers.crud import BackTestFull, DatasetCreate, PredictionCreate
+from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCreate
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
-
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 client = TestClient(app)
 
 
@@ -33,6 +37,7 @@ def await_result_id(job_id, timeout=30):
             return client.get(f"/v1/jobs/{job_id}/database_result").json()['id']
         if status == 'FAILURE':
             assert False, ("Job failed", response.json())
+        logger.info(status)
         time.sleep(1)
     assert False, "Timed out"
 
@@ -64,12 +69,12 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons')
-    response = client.post("/v1/crud/backtest",
+    response = client.post("/v1/crud/backtests",
                            json={"datasetId": dataset_id, "modelId": "naive_model"})
     assert response.status_code == 200, response.json()
     job_id = response.json()['id']
     db_id = await_result_id(job_id)
-    response = client.get(f"/v1/crud/backtest/{db_id}")
+    response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
     BackTestFull.model_validate(response.json())
     response = client.get(f'/v1/analytics/evaluation-entry',
@@ -80,6 +85,16 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     for entry in evaluation_entries:
         assert 'splitPeriod' in entry, f'splitPeriod not in entry: {entry.keys()}'
         EvaluationEntry.model_validate(entry)
+
+
+def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_overrides, local_data_path):
+    filepath = local_data_path / 'test_data/make_dataset_failing_request.json'
+
+    with open(filepath, 'r') as f:
+        data = f.read()
+        request = DatasetMakeRequest.model_validate_json(data)
+    print(request)
+    _make_dataset(request, wanted_field_names=['rainfall', 'mean_temperature'])
 
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
@@ -120,7 +135,7 @@ def test_get_data_sources():
 @pytest.fixture
 def make_prediction_request(make_dataset_request):
     return MakePredictionRequest(model_id='naive_model',
-                                 meta_data = {'test': 'test'},
+                                 meta_data={'test': 'test'},
                                  **make_dataset_request.dict())
 
 
@@ -161,22 +176,62 @@ def create_make_data_request(example_polygons, fetch_request, proivided_features
     return request
 
 
+@pytest.fixture()
+def anonymous_make_dataset_request(data_path):
+    with open(data_path / 'anonymous_make_dataset_request.json', 'r') as f:
+        return DatasetMakeRequest.model_validate_json(f.read())
+
+
 def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_request):
+    _make_dataset(make_dataset_request)
+
+
+def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
+    _make_dataset(anonymous_make_dataset_request)
+
+
+def test_backtest_flow_from_request(celery_session_worker,
+                                    clean_engine, dependency_overrides,
+                                    anonymous_make_dataset_request):
+    db_id = _make_dataset(anonymous_make_dataset_request)
+    response = client.post("/v1/crud/backtests",
+                           json={"datasetId": db_id,
+                                 "name": 'testing',
+                                 "modelId": "naive_model"})
+    assert response.status_code == 200, response.json()
+    job_id = response.json()['id']
+    db_id = await_result_id(job_id, timeout=120)
+    response = client.get(f"/v1/crud/backtests/{db_id}")
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert data['name'] == 'testing'
+    assert data['created'] is not None
+
+
+def _make_dataset(make_dataset_request, wanted_field_names =['rainfall','disease_cases', 'population', 'mean_temperature']):
     data = make_dataset_request.model_dump_json()
     response = client.post("/v1/analytics/make-dataset",
                            data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
+    dataset_list = client.get("/v1/crud/datasets").json()
+    assert len(dataset_list) > 0
+    assert db_id in {ds['id'] for ds in dataset_list}
     response = client.get(f"/v1/crud/datasets/{db_id}")
     assert response.status_code == 200, response.json()
     ds = DataSetWithObservations.model_validate(response.json())
-    print(ds)
+    population_entries = [o for o in ds.observations if o.feature_name == 'population']
+    assert all((o.value is not None) and np.isfinite(o.value) for o in population_entries), population_entries
+    assert ds.created is not None
     field_names = {o.feature_name for o in ds.observations}
-    assert 'rainfall' in field_names
-    assert 'disease_cases' in field_names
-    assert 'population' in field_names
-    assert 'mean_temperature' in field_names
-    assert len(field_names) == 4
+    for wfn in wanted_field_names:
+        assert wfn in field_names, (field_names, wfn)
+    # assert 'rainfall' in field_names
+    # assert 'disease_cases' in field_names
+    # assert 'population' in field_names
+    # assert 'mean_temperature' in field_names
+    assert len(field_names) == len(wanted_field_names)
+    return db_id
 
 
 @pytest.mark.skip(reason="Failing because of missing geojson file")

@@ -10,6 +10,8 @@ from chap_core.database.base_tables import PeriodID, DBModel
 class BackTestBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
     model_id: str
+    name: Optional[str] = None
+    created: Optional[datetime.datetime] = None
 
 
 class BackTest(BackTestBase, table=True):

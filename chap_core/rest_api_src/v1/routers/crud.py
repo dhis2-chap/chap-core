@@ -23,7 +23,6 @@ from fastapi import Path
 from typing import Optional, List, Annotated
 
 import pandas as pd
-from pydantic import BaseModel, Field
 from sqlmodel import select
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
@@ -37,13 +36,14 @@ from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, BackTestMetric, BackTestForecast, BackTestBase, Prediction, \
+from chap_core.database.tables import BackTest, Prediction, \
     PredictionRead, PredictionInfo, FailedJobRead, FailedJob
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
 from chap_core.database.base_tables import DBModel
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
+from ...data_models import JobResponse, BackTestCreate, BackTestRead, BackTestFull
 
 router = APIRouter(prefix="/crud", tags=["crud"])
 
@@ -54,31 +54,7 @@ worker = CeleryPool()
 # TODO camel in paths
 
 
-class JobResponse(BaseModel):
-    id: str
-
-
-class BackTestCreate(BackTestBase):
-    ...
-
-
-class BackTestRead(BackTestBase):
-    id: int
-    name: Optional[str] = None
-    timestamp: Optional[datetime] = None
-
-    # THis is dataset properties
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    org_unit_ids: List[str] = Field(default_factory=list)
-
-
-class BackTestFull(BackTestRead):
-    metrics: list[BackTestMetric]
-    forecasts: list[BackTestForecast]
-
-
-@router_get("/backtest/{backtestId}", response_model=BackTestFull)
+@router_get("/backtests/{backtestId}", response_model=BackTestFull)
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
                        session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
@@ -87,9 +63,10 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
     return backtest
 
 
-@router.post("/backtest", response_model=JobResponse)
+@router.post("/backtests", response_model=JobResponse)
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
-    job = worker.queue_db(wf.run_backtest, backtest.model_id, backtest.dataset_id, 12, 2, 1,
+    job = worker.queue_db(wf.run_backtest,
+                          backtest, 12, 2, 1,
                           database_url=database_url)
 
     return JobResponse(id=job.id)
@@ -121,7 +98,7 @@ async def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId"
     return prediction
 
 
-@router.get("/backtest", response_model=list[BackTestRead])
+@router.get("/backtests", response_model=list[BackTestRead])
 async def get_backtests(session: Session = Depends(get_session)):
     backtests = session.exec(select(BackTest)).all()
     return backtests
@@ -138,7 +115,10 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], sessi
     dataset = session.get(DataSet, dataset_id)
     assert len(dataset.observations) > 0
     for obs in dataset.observations:
-        obs.value = obs.value if np.isfinite(obs.value) else None
+        try:
+            obs.value = obs.value if obs.value is None or np.isfinite(obs.value) else None
+        except:
+            raise
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
@@ -198,15 +178,15 @@ class DataBaseResponse(DBModel):
 class DataSetRead(DBModel):
     id: int
     name: str
-
-    class Config:
-        orm_mode = True  # Enable compatibility with ORM models
+    created: Optional[datetime]
+    covariates: List[str]
 
 
 @router.get('/failedJobs', response_model=list[FailedJobRead])
 async def get_failed_jobs(session: Session = Depends(get_session)):
     failed_jobs = session.exec(select(FailedJob)).all()
     return failed_jobs
+
 
 @router.delete('/failedJobs/{failedJobId}')
 async def delete_failed_job(failed_job_id: Annotated[int, Path(alias='failedJobId')],
