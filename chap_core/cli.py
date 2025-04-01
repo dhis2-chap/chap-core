@@ -96,7 +96,7 @@ def evaluate(
 
     results_dict = {}
     for name in model_list:
-        template = ModelTemplate.from_directory_or_github_url(name, Path("./"), 
+        template = ModelTemplate.from_directory_or_github_url(name, base_working_dir=Path("./"), 
                                                             ignore_env=ignore_environment, 
                                                             run_dir_type=run_directory_type, 
                                                             )

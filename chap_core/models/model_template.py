@@ -23,7 +23,8 @@ class ModelTemplate:
         self._ignore_env = ignore_env
 
     @classmethod
-    def from_directory_or_github_url(model_template_path,
+    def from_directory_or_github_url(cls, 
+                                    model_template_path,
                                     base_working_dir=Path("runs/"),
                                     ignore_env=False,
                                     run_dir_type="timestamp") -> 'ModelTemplate':
@@ -45,7 +46,7 @@ class ModelTemplate:
             "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
         """
         from .utils import get_model_template_from_directory_or_github_url
-        return get_model_template_from_directory_or_github_url(model_template_path, ignore_env=ignore_env, run_dir_type=run_dir_type) 
+        return get_model_template_from_directory_or_github_url(model_template_path, base_working_dir=base_working_dir, ignore_env=ignore_env, run_dir_type=run_dir_type) 
 
     @property
     def name(self):
