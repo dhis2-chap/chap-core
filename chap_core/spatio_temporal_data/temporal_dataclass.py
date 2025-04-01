@@ -1,4 +1,5 @@
 import pickle
+from collections import defaultdict
 from pathlib import Path
 from typing import Generic, Iterable, Tuple, Type, Callable, Optional
 
@@ -12,7 +13,7 @@ from ..datatypes import (
     add_field,
     remove_field,
     TimeSeriesArray,
-    TimeSeriesData,
+    TimeSeriesData, create_tsdataclass,
 )
 from ..geometry import Polygons
 from ..time_period import PeriodRange
@@ -155,6 +156,25 @@ class DataSet(Generic[FeaturesT]):
         if not self._polygons:
             return {location: '-' for location in self.locations()}
         return Polygons(self._polygons).get_parent_dict()
+
+    def aggregate_to_parent(self, field_name: str = 'disease_cases', nan_indicator='disease_cases'):
+        parent_dict = self.get_parent_dict()
+        dataclass = create_tsdataclass([field_name])
+        new_dict = {}
+        period_range = self.period_range
+        for location, data in self.items():
+            parent = parent_dict[location]
+            nan_mask = np.isnan(getattr(data, nan_indicator))
+            new_data = getattr(data, field_name).copy()
+            if parent not in new_dict:
+                new_dict[parent] = dataclass(period_range,
+                                             np.zeros_like(new_data))
+            old_data = getattr(new_dict[parent], field_name)
+            new_data = getattr(data, field_name).copy()
+            new_data[nan_mask] = 0
+            old_data += new_data
+
+        return self.__class__(new_dict, self._polygons)
 
     @property
     def polygons(self):

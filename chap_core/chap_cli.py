@@ -7,6 +7,7 @@ from pathlib import Path
 import logging
 
 from cyclopts import App
+from pydantic_geojson import PointModel
 
 from chap_core.api_types import PredictionRequest
 from chap_core.assessment.forecast import forecast_ahead
@@ -56,6 +57,7 @@ def harmonize(input_filename: Path, output_filename: Path):
     with open(input_filename, "r") as f:
         text = f.read()
     request_data = PredictionRequest.model_validate_json(text)
+    request_data.orgUnitsGeoJson.features = [feature for feature in request_data.orgUnitsGeoJson.features if not isinstance(feature.geometry, PointModel)]
     geojson = request_data.orgUnitsGeoJson.model_dump_json()
     with open(polygons_filename, "w") as f:
         f.write(geojson)

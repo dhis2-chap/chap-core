@@ -11,7 +11,7 @@ from chap_core.assessment.dataset_splitting import (
 )
 
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
-from chap_core.datatypes import TimeSeriesData, Samples
+from chap_core.datatypes import TimeSeriesData, Samples, SamplesWithTruth
 import logging
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -47,8 +47,9 @@ def backtest(estimator: Estimator,
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
     predictor = estimator.train(train)
-    for historic_data, future_data, _ in test_generator:
-        yield predictor.predict(historic_data, future_data)
+    for historic_data, future_data, future_truth in test_generator:
+        predictions: DataSet = predictor.predict(historic_data, future_data)
+        yield predictions.merge(future_truth, result_dataclass=SamplesWithTruth)
 
 
 def evaluate_model(
