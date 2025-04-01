@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import TYPE_CHECKING
 from chap_core.datatypes import HealthData
 from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.models.configured_model import ModelConfiguration
@@ -6,9 +7,12 @@ from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
 
 
-from pydantic import BaseModel, Field, create_model
+if TYPE_CHECKING:
+    from chap_core.external.external_model import ExternalModel
+    from chap_core.runners.runner import TrainPredictRunner
 
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from pydantic import Field, create_model
+
 
 
 class ModelTemplate:
@@ -71,10 +75,10 @@ class ModelTemplate:
                 fields[user_option.name] = (T, ...)
         return create_model('ModelConfiguration', **fields)
 
-    def get_default_model(self) -> 'ExternalModel':
+    def get_default_model(self) -> ExternalModel:
         return self.get_model()
 
-    def get_model(self, model_configuration: ModelConfiguration = None) -> 'ExternalModel':
+    def get_model(self, model_configuration: ModelConfiguration = None) -> ExternalModel:
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default

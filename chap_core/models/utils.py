@@ -1,11 +1,11 @@
 from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import git
 from chap_core.datatypes import HealthData
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
-from chap_core.external.mlflow_wrappers import get_train_predict_runner_from_model_template_config, logger
+from chap_core.external.mlflow_wrappers import get_train_predict_runner_from_model_template_config 
 from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.models.model_template import ModelTemplate
 import shutil
@@ -14,6 +14,9 @@ import yaml
 import logging
 import os
 from pathlib import Path
+
+if TYPE_CHECKING:
+    from chap_core.models.external_model import ExternalModel
 
 
 def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
@@ -125,7 +128,7 @@ def get_model_template_from_directory_or_github_url(model_template_path,
     return template
 
 
-def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> 'ExternalModel':
+def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """

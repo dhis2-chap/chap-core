@@ -1,6 +1,5 @@
 import datetime
 import logging
-import pickle
 from typing import Iterable, List, Callable, Optional
 from dotenv import find_dotenv, load_dotenv
 import ee
