@@ -59,6 +59,7 @@ test-all: ## run pytest, doctests, examples
 	mkdir -p logs/
 	touch logs/rest_api.log
 	touch logs/worker.log
+	uv run chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
 	./tests/test_docker_compose_integration_flow.sh
 	uv run pytest --durations=0 --cov=climate_health --cov-report html --run-slow
