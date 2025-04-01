@@ -17,6 +17,7 @@ def f(x, y):
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
+@pytest.mark.slow
 def test_add_numbers(celery_session_worker):
     job = celery_run.delay(add_numbers, 1, 2)
     time.sleep(2)

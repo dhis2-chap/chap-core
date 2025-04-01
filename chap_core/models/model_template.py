@@ -1,3 +1,4 @@
+from pathlib import Path
 from chap_core.datatypes import HealthData
 from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.models.configured_model import ModelConfiguration
@@ -20,6 +21,31 @@ class ModelTemplate:
         self._model_template_config = model_template_config
         self._working_dir = working_dir
         self._ignore_env = ignore_env
+
+    @classmethod
+    def from_directory_or_github_url(model_template_path,
+                                    base_working_dir=Path("runs/"),
+                                    ignore_env=False,
+                                    run_dir_type="timestamp") -> 'ModelTemplate':
+        """
+        Gets the model template and initializes a working directory with the code for the model.
+        model_path can be a local directory or github url
+
+        Parameters
+        ----------
+        model_template_path : str
+            Path to the model. Can be a local directory or a github url
+        base_working_dir : Path, optional
+            Base directory to store the working directory, by default Path("runs/")
+        ignore_env : bool, optional
+            If True, will ignore the environment specified in the MLproject file, by default False
+        run_dir_type : Literal["timestamp", "latest", "use_existing"], optional
+            Type of run directory to create, by default "timestamp", which creates a new directory based on current timestamp for the run.
+            "latest" will create a new directory based on the model name, but will remove any existing directory with the same name.
+            "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
+        """
+        from .utils import get_model_template_from_directory_or_github_url
+        return get_model_template_from_directory_or_github_url(model_template_path, ignore_env=ignore_env, run_dir_type=run_dir_type) 
 
     @property
     def name(self):

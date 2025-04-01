@@ -22,6 +22,7 @@ def test_train_on_json_data_big(big_request_json):
     train_on_json_data(big_request_json, "ProbabilisticFlaxModel", "test_model_path")
 
 
+@pytest.mark.slow
 def test_train_on_json_data_new(big_request_json, mocked_gee, models_path):
     train_on_json_data(
         big_request_json,

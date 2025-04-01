@@ -76,6 +76,7 @@ def test_get_split_dataset(laos_full_data):
     assert len(first_test["target"]) == len(first_train["target"]) + 6
 
 
+@pytest.mark.slow
 def test_full_data(full_dataset):
     print(list(DataSetAdaptor.to_gluonts_multicountry(full_dataset)))
 

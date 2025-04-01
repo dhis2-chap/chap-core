@@ -13,6 +13,7 @@ from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
+from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.geometry import Polygons
 from chap_core.log_config import initialize_logging
@@ -95,11 +96,10 @@ def evaluate(
 
     results_dict = {}
     for name in model_list:
-        template = get_model_template_from_directory_or_github_url(name, 
-                                                                   Path("./"), 
-                                                                   ignore_env=ignore_environment, 
-                                                       run_dir_type=run_directory_type, 
-                                                       )
+        template = ModelTemplate.from_directory_or_github_url(name, Path("./"), 
+                                                            ignore_env=ignore_environment, 
+                                                            run_dir_type=run_directory_type, 
+                                                            )
         model = template.get_model()
         model = model()
         try:

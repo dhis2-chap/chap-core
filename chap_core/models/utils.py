@@ -89,6 +89,9 @@ def get_model_template_from_directory_or_github_url(model_template_path,
                                                     ignore_env=False,
                                                     run_dir_type="timestamp") -> ModelTemplate:
     """
+    Note: Preferably use ModelTemplate.from_directory_or_github_url instead of 
+    using this function directly. This function may be depcrecated in the future.
+
     Gets the model template and initializes a working directory with the code for the model.
     model_path can be a local directory or github url
 

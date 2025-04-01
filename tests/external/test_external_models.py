@@ -53,8 +53,7 @@ def test_external_sanity(models_path):
 
 
 @pytest.mark.skipif(not docker_available(), reason="requires pyenv")
-#@pytest.mark.slow
-#@pytest.mark.skip(reason="Failing")
+@pytest.mark.slow
 def test_external_sanity_deepar(models_path, dataset):
     folder_path = "https://github.com/dhis2-chap/minimalist_example"
     template = get_model_template_from_directory_or_github_url(folder_path, run_dir_type="latest")

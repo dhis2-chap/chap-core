@@ -17,6 +17,7 @@ def test_to_from_geojson_file(data_path):
         assert polygons2 == polygons
 
 
+@pytest.mark.slow
 def test_geometry_simplify(data_path, output_path):
     # load data
     print('loading')
