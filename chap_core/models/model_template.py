@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 from chap_core.datatypes import HealthData
@@ -75,10 +76,10 @@ class ModelTemplate:
                 fields[user_option.name] = (T, ...)
         return create_model('ModelConfiguration', **fields)
 
-    def get_default_model(self) -> ExternalModel:
+    def get_default_model(self) -> 'ExternalModel':
         return self.get_model()
 
-    def get_model(self, model_configuration: ModelConfiguration = None) -> ExternalModel:
+    def get_model(self, model_configuration: ModelConfiguration = None) -> 'ExternalModel':
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default

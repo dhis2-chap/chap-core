@@ -128,7 +128,7 @@ def get_model_template_from_directory_or_github_url(model_template_path,
     return template
 
 
-def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> ExternalModel:
+def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> 'ExternalModel':
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
