@@ -307,7 +307,7 @@ requires-dist = [
     { name = "matplotlib" },
     { name = "meteostat" },
     { name = "mlflow-skinny" },
-    { name = "numpy", specifier = "<2.0" },
+    { name = "numpy" },
     { name = "orjson", specifier = ">=3.10.7" },
     { name = "pandas" },
     { name = "plotly" },

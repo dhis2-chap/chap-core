@@ -349,6 +349,11 @@ class Samples(TimeSeriesData):
             quantile_high=np.quantile(self.samples, q_high, axis=-1),
         )
 
+@tsdataclass
+class SamplesWithTruth(Samples):
+    disease_cases: float
+
+
 
 @dataclasses.dataclass
 class Quantile:
