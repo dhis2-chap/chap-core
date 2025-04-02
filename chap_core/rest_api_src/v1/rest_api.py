@@ -295,8 +295,12 @@ def get_openapi_schema():
     return app.openapi()
 
 
-def main_backend(seed_data=None):
+def main_backend(seed_data=None, auto_reload=False):
     import uvicorn
     if seed_data is not None:
         seed(seed_data)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    if auto_reload:
+        app_path = 'chap_core.rest_api_src.v1.rest_api:app'
+        uvicorn.run(app_path, host="0.0.0.0", port=8000, reload=auto_reload)
+    else:
+        uvicorn.run(app, host="0.0.0.0", port=8000)
