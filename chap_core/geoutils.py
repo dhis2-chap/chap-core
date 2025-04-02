@@ -4,7 +4,9 @@ Utility functions for working with geometries.
 import io
 
 from .geometry import Polygons
-from .api_types import FeatureModel
+from .api_types import FeatureModel, FeatureCollectionModel
+
+from shapely.geometry import shape
 
 def feature_bbox(feature : FeatureModel):
     '''
@@ -44,6 +46,98 @@ def feature_bbox(feature : FeatureModel):
         ys = [y for poly in coords for x,y in poly[0]]
         bbox = [min(xs),min(ys),max(xs),max(ys)]
     return bbox
+
+def buffer_feature(feature : FeatureModel, distance : float):
+    '''
+    Creates a buffer around a FeatureModel object. Features with point and line geometries will become polygons. 
+
+    Parameters
+    ----------
+    feature : FeatureModel
+        A `FeatureModel` object representing a feature with a geometry.
+    distance : float
+        The distance to buffer around the geometry, given in the same coordinate system units as the feature geometry.
+        For latitude-longitude geometries, a distance of 0.1 is approximately 10 km at the equator but increases towards
+        the poles. 
+
+    Returns
+    -------
+    FeatureModel
+        A `FeatureModel` object with the buffered geometry.
+    '''
+    feature_geoj = feature.model_dump()
+    shp = shape(feature_geoj['geometry'])
+    shp_buffered = shp.buffer(distance)
+    feature_geoj['geometry'] = shp_buffered.__geo_interface__
+    feature_buffered = FeatureModel.model_validate(feature_geoj)
+    return feature_buffered
+
+def buffer_point_features(collection : FeatureCollectionModel, distance : float):
+    '''
+    For a given FeatureCollection, creates a buffer around point-type FeatureModel objects. 
+    Features with polygon or line geometries remain unaltered. 
+
+    Parameters
+    ----------
+    collection : FeatureCollectionModel
+        A `FeatureCollectionModel` object representing a feature collection.
+    distance : float
+        The distance to buffer around the geometry, given in the same coordinate system units as the feature geometry.
+        For latitude-longitude geometries, a distance of 0.1 is approximately 10 km at the equator but increases towards
+        the poles. 
+
+    Returns
+    -------
+    FeatureCollectionModel
+        A new `FeatureCollectionModel` object with any point geometries converted to polygon buffers.
+    '''
+    features = []
+    for feature in collection.features:
+        if 'Point' in feature.geometry.type:
+            if not distance:
+                raise ValueError(f'Attempting to buffer point geometries but the buffer distance arg is 0 or None: {distance}')
+            feature_buffered = buffer_feature(feature, distance=distance)
+            features.append(feature_buffered)
+        else:
+            features.append(feature)
+
+    collection_buffered = FeatureCollectionModel(features=features)
+
+    return collection_buffered
+
+def inspect_feature_collection(collection):
+    '''
+    Inspect and return statistics of the contents of a FeatureModelCollection object.
+
+    Parameters
+    ----------
+    collection : FeatureModelCollection
+        A `FeatureModelCollection` object representing a feature collection.
+
+    Returns
+    -------
+    dict
+        A `dict` object with basic count statistics of the different geometry types contained in the FeatureModelCollection.
+    '''
+    stats = {}
+    stats['count'] = len(collection.features)
+    stats['count_has_geometry'] = sum([
+        1 for feat in collection.features
+        if feat.geometry
+    ])
+    stats['count_point'] = sum([
+        1 for feat in collection.features
+        if feat.geometry and 'Point' in feat.geometry.type
+    ])
+    stats['count_lines'] = sum([
+        1 for feat in collection.features
+        if feat.geometry and 'Line' in feat.geometry.type
+    ])
+    stats['count_poly'] = sum([
+        1 for feat in collection.features
+        if feat.geometry and 'Polygon' in feat.geometry.type
+    ])
+    return stats
 
 def render(polygons : Polygons):
     '''

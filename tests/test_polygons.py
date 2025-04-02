@@ -17,16 +17,16 @@ def test_to_from_geojson_file(data_path):
         assert polygons2 == polygons
 
 
-def test_geometry_simplify(data_path, output_path):
+def test_simplify_polygons(data_path, output_path):
     # load data
     print('loading')
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson")
-    render(polygons).save(output_path / 'test_geometry_simplify - before.png')
+    render(polygons).save(output_path / 'test_simplify_polygons - before.png')
     
     # simplify data
     print('simplifying')
     simplified = simplify_topology(polygons)
-    render(simplified).save(output_path / 'test_geometry_simplify - after.png')
+    render(simplified).save(output_path / 'test_simplify_polygons - after.png')
 
     # simplify must return same number of features
     count1 = len(polygons)
@@ -49,4 +49,4 @@ def test_laos_polygons(data_path):
 if __name__ == '__main__':
     import pathlib
     data_path = pathlib.Path(__file__).parent.parent / 'example_data'
-    test_geometry_simplify(data_path)
+    test_simplify_polygons(data_path)
