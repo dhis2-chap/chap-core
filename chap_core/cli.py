@@ -102,7 +102,7 @@ def evaluate(
 
     results_dict = {}
     for name, configuration in zip(model_list, model_configuration_yaml_list):
-        template = ModelTemplate.from_directory_or_github_url(name, base_working_dir=Path("./"), 
+        template = ModelTemplate.from_directory_or_github_url(name, base_working_dir=Path("./runs/"), 
                                                             ignore_env=ignore_environment, 
                                                             run_dir_type=run_directory_type, 
                                                             )

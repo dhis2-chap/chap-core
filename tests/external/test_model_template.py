@@ -23,7 +23,7 @@ def test_get_model_from_model_template_with_user_choices(model_template: ModelTe
     user_choices = model_template.get_config_class()
 
     # fill out some choices that works with this model_template
-    user_choices.additional_continuous_covariates = ["elevation", "population_density"]
+    #user_choices.additional_continuous_covariates = ["elevation", "population_density"]
 
     model = model_template.get_model(user_choices(
         n_lag_periods=3,
