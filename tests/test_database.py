@@ -35,6 +35,7 @@ def test_dataset_roundrip(health_population_data, engine):
         assert_dataset_equal(dataset, health_population_data)
 
 
+@pytest.mark.slow
 def test_backtest(seeded_engine):
     with Session(seeded_engine) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
@@ -50,6 +51,7 @@ def test_backtest(seeded_engine):
         assert len(backtest.forecasts) == 12 * 2 * 10
 
 
+@pytest.mark.slow
 def test_add_predictions(seeded_engine):
     with SessionWrapper(seeded_engine) as session:
         run_prediction('naive_model', 1, 3, name='testing', metadata='', session=session)

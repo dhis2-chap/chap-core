@@ -29,6 +29,19 @@ External models can be run on the command line using the `chap evaluate` command
 
 This example runs an auto ewars R model on public ISMIP data for Brazil using a public docker image with the R inla package. After running, a report file `report.pdf` should be made.
 
+
+### Passing model-specific options to the model
+
+We are currently working on experimental functionality for passing options and other parameters through Chap to the model.
+
+The first way we plan to support this is when evaluating a model using the `chap evaluate` command.
+
+This functionality is under development. Below is a minimal working example using the model `naive_python_model_with_mlproject_file_and_docker`. This model has a user_option `some_option`, which we can specify in a yaml file:
+
+```bash
+chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
+```
+
 ## Running an external model in Python
 
 CHAP contains an API for loading models through Python. The following shows an example of loading and evaluating three different models by specifying paths/github urls, and evaluating those models:

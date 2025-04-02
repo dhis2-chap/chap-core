@@ -12,8 +12,9 @@ from cyclopts import App
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
-from chap_core.external.external_model import get_model_from_directory_or_github_url, get_model_template_from_directory_or_github_url
-from chap_core.external.mlflow_wrappers import NoPredictionsError
+from chap_core.exceptions import NoPredictionsError
+from chap_core.models.model_template import ModelTemplate
+from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.geometry import Polygons
 from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import registry
@@ -89,17 +90,29 @@ def evaluate(
     if "," in model_name:
         # model_name is not only one model, but contains a list of models
         model_list = model_name.split(",")
+        if model_configuration_yaml is not None:
+            model_configuration_yaml_list = model_configuration_yaml.split(",")
+            assert len(model_list) == len(model_configuration_yaml_list), "Number of model configurations does not match number of models"
     else:
         model_list = [model_name]
+        model_configuration_yaml_list = [model_configuration_yaml]
+
+    logging.info(f"Model configuration: {model_configuration_yaml_list}")
 
     results_dict = {}
-    for name in model_list:
-        template = get_model_template_from_directory_or_github_url(name, 
-                                                                   Path("./"), 
-                                                                   ignore_env=ignore_environment, 
-                                                       run_dir_type=run_directory_type, 
-                                                       )
-        model = template.get_model()
+    for name, configuration in zip(model_list, model_configuration_yaml_list):
+        template = ModelTemplate.from_directory_or_github_url(name, base_working_dir=Path("./runs/"), 
+                                                            ignore_env=ignore_environment, 
+                                                            run_dir_type=run_directory_type, 
+                                                            )
+        logging.info(f"Model template loaded: {template}")
+        if configuration is not None:
+            logger.info("Loading model configuration from yaml file %s", configuration)
+            configuration = template.get_model_configuration_from_yaml(Path(configuration))
+            logger.info("Loaded model configuration from yaml file")
+            print(configuration)
+        
+        model = template.get_model(configuration)
         model = model()
         try:
             results = evaluate_model(

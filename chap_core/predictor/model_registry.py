@@ -2,7 +2,7 @@ from typing import Literal
 
 from .naive_estimator import NaiveEstimator
 from .published_models import model_dict
-from ..external.external_model import get_model_from_directory_or_github_url
+from ..models.utils import get_model_from_directory_or_github_url
 from ..model_spec import PeriodType, ModelSpec
 import logging
 logger = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 import pandas as pd
 
 from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.external.external_model import get_model_from_directory_or_github_url
+from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.file_io.file_paths import get_models_path
 from chap_core.file_io.example_data_set import datasets
 import logging

@@ -66,6 +66,7 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
     assert data.timestamp > start_timestamp
 
 
+@pytest.mark.slow
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons')

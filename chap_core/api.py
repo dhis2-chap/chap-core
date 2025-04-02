@@ -8,7 +8,7 @@ from .datatypes import (
     ClimateData,
     HealthPopulationData,
 )
-from .external.external_model import get_model_from_directory_or_github_url
+from .models.utils import get_model_from_directory_or_github_url
 from .file_io.example_data_set import DataSetType, datasets
 from .plotting.prediction_plot import plot_forecast_from_summaries
 from .predictor import get_model
