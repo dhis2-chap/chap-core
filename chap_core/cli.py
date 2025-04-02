@@ -8,7 +8,6 @@ from typing import Literal, Optional
 import numpy as np
 import pandas as pd
 from cyclopts import App
-import yaml
 
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
