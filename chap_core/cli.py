@@ -8,6 +8,7 @@ from typing import Literal, Optional
 import numpy as np
 import pandas as pd
 from cyclopts import App
+import yaml
 
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
@@ -90,16 +91,29 @@ def evaluate(
     if "," in model_name:
         # model_name is not only one model, but contains a list of models
         model_list = model_name.split(",")
+        if model_configuration_yaml is not None:
+            model_configuration_yaml_list = model_configuration_yaml.split(",")
+            assert len(model_list) == len(model_configuration_yaml_list), "Number of model configurations does not match number of models"
     else:
         model_list = [model_name]
+        model_configuration_yaml_list = [model_configuration_yaml]
+
+    logging.info(f"Model configuration: {model_configuration_yaml_list}")
 
     results_dict = {}
-    for name in model_list:
+    for name, configuration in zip(model_list, model_configuration_yaml_list):
         template = ModelTemplate.from_directory_or_github_url(name, base_working_dir=Path("./"), 
                                                             ignore_env=ignore_environment, 
                                                             run_dir_type=run_directory_type, 
                                                             )
-        model = template.get_model()
+        logging.info(f"Model template loaded: {template}")
+        if configuration is not None:
+            logger.info("Loading model configuration from yaml file %s", configuration)
+            configuration = template.get_model_configuration_from_yaml(Path(configuration))
+            logger.info("Loaded model configuration from yaml file")
+            print(configuration)
+        
+        model = template.get_model(configuration)
         model = model()
         try:
             results = evaluate_model(

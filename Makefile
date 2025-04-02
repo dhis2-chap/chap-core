@@ -59,7 +59,10 @@ test-all: ## run pytest, doctests, examples
 	mkdir -p logs/
 	touch logs/rest_api.log
 	touch logs/worker.log
+	
 	uv run chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2
+	uv run chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
+
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
 	./tests/test_docker_compose_integration_flow.sh
 	uv run pytest --durations=0 --cov=climate_health --cov-report html --run-slow

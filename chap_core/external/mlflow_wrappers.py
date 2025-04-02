@@ -42,10 +42,10 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
         # dump model configuration to a tmp file in working_dir, pass this file to the train and predict command
         # pydantic write to yaml
         # under development
-        if False and model_configuration is not None:
-            model_configuration_file = working_dir / "model_configuration.yaml"
+        if model_configuration is not None:
+            model_configuration_file = working_dir / "model_configuration_for_run.yaml"
             with open(model_configuration_file, "w") as file:
-                yaml.dump(model_configuration.dict(), file)
+                yaml.dump(model_configuration.model_dump(), file)
             train_command += f" --model_configuration {model_configuration_file}"
             predict_command += f" --model_configuration {model_configuration_file}"
 

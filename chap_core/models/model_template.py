@@ -1,6 +1,9 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import yaml
+import logging
 from chap_core.datatypes import HealthData
 from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.models.configured_model import ModelConfiguration
@@ -12,8 +15,9 @@ if TYPE_CHECKING:
     from chap_core.external.external_model import ExternalModel
     from chap_core.runners.runner import TrainPredictRunner
 
-from pydantic import Field, create_model
+from pydantic import Field, ValidationError, create_model
 
+logger = logging.getLogger(__name__)
 
 
 class ModelTemplate:
@@ -75,6 +79,17 @@ class ModelTemplate:
             else:
                 fields[user_option.name] = (T, ...)
         return create_model('ModelConfiguration', **fields)
+
+    def get_model_configuration_from_yaml(self, yaml_file: Path) -> ModelConfiguration:
+        with open(yaml_file, "r") as file:
+            logger.error(f"Reading yaml file {yaml_file}")
+            config = yaml.load(file, Loader=yaml.FullLoader)
+            logger.info(config)
+            try:
+                return self.get_config_class().model_validate(config) 
+            except ValidationError as e:
+                logging.error(config)
+                raise e
 
     def get_default_model(self) -> 'ExternalModel':
         return self.get_model()
