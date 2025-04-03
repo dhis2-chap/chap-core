@@ -249,7 +249,7 @@ def multi_forecast(
 
 
 @app.command()
-def serve(seedfile: Optional[str] = None, debug: bool = False):
+def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool = False):
     """
     Start CHAP as a backend server
     """
@@ -259,7 +259,7 @@ def serve(seedfile: Optional[str] = None, debug: bool = False):
         data = json.load(open(seedfile))
     else:
         data = None
-    main_backend(data)
+    main_backend(data, auto_reload=auto_reload)
 
 
 @app.command()
