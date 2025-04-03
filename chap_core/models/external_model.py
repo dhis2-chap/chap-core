@@ -14,8 +14,10 @@ logger = logging.getLogger(__name__)
 
 class ExternalModel(ConfiguredModel):
     """
-    Wrapper around an configured model with commands for training and predicting.
-    Note: This is what we refer to as a ConfiguredModel in the vocabulary
+    An ExternalModel is a specififc implementation of a ConfiguredModel that represents
+    a model that is "external" in the sense that it needs to be run through a runner (e.g. a DockerRunner).
+    This class is typically used for external models developed outside of Chap, and gives such models
+    an interface with methods like train and predict so that they are compatible with Chap.
     """
 
     def __init__(
@@ -64,7 +66,7 @@ class ExternalModel(ConfiguredModel):
 
     def train(self, train_data: DataSet, extra_args=None):
         """
-        Trains this model on the given dataset
+        Trains this model on the given dataset.
 
         Parameters 
         ----------

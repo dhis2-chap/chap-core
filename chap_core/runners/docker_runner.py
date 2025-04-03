@@ -1,5 +1,7 @@
 from pathlib import Path
 import docker
+
+from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
 from ..docker_helper_functions import (
     create_docker_image,
     run_command_through_docker_container,
@@ -45,4 +47,15 @@ class DockerRunner(Runner):
         # remove the docker image
         client = docker.from_env()
         client.images.remove(self._docker_name, force=True)
+
+
+class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
+    """This is basically a CommandLineTrainPredictRunner, but with a DockerRunner
+    instead of a CommandLineRunner as runner"""
+
+    def __init__(self, runner: DockerRunner, train_command: str, predict_command: str):
+        super().__init__(runner, train_command, predict_command)
+
+    def teardown(self):
+        self._runner.teardown()
 

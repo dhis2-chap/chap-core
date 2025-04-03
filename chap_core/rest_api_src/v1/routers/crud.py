@@ -32,6 +32,7 @@ from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.model_spec_tables import FeatureSource, ModelSpecRead, ModelSpec
 from chap_core.datatypes import FullData, HealthPopulationData
+from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
@@ -208,3 +209,15 @@ async def get_datasets(session: Session = Depends(get_session)):
 @router.get('/models', response_model=list[ModelSpecRead])
 def list_models(session: Session = Depends(get_session)):
     return SessionWrapper(session=session).list_all(ModelSpec)
+
+
+@router.get('/models-from-model-templates', response_model=list[ModelSpecRead])
+def list_models_from_model_templates(session: Session = Depends(get_session)):
+    return SessionWrapper(session=session).list_all(ModelSpec)
+
+
+@router.get('/modelTemplates', response_model=list[ModelTemplateConfig])
+def list_model_templates(session: Session = Depends(get_session)):
+    """Lists all model templates by reading local config files and presenting models. 
+    """
+    return SessionWrapper(session=session).list_all(ModelTemplateConfig)

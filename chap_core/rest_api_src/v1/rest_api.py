@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from chap_core.api_types import PredictionRequest, EvaluationResponse
+from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.internal_state import Control, InternalState
 from chap_core.log_config import initialize_logging
 from chap_core.model_spec import ModelSpec
@@ -184,6 +185,11 @@ async def list_models() -> list[ModelSpec]:
     List all available models. These are not validated. Should set up test suite to validate them
     """
     return registry.list_specifications()
+
+
+@app.get("/list-model-templates")
+async def list_model_templates() -> list[ModelTemplateConfig]:
+    pass
 
 
 @app.get("/jobs/{job_id}/logs")

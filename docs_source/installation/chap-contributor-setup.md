@@ -57,8 +57,16 @@ To read more, check out [their documentation](https://docs.astral.sh/uv/getting-
 any changes you make to the code. Check to ensure that the chap command line interface (CLI) is available in your terminal:
 
       ```bash
-      $ chap-cli --help
+      $ chap --help
       ```
+
+It is also a good to see if you can run chap evaluation on an external model, by running:
+
+```bash
+chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
+```
+
+If the above command runs successfully, a report.pdf file will be generated with the results.
 
 You have now successfully setup a development version of the chap-cli tool and you are ready to start developing. 
 If you have any problems installing or setting up the environment, feel free to [contact us](https://github.com/dhis2-chap/chap-core/wiki>). 

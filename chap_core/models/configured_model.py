@@ -4,6 +4,13 @@ import abc
 
 
 class ConfiguredModel(abc.ABC):
+    """
+    A ConfiguredModel is the main interface for all models in the Chap framework.
+    A configured model is different from a model template in that it is configured with specific hyperparameters
+    and/or other choices. While a ModelTemplate is flexible with choices, a ConfiguredModel has fixed choices
+    and parameters. See ExternalModel for an example of a ConfiguredModel.
+    """
+
     @abc.abstractmethod
     def train(self, train_data: DataSet, extra_args=None):
         pass

@@ -74,5 +74,6 @@ The following is an overview of all pages in the documentation:
    contributor/getting_started
    contributor/windows_contributors
    contributor/code_overview
+   contributor/vocabulary
    contributor/testing
    contributor/writing_building_documentation

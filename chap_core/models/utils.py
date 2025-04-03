@@ -5,7 +5,7 @@ import git
 from chap_core.datatypes import HealthData
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
-from chap_core.external.mlflow_wrappers import get_train_predict_runner_from_model_template_config 
+from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config 
 from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.models.model_template import ModelTemplate
 import shutil

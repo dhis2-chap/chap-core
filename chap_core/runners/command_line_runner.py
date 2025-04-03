@@ -1,10 +1,11 @@
 import logging
 import subprocess
 from pathlib import Path
-from chap_core.exceptions import CommandLineException
-from chap_core.runners.runner import Runner
+from chap_core.exceptions import CommandLineException, ModelConfigurationException
+from chap_core.runners.runner import Runner, TrainPredictRunner
 
 logger = logging.getLogger(__name__)
+
 
 class CommandLineRunner(Runner):
     def __init__(self, working_dir: str | Path):
@@ -53,3 +54,44 @@ def run_command(command: str, working_directory=Path(".")):
         raise e
 
     return output
+
+
+class CommandLineTrainPredictRunner(TrainPredictRunner):
+    def __init__(self, runner: CommandLineRunner, train_command: str, predict_command: str):
+        self._runner = runner
+        self._train_command = train_command
+        self._predict_command = predict_command
+
+    def _format_command(self, command, keys):
+        try:
+            return command.format(**keys)
+        except KeyError as e:
+            raise ModelConfigurationException(
+                f"Was not able to format command {command}. Does the command contain wrong keys or keys that there is not data for in the dataset?") from e
+
+    def _handle_polygons(self, command, keys, polygons_file_name=None):
+        # adds polygons to keys if polygons exist. Does some checking with compatibility with command
+        if polygons_file_name is not None:
+            if "{polygons}" not in command:
+                logger.warning(
+                    f"Dataset has polygons, but command {command} does not ask for polygons. Will not insert polygons into command.")
+            else:
+                keys["polygons"] = polygons_file_name
+        return keys
+
+    def train(self, train_file_name, model_file_name, polygons_file_name=None):
+        keys = {"train_data": train_file_name, "model": model_file_name}
+        keys = self._handle_polygons(self._train_command, keys, polygons_file_name)
+        command = self._format_command(self._train_command, keys)
+        return self._runner.run_command(command)
+
+    def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):
+        keys = {
+            "historic_data": historic_data,
+            "future_data": future_data,
+            "model": model_file_name,
+            "out_file": output_file,
+        }
+        keys = self._handle_polygons(self._predict_command, keys, polygons_file_name)
+        command = self._format_command(self._predict_command, keys)
+        return self._runner.run_command(command)

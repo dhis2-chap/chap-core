@@ -107,10 +107,9 @@ def evaluate(
                                                             )
         logging.info(f"Model template loaded: {template}")
         if configuration is not None:
-            logger.info("Loading model configuration from yaml file %s", configuration)
+            logger.info(f"Loading model configuration from yaml file {configuration}")
             configuration = template.get_model_configuration_from_yaml(Path(configuration))
-            logger.info("Loaded model configuration from yaml file")
-            print(configuration)
+            logger.info(f"Loaded model configuration from yaml file: {configuration}")
         
         model = template.get_model(configuration)
         model = model()
