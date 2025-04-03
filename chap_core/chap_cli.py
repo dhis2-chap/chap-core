@@ -8,7 +8,6 @@ import logging
 import json
 
 from cyclopts import App
-from pydantic_geojson import PointModel
 
 from chap_core.api_types import PredictionRequest
 from chap_core.assessment.forecast import forecast_ahead
