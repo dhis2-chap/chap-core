@@ -63,7 +63,7 @@ class SessionWrapper:
         return self.session.exec(select(model)).all()
 
     def create_if_not_exists(self, model, id_name='id'):
-        logger.warning('Create if not exists does not work as expected')
+        logging.info(f"Create if not exist with {model}")
         T = type(model)
         if not self.session.exec(select(T).where(getattr(T, id_name) == getattr(model, id_name))).first():
             self.session.add(model)

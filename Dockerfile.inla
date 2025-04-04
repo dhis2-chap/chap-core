@@ -23,6 +23,7 @@ RUN pyenv install 3.11.3
 
 WORKDIR /app
 COPY ./chap_core ./chap_core
+COPY ./config ./config
 COPY ./pyproject.toml ./pyproject.toml
 COPY ./README.md ./README.md
 
