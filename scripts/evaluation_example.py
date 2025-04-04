@@ -2,7 +2,7 @@ from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.data.datasets import ISIMIP_dengue_harmonized
 from chap_core.predictor.model_registry import registry
-model = registry.get_model('chap_ewars_monthly')
+model = registry.get_model('naive_model')
 dataset = ISIMIP_dengue_harmonized['vietnam']
 if __name__ == '__main__':
     evaluate_model(model,

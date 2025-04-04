@@ -73,6 +73,7 @@ if False:
             geometry=ee.Geometry(geometry)
         )
         break
+
 if __name__ == '__main__':
     base_df = OpenDengueDataSet().as_dataset('BRAZIL', spatial_resolution='Admin2', temporal_resolution='Week')
     polygons = get_area_polygons('brazil', base_df['location'].unique(), 2)

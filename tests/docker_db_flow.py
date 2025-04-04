@@ -151,5 +151,6 @@ if __name__ == "__main__":
         hostname = 'localhost'
     chap_url = "http://%s:8000" % hostname
     suite = IntegrationTest(chap_url, False)
+    suite.prediction_flow()
     suite.evaluation_flow()
 

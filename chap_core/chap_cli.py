@@ -51,10 +51,10 @@ def harmonize(input_filename: Path, output_filename: Path, point_buffer : float 
     output_filename: Path
         The path to the output csv-file with climate data and health data harmonized
     point_buffer : float (optional)
-        If the input file contains facilities/point geometries, use this to create a buffer area around each point. 
+        If the input file contains facilities/point geometries, use this to create a buffer area around each point.
         Specified as a numeric distance given in the same coordinate system units as the point geometry.
         For latitude-longitude geometries, a distance of 0.1 is approximately 10 km at the equator but increases towards
-        the poles. 
+        the poles.
     """
 
     logger.info(f"Converting {input_filename} to {output_filename}")
@@ -68,7 +68,7 @@ def harmonize(input_filename: Path, output_filename: Path, point_buffer : float 
     # inspect data
     stats = inspect_feature_collection(request_data.orgUnitsGeoJson)
     logger.info(f"Input feature stats:\n{json.dumps(stats, indent=4)}")
-    
+
     # convert points to polygons by adding a buffer
     request_data.orgUnitsGeoJson = buffer_point_features(request_data.orgUnitsGeoJson, point_buffer)
 
@@ -79,7 +79,7 @@ def harmonize(input_filename: Path, output_filename: Path, point_buffer : float 
 
     # harmonize
     dataset = dataset_from_request_v1(request_data, usecwd_for_credentials=True)
-    
+
     # write to csv
     dataset.to_csv(output_filename)
 
