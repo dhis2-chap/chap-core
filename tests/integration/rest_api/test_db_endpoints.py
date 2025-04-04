@@ -18,6 +18,7 @@ from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCreate
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 import logging
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 client = TestClient(app)
@@ -66,7 +67,7 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
     assert data.timestamp > start_timestamp
 
 
-@pytest.mark.slow
+#@pytest.mark.slow
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons')
@@ -80,8 +81,13 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     BackTestFull.model_validate(response.json())
     response = client.get(f'/v1/analytics/evaluation-entry',
                           params={'backtestId': db_id, 'quantiles': [0.1, 0.5, 0.9]})
+
     assert response.status_code == 200, response.json()
     evaluation_entries = response.json()
+    actual_cases = client.get(f'/v1/analytics/actualCases/{db_id}')
+    assert actual_cases.status_code == 200, actual_cases.json()
+    actual_cases = actual_cases.json()
+
 
     for entry in evaluation_entries:
         assert 'splitPeriod' in entry, f'splitPeriod not in entry: {entry.keys()}'
@@ -209,7 +215,8 @@ def test_backtest_flow_from_request(celery_session_worker,
     assert data['created'] is not None
 
 
-def _make_dataset(make_dataset_request, wanted_field_names =['rainfall','disease_cases', 'population', 'mean_temperature']):
+def _make_dataset(make_dataset_request,
+                  wanted_field_names=['rainfall', 'disease_cases', 'population', 'mean_temperature']):
     data = make_dataset_request.model_dump_json()
     response = client.post("/v1/analytics/make-dataset",
                            data=data)

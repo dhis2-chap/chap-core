@@ -154,7 +154,7 @@ def get_prediction_entries(prediction_id: Annotated[int, Path(alias="predictionI
     raise HTTPException(status_code=501, detail="Not implemented")
 
 
-@router.get("/actual-cases/{backtestId}", response_model=DataList)
+@router.get("/actualCases/{backtestId}", response_model=DataList)
 async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")],
                            session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
@@ -163,8 +163,9 @@ async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")]
     logger.info(f"Data: {data}")
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
-    data_list = [DataElement(pe=observation.period, ou=observation.org_unit, value=float(observation.value) if not (
-            np.isnan(observation.value) or observation.value is None) else None) for
+    data_list = [
+        DataElement(pe=observation.period, ou=observation.org_unit, value=float(observation.value) if not (
+            observation.value is None or np.isnan(observation.value) or observation.value is None) else None) for
                  observation in data.observations if observation.feature_name == "disease_cases"]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(
