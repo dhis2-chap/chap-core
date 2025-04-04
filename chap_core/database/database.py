@@ -141,8 +141,8 @@ def create_db_and_tables():
         n = 0
         while n < 30:
             try:
-                if new_database:
-                    SQLModel.metadata.drop_all(engine)
+                #if new_database:
+                #    SQLModel.metadata.drop_all(engine)
                 SQLModel.metadata.create_all(engine)
                 break
             except sqlalchemy.exc.OperationalError as e:
