@@ -39,6 +39,7 @@ class IntegrationTest:
 
     def ensure_up(self):
         response = None
+        logging.info("Ensuring %s is up" % self._chap_url)
         for _ in range(20):
             try:
                 response = requests.get(self._chap_url + "/v1/health")

@@ -137,7 +137,32 @@ def seed_with_session_wrapper(session_wrapper):
             source_url="https://github.com/sandvelab/monthly_ar_model@cadd785872624b4bcd839a39f5e7020c25254c31",
             target=target_type
         ),
+    ] 
+    """
+        ModelSpec(
+            name='madagascar_arima',
+            parameters={},
+            covariates=base_covariates,
+            period=PeriodType.month,
+            description="The Madagascar ARIMA model (with a wrapper), see https://github.com/dhis2-chap/Madagascar_ARIMA",
+            author="Model by Michelle Evans, adapted by CHAP",
+            organization="Pivot",
+            source_url="https://github.com/dhis2-chap/Madagascar_ARIMA@a732bb4c88f36df8c8a07b11110b0db01170f8a0",
+            target=target_type 
+        ),
+        ModelSpec(
+            name='Epidemiar',
+            parameters={},
+            covariates=base_covariates,
+            period=PeriodType.week,
+            description="The Epidemiar model (adopted to fit with Chap, see https://github.com/dhis2-chap/epidemiar_example_model)",
+            author="EcoGRAPH, adapted by CHAP",
+            organization='EcoGRAPH',
+            source_url="https://github.com/dhis2-chap/epidemiar_example_model@bc81de986cc139f90377005cb3b159307d1a359a",
+            target=target_type
+        ),
     ]
+    """
     for feature_type in seeded_feature_types:
         session_wrapper.create_if_not_exists(feature_type, id_name='name')
     for model in seeded_models:

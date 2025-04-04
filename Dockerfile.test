@@ -10,6 +10,7 @@ RUN apt-get upgrade -y
 RUN apt-get install -y git
 
 COPY ./chap_core ./chap_core
+COPY ./config ./config
 COPY ./pyproject.toml .
 COPY ./README.md .
 COPY ./external_models ./external_models

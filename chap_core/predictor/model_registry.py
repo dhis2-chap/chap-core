@@ -1,4 +1,7 @@
+from pathlib import Path
 from typing import Literal
+
+import yaml
 
 from .naive_estimator import NaiveEstimator
 from .published_models import model_dict
@@ -38,6 +41,28 @@ class ModelRegistry:
 
     def list_specifications(self):
         return self._model_specs
+
+    @classmethod
+    def from_model_templates_config_file(cls, yaml_config_file: Path):
+        """Reads a list of models by reading model teamplates from a local config file.
+        Each line in the file should have key: values corresponding
+        to model name (id) and github url.
+        This method converts each model template to a model by assuming default choices to the template.
+        """
+        with open(yaml_config_file, "r") as file:
+            data = yaml.safe_load(file)
+        model_dict = {}
+        for model_name, github_url in data.items():
+            model_dict[model_name] = ModelSpec(
+                name=model_name,
+                parameters={},
+                features=[],
+                period=PeriodType.any,
+                description="Model from config file",
+                author="CHAP",
+                github_link=github_url
+            )
+        return cls(model_dict)
 
 
 registry = ModelRegistry(model_dict)
