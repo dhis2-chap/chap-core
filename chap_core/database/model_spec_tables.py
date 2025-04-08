@@ -79,7 +79,11 @@ def seed_with_session_wrapper(session_wrapper):
                     description='Population'),
         target_type]
 
-    base_covariates = [seeded_feature_types[0], seeded_feature_types[1], seeded_feature_types[2]]
+    db_models = []
+    for feature_type in seeded_feature_types:
+        db_models.append(session_wrapper.create_if_not_exists(feature_type, id_name='name'))
+
+    base_covariates = [db_models[0], db_models[1], db_models[2]]
 
     seeded_models = [
         ModelSpec(
@@ -163,8 +167,7 @@ def seed_with_session_wrapper(session_wrapper):
         ),
     ]
     """
-    for feature_type in seeded_feature_types:
-        session_wrapper.create_if_not_exists(feature_type, id_name='name')
+
     for model in seeded_models:
-        session_wrapper.create_if_not_exists(model, id_name='id')
+        session_wrapper.create_if_not_exists(model, id_name='name')
 
