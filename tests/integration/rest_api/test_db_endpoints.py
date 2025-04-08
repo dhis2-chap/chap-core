@@ -148,7 +148,7 @@ def make_prediction_request(make_dataset_request):
 
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
     data = make_prediction_request.model_dump_json()
-    response = client.post("/v1/analytics/prediction",
+    response = client.post("/v1/analytics/make-prediction",
                            data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
@@ -263,7 +263,7 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     request = create_make_data_request(example_polygons, fetch_request, provided_features)
     request = MakePredictionRequest(model_id=model.name, **request.dict())
     data = request.model_dump_json()
-    response = client.post("/v1/analytics/prediction",
+    response = client.post("/v1/analytics/make-prediction",
                            data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])

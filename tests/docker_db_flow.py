@@ -80,7 +80,7 @@ class IntegrationTest:
         return models
 
     def make_prediction(self, data):
-        make_prediction_url = self._chap_url + "/v1/analytics/prediction"
+        make_prediction_url = self._chap_url + "/v1/analytics/make-prediction"
         response = self._post(make_prediction_url, json=data)
         job_id = response['id']
         db_id = self.wait_for_db_id(job_id)

@@ -7,7 +7,7 @@ from chap_core.rest_api_src.worker_functions import predict_pipeline_from_health
 import logging
 from chap_core.util import redis_available
 
-from chap_core.rest_api_src.celery_tasks import CeleryPool, JOB_NAME_KW
+from chap_core.rest_api_src.celery_tasks import CeleryPool, JOB_TYPE_KW, JOB_NAME_KW
 
 def f(x, y):
     return x + y
@@ -98,10 +98,10 @@ def time_consuming_function():
                     include=['chap_core.rest_api_src.celery_tasks'])
 def test_list_jobs(celery_session_worker, big_request_json, test_config):
     pool = CeleryPool()
-    job = pool.queue(time_consuming_function, **{JOB_NAME_KW: 'time_consuming_function'})
+    job = pool.queue(time_consuming_function, **{JOB_TYPE_KW: 'time_consuming_function', JOB_NAME_KW: 'test_job_name'})
     time.sleep(2)
     jobs = pool.list_jobs()
     assert len(jobs) >= 1
     assert jobs[0].id == job.id
-    assert jobs[0].description.startswith("time_consuming_function")
     assert jobs[0].type == 'time_consuming_function'
+    assert jobs[0].name == 'test_job_name'
