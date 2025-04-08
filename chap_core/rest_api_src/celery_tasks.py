@@ -98,7 +98,6 @@ class TrackedTask(Task):
         logger.addHandler(logging.StreamHandler())
 
         try:
-            print('trying')
             # Mark as started when the task is actually executing
             r.hmset(f"job_meta:{task_id}", {
                 "status": "STARTED",
@@ -108,7 +107,6 @@ class TrackedTask(Task):
             return super().__call__(*args, **kwargs)
         
         finally:
-            print('finally')
             # Close the file handler and restore old handlers after the task is done
             file_handler.close()
             logger.handlers = old_handlers
@@ -227,9 +225,13 @@ class CeleryJob(Generic[ReturnType]):
         return str(self._result.traceback or "")
 
     def get_logs(self) -> str:
-        log_file = Path("logs") / f"task_{self._job.id}.txt"
+        log_file = Path("app/logs") / f"task_{self._job.id}.txt" # TODO: not sure why have to specify app/logs... 
         if log_file.exists():
-            return log_file.read_text()
+            logs = log_file.read_text()
+            job_meta = get_job_meta(self.id)
+            if job_meta['status'] == 'FAILURE':
+                logs += '\n' + job_meta['traceback']
+            return logs
         return None
 
 
@@ -295,3 +297,10 @@ class CeleryPool(Generic[ReturnType]):
             )
             for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900,1,1).isoformat()), reverse=True)
         ]
+
+def get_job_meta(task_id: str):
+    """Fetch Redis metadata for a job by task ID."""
+    key = f"job_meta:{task_id}"
+    if not r.exists(key):
+        return None
+    return r.hgetall(key)
