@@ -92,12 +92,14 @@ class MakeBacktestRequest(DBModel):
     name: str
     model_id: str
     dataset_id: int
-
+    n_periods: int
+    n_splits: int
+    stride: int
 
 @router.post("/create-backtest", response_model=JobResponse)
 async def create_backtest(request: MakeBacktestRequest, database_url: str = Depends(get_database_url)):
     job = worker.queue_db(wf.run_backtest,
-                            BackTestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id), 12, 2, 1, database_url=database_url, 
+                            BackTestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id), request.n_periods, request.n_splits, request.stride, database_url=database_url, 
                             **{JOB_TYPE_KW: 'create_backtest', JOB_NAME_KW: request.name})
 
     return JobResponse(id=job.id)
