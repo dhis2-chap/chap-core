@@ -37,12 +37,12 @@ class ModelFeatureLink(DBModel, table=True):
 # ModelTags = Literal["bayesian", "deep learning"]
 
 class ModelSpecBase(DBModel):
-    name: str
+    name: str  # TODO: add nameLong field to contain human readable version, so that description field can contain longer text
     supported_period_types: PeriodType = PeriodType.any
     description: str = "No Description yet"
     author: str = "Unknown Author"
     organization: Optional[str] = None
-    author_logo_url: Optional[str] = None
+    author_logo_url: Optional[str] = None  # TODO: rename to organization_logo_url 
     source_url: Optional[str] = None
     contact_email: Optional[str] = None
     citation_info: Optional[str] = None
@@ -87,59 +87,74 @@ def seed_with_session_wrapper(session_wrapper):
 
     seeded_models = [
         ModelSpec(
-            name="chap_ewars_monthly",
-            parameters={},
-            covariates=base_covariates,
-            period=PeriodType.month,
-            description="Monthly EWARS model",
-            author="CHAP team",
-            organization="CHAP",
-            source_url="https://github.com/sandvelab/chap_auto_ewars@58d56f86641f4c7b09bbb635afd61740deff0640",
-            target=target_type
-        ),
-        ModelSpec(
             name="naive_model",
             parameters={},
+            target=target_type,
             covariates=base_covariates,
             period=PeriodType.month,
             description="Naive model used for testing",
             author="CHAP team",
-            organization="CHAP",
-            source_url="...",
-            target=target_type
+            organization="HISP Centre, University of Oslo",
+            author_logo_url="https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png",
+            source_url="NA",
+            contact_email="knut.rand@dhis2.org",
+            citation_info='Climate Health Analytics Platform. 2025. "Naive model used for testing". HISP Centre, University of Oslo. https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html',
         ),
         ModelSpec(
             name="chap_ewars_weekly",
             parameters={},
+            target=target_type,
             covariates=base_covariates,
             period=PeriodType.week,
-            description="Weekly EWARS model",
+            description="Weekly CHAP-EWARS model",
             author="CHAP team",
-            organization="CHAP",
+            organization="HISP Centre, University of Oslo",
+            author_logo_url="https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png",
             source_url="https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6",
-            target=target_type
+            contact_email="knut.rand@dhis2.org",
+            citation_info='Climate Health Analytics Platform. 2025. "Weekly CHAP-EWARS model". HISP Centre, University of Oslo. https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html',
+        ),
+        ModelSpec(
+            name="chap_ewars_monthly",
+            parameters={},
+            target=target_type,
+            covariates=base_covariates,
+            period=PeriodType.month,
+            description="Monthly CHAP-EWARS model",
+            author="CHAP team",
+            organization="HISP Centre, University of Oslo",
+            author_logo_url="https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png",
+            source_url="https://github.com/sandvelab/chap_auto_ewars@58d56f86641f4c7b09bbb635afd61740deff0640",
+            contact_email="knut.rand@dhis2.org",
+            citation_info='Climate Health Analytics Platform. 2025. "Monthly CHAP-EWARS model". HISP Centre, University of Oslo. https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html',
         ),
         ModelSpec(
             name="auto_regressive_weekly",
             parameters={},
+            target=target_type,
             covariates=base_covariates,
             period=PeriodType.week,
             description="Weekly Deep Auto Regressive model",
             author="Knut Rand",
-            organzation="UiO",
+            organzation="HISP Centre, University of Oslo",
+            author_logo_url="https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png",
             source_url="https://github.com/knutdrand/weekly_ar_model@36a537dac138af428a4167b2a89eac7dafd5d762",
-            target=target_type
+            contact_email="knut.rand@dhis2.org",
+            citation_info='Rand, Knut. 2025. "Weekly Deep Auto Regressive model". HISP Centre, University of Oslo. https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html',
         ),
         ModelSpec(
             name="auto_regressive_monthly",
             parameters={},
+            target=target_type,
             covariates=base_covariates,
             period=PeriodType.month,
             description="Monthly Deep Auto Regressive model",
             author="Knut Rand",
-            organzation="UiO",
+            organzation="HISP Centre, University of Oslo",
+            author_logo_url="https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png",
             source_url="https://github.com/sandvelab/monthly_ar_model@cadd785872624b4bcd839a39f5e7020c25254c31",
-            target=target_type
+            contact_email="knut.rand@dhis2.org",
+            citation_info='Rand, Knut. 2025. "Monthly Deep Auto Regressive model". HISP Centre, University of Oslo. https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html',
         ),
     ] 
     """
