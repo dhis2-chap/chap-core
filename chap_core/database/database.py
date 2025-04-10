@@ -135,28 +135,19 @@ class SessionWrapper:
 
 def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
-    new_database = True
     if engine is not None:
         logger.info("Engin set. Creating tables")
         n = 0
         while n < 30:
             try:
-                #if new_database:
-                #    SQLModel.metadata.drop_all(engine)
                 SQLModel.metadata.create_all(engine)
                 break
             except sqlalchemy.exc.OperationalError as e:
                 logger.error(f"Failed to create tables: {e}. Trying again")
                 n += 1
                 time.sleep(1)
-        if new_database:
-            with SessionWrapper(engine) as session:
-                seed_with_session_wrapper(session)
-            # seeded_feature_types, seeded_models = get_seeded_objects()
-            # for feature_type in seeded_feature_types:
-            #     session.create_if_not_exists(feature_type, id_name='name')
-            # for model in seeded_models:
-            #     session.create_if_not_exists(model, id_name='id')
+        with SessionWrapper(engine) as session:
+            seed_with_session_wrapper(session)
     else:
         logger.warning("Engine not set. Tables not created")
 

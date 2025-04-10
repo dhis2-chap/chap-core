@@ -96,11 +96,13 @@ class MakeBacktestRequest(DBModel):
     n_splits: int
     stride: int
 
+
 @router.post("/create-backtest", response_model=JobResponse)
 async def create_backtest(request: MakeBacktestRequest, database_url: str = Depends(get_database_url)):
     job = worker.queue_db(wf.run_backtest,
-                            BackTestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id), request.n_periods, request.n_splits, request.stride, database_url=database_url, 
-                            **{JOB_TYPE_KW: 'create_backtest', JOB_NAME_KW: request.name})
+                          BackTestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
+                          request.n_periods, request.n_splits, request.stride, database_url=database_url,
+                          **{JOB_TYPE_KW: 'create_backtest', JOB_NAME_KW: request.name})
 
     return JobResponse(id=job.id)
 
@@ -166,8 +168,8 @@ async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")]
         raise HTTPException(status_code=404, detail="BackTest not found")
     data_list = [
         DataElement(pe=observation.period, ou=observation.org_unit, value=float(observation.value) if not (
-            observation.value is None or np.isnan(observation.value) or observation.value is None) else None) for
-                 observation in data.observations if observation.feature_name == "disease_cases"]
+                observation.value is None or np.isnan(observation.value) or observation.value is None) else None) for
+        observation in data.observations if observation.feature_name == "disease_cases"]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(
         featureId="disease_cases",
