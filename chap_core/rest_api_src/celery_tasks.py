@@ -1,13 +1,12 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Generic, List
+from typing import Callable, Generic
 import logging
 from celery import Celery, shared_task, Task
 from celery.result import AsyncResult
 from redis import Redis
 from dotenv import find_dotenv, load_dotenv
-import time
 import json
 
 import celery
@@ -15,7 +14,6 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine
 
 from ..database.database import SessionWrapper
-from ..database.tables import FailedJob
 from ..worker.interface import ReturnType
 from celery.utils.log import get_task_logger
 
