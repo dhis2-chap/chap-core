@@ -21,7 +21,7 @@ def run_backtest(info: BackTestCreate,
                  stride: int,
                  session: SessionWrapper):
     dataset = session.get_dataset(info.dataset_id, FullData)
-    estimator = registry.get_model(info.model_id, ignore_env=False)
+    estimator = registry.get_model(info.model_id, ignore_env=info.model_id.startswith('chap_ewars'))
     predictions_list = _backtest(estimator,
                                  dataset,
                                  prediction_length=n_periods,
