@@ -61,6 +61,7 @@ def make_dataset(request: DatasetMakeRequest,
                           request.data_to_be_fetched,
                           provided_data.model_dump(),
                           request.name,
+                          request.type,
                           database_url=database_url,
                           worker_config=worker_settings,
                           **{JOB_TYPE_KW: 'create_dataset', JOB_NAME_KW: request.name})

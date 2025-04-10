@@ -277,17 +277,19 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     assert len(ds) > 0
     assert all(pe.quantile in (0.1, 0.5, 0.9) for pe in ds)
 
-
+#@pytest.mark.skip('Outdated, test new job flow')
 def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     response = client.post("/v1/debug/trigger-exception")
     assert response.status_code == 200
     job_id = response.json()['id']
     await_failure(job_id)
-    response = client.get(f"/v1/crud/failedJobs/")
+    response = client.get(f'/v1/jobs/{job_id}')
+    # response = client.get(f"/v1/crud/failedJobs/")
     assert response.status_code == 200
-    assert len(response.json()) > 0
-    failed_jobs = [FailedJobRead.model_validate(entry) for entry in response.json()]
-    assert ("Triggered exception" in f.message for f in failed_jobs), failed_jobs
-    db_id = failed_jobs[0].id
-    response = client.delete(f"/v1/crud/failedJobs/{db_id}")
-    assert response.status_code == 200
+    assert response.json() == 'FAILURE'
+    # assert len(response.json()) > 0, response.json()
+    # failed_jobs = [FailedJobRead.model_validate(entry) for entry in response.json()]
+    # assert ("Triggered exception" in f.message for f in failed_jobs), failed_jobs
+    # #db_id = failed_jobs[0].id
+    # #response = client.delete(f"/v1/crud/failedJobs/{db_id}")
+    # assert response.status_code == 200

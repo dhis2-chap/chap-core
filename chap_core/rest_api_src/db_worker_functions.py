@@ -60,6 +60,7 @@ def harmonize_and_add_dataset(
         data_to_be_fetched: list[FetchRequest],
         health_dataset: InMemoryDataSet,
         name: str,
+        ds_type: str,
         session: SessionWrapper,
         worker_config=WorkerConfig()) -> FullData:
     provided_dataclass = create_tsdataclass(provided_field_names)
@@ -69,7 +70,7 @@ def harmonize_and_add_dataset(
                                             fetch_requests=data_to_be_fetched,
                                             usecwd_for_credentials=False,
                                             worker_config=worker_config)
-    db_id = session.add_dataset(name, full_dataset, polygons=health_dataset.polygons.model_dump_json())
+    db_id = session.add_dataset(name, full_dataset, polygons=health_dataset.polygons.model_dump_json(), dataset_type=ds_type)
     return db_id
 
 
@@ -90,6 +91,7 @@ def predict_pipeline_from_composite_dataset(provided_field_names: list[str],
                                             session: SessionWrapper,
                                             worker_config=WorkerConfig()) -> int:
     dataset_id = harmonize_and_add_dataset(provided_field_names, data_to_be_fetched, health_dataset, name,
+                                           'prediction',
                                            session,
                                            worker_config)
     return run_prediction(model_id, dataset_id, 3, name, metadata, session)

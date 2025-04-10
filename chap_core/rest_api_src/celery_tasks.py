@@ -36,7 +36,8 @@ class JobDescription(BaseModel):
 
 def read_environment_variables():
     load_dotenv(find_dotenv())
-    host = os.getenv("CELERY_BROKER", "redis://localhost:6379")
+    host = os.getenv("CELERY_BROKER",
+                     "redis://localhost:6379")
     return host
 
 
@@ -60,7 +61,7 @@ app.conf.update(
 
 
 # Setup Redis connection (for job metadata)
-redis_url = 'redis' 
+redis_url = 'redis' if 'localhost' not in url else 'localhost'
 r = Redis(host=redis_url, port=6379, db=2, decode_responses=True) # TODO: how to set this better?
 
 
