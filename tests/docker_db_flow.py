@@ -104,7 +104,8 @@ class IntegrationTest:
         assert 'naive_model' in {model['name'] for model in model_list}
         data = make_dataset_request()
         dataset_id = self.make_dataset(data)
-        result = self.evaluate_model(dataset_id, 'naive_model')
+        #result = self.evaluate_model(dataset_id, 'naive_model')
+        result = self.evaluate_model(dataset_id, 'auto_regressive_monthly')
         print(result)
 
     def make_dataset(self, data):

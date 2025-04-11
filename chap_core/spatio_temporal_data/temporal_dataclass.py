@@ -1,3 +1,4 @@
+import logging
 import pickle
 from pathlib import Path
 from typing import Generic, Iterable, Tuple, Type, Callable, Optional
@@ -19,6 +20,8 @@ from ..time_period import PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp, clean_timestring
 import dataclasses
 from typing import TypeVar
+
+logger = logging.getLogger(__name__)
 
 FeaturesT = TypeVar("FeaturesT")
 TemporalIndexType = slice
@@ -145,10 +148,11 @@ class DataSet(Generic[FeaturesT]):
         data_dict = {loc: dataclass.from_dict(val) for loc, val in data['data_dict'].items()}
         return cls(data_dict, data['polygons'] and FeatureCollectionModel(**data['polygons']))
 
-    def set_polygons(self, polygons: FeatureCollectionModel):
+    def set_polygons(self, polygons: FeatureCollectionModel, ignore_validation=False):
         polygon_ids = {feature.id for feature in polygons.features}
-        for location in self.locations():
-            assert location in polygon_ids, f"Found a location in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids} "
+        if not ignore_validation:
+            for location in self.locations():
+                assert location in polygon_ids, f"Found a location {location} (type: {type(location)}) in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids}.  "
         self._polygons = polygons
 
     def get_parent_dict(self) -> Optional[dict[str, str]]:
@@ -242,10 +246,14 @@ class DataSet(Generic[FeaturesT]):
         """Join the pandas frame for all locations with locations as column"""
         parent_dict = self.get_parent_dict()
 
-        tables = [
-            self._add_location_info_to_dataframe(data.to_pandas(), location, parent_dict) for location, data in
-            self._data_dict.items()
-        ]
+        try:
+            tables = [
+                self._add_location_info_to_dataframe(data.to_pandas(), location, parent_dict) for location, data in
+                self._data_dict.items()
+            ]
+        except KeyError:
+            logger.error(f"KeyError while looking up {self._data_dict.keys()} in {parent_dict}")
+            raise
         return pd.concat(tables)
 
     def interpolate(self, field_names=None):

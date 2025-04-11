@@ -206,11 +206,21 @@ class Polygons:
         return {feature.id: feature.properties.get('parent', '-') if feature.properties else '-'
                 for feature in self._polygons.features}
 
+    def filter_locations(self, locations: list[str]):
+        """
+        Filter the polygons to only include the specified locations
+        """
+        filtered = [feature for feature in self._polygons.features if feature.id in locations]
+        return Polygons(DFeatureCollectionModel(features=filtered))
 
     @classmethod
     def _add_ids(cls, features: DFeatureCollectionModel, id_property: str):
         for feature in features.features:
-            feature.id = feature.id or unidecode(feature.properties[id_property])
+            try:
+                feature.id = feature.id or unidecode(str(feature.properties[id_property]))
+            except AttributeError:
+                logging.error(f"{feature.properties[id_property]}")
+                raise
         return features
     
     @classmethod
