@@ -281,7 +281,6 @@ class CeleryPool(Generic[ReturnType]):
             meta = r.hgetall(key)
             meta["task_id"] = task_id
             if status is None or meta.get("status") == status:
-                print('-->', meta)
                 jobs.append(meta)
 
         return [
