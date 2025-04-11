@@ -18,6 +18,7 @@ from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCreate
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 import logging
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 client = TestClient(app)
@@ -66,7 +67,7 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
     assert data.timestamp > start_timestamp
 
 
-@pytest.mark.slow
+#@pytest.mark.slow
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons')
@@ -80,8 +81,13 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     BackTestFull.model_validate(response.json())
     response = client.get(f'/v1/analytics/evaluation-entry',
                           params={'backtestId': db_id, 'quantiles': [0.1, 0.5, 0.9]})
+
     assert response.status_code == 200, response.json()
     evaluation_entries = response.json()
+    actual_cases = client.get(f'/v1/analytics/actualCases/{db_id}')
+    assert actual_cases.status_code == 200, actual_cases.json()
+    actual_cases = actual_cases.json()
+
 
     for entry in evaluation_entries:
         assert 'splitPeriod' in entry, f'splitPeriod not in entry: {entry.keys()}'
@@ -142,7 +148,7 @@ def make_prediction_request(make_dataset_request):
 
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
     data = make_prediction_request.model_dump_json()
-    response = client.post("/v1/analytics/prediction",
+    response = client.post("/v1/analytics/make-prediction",
                            data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
@@ -209,7 +215,8 @@ def test_backtest_flow_from_request(celery_session_worker,
     assert data['created'] is not None
 
 
-def _make_dataset(make_dataset_request, wanted_field_names =['rainfall','disease_cases', 'population', 'mean_temperature']):
+def _make_dataset(make_dataset_request,
+                  wanted_field_names=['rainfall', 'disease_cases', 'population', 'mean_temperature']):
     data = make_dataset_request.model_dump_json()
     response = client.post("/v1/analytics/make-dataset",
                            data=data)
@@ -256,7 +263,7 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     request = create_make_data_request(example_polygons, fetch_request, provided_features)
     request = MakePredictionRequest(model_id=model.name, **request.dict())
     data = request.model_dump_json()
-    response = client.post("/v1/analytics/prediction",
+    response = client.post("/v1/analytics/make-prediction",
                            data=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()['id'])
@@ -270,17 +277,19 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     assert len(ds) > 0
     assert all(pe.quantile in (0.1, 0.5, 0.9) for pe in ds)
 
-
+#@pytest.mark.skip('Outdated, test new job flow')
 def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     response = client.post("/v1/debug/trigger-exception")
     assert response.status_code == 200
     job_id = response.json()['id']
     await_failure(job_id)
-    response = client.get(f"/v1/crud/failedJobs/")
+    response = client.get(f'/v1/jobs/{job_id}')
+    # response = client.get(f"/v1/crud/failedJobs/")
     assert response.status_code == 200
-    assert len(response.json()) > 0
-    failed_jobs = [FailedJobRead.model_validate(entry) for entry in response.json()]
-    assert ("Triggered exception" in f.message for f in failed_jobs), failed_jobs
-    db_id = failed_jobs[0].id
-    response = client.delete(f"/v1/crud/failedJobs/{db_id}")
-    assert response.status_code == 200
+    assert response.json() == 'FAILURE'
+    # assert len(response.json()) > 0, response.json()
+    # failed_jobs = [FailedJobRead.model_validate(entry) for entry in response.json()]
+    # assert ("Triggered exception" in f.message for f in failed_jobs), failed_jobs
+    # #db_id = failed_jobs[0].id
+    # #response = client.delete(f"/v1/crud/failedJobs/{db_id}")
+    # assert response.status_code == 200

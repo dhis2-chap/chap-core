@@ -217,7 +217,7 @@ def harmonize_health_dataset(dataset, usecwd_for_credentials,
         polygons = simplify_topology(Polygons(dataset.polygons)).feature_collection()
         climate_data = gee_client.get_historical_era5(polygons.model_dump(), periodes=period_range, fetch_requests=fetch_requests)
 
-    dataclass = create_tsdataclass(dataset.field_names()+[d.feature_name for d in fetch_requests])
+    dataclass = create_tsdataclass(dataset.field_names() + [d.feature_name for d in fetch_requests])
     train_data = dataset.merge(climate_data, dataclass)
     return train_data
 

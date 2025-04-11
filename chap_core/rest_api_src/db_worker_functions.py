@@ -21,7 +21,7 @@ def run_backtest(info: BackTestCreate,
                  stride: int,
                  session: SessionWrapper):
     dataset = session.get_dataset(info.dataset_id, FullData)
-    estimator = registry.get_model(info.model_id, ignore_env=True)
+    estimator = registry.get_model(info.model_id, ignore_env=info.model_id.startswith('chap_ewars'))
     predictions_list = _backtest(estimator,
                                  dataset,
                                  prediction_length=n_periods,
@@ -36,7 +36,7 @@ def run_backtest(info: BackTestCreate,
 
 def run_prediction(estimator_id: registry.model_type, dataset_id: str, n_periods: int, name: str, metadata: dict, session: SessionWrapper):
     dataset = session.get_dataset(dataset_id, FullData)
-    estimator = registry.get_model(estimator_id, ignore_env=True)
+    estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith('chap_ewars'))
     predictions = forecast_ahead(estimator, dataset, n_periods)
     db_id = session.add_predictions(predictions, dataset_id, estimator_id, name, metadata)
     assert db_id is not None
@@ -60,6 +60,7 @@ def harmonize_and_add_dataset(
         data_to_be_fetched: list[FetchRequest],
         health_dataset: InMemoryDataSet,
         name: str,
+        ds_type: str,
         session: SessionWrapper,
         worker_config=WorkerConfig()) -> FullData:
     provided_dataclass = create_tsdataclass(provided_field_names)
@@ -69,7 +70,7 @@ def harmonize_and_add_dataset(
                                             fetch_requests=data_to_be_fetched,
                                             usecwd_for_credentials=False,
                                             worker_config=worker_config)
-    db_id = session.add_dataset(name, full_dataset, polygons=health_dataset.polygons.model_dump_json())
+    db_id = session.add_dataset(name, full_dataset, polygons=health_dataset.polygons.model_dump_json(), dataset_type=ds_type)
     return db_id
 
 
@@ -90,6 +91,7 @@ def predict_pipeline_from_composite_dataset(provided_field_names: list[str],
                                             session: SessionWrapper,
                                             worker_config=WorkerConfig()) -> int:
     dataset_id = harmonize_and_add_dataset(provided_field_names, data_to_be_fetched, health_dataset, name,
+                                           'prediction',
                                            session,
                                            worker_config)
     return run_prediction(model_id, dataset_id, 3, name, metadata, session)

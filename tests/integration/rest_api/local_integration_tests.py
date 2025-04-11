@@ -9,7 +9,7 @@ client = TestClient(app)
 
 def test_make_prediction_request(celery_session_worker, clean_engine, dependency_overrides, local_data_path):
     request_data = open(local_data_path / 'predict_chap_request_data_2025-03-12T16_33_00.339Z.json', 'r').read()
-    response = client.post("/v1/analytics/prediction", data=request_data)
+    response = client.post("/v1/analytics/make-prediction", data=request_data)
     assert response.status_code == 200
     db_id = await_result_id(response.json()['id'], timeout=120)
     response = client.get(f"/v1/analytics/prediction-entry/{db_id}", params={'quantiles': [0.1, 0.5, 0.9]})

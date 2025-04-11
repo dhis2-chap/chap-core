@@ -80,7 +80,7 @@ class IntegrationTest:
         return models
 
     def make_prediction(self, data):
-        make_prediction_url = self._chap_url + "/v1/analytics/prediction"
+        make_prediction_url = self._chap_url + "/v1/analytics/make-prediction"
         response = self._post(make_prediction_url, json=data)
         job_id = response['id']
         db_id = self.wait_for_db_id(job_id)
@@ -104,9 +104,12 @@ class IntegrationTest:
         assert 'naive_model' in {model['name'] for model in model_list}
         data = make_dataset_request()
         dataset_id = self.make_dataset(data)
-        #result = self.evaluate_model(dataset_id, 'naive_model')
-        result = self.evaluate_model(dataset_id, 'auto_regressive_monthly')
-        print(result)
+        result, backtest_id = self.evaluate_model(dataset_id, 'naive_model')
+        actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
+        result_org_units = {e['orgUnit'] for e in result}
+
+        org_units = {de['ou'] for de in actual_cases['data']}
+        assert result_org_units == org_units, (result_org_units, org_units)
 
     def make_dataset(self, data):
         make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
@@ -129,7 +132,7 @@ class IntegrationTest:
         assert evaluation_result['created'], evaluation_result['created']
         url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
         evaluation_entries = self._get(url_string)
-        return evaluation_entries
+        return evaluation_entries, db_id
 
     def wait_for_db_id(self, job_id):
         for _ in range(60):
@@ -153,5 +156,6 @@ if __name__ == "__main__":
         hostname = 'localhost'
     chap_url = "http://%s:8000" % hostname
     suite = IntegrationTest(chap_url, False)
+    suite.prediction_flow()
     suite.evaluation_flow()
 

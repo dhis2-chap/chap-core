@@ -16,7 +16,7 @@ from chap_core.database.tables import BackTest, Prediction
 from chap_core.database.dataset_tables import DataSet
 import logging
 
-from ...celery_tasks import CeleryPool, JOB_NAME_KW
+from ...celery_tasks import CeleryPool, JOB_TYPE_KW, JOB_NAME_KW
 from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -61,9 +61,10 @@ def make_dataset(request: DatasetMakeRequest,
                           request.data_to_be_fetched,
                           provided_data.model_dump(),
                           request.name,
+                          request.type,
                           database_url=database_url,
                           worker_config=worker_settings,
-                          **{JOB_NAME_KW: 'create_dataset'})
+                          **{JOB_TYPE_KW: 'create_dataset', JOB_NAME_KW: request.name})
     return JobResponse(id=job.id)
 
 
@@ -88,23 +89,26 @@ class MakePredictionRequest(DatasetMakeRequest):
     meta_data: dict = {}
 
 
-class MultiBacktestCreate(DBModel):
-    model_ids: List[str]
+class MakeBacktestRequest(DBModel):
+    name: str
+    model_id: str
     dataset_id: int
+    n_periods: int
+    n_splits: int
+    stride: int
 
 
-@router.post("/create_backtests", response_model=List[JobResponse])
-async def create_backtest(backtests: MultiBacktestCreate, database_url: str = Depends(get_database_url)):
-    job_ids = []
-    for model_id in backtests.model_ids:
-        job = worker.queue_db(wf.run_backtest,
-                              BackTestCreate(dataset_id=backtests.dataset_id, model_id=model_id), 12, 2, 1, database_url=database_url, **{JOB_NAME_KW: 'backtest'})
-        job_ids.append(job.id)
+@router.post("/create-backtest", response_model=JobResponse)
+async def create_backtest(request: MakeBacktestRequest, database_url: str = Depends(get_database_url)):
+    job = worker.queue_db(wf.run_backtest,
+                          BackTestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
+                          request.n_periods, request.n_splits, request.stride, database_url=database_url,
+                          **{JOB_TYPE_KW: 'create_backtest', JOB_NAME_KW: request.name})
 
-    return [JobResponse(id=job_id) for job_id in job_ids]
+    return JobResponse(id=job.id)
 
 
-@router.post('/prediction', response_model=JobResponse)
+@router.post('/make-prediction', response_model=JobResponse)
 async def make_prediction(request: MakePredictionRequest,
                           database_url=Depends(get_database_url),
                           worker_settings=Depends(get_settings)):
@@ -125,7 +129,7 @@ async def make_prediction(request: MakePredictionRequest,
                           request.meta_data if request.meta_data is not None else '',
                           database_url=database_url,
                           worker_config=worker_settings,
-                          **{JOB_NAME_KW: 'prediction'})
+                          **{JOB_TYPE_KW: 'create_prediction', JOB_NAME_KW: request.name})
     return JobResponse(id=job.id)
     # return JobResponse(id=job.id)
     #
@@ -154,7 +158,7 @@ def get_prediction_entries(prediction_id: Annotated[int, Path(alias="predictionI
     raise HTTPException(status_code=501, detail="Not implemented")
 
 
-@router.get("/actual-cases/{backtestId}", response_model=DataList)
+@router.get("/actualCases/{backtestId}", response_model=DataList)
 async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")],
                            session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
@@ -163,9 +167,10 @@ async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")]
     logger.info(f"Data: {data}")
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
-    data_list = [DataElement(pe=observation.period, ou=observation.org_unit, value=float(observation.value) if not (
-            np.isnan(observation.value) or observation.value is None) else None) for
-                 observation in data.observations if observation.feature_name == "disease_cases"]
+    data_list = [
+        DataElement(pe=observation.period, ou=observation.org_unit, value=float(observation.value) if not (
+                observation.value is None or np.isnan(observation.value) or observation.value is None) else None) for
+        observation in data.observations if observation.feature_name == "disease_cases"]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(
         featureId="disease_cases",
