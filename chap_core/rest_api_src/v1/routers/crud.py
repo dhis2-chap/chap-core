@@ -152,6 +152,7 @@ class DatasetCreate(DataSetBase):
 class DataSetRead(DBModel):
     id: int
     name: str
+    type: str
     created: Optional[datetime]
     covariates: List[str]
 
