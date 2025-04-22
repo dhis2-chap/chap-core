@@ -22,9 +22,9 @@ def make_prediction_request(model_name):
 
 
 def make_dataset_request():
-    filename = '/home/knut/Downloads/request_make_dataset.json'
+    #filename = '/home/knut/Downloads/request_make_dataset.json'
     # filename = '/home/knut/Data/ch_data/test_data/make_dataset_request.json'
-    #filename = '../example_data/anonymous_make_dataset_request.json'
+    filename = '../example_data/anonymous_make_dataset_request.json'
     data = json.load(open(filename))
     return data
 
