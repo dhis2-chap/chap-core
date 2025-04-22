@@ -79,19 +79,6 @@ class BackTestMetric(DBModel, table=True):
     backtest: BackTest = Relationship(back_populates="metrics")
 
 
-class FailedJobBase(DBModel):
-    message: str
-    created: datetime.datetime
-
-
-class FailedJobRead(FailedJobBase):
-    id: int
-
-
-class FailedJob(FailedJobRead, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
-
-
 # merge request json/csv -
 # change crud to v2 ?
 # maybe have geometry in table

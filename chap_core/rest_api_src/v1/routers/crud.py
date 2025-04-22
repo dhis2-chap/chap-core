@@ -38,7 +38,7 @@ from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, Prediction, \
-    PredictionRead, PredictionInfo, FailedJobRead, FailedJob
+    PredictionRead, PredictionInfo
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
 from chap_core.database.base_tables import DBModel
@@ -53,6 +53,16 @@ worker = CeleryPool()
 
 
 # TODO camel in paths
+
+
+############
+# backtests
+
+
+@router.get("/backtests", response_model=list[BackTestRead])
+async def get_backtests(session: Session = Depends(get_session)):
+    backtests = session.exec(select(BackTest)).all()
+    return backtests
 
 
 @router_get("/backtests/{backtestId}", response_model=BackTestFull)
@@ -75,15 +85,24 @@ async def create_backtest(backtest: BackTestCreate,
     return JobResponse(id=job.id)
 
 
+@router.delete("/backtests/{backtestId}")
+async def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
+                       session: Session = Depends(get_session)):
+    backtest = session.get(BackTest, backtest_id)
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="BackTest not found")
+    session.delete(backtest)
+    session.commit()
+    return {'message': 'deleted'}
+
+
+# predictions
+
+
 class PredictionCreate(DBModel):
     dataset_id: int
     estimator_id: str
     n_periods: int
-
-
-@router.post("/predictions", response_model=JobResponse)
-async def create_prediction(prediction: PredictionCreate):
-    raise HTTPException(status_code=501, detail="Not implemented")
 
 
 @router.get("/predictions", response_model=list[PredictionInfo])
@@ -101,10 +120,28 @@ async def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId"
     return prediction
 
 
-@router.get("/backtests", response_model=list[BackTestRead])
-async def get_backtests(session: Session = Depends(get_session)):
-    backtests = session.exec(select(BackTest)).all()
-    return backtests
+@router.post("/predictions", response_model=JobResponse)
+async def create_prediction(prediction: PredictionCreate):
+    raise HTTPException(status_code=501, detail="Not implemented")
+
+
+@router.delete("/predictions/{predictionId}")
+async def delete_prediction(prediction_id: Annotated[int, Path(alias="predictionId")],
+                         session: Session = Depends(get_session)):
+    prediction = session.get(Prediction, prediction_id)
+    if prediction is None:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    session.delete(prediction)
+    session.commit()
+    return {'message': 'deleted'}
+
+
+###########
+# datasets
+
+
+class DataBaseResponse(DBModel):
+    id: int
 
 
 class DatasetCreate(DataSetBase):
@@ -112,8 +149,23 @@ class DatasetCreate(DataSetBase):
     geojson: FeatureCollectionModel
 
 
+class DataSetRead(DBModel):
+    id: int
+    name: str
+    type: str
+    created: Optional[datetime]
+    covariates: List[str]
+
+
+@router.get('/datasets', response_model=list[DataSetRead])
+async def get_datasets(session: Session = Depends(get_session)):
+    datasets = session.exec(select(DataSet)).all()
+    return datasets
+
+
 @router.get('/datasets/{datasetId}', response_model=DataSetWithObservations)
-async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], session: Session = Depends(get_session)):
+async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], 
+                      session: Session = Depends(get_session)):
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
     assert len(dataset.observations) > 0
@@ -125,10 +177,6 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], sessi
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
-
-
-class DataBaseResponse(DBModel):
-    id: int
 
 
 @router.post('/datasets')
@@ -154,6 +202,43 @@ async def create_dataset_csv(csv_file: UploadFile = File(...),
     return DataBaseResponse(id=dataset_id)
 
 
+@router.delete('/datasets/{datasetId}')
+async def delete_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], 
+                         session: Session = Depends(get_session)):
+    # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
+    dataset = session.get(DataSet, dataset_id)
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    session.delete(dataset)
+    session.commit()
+    return {'message': 'deleted'}
+
+
+###########
+# models
+
+
+@router.get('/models', response_model=list[ModelSpecRead])
+def list_models(session: Session = Depends(get_session)):
+    return SessionWrapper(session=session).list_all(ModelSpec)
+
+
+@router.get('/models-from-model-templates', response_model=list[ModelSpecRead])
+def list_models_from_model_templates(session: Session = Depends(get_session)):
+    return SessionWrapper(session=session).list_all(ModelSpec)
+
+
+@router.get('/modelTemplates', response_model=list[ModelTemplateConfig])
+def list_model_templates(session: Session = Depends(get_session)):
+    """Lists all model templates by reading local config files and presenting models. 
+    """
+    return SessionWrapper(session=session).list_all(ModelTemplateConfig)
+
+
+#############
+# other misc
+
+
 @router.post('/debug')
 async def debug_entry(database_url: str = Depends(get_database_url)) -> JobResponse:
     job = worker.queue_db(wf.debug, database_url=database_url)
@@ -172,54 +257,3 @@ async def get_debug_entry(debug_id: Annotated[int, Path(alias='debugId')],
 @router.get('/feature-sources', response_model=list[FeatureSource])
 def list_feature_types(session: Session = Depends(get_session)):
     return SessionWrapper(session=session).list_all(FeatureSource)
-
-
-class DataBaseResponse(DBModel):
-    id: int
-
-
-class DataSetRead(DBModel):
-    id: int
-    name: str
-    created: Optional[datetime]
-    covariates: List[str]
-
-
-@router.get('/failedJobs', response_model=list[FailedJobRead])
-async def get_failed_jobs(session: Session = Depends(get_session)):
-    failed_jobs = session.exec(select(FailedJob)).all()
-    return failed_jobs
-
-
-@router.delete('/failedJobs/{failedJobId}')
-async def delete_failed_job(failed_job_id: Annotated[int, Path(alias='failedJobId')],
-                            session: Session = Depends(get_session)):
-    failed_job = session.get(FailedJob, failed_job_id)
-    if failed_job is None:
-        raise HTTPException(status_code=404, detail="Failed job not found")
-    session.delete(failed_job)
-    session.commit()
-    return {"message": "Deleted"}
-
-
-@router.get('/datasets', response_model=list[DataSetRead])
-async def get_datasets(session: Session = Depends(get_session)):
-    datasets = session.exec(select(DataSet)).all()
-    return datasets
-
-
-@router.get('/models', response_model=list[ModelSpecRead])
-def list_models(session: Session = Depends(get_session)):
-    return SessionWrapper(session=session).list_all(ModelSpec)
-
-
-@router.get('/models-from-model-templates', response_model=list[ModelSpecRead])
-def list_models_from_model_templates(session: Session = Depends(get_session)):
-    return SessionWrapper(session=session).list_all(ModelSpec)
-
-
-@router.get('/modelTemplates', response_model=list[ModelTemplateConfig])
-def list_model_templates(session: Session = Depends(get_session)):
-    """Lists all model templates by reading local config files and presenting models. 
-    """
-    return SessionWrapper(session=session).list_all(ModelTemplateConfig)

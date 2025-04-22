@@ -9,7 +9,7 @@ from chap_core.api_types import EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.tables import PredictionRead, PredictionInfo, FailedJobRead
+from chap_core.database.tables import PredictionRead, PredictionInfo
 from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest, BackTestFull
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
@@ -277,7 +277,6 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     assert len(ds) > 0
     assert all(pe.quantile in (0.1, 0.5, 0.9) for pe in ds)
 
-#@pytest.mark.skip('Outdated, test new job flow')
 def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     response = client.post("/v1/debug/trigger-exception")
     assert response.status_code == 200
