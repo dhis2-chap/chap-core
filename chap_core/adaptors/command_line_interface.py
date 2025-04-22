@@ -1,6 +1,7 @@
 from cyclopts import App
 
 from chap_core.datatypes import remove_field, create_tsdataclass
+from chap_core.external.model_configuration import ModelTemplateConfig, EntryPointConfig, CommandConfig
 from chap_core.model_spec import get_dataclass
 from chap_core.models import ModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -113,5 +114,24 @@ def generate_template_app(model_template: ModelTemplate):
 
         forecasts = predictor.predict(dataset, future_data)
         forecasts.to_csv(output_filename)
+    #
+    # model_template_config = ModelTemplateConfig(
+    #     name=model_template.name,
+    #     entry_points=EntryPointConfig(
+    #         train=CommandConfig(command='python main.py train {train_data} {model} {model_config}',
+    #                             parameters={'train_data': 'str', 'model': 'str', 'model_config': 'str'}),
+    #         predict=CommandConfig("python main.py predict {model} {historic_data} {future_data} {out_file} {model_config}",
+    #                               parameters={n: 'str' for n in ['historic_data', 'future_data', 'out_file', 'model_config']})),
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #     )
+
+    #)
 
     return app, train, predict

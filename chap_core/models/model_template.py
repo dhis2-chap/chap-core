@@ -137,6 +137,7 @@ class ModelTemplate:
         )
 
 
+
 class ExternalModelTemplate(ModelTemplateInterface):
     def __init__(self, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
         self._model_template_config = model_template_config

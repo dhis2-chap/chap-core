@@ -163,14 +163,16 @@ class DataSet(Generic[FeaturesT]):
         period_range = self.period_range
         for location, data in self.items():
             parent = parent_dict[location]
-            nan_mask = np.isnan(getattr(data, nan_indicator))
+
             new_data = getattr(data, field_name).copy()
             if parent not in new_dict:
                 new_dict[parent] = dataclass(period_range,
                                              np.zeros_like(new_data))
             old_data = getattr(new_dict[parent], field_name)
             new_data = getattr(data, field_name).copy()
-            new_data[nan_mask] = 0
+            if nan_indicator is not None:
+                nan_mask = np.isnan(getattr(data, nan_indicator))
+                new_data[nan_mask] = 0
             old_data += new_data
 
         return self.__class__(new_dict, self._polygons)
