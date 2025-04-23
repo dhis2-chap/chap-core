@@ -189,9 +189,14 @@ class ExternalModel(ConfiguredModel):
         df = df[mask]
 
         self._runner.teardown()
-        if not np.isfinit(df.disease_cases.values):
-            raise ModelFailedException("Model returned non-finite values for disease cases. " \
-            "Check the model output. Disease cases: %s" % df.disease_cases.values)   
 
-        return DataSet.from_pandas(df, Samples)
+        try:
+            d = DataSet.from_pandas(df, Samples)
+        except ValueError as e:
+            logging.error(f"Error while parsing predictions: {df}")
+            logging.error(f"Error message: {e}")
+            raise ModelFailedException("Error while parsing predictions: %s" % e)
+        
+        return d
+
 
