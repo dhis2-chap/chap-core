@@ -305,7 +305,13 @@ class CompatibilityResponse(BaseModel):
     description: str
 
 
-@app.get("/is_compatible")
+class SystemInfoResponse(BaseModel):
+    chap_core_version: str
+    python_version: str
+    os: str
+
+
+@app.get("/is-compatible")
 async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
     """
     Check if the modelling app version is compatible with the current API version
@@ -333,6 +339,20 @@ async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
 
     return CompatibilityResponse(
         compatible=is_compatible, description=description)
+
+
+@app.get("/system-info")
+async def system_info() -> SystemInfoResponse:
+    """
+    Retrieve system information
+    """
+    from chap_core import __version__ as chap_core_version
+    import platform
+    return SystemInfoResponse(
+        chap_core_version=chap_core_version,
+        python_version=platform.python_version(),
+        os=platform.platform()
+    )
 
 
 @app.on_event("startup")

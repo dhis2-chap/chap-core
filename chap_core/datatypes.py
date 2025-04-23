@@ -332,7 +332,7 @@ class Samples(TimeSeriesData):
     def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> "TimeSeriesData":
         ptime = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
         n_samples = sum(1 for col in data.columns if col.startswith("sample_"))
-        samples = np.array([data[f"sample_{i}"].values for i in range(n_samples)]).T
+        samples = np.array([data[f"sample_{i}"].values for i in range(n_samples)], dtype=float).T
         if not np.isfinite(samples).all():
             raise ValueError(f"Samples are not finite: {samples}")
 
