@@ -167,14 +167,16 @@ class DataSet(Generic[FeaturesT]):
         period_range = self.period_range
         for location, data in self.items():
             parent = parent_dict[location]
-            nan_mask = np.isnan(getattr(data, nan_indicator))
+
             new_data = getattr(data, field_name).copy()
             if parent not in new_dict:
                 new_dict[parent] = dataclass(period_range,
                                              np.zeros_like(new_data))
             old_data = getattr(new_dict[parent], field_name)
             new_data = getattr(data, field_name).copy()
-            new_data[nan_mask] = 0
+            if nan_indicator is not None:
+                nan_mask = np.isnan(getattr(data, nan_indicator))
+                new_data[nan_mask] = 0
             old_data += new_data
 
         return self.__class__(new_dict, self._polygons)
@@ -382,8 +384,11 @@ class DataSet(Generic[FeaturesT]):
         return cls(data_dict)
 
     @classmethod
-    def from_csv(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
-        obj = cls.from_pandas(pd.read_csv(file_name), dataclass)
+    def from_csv(cls, file_name: str, dataclass: Type[FeaturesT] | None = None) -> "DataSet[FeaturesT]":
+        csv = pd.read_csv(file_name)
+        if dataclass is None:
+            dataclass = create_tsdataclass([col for col in csv.columns.tolist() if col not in ("location", "time_period")])
+        obj = cls.from_pandas(csv, dataclass)
         if isinstance(file_name, (str, Path)):
             path = Path(file_name).with_suffix(".geojson")
             if path.exists():

@@ -70,13 +70,17 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
 #@pytest.mark.slow
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
     with SessionWrapper(clean_engine) as session:
-        dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons')
+        dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons', dataset_type='evaluation')
     response = client.post("/v1/crud/backtests",
                            json={"datasetId": dataset_id, "modelId": "naive_model"})
     assert response.status_code == 200, response.json()
     job_id = response.json()['id']
     db_id = await_result_id(job_id)
     response = client.get(f"/v1/crud/backtests/{db_id}")
+
+    # just make sure the datasets are valid
+    dataset_response = client.get(f"/v1/crud/datacsets")
+
     assert response.status_code == 200, response.json()
     BackTestFull.model_validate(response.json())
     response = client.get(f'/v1/analytics/evaluation-entry',
@@ -87,7 +91,6 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     actual_cases = client.get(f'/v1/analytics/actualCases/{db_id}')
     assert actual_cases.status_code == 200, actual_cases.json()
     actual_cases = actual_cases.json()
-
 
     for entry in evaluation_entries:
         assert 'splitPeriod' in entry, f'splitPeriod not in entry: {entry.keys()}'
@@ -100,11 +103,13 @@ def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_ov
     with open(filepath, 'r') as f:
         data = f.read()
         request = DatasetMakeRequest.model_validate_json(data)
+        request.type='evaluation'
     print(request)
     _make_dataset(request, wanted_field_names=['rainfall', 'mean_temperature'])
 
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
+
     data = dataset_create.model_dump_json()
     print(json.dumps(data, indent=2))
     response = client.post("/v1/crud/datasets", data=data)

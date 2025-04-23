@@ -39,4 +39,3 @@ class ModelTemplateConfig(BaseModel):
     adapters: Optional[dict[str, str]] = None
     user_options: list[UserOption] = []
     model_info: Optional[ModelInfo] = None
-

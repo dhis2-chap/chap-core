@@ -22,7 +22,8 @@ def make_prediction_request(model_name):
 
 
 def make_dataset_request():
-    #filename = '/home/knut/Data/ch_data/test_data/make_dataset_request.json'
+    #filename = '/home/knut/Downloads/request_make_dataset.json'
+    # filename = '/home/knut/Data/ch_data/test_data/make_dataset_request.json'
     filename = '../example_data/anonymous_make_dataset_request.json'
     data = json.load(open(filename))
     return data
@@ -101,10 +102,11 @@ class IntegrationTest:
     def evaluation_flow(self):
         self.ensure_up()
         model_list = self.get_models()
-        assert 'naive_model' in {model['name'] for model in model_list}
+        model_name = 'auto_regressive_monthly'
+        assert model_name in {model['name'] for model in model_list}
         data = make_dataset_request()
         dataset_id = self.make_dataset(data)
-        result, backtest_id = self.evaluate_model(dataset_id, 'naive_model')
+        result, backtest_id = self.evaluate_model(dataset_id, model_name)
         actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
         result_org_units = {e['orgUnit'] for e in result}
 
@@ -122,7 +124,7 @@ class IntegrationTest:
         # return prediction_result
 
     def evaluate_model(self, dataset_id, model):
-        job_id = self._post(self._chap_url + "/v1/crud/backtests/",
+        job_id = self._post(self._chap_url + "/v1/analytics/backtests/",
                             json={"modelId": model, "datasetId": dataset_id, 'name': 'integration_test'})['id']
         db_id = self.wait_for_db_id(job_id)
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
@@ -135,7 +137,7 @@ class IntegrationTest:
         return evaluation_entries, db_id
 
     def wait_for_db_id(self, job_id):
-        for _ in range(60):
+        for _ in range(120):
             job_url = self._chap_url + f"/v1/jobs/{job_id}"
             job_status = self._get(job_url).lower()
             logger.info(job_status)
@@ -158,4 +160,3 @@ if __name__ == "__main__":
     suite = IntegrationTest(chap_url, False)
     suite.prediction_flow()
     suite.evaluation_flow()
-

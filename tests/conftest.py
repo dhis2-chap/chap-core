@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from sqlmodel import SQLModel
 from chap_core.api_types import RequestV1
+from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import ObservationBase, DataSet
 from chap_core.database.model_spec_tables import seed_with_session_wrapper
@@ -79,19 +80,22 @@ def pytest_collection_modifyitems(config, items):
 def data_path():
     return Path(__file__).parent.parent / "example_data"
 
+
 @pytest.fixture
 def output_path():
     path = Path(__file__).parent / "test_outputs"
     path.mkdir(exist_ok=True)
     return path
 
+
 @pytest.fixture
 def models_path():
     return Path(__file__).parent.parent / "external_models"
 
+
 @pytest.fixture
 def local_data_path():
-    path =  Path('/home/knut/Data/ch_data/')
+    path = Path('/home/knut/Data/ch_data/')
     if not path.exists():
         pytest.skip("Data path does not exist")
     return path
@@ -118,10 +122,30 @@ def health_population_data(data_path):
     return DataSet.from_pandas(pd.read_csv(file_name), HealthPopulationData)
 
 
+@pytest.fixture
+def nicaragua_path(data_path):
+    return (data_path / "nicaragua_weekly_data").with_suffix(".csv")
+
+
 @pytest.fixture()
-def weekly_full_data(data_path):
-    file_name = (data_path / "nicaragua_weekly_data").with_suffix(".csv")
+def weekly_full_data(nicaragua_path):
+    file_name = nicaragua_path
     return DataSet.from_pandas(pd.read_csv(file_name), FullData)
+
+@pytest.fixture
+def dumped_weekly_data_paths(weekly_full_data, tmp_path):
+    train, tests = train_test_generator(weekly_full_data,
+                                        prediction_length=12)
+    training_path = tmp_path / 'training_data.csv'
+    train.to_csv(training_path)
+    historic, masked, _ = next(tests)
+    historic_path = tmp_path / 'historic_data.csv'
+    historic.to_csv(historic_path)
+    future_path = tmp_path / 'future_data.csv'
+    masked.to_csv(future_path)
+    return training_path, historic_path, future_path
+
+
 
 
 @pytest.fixture()
@@ -159,20 +183,22 @@ def big_request_json(data_path):
     with open(filepath, "r") as f:
         return f.read()
 
+
 @pytest.fixture
 def laos_request(local_data_path):
     filepath = local_data_path / "laos_requet.json"
     with open(filepath, "r") as f:
-        text  = f.read()
+        text = f.read()
     dicts = json.loads(text)
     dicts['estimator_id'] = 'naive_model'
     return json.dumps(dicts)
+
 
 @pytest.fixture
 def laos_request_2(local_data_path):
     filepath = local_data_path / "laos_request_2.json"
     with open(filepath, "r") as f:
-        text  = f.read()
+        text = f.read()
     dicts = json.loads(text)
     dicts['estimator_id'] = 'naive_model'
     return json.dumps(dicts)
@@ -188,27 +214,29 @@ def laos_request_3(local_data_path):
     return json.dumps(dicts)
 
 
-
-
 @pytest.fixture
 def dataset_create(big_request_json):
     data = RequestV1.model_validate_json(big_request_json)
     return DatasetCreate(name='test',
+                         type='evaluation',
                          geojson=data.orgUnitsGeoJson.model_dump(),
                          observations=[ObservationBase(
                              feature_name=f.featureId if f.featureId != 'diseases' else 'disease_cases',
                              period=d.pe, orgUnit=d.ou,
                              value=d.value) for f in data.features for d in f.data])
 
+
 @pytest.fixture()
 def example_polygons(data_path):
     return Polygons.from_file(data_path / "example_polygons.geojson").data
 
+
 @pytest.fixture
 def make_prediction_request(dataset_create):
     return PredictionCreate(model_id='naive_model',
-                            metaData= {'test': 'test2'},
+                            metaData={'test': 'test2'},
                             **dataset_create.dict())
+
 
 # @pytest.fixture
 # def celery_app():

@@ -66,10 +66,13 @@ def harmonize_and_add_dataset(
     provided_dataclass = create_tsdataclass(provided_field_names)
     health_dataset = InMemoryDataSet.from_dict(
         health_dataset, provided_dataclass)
-    full_dataset = harmonize_health_dataset(health_dataset,
-                                            fetch_requests=data_to_be_fetched,
-                                            usecwd_for_credentials=False,
-                                            worker_config=worker_config)
+    if len(data_to_be_fetched):
+        full_dataset = harmonize_health_dataset(health_dataset,
+                                                fetch_requests=data_to_be_fetched,
+                                                usecwd_for_credentials=False,
+                                                worker_config=worker_config)
+    else:
+        full_dataset = health_dataset
     db_id = session.add_dataset(name, full_dataset, polygons=health_dataset.polygons.model_dump_json(), dataset_type=ds_type)
     return db_id
 
