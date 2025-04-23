@@ -334,7 +334,7 @@ async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
         description = f"Modelling app version {modelling_app_version} is not compatible with chap core version {chap_core_version}. Supported versions are {compatibility_data[modelling_app_version]}."
         is_compatible = False
     else:
-        description = f"Modelling app version {modelling_app_version} is compatible with chap core version {chap_core_version}. The supported versions are {','.join(compatibility_data[modelling_app_version])}."
+        description = f"Modelling app version {modelling_app_version} is compatible with chap core version {chap_core_version}. The supported versions are {', '.join(compatibility_data[modelling_app_version])}."
         is_compatible = True
 
     return CompatibilityResponse(
