@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import HTTPException, Depends
 from pydantic import BaseModel
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from chap_core.api_types import PredictionRequest, EvaluationResponse
@@ -321,13 +321,13 @@ async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
     compatibility_file = f"https://raw.githubusercontent.com/dhis2-chap/versioning/refs/heads/main/modelling-app-chap-core.yml?r={random_string}"   
     response = requests.get(compatibility_file)
     if response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Could not load compatibility file")
+        return CompatibilityResponse(compatible = False, description="Could not load compatibility file")
 
     # parse yaml
     compatibility_data = yaml.safe_load(response.text)
     modelling_app_versions = list(compatibility_data.keys())
     if modelling_app_version not in modelling_app_versions:
-        raise HTTPException(status_code=400, detail=f"Modelling app version {modelling_app_version} not found in compatibility file, which contains {modelling_app_versions}")
+        return CompatibilityResponse(compatible = False, description = f"Modelling app version {modelling_app_version} not found in compatibility file, which contains {modelling_app_versions}")
 
     from chap_core import __version__ as chap_core_version
     if chap_core_version not in compatibility_data[modelling_app_version]:
