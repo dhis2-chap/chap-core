@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import numpy as np
 import pandas as pd
 from pydantic import BaseModel
 from chap_core.datatypes import HealthData, Samples
@@ -188,6 +189,9 @@ class ExternalModel(ConfiguredModel):
         df = df[mask]
 
         self._runner.teardown()
+        if not np.isfinit(df.disease_cases.values):
+            raise ModelFailedException("Model returned non-finite values for disease cases. " \
+            "Check the model output. Disease cases: %s" % df.disease_cases.values)   
 
         return DataSet.from_pandas(df, Samples)
 
