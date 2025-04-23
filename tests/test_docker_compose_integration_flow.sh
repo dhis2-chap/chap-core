@@ -2,6 +2,7 @@
 # which runs pytest inside the container and checks that the exit code is 0 (i.e. no failed tests)
 
 set -e
+docker compose down --volumes  # delete the db
 docker compose -f compose.yml -f compose.integration.test.yml up --build --detach --force-recreate
 docker attach chap_frontend_emulator
 
