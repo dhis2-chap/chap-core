@@ -300,8 +300,13 @@ async def version() -> dict:
     return {"version": chap_core_version}
 
 
+class CompatibilityResponse(BaseModel):
+    compatible: bool
+    description: str
+
+
 @app.get("/is_compatible")
-async def is_compatible(modelling_app_version: str) -> dict:
+async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
     """
     Check if the modelling app version is compatible with the current API version
     """
@@ -326,7 +331,8 @@ async def is_compatible(modelling_app_version: str) -> dict:
         description = f"Modelling app version {modelling_app_version} is compatible with chap core version {chap_core_version}. The supported versions are {','.join(compatibility_data[modelling_app_version])}."
         is_compatible = True
 
-    return {"compatible": is_compatible, "description": description}
+    return CompatibilityResponse(
+        compatible=is_compatible, description=description)
 
 
 @app.on_event("startup")
