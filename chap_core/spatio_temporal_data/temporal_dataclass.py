@@ -151,8 +151,14 @@ class DataSet(Generic[FeaturesT]):
     def set_polygons(self, polygons: FeatureCollectionModel, ignore_validation=False):
         polygon_ids = {feature.id for feature in polygons.features}
         if not ignore_validation:
-            for location in self.locations():
-                assert location in polygon_ids, f"Found a location {location} (type: {type(location)}) in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids}.  "
+            self._data_dict = {
+                location: data for location, data in self._data_dict.items() if location in polygon_ids
+            }
+            # for location in self.locations():
+            #     if location not in polygon_ids:
+            #         logger.warning(f"Found a location {location} (type: {type(location)}) in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids}.  ")
+            #         del self._data_dict[location]
+            #    assert location in polygon_ids, f"Found a location {location} (type: {type(location)}) in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids}.  "
         self._polygons = polygons
 
     def get_parent_dict(self) -> Optional[dict[str, str]]:
