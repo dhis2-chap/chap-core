@@ -112,7 +112,7 @@ class TrackedTask(Task):
             root_logger.handlers = old_root_handlers
 
     def apply_async(self, args=None, kwargs=None, **options):
-        print('apply async', args, kwargs, options)
+        #print('apply async', args, kwargs, options)
         job_name = kwargs.pop(JOB_NAME_KW, None) or 'Unnamed'
         job_type = kwargs.pop(JOB_TYPE_KW, None) or 'Unspecified'
         result = super().apply_async(args=args, kwargs=kwargs, **options)

@@ -79,7 +79,7 @@ async def create_backtest(backtest: BackTestCreate,
                           database_url: str = Depends(get_database_url)):
 
     job = worker.queue_db(wf.run_backtest,
-                          backtest, 12, 2, 1,
+                          backtest,
                           database_url=database_url)
 
     return JobResponse(id=job.id)

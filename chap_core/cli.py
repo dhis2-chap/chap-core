@@ -152,13 +152,18 @@ def evaluate(
 
 
 @app.command()
-def sanity_check_model(model_url: str, use_local_environement: bool = False):
+def sanity_check_model(model_url: str, use_local_environement: bool = False, dataset_path=None):
     '''
     Check that a model can be loaded, trained and used to make predictions
     '''
-    dataset = datasets["hydromet_5_filtered"].load()
+    if dataset_path is None:
+        dataset = datasets["hydromet_5_filtered"].load()
+    else:
+        dataset = DataSet.from_csv(dataset_path, FullData)
     train, tests = train_test_generator(dataset, 3, n_test_sets=2)
     context, future, truth = next(tests)
+    logger.info('Dataset: ')
+    logger.info(dataset.to_pandas())
     try:
         model = get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
         estimator = model()
