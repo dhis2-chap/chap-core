@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-import numpy as np
 import pandas as pd
 from pydantic import BaseModel
 from chap_core.datatypes import HealthData, Samples

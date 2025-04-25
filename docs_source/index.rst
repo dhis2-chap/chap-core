@@ -1,7 +1,7 @@
-The Chap modelling platform
+The Chap Modeling Platform
 ==============================================================
 
-The Chap modelling platform is a platform for forecasting and for assessing forecasts of climate-sensitive health outcomes.
+The Chap Modeling Platform is a platform for forecasting and for assessing forecasts of climate-sensitive health outcomes.
 In the early phase, the focus is on vector-borne diseases like malaria and dengue.
 
 The platform can perform data parsing, data integration, forecasting based on any of
@@ -23,15 +23,16 @@ The following is an overview of all pages in the documentation:
    :caption: Installation and getting started
 
    installation/installation
+   installation/modeling-app-setup
    changelog
 
 
 .. toctree::
    :glob:
    :maxdepth: 2
-   :caption: Using the Predictions App with the Chap modelling platform and DHIS2
+   :caption: Using the Modeling App with the Chap modelling platform and DHIS2
 
-   prediction-app/*
+   modeling-app/*
 
 
 .. toctree::
@@ -77,3 +78,4 @@ The following is an overview of all pages in the documentation:
    contributor/vocabulary
    contributor/testing
    contributor/writing_building_documentation
+   contributor/r_docker_image

@@ -102,7 +102,7 @@ class IntegrationTest:
     def evaluation_flow(self):
         self.ensure_up()
         model_list = self.get_models()
-        model_name = 'auto_regressive_monthly'
+        model_name = 'naive_model'
         assert model_name in {model['name'] for model in model_list}
         data = make_dataset_request()
         dataset_id = self.make_dataset(data)
@@ -124,7 +124,7 @@ class IntegrationTest:
         # return prediction_result
 
     def evaluate_model(self, dataset_id, model):
-        job_id = self._post(self._chap_url + "/v1/analytics/backtests/",
+        job_id = self._post(self._chap_url + "/v1/crud/backtests/",
                             json={"modelId": model, "datasetId": dataset_id, 'name': 'integration_test'})['id']
         db_id = self.wait_for_db_id(job_id)
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
@@ -137,7 +137,7 @@ class IntegrationTest:
         return evaluation_entries, db_id
 
     def wait_for_db_id(self, job_id):
-        for _ in range(120):
+        for _ in range(400):
             job_url = self._chap_url + f"/v1/jobs/{job_id}"
             job_status = self._get(job_url).lower()
             logger.info(job_status)

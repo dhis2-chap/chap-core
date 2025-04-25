@@ -37,7 +37,7 @@ models = (
         period=PeriodType.week,
         description="Weekly Deep Auto Regressive model",
         author="knutdrand",
-        github_link="https://github.com/knutdrand/weekly_ar_model@36a537dac138af428a4167b2a89eac7dafd5d762",
+        github_link="https://github.com/knutdrand/weekly_ar_model@1730b26996201d9ee0faf65695f44a2410890ea5",
     ),
     ExternalModelSpec(
         name="auto_regressive_monthly",
@@ -46,7 +46,7 @@ models = (
         period=PeriodType.month,
         description="Monthly Deep Auto Regressive model",
         author="knutdrand",
-        github_link="https://github.com/sandvelab/monthly_ar_model@cadd785872624b4bcd839a39f5e7020c25254c31",
+        github_link="https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d",
     ),
 )
 
