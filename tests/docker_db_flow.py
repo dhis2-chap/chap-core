@@ -102,7 +102,7 @@ class IntegrationTest:
     def evaluation_flow(self):
         self.ensure_up()
         model_list = self.get_models()
-        model_name = 'auto_regressive_monthly'
+        model_name = 'naive_model'
         assert model_name in {model['name'] for model in model_list}
         data = make_dataset_request()
         dataset_id = self.make_dataset(data)
