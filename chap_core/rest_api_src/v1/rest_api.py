@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import HTTPException, Depends
 from pydantic import BaseModel
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from chap_core.api_types import PredictionRequest, EvaluationResponse
