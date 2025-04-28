@@ -7,6 +7,7 @@ from chap_core.rest_api_src.worker_functions import predict_pipeline_from_health
 import logging
 from chap_core.util import redis_available
 
+from chap_core.rest_api_src.celery_tasks import CeleryPool, JOB_TYPE_KW, JOB_NAME_KW
 
 def f(x, y):
     return x + y
@@ -16,6 +17,7 @@ def f(x, y):
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
+@pytest.mark.slow
 def test_add_numbers(celery_session_worker):
     job = celery_run.delay(add_numbers, 1, 2)
     time.sleep(2)
@@ -34,7 +36,7 @@ def test_add_numbers(celery_session_worker):
 
 
 
-@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.skipif(not redis_available(), reason="Redis not available") # TODO: Use redis as a fixture
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
                     include=['chap_core.rest_api_src.celery_tasks'])
@@ -84,3 +86,22 @@ def test_celery_logging(celery_session_worker):
     logs = job2.get_logs()
     assert "Some testlogging" in logs
 
+
+def time_consuming_function():
+    import time
+    time.sleep(3)
+
+
+@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.celery(broker="redis://localhost:6379",
+                    backend="redis://localhost:6379",
+                    include=['chap_core.rest_api_src.celery_tasks'])
+def test_list_jobs(celery_session_worker, big_request_json, test_config):
+    pool = CeleryPool()
+    job = pool.queue(time_consuming_function, **{JOB_TYPE_KW: 'time_consuming_function', JOB_NAME_KW: 'test_job_name'})
+    time.sleep(2)
+    jobs = pool.list_jobs()
+    assert len(jobs) >= 1
+    assert jobs[0].id == job.id
+    assert jobs[0].type == 'time_consuming_function'
+    assert jobs[0].name == 'test_job_name'

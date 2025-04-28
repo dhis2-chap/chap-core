@@ -11,6 +11,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def generate_app(estimator, working_dir: str):
     app = FastAPI()
     origins = [

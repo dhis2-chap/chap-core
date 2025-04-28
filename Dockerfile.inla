@@ -4,6 +4,10 @@ FROM ivargr/r_inla
 RUN apt-get update
 RUN apt-get install -y python3
 RUN apt-get install -y python3-pip
+RUN apt-get install -y libncurses-dev
+RUN apt-get install -y libreadline-dev
+RUN apt-get install -y libbz2-dev
+
 
 # Set the working directory in the container
 
@@ -23,6 +27,7 @@ RUN pyenv install 3.11.3
 
 WORKDIR /app
 COPY ./chap_core ./chap_core
+COPY ./config ./config
 COPY ./pyproject.toml ./pyproject.toml
 COPY ./README.md ./README.md
 

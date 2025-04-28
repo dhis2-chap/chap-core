@@ -1,0 +1,10 @@
+services:
+  chap:
+    command: /app/.venv/bin/chap serve --auto-reload
+    volumes:
+      - ./logs:/app/logs
+      - ./chap_core:/app/chap_core
+  worker:
+    volumes:
+      - ./logs:/app/logs
+      - ./chap_core:/app/chap_core

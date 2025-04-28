@@ -18,3 +18,9 @@ entry_points:
       model: str
       out_file: str
     command: "python  predict.py {model} {historic_data} {future_data} {out_file}"
+
+user_options:
+  - name: some_option
+    type: integer
+    default: '10'
+    description: "Some option for the model" 

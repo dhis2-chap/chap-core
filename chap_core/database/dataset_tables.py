@@ -1,6 +1,8 @@
+from datetime import datetime
 from typing import Optional, List
 
 from pydantic_geojson import FeatureModel
+from sqlalchemy import JSON, Column
 
 from sqlmodel import Field, Relationship
 
@@ -18,7 +20,7 @@ class ObservationBase(DBModel):
     period: PeriodID
     org_unit: str
     value: Optional[float]
-    element_id: Optional[str]
+    feature_name: Optional[str]
 
 
 class Observation(ObservationBase, table=True):
@@ -29,16 +31,19 @@ class Observation(ObservationBase, table=True):
 
 class DataSetBase(DBModel):
     name: str
-    geojson: Optional[
-        str] = None  # Optional[FeatureCollectionModel] = Field(default=None, sa_type=AutoString) #fix from https://github.com/fastapi/sqlmodel/discussions/730#discussioncomment-7952622
     type: Optional[str] = None
+    geojson: Optional[str] = None
+    # Optional[FeatureCollectionModel] = Field(default=None, sa_type=AutoString) #fix from https://github.com/fastapi/sqlmodel/discussions/730#discussioncomment-7952622
 
 
 class DataSet(DataSetBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     observations: List[Observation] = Relationship(back_populates="dataset")
+    covariates: List['str'] = Field(default_factory=list, sa_column=Column(JSON))
+    created: Optional[datetime] = None
 
 
 class DataSetWithObservations(DataSetBase):
     id: int
     observations: List[ObservationBase]
+    created: Optional[datetime]

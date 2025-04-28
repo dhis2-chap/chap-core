@@ -2,6 +2,9 @@ from typing import Optional
 
 
 class Runner:
+    """
+    An interface for Runners. A runner is able to run "something", e.g. a command on the command line 
+    through Docker."""
     def run_command(self, command): ...
 
     def store_file(self, file_path): ...

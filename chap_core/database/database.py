@@ -1,18 +1,20 @@
 import dataclasses
+import datetime
 import time
 from typing import Optional
 
 import psycopg2
 import sqlalchemy
 from sqlmodel import SQLModel, create_engine, Session, select
-from .tables import BackTest, BackTestForecast, Prediction, PredictionForecast
-from .model_spec_tables import seeded_feature_types, seeded_models
+from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
+from .model_spec_tables import seed_with_session_wrapper
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
 
 from chap_core.time_period import TimePeriod
+from ..rest_api_src.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 import logging
@@ -60,17 +62,18 @@ class SessionWrapper:
     def list_all(self, model):
         return self.session.exec(select(model)).all()
 
-    def create_if_not_exists(self, model):
-        logger.warning('Create if not exists does not work as expected')
-        if not self.session.exec(select(type(model))).first():
+    def create_if_not_exists(self, model, id_name='id'):
+        logging.info(f"Create if not exist with {model}")
+        T = type(model)
+        if not self.session.exec(select(T).where(getattr(T, id_name) == getattr(model, id_name))).first():
             self.session.add(model)
             self.session.commit()
         return model
 
-    def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, dataset_id, model_id):
-        backtest = BackTest(dataset_id=dataset_id,
-                            model_id=model_id,
-                            last_train_period=last_train_period.id)
+    def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, info: BackTestCreate):
+        info.created = datetime.datetime.now()
+        backtest = BackTest(last_train_period=last_train_period.id,
+                            **info.dict())
         self.session.add(backtest)
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
@@ -83,30 +86,33 @@ class SessionWrapper:
         self.session.commit()
         return backtest.id
 
-    def add_predictions(self, predictions, dataset_id, model_id):
+    def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict={}):
         n_periods = len(list(predictions.values())[0])
         prediction = Prediction(dataset_id=dataset_id,
-                                estimator_id=model_id,
+                                model_id=model_id,
+                                name=name,
+                                created=datetime.datetime.now(),
                                 n_periods=n_periods,
-                                forecasts = [
-                                    PredictionForecast(period=period.id,
-                                                       org_unit=location,
-                                                       values=value.tolist())
+                                meta_data=metadata,
+                                forecasts=[
+                                    PredictionSamplesEntry(period=period.id,
+                                                           org_unit=location,
+                                                           values=value.tolist())
                                 for location, data in predictions.items() for period, value in zip(data.time_period, data.samples)])
         self.session.add(prediction)
         self.session.commit()
         return prediction.id
 
-
-    def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons):
-        logger.info(f"Adding dataset {dataset_name} wiht {len(list(orig_dataset.locations()))} locations")
-        dataset = DataSet(name=dataset_name, polygons=polygons)
+    def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons, dataset_type: str | None = None):
+        logger.info(f"Adding dataset {dataset_name} with {len(list(orig_dataset.locations()))} locations and {len(orig_dataset.period_range)} time periods")
+        field_names = [field.name for field in dataclasses.fields(next(iter(orig_dataset.values()))) if field.name not in ["time_period", "location"]]
+        dataset = DataSet(name=dataset_name, polygons=polygons, created=datetime.datetime.now(), covariates=field_names, type=dataset_type)
         for location, data in orig_dataset.items():
             field_names = [field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]]
             for row in data:
                 for field in field_names:
                     observation = Observation(period=row.time_period.id, org_unit=location, value=float(getattr(row, field)),
-                                              element_id=field)
+                                              feature_name=field)
                     dataset.observations.append(observation)
         self.session.add(dataset)
         self.session.commit()
@@ -140,10 +146,8 @@ def create_db_and_tables():
                 logger.error(f"Failed to create tables: {e}. Trying again")
                 n += 1
                 time.sleep(1)
-            
         with SessionWrapper(engine) as session:
-            for feature_type in seeded_feature_types + seeded_models:
-                session.create_if_not_exists(feature_type)
+            seed_with_session_wrapper(session)
     else:
         logger.warning("Engine not set. Tables not created")
 

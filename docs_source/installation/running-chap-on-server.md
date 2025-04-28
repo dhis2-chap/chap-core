@@ -1,5 +1,7 @@
 # Setting up CHAP REST-API on a server
 
+**Note: The Prediction App has been renamed to Modeling App. This documentation still refers to Prediction App.**
+
 Before you set up CHAP Core on a server, we recommend you familiarize yourself with CHAP Core, the Prediction App, and test it out locally.
 
 **Requirements:**

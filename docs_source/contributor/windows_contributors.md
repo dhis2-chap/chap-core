@@ -21,4 +21,4 @@ If you're a Windows contributor, always remember to first enter the linux enviro
 $ wsl
 ```
 
-The only exception to this is that docker commands such as `docker compose up` should be run through a regular Windows commandline (*not wsl*). 
+The only exception to this is that `git` and `docker` commands should be run through a regular Windows commandline (*not wsl*). 

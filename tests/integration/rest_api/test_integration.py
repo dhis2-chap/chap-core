@@ -8,6 +8,8 @@ from chap_core.log_config import initialize_logging
 from chap_core.rest_api_src.v1.rest_api import NaiveWorker, app
 from fastapi.testclient import TestClient
 
+from chap_core.rest_api_src.v1.routers.dependencies import get_settings
+from chap_core.rest_api_src.worker_functions import WorkerConfig
 from chap_core.util import redis_available
 
 client = TestClient(app)
@@ -189,6 +191,18 @@ def test_list_features():
         "mean_temperature",
     }
 
+
+def test_health_check_success(dependency_overrides):
+    response = client.get("/v1/health")
+    assert response.status_code == 200
+    assert response.json()['status'] == "success"
+
+
+def test_health_check_fail(dependency_overrides):
+    app.dependency_overrides[get_settings] = lambda: WorkerConfig(is_test=True, failing_services=('gee',))
+    response = client.get("/v1/health")
+    assert response.status_code == 200
+    assert response.json() == {'message': 'GEE authentication might not be set up properly: '+ 'Intentional fail of gee service', 'status': 'failed'}
 
 def set_model_in_json(json_str, model_id):
     data = json.loads(json_str)

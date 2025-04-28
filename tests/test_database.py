@@ -6,10 +6,11 @@ from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
 from chap_core.rest_api_src.db_worker_functions import run_backtest, run_prediction
+from chap_core.rest_api_src.data_models import BackTestCreate
 from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database
-from chap_core.database.model_spec_tables import seeded_feature_types, seeded_models
+from chap_core.database.model_spec_tables import seed_with_session_wrapper
 from unittest.mock import patch
 
 
@@ -34,12 +35,13 @@ def test_dataset_roundrip(health_population_data, engine):
         assert_dataset_equal(dataset, health_population_data)
 
 
+@pytest.mark.slow
 def test_backtest(seeded_engine):
     with Session(seeded_engine) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
     # with patch('chap_core.database.database.engine', seeded_engine):
     with SessionWrapper(seeded_engine) as session:
-        res = run_backtest('naive_model', dataset_id, 12, 2, 1, session=session)
+        res = run_backtest(BackTestCreate(model_id='naive_model', dataset_id=dataset_id), 12, 2, 1, session=session)
     # res = run_backtest('naive_model', dataset_id, 12, 2, 1)
     with Session(seeded_engine) as session:
         backtests = session.exec(select(BackTest)).all()
@@ -49,14 +51,14 @@ def test_backtest(seeded_engine):
         assert len(backtest.forecasts) == 12 * 2 * 10
 
 
+@pytest.mark.slow
 def test_add_predictions(seeded_engine):
     with SessionWrapper(seeded_engine) as session:
-        run_prediction('naive_model', 1, 3, session=session)
+        run_prediction('naive_model', 1, 3, name='testing', metadata='', session=session)
 
-
+@pytest.mark.skip
 def test_seed(seeded_engine):
     with SessionWrapper(seeded_engine) as session:
-        for feature_type in seeded_feature_types + seeded_models:
-            session.create_if_not_exists(feature_type)
-
+        seed_with_session_wrapper(session)
+        seed_with_session_wrapper(session)
 

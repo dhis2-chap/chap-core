@@ -6,5 +6,6 @@ __version__ = "1.0.6"
 
 from . import fetch
 from . import data
+from .models.model_template_interface import ModelTemplateInterface
 
-__all__ = ["fetch", "data"]
+__all__ = ["fetch", "data", 'ModelTemplateInterface']

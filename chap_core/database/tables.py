@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional, List
 
 from sqlalchemy import create_engine, Column, JSON
@@ -9,12 +10,14 @@ from chap_core.database.base_tables import PeriodID, DBModel
 class BackTestBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
     model_id: str
+    name: Optional[str] = None
+    created: Optional[datetime.datetime] = None
 
 
 class BackTest(BackTestBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
-    forecasts: List['BackTestForecast'] = Relationship(back_populates="backtest")
-    metrics: List['BackTestMetric'] = Relationship(back_populates="backtest")
+    forecasts: List['BackTestForecast'] = Relationship(back_populates="backtest", cascade_delete=True)
+    metrics: List['BackTestMetric'] = Relationship(back_populates="backtest", cascade_delete=True)
 
 
 class ForecastBase(DBModel):
@@ -24,25 +27,32 @@ class ForecastBase(DBModel):
 
 class PredictionBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
-    estimator_id: str
+    model_id: str
     n_periods: int
+    name: str
+    created: datetime.datetime
+    meta_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
-    forecasts: List['PredictionForecast'] = Relationship(back_populates="prediction")
+    forecasts: List['PredictionSamplesEntry'] = Relationship(back_populates="prediction",
+                                                            cascade_delete=True)
 
 
 class ForecastRead(ForecastBase):
     values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
 
 
-class PredictionRead(PredictionBase):
+class PredictionInfo(PredictionBase):
     id: int
+
+
+class PredictionRead(PredictionInfo):
     forecasts: List[ForecastRead]
 
 
-class PredictionForecast(ForecastBase, table=True):
+class PredictionSamplesEntry(ForecastBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     prediction_id: int = Field(foreign_key="prediction.id")
     prediction: 'Prediction' = Relationship(back_populates="forecasts")
@@ -54,7 +64,7 @@ class BackTestForecast(ForecastBase, table=True):
     backtest_id: int = Field(foreign_key="backtest.id")
     last_train_period: PeriodID
     last_seen_period: PeriodID
-    backtest: BackTest = Relationship(back_populates="forecasts")  # TODO: maybe remove this
+    backtest: BackTest = Relationship(back_populates="forecasts")
     values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
 
 

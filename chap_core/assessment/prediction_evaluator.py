@@ -11,7 +11,7 @@ from chap_core.assessment.dataset_splitting import (
 )
 
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
-from chap_core.datatypes import TimeSeriesData, Samples
+from chap_core.datatypes import TimeSeriesData, Samples, SamplesWithTruth
 import logging
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -47,8 +47,10 @@ def backtest(estimator: Estimator,
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
     predictor = estimator.train(train)
-    for historic_data, future_data, _ in test_generator:
-        yield predictor.predict(historic_data, future_data)
+    for historic_data, future_data, future_truth in test_generator:
+        r = predictor.predict(historic_data, future_data)
+        samples_with_truth = future_truth.merge(r, result_dataclass=SamplesWithTruth)
+        yield samples_with_truth
 
 
 def evaluate_model(
@@ -91,6 +93,8 @@ def evaluate_model(
         )
         for location in data.keys()
     }
+    #transformed = create_multiloc_timeseries(truth_data)
+
     if report_filename is None:
         report_filename = "evaluation_report.pdf"
 
@@ -111,6 +115,19 @@ def evaluate_model(
     logger.info('Finished Evaluating')
     return results
 
+
+def create_multiloc_timeseries(truth_data):
+    from chap_core.assessment.representations import MultiLocationDiseaseTimeSeries
+    multi_location_disease_time_series = MultiLocationDiseaseTimeSeries()
+    for location, df in truth_data.items():
+        from chap_core.assessment.representations import DiseaseTimeSeries
+        from chap_core.assessment.representations import DiseaseObservation
+        disease_time_series = DiseaseTimeSeries(observations=[
+            DiseaseObservation(time_period=period, disease_cases=cases)
+            for period, cases in df.itertuples(index=True, name='Pandas')
+        ])
+        multi_location_disease_time_series[location] = disease_time_series
+    return multi_location_disease_time_series
 
 def _get_forecast_generators(
         predictor: Predictor,

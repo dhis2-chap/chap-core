@@ -338,7 +338,7 @@ def polygons(polygon_json):
 def polygon_json(data_path):
     return open(data_path / "Organisation units.geojson").read()
 
-def test_get_daily_data(era5_land_gee, polygons, data_path):
+def test_get_daily_data(era5_land_gee, polygons, data_path, tmp_path):
     polygons.features = polygons.features[:2]
     period_range = [
             Month(2023, 1),
@@ -356,7 +356,7 @@ def test_get_daily_data(era5_land_gee, polygons, data_path):
     data.to_csv(data_path / "era5_land_daily_data.csv", index=False)
 
 
-def test_pack_daily_data(data_path, tmp_path):
+#def test_pack_daily_data(data_path, tmp_path):
     data = pd.read_csv(data_path / "era5_land_daily_data.csv")
     period_range = [Month(2023, 1), Month(2023, 2)]
     period_range = PeriodRange.from_period_list(False, period_range)

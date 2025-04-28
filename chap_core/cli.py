@@ -12,8 +12,9 @@ from cyclopts import App
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
-from chap_core.external.external_model import get_model_maybe_yaml, get_model_from_directory_or_github_url
-from chap_core.external.mlflow_wrappers import NoPredictionsError
+from chap_core.exceptions import NoPredictionsError
+from chap_core.models.model_template import ModelTemplate
+from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.geometry import Polygons
 from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import registry
@@ -23,13 +24,13 @@ from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from . import api
+from chap_core import api
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
 from chap_core.predictor import ModelType
 from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
-from .assessment.prediction_evaluator import evaluate_model, backtest as _backtest
-from .assessment.forecast import multi_forecast as do_multi_forecast
+from chap_core.assessment.prediction_evaluator import evaluate_model, backtest as _backtest
+from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
 
 import logging
 
@@ -58,10 +59,12 @@ def evaluate(
         debug: bool = False,
         log_file: Optional[str] = None,
         run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+        model_configuration_yaml: Optional[str] = None,
 ):
     """
     Evaluate a model on a dataset using forecast cross validation
     """
+
     initialize_logging(debug, log_file)
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
@@ -87,12 +90,28 @@ def evaluate(
     if "," in model_name:
         # model_name is not only one model, but contains a list of models
         model_list = model_name.split(",")
+        if model_configuration_yaml is not None:
+            model_configuration_yaml_list = model_configuration_yaml.split(",")
+            assert len(model_list) == len(model_configuration_yaml_list), "Number of model configurations does not match number of models"
     else:
         model_list = [model_name]
-    
+        model_configuration_yaml_list = [model_configuration_yaml]
+
+    logging.info(f"Model configuration: {model_configuration_yaml_list}")
+
     results_dict = {}
-    for name in model_list:
-        model = get_model_from_directory_or_github_url(name, ignore_env=ignore_environment, run_dir_type=run_directory_type)
+    for name, configuration in zip(model_list, model_configuration_yaml_list):
+        template = ModelTemplate.from_directory_or_github_url(name, base_working_dir=Path("./runs/"), 
+                                                            ignore_env=ignore_environment, 
+                                                            run_dir_type=run_directory_type, 
+                                                            )
+        logging.info(f"Model template loaded: {template}")
+        if configuration is not None:
+            logger.info(f"Loading model configuration from yaml file {configuration}")
+            configuration = template.get_model_configuration_from_yaml(Path(configuration))
+            logger.info(f"Loaded model configuration from yaml file: {configuration}")
+        
+        model = template.get_model(configuration)
         model = model()
         try:
             results = evaluate_model(
@@ -133,13 +152,18 @@ def evaluate(
 
 
 @app.command()
-def sanity_check_model(model_url: str, use_local_environement: bool = False):
+def sanity_check_model(model_url: str, use_local_environement: bool = False, dataset_path=None):
     '''
     Check that a model can be loaded, trained and used to make predictions
     '''
-    dataset = datasets["hydromet_5_filtered"].load()
+    if dataset_path is None:
+        dataset = datasets["hydromet_5_filtered"].load()
+    else:
+        dataset = DataSet.from_csv(dataset_path, FullData)
     train, tests = train_test_generator(dataset, 3, n_test_sets=2)
     context, future, truth = next(tests)
+    logger.info('Dataset: ')
+    logger.info(dataset.to_pandas())
     try:
         model = get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
         estimator = model()
@@ -204,7 +228,9 @@ def multi_forecast(
         pre_train_months: int,
         out_path: Path = Path(""),
 ):
-    model, model_name = get_model_maybe_yaml(model_name)
+    model = get_model_from_directory_or_github_url(model_name)
+    model_name = model.name
+
     model = model()
     filename = out_path / f"{model_name}_{dataset_name}_multi_forecast_results_{n_months}.html"
     logger.info(f"Saving to {filename}")
@@ -227,7 +253,7 @@ def multi_forecast(
 
 
 @app.command()
-def serve(seedfile: Optional[str] = None, debug: bool = False):
+def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool = False):
     """
     Start CHAP as a backend server
     """
@@ -237,7 +263,7 @@ def serve(seedfile: Optional[str] = None, debug: bool = False):
         data = json.load(open(seedfile))
     else:
         data = None
-    main_backend(data)
+    main_backend(data, auto_reload=auto_reload)
 
 
 @app.command()
@@ -283,8 +309,10 @@ class AreaPolygons: ...
 
 
 @app.command()
-def backtest(data_filename: Path, model_name: registry.model_type, out_folder: Path, prediction_length: int = 12,
-             n_test_sets: int = 20, stride: int = 2):
+def backtest(data_filename: Path, model_name: registry.model_type|str, out_folder: Path,
+             prediction_length: int = 12,
+             n_test_sets: int = 20,
+             stride: int = 2):
     """
     Run a backtest on a dataset using the specified model
 
@@ -294,10 +322,14 @@ def backtest(data_filename: Path, model_name: registry.model_type, out_folder: P
         out_folder: Path: Path to the output folder
     """
     dataset = DataSet.from_csv(data_filename, FullData)
-    print(dataset)
     logger.info(f"Running backtest on {data_filename} with model {model_name}")
     logger.info(f"Dataset period range: {dataset.period_range}, locations: {list(dataset.locations())}")
-    estimator = registry.get_model(model_name)
+
+    if '/' in model_name:
+        estimator = get_model_from_directory_or_github_url(model_name)
+        model_name = 'development_model'
+    else:
+        estimator = registry.get_model(model_name)
     predictions_list = _backtest(estimator, dataset, prediction_length=prediction_length,
                                  n_test_sets=n_test_sets, stride=stride, weather_provider=QuickForecastFetcher)
     response = samples_to_evaluation_response(

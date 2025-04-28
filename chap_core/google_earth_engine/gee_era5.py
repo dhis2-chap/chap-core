@@ -1,13 +1,14 @@
 import datetime
 import logging
-from typing import Iterable, List, Callable
+from typing import Iterable, List, Callable, Optional
 from dotenv import find_dotenv, load_dotenv
 import ee
 import os
 import pandas as pd
 from pydantic import BaseModel
-from chap_core.datatypes import SimpleClimateData
+from chap_core.datatypes import create_tsdataclass
 from chap_core.exceptions import GEEError
+from chap_core.rest_api_src.data_models import FetchRequest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import PeriodRange, TimePeriod
 
@@ -28,13 +29,13 @@ class Band(BaseModel):
         arbitrary_types_allowed = True
 
     name: str
-    reducer: str
-    converter: Callable
     indicator: str
-    periode_reducer: str
+    reducer: str = 'mean'
+    converter: Callable = lambda x: x
+    periode_reducer: str = 'mean'
 
 
-bands = [
+orig_bands = [
     Band(
         name="temperature_2m",
         reducer="mean",
@@ -130,12 +131,14 @@ class Era5LandGoogleEarthEngineHelperFunctions:
 
     @staticmethod
     def parse_gee_properties(property_dicts: list[dict]) -> DataSet:
+
         df = pd.DataFrame(property_dicts)
+        dataclass = create_tsdataclass(list(df["indicator"].unique()))
         location_groups = df.groupby("ou")
         full_dict = {}
         for location, group in location_groups:
             data_dict, pr = Era5LandGoogleEarthEngineHelperFunctions._get_data_dict(group)
-            full_dict[location] = SimpleClimateData(pr, **data_dict)
+            full_dict[location] = dataclass(pr, **data_dict)
         return DataSet(full_dict)
 
     @staticmethod
@@ -189,9 +192,14 @@ class Era5LandGoogleEarthEngine:
             logger.error(e)
             raise GEEError("Could not initialize Google Earth Engine") from e
 
-    def get_historical_era5(self, features: dict, periodes: Iterable[TimePeriod]):
-        ee_reducer_type = "mean"
+    def get_historical_era5(self, features: dict, periodes: Iterable[TimePeriod], fetch_requests: Optional[List[FetchRequest]] = None):
+        if fetch_requests is None:
+            bands = orig_bands
+        else:
+            feature_names = {fr.feature_name for fr in fetch_requests}
+            bands = [b for b in orig_bands if b.indicator in feature_names]
 
+        ee_reducer_type = "mean"
         collection = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select([band.name for band in bands])
         feature_collection: ee.FeatureCollection = ee.FeatureCollection(features)
         periode_list = ee.List([self.gee_helper.create_ee_dict(p) for p in periodes])
@@ -223,7 +231,7 @@ class Era5LandGoogleEarthEngine:
 
         return self.gee_helper.parse_gee_properties(parsed_result)
 
-    def get_daily_data(self, regions, periodes: Iterable[TimePeriod]):
+    def get_daily_data(self, regions, periodes: Iterable[TimePeriod], bands=orig_bands):
 
         for i, feature in enumerate(regions['features']):
             if 'properties' not in feature:

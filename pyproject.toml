@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 
 authors = [{ name = "Sandvelab", email = "knutdrand@gmail.com" }]
-license = { text = "MIT license" }
+license = { text = "AGPLv3 license" }
 keywords = ["chap_core"]
 
 dependencies = [
@@ -28,7 +28,7 @@ dependencies = [
     "matplotlib",
     "meteostat",
     "mlflow-skinny",
-    "numpy<2.0",
+    "numpy",
     "pandas",
     "plotly",
     "pooch",
@@ -43,6 +43,7 @@ dependencies = [
     "rq",
     "scikit-learn",
     "scipy",
+    "topojson",
     "unidecode",
     "uvicorn",
     "virtualenv",
@@ -88,6 +89,10 @@ lint.fixable = ["ALL"]
 # exclude = [".git", ".mypy_cache", ".ruff_cache"]
 include = ["chap_core/**/*.py"]
 line-length = 120
+
+# disable complaining about unused imports in __init__.py
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
 
 [tool.ruff.format]
 quote-style = "double"

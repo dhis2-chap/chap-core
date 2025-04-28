@@ -1,11 +1,13 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Generic, List
+from typing import Callable, Generic
 import logging
 from celery import Celery, shared_task, Task
 from celery.result import AsyncResult
+from redis import Redis
 from dotenv import find_dotenv, load_dotenv
+import json
 
 import celery
 from pydantic import BaseModel
@@ -24,15 +26,53 @@ logger.setLevel(logging.INFO)
 # Send database url in function queue call. Have a dict in module of database url to engines. Look up engine in dict
 class JobDescription(BaseModel):
     id: str
-    description: str
+    type: str
+    name: str
     status: str
-    start_time: datetime
-    hostname: str
+    start_time: str | None
+    end_time: str | None
+    result: str | None
 
 
-class TaskWithPerTaskLogging(Task):
+def read_environment_variables():
+    load_dotenv(find_dotenv())
+    host = os.getenv("CELERY_BROKER",
+                     "redis://localhost:6379")
+    return host
+
+
+# Setup celery
+url = read_environment_variables()
+logger.info(f"Connecting to {url}")
+app = Celery(
+    "worker",
+    broker=url,
+    backend=url
+)
+app.conf.update(
+    task_serializer="pickle",
+    accept_content=["pickle"],  # Allow pickle serialization
+    result_serializer="pickle",
+    # Enables tracking of job lifecycle
+    task_track_started=True,
+    task_send_sent_event=True,
+    worker_send_task_events=True,
+)
+
+
+# Setup Redis connection (for job metadata)
+redis_url = 'redis' if 'localhost' not in url else 'localhost'
+r = Redis(host=redis_url, port=6379, db=2, decode_responses=True) # TODO: how to set this better?
+
+
+# logger.warning("No database URL set")
+# This is hacky, but defaults to using the test database. Should be synched with what is setup in conftest
+# engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
+
+
+class TrackedTask(Task):
+
     def __call__(self, *args, **kwargs):
-        print("TaskWithPerTaskLogging")
         # Extract the current task id
         task_id = self.request.id
 
@@ -57,13 +97,59 @@ class TaskWithPerTaskLogging(Task):
         logger.addHandler(logging.StreamHandler())
 
         try:
+            # Mark as started when the task is actually executing
+            r.hmset(f"job_meta:{task_id}", {
+                "status": "STARTED",
+                #"start_time": datetime.now().isoformat(), # update the start time
+            })
             # Execute the actual task
-            return super(TaskWithPerTaskLogging, self).__call__(*args, **kwargs)
+            return super().__call__(*args, **kwargs)
+        
         finally:
             # Close the file handler and restore old handlers after the task is done
             file_handler.close()
             logger.handlers = old_handlers
             root_logger.handlers = old_root_handlers
+
+    def apply_async(self, args=None, kwargs=None, **options):
+        #print('apply async', args, kwargs, options)
+        job_name = kwargs.pop(JOB_NAME_KW, None) or 'Unnamed'
+        job_type = kwargs.pop(JOB_TYPE_KW, None) or 'Unspecified'
+        result = super().apply_async(args=args, kwargs=kwargs, **options)
+
+        r.hmset(f"job_meta:{result.id}", {
+            "job_name": job_name,
+            "job_type": job_type,
+            "status": "PENDING",
+            "start_time": datetime.now().isoformat()
+        })
+
+        return result
+
+    def on_success(self, retval, task_id, args, kwargs):
+        print('success!')
+        #start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
+        #duration = time.time() - start
+
+        r.hmset(f"job_meta:{task_id}", {
+            "status": "SUCCESS",
+            #"duration": duration,
+            "result": json.dumps(retval),
+            "end_time": datetime.now().isoformat()
+        })
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        print('failure!')
+        #start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
+        #duration = time.time() - start
+
+        r.hmset(f"job_meta:{task_id}", {
+            "status": "FAILURE",
+            #"duration": duration,
+            "error": str(exc),
+            "traceback": str(einfo.traceback),
+            "end_time": datetime.now().isoformat()
+        })
 
 
 @shared_task(name='celery.ping')
@@ -71,34 +157,32 @@ def ping():
     return 'pong'
 
 
-def read_environment_variables():
-    load_dotenv(find_dotenv())
-    host = os.getenv("CELERY_BROKER", "redis://localhost:6379")
-    return host
-
-
-url = read_environment_variables()
-logger.info(f"Connecting to {url}")
-app = Celery(
-    "worker",
-    broker=url,
-    backend=url
-)
-app.conf.update(
-    task_serializer="pickle",
-    accept_content=["pickle"],  # Allow pickle serialization
-    result_serializer="pickle",
-)
-
-
-# logger.warning("No database URL set")
-# This is hacky, but defaults to using the test database. Should be synched with what is setup in conftest
-# engine = create_engine("sqlite:///test.db", connect_args={"check_same_thread": False})
-
-
 def add_numbers(a: int, b: int):
     logger.info(f"Adding {a} + {b}")
     return a + b
+
+
+# set base to TrackedTask to enable per-task logging
+@app.task(base=TrackedTask)
+def celery_run(func, *args, **kwargs):
+    return func(*args, **kwargs)
+
+
+ENGINES_CACHE = {}
+
+
+@app.task(base=TrackedTask)
+def celery_run_with_session(func, *args, **kwargs):
+    database_url = kwargs.pop("database_url")
+    if database_url not in ENGINES_CACHE:
+        ENGINES_CACHE[database_url] = create_engine(database_url)
+    engine = ENGINES_CACHE[database_url]
+    with SessionWrapper(engine) as session:
+        return func(*args, **kwargs | {"session": session})
+
+
+JOB_TYPE_KW = '__job_type__'
+JOB_NAME_KW = '__job_name__'
 
 
 class CeleryJob(Generic[ReturnType]):
@@ -140,29 +224,14 @@ class CeleryJob(Generic[ReturnType]):
         return str(self._result.traceback or "")
 
     def get_logs(self) -> str:
-        log_file = Path("logs") / f"task_{self._job.id}.txt"
+        log_file = Path("app/logs") / f"task_{self._job.id}.txt" # TODO: not sure why have to specify app/logs... 
         if log_file.exists():
-            return log_file.read_text()
+            logs = log_file.read_text()
+            job_meta = get_job_meta(self.id)
+            if job_meta['status'] == 'FAILURE':
+                logs += '\n' + job_meta['traceback']
+            return logs
         return None
-
-
-# set base to TaskWithPerTaskLogging to enable per-task logging
-@app.task(base=TaskWithPerTaskLogging)
-def celery_run(func, *args, **kwargs):
-    return func(*args, **kwargs)
-
-
-ENGINES_CACHE = {}
-
-
-@app.task(base=TaskWithPerTaskLogging)
-def celery_run_with_session(func, *args, **kwargs):
-    database_url = kwargs.pop("database_url")
-    if database_url not in ENGINES_CACHE:
-        ENGINES_CACHE[database_url] = create_engine(database_url)
-    engine = ENGINES_CACHE[database_url]
-    with SessionWrapper(engine) as session:
-        return func(*args, **kwargs | {"session": session})
 
 
 class CeleryPool(Generic[ReturnType]):
@@ -183,21 +252,53 @@ class CeleryPool(Generic[ReturnType]):
     def get_job(self, task_id: str) -> CeleryJob[ReturnType]:
         return CeleryJob(AsyncResult(task_id, app=self._celery), app=self._celery)
 
-    def _describe_job(self, job_info: dict) -> str:
-        func, *args = job_info["args"]
-        func_name = func.__name__
-        return f"{func_name}({', '.join(map(str, args))})"
+    #def _describe_job(self, job_info: dict) -> str:
+    #    func, *args = job_info["args"]
+    #    func_name = func.__name__
+    #    return f"{func_name}({', '.join(map(str, args))})"
 
-    def list_jobs(self)-> List[JobDescription]:
+    # def list_jobs(self) -> List[JobDescription]:
+    #     all_jobs = {'active': self._celery.control.inspect().active(),}
+    #                 #'scheduled': self._celery.control.inspect().scheduled(),
+    #                 #'reserved': self._celery.control.inspect().reserved()}
+    #     print(all_jobs)
 
-        all_jobs = {'active': self._celery.control.inspect().active(),
-                    'scheduled': self._celery.control.inspect().scheduled(),
-                    'reserved': self._celery.control.inspect().reserved()}
-        print(all_jobs)
-        return [JobDescription(id=info['id'],
-                               description=self._describe_job(info),
-                               status=status,
-                               start_time=datetime.fromtimestamp(info["time_start"]),
-                               hostname=hostname)
-                for status, host_dict in all_jobs.items() for hostname, jobs in host_dict.items() for info in jobs]
+    #     return [JobDescription(id=info['id'],
+    #                            description=self._describe_job(info),
+    #                            status=status,
+    #                            start_time=datetime.fromtimestamp(info["time_start"]),
+    #                            hostname=hostname,
+    #                            type=self._get_job_type(info))
+    #             for status, host_dict in all_jobs.items() for hostname, jobs in host_dict.items() for info in jobs]
+    
+    def list_jobs(self, status: str = None):
+        """List all tracked jobs stored by Redis. Optional filter by status: PENDING, STARTED, SUCCESS, FAILURE"""
+        keys = r.keys("job_meta:*")
+        jobs = []
 
+        for key in keys:
+            task_id = key.split(":")[1]
+            meta = r.hgetall(key)
+            meta["task_id"] = task_id
+            if status is None or meta.get("status") == status:
+                jobs.append(meta)
+
+        return [
+            JobDescription(
+                id=meta['task_id'],
+                type=meta.get('job_type', 'Unspecified'),
+                name=meta.get('job_name', 'Unnamed'),
+                status=meta['status'],
+                start_time=meta.get('start_time', None),
+                end_time=meta.get('end_time', None),
+                result=meta.get('result', None),
+            )
+            for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900,1,1).isoformat()), reverse=True)
+        ]
+
+def get_job_meta(task_id: str):
+    """Fetch Redis metadata for a job by task ID."""
+    key = f"job_meta:{task_id}"
+    if not r.exists(key):
+        return None
+    return r.hgetall(key)

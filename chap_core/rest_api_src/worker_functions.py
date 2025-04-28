@@ -2,6 +2,7 @@ import json
 import os
 from typing import Optional, Tuple, List, Union
 
+import ee
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel
@@ -13,10 +14,10 @@ from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, Samples, HealthData, HealthPopulationData, create_tsdataclass, TimeSeriesArray
+from chap_core.geometry import Polygons
+from chap_core.geoutils import simplify_topology
+from chap_core.rest_api_src.data_models import FetchRequest
 from chap_core.time_period.date_util_wrapper import convert_time_period_string
-from chap_core.external.external_model import (
-    get_model_from_directory_or_github_url,
-)
 from chap_core.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from chap_core.predictor.model_registry import registry
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -37,7 +38,7 @@ class DataValue:
 
 class WorkerConfig(BaseModel):
     is_test: bool = False
-
+    failing_services: Tuple[str] = ()
     # Make it frozen so that we can't accidentally change it
     class Config:
         frozen = True
@@ -46,7 +47,7 @@ class WorkerConfig(BaseModel):
 def initialize_gee_client(usecwd=False, worker_config: WorkerConfig = WorkerConfig()):
     if worker_config.is_test:
         from chap_core.testing.mocks import GEEMock
-        return GEEMock()
+        return GEEMock(worker_config)
     gee_client = Era5LandGoogleEarthEngine(usecwd=usecwd)
     return gee_client
 
@@ -127,9 +128,9 @@ def __clean_actual_cases(real_data: DataList) -> DataList:
     dataset = DataSet.from_pandas(df, TimeSeriesArray, fill_missing=True)
     return DataList(featureId=real_data.featureId,
                     dhis2Id=real_data.dhis2Id,
-                    data=[DataElement(pe=row.time_period.id, ou=location, value=row.value if not np.isnan(row.value) else None)
+                    data=[DataElement(pe=row.time_period.id, ou=location,
+                                      value=row.value if not np.isnan(row.value) else None)
                           for location, ts_array in dataset.items() for row in ts_array])
-
 
 
 def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataList):
@@ -137,8 +138,8 @@ def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataL
     for predictions in predictions_list:
         first_period = predictions.period_range[0]
         for location, samples in predictions.items():
-            quantiles = {q: np.quantile(samples.samples, q, axis=-1) for q in quantiles}
-            for q, quantile in quantiles.items():
+            calculated_quantiles = {q: np.quantile(samples.samples, q, axis=-1) for q in quantiles}
+            for q, quantile in calculated_quantiles.items():
                 for period, value in zip(predictions.period_range, quantile):
                     entry = EvaluationEntry(orgUnit=location,
                                             period=period.id,
@@ -157,6 +158,8 @@ def train_on_json_data(json_data: RequestV1, model_name, model_path, control=Non
     target_name = "diseases"
     target_id = get_target_id(json_data, target_name)
     train_data = dataset_from_request_v1(json_data)
+
+    from chap_core.models.utils import get_model_from_directory_or_github_url
     model = get_model_from_directory_or_github_url(model_path)
     if hasattr(model, "set_graph"):
         logger.warning(f"Not setting graph on {model}")
@@ -197,11 +200,25 @@ def dataset_from_request_v1(
     return harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config=worker_config)
 
 
-def harmonize_health_dataset(dataset, usecwd_for_credentials, worker_config: WorkerConfig = WorkerConfig()):
+base_fetch_requests = (FetchRequest(feature_name='rainfall', data_source_name='total_precipitation'),
+                       FetchRequest(feature_name='mean_temperature', data_source_name='mean_2m_air_temperature'))
+
+
+def harmonize_health_dataset(dataset, usecwd_for_credentials,
+                             fetch_requests: List[FetchRequest] = base_fetch_requests,
+                             worker_config: WorkerConfig = WorkerConfig()):
     gee_client = initialize_gee_client(usecwd=usecwd_for_credentials, worker_config=worker_config)
     period_range = dataset.period_range
-    climate_data = gee_client.get_historical_era5(dataset.polygons.model_dump(), periodes=period_range)
-    train_data = dataset.merge(climate_data, FullData)
+
+    try:
+        climate_data = gee_client.get_historical_era5(dataset.polygons.model_dump(), periodes=period_range, fetch_requests=fetch_requests)
+    except ee.EEException as e:
+        logger.error(f"Failed to get climate data: {e}, trying to downsample")
+        polygons = simplify_topology(Polygons(dataset.polygons)).feature_collection()
+        climate_data = gee_client.get_historical_era5(polygons.model_dump(), periodes=period_range, fetch_requests=fetch_requests)
+
+    dataclass = create_tsdataclass(dataset.field_names() + [d.feature_name for d in fetch_requests])
+    train_data = dataset.merge(climate_data, dataclass)
     return train_data
 
 
@@ -211,6 +228,15 @@ def get_health_dataset(json_data: PredictionRequest, dataclass=None, colnames=('
 
     target_name = get_target_name(json_data)
     translations = {target_name: "disease_cases"}
+    population_feature = next(f for f in json_data.features if f.featureId == "population")
+    if not len(population_feature.data):
+        other_feature = next(f for f in json_data.features if f.featureId != "population")
+        locations = {d.ou for d in other_feature.data}
+        periods = {d.pe for d in other_feature.data}
+        population_feature.data = [
+            DataElement(pe=period, ou=location, value=10000000) for period in periods
+            for location in locations]
+
     data = {
         translations.get(feature.featureId, feature.featureId): v1_conversion(
             feature.data, fill_missing=feature.featureId in (target_name, "population"), colnames=colnames
@@ -232,7 +258,6 @@ def get_combined_dataset(json_data: RequestV1):
 def load_forecasts(data_path):
     climate_forecasts = SeasonalForecast()
     for file_name in os.listdir(data_path):
-        print(file_name)
         variable_type = file_name.split(".")[0]
         if file_name.endswith(".json"):
             with open(data_path / file_name) as f:

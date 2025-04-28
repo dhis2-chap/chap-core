@@ -230,7 +230,6 @@ class ClimateData(TimeSeriesData):
 class HealthData(TimeSeriesData):
     disease_cases: int
 
-
 @tsdataclass
 class ClimateHealthTimeSeries(TimeSeriesData):
     rainfall: float
@@ -333,7 +332,10 @@ class Samples(TimeSeriesData):
     def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> "TimeSeriesData":
         ptime = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
         n_samples = sum(1 for col in data.columns if col.startswith("sample_"))
-        samples = np.array([data[f"sample_{i}"].values for i in range(n_samples)]).T
+        samples = np.array([data[f"sample_{i}"].values for i in range(n_samples)], dtype=float).T
+        if not np.isfinite(samples).all():
+            raise ValueError(f"Samples are not finite: {samples}")
+
         return cls(ptime, samples)
 
     to_pandas = topandas
@@ -349,6 +351,11 @@ class Samples(TimeSeriesData):
             quantile_low=np.quantile(self.samples, q_low, axis=-1),
             quantile_high=np.quantile(self.samples, q_high, axis=-1),
         )
+
+@tsdataclass
+class SamplesWithTruth(Samples):
+    disease_cases: float
+
 
 
 @dataclasses.dataclass

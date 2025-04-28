@@ -1,4 +1,4 @@
-from chap_core.external.external_model import (
+from chap_core.models.utils import (
     get_model_from_directory_or_github_url,
 )
 from .estimators import sanity_check_estimator

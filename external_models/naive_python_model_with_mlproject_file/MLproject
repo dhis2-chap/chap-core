@@ -18,3 +18,4 @@ entry_points:
       model: str
       out_file: str
     command: "python  mock_predictor_script.py predict  {model} {historic_data} {future_data} {out_file}"
+

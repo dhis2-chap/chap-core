@@ -8,11 +8,11 @@
 
 There are three main ways to interact with CHAP. Below we describe how to install CHAP for each of these use-cases:
 
-## Option 1: Setting up CHAP Prediction App in DHIS2
+## Option 1: Setting up Chap Modeling App in DHIS2
 
-For most users we recommend interacting with CHAP through the DHIS2 Prediction App interface. 
+For most users we recommend interacting with Chap through the DHIS2 Modeling App interface, which serves as a frontend to the modeling platform.
 
-* [Click here for instructions to setup the CHAP Prediction App in DHIS2](prediction-app-setup)
+* [Click here for instructions to setup the CHAP Modeling App in DHIS2](modeling-app-setup)
 
 ## Option 2: Setting up CHAP REST-API
 
