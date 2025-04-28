@@ -2,7 +2,7 @@
 
 __author__ = """Sandvelab"""
 __email__ = "knutdrand@gmail.com"
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 
 from . import fetch
 from . import data

@@ -1,6 +1,6 @@
 [project]
 name = "chap_core"
-version = "1.0.6"
+version = "1.0.7"
 description = "Climate Health Analysis Platform (CHAP)"
 readme = "README.md"
 requires-python = ">=3.10"
