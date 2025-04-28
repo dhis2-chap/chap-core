@@ -1,4 +1,7 @@
 # Overview of supported models
+## Autoregressive weekly
+This model has been developed internally by the Chap team. Autoregressive weekly is a deep learning model based on DeepAR that uses rainfall and temperature as climate predictors and models disease counts with a negative binomial distribution where the parameters are estimated by a recurrent neural network. The current model available through Chap can be [found here](https://github.com/knutdrand/weekly_ar_model).
+
 ## Epidemiar
 Epidemiar is a Generalizes additive model (GAM) used for climate health forecasts. It requires weekly epidemilogical data, like disease cases and population, and daily enviromental data. As most of the data in CHAP is monthly or weekly we pass weakly data to the model, and then naively expand weekly data to daily data, which the epidemiar library again aggregates back to weekly data. The model produces a sample for each location per time point with and upper and lower boundary for some unknown quantiles. For more information regarding the model look [here](https://github.com/dhis2-chap/epidemiar_example_model). An example of running the model from the CHAP command line interface is
 ```
