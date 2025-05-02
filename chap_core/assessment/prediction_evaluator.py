@@ -1,10 +1,11 @@
 from collections import defaultdict
 from typing import Protocol, TypeVar, Iterable, Dict
-
+from gluonts.model import SampleForecast
 from gluonts.evaluation import Evaluator
 from gluonts.model import Forecast
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import numpy as np
 import pandas as pd
 from chap_core.assessment.dataset_splitting import (
     train_test_generator,
@@ -110,7 +111,8 @@ def evaluate_model(
     forecast_list, tss = zip(*forecasts_and_truths_generator)
 
     logger.info("Evaluating")
-    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9], num_workers=None)
+    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9], num_workers=None,
+                          allow_nan_forecast=True)
     results = evaluator(tss, forecast_list)
     logger.info('Finished Evaluating')
     return results
@@ -160,7 +162,7 @@ def _get_forecast_generators(
     return forecast_list, tss
 
 
-def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[Forecast]]:
+def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[SampleForecast]]:
     forecast_dict = defaultdict(list)
 
     for historic_data, future_data, _ in test_generator:
@@ -178,8 +180,23 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
     with PdfPages(pdf_filename) as pdf:
         for location, forecasts in forecast_dict.items():
             logging.info(f"Running on location {location}")
-            _t = truth[location]
+            try:
+                _t = truth[location]
+            except KeyError:
+                location = str(location)
+                try: 
+                    _t = truth[location]
+                except KeyError:
+                    logger.error(f"Location {repr(location)} not found in truth data which has locations {truth.keys()}")
+                    raise
+                logging.warning(f"Had to convert location to string {location}, something has maybe gone wrong at some point with data types")
+
             for forecast in forecasts:
+                logging.info("Forecasts: ")
+                logging.info(forecasts)
+                if np.any(np.isnan(forecast.samples)):
+                    logger.warning(f"Forecast {forecast} has NaN values: {forecast.samples}")
+
                 plt.figure(figsize=(8, 4))  # Set the figure size
                 t = _t[_t.index <= forecast.index[-1]]
                 forecast.plot(show_label=True)
