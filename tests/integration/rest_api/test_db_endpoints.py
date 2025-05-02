@@ -5,6 +5,9 @@ import time
 import numpy as np
 import pytest
 from datetime import datetime
+
+from pydantic import ValidationError
+
 from chap_core.api_types import EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
@@ -67,7 +70,7 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
     assert data.timestamp > start_timestamp
 
 
-#@pytest.mark.slow
+# @pytest.mark.slow
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons', dataset_type='evaluation')
@@ -103,13 +106,12 @@ def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_ov
     with open(filepath, 'r') as f:
         data = f.read()
         request = DatasetMakeRequest.model_validate_json(data)
-        request.type='evaluation'
+        request.type = 'evaluation'
     print(request)
     _make_dataset(request, wanted_field_names=['rainfall', 'mean_temperature'])
 
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
-
     data = dataset_create.model_dump_json()
     print(json.dumps(data, indent=2))
     response = client.post("/v1/crud/datasets", data=data)
@@ -198,6 +200,15 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
     _make_dataset(make_dataset_request)
 
 
+def test_make_dataset_failing_with_missing_data(celery_session_worker, dependency_overrides, make_dataset_request):
+    first_rainfall_idx = next(
+        i for i, o in enumerate(make_dataset_request.provided_data) if o.feature_name == 'rainfall')
+    r = make_dataset_request.provided_data.pop(first_rainfall_idx)
+    assert r.feature_name == 'rainfall'
+    with pytest.raises(AssertionError) as excinfo:
+        _make_dataset(make_dataset_request)
+    print(excinfo)
+
 def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
     _make_dataset(anonymous_make_dataset_request)
 
@@ -281,6 +292,7 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     ds = [PredictionEntry.model_validate(entry) for entry in response.json()]
     assert len(ds) > 0
     assert all(pe.quantile in (0.1, 0.5, 0.9) for pe in ds)
+
 
 def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     response = client.post("/v1/debug/trigger-exception")

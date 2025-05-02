@@ -53,6 +53,15 @@ def make_dataset(request: DatasetMakeRequest,
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if 'population' in feature_names:
         provided_data = provided_data.interpolate(['population'])
+    for feature_name in feature_names:
+        if feature_name == 'disease_cases':
+            continue
+        for location, data in provided_data.items():
+            isnan = np.isnan(getattr(data, feature_name))
+            if np.any(isnan):
+                isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
+                raise HTTPException(status_code=500, detail=f'Missing value in {feature_name} in location {location}. Time periods: {isnan_}')
+
     request.type = 'evaluation'
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
@@ -192,7 +201,7 @@ data_sources = [
                display_name='Mean 2m Air Temperature',
                supported_features=['mean_temperature'],
                description='Average air temperature at 2m height (daily average)',
-               dataset='era5'),
+dataset='era5'),
     DataSource(name='minimum_2m_air_temperature',
                display_name='Minimum 2m Air Temperature',
                supported_features=[''],
