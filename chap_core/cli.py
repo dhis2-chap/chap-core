@@ -73,6 +73,7 @@ def evaluate(
         if polygons_json is not None:
             logging.info(f"Loading polygons from {polygons_json}")
             polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)
+            polygons.filter_locations(dataset.locations())
             dataset.set_polygons(polygons.data)
     else:
         logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
@@ -86,7 +87,7 @@ def evaluate(
                     dataset_country in dataset.countries
             ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
             dataset = dataset[dataset_country]
-
+    
     if "," in model_name:
         # model_name is not only one model, but contains a list of models
         model_list = model_name.split(",")

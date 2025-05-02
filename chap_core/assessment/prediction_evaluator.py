@@ -94,8 +94,8 @@ def evaluate_model(
         )
         for location in data.keys()
     }
-    #transformed = create_multiloc_timeseries(truth_data)
 
+    #transformed = create_multiloc_timeseries(truth_data)
     if report_filename is None:
         report_filename = "evaluation_report.pdf"
 

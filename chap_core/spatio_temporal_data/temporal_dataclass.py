@@ -208,7 +208,11 @@ class DataSet(Generic[FeaturesT]):
 
     @property
     def period_range(self) -> PeriodRange:
-        first_period_range = self._data_dict[next(iter(self._data_dict))].time_period
+        try:
+            first_period_range = self._data_dict[next(iter(self._data_dict))].time_period
+        except StopIteration:
+            raise ValueError(f"No data in dataset {self}")
+
         assert first_period_range.start_timestamp == first_period_range.start_timestamp
         assert first_period_range.end_timestamp == first_period_range.end_timestamp
         return first_period_range
@@ -317,6 +321,10 @@ class DataSet(Generic[FeaturesT]):
         """
         data_dict = {}
         for location, data in df.groupby("location"):
+            if not isinstance(location, str):
+                logging.warning(f"Location {location} is not a string, converting to string")
+                location = str(location)
+
             data['time_period'] = data['time_period'].apply(clean_timestring)
             data_dict[location] = dataclass.from_pandas(data.sort_values(by='time_period'), fill_missing)
         data_dict = cls._fill_missing(data_dict)
