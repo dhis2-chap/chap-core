@@ -91,6 +91,7 @@ def evaluate(
     if "," in model_name:
         # model_name is not only one model, but contains a list of models
         model_list = model_name.split(",")
+        model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
             model_configuration_yaml_list = model_configuration_yaml.split(",")
             assert len(model_list) == len(model_configuration_yaml_list), "Number of model configurations does not match number of models"
