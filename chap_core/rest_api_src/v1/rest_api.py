@@ -1,6 +1,5 @@
 import json
 import logging
-import random
 from typing import Optional
 from packaging.version import Version
 from fastapi import HTTPException, Depends
@@ -25,8 +24,6 @@ from . import debug, jobs
 from .routers.dependencies import get_settings
 from ...database.database import create_db_and_tables
 from ...exceptions import GEEError
-import requests
-import yaml
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)

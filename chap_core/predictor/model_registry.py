@@ -1,7 +1,5 @@
 from pathlib import Path
 from typing import Literal
-
-import giturlparse
 import yaml
 
 from .naive_estimator import NaiveEstimator
