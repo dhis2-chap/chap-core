@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
+import giturlparse
 import yaml
 
 from .naive_estimator import NaiveEstimator
@@ -53,6 +54,9 @@ class ModelRegistry:
             data = yaml.safe_load(file)
         model_dict = {}
         for model_name, github_url in data.items():
+            #url = giturlparse.parse(github_url)
+            #owner = url.owner
+            #name = url.name
             model_dict[model_name] = ModelSpec(
                 name=model_name,
                 parameters={},
