@@ -1,10 +1,16 @@
+import logging
 from typing import Optional, List
 
+import requests
 from sqlalchemy import JSON, Column
+import yaml
 
 from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
 from sqlmodel import Field, Relationship
+
+from chap_core.util import parse_github_url
+logger = logging.getLogger(__name__)
 
 
 class FeatureTypeBase(DBModel):
@@ -58,6 +64,32 @@ class ModelSpec(ModelSpecBase, table=True):
     target_name: str = Field(foreign_key="featuretype.name")
     target: FeatureType = Relationship()
 
+    @classmethod
+    def from_github_url(cls, github_url: str) -> 'ModelSpec':
+        # parse the github url
+        parsed = parse_github_url(github_url)
+        # Takes a github url, parses the MLProject file, returns an object with the correct information
+        raw_mlproject_url = f"https://raw.githubusercontent.com/{parsed.owner}/{parsed.repo_name}/{parsed.commit}/MLproject"
+        # fetch this MLProject file and parse it
+        try: 
+            fetched = requests.get(raw_mlproject_url)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching MLProject file: {e}")
+            return None
+        content = fetched.content
+        # parse content as yaml
+        content = yaml.safe_load(content)
+        
+        # todo:
+        # parse as much as possible from the MLProject file (but allow missing data)
+
+        return ModelSpec(
+            source_url = github_url,
+            name = content["name"],
+        )
+            
+
+
 
 target_type = FeatureType(name='disease_cases',
                           display_name='Disease Cases',
@@ -85,6 +117,7 @@ def seed_with_session_wrapper(session_wrapper):
     base_covariates = [db_models[0], db_models[1], db_models[2]]
 
     seeded_models = [
+        #ModelSpec.from_github_url("")
         ModelSpec(
             name="naive_model",
             display_name='Naive model used for testing',
