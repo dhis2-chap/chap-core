@@ -69,3 +69,9 @@ $ make test-all
 
 To see what is actually being run, you can see what is specified under `test-all` in the Makefile.
 
+
+## Some more details about integration tests
+
+- The file `docker_db_flow.py` is important: This runs a lot of the db integration tests and tests for endpoints that are using the database and is run through a docker image when `make test-all` is run. Similarily the docker_flow.py runs some of the old endpoints (the db_flow.py is outdated and don't need to be run in future).
+- Everything that the frontend uses should currently be added as tests in the docker_db_flow.py file
+- In the future, we should ideally use the pytest framework for this integration test
