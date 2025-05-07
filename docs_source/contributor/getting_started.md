@@ -24,6 +24,16 @@ In order to make changes and contribute back to the chap-core Python codebase, y
 
 Installing and activating the development environment above is a required step for the remaining steps below. 
 
+### Local installation of a DHIS2 instance with the Modeling app
+
+If you want to test chap-core with the Modeling app, follow these steps to set up a local installation of DHIS2:
+
+- [Follow these instructions](https://developers.dhis2.org/docs/cli) to install the DHIS2 cli tools
+- Spin up a DHIS2 instance by running `d2 cluster up 2.41 --db-version 2.41` ([More details here](https://developers.dhis2.org/docs/cli/cluster)]. Change the version number with whatever version you want.
+- If the previous steps worked, you will have a DHIS2 instance running at localhost:8080. Go to that url in your webbrowser and log in.
+- First install the `App Management` app, then install the app called `Modeling` through the App Hub.
+
+
 ### Code guidelines
 
 In the current phase we are moving quite fast, and the code guidelines are not very strict. 
