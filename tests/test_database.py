@@ -59,6 +59,6 @@ def test_add_predictions(seeded_engine):
 @pytest.mark.skip
 def test_seed(seeded_engine):
     with SessionWrapper(seeded_engine) as session:
-        seed_with_session_wrapper(session)
+        seed_with_session_wrapper(session) 
         seed_with_session_wrapper(session)
 

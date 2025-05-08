@@ -7,7 +7,7 @@ import psycopg2
 import sqlalchemy
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
-from .model_spec_tables import seed_with_session_wrapper
+from .model_spec_tables import get_available_models, seed_with_session_wrapper
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment

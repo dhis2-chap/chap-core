@@ -57,15 +57,8 @@ class ModelSpecRead(ModelSpecBase):
     covariates: List[FeatureTypeRead]
     target: FeatureTypeRead
 
-
-class ModelSpec(ModelSpecBase, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
-    covariates: List[FeatureType] = Relationship(link_model=ModelFeatureLink)
-    target_name: str = Field(foreign_key="featuretype.name")
-    target: FeatureType = Relationship()
-
     @classmethod
-    def from_github_url(cls, github_url: str) -> 'ModelSpec':
+    def from_github_url(cls, github_url: str) -> 'ModelSpecRead':
         # parse the github url
         parsed = parse_github_url(github_url)
         # Takes a github url, parses the MLProject file, returns an object with the correct information
@@ -83,41 +76,65 @@ class ModelSpec(ModelSpecBase, table=True):
         # todo:
         # parse as much as possible from the MLProject file (but allow missing data)
 
-        return ModelSpec(
+        return cls(
+            id = 0,
             source_url = github_url,
             name = content["name"],
+            covariates=[],
+            target=FeatureTypeRead(name='disease_cases', display_name='Disease Cases', description='Disease Cases'),
+            display_name = content["name"],
+            description = content.get("description", "No Description yet"),
         )
-            
 
-
-
+ 
 target_type = FeatureType(name='disease_cases',
                           display_name='Disease Cases',
                           description='Disease Cases')
 
 
-def seed_with_session_wrapper(session_wrapper):
-    '''Seed a database using with the default models'''
-    seeded_feature_types = [
-        FeatureType(name='rainfall',
-                    display_name='Precipitation',
-                    description='Precipitation in mm'),
-        FeatureType(name='mean_temperature',
-                    display_name='Mean Temperature',
-                    description='A measurement of mean temperature'),
-        FeatureType(name='population',
-                    display_name='Population',
-                    description='Population'),
-        target_type]
+class ModelSpec(ModelSpecBase, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
+    covariates: List[FeatureType] = Relationship(link_model=ModelFeatureLink)
+    target_name: str = Field(foreign_key="featuretype.name")
+    target: FeatureType = Relationship()
 
-    db_models = []
-    for feature_type in seeded_feature_types:
-        db_models.append(session_wrapper.create_if_not_exists(feature_type, id_name='name'))
+           
+    @classmethod
+    def from_model_spec_read(cls, base_covariates, model_spec_read) -> 'ModelSpec':
+        return cls(
+            name=model_spec_read.name,
+            display_name=model_spec_read.display_name,
+            supported_period_types=model_spec_read.supported_period_types,
+            description=model_spec_read.description,
+            author=model_spec_read.author,
+            organization=model_spec_read.organization,
+            organization_logo_url=model_spec_read.organization_logo_url,
+            source_url=model_spec_read.source_url,
+            contact_email=model_spec_read.contact_email,
+            citation_info=model_spec_read.citation_info,
+            covariates=base_covariates,
+            target=target_type
+        )
 
-    base_covariates = [db_models[0], db_models[1], db_models[2]]
 
-    seeded_models = [
-        #ModelSpec.from_github_url("")
+
+def get_available_models_from_config_dir(config_dir: str) -> List[ModelSpecRead]:
+    pass
+
+
+def get_db_model_spec_from_model_spec_reads(mocel_spec_reads: List[ModelSpecRead]) -> List[ModelSpec]:
+    pass
+
+
+def get_available_models(base_covariates) -> List[ModelSpec]:
+    """
+    Returns a list of models that are available in chap
+    """
+
+    return [
+        # in future, each of these can retrived by instead doing:
+        # model_spec_read =  ModelSpecRead.from_github_url()
+        # model_spec = ModelSpec.from_model_spec_read(model_spec_read)
         ModelSpec(
             name="naive_model",
             display_name='Naive model used for testing',
@@ -220,5 +237,30 @@ def seed_with_session_wrapper(session_wrapper):
     ]
     """
 
-    for model in seeded_models:
-        session_wrapper.create_if_not_exists(model, id_name='name')
+
+
+def seed_with_session_wrapper(session_wrapper, get_models_func=get_available_models):
+    '''Seed a database using with the default models'''
+    seeded_feature_types = [
+        FeatureType(name='rainfall',
+                    display_name='Precipitation',
+                    description='Precipitation in mm'),
+        FeatureType(name='mean_temperature',
+                    display_name='Mean Temperature',
+                    description='A measurement of mean temperature'),
+        FeatureType(name='population',
+                    display_name='Population',
+                    description='Population'),
+        target_type]
+
+    db_models = []
+    for feature_type in seeded_feature_types:
+        db_models.append(session_wrapper.create_if_not_exists(feature_type, id_name='name'))
+
+    base_covariates = [db_models[0], db_models[1], db_models[2]]
+
+    models = get_models_func(base_covariates)
+    
+    if models is not None:
+        for model in models:
+            session_wrapper.create_if_not_exists(model, id_name='name')
