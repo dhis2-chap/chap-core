@@ -93,11 +93,16 @@ target_type = FeatureType(name='disease_cases',
 
 
 class ModelSpec(ModelSpecBase, table=True):
+    """
+    ModelSpec is the DB class for a Configured Model.
+    It is configured through the "configuration" field which is JSON
+    """
+
     id: Optional[int] = Field(primary_key=True, default=None)
     covariates: List[FeatureType] = Relationship(link_model=ModelFeatureLink)
     target_name: str = Field(foreign_key="featuretype.name")
     target: FeatureType = Relationship()
-
+    configuration: Optional[dict] = Field(sa_column=Column(JSON))
            
     @classmethod
     def from_model_spec_read(cls, base_covariates, model_spec_read) -> 'ModelSpec':
@@ -118,11 +123,9 @@ class ModelSpec(ModelSpecBase, table=True):
 
 
 
-def get_available_models_from_config_dir(config_dir: str) -> List[ModelSpecRead]:
-    pass
-
-
-def get_db_model_spec_from_model_spec_reads(mocel_spec_reads: List[ModelSpecRead]) -> List[ModelSpec]:
+def get_available_models_from_config_dir(config_dir: str, base_covariates) -> List[ModelSpec]:
+    #  Reads from config dir, creates ModelSpec objects by reading from github_urls,
+    # and returns a list of ModelSpec objects by calling ModelSpec.from_model_spec_read()
     pass
 
 
