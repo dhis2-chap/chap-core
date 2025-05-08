@@ -1,8 +1,7 @@
 import json
 import logging
-import random
 from typing import Optional
-
+from packaging.version import Version
 from fastapi import HTTPException, Depends
 from pydantic import BaseModel
 from fastapi import FastAPI
@@ -25,8 +24,6 @@ from . import debug, jobs
 from .routers.dependencies import get_settings
 from ...database.database import create_db_and_tables
 from ...exceptions import GEEError
-import requests
-import yaml
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
@@ -316,6 +313,16 @@ async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
     """
     Check if the modelling app version is compatible with the current API version
     """
+    
+    # new: Hardcoded minimum version to allow more easy update of frontend
+    from chap_core import __version__ as chap_core_version, __minimum_modelling_app_version__ as minimum_modelling_app_version
+
+    if Version(modelling_app_version) < Version(minimum_modelling_app_version):
+        return CompatibilityResponse(compatible=False, description=f"Modelling app version {modelling_app_version} is too old. Minimum version is {minimum_modelling_app_version}")
+    else:
+        return CompatibilityResponse(compatible=True, description=f"Modelling app version {modelling_app_version} is compatible with the current API version {chap_core_version}")
+
+    """
     # read version from init (add random string to avoid github caching)
     random_string = str(random.randint(0, 10000000000))
     compatibility_file = f"https://raw.githubusercontent.com/dhis2-chap/versioning/refs/heads/main/modelling-app-chap-core.yml?r={random_string}"   
@@ -329,7 +336,6 @@ async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
     if modelling_app_version not in modelling_app_versions:
         return CompatibilityResponse(compatible = False, description = f"Modelling app version {modelling_app_version} not found in compatibility file, which contains {modelling_app_versions}")
 
-    from chap_core import __version__ as chap_core_version
     if chap_core_version not in compatibility_data[modelling_app_version]:
         description = f"Modelling app version {modelling_app_version} is not compatible with chap core version {chap_core_version}. Supported versions are {compatibility_data[modelling_app_version]}."
         is_compatible = False
@@ -339,6 +345,7 @@ async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
 
     return CompatibilityResponse(
         compatible=is_compatible, description=description)
+    """
 
 
 @app.get("/system-info")

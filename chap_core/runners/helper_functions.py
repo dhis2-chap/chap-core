@@ -17,6 +17,12 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
                                                         skip_environment=False,
                                                         model_configuration: Optional['ModelConfiguration'] = None
                                                         ) -> TrainPredictRunner:
+    """ 
+    Utility function that returns a suitbale runner for a model given a ModelTemplateConfig (which contains information
+    about what runner the Template says that its models shold use)
+    Returns a TrainPredictRunner (e.g. a MlFlowTrainPredictRunner or a DockerTrainPredictRunner) by parsing
+    the config for the template.
+    """
     if model_template_config.docker_env is not None:
         runner_type = "docker"
     elif model_template_config.python_env is not None:

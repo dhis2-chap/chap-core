@@ -66,7 +66,7 @@ class ModelTemplate:
     def __str__(self):
         return f'ModelTemplate: {self._model_template_config}'
 
-    def get_config_class(self):
+    def get_config_class(self) -> type[ModelConfiguration]:
         fields = {}
         types = {'string': str, 'integer': int, 'float': float, 'boolean': bool}
         if self._model_template_config.allow_free_additional_continuous_covariates:
@@ -77,6 +77,14 @@ class ModelTemplate:
                 fields[user_option.name] = (T, Field(default=T(user_option.default)))
             else:
                 fields[user_option.name] = (T, ...)
+
+        # Note that this actually creates a pydantic class dynamically. For instance, if the 
+        # template has user_options to select a parameterX with default value 0, the class returned could be:
+        #class ModelConfiguration(BaseModel):
+        #    parameterX: int= Field(default=0)
+        # the advantage of creating a pydantic class is that we can get automatic validation and typing
+        # when configuring a model template into a model
+
         return create_model('ModelConfiguration', **fields)
 
     def get_model_configuration_from_yaml(self, yaml_file: Path) -> ModelConfiguration:

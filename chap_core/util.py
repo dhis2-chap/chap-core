@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from shutil import which
 import numpy as np
 
@@ -50,4 +51,24 @@ def redis_available():
         else:
             # Handle other exceptions
             raise
+
+
+@dataclass
+class GithubUrl:
+    owner: str
+    repo_name: str
+    commit: str  # can be commit or branch
+
+
+def parse_github_url(github_url) -> GithubUrl:
+    splitted_url = github_url.split("/")
+    owner = splitted_url[3]
+    repo_name = splitted_url[4]
+    commit = "main"
+    if "@" in repo_name:
+        repo_name, commit = repo_name.split("@")
+
+    return GithubUrl(owner=owner, repo_name=repo_name, commit=commit)
+
+
 

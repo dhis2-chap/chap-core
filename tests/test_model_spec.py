@@ -1,6 +1,7 @@
 import pytest
 
 from chap_core.model_spec import (
+    ModelSpec,
     model_spec_from_yaml,
     PeriodType,
     EmptyParameterSpec,
@@ -26,3 +27,4 @@ def test_model_spec_from_yaml():
     assert model_spec.name == "NaiveEstimator"
     assert model_spec.parameters == EmptyParameterSpec
     assert set(model_spec.features) == set([]) #{fs.population, fs.rainfall, fs.mean_temperature}
+

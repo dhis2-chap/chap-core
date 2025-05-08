@@ -20,6 +20,22 @@ The REST API is the main entry point for the Prediction app, and supports functi
 - The API is built using the `fastapi` library, and we are currently using Celery to handle asynchronous tasks (like training a model).
 - Celery is currently abstracted away using the `CeleryPool` and `CeleryJob` classes. 
 
+### More about the rest API endpoints
+The main endpoints for the REST API are defined in `rest_api_src/v[some version number]/rest_api.py.
+
+- crud: mainly just database operations
+- analytics: A bad name (should be changed in the future). Bigger things that are written specifically to be used by the frontend. Things that are not used by the modelling app should be deleted in the future (e.g. prediction-entry)
+- debug:
+- jobs:
+- default: used by the old Prediction app (will be taken away at some point)
+
+We use pydantic models to define all input and return types in the REST API. See `rest_api_src/data_models.py`. We also use pydantic models to define database schemas (see `dataset_tables.py`). These models are overriden for the rest API if the REST API needs anything to be different. The database gives the objects IDs (if there is a  primary key is default None). The overrides for the REST API have become a bit of mess and are defined many places. These should ideally be cleaned up and put in one file.
+
+A messy thing about the database models is that many tables have an id field that has the same behavious. This could ideally be solved by a decorator look for fields that have that behavious and create three classes from it: One for the database, one for Read and one for Create, so that we don't need to do inheritance to get these classes. This has to be done by adding methods to get the classes.
+
+### DB schemas:
+Everything that inherits from `SqlModel` AND has `table=True` becomes a database table. The easiest way to find tables is to simply search for `table=True`
+
 
 ## External models
 
