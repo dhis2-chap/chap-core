@@ -393,7 +393,7 @@ class DataSet(Generic[FeaturesT]):
     def from_csv(cls, file_name: str, dataclass: Type[FeaturesT] | None = None) -> "DataSet[FeaturesT]":
         csv = pd.read_csv(file_name)
         if dataclass is None:
-            dataclass = create_tsdataclass([col for col in csv.columns.tolist() if col not in ("location", "time_period")])
+            dataclass = create_tsdataclass([col for col in csv.columns.tolist() if col not in ("location", "time_period") and 'Unnamed' not in col])
         obj = cls.from_pandas(csv, dataclass)
         if isinstance(file_name, (str, Path)):
             path = Path(file_name).with_suffix(".geojson")

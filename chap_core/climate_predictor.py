@@ -36,6 +36,8 @@ class MonthlyClimatePredictor:
                 if field.name in ("time_period"):
                     continue
                 y = getattr(data, field.name)
+                # assert float type
+                assert y.dtype.kind in ("f", "i"), (field.name, y.dtype)
                 assert not np.isnan(y).any(), (field.name, y)
                 model = linear_model.LinearRegression()
                 model.fit(x, y[:, None])

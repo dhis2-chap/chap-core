@@ -9,4 +9,4 @@ services:
     networks:
       - chap-network
     command: 
-      python docker_db_flow.py chap; python docker_flow.py
+      python docker_db_flow.py chap;

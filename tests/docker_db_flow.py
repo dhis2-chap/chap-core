@@ -1,7 +1,7 @@
 """
-This is meant to be a standalone python file for testing the flow with docker compose
-
-This file should be possible to run without chap installed, only with the necessary requirements
+This is meant to be a standalone python file for testing the flow of the modelling app
+This file should not import chap as a python package
+# This file should be possible to run without chap pip installed, only with the necessary requirements
 """
 
 import requests
@@ -119,9 +119,6 @@ class IntegrationTest:
         job_id = response['id']
         db_id = self.wait_for_db_id(job_id)
         return db_id
-        # prediction_result = self._get(self._chap_url + f"/v1/crud/predictions/{db_id}")
-        # assert prediction_result['modelId'] == data['modelId']
-        # return prediction_result
 
     def evaluate_model(self, dataset_id, model):
         job_id = self._post(self._chap_url + "/v1/crud/backtests/",

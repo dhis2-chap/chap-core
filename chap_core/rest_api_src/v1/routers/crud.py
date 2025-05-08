@@ -59,8 +59,11 @@ worker = CeleryPool()
 # backtests
 
 
-@router.get("/backtests", response_model=list[BackTestRead])
+@router.get("/backtests", response_model=list[BackTestRead])# This should be called list
 async def get_backtests(session: Session = Depends(get_session)):
+    '''
+    Returns a list of backtests/evaluations with only the id and name
+    '''
     backtests = session.exec(select(BackTest)).all()
     return backtests
 

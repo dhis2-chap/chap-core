@@ -206,6 +206,22 @@ class Polygons:
         return {feature.id: feature.properties.get('parent', '-') if feature.properties else '-'
                 for feature in self._polygons.features}
 
+    def get_predecessors_map(self, predecessors: list[str]):
+        predecessors = set(predecessors)
+        map = {}
+        for feature in self._polygons.features:
+            if feature.properties is None:
+                raise ValueError(f"Feature {feature.id} has no properties")
+            if 'parentGraph' not in feature.properties:
+                raise ValueError(f"Feature {feature.id} has no parentGraph property")
+            possible_parents = [p for p in feature.properties['parentGraph'].split('/') if p in predecessors]
+            if len(possible_parents) == 0:
+                raise ValueError(f"Feature {feature.id} has no parent in predecessors")
+            if len(possible_parents) > 1:
+                raise ValueError(f"Feature {feature.id} has multiple parents in predecessors")
+            map[feature.id] = possible_parents[0]
+        return map
+
     def filter_locations(self, locations: list[str]):
         """
         Filter the polygons to only include the specified locations

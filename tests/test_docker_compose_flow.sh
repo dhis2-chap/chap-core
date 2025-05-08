@@ -3,7 +3,10 @@
 
 set -e
 docker build -t climate_health-chap:latest -f Dockerfile .
+
+# This runs the main docker compose file with ovverrides in the compose.test.yml file
 docker compose -f compose.yml -f compose.test.yml up --build --detach
+
 docker attach chap_test
 
 exit_code=$(docker inspect chap_test --format='{{.State.ExitCode}}')
