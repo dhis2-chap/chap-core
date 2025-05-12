@@ -10,7 +10,7 @@ from chap_core.api_types import RequestV1
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import ObservationBase, DataSet
-from chap_core.database.model_spec_tables import seed_with_session_wrapper
+from chap_core.database.model_spec_tables import get_available_models, seed_with_session_wrapper
 from chap_core.database.tables import *
 import pandas as pd
 

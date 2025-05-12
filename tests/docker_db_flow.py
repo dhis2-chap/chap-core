@@ -29,6 +29,12 @@ def make_dataset_request():
     return data
 
 
+def make_dataset_request2():
+    filename = '../example_data/anonymous_make_dataset_request2.json'
+    data = json.load(open(filename))
+    return data
+
+
 hostname = 'chap'
 chap_url = "http://%s:8000" % hostname
 
@@ -105,6 +111,8 @@ class IntegrationTest:
         model_name = 'naive_model'
         assert model_name in {model['name'] for model in model_list}
         data = make_dataset_request()
+        #data = make_dataset_request2()
+
         dataset_id = self.make_dataset(data)
         result, backtest_id = self.evaluate_model(dataset_id, model_name)
         actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
