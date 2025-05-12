@@ -28,14 +28,20 @@ class ModelInfo(BaseModel):
     description: str
 
 
-class ModelTemplateConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")  # pydantic-specific config to forbid extra fields
+class ModelTemplateSchema(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):
     name: str
+    required_fields: list[str] = ["rainfall", "mean_temperature"]
+    allow_free_additional_continuous_covariates: bool = False
+    user_options: dict = {}
+    model_info: Optional[ModelInfo] = None
+    adapters: Optional[dict[str, str]] = None #Depracated
+
+
+class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):
     entry_points: EntryPointConfig
     docker_env: Optional[DockerEnvConfig] = None
     python_env: Optional[str] = None
-    required_fields: list[str] = ["rainfall", "mean_temperature"]
-    allow_free_additional_continuous_covariates: bool = False
+
+
+class ModelTemplateConfig(ModelTemplateSchema, RunnerConfig):
     adapters: Optional[dict[str, str]] = None
-    user_options: list[UserOption] = []
-    model_info: Optional[ModelInfo] = None

@@ -71,12 +71,12 @@ class ModelTemplate:
         types = {'string': str, 'integer': int, 'float': float, 'boolean': bool}
         if self._model_template_config.allow_free_additional_continuous_covariates:
             fields["additional_continuous_covariates"] = (list[str], [])
-        for user_option in self._model_template_config.user_options:
-            T = types[user_option.type]
-            if user_option.default is not None:
-                fields[user_option.name] = (T, Field(default=T(user_option.default)))
+        for name, user_option in self._model_template_config.user_options.items():
+            T = types[user_option['type']]
+            if user_option.get('default', None) is not None:
+                fields[user_option['title']] = (T, Field(default=T(user_option['default'])))
             else:
-                fields[user_option.name] = (T, ...)
+                fields[user_option['title']] = (T, ...)
 
         # Note that this actually creates a pydantic class dynamically. For instance, if the 
         # template has user_options to select a parameterX with default value 0, the class returned could be:

@@ -1,8 +1,10 @@
+import yaml
 from cyclopts import App
 
 from chap_core.datatypes import remove_field, create_tsdataclass
 from chap_core.model_spec import get_dataclass
 from chap_core.models import ModelTemplate
+from chap_core.models.model_template_interface import InternalModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 import logging
 
@@ -55,7 +57,7 @@ def generate_app(estimator):
     return app
 
 
-def generate_template_app(model_template: ModelTemplate):
+def generate_template_app(model_template: InternalModelTemplate):
     app = App()
 
     @app.command()
@@ -113,6 +115,17 @@ def generate_template_app(model_template: ModelTemplate):
 
         forecasts = predictor.predict(dataset, future_data)
         forecasts.to_csv(output_filename)
+
+    @app.command()
+    def write_template_yaml():
+        """
+        Write the model template to a yaml file
+        """
+        info = model_template.model_template_info.model_dump()
+        print(info)
+        print('/////////////')
+        print(yaml.dump(info))
+
     #
     # model_template_config = ModelTemplateConfig(
     #     name=model_template.name,
@@ -133,4 +146,4 @@ def generate_template_app(model_template: ModelTemplate):
 
     #)
 
-    return app, train, predict
+    return app, train, predict, write_template_yaml

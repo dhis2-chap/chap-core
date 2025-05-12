@@ -62,7 +62,7 @@ def model_config_path(tmp_path, model_config):
 
 
 def test_generate_template_app(dumped_weekly_data_paths, tmp_path, model_config_path):
-    app, train, predict = generate_template_app(DummyModelTemplate())
+    app, train, predict, _ = generate_template_app(DummyModelTemplate())
     training_path, historic_path, future_path = dumped_weekly_data_paths
     model_path = tmp_path / 'model'
     train(training_path, model_path, model_config_path)
