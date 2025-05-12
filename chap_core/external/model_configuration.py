@@ -1,5 +1,5 @@
 from typing import Optional, Literal
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
 class DockerEnvConfig(BaseModel):

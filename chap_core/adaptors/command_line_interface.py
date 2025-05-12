@@ -3,7 +3,6 @@ from cyclopts import App
 
 from chap_core.datatypes import remove_field, create_tsdataclass
 from chap_core.model_spec import get_dataclass
-from chap_core.models import ModelTemplate
 from chap_core.models.model_template_interface import InternalModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 import logging
