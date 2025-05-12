@@ -224,7 +224,7 @@ wheels = [
 
 [[package]]
 name = "chap-core"
-version = "1.0.6"
+version = "1.0.4"
 source = { editable = "." }
 dependencies = [
     { name = "annotated-types" },
