@@ -195,7 +195,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
             author="Knut Rand",
             organization="HISP Centre, University of Oslo",
             organization_logo_url="https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png",
-            source_url="https://github.com/knutdrand/weekly_ar_model@1730b26996201d9ee0faf65695f44a2410890ea5",
+            source_url="https://github.com/knutdrand/weekly_ar_model@762ae74b7f972224bbea2f34e4e575cc127da8ea",
             contact_email="knut.rand@dhis2.org",
             citation_info='Rand, Knut. 2025. "Weekly Deep Auto Regressive model". HISP Centre, University of Oslo. https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html',
         ),
