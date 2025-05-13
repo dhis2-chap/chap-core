@@ -25,6 +25,10 @@ class ForecastBase(DBModel):
     org_unit: str
 
 
+class ForecastRead(ForecastBase):
+    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
+
+
 class PredictionBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
     model_id: str
@@ -37,15 +41,10 @@ class PredictionBase(DBModel):
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     forecasts: List['PredictionSamplesEntry'] = Relationship(back_populates="prediction",
-                                                            cascade_delete=True)
+                                                             cascade_delete=True)
 
 
-class ForecastRead(ForecastBase):
-    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
-
-
-class PredictionInfo(PredictionBase):
-    id: int
+PredictionInfo = PredictionBase.get_read_class()
 
 
 class PredictionRead(PredictionInfo):
@@ -79,20 +78,7 @@ class BackTestMetric(DBModel, table=True):
     backtest: BackTest = Relationship(back_populates="metrics")
 
 
-# merge request json/csv -
-# change crud to v2 ?
-# maybe have geometry in table
-# direct predictions endpoint
-# maybe add list of models to evaluate
-# maybe add id to health data
-# Maybe add a way to get the health data
-# Hide session objects
 
-# TODO:
-# Maybe version the database ala flyway
-# Alembic, maybe check out south
-# Discuss metadata storing for showing informally to the user
-# MAybe do it when doing landcover
 def test():
     engine = create_engine("sqlite://")
     DBModel.metadata.create_all(engine)

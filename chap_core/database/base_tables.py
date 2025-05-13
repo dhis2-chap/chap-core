@@ -10,3 +10,14 @@ class DBModel(SQLModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True)
+
+    @classmethod
+    def get_read_class(cls):
+        ''' Returns the read class for this model'''
+        class NewClass(cls):
+            id: int
+
+        NewClass.__name__ = f'{cls.__name__}Read'
+        NewClass.__qualname__ = f'{cls.__qualname__}Read'
+        return NewClass
+

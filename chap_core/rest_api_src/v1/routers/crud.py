@@ -52,13 +52,6 @@ router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This m
 worker = CeleryPool()
 
 
-# TODO camel in paths
-
-
-############
-# backtests
-
-
 @router.get("/backtests", response_model=list[BackTestRead])# This should be called list
 async def get_backtests(session: Session = Depends(get_session)):
     '''
@@ -97,9 +90,6 @@ async def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
     session.delete(backtest)
     session.commit()
     return {'message': 'deleted'}
-
-
-# predictions
 
 
 class PredictionCreate(DBModel):

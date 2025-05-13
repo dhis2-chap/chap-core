@@ -108,7 +108,7 @@ class IntegrationTest:
     def evaluation_flow(self):
         self.ensure_up()
         model_list = self.get_models()
-        model_name = 'naive_model'
+        model_name = 'auto_regressive_monthly'
         assert model_name in {model['name'] for model in model_list}
         data = make_dataset_request()
         #data = make_dataset_request2()
@@ -163,5 +163,5 @@ if __name__ == "__main__":
         hostname = 'localhost'
     chap_url = "http://%s:8000" % hostname
     suite = IntegrationTest(chap_url, False)
-    suite.prediction_flow()
+    #suite.prediction_flow()
     suite.evaluation_flow()

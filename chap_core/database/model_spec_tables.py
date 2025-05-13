@@ -9,7 +9,8 @@ from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
 from sqlmodel import Field, Relationship
 
-from chap_core.util import parse_github_url
+from chap_core.external.github import parse_github_url
+
 logger = logging.getLogger(__name__)
 
 

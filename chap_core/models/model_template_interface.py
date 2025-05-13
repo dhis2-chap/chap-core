@@ -15,8 +15,6 @@ class ConfiguredModel(abc.ABC):
         pass
 
 
-
-
 class ModelTemplateInterface(abc.ABC):
 
     @abc.abstractmethod

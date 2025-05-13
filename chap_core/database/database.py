@@ -7,13 +7,16 @@ import psycopg2
 import sqlalchemy
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
-from .model_spec_tables import seed_with_session_wrapper
+from .model_spec_tables import seed_with_session_wrapper, ModelSpecRead
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
 
 from chap_core.time_period import TimePeriod
+from .. import ModelTemplateInterface
+from ..external.model_configuration import ModelTemplateConfig
+from ..models.model_template import ExternalModelTemplate
 from ..rest_api_src.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
@@ -69,6 +72,18 @@ class SessionWrapper:
             self.session.add(model)
             self.session.commit()
         return model
+
+    def add_model_template(self, model_template_config: ModelTemplateConfig) -> int:
+        """Sets the ModelSpecRead a yaml string.
+        Note that the yaml string is what's defined in a model template's MLProject file,
+        so source_url will have to be added manually."""
+        # parse yaml content as dict
+        config = model_template.model_template_info
+        db_object = ModelSpecRead(**config.dict())
+        ...
+
+    def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
+        ...
 
     def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, info: BackTestCreate):
         info.created = datetime.datetime.now()

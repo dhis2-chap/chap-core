@@ -1,6 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import requests
 import yaml
 import logging
 from chap_core.datatypes import HealthData
@@ -8,6 +10,7 @@ from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.models.configured_model import ModelConfiguration
 from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
+from chap_core.external.github import parse_github_url, fetch_mlproject_content
 
 if TYPE_CHECKING:
     from chap_core.external.external_model import ExternalModel
@@ -53,8 +56,10 @@ class ModelTemplate:
             "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
         """
         from .utils import get_model_template_from_directory_or_github_url
+
         return get_model_template_from_directory_or_github_url(model_template_path, base_working_dir=base_working_dir,
                                                                ignore_env=ignore_env, run_dir_type=run_dir_type)
+
 
     @property
     def name(self):
@@ -145,12 +150,25 @@ class ModelTemplate:
         )
 
 
-
 class ExternalModelTemplate(ModelTemplateInterface):
+    '''
+    This class is instanciated when a model is to be run.
+    For parsing mlflow and putting into db/rest-api objects, this class should not be used
+    '''
+
     def __init__(self, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
         self._model_template_config = model_template_config
         self._working_dir = working_dir
         self._ignore_env = ignore_env
+
+    @classmethod
+    def fetch_config_from_github_url(cls, github_url) -> ModelTemplateConfig:
+        content = fetch_mlproject_content(github_url)
+        return ModelTemplateConfig.model_validate(yaml.safe_load(content))
+
+    @property
+    def model_template_info(self) -> ModelTemplateConfig:
+        return self._model_template_config
 
     @classmethod
     def from_model_template_config(cls, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
