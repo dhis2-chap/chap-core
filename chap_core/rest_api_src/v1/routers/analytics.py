@@ -81,20 +81,38 @@ def make_dataset(request: DatasetMakeRequest,
 @router.get("/compatible-backtests/{backtestId}", response_model=List[BackTestRead])
 def get_compatible_backtests(backtest_id: Annotated[int, Path(alias="backtestId")],
                              session: Session = Depends(get_session)):
+    '''Return a list of backtests that are compatible for comparison with the given backtest'''
     logger.info(f'Checking compatible backtests for {backtest_id}')
-    # Fetch org_units and split_periods
-    # from the backtest with the given ID
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     org_units = set(backtest.org_units)
     split_periods = set(backtest.split_periods)
-    # Fetch all backtests that are compatible, ie overlaps with at least one split_period and one org_unit
-    matching_ids = []
-    res = session.exec(select(BackTest.id, BackTest.org_units, BackTest.split_periods).where(BackTest.id != backtest_id)).all()
+    res = session.exec(
+        select(BackTest.id, BackTest.org_units, BackTest.split_periods).where(BackTest.id != backtest_id)).all()
     ids = [id for id, o, s in res if set(o) & org_units and set(s) & split_periods]
     backtests = session.exec(select(BackTest).where(BackTest.id.in_(ids))).all()
     return backtests
+
+
+class BacktestDomain(DBModel):
+    org_units: List[str]
+    split_periods: List[str]
+
+
+@router.get("/backtest-overlap/{backtestId1}/{backtestId2}", response_model=BacktestDomain)
+def get_backtest_overlap(backtest_id1: Annotated[int, Path(alias="backtestId1")],
+                         backtest_id2: Annotated[int, Path(alias="backtestId2")],
+                         session: Session = Depends(get_session)):
+    backtest1 = session.get(BackTest, backtest_id1)
+    backtest2 = session.get(BackTest, backtest_id2)
+    if backtest1 is None:
+        raise HTTPException(status_code=404, detail="BackTest 1 not found")
+    if backtest2 is None:
+        raise HTTPException(status_code=404, detail="BackTest 2 not found")
+    org_units1 = list(set(backtest1.org_units) & set(backtest2.org_units))
+    split_periods1 = list(set(backtest1.split_periods) & set(backtest2.split_periods))
+    return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
 
 
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])

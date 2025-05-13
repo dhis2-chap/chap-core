@@ -275,6 +275,9 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
     ids = {b['id'] for b in response.json()}
     assert matching_id in ids, (matching_id, ids)
     assert backtest_id not in ids, (backtest_id, ids)
+    response = client.get(f"/v1/analytics/backtest-overlap/{backtest_id}/{matching_id}")
+    assert response.status_code == 200, response.json()
+    assert response.json() == {'orgUnits': ['Bergen'], 'splitPeriods': ['202202']}, response.json()
 
 
 def _make_dataset(make_dataset_request,
