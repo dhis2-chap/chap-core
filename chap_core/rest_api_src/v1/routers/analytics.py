@@ -104,6 +104,7 @@ class BacktestDomain(DBModel):
 def get_backtest_overlap(backtest_id1: Annotated[int, Path(alias="backtestId1")],
                          backtest_id2: Annotated[int, Path(alias="backtestId2")],
                          session: Session = Depends(get_session)):
+    '''Return the org units and split periods that are common between two backtests'''
     backtest1 = session.get(BackTest, backtest_id1)
     backtest2 = session.get(BackTest, backtest_id2)
     if backtest1 is None:
