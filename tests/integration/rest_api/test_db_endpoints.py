@@ -7,12 +7,13 @@ import pytest
 from datetime import datetime
 
 from pydantic import ValidationError
+from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, PredictionEntry, DataList
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.tables import PredictionRead, PredictionInfo
+from chap_core.database.tables import PredictionRead, PredictionInfo, BackTest
 from chap_core.rest_api_src.data_models import DatasetMakeRequest, FetchRequest, BackTestFull
 from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
@@ -224,6 +225,7 @@ def test_make_dataset_failing_with_missing_data(celery_session_worker, dependenc
         _make_dataset(make_dataset_request)
     print(excinfo)
 
+
 def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
     _make_dataset(anonymous_make_dataset_request)
 
@@ -244,6 +246,35 @@ def test_backtest_flow_from_request(celery_session_worker,
     data = response.json()
     assert data['name'] == 'testing'
     assert data['created'] is not None
+
+
+def test_compatible_backtests(clean_engine, dependency_overrides):
+    with Session(clean_engine) as session:
+        backtest = BackTest(dataset_id=1,
+                            model_id='naive_model',
+                            org_units=['Oslo', 'Bergen'], split_periods=['202201', '202202'])
+        matching = BackTest(dataset_id=1,
+                            model_id='chap_auto_ewars',
+                            org_units=['Bergen', 'Trondheim'],
+                            split_periods=['202202', '202203'])
+        non_matching = BackTest(dataset_id=1,
+                                model_id='auto_regressive_monthly',
+                                org_units=['Trondheim'],
+                                split_periods=['202203'])
+
+        session.add(backtest)
+        session.add(matching)
+        session.add(non_matching)
+        session.commit()
+        backtest_id = backtest.id
+        matching_id = matching.id
+    url = f"/v1/analytics/compatible-backtests/{backtest_id}"
+    print(url)
+    response = client.get(url)
+    assert response.status_code == 200, response.json()
+    ids = {b['id'] for b in response.json()}
+    assert matching_id in ids, (matching_id, ids)
+    assert backtest_id not in ids, (backtest_id, ids)
 
 
 def _make_dataset(make_dataset_request,

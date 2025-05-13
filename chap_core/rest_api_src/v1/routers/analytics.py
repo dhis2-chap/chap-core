@@ -1,4 +1,4 @@
-from typing import List, Annotated, Optional
+from typing import List, Annotated
 
 import chap_core.rest_api_src.db_worker_functions as wf
 import numpy as np
@@ -13,11 +13,11 @@ from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.database.tables import BackTest, Prediction, BackTestForecast
-from chap_core.database.dataset_tables import DataSet, Observation
+from chap_core.database.dataset_tables import Observation
 import logging
 
 from ...celery_tasks import CeleryPool, JOB_TYPE_KW, JOB_NAME_KW
-from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate
+from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate, BackTestRead
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -60,7 +60,8 @@ def make_dataset(request: DatasetMakeRequest,
             isnan = np.isnan(getattr(data, feature_name))
             if np.any(isnan):
                 isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
-                raise HTTPException(status_code=500, detail=f'Missing value in {feature_name} in location {location}. Time periods: {isnan_}')
+                raise HTTPException(status_code=500,
+                                    detail=f'Missing value in {feature_name} in location {location}. Time periods: {isnan_}')
 
     request.type = 'evaluation'
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
@@ -77,6 +78,25 @@ def make_dataset(request: DatasetMakeRequest,
     return JobResponse(id=job.id)
 
 
+@router.get("/compatible-backtests/{backtestId}", response_model=List[BackTestRead])
+def get_compatible_backtests(backtest_id: Annotated[int, Path(alias="backtestId")],
+                             session: Session = Depends(get_session)):
+    logger.info(f'Checking compatible backtests for {backtest_id}')
+    # Fetch org_units and split_periods
+    # from the backtest with the given ID
+    backtest = session.get(BackTest, backtest_id)
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="BackTest not found")
+    org_units = set(backtest.org_units)
+    split_periods = set(backtest.split_periods)
+    # Fetch all backtests that are compatible, ie overlaps with at least one split_period and one org_unit
+    matching_ids = []
+    res = session.exec(select(BackTest.id, BackTest.org_units, BackTest.split_periods).where(BackTest.id != backtest_id)).all()
+    ids = [id for id, o, s in res if set(o) & org_units and set(s) & split_periods]
+    backtests = session.exec(select(BackTest).where(BackTest.id.in_(ids))).all()
+    return backtests
+
+
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])
 async def get_evaluation_entries(
         backtest_id: Annotated[int, Query(alias="backtestId")],
@@ -87,10 +107,11 @@ async def get_evaluation_entries(
     '''
     Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
     '''
-    logger.info(f'Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} ')
+    logger.info(
+        f'Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} ')
     backtest = session.get(BackTest, backtest_id)
 
-    #forecasts = session.exec()
+    # forecasts = session.exec()
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     if org_units is not None:
@@ -104,7 +125,7 @@ async def get_evaluation_entries(
         expr = expr.where(BackTestForecast.org_unit.in_(org_units))
     forecasts = session.exec(expr)
 
-    #forecasts = list(backtest.forecasts)
+    # forecasts = list(backtest.forecasts)
     logger.info(forecasts)
     # filtered_forecasts = [forecast for forecast in forecasts
     #                       if ((split_period is None) or forecast.last_seen_period == split_period) and
@@ -203,7 +224,7 @@ async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")]
 
     backtest = session.get(BackTest, backtest_id)
     logger.info(f"Backtest: {backtest}")
-    #data = session.get(DataSet, backtest.dataset_id)
+    # data = session.get(DataSet, backtest.dataset_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     expr = select(Observation).where(Observation.dataset_id == backtest.dataset_id)
@@ -237,7 +258,7 @@ data_sources = [
                display_name='Mean 2m Air Temperature',
                supported_features=['mean_temperature'],
                description='Average air temperature at 2m height (daily average)',
-dataset='era5'),
+               dataset='era5'),
     DataSource(name='minimum_2m_air_temperature',
                display_name='Minimum 2m Air Temperature',
                supported_features=[''],

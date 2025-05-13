@@ -18,6 +18,8 @@ class BackTest(BackTestBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     forecasts: List['BackTestForecast'] = Relationship(back_populates="backtest", cascade_delete=True)
     metrics: List['BackTestMetric'] = Relationship(back_populates="backtest", cascade_delete=True)
+    org_units: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    split_periods: List[PeriodID] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class ForecastBase(DBModel):
@@ -76,7 +78,6 @@ class BackTestMetric(DBModel, table=True):
     last_seen_period: PeriodID
     value: float
     backtest: BackTest = Relationship(back_populates="metrics")
-
 
 
 def test():
