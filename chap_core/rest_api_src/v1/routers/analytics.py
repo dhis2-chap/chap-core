@@ -84,6 +84,9 @@ async def get_evaluation_entries(
         split_period: str = Query(None, alias="splitPeriod"),
         org_units: List[str] = Query(None, alias="orgUnits"),
         session: Session = Depends(get_session)):
+    '''
+    Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
+    '''
     logger.info(f'Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} ')
     backtest = session.get(BackTest, backtest_id)
 
@@ -194,6 +197,10 @@ def get_prediction_entries(prediction_id: Annotated[int, Path(alias="predictionI
 async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")],
                            org_units: List[str] = Query(None, alias="orgUnits"),
                            session: Session = Depends(get_session)):
+    '''
+    Return the actual disease cases corresponding to a backtest. Can optionally be filtered on org units.
+    '''
+
     backtest = session.get(BackTest, backtest_id)
     logger.info(f"Backtest: {backtest}")
     #data = session.get(DataSet, backtest.dataset_id)
