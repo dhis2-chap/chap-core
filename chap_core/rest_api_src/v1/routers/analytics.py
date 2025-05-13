@@ -1,19 +1,19 @@
-from typing import List, Annotated
+from typing import List, Annotated, Optional
 
 import chap_core.rest_api_src.db_worker_functions as wf
 import numpy as np
 from pydantic import BaseModel, confloat
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Path
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry, FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
-from chap_core.database.tables import BackTest, Prediction
-from chap_core.database.dataset_tables import DataSet
+from chap_core.database.tables import BackTest, Prediction, BackTestForecast
+from chap_core.database.dataset_tables import DataSet, Observation
 import logging
 
 from ...celery_tasks import CeleryPool, JOB_TYPE_KW, JOB_NAME_KW
@@ -81,14 +81,37 @@ def make_dataset(request: DatasetMakeRequest,
 async def get_evaluation_entries(
         backtest_id: Annotated[int, Query(alias="backtestId")],
         quantiles: List[float] = Query(...),
+        split_period: str = Query(None, alias="splitPeriod"),
+        org_units: List[str] = Query(None, alias="orgUnits"),
         session: Session = Depends(get_session)):
+    logger.info(f'Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} ')
     backtest = session.get(BackTest, backtest_id)
+
+    #forecasts = session.exec()
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
+    if org_units is not None:
+        org_units = set(org_units)
+        logger.info('Filtering evaluation entries to org_units: %s', org_units)
+
+    expr = select(BackTestForecast).where(BackTestForecast.backtest_id == backtest_id)
+    if split_period:
+        expr = expr.where(BackTestForecast.last_seen_period == split_period)
+    if org_units:
+        expr = expr.where(BackTestForecast.org_unit.in_(org_units))
+    forecasts = session.exec(expr)
+
+    #forecasts = list(backtest.forecasts)
+    logger.info(forecasts)
+    # filtered_forecasts = [forecast for forecast in forecasts
+    #                       if ((split_period is None) or forecast.last_seen_period == split_period) and
+    #                       ((org_units is None) or forecast.org_unit in org_units)]
+
     return [
-        EvaluationEntry(period=forecast.period, orgUnit=forecast.org_unit, quantile=q,
+        EvaluationEntry(period=forecast.period,
+                        orgUnit=forecast.org_unit, quantile=q,
                         splitPeriod=forecast.last_seen_period,
-                        value=np.quantile(forecast.values, q)) for forecast in backtest.forecasts for q in
+                        value=np.quantile(forecast.values, q)) for forecast in forecasts for q in
         quantiles
     ]
 
@@ -169,17 +192,23 @@ def get_prediction_entries(prediction_id: Annotated[int, Path(alias="predictionI
 
 @router.get("/actualCases/{backtestId}", response_model=DataList)
 async def get_actual_cases(backtest_id: Annotated[int, Path(alias="backtestId")],
+                           org_units: List[str] = Query(None, alias="orgUnits"),
                            session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     logger.info(f"Backtest: {backtest}")
-    data = session.get(DataSet, backtest.dataset_id)
-    logger.info(f"Data: {data}")
+    #data = session.get(DataSet, backtest.dataset_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
+    expr = select(Observation).where(Observation.dataset_id == backtest.dataset_id)
+    if org_units is not None:
+        org_units = set(org_units)
+        expr = expr.where(Observation.org_unit.in_(org_units))
+    observations = session.exec(expr).all()
+    logger.info(f"Observations: {observations}")
     data_list = [
         DataElement(pe=observation.period, ou=observation.org_unit, value=float(observation.value) if not (
                 observation.value is None or np.isnan(observation.value) or observation.value is None) else None) for
-        observation in data.observations if observation.feature_name == "disease_cases"]
+        observation in observations if observation.feature_name == "disease_cases"]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(
         featureId="disease_cases",

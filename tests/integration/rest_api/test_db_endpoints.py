@@ -8,7 +8,7 @@ from datetime import datetime
 
 from pydantic import ValidationError
 
-from chap_core.api_types import EvaluationEntry, PredictionEntry
+from chap_core.api_types import EvaluationEntry, PredictionEntry, DataList
 from chap_core.database.database import SessionWrapper
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
@@ -71,7 +71,8 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
 
 
 # @pytest.mark.slow
-def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data):
+@pytest.mark.parametrize("do_filter", [True, False])
+def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data, do_filter):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset('full_data', weekly_full_data, 'polygons', dataset_type='evaluation')
     response = client.post("/v1/crud/backtests",
@@ -82,22 +83,36 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     response = client.get(f"/v1/crud/backtests/{db_id}")
 
     # just make sure the datasets are valid
-    dataset_response = client.get(f"/v1/crud/datacsets")
+    dataset_response = client.get(f"/v1/crud/datasets")
 
     assert response.status_code == 200, response.json()
     BackTestFull.model_validate(response.json())
+    split_period, org_units = None, []
+    if do_filter:
+        split_period = '2022W30'
+        org_units = ['granada']
+
+    params = {'backtestId': db_id, 'quantiles': [0.1, 0.5, 0.9]}
+    if do_filter:
+        params |= {'splitPeriod': split_period, 'orgUnits': org_units}
+
     response = client.get(f'/v1/analytics/evaluation-entry',
-                          params={'backtestId': db_id, 'quantiles': [0.1, 0.5, 0.9]})
+                          params=params)
 
     assert response.status_code == 200, response.json()
     evaluation_entries = response.json()
-    actual_cases = client.get(f'/v1/analytics/actualCases/{db_id}')
+    params = {} if not do_filter else {'orgUnits': org_units}
+    actual_cases = client.get(f'/v1/analytics/actualCases/{db_id}', params=params)
     assert actual_cases.status_code == 200, actual_cases.json()
-    actual_cases = actual_cases.json()
-
+    actual_cases = DataList.model_validate(actual_cases.json())
     for entry in evaluation_entries:
         assert 'splitPeriod' in entry, f'splitPeriod not in entry: {entry.keys()}'
-        EvaluationEntry.model_validate(entry)
+        entry = EvaluationEntry.model_validate(entry)
+        if do_filter:
+            assert entry.splitPeriod == split_period, (entry.split_period, split_period)
+            assert entry.orgUnit in org_units, (entry.org_unit, org_units)
+    if do_filter:
+        assert {entry['orgUnit'] for entry in evaluation_entries} == set(org_units), (evaluation_entries, org_units)
 
 
 def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_overrides, local_data_path):
