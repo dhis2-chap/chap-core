@@ -70,7 +70,7 @@ class ConfiguredModel(DBModel, table=True):
     configuration: Optional[dict] = Field(sa_column=Column(JSON))
 
 
-class ModelSpecBase(ModelTemplateMetaData):
+class ModelSpecBase(ModelTemplateMetaData, DBModel):
     '''
     Use inheritance here so that it's flat in the database.
     '''
