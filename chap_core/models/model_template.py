@@ -2,7 +2,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import requests
 import yaml
 import logging
 from chap_core.datatypes import HealthData
@@ -10,7 +9,7 @@ from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.models.configured_model import ModelConfiguration
 from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
-from chap_core.external.github import parse_github_url, fetch_mlproject_content
+from chap_core.external.github import fetch_mlproject_content
 
 if TYPE_CHECKING:
     from chap_core.external.external_model import ExternalModel

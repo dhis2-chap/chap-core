@@ -1,5 +1,6 @@
 from typing import Optional, Literal
 from pydantic import BaseModel
+from chap_core.database.model_spec_tables import ModelTemplateMetaData, ModelTemplateInformation
 
 
 class DockerEnvConfig(BaseModel):
@@ -26,6 +27,12 @@ class UserOption(BaseModel):
 class ModelInfo(BaseModel):
     author: str
     description: str
+    organization: Optional[str]
+
+
+class _ModelTemplateSchema(ModelTemplateInformation):
+    name: str
+    meta_data: Optional[ModelTemplateMetaData] = None
 
 
 class ModelTemplateSchema(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):
@@ -33,11 +40,11 @@ class ModelTemplateSchema(BaseModel, extra="forbid"):  # pydantic-specific confi
     This is all the information that is needed to show the model template in gui
     '''
     name: str
-    required_fields: list[str] = ["rainfall", "mean_temperature"]
+    required_covariates: list[str] = ["rainfall", "mean_temperature"]
     allow_free_additional_continuous_covariates: bool = False
     user_options: dict = {}
     model_info: Optional[ModelInfo] = None
-    adapters: Optional[dict[str, str]] = None
+    # adapters: Optional[dict[str, str]] = None
 
 
 class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):

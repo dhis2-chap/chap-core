@@ -5,12 +5,13 @@ from sqlmodel import SQLModel, Session, select
 from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
+from chap_core.external.model_configuration import ModelInfo, ModelTemplateConfig, ModelTemplateSchema
 from chap_core.rest_api_src.db_worker_functions import run_backtest, run_prediction
 from chap_core.rest_api_src.data_models import BackTestCreate
 from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database
-from chap_core.database.model_spec_tables import seed_with_session_wrapper
+from chap_core.database.model_spec_tables import seed_with_session_wrapper, ModelTemplateMetaData
 from unittest.mock import patch
 
 
@@ -56,9 +57,33 @@ def test_add_predictions(seeded_engine):
     with SessionWrapper(seeded_engine) as session:
         run_prediction('naive_model', 1, 3, name='testing', metadata='', session=session)
 
+
 @pytest.mark.skip
 def test_seed(seeded_engine):
     with SessionWrapper(seeded_engine) as session:
-        seed_with_session_wrapper(session) 
+        seed_with_session_wrapper(session)
         seed_with_session_wrapper(session)
 
+
+@pytest.fixture
+def model_template_config():
+    return ModelTemplateSchema(
+        name='test_model',
+        required_covariates=['rainfall', 'mean_temperature'],
+        allow_free_additional_continuous_covariates=False,
+        user_options={},
+        model_info=ModelTemplateMetaData(author='chap_temp',
+                             description='my model',
+                             display_name='My Model')
+    )
+
+
+@pytest.mark.skip
+def test_dataset_add_model_tempalte(model_template_config, engine):
+    with SessionWrapper(engine) as session:
+        session.add_model_template(model_template_config)
+        model_template = session.get_model_template(model_template_config.name)
+        assert model_template.name == model_template_config.name
+        assert model_template.required_fields == model_template_config.required_fields
+        assert model_template.allow_free_additional_continuous_covariates == model_template_config.allow_free_additional_continuous_covariates
+        assert model_template.user_options == model_template_config.user_options

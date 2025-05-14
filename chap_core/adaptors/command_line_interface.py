@@ -125,24 +125,5 @@ def generate_template_app(model_template: InternalModelTemplate):
         print('/////////////')
         print(yaml.dump(info))
 
-    #
-    # model_template_config = ModelTemplateConfig(
-    #     name=model_template.name,
-    #     entry_points=EntryPointConfig(
-    #         train=CommandConfig(command='python main.py train {train_data} {model} {model_config}',
-    #                             parameters={'train_data': 'str', 'model': 'str', 'model_config': 'str'}),
-    #         predict=CommandConfig("python main.py predict {model} {historic_data} {future_data} {out_file} {model_config}",
-    #                               parameters={n: 'str' for n in ['historic_data', 'future_data', 'out_file', 'model_config']})),
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #     )
-
-    #)
 
     return app, train, predict, write_template_yaml

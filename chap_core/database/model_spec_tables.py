@@ -1,15 +1,12 @@
 import logging
 from typing import Optional, List
 
-import requests
+from pydantic import BaseModel
 from sqlalchemy import JSON, Column
-import yaml
 
 from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
-from sqlmodel import Field, Relationship
-
-from chap_core.external.github import parse_github_url
+from sqlmodel import Field, Relationship, SQLModel
 
 logger = logging.getLogger(__name__)
 
@@ -40,54 +37,52 @@ class ModelFeatureLink(DBModel, table=True):
     feature_type: Optional[str] = Field(default=None, foreign_key="featuretype.name", primary_key=True)
 
 
-class ModelSpecBase(DBModel):
-    name: str
+class ModelTemplateMetaData(SQLModel):
     display_name: str
-    supported_period_types: PeriodType = PeriodType.any
     description: str = "No Description yet"
     author: str = "Unknown Author"
     organization: Optional[str] = None
     organization_logo_url: Optional[str] = None
-    source_url: Optional[str] = None
     contact_email: Optional[str] = None
     citation_info: Optional[str] = None
 
 
+class ModelTemplateInformation(SQLModel):
+    supported_period_type: PeriodType = PeriodType.any
+    user_options: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    required_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    target: str = 'disease_cases'
+    allow_free_additional_continuous_covariates: bool = False
+
+
+class ModelTemplateSpec(DBModel, ModelTemplateMetaData, ModelTemplateInformation, table=True):
+    '''Just a mixin here to get the model info flat in the database'''
+    name: str
+    id: Optional[int] = Field(primary_key=True, default=None)
+
+
+class ConfiguredModel(DBModel):
+    id: Optional[int] = Field(primary_key=True, default=None)
+    model_template_id: int = Field(foreign_key="modeltemplatespec.id")
+    model_template: ModelTemplateSpec = Relationship()
+    configuration: Optional[dict] = Field(sa_column=Column(JSON))
+
+
+class ModelSpecBase(ModelTemplateMetaData):
+    '''
+    Use inheritance here so that it's flat in the database.
+    '''
+    name: str
+    supported_period_types: PeriodType = PeriodType.any
+    source_url: Optional[str] = None
+
+
 class ModelSpecRead(ModelSpecBase):
     id: int
-    covariates: List[FeatureTypeRead]
-    target: FeatureTypeRead
+    covariates: List[FeatureType]
+    target: FeatureType
 
-    @classmethod
-    def from_github_url(cls, github_url: str) -> 'ModelSpecRead':
-        # parse the github url
-        parsed = parse_github_url(github_url)
-        # Takes a github url, parses the MLProject file, returns an object with the correct information
-        raw_mlproject_url = f"https://raw.githubusercontent.com/{parsed.owner}/{parsed.repo_name}/{parsed.commit}/MLproject"
-        # fetch this MLProject file and parse it
-        try: 
-            fetched = requests.get(raw_mlproject_url)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching MLProject file: {e}")
-            return None
-        content = fetched.content
-        # parse content as yaml
-        content = yaml.safe_load(content)
-        
-        # todo:
-        # parse as much as possible from the MLProject file (but allow missing data)
 
-        return cls(
-            id = 0,
-            source_url = github_url,
-            name = content["name"],
-            covariates=[],
-            target=FeatureTypeRead(name='disease_cases', display_name='Disease Cases', description='Disease Cases'),
-            display_name = content["name"],
-            description = content.get("description", "No Description yet"),
-        )
-
- 
 target_type = FeatureType(name='disease_cases',
                           display_name='Disease Cases',
                           description='Disease Cases')
@@ -104,24 +99,6 @@ class ModelSpec(ModelSpecBase, table=True):
     target_name: str = Field(foreign_key="featuretype.name")
     target: FeatureType = Relationship()
     configuration: Optional[dict] = Field(sa_column=Column(JSON))
-           
-    @classmethod
-    def from_model_spec_read(cls, base_covariates, model_spec_read) -> 'ModelSpec':
-        return cls(
-            name=model_spec_read.name,
-            display_name=model_spec_read.display_name,
-            supported_period_types=model_spec_read.supported_period_types,
-            description=model_spec_read.description,
-            author=model_spec_read.author,
-            organization=model_spec_read.organization,
-            organization_logo_url=model_spec_read.organization_logo_url,
-            source_url=model_spec_read.source_url,
-            contact_email=model_spec_read.contact_email,
-            citation_info=model_spec_read.citation_info,
-            covariates=base_covariates,
-            target=target_type
-        )
-
 
 
 def get_available_models_from_config_dir(config_dir: str, base_covariates) -> List[ModelSpec]:
@@ -201,7 +178,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
         ),
         ModelSpec(
             name="auto_regressive_monthly",
-            displayName='Monthly Deep Auto Regressive',
+            display_name='Monthly Deep Auto Regressive',
             parameters={},
             target=target_type,
             covariates=base_covariates,
@@ -242,7 +219,6 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
     """
 
 
-
 def seed_with_session_wrapper(session_wrapper, get_models_func=get_available_models):
     '''Seed a database using with the default models'''
     seeded_feature_types = [
@@ -264,7 +240,7 @@ def seed_with_session_wrapper(session_wrapper, get_models_func=get_available_mod
     base_covariates = [db_models[0], db_models[1], db_models[2]]
 
     models = get_models_func(base_covariates)
-    
+
     if models is not None:
         for model in models:
             session_wrapper.create_if_not_exists(model, id_name='name')
