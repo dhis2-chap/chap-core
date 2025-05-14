@@ -92,8 +92,13 @@ class SessionWrapper:
         self.session.commit()
         return db_object.id
 
-    def add_configured_model(self, model_template_id: int, configuration: dict) -> int:
-        configured_model = ConfiguredModel(model_template_id=model_template_id, configuration=configuration)
+    def add_configured_model(self, model_template_id: int, configuration: dict, name='default') -> int:
+        existing_configured = self.session.exec(
+            select(ConfiguredModel).where(ConfiguredModel.name == name).where(ConfiguredModel.model_template_id==model_template_id)).first()
+        if existing_configured:
+            logger.info(f"Configured model with name {name} already exists. Returning existing id")
+            return existing_configured.id
+        configured_model = ConfiguredModel(name=name, model_template_id=model_template_id, configuration=configuration)
         self.session.add(configured_model)
         self.session.commit()
         return configured_model.id

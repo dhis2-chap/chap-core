@@ -63,6 +63,7 @@ class ModelTemplateSpec(DBModel, ModelTemplateMetaData, ModelTemplateInformation
 
 
 class ConfiguredModel(DBModel, table=True):
+    name: str
     id: Optional[int] = Field(primary_key=True, default=None)
     model_template_id: int = Field(foreign_key="modeltemplatespec.id")
     model_template: ModelTemplateSpec = Relationship()
