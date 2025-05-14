@@ -30,11 +30,6 @@ class ModelInfo(BaseModel):
     organization: Optional[str]
 
 
-class _ModelTemplateSchema(ModelTemplateInformation):
-    name: str
-    meta_data: Optional[ModelTemplateMetaData] = None
-
-
 class ModelTemplateSchema(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):
     '''
     This is all the information that is needed to show the model template in gui
@@ -52,6 +47,13 @@ class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to fo
     entry_points: EntryPointConfig
     docker_env: Optional[DockerEnvConfig] = None
     python_env: Optional[str] = None
+
+
+class ModelTemplateConfigV2(ModelTemplateInformation, RunnerConfig):
+    name: str
+    meta_data: ModelTemplateMetaData = ModelTemplateMetaData()
+    source_url: Optional[str] = None
+    adapters: Optional[dict[str, str]] = None
 
 
 class ModelTemplateConfig(ModelTemplateSchema, RunnerConfig):

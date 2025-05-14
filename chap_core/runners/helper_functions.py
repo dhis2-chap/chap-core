@@ -45,7 +45,8 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
         if model_configuration is not None:
             model_configuration_file = working_dir / "model_configuration_for_run.yaml"
             with open(model_configuration_file, "w") as file:
-                yaml.dump(model_configuration.model_dump(), file)
+                d = model_configuration if isinstance(model_configuration, dict) else model_configuration.model_dump()
+                yaml.dump(d, file)
             train_command += f" --model_configuration {model_configuration_file}"
             predict_command += f" --model_configuration {model_configuration_file}"
 

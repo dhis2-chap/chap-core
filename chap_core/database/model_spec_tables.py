@@ -38,7 +38,7 @@ class ModelFeatureLink(DBModel, table=True):
 
 
 class ModelTemplateMetaData(SQLModel):
-    display_name: str
+    display_name: str = 'No Display Name yet'
     description: str = "No Description yet"
     author: str = "Unknown Author"
     organization: Optional[str] = None
@@ -59,9 +59,9 @@ class ModelTemplateSpec(DBModel, ModelTemplateMetaData, ModelTemplateInformation
     '''Just a mixin here to get the model info flat in the database'''
     name: str
     id: Optional[int] = Field(primary_key=True, default=None)
+    source_url: Optional[str] = None
 
-
-class ConfiguredModel(DBModel):
+class ConfiguredModel(DBModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     model_template_id: int = Field(foreign_key="modeltemplatespec.id")
     model_template: ModelTemplateSpec = Relationship()

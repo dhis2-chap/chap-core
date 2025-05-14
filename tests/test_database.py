@@ -2,10 +2,14 @@ import pytest
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel, Session, select
 
+from chap_core.database.model_template_seed import add_model_template_from_url, add_configured_model
 from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
-from chap_core.external.model_configuration import ModelInfo, ModelTemplateConfig, ModelTemplateSchema
+from chap_core.external.model_configuration import ModelInfo, ModelTemplateConfig, ModelTemplateConfigV2, \
+    EntryPointConfig, CommandConfig, DockerEnvConfig
+from chap_core.models.external_model import ExternalModel
+from chap_core.models.model_template import ExternalModelTemplate
 from chap_core.rest_api_src.db_worker_functions import run_backtest, run_prediction
 from chap_core.rest_api_src.data_models import BackTestCreate
 from chap_core.testing.testing import assert_dataset_equal
@@ -67,23 +71,34 @@ def test_seed(seeded_engine):
 
 @pytest.fixture
 def model_template_config():
-    return ModelTemplateSchema(
+    return ModelTemplateConfigV2(
         name='test_model',
         required_covariates=['rainfall', 'mean_temperature'],
         allow_free_additional_continuous_covariates=False,
         user_options={},
-        model_info=ModelTemplateMetaData(author='chap_temp',
-                             description='my model',
-                             display_name='My Model')
+        meta_data=ModelTemplateMetaData(author='chap_temp',
+                                        description='my model',
+                                        display_name='My Model'),
+        entry_points=EntryPointConfig(train=CommandConfig(command='train', parameters={'param1': 'value1'}),
+                                      predict=CommandConfig(command='predict', parameters={'param2': 'value2'})),
+        docker_env=DockerEnvConfig(image='my_docker_image')
     )
 
 
-@pytest.mark.skip
-def test_dataset_add_model_tempalte(model_template_config, engine):
+def test_add_model_template(model_template_config, engine):
     with SessionWrapper(engine) as session:
-        session.add_model_template(model_template_config)
-        model_template = session.get_model_template(model_template_config.name)
+        id = session.add_model_template(model_template_config)
+        model_template = session.get_model_template(id)
         assert model_template.name == model_template_config.name
-        assert model_template.required_fields == model_template_config.required_fields
+        assert model_template.required_covariates == model_template_config.required_covariates
         assert model_template.allow_free_additional_continuous_covariates == model_template_config.allow_free_additional_continuous_covariates
         assert model_template.user_options == model_template_config.user_options
+
+@pytest.mark.skip
+def test_add_model_template_from_url(engine):
+    with SessionWrapper(engine) as session:
+        template_id = add_model_template_from_url('https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d')
+        configured_model_id = add_configured_model(
+            template_id, {}, session)
+        external_model = session.get_configured_model(configured_model_id)
+        assert isinstance(external_model, ExternalModel)

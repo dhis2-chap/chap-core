@@ -7,7 +7,7 @@ import psycopg2
 import sqlalchemy
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
-from .model_spec_tables import seed_with_session_wrapper, ModelSpecRead, ModelTemplateSpec
+from .model_spec_tables import seed_with_session_wrapper, ModelSpecRead, ModelTemplateSpec, ConfiguredModel
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
@@ -16,6 +16,8 @@ import os
 from chap_core.time_period import TimePeriod
 from .. import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfig
+from ..models import ModelTemplate
+from ..models.utils import get_model_template_from_directory_or_github_url
 from ..rest_api_src.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
@@ -86,8 +88,22 @@ class SessionWrapper:
         self.session.commit()
         return db_object.id
 
+    def add_configured_model(self, model_template_id: int, configuration: dict) -> int:
+        configured_model = ConfiguredModel(model_template_id=model_template_id, configuration=configuration)
+        self.session.add(configured_model)
+        self.session.commit()
+        return configured_model.id
+
+    def get_configured_model(self, configured_model_id: int):
+        configured_model = self.session.get(ConfiguredModel, configured_model_id)
+        return ModelTemplate.from_directory_or_github_url(configured_model.model_template.source_url).get_model(configured_model.configuration)
+
     def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
-        ...
+        model_template =  self.session.get(ModelTemplateSpec, model_template_id)
+        if model_template is None:
+            raise ValueError(f"Model template with id {model_template_id} not found")
+        return model_template
+
 
     def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, info: BackTestCreate):
         info.created = datetime.datetime.now()

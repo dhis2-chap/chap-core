@@ -1,7 +1,7 @@
 import pytest
 import yaml
 
-from chap_core.external.model_configuration import ModelTemplateConfig
+from chap_core.external.model_configuration import ModelTemplateConfigV2, ModelTemplateConfig
 from chap_core.model_spec import (
     ModelSpec,
     model_spec_from_yaml,
@@ -49,7 +49,7 @@ def test_model_spec_from_yaml_string(mlflow_yaml):
 
 def test_model_spec_from_github_url(chap_ewars_github_url):
     config =  ExternalModelTemplate.fetch_config_from_github_url(chap_ewars_github_url)
-    assert isinstance(config, ModelTemplateConfig)
+    assert isinstance(config, ModelTemplateConfigV2)
 
 
 
