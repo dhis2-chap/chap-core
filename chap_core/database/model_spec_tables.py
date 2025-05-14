@@ -101,6 +101,8 @@ class ModelSpec(ModelSpecBase, table=True):
     target_name: str = Field(foreign_key="featuretype.name")
     target: FeatureType = Relationship()
     configuration: Optional[dict] = Field(sa_column=Column(JSON))
+    supported_period_type: PeriodType = PeriodType.any
+
 
 
 def get_available_models_from_config_dir(config_dir: str, base_covariates) -> List[ModelSpec]:
@@ -124,8 +126,8 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
             parameters={},
             target=target_type,
             covariates=base_covariates,
-            period=PeriodType.month,
             description="A simple naive model only to be used for testing purposes.",
+            supported_period_type=PeriodType.any,
             author="CHAP team",
             organization="HISP Centre, University of Oslo",
             organization_logo_url="https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png",
@@ -139,7 +141,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
             parameters={},
             target=target_type,
             covariates=base_covariates,
-            period=PeriodType.week,
+            supported_period_type=PeriodType.week,
             description="Modified version of the World Health Organization (WHO) EWARS model. EWARS is a Bayesian hierarchical model implemented with the INLA library.",
             author="CHAP team",
             organization="HISP Centre, University of Oslo",
@@ -154,7 +156,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
             parameters={},
             target=target_type,
             covariates=base_covariates,
-            period=PeriodType.month,
+            supported_period_type=PeriodType.month,
             description="Modified version of the World Health Organization (WHO) EWARS model. EWARS is a Bayesian hierarchical model implemented with the INLA library.",
             author="CHAP team",
             organization="HISP Centre, University of Oslo",
@@ -169,7 +171,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
             parameters={},
             target=target_type,
             covariates=base_covariates,
-            period=PeriodType.week,
+            supported_period_type=PeriodType.week,
             description="An experimental deep learning model based on an RNN architecture, focusing on predictions based on auto-regressive time series data.",
             author="Knut Rand",
             organization="HISP Centre, University of Oslo",
@@ -184,7 +186,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
             parameters={},
             target=target_type,
             covariates=base_covariates,
-            period=PeriodType.month,
+            supported_period_type=PeriodType.month,
             description="An experimental deep learning model based on an RNN architecture, focusing on predictions based on auto-regressive time series data.",
             author="Knut Rand",
             organization="HISP Centre, University of Oslo",
