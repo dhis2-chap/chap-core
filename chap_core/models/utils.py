@@ -6,7 +6,7 @@ from chap_core.datatypes import HealthData
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
 from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config 
-from chap_core.external.model_configuration import ModelTemplateConfig
+from chap_core.external.model_configuration import ModelTemplateConfig, ModelTemplateConfigV2
 from chap_core.models.model_template import ModelTemplate
 import shutil
 import uuid
@@ -81,7 +81,7 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> 
 
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
-    config = ModelTemplateConfig.model_validate(config)
+    config = ModelTemplateConfigV2.model_validate(config)
 
     model_template = ModelTemplate(config, working_dir, ignore_env)
     return model_template

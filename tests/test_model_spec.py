@@ -22,34 +22,44 @@ def test_model_spec_from_yaml(models_path):
     assert model_spec.period == PeriodType.week
 
 
-
-#@pytest.mark.skip('Need a model to test')
+# @pytest.mark.skip('Need a model to test')
 def test_model_spec_from_yaml():
     cls = NaiveEstimator
     model_spec = model_spec_from_model(cls)
     assert model_spec.name == "NaiveEstimator"
     assert model_spec.parameters == EmptyParameterSpec
-    assert set(model_spec.features) == set([]) #{fs.population, fs.rainfall, fs.mean_temperature}
+    assert set(model_spec.features) == set([])  # {fs.population, fs.rainfall, fs.mean_temperature}
+
 
 @pytest.fixture()
 def mlflow_yaml(data_path):
-    return open(data_path.parent/'external_models'/'naive_python_model_with_mlproject_file_and_docker'/'MLproject').read()
+    return open(
+        data_path.parent / 'external_models' / 'naive_python_model_with_mlproject_file_and_docker' / 'MLproject').read()
+
 
 @pytest.fixture()
 def chap_ewars_github_url():
     return 'https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6'
 
 
-def test_model_spec_from_yaml_string(mlflow_yaml):
-    # parse yaml string
-    data = yaml.safe_load(mlflow_yaml)
-    #data = yaml.parse(mlflow_yaml)
+@pytest.fixture()
+def mlflow_paths(data_path):
+    names = ['ar_monthly', 'ar_weekly']
+    return [data_path / 'model_templates' / f'{name}.yaml' for name in names]
 
-    ModelTemplateConfig.model_validate(data)
+
+def test_model_spec_from_files(mlflow_paths):
+    for filename in mlflow_paths:
+        data = yaml.safe_load(open(filename).read())
+        m = ModelTemplateConfigV2.model_validate(data)
+        print(m)
+
+def test_model_spec_from_yaml_string(mlflow_yaml):
+    data = yaml.safe_load(mlflow_yaml)
+    m = ModelTemplateConfig.model_validate(data)
+
+
 
 def test_model_spec_from_github_url(chap_ewars_github_url):
-    config =  ExternalModelTemplate.fetch_config_from_github_url(chap_ewars_github_url)
+    config = ExternalModelTemplate.fetch_config_from_github_url(chap_ewars_github_url)
     assert isinstance(config, ModelTemplateConfigV2)
-
-
-

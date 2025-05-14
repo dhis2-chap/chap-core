@@ -2,7 +2,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel, Session, select
 
-from chap_core.database.model_template_seed import add_model_template_from_url, add_configured_model
+from chap_core.database.model_template_seed import add_model_template_from_url, add_configured_model, \
+    seed_configured_models
 from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
@@ -16,7 +17,7 @@ from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database
 from chap_core.database.model_spec_tables import seed_with_session_wrapper, ModelTemplateMetaData
-from unittest.mock import patch
+from chap_core.database.model_template_seed import template_urls
 
 
 @pytest.fixture
@@ -94,11 +95,19 @@ def test_add_model_template(model_template_config, engine):
         assert model_template.allow_free_additional_continuous_covariates == model_template_config.allow_free_additional_continuous_covariates
         assert model_template.user_options == model_template_config.user_options
 
-@pytest.mark.skip
-def test_add_model_template_from_url(engine):
+
+# @pytest.mark.skip
+@pytest.mark.parametrize('url', template_urls)
+def test_add_model_template_from_url(engine, url):
+    # url = 'https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a'
     with SessionWrapper(engine) as session:
-        template_id = add_model_template_from_url('https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d')
+        template_id = add_model_template_from_url(url, session)
         configured_model_id = add_configured_model(
             template_id, {}, session)
         external_model = session.get_configured_model(configured_model_id)
         assert isinstance(external_model, ExternalModel)
+
+
+def test_seed_configured_models(engine):
+    with SessionWrapper(engine) as session:
+        seed_configured_models(session)

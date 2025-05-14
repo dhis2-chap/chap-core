@@ -61,6 +61,7 @@ class ModelTemplateSpec(DBModel, ModelTemplateMetaData, ModelTemplateInformation
     id: Optional[int] = Field(primary_key=True, default=None)
     source_url: Optional[str] = None
 
+
 class ConfiguredModel(DBModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     model_template_id: int = Field(foreign_key="modeltemplatespec.id")

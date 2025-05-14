@@ -79,6 +79,10 @@ class SessionWrapper:
         Note that the yaml string is what's defined in a model template's MLProject file,
         so source_url will have to be added manually."""
         # parse yaml content as dict
+        existing_template = self.session.exec(
+            select(ModelTemplateSpec).where(ModelTemplateSpec.source_url == model_template_config.source_url)).first()
+        if existing_template:
+            return existing_template.id
         d = model_template_config.dict()
         info = d.pop('meta_data')
         d = d | info

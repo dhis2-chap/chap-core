@@ -26,11 +26,13 @@ def parse_github_url(github_url) -> GithubUrl:
 
 def fetch_mlproject_content(github_url: str) -> str:
     parsed = parse_github_url(github_url)
+    logger.info(parsed)
     # Takes a github url, parses the MLProject file, returns an object with the correct information
     raw_mlproject_url = f"https://raw.githubusercontent.com/{parsed.owner}/{parsed.repo_name}/{parsed.commit}/MLproject"
     # fetch this MLProject file and parse it
     try:
         fetched = requests.get(raw_mlproject_url)
+        assert fetched.status_code == 200, f"Error fetching MLProject file from {raw_mlproject_url}: {fetched.status_code, fetched.content}"
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching MLProject file: {e}")
         return None
