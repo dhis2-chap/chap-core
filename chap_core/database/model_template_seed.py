@@ -4,7 +4,9 @@ from ..models.model_template import ExternalModelTemplate
 
 template_urls = {
     'https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a': [{}],
-    'https://github.com/knutdrand/weekly_ar_model@15cc39068498a852771c314e8ea989e6b555b8a5': [{}]
+    'https://github.com/knutdrand/weekly_ar_model@15cc39068498a852771c314e8ea989e6b555b8a5': [{}],
+    'https://github.com/dhis2-chap/chap_auto_ewars@58d56f86641f4c7b09bbb635afd61740deff0640': [{}],
+    'https://github.com/dhis2-chap/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6': [{}],
 }
 
 
