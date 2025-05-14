@@ -43,6 +43,9 @@ def run_prediction(estimator_id: registry.model_type, dataset_id: str, n_periods
     dataset = session.get_dataset(dataset_id, FullData)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
+
+    # Get the configured model from the session_wrapper
+    # session.get_configured_model(estimator_id)
     estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith('chap_ewars'))
     predictions = forecast_ahead(estimator, dataset, n_periods)
     db_id = session.add_predictions(predictions, dataset_id, estimator_id, name, metadata)

@@ -5,6 +5,7 @@ from typing import Optional
 
 import psycopg2
 import sqlalchemy
+from chap_core.predictor.naive_estimator import NaiveEstimator
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
 from .model_spec_tables import seed_with_session_wrapper, ModelSpecRead, ModelTemplateSpec, ConfiguredModel
@@ -105,7 +106,12 @@ class SessionWrapper:
 
     def get_configured_model(self, configured_model_id: int):
         configured_model = self.session.get(ConfiguredModel, configured_model_id)
-        return ModelTemplate.from_directory_or_github_url(configured_model.model_template.source_url).get_model(configured_model.configuration)
+        if configured_model.name == 'naive_model':
+            return NaiveEstimator()
+        ignore_env = configured_model.model_template.name.startswith('chap_ewars')
+        return ModelTemplate.from_directory_or_github_url(configured_model.model_template.source_url,
+                                                          ignore_env=ignore_env,
+                                                          ).get_model(configured_model.configuration)
 
     def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
         model_template =  self.session.get(ModelTemplateSpec, model_template_id)
