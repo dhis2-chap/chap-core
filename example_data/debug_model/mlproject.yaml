@@ -11,7 +11,7 @@ entry_points:
       data: 'str'
     command: 'echo "Hello World"'
 
-required_fields:
+required_covariates:
   - 'population'
 
 allow_free_additional_continuous_covariates: true
