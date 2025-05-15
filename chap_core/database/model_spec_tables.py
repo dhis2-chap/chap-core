@@ -75,9 +75,10 @@ class ModelSpecBase(ModelTemplateMetaData, DBModel):
     Use inheritance here so that it's flat in the database.
     '''
     name: str
-    #supported_period_types: PeriodType = PeriodType.any
+    # supported_period_types: PeriodType = PeriodType.any
     source_url: Optional[str] = None
     supported_period_type: PeriodType = PeriodType.any
+
 
 class ModelSpecRead(ModelSpecBase):
     id: int
@@ -101,8 +102,6 @@ class ModelSpec(ModelSpecBase, table=True):
     target_name: str = Field(foreign_key="featuretype.name")
     target: FeatureType = Relationship()
     configuration: Optional[dict] = Field(sa_column=Column(JSON))
-
-
 
 
 def get_available_models_from_config_dir(config_dir: str, base_covariates) -> List[ModelSpec]:

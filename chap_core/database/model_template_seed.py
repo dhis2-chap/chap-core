@@ -1,5 +1,7 @@
+from chap_core.model_spec import PeriodType
+
 from .database import SessionWrapper
-from .model_spec_tables import ModelTemplateSpec
+from .model_spec_tables import ModelTemplateSpec, ConfiguredModel
 from ..models.model_template import ExternalModelTemplate
 
 template_urls = {
@@ -8,7 +10,6 @@ template_urls = {
     'https://github.com/dhis2-chap/chap_auto_ewars@58d56f86641f4c7b09bbb635afd61740deff0640': [{}],
     'https://github.com/dhis2-chap/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6': [{}],
 }
-
 
 
 def add_model_template_from_url(url: str, session_wrapper: SessionWrapper) -> int:
@@ -38,8 +39,35 @@ def add_configured_model(model_template_id, configuration: dict, session_wrapper
     return session_wrapper.add_configured_model(model_template_id, configuration)
 
 
-def seed_configured_models(session_wrapper):
+def get_naive_model_spec():
+    model_spec = ModelTemplateSpec(
+        name="naive_model",
+        display_name='Naive model used for testing',
+        required_covariates=['rainfall', 'mean_temperature'],
+        description="A simple naive model only to be used for testing purposes.",
+        supported_period_type=PeriodType.any,
+        author="CHAP team",
+        organization="HISP Centre, University of Oslo",
+        organization_logo_url="https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png",
+        source_url="NA",
+        contact_email="chap@dhis2.org",
+        citation_info='Climate Health Analytics Platform. 2025. "Naive model used for testing". HISP Centre, University of Oslo. https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html',
+    )
+    return model_spec
+
+
+def seed_configured_models(session):
+    wrapper = SessionWrapper(session=session)
     for url, configs in template_urls.items():
-        template_id = add_model_template_from_url(url, session_wrapper)
+        template_id = add_model_template_from_url(url, wrapper)
         for config in configs:
-            add_configured_model(template_id, config, session_wrapper)
+            add_configured_model(template_id, config, wrapper)
+    spec = get_naive_model_spec()
+    session.add(spec)
+    session.commit()
+    config = ConfiguredModel(name='default',
+                             model_template_id=spec.id,
+                             configuration={})
+    session.add(config)
+    session.commit()
+    return spec
