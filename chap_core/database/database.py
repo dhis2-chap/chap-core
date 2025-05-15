@@ -19,7 +19,7 @@ from chap_core.time_period import TimePeriod
 from .. import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfig
 from ..models import ModelTemplate
-from ..models.utils import get_model_template_from_directory_or_github_url
+from ..models.configured_model import ConfiguredModel
 from ..rest_api_src.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
@@ -100,12 +100,14 @@ class SessionWrapper:
         if existing_configured:
             logger.info(f"Configured model with name {name} already exists. Returning existing id")
             return existing_configured.id
-        configured_model = ConfiguredModelDB(name=name, model_template_id=model_template_id, configuration=configuration)
+        template_name = self.session.exec(
+            select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first().name
+        configured_model = ConfiguredModelDB(name=f'{template_name}:{name}', model_template_id=model_template_id, configuration=configuration)
         self.session.add(configured_model)
         self.session.commit()
         return configured_model.id
 
-    def get_configured_model(self, configured_model_id: int):
+    def get_configured_model(self, configured_model_id: int) -> ConfiguredModel:
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model.name == 'naive_model':
             return NaiveEstimator()
