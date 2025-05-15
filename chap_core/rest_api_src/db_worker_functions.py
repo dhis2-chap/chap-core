@@ -65,23 +65,21 @@ def harmonize_and_add_health_dataset(health_dataset: FullData, name: str, sessio
 
 
 def harmonize_and_add_dataset(
-    provided_field_names: list[str],
-    data_to_be_fetched: list[FetchRequest],
-    health_dataset: InMemoryDataSet,
-    name: str,
-    ds_type: str,
-    session: SessionWrapper,
-    worker_config=WorkerConfig(),
-) -> FullData:
+        provided_field_names: list[str],
+        data_to_be_fetched: list[FetchRequest],
+        health_dataset: InMemoryDataSet,
+        name: str,
+        ds_type: str,
+        session: SessionWrapper,
+        worker_config=WorkerConfig()) -> FullData:
     provided_dataclass = create_tsdataclass(provided_field_names)
-    health_dataset = InMemoryDataSet.from_dict(health_dataset, provided_dataclass)
+    health_dataset = InMemoryDataSet.from_dict(
+        health_dataset, provided_dataclass)
     if len(data_to_be_fetched):
-        full_dataset = harmonize_health_dataset(
-            health_dataset,
-            fetch_requests=data_to_be_fetched,
-            usecwd_for_credentials=False,
-            worker_config=worker_config,
-        )
+        full_dataset = harmonize_health_dataset(health_dataset,
+                                                fetch_requests=data_to_be_fetched,
+                                                usecwd_for_credentials=False,
+                                                worker_config=worker_config)
     else:
         full_dataset = health_dataset
         db_id = session.add_dataset(
