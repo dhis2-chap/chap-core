@@ -49,9 +49,11 @@ class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to fo
     python_env: Optional[str] = None
 
 
-class ModelTemplateConfigV2(ModelTemplateInformation, RunnerConfig, extra="forbid"):
-    name: str
+class ModelTemplateConfigCommon(ModelTemplateInformation, extra='forbid'):
     meta_data: ModelTemplateMetaData = ModelTemplateMetaData()
+
+class ModelTemplateConfigV2(ModelTemplateConfigCommon, RunnerConfig, extra="forbid"):
+    name: str
     source_url: Optional[str] = None
     adapters: Optional[dict[str, str]] = None
 

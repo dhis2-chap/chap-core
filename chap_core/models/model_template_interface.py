@@ -1,5 +1,6 @@
 import abc
 
+from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
 from chap_core.external.model_configuration import ModelTemplateSchema
 from chap_core.models.configured_model import ModelConfiguration
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -41,7 +42,7 @@ class InternalModelTemplate(ModelTemplateInterface):
     required_fields: list[str] = []
 
     @property
-    def model_template_info(self) -> ModelTemplateSchema:
+    def model_template_info(self) -> ModelTemplateInformation:
         schema = self.model_config_class.model_json_schema()['properties']
         print(schema)
         ADDITIONAL_COVARIATE_NAME = 'additional_covariates'
