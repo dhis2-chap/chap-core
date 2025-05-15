@@ -1,7 +1,7 @@
 from chap_core.model_spec import PeriodType
 
 from .database import SessionWrapper
-from .model_spec_tables import ModelTemplateSpec, ConfiguredModel
+from .model_template_tables import ModelTemplateDB, ConfiguredModelDB
 from ..models.model_template import ExternalModelTemplate
 
 template_urls = {
@@ -40,7 +40,7 @@ def add_configured_model(model_template_id, configuration: dict, session_wrapper
 
 
 def get_naive_model_spec():
-    model_spec = ModelTemplateSpec(
+    model_spec = ModelTemplateDB(
         name="naive_model",
         display_name='Naive model used for testing',
         required_covariates=['rainfall', 'mean_temperature'],
@@ -65,9 +65,9 @@ def seed_configured_models(session):
     spec = get_naive_model_spec()
     session.add(spec)
     session.commit()
-    config = ConfiguredModel(name='default',
-                             model_template_id=spec.id,
-                             configuration={})
+    config = ConfiguredModelDB(name='default',
+                               model_template_id=spec.id,
+                               configuration={})
     session.add(config)
     session.commit()
     return spec

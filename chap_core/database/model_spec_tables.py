@@ -1,73 +1,15 @@
 import logging
 from typing import Optional, List
 
-from pydantic import BaseModel
 from sqlalchemy import JSON, Column
 
 from chap_core.database.base_tables import DBModel
+from chap_core.database.feature_tables import FeatureType, ModelFeatureLink
+from chap_core.database.model_template_tables import ModelTemplateMetaData
 from chap_core.model_spec import PeriodType
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship
 
 logger = logging.getLogger(__name__)
-
-
-class FeatureTypeBase(DBModel):
-    display_name: str
-    description: str
-
-
-class FeatureTypeRead(FeatureTypeBase):
-    name: str
-
-
-class FeatureType(FeatureTypeBase, table=True):
-    name: str = Field(str, primary_key=True)
-
-
-class FeatureSource(DBModel, table=True):
-    name: str = Field(primary_key=True)
-    display_name: str
-    feature_type: str = Field(foreign_key="featuretype.name")
-    provider: str
-    supported_period_types: List[PeriodType] = Field(default_factory=list, sa_column=Column(JSON))
-
-
-class ModelFeatureLink(DBModel, table=True):
-    model_id: Optional[int] = Field(default=None, foreign_key="modelspec.id", primary_key=True)
-    feature_type: Optional[str] = Field(default=None, foreign_key="featuretype.name", primary_key=True)
-
-
-class ModelTemplateMetaData(SQLModel):
-    display_name: str = 'No Display Name yet'
-    description: str = "No Description yet"
-    author: str = "Unknown Author"
-    organization: Optional[str] = None
-    organization_logo_url: Optional[str] = None
-    contact_email: Optional[str] = None
-    citation_info: Optional[str] = None
-
-
-class ModelTemplateInformation(SQLModel):
-    supported_period_type: PeriodType = PeriodType.any
-    user_options: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
-    required_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
-    target: str = 'disease_cases'
-    allow_free_additional_continuous_covariates: bool = False
-
-
-class ModelTemplateSpec(DBModel, ModelTemplateMetaData, ModelTemplateInformation, table=True):
-    '''Just a mixin here to get the model info flat in the database'''
-    name: str
-    id: Optional[int] = Field(primary_key=True, default=None)
-    source_url: Optional[str] = None
-
-
-class ConfiguredModel(DBModel, table=True):
-    name: str
-    id: Optional[int] = Field(primary_key=True, default=None)
-    model_template_id: int = Field(foreign_key="modeltemplatespec.id")
-    model_template: ModelTemplateSpec = Relationship()
-    configuration: Optional[dict] = Field(sa_column=Column(JSON))
 
 
 class ModelSpecBase(ModelTemplateMetaData, DBModel):

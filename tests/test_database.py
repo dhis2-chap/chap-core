@@ -16,8 +16,8 @@ from chap_core.rest_api_src.data_models import BackTestCreate
 from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database
-from chap_core.database.model_spec_tables import seed_with_session_wrapper, ModelTemplateMetaData, ConfiguredModel, \
-    ModelTemplateSpec
+from chap_core.database.model_spec_tables import seed_with_session_wrapper
+from chap_core.database.model_template_tables import ModelTemplateMetaData, ModelTemplateDB, ConfiguredModelDB
 from chap_core.database.model_template_seed import template_urls
 
 
@@ -114,8 +114,8 @@ def test_seed_configured_models(engine):
         seed_configured_models(session)
 
     naive_configured_models = session.exec(
-        select(ConfiguredModel)
-        .join(ConfiguredModel.model_template)
-        .where(ModelTemplateSpec.name == 'naive_model')
+        select(ConfiguredModelDB)
+        .join(ConfiguredModelDB.model_template)
+        .where(ModelTemplateDB.name == 'naive_model')
     ).first()
     assert naive_configured_models

@@ -1,6 +1,6 @@
 from typing import Optional, Literal
 from pydantic import BaseModel
-from chap_core.database.model_spec_tables import ModelTemplateMetaData, ModelTemplateInformation
+from chap_core.database.model_template_tables import ModelTemplateMetaData, ModelTemplateInformation
 
 
 class DockerEnvConfig(BaseModel):
