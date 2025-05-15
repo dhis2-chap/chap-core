@@ -1,4 +1,6 @@
+from pathlib import Path
 from chap_core.model_spec import PeriodType
+from chap_core.models.local_configuration import parse_local_model_config_from_directory
 
 from .database import SessionWrapper
 from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB
@@ -71,3 +73,31 @@ def seed_configured_models(session):
     session.add(config)
     session.commit()
     return spec
+
+
+
+def seed_configured_models_from_config_dir(session, dir=Path("config")/"models"):
+    # Not tested, draft
+    wrapper = SessionWrapper(session=session)
+    models = parse_local_model_config_from_directory(dir) 
+    for template_name, config in models:
+        # for every version, add one for each configured model configuration
+        for version, version_url in config.versions.items():
+            version_url = config.url + version
+            template_id = add_model_template_from_url(version_url, wrapper)
+            for config_name, configured_model_configuration in config.configurations:
+                add_configured_model(template_id, configured_model_configuration, wrapper)
+
+    spec = get_naive_model_spec()
+    session.add(spec)
+    session.commit()
+    config = ConfiguredModelDB(name='default',
+                               model_template_id=spec.id,
+                               configuration={})
+    session.add(config)
+    session.commit()
+    return spec
+
+       
+                 
+ 
