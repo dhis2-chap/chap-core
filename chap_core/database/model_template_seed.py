@@ -1,7 +1,7 @@
 from chap_core.model_spec import PeriodType
 
 from .database import SessionWrapper
-from .model_template_tables import ModelTemplateDB, ConfiguredModelDB
+from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB
 from ..models.model_template import ExternalModelTemplate
 
 template_urls = {

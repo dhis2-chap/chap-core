@@ -17,7 +17,7 @@ from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database
 from chap_core.database.model_spec_tables import seed_with_session_wrapper
-from chap_core.database.model_template_tables import ModelTemplateMetaData, ModelTemplateDB, ConfiguredModelDB
+from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData, ModelTemplateDB, ConfiguredModelDB
 from chap_core.database.model_template_seed import template_urls
 
 

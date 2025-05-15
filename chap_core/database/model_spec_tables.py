@@ -5,7 +5,7 @@ from sqlalchemy import JSON, Column
 
 from chap_core.database.base_tables import DBModel
 from chap_core.database.feature_tables import FeatureType, ModelFeatureLink
-from chap_core.database.model_template_tables import ModelTemplateMetaData
+from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
 from chap_core.model_spec import PeriodType
 from sqlmodel import Field, Relationship
 

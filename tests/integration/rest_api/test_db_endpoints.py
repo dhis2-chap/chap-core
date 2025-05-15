@@ -147,6 +147,9 @@ def test_list_models(celery_session_worker, dependency_overrides):
     assert response.status_code == 200, response.json()
     assert len(response.json()) > 0
     assert 'id' in response.json()[0]
+    for attr_name in ('displayName', 'id', 'description'):
+        '''Check these here to make sure camelCase in response'''
+        assert attr_name in response.json()[0], response.json()[0].keys()
     models = [ModelSpecRead.model_validate(m) for m in response.json()]
     assert 'chap_ewars_monthly' in (m.name for m in models)
     ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
@@ -341,6 +344,8 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     ds = [PredictionEntry.model_validate(entry) for entry in response.json()]
     assert len(ds) > 0
     assert all(pe.quantile in (0.1, 0.5, 0.9) for pe in ds)
+
+
 
 
 def test_failing_jobs_flow(celery_session_worker, dependency_overrides):

@@ -9,7 +9,7 @@ from chap_core.predictor.naive_estimator import NaiveEstimator
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
 from .model_spec_tables import seed_with_session_wrapper, ModelSpecRead
-from .model_template_tables import ModelTemplateDB, ConfiguredModelDB
+from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
