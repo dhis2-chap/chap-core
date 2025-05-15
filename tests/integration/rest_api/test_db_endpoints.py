@@ -356,3 +356,68 @@ def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     response = client.get(f'/v1/jobs/{job_id}')
     assert response.status_code == 200
     assert response.json() == 'FAILURE'
+
+
+def test_backtest_with_data_flow(
+    celery_session_worker, dependency_overrides, example_polygons, clean_engine
+):
+    locations = [f.id for f in example_polygons.features]
+    periods = [f"2023W{w:02d}" for w in range(1, 11)]
+    provided_features = ["disease_cases", "population"]
+
+    combinations = itertools.product(provided_features, periods, locations)
+    provided_data = [
+        ObservationBase(feature_name=e, period=p, value=float(i % 100 + 1), org_unit=l)
+        for i, (e, p, l) in enumerate(combinations)
+    ]
+
+    data_to_be_fetched = []
+
+    backtest_name = "test_backtest_with_data"
+    model_id = "naive_model"
+    n_periods_val = 4
+    n_splits_val = 2
+    stride_val = 1
+
+    request_payload = {
+        "name": backtest_name,
+        "model_id": model_id,
+        "n_periods": n_periods_val,
+        "n_splits": n_splits_val,
+        "stride": stride_val,
+        "dataset_name": f"{backtest_name}_ds",
+        "geojson": example_polygons.model_dump(),
+        "provided_data": [obs.model_dump() for obs in provided_data],
+        "data_to_be_fetched": data_to_be_fetched,
+    }
+
+    response = client.post(
+        "/v1/analytics/create-backtest-with-data", json=request_payload
+    )
+    assert response.status_code == 200, response.json()
+    job_id = response.json()["id"]
+
+    db_id = await_result_id(job_id, timeout=180)
+
+    response = client.get(f"/v1/crud/backtests/{db_id}")
+    assert response.status_code == 200, response.json()
+
+    backtest_full = BackTestFull.model_validate(response.json())
+    assert backtest_full.name == backtest_name
+    assert backtest_full.model_id == model_id
+    assert len(backtest_full.forecasts) > 0
+    assert len(backtest_full.metrics) > 0
+
+    created_dataset_id = backtest_full.dataset_id
+    dataset_response = client.get(f"/v1/crud/datasets/{created_dataset_id}")
+    assert dataset_response.status_code == 200, dataset_response.json()
+    created_dataset = DataSetWithObservations.model_validate(dataset_response.json())
+    assert created_dataset.name == f"{backtest_name}_ds"
+    assert created_dataset.type == "evaluation"
+
+    eval_params = {"backtestId": db_id, "quantiles": [0.5]}
+    eval_response = client.get("/v1/analytics/evaluation-entry", params=eval_params)
+    assert eval_response.status_code == 200, eval_response.json()
+    evaluation_entries = eval_response.json()
+    assert len(evaluation_entries) > 0
+    EvaluationEntry.model_validate(evaluation_entries[0])
