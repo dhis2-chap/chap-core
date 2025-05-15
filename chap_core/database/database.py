@@ -8,7 +8,8 @@ import sqlalchemy
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
-from .model_spec_tables import seed_with_session_wrapper, ModelSpecRead, ModelTemplateSpec, ConfiguredModel
+from .model_spec_tables import seed_with_session_wrapper
+from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
@@ -18,7 +19,7 @@ from chap_core.time_period import TimePeriod
 from .. import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfig
 from ..models import ModelTemplate
-from ..models.utils import get_model_template_from_directory_or_github_url
+from ..models.configured_model import ConfiguredModel
 from ..rest_api_src.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
@@ -81,13 +82,13 @@ class SessionWrapper:
         so source_url will have to be added manually."""
         # parse yaml content as dict
         existing_template = self.session.exec(
-            select(ModelTemplateSpec).where(ModelTemplateSpec.source_url == model_template_config.source_url)).first()
+            select(ModelTemplateDB).where(ModelTemplateDB.source_url == model_template_config.source_url)).first()
         if existing_template:
             return existing_template.id
         d = model_template_config.dict()
         info = d.pop('meta_data')
         d = d | info
-        db_object = ModelTemplateSpec(**d)
+        db_object = ModelTemplateDB(**d)
 
         self.session.add(db_object)
         self.session.commit()
@@ -95,17 +96,19 @@ class SessionWrapper:
 
     def add_configured_model(self, model_template_id: int, configuration: dict, name='default') -> int:
         existing_configured = self.session.exec(
-            select(ConfiguredModel).where(ConfiguredModel.name == name).where(ConfiguredModel.model_template_id==model_template_id)).first()
+            select(ConfiguredModelDB).where(ConfiguredModelDB.name == name).where(ConfiguredModelDB.model_template_id == model_template_id)).first()
         if existing_configured:
             logger.info(f"Configured model with name {name} already exists. Returning existing id")
             return existing_configured.id
-        configured_model = ConfiguredModel(name=name, model_template_id=model_template_id, configuration=configuration)
+        template_name = self.session.exec(
+            select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first().name
+        configured_model = ConfiguredModelDB(name=f'{template_name}:{name}', model_template_id=model_template_id, configuration=configuration)
         self.session.add(configured_model)
         self.session.commit()
         return configured_model.id
 
-    def get_configured_model(self, configured_model_id: int):
-        configured_model = self.session.get(ConfiguredModel, configured_model_id)
+    def get_configured_model(self, configured_model_id: int) -> ConfiguredModel:
+        configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model.name == 'naive_model':
             return NaiveEstimator()
         ignore_env = configured_model.model_template.name.startswith('chap_ewars')
@@ -114,7 +117,7 @@ class SessionWrapper:
                                                           ).get_model(configured_model.configuration)
 
     def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
-        model_template =  self.session.get(ModelTemplateSpec, model_template_id)
+        model_template =  self.session.get(ModelTemplateDB, model_template_id)
         if model_template is None:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template

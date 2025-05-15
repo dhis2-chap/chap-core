@@ -2,7 +2,7 @@ import os
 import pytest
 import yaml
 import logging
-
+from chap_core.file_io.file_paths import get_example_data_path
 logger = logging.getLogger(__name__)
 
 from chap_core.external.model_configuration import ModelTemplateConfigV2, ModelTemplateConfig
@@ -50,7 +50,7 @@ from chap_core.predictor.naive_estimator import NaiveEstimator
 
 def mlflow_paths():
     # NOTE: had to hardcode data folder here since cant use fixture as input for parametrize
-    template_folder = 'example_data/model_templates'
+    template_folder = get_example_data_path() / 'model_templates'
     names = [
         name for name in os.listdir(template_folder)
         if name.endswith('.yaml')

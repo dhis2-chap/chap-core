@@ -2,6 +2,7 @@ import yaml
 from cyclopts import App
 
 from chap_core.datatypes import remove_field, create_tsdataclass
+from chap_core.external.model_configuration import RunnerConfig, EntryPointConfig, CommandConfig
 from chap_core.model_spec import get_dataclass
 from chap_core.models.model_template_interface import InternalModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -120,10 +121,25 @@ def generate_template_app(model_template: InternalModelTemplate):
         """
         Write the model template to a yaml file
         """
+        runner_config = RunnerConfig(
+            entry_points=EntryPointConfig(
+                train=CommandConfig(command='python main.py train {training_data_filename} {model_path} {model_config_path}',
+                                    parameters={
+                                        'training_data_filename': 'str',
+                                        'model_path': 'str',
+                                        'model_config_path': 'str'
+                                    }),
+                predict=CommandConfig(command='python main.py predict {model_filename} {historic_data_filename} {future_data_filename} {output_filename} {model_config_path}',
+                                      parameters={
+                                          'model_filename': 'str',
+                                          'historic_data_filename': 'str',
+                                          'future_data_filename': 'str',
+                                          'output_filename': 'str',
+                                          'model_config_path': 'str'
+                                      })))
         info = model_template.model_template_info.model_dump()
-        print(info)
-        print('/////////////')
         print(yaml.dump(info))
+        print(yaml.dump(runner_config.model_dump(), sort_keys=False))
 
 
     return app, train, predict, write_template_yaml

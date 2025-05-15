@@ -30,7 +30,8 @@ from sqlmodel import Session
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.database import SessionWrapper
-from chap_core.database.model_spec_tables import FeatureSource, ModelSpecRead, ModelSpec
+from chap_core.database.model_spec_tables import ModelSpecRead, ModelSpec
+from chap_core.database.feature_tables import FeatureSource
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.geometry import Polygons
