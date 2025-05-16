@@ -58,16 +58,20 @@ def get_naive_model_spec():
 
 def seed_configured_models(session):
     wrapper = SessionWrapper(session=session)
+    # add model templates and configured models from template urls
     for url, configs in template_urls.items():
         template_id = add_model_template_from_url(url, wrapper)
         for config in configs:
             add_configured_model(template_id, config, wrapper)
+    # add naive model template
     spec = get_naive_model_spec()
     session.add(spec)
     session.commit()
+    # and naive configured model
     config = ConfiguredModelDB(name='default',
                                model_template_id=spec.id,
                                configuration={})
     session.add(config)
     session.commit()
-    return spec
+    # return
+    return True

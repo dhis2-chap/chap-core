@@ -17,6 +17,7 @@ Magic is used to make the returned objects camelCase while internal objects are 
 import json
 from datetime import datetime
 from functools import partial
+import logging
 
 import numpy as np
 from fastapi import Path
@@ -42,10 +43,13 @@ from chap_core.database.tables import BackTest, Prediction, \
     PredictionRead, PredictionInfo
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 from chap_core.database.base_tables import DBModel
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
 from ...data_models import JobResponse, BackTestCreate, BackTestRead, BackTestFull
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/crud", tags=["crud"])
 
@@ -217,16 +221,69 @@ def list_models(session: Session = Depends(get_session)):
     return SessionWrapper(session=session).list_all(ModelSpec)
 
 
-@router.get('/models-from-model-templates', response_model=list[ModelSpecRead])
-def list_models_from_model_templates(session: Session = Depends(get_session)):
-    return SessionWrapper(session=session).list_all(ModelSpec)
+@router.get('/models-v2', response_model=list[ModelSpecRead])
+def list_models_v2(session: Session = Depends(get_session)):
+    '''List all configured models from the db (new db tables)'''
+    # get configured models from db
+    #configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
+    configured_models = session.exec(
+        select(ConfiguredModelDB)
+        .join(ConfiguredModelDB.model_template)
+    ).all()
+
+    # serialize to json and combine configured model with model template
+    configured_models_data = [
+        {
+            **m.model_dump(mode='json'),
+            **(m.model_template.model_dump(mode='json') if m.model_template else {})
+        }
+        for m in configured_models
+    ]
+    #import json
+    #for m in configured_models_data:
+    #    logger.info('list model data: ' + json.dumps(m, indent=4))
+    
+    # temp: convert to ModelSpecRead to preserve existing results
+    # TODO: remove ModelSpecRead and return directly as ConfiguredModelDB
+    for m in configured_models_data:
+        # convert single target value to target dict
+        m['target'] = {
+            'name': m['target'],
+            'displayName': m['target'].replace('_', ' ').capitalize(),
+            'description': m['target'].replace('_', ' ').capitalize(),
+        }
+        # convert list of covarate strings to list of covariate dicts
+        m['covariates'] = [
+            {
+                'name': c,
+                'displayName': c.replace('_', ' ').capitalize(),
+                'description': c.replace('_', ' ').capitalize(),
+            }
+            for c in m['required_covariates']
+        ]
+    #for m in configured_models_data:
+    #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
+    configured_models_read = [ModelSpecRead.model_validate(m) for m in configured_models_data]
+    #for m in configured_models_read:
+    #    logger.info('read list model data: ' + json.dumps(m.model_dump(mode='json'), indent=4))
+
+    # return
+    return configured_models_read
 
 
-@router.get('/modelTemplates', response_model=list[ModelTemplateConfig])
-def list_model_templates(session: Session = Depends(get_session)):
-    """Lists all model templates by reading local config files and presenting models. 
-    """
-    return SessionWrapper(session=session).list_all(ModelTemplateConfig)
+# TODO: implement model template related endpoints below once it works
+
+
+#@router.get('/models-from-model-templates', response_model=list[ModelSpecRead])
+#def list_models_from_model_templates(session: Session = Depends(get_session)):
+#    return SessionWrapper(session=session).list_all(ModelSpec)
+
+
+#@router.get('/model-templates', response_model=list[ModelSpecRead])
+#def list_model_templates(session: Session = Depends(get_session)):
+#    """Lists all model templates by reading local config files and presenting models. 
+#    """
+#    return SessionWrapper(session=session).list_all(ModelTemplateConfig)
 
 
 #############

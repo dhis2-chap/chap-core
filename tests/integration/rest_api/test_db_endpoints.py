@@ -346,8 +346,6 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     assert all(pe.quantile in (0.1, 0.5, 0.9) for pe in ds)
 
 
-
-
 def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     response = client.post("/v1/debug/trigger-exception")
     assert response.status_code == 200
