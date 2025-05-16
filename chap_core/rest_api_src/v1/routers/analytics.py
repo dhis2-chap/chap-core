@@ -53,15 +53,7 @@ def make_dataset(request: DatasetMakeRequest,
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if 'population' in feature_names:
         provided_data = provided_data.interpolate(['population'])
-    for feature_name in feature_names:
-        if feature_name == 'disease_cases':
-            continue
-        for location, data in provided_data.items():
-            isnan = np.isnan(getattr(data, feature_name))
-            if np.any(isnan):
-                isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
-                raise HTTPException(status_code=500,
-                                    detail=f'Missing value in {feature_name} in location {location}. Time periods: {isnan_}')
+    _validate_full_dataset(feature_names, provided_data)
 
     request.type = 'evaluation'
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
@@ -76,6 +68,18 @@ def make_dataset(request: DatasetMakeRequest,
                           worker_config=worker_settings,
                           **{JOB_TYPE_KW: 'create_dataset', JOB_NAME_KW: request.name})
     return JobResponse(id=job.id)
+
+
+def _validate_full_dataset(feature_names, provided_data):
+    for feature_name in feature_names:
+        if feature_name == 'disease_cases':
+            continue
+        for location, data in provided_data.items():
+            isnan = np.isnan(getattr(data, feature_name))
+            if np.any(isnan):
+                isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
+                raise HTTPException(status_code=500,
+                                    detail=f'Missing value in {feature_name} in location {location}. Time periods: {isnan_}')
 
 
 @router.get("/compatible-backtests/{backtestId}", response_model=List[BackTestRead])
@@ -193,7 +197,7 @@ async def make_prediction(request: MakePredictionRequest,
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if 'population' in feature_names:
         provided_data = provided_data.interpolate(['population'])
-
+    _validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     job = worker.queue_db(wf.predict_pipeline_from_composite_dataset,
                           feature_names,
@@ -206,15 +210,7 @@ async def make_prediction(request: MakePredictionRequest,
                           worker_config=worker_settings,
                           **{JOB_TYPE_KW: 'create_prediction', JOB_NAME_KW: request.name})
     return JobResponse(id=job.id)
-    # return JobResponse(id=job.id)
-    #
-    # model_id = dataset.model_id
-    # data = dataset_model_to_dataset(HealthPopulationData, dataset)
-    # job = worker.queue_db(wf.predict_pipeline_from_health_dataset,
-    #                       data.model_dump(), dataset.name, model_id,
-    #                       database_url=datababase_url, worker_config=worker_settings)
-    #
-    # return JobResponse(id=job.id)
+
 
 
 @router.get("/prediction-entry/{predictionId}", response_model=List[PredictionEntry])
