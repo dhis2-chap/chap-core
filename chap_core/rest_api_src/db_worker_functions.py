@@ -82,12 +82,12 @@ def harmonize_and_add_dataset(
                                                 worker_config=worker_config)
     else:
         full_dataset = health_dataset
-        db_id = session.add_dataset(
-            name,
-            full_dataset,
-            polygons=health_dataset.polygons.model_dump_json(),
-            dataset_type=ds_type,
-        )
+    db_id = session.add_dataset(
+        name,
+        full_dataset,
+        polygons=health_dataset.polygons.model_dump_json(),
+        dataset_type=ds_type,
+    )
     return db_id
 
 
