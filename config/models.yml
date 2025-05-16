@@ -1,0 +1,29 @@
+# This file defines models that will be available through the REST API, 
+# which means they get aceessible through the Modeling app.
+# models should point to a github repo, ideally specifying a commit hash
+# Models may also include user choices if the model allows them
+
+weekly_ar_model: 
+  url: https://github.com/knutdrand/weekly_ar_model
+  versions:
+    v0: "@v0.0.1"
+    old_decent_version: "@36a537dac138af428a4167b2a89eac7dafd5d762"  # stable
+    v2: "@v0.0.2alpha"  # alpha version for testing
+    nightly_build: "@stable"
+  configurations:
+    myconfig1:
+      additional_continuous_covariates:
+        - rain
+        - temperature
+      user_options:
+        n_iterations: 3
+    myconfig2:
+      additional_continuous_covariates:
+        - temperature
+      user_options:
+        n_iterations: 5
+
+    
+
+
+    
