@@ -48,11 +48,7 @@ def make_dataset(request: DatasetMakeRequest,
     This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
     """
-    feature_names = list({entry.feature_name for entry in request.provided_data})
-    dataclass = create_tsdataclass(feature_names)
-    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
-    if 'population' in feature_names:
-        provided_data = provided_data.interpolate(['population'])
+    feature_names, provided_data = _read_dataset(request)
     _validate_full_dataset(feature_names, provided_data)
 
     request.type = 'evaluation'
@@ -68,6 +64,15 @@ def make_dataset(request: DatasetMakeRequest,
                           worker_config=worker_settings,
                           **{JOB_TYPE_KW: 'create_dataset', JOB_NAME_KW: request.name})
     return JobResponse(id=job.id)
+
+
+def _read_dataset(request):
+    feature_names = list({entry.feature_name for entry in request.provided_data})
+    dataclass = create_tsdataclass(feature_names)
+    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if 'population' in feature_names:
+        provided_data = provided_data.interpolate(['population'])
+    return feature_names, provided_data
 
 
 def _validate_full_dataset(feature_names, provided_data):
@@ -336,30 +341,8 @@ async def create_backtest_with_data(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
-    feature_names = list({entry.feature_name for entry in request.provided_data})
-
-    dataclass = create_tsdataclass(feature_names)
-    provided_data_processed = observations_to_dataset(
-        dataclass,
-        request.provided_data,
-        fill_missing=True
-    )
-
-    if "population" in feature_names:
-        provided_data_processed = provided_data_processed.interpolate(["population"])
-
-    for feature_name in feature_names:
-        if feature_name == "disease_cases":
-            continue
-        for location, data in provided_data_processed.items():
-            isnan = np.isnan(getattr(data, feature_name))
-            if np.any(isnan):
-                isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Missing value in {feature_name} in location {location}. Time periods: {isnan_}",
-                )
-
+    feature_names, provided_data_processed = _read_dataset(request)
+    _validate_full_dataset(feature_names, provided_data_processed)
     provided_data_processed.set_polygons(
         FeatureCollectionModel.model_validate(request.geojson)
     )
