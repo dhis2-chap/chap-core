@@ -51,6 +51,7 @@ class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to fo
 class ModelTemplateConfigCommon(ModelTemplateInformation, extra='forbid'):
     meta_data: ModelTemplateMetaData = ModelTemplateMetaData()
 
+
 class ModelTemplateConfigV2(ModelTemplateConfigCommon, RunnerConfig, extra="forbid"):
     name: str
     source_url: Optional[str] = None

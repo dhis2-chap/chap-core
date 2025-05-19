@@ -48,6 +48,9 @@ class DummyModelTemplate(ModelTemplateInterface):
     def get_config_class(self) -> type[ModelConfiguration]:
         return DummyConfig
 
+    def get_schema(self) -> ModelTemplateInformation:
+        return DummyConfig.model_json_schema()['properties']
+
     def get_model(self, model_configuration: ModelConfiguration = None) -> ConfiguredModel:
         return DummyModel(model_configuration)
 

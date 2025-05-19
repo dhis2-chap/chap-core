@@ -148,7 +148,7 @@ def generate_template_app(model_template: InternalModelTemplate):
                                           'output_filename': 'str',
                                           'model_config_path': 'str'
                                       })))
-        info = model_template.model_template_info.model_dump()
+        info = model_template.model_template_info.model_dump(mode='json')
         print(yaml.dump(info))
         print(yaml.dump(runner_config.model_dump(), sort_keys=False))
 
