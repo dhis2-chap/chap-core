@@ -39,7 +39,6 @@ class ModelTemplateSchema(BaseModel, extra="forbid"):  # pydantic-specific confi
     allow_free_additional_continuous_covariates: bool = False
     user_options: dict = {}
     model_info: Optional[ModelInfo] = None
-    # adapters: Optional[dict[str, str]] = None
 
 
 class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):

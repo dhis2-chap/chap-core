@@ -1,6 +1,6 @@
 import yaml
 from cyclopts import App
-
+from chap_core.models.model_template_interface import  ModelConfiguration
 from chap_core.datatypes import remove_field, create_tsdataclass
 from chap_core.external.model_configuration import RunnerConfig, EntryPointConfig, CommandConfig
 from chap_core.model_spec import get_dataclass
@@ -72,17 +72,28 @@ def generate_template_app(model_template: InternalModelTemplate):
         model_path: str
             The path to save the trained model
         """
-        model_config = model_template.get_config_class().parse_file(model_config_path)
+        model_config = _read_model_config(model_config_path)
 
         # TODO: create method in ModelTemplate to get the actual fields
         # Or give the model the responsibilitiy
         estimator = model_template.get_model(model_config)
-        data_fields = estimator.covariate_names
-        dc = create_tsdataclass(data_fields)
+        dc = _get_dataclass(estimator)
         dataset = DataSet.from_csv(training_data_filename, dc)
 
         predictor = estimator.train(dataset)
         predictor.save(model_path)
+
+    def _get_dataclass(estimator):
+        data_fields = estimator.covariate_names + [model_template.model_template_info.target]
+        dc = create_tsdataclass(data_fields)
+        return dc
+
+    def _read_model_config(model_config_path):
+        if model_config_path is not None:
+            model_config = model_template.get_config_class().parse_file(model_config_path)
+        else:
+            model_config = ModelConfiguration()
+        return model_config
 
     # TODO: send in model config again here
     @app.command()
@@ -102,11 +113,11 @@ def generate_template_app(model_template: InternalModelTemplate):
         future_data_filename: str
             The path to the future data file, i.e. forecasted predictors for the future
         """
-        model_config = model_template.get_config_class().parse_file(model_config_path)
-
+        # model_config = model_template.get_config_class().parse_file(model_config_path)
+        model_config = _read_model_config(model_config_path)
 
         estimator = model_template.get_model(model_config)
-        dc = create_tsdataclass(estimator.covariate_names)
+        dc = _get_dataclass(estimator)
         future_dc = remove_field(dc, "disease_cases")
         predictor = estimator.load_predictor(model_filename)
 
@@ -123,7 +134,7 @@ def generate_template_app(model_template: InternalModelTemplate):
         """
         runner_config = RunnerConfig(
             entry_points=EntryPointConfig(
-                train=CommandConfig(command='python main.py train {training_data_filename} {model_path} {model_config_path}',
+                train=CommandConfig(command='python main.py train {training_data_filename} {model_path} {model_config_path} --additri',
                                     parameters={
                                         'training_data_filename': 'str',
                                         'model_path': 'str',
