@@ -177,6 +177,14 @@ class MakeBacktestRequest(DBModel):
     stride: int
 
 
+class MakeBacktestWithDataRequest(DatasetMakeRequest):
+    name: str
+    model_id: str
+    n_periods: int
+    n_splits: int
+    stride: int
+
+
 @router.post("/create-backtest", response_model=JobResponse)
 async def create_backtest(request: MakeBacktestRequest, database_url: str = Depends(get_database_url)):
     job = worker.queue_db(wf.run_backtest,
@@ -320,3 +328,54 @@ data_sources = [
 @router.get('/data-sources', response_model=List[DataSource])
 async def get_data_sources() -> List[DataSource]:
     return data_sources
+
+
+@router.post("/create-backtest-with-data", response_model=JobResponse)
+async def create_backtest_with_data(
+    request: MakeBacktestWithDataRequest,
+    database_url: str = Depends(get_database_url),
+    worker_settings=Depends(get_settings),
+):
+    feature_names = list({entry.feature_name for entry in request.provided_data})
+
+    dataclass = create_tsdataclass(feature_names)
+    provided_data_processed = observations_to_dataset(
+        dataclass,
+        request.provided_data,
+        fill_missing=True
+    )
+
+    if "population" in feature_names:
+        provided_data_processed = provided_data_processed.interpolate(["population"])
+
+    for feature_name in feature_names:
+        if feature_name == "disease_cases":
+            continue
+        for location, data in provided_data_processed.items():
+            isnan = np.isnan(getattr(data, feature_name))
+            if np.any(isnan):
+                isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Missing value in {feature_name} in location {location}. Time periods: {isnan_}",
+                )
+
+    provided_data_processed.set_polygons(
+        FeatureCollectionModel.model_validate(request.geojson)
+    )
+
+    job = worker.queue_db(
+        wf.run_backtest_from_composite_dataset,
+        feature_names=feature_names,
+        data_to_be_fetched=request.data_to_be_fetched,
+        provided_data_model_dump=provided_data_processed.model_dump(),
+        backtest_name=request.name,
+        model_id=request.model_id,
+        n_periods=request.n_periods,
+        n_splits=request.n_splits,
+        stride=request.stride,
+        database_url=database_url,
+        worker_config=worker_settings,
+        **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
+    )
+    return JobResponse(id=job.id)
