@@ -1,5 +1,6 @@
 from shutil import which
 import numpy as np
+import os
 
 
 def nan_helper(y):
@@ -40,8 +41,7 @@ def pyenv_available():
 
 def redis_available():
     try:
-        import redis
-        r = redis.Redis()
+        r = load_redis()
         r.ping()
         return True
     except Exception as e:
@@ -51,5 +51,9 @@ def redis_available():
             # Handle other exceptions
             raise
 
-
-
+def load_redis(db=0):
+    import redis
+    host = os.getenv('REDIS_HOST', 'localhost') # default to localhost for backward compatibility
+    port = os.getenv('REDIS_PORT', '6379')
+    r = redis.Redis(host=host, port=int(port), db=db)
+    return r

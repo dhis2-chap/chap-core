@@ -23,6 +23,9 @@ RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y git
 
+# Install make to run the Makefile tests
+RUN apt-get update && apt-get install -y make
+
 COPY ./chap_core ./chap_core
 COPY ./config ./config
 COPY ./scripts/seed.py ./scripts/seed.py

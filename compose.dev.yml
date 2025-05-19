@@ -10,6 +10,7 @@ services:
       - ./tests:/app/tests
       - ./example_data:/app/example_data
       - ./external_models:/app/external_models
+      - ./Makefile:/app/Makefile
   worker:
     volumes:
       - ./logs:/app/logs
