@@ -85,7 +85,7 @@ def add_id(feature, admin_level=1, lookup_dict=None):
     
 
 
-def get_area_polygons(country: str, regions: list[str], admin_level: int = 1) -> FeatureCollectionModel:
+def get_area_polygons(country: str, regions: list[str] = None, admin_level: int = 1) -> FeatureCollectionModel:
     """
     Get the polygons for the specified regions in the specified country (only ADMIN1 supported)
     Returns only the regions that are found in the data
@@ -95,8 +95,10 @@ def get_area_polygons(country: str, regions: list[str], admin_level: int = 1) ->
     ----------
     country : str
         The country name
-    regions : list[str]
-        The regions to get the polygons for
+    regions : list[str], optional
+        Filtering which regions to get the polygons for based on region name
+    admin_level : int
+        Which administrative level to get polygons for (0 for country, 1 for admin-1, etc)
 
     Returns
     -------
@@ -105,22 +107,33 @@ def get_area_polygons(country: str, regions: list[str], admin_level: int = 1) ->
 
     """
 
+    # TODO: switch feature_dict to use ID_{admin_level} instead of name (there can be duplicate names)
+
     data = get_country_data(country, admin_level=admin_level)
     feature_dict = {
         normalize_name(feature.properties[f"NAME_{admin_level}"]): feature
         for feature in data.features
     }
+    for f in feature_dict.values():
+        print(f.properties)
     logger.info(f'Polygon data available for regions: {list(feature_dict.keys())}')
-    logger.info(f'Requested regions: {[normalize_name(region) for region in regions]}')
-    normalized_to_original = {normalize_name(region): region for region in regions}
-    
-    return DFeatureCollectionModel(
-        type="FeatureCollection",
-        features=[
+    if regions:
+        logger.info(f'Filtering to requested regions: {[normalize_name(region) for region in regions]}')
+        normalized_to_original = {normalize_name(region): region for region in regions}
+        features = [
             add_id(feature_dict[normalize_name(region)], admin_level, normalized_to_original)
             for region in regions
             if normalize_name(region) in feature_dict
-        ],
+        ]
+    else:
+        features = [
+            add_id(feature, admin_level)
+            for feature in feature_dict.values()
+        ]
+    
+    return DFeatureCollectionModel(
+        type="FeatureCollection",
+        features=features,
     )
 
 
