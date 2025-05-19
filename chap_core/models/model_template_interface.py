@@ -1,5 +1,7 @@
 import abc
 
+from pydantic import BaseModel
+
 from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
 from chap_core.external.model_configuration import ModelTemplateSchema
 from chap_core.models.configured_model import ModelConfiguration
@@ -16,15 +18,19 @@ class ConfiguredModel(abc.ABC):
         pass
 
 
+class ModelConfiguration(BaseModel):
+    additional_continous_covariates: list[str] = []
+    user_options: dict = {}
+
+
 class ModelTemplateInterface(abc.ABC):
 
     @abc.abstractmethod
-    def get_config_class(self) -> type[ModelConfiguration]:  # gives a custom class of type ModelConfiguration
-        # todo: could maybe be a property and not class
-        pass
+    def get_schema(self) -> ModelTemplateInformation:
+        return self.model_template_info
 
     @abc.abstractmethod
-    def get_model(self, model_configuration: ModelConfiguration = None) -> 'ConfiguredModel':
+    def get_model(self, model_configuration: ModelConfiguration | None = None) -> 'ConfiguredModel':
         pass
 
     def get_default_model(self) -> 'ConfiguredModel':
@@ -39,21 +45,7 @@ class InternalModelTemplate(ModelTemplateInterface):
     throught the chap/mlflow api
     '''
     model_config_class: type[ModelConfiguration]
-    required_fields: list[str] = []
+    model_template_info: ModelTemplateInformation
 
-    @property
-    def model_template_info(self) -> ModelTemplateInformation:
-        schema = self.model_config_class.model_json_schema()['properties']
-        print(schema)
-        ADDITIONAL_COVARIATE_NAME = 'additional_covariates'
-        return ModelTemplateSchema(
-            name=self.__class__.__name__,
-            # description=self.model_config_class.__doc__,
-            required_fields=[],
-            allow_free_additional_continuous_covariates=schema.pop(ADDITIONAL_COVARIATE_NAME, None) is not None,
-            user_options=schema
-        )
-
-    def get_config_class(self) -> type[ModelConfiguration]:
-        return self.model_config_class
-
+    def get_schema(self):
+        return self.model_template_info.model_json_schema()

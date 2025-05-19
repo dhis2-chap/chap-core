@@ -48,11 +48,7 @@ def make_dataset(request: DatasetMakeRequest,
     This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
     """
-    feature_names = list({entry.feature_name for entry in request.provided_data})
-    dataclass = create_tsdataclass(feature_names)
-    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
-    if 'population' in feature_names:
-        provided_data = provided_data.interpolate(['population'])
+    feature_names, provided_data = _read_dataset(request)
     _validate_full_dataset(feature_names, provided_data)
 
     request.type = 'evaluation'
@@ -68,6 +64,15 @@ def make_dataset(request: DatasetMakeRequest,
                           worker_config=worker_settings,
                           **{JOB_TYPE_KW: 'create_dataset', JOB_NAME_KW: request.name})
     return JobResponse(id=job.id)
+
+
+def _read_dataset(request):
+    feature_names = list({entry.feature_name for entry in request.provided_data})
+    dataclass = create_tsdataclass(feature_names)
+    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if 'population' in feature_names:
+        provided_data = provided_data.interpolate(['population'])
+    return feature_names, provided_data
 
 
 def _validate_full_dataset(feature_names, provided_data):
@@ -172,6 +177,14 @@ class MakeBacktestRequest(DBModel):
     name: str
     model_id: str
     dataset_id: int
+    n_periods: int
+    n_splits: int
+    stride: int
+
+
+class MakeBacktestWithDataRequest(DatasetMakeRequest):
+    name: str
+    model_id: str
     n_periods: int
     n_splits: int
     stride: int
@@ -320,3 +333,32 @@ data_sources = [
 @router.get('/data-sources', response_model=List[DataSource])
 async def get_data_sources() -> List[DataSource]:
     return data_sources
+
+
+@router.post("/create-backtest-with-data", response_model=JobResponse)
+async def create_backtest_with_data(
+    request: MakeBacktestWithDataRequest,
+    database_url: str = Depends(get_database_url),
+    worker_settings=Depends(get_settings),
+):
+    feature_names, provided_data_processed = _read_dataset(request)
+    _validate_full_dataset(feature_names, provided_data_processed)
+    provided_data_processed.set_polygons(
+        FeatureCollectionModel.model_validate(request.geojson)
+    )
+
+    job = worker.queue_db(
+        wf.run_backtest_from_composite_dataset,
+        feature_names=feature_names,
+        data_to_be_fetched=request.data_to_be_fetched,
+        provided_data_model_dump=provided_data_processed.model_dump(),
+        backtest_name=request.name,
+        model_id=request.model_id,
+        n_periods=request.n_periods,
+        n_splits=request.n_splits,
+        stride=request.stride,
+        database_url=database_url,
+        worker_config=worker_settings,
+        **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
+    )
+    return JobResponse(id=job.id)

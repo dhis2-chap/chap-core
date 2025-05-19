@@ -354,3 +354,47 @@ def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     response = client.get(f'/v1/jobs/{job_id}')
     assert response.status_code == 200
     assert response.json() == 'FAILURE'
+
+
+def test_backtest_with_data_flow(
+    celery_session_worker, dependency_overrides, example_polygons, make_prediction_request
+):
+    data = make_prediction_request.model_dump()
+    backtest_name = "test_backtest_with_data"
+    n_periods_val = 3
+    n_splits_val = 10
+    stride_val = 1
+
+    request_payload = {
+        **data,
+        "name": backtest_name,
+        "n_periods": n_periods_val,
+        "n_splits": n_splits_val,
+        "stride": stride_val,
+    }
+
+    response = client.post(
+        "/v1/analytics/create-backtest-with-data", json=request_payload
+    )
+    assert response.status_code == 200, response.json()
+    job_id = response.json()["id"]
+
+    db_id = await_result_id(job_id, timeout=180)
+
+    response = client.get(f"/v1/crud/backtests/{db_id}")
+    assert response.status_code == 200, response.json()
+
+    backtest_full = BackTestFull.model_validate(response.json())
+    assert len(backtest_full.forecasts) > 0
+    #assert len(backtest_full.metrics) > 0
+
+    created_dataset_id = backtest_full.dataset_id
+    dataset_response = client.get(f"/v1/crud/datasets/{created_dataset_id}")
+    assert dataset_response.status_code == 200, dataset_response.json()
+
+    eval_params = {"backtestId": db_id, "quantiles": [0.5]}
+    eval_response = client.get("/v1/analytics/evaluation-entry", params=eval_params)
+    assert eval_response.status_code == 200, eval_response.json()
+    evaluation_entries = eval_response.json()
+    assert len(evaluation_entries) > 0
+    EvaluationEntry.model_validate(evaluation_entries[0])

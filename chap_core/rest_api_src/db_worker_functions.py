@@ -43,9 +43,6 @@ def run_prediction(estimator_id: registry.model_type, dataset_id: str, n_periods
     dataset = session.get_dataset(dataset_id, FullData)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
-
-    # Get the configured model from the session_wrapper
-    # session.get_configured_model(estimator_id)
     estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith('chap_ewars'))
     predictions = forecast_ahead(estimator, dataset, n_periods)
     db_id = session.add_predictions(predictions, dataset_id, estimator_id, name, metadata)
@@ -107,3 +104,36 @@ def predict_pipeline_from_composite_dataset(provided_field_names: list[str],
                                            session,
                                            worker_config)
     return run_prediction(model_id, dataset_id, None, name, metadata, session)
+
+
+def run_backtest_from_composite_dataset(
+    feature_names: list[str],
+    data_to_be_fetched: list[FetchRequest],
+    provided_data_model_dump: dict,
+    backtest_name: str,
+    model_id: registry.model_type,
+    n_periods: int,
+    n_splits: int,
+    stride: int,
+    session: SessionWrapper,
+    worker_config=WorkerConfig(),
+) -> int:
+    dataset_id = harmonize_and_add_dataset(
+        provided_field_names=feature_names,
+        data_to_be_fetched=data_to_be_fetched,
+        health_dataset=provided_data_model_dump,
+        name=f"{backtest_name}_ds",
+        ds_type="evaluation",
+        session=session,
+        worker_config=worker_config,
+    )
+
+    backtest_create_info = BackTestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)
+
+    return run_backtest(
+        info=backtest_create_info,
+        n_periods=n_periods,
+        n_splits=n_splits,
+        stride=stride,
+        session=session,
+    )
