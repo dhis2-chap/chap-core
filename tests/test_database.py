@@ -17,7 +17,8 @@ from chap_core.testing.testing import assert_dataset_equal
 from chap_core.database.database import SessionWrapper
 import chap_core.database.database
 from chap_core.database.model_spec_tables import seed_with_session_wrapper
-from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData, ModelTemplateDB, ConfiguredModelDB
+from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData, ModelTemplateDB, \
+    ConfiguredModelDB, ModelConfiguration
 from chap_core.database.model_template_seed import template_urls
 
 
@@ -104,7 +105,7 @@ def test_add_model_template_from_url(engine, url):
     with SessionWrapper(engine) as session:
         template_id = add_model_template_from_url(url, session)
         configured_model_id = add_configured_model(
-            template_id, {}, session)
+            template_id, ModelConfiguration(user_option_values={}), 'default', session)
         external_model = session.get_configured_model(configured_model_id)
         assert isinstance(external_model, ExternalModel)
 

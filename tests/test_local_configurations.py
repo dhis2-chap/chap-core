@@ -8,6 +8,7 @@ def test_parse_local_model_config_file(data_path):
     default_file = data_path.parent / 'config' / 'models' / 'default.yaml'
     assert default_file.exists()
     configurations = parse_local_model_config_file(default_file)
+    print(configurations)
 
 
 def test_parse_local_model_config_files_from_directory(data_path):

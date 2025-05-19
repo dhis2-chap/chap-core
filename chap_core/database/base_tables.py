@@ -1,4 +1,4 @@
-from pydantic import ConfigDict
+from pydantic import ConfigDict, create_model
 from pydantic.alias_generators import to_camel
 from sqlmodel import SQLModel
 
@@ -21,3 +21,15 @@ class DBModel(SQLModel):
         NewClass.__qualname__ = f'{cls.__qualname__}Read'
         return NewClass
 
+    @classmethod
+    def get_create_class(cls):
+        ''' Remove the id field from the class'''
+        # create
+        fields = {
+            name: (field.annotation, field.default)
+            for name, field in cls.model_fields.items()
+            if name != 'id'
+        }
+
+        NewModel = create_model(f'{cls.__name__}Create', **fields)
+        return NewModel

@@ -3,7 +3,7 @@ from chap_core.model_spec import PeriodType
 from chap_core.models.local_configuration import parse_local_model_config_from_directory
 
 from .database import SessionWrapper
-from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB
+from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB, ModelConfiguration
 from ..models.model_template import ExternalModelTemplate
 
 template_urls = {
@@ -20,7 +20,7 @@ def add_model_template_from_url(url: str, session_wrapper: SessionWrapper) -> in
     return template_id
 
 
-def add_configured_model(model_template_id, configuration: dict, session_wrapper: SessionWrapper) -> int:
+def add_configured_model(model_template_id, configuration: ModelConfiguration, configuration_name: str, session_wrapper: SessionWrapper) -> int:
     """
     Add a configured model to the database.
 
@@ -38,7 +38,8 @@ def add_configured_model(model_template_id, configuration: dict, session_wrapper
     int
         The ID of the added model.
     """
-    return session_wrapper.add_configured_model(model_template_id, configuration)
+    return session_wrapper.add_configured_model(model_template_id, configuration, configuration_name)
+
 
 
 def get_naive_model_spec():
@@ -64,7 +65,7 @@ def seed_configured_models(session):
     for url, configs in template_urls.items():
         template_id = add_model_template_from_url(url, wrapper)
         for config in configs:
-            add_configured_model(template_id, config, wrapper)
+            add_configured_model(template_id, ModelConfiguration(additional_continuous_covariates=[], user_option_values=config),'default', wrapper)
     # add naive model template
     spec = get_naive_model_spec()
     session.add(spec)
@@ -91,7 +92,7 @@ def seed_configured_models_from_config_dir(session, dir=Path("config")/"models")
             version_url = config.url + version
             template_id = add_model_template_from_url(version_url, wrapper)
             for config_name, configured_model_configuration in config.configurations:
-                add_configured_model(template_id, configured_model_configuration, wrapper)
+                add_configured_model(template_id, configured_model_configuration, wrapper, configuration_name=config_name)
 
     spec = get_naive_model_spec()
     session.add(spec)

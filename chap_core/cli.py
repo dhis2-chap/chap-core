@@ -171,17 +171,17 @@ def sanity_check_model(model_url: str, use_local_environement: bool = False, dat
         estimator = model()
     except Exception as e:
         logger.error(f"Error while creating model: {e}")
-        return False
+        raise e
     try:
         predictor = estimator.train(train)
     except Exception as e:
         logger.error(f"Error while training model: {e}")
-        return False
+        raise e
     try:
         predictions = predictor.predict(context, future)
     except Exception as e:
         logger.error(f"Error while forecasting: {e}")
-        return False
+        raise e
     for location, prediction in predictions.items():
         assert not np.isnan(prediction.samples).any(), f"NaNs in predictions for location {location}, {prediction.samples}"
     context, future, truth = next(tests)
@@ -189,7 +189,7 @@ def sanity_check_model(model_url: str, use_local_environement: bool = False, dat
         predictions = predictor.predict(context, future)
     except Exception as e:
         logger.error(f"Error while forecasting from a future time point: {e}")
-        return False
+        raise e
     for location, prediction in predictions.items():
         assert not np.isnan(prediction.samples).any(), f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
 

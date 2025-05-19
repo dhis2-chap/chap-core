@@ -6,17 +6,19 @@ from pydantic import BaseModel, parse_obj_as
 #from pydantic.type_adapter import validate_python
 import yaml
 
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+
 logger = logging.getLogger(__name__)
 
 
-class LocalModelTemplateConfigurationEntry(BaseModel):
+class LocalModelTemplateWithConfigurations(BaseModel):
     """Class only used for parsing ModelTemplate from config/models/*.yaml files."""
     url: str
     versions: dict[str, str]
-    configurations: dict[str, dict[Any, Any]]
+    configurations: dict[str, ModelConfiguration]
 
 
-Configurations = dict[str, LocalModelTemplateConfigurationEntry]
+Configurations = dict[str, LocalModelTemplateWithConfigurations]
 
 def parse_local_model_config_file(file_name) -> Configurations:
     """
@@ -26,7 +28,7 @@ def parse_local_model_config_file(file_name) -> Configurations:
     # parse the yaml file using the pydantic model
     with open(file_name, "r") as file:
         content = yaml.safe_load(file)
-        configurations = parse_obj_as(dict[str, LocalModelTemplateConfigurationEntry], content)  # change to validate_python in future
+        configurations = parse_obj_as(dict[str, LocalModelTemplateWithConfigurations], content)  # change to validate_python in future
         return configurations
 
 

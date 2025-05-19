@@ -1,7 +1,10 @@
 import logging
 from pathlib import Path
 import pandas as pd
+import yaml
 from pydantic import BaseModel
+
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import HealthData, Samples
 from chap_core.exceptions import CommandLineException, ModelFailedException, NoPredictionsError
 from chap_core.geometry import Polygons
@@ -27,7 +30,7 @@ class ExternalModel(ConfiguredModel):
             adapters=None,
             working_dir="./",
             data_type=HealthData,
-            configuration: BaseModel = None,
+            configuration: ModelConfiguration | None = None,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
@@ -38,7 +41,8 @@ class ExternalModel(ConfiguredModel):
         self._data_type = data_type
         self._name = name
         self._polygons_file_name = None
-        self._configuration = configuration  # configuration passed from the user to the model, e.g. about covariates or parameters 
+        self._configuration = configuration or {}  # configuration passed from the user to the model, e.g. about covariates or parameters
+        self._config_filename = "model_config.yaml"
 
     @property
     def name(self):
@@ -89,9 +93,11 @@ class ExternalModel(ConfiguredModel):
         new_pd = self._adapt_data(pd)
         new_pd.to_csv(train_file_name_full)
 
+        yaml.dump(self._configuration, open(self._config_filename, 'w'))
         try:
             self._runner.train(train_file_name, self._model_file_name,
-                               polygons_file_name="polygons.geojson" if self._polygons_file_name is not None else None
+                               polygons_file_name="polygons.geojson" if self._polygons_file_name is not None else None,
+                               model_configuration_filename=self._config_filename,
                                )
         except CommandLineException as e:
             logger.error("Error training model, command failed")
@@ -168,6 +174,7 @@ class ExternalModel(ConfiguredModel):
                 "future_data.csv",
                 "predictions.csv",
                 "polygons.geojson" if self._polygons_file_name is not None else None,
+                model_configuration_filename=self._config_filename,
             )
         except CommandLineException as e:
             logger.error("Error predicting model, command failed")

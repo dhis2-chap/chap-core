@@ -9,7 +9,7 @@ from chap_core.predictor.naive_estimator import NaiveEstimator
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
 from .model_spec_tables import seed_with_session_wrapper
-from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB
+from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB, ModelConfiguration
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 # CHeck if CHAP_DATABASE_URL is set in the environment
@@ -94,15 +94,21 @@ class SessionWrapper:
         self.session.commit()
         return db_object.id
 
-    def add_configured_model(self, model_template_id: int, configuration: dict, name='default') -> int:
+    def add_configured_model(self, model_template_id: int,
+                             configuration: ModelConfiguration,
+                             configuration_name='default') -> int:
         existing_configured = self.session.exec(
-            select(ConfiguredModelDB).where(ConfiguredModelDB.name == name).where(ConfiguredModelDB.model_template_id == model_template_id)).first()
+            select(ConfiguredModelDB).where(ConfiguredModelDB.name == configuration_name).where(ConfiguredModelDB.model_template_id == model_template_id)).first()
         if existing_configured:
-            logger.info(f"Configured model with name {name} already exists. Returning existing id")
+            logger.info(f"Configured model with name {configuration_name} already exists. Returning existing id")
             return existing_configured.id
         template_name = self.session.exec(
             select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first().name
-        configured_model = ConfiguredModelDB(name=f'{template_name}:{name}', model_template_id=model_template_id, configuration=configuration)
+
+        configured_model = ConfiguredModelDB(
+            name=f'{template_name}:{configuration_name}',
+            model_template_id=model_template_id,
+            **configuration.dict())
         self.session.add(configured_model)
         self.session.commit()
         return configured_model.id
@@ -114,7 +120,7 @@ class SessionWrapper:
         ignore_env = configured_model.model_template.name.startswith('chap_ewars')
         return ModelTemplate.from_directory_or_github_url(configured_model.model_template.source_url,
                                                           ignore_env=ignore_env,
-                                                          ).get_model(configured_model.configuration)
+                                                          ).get_model(configured_model)
 
     def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
         model_template =  self.session.get(ModelTemplateDB, model_template_id)

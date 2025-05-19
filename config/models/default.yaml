@@ -16,12 +16,12 @@ weekly_ar_model:
       additional_continuous_covariates:
         - rain
         - temperature
-      user_options:
+      user_option_values:
         n_iterations: 3
     myconfig2:
       additional_continuous_covariates:
         - temperature
-      user_options:
+      user_option_values:
         n_iterations: 5
 
     

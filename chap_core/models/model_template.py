@@ -72,6 +72,8 @@ class ModelTemplate:
         return f'ModelTemplate: {self._model_template_config}'
 
     def get_config_class(self) -> type[ModelConfiguration]:
+        '''This will probably not be used'''
+
         fields = {}
         types = {'string': str, 'integer': int, 'float': float, 'boolean': bool}
         if self._model_template_config.allow_free_additional_continuous_covariates:

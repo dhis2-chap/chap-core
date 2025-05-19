@@ -79,13 +79,20 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
                 keys["polygons"] = polygons_file_name
         return keys
 
-    def train(self, train_file_name, model_file_name, polygons_file_name=None):
+    def _handle_config(self, command, keys, model_configuration_filename: str | None=None):
+        if "{model_config}" not in command:
+            return keys
+        keys["model_config"] = model_configuration_filename
+        return keys
+
+    def train(self, train_file_name, model_file_name, polygons_file_name=None, model_configuration_filename: str | None=None):
         keys = {"train_data": train_file_name, "model": model_file_name}
         keys = self._handle_polygons(self._train_command, keys, polygons_file_name)
+        keys = self._handle_config(self._train_command, keys)
         command = self._format_command(self._train_command, keys)
         return self._runner.run_command(command)
 
-    def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):
+    def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None, model_configuration_filename: str | None=None):
         keys = {
             "historic_data": historic_data,
             "future_data": future_data,
@@ -93,5 +100,6 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
             "out_file": output_file,
         }
         keys = self._handle_polygons(self._predict_command, keys, polygons_file_name)
+        keys = self._handle_config(self._predict_command, keys, model_configuration_filename)
         command = self._format_command(self._predict_command, keys)
         return self._runner.run_command(command)

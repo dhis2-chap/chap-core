@@ -57,7 +57,7 @@ router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This m
 worker = CeleryPool()
 
 
-@router.get("/backtests", response_model=list[BackTestRead])# This should be called list
+@router.get("/backtests", response_model=list[BackTestRead])  # This should be called list
 async def get_backtests(session: Session = Depends(get_session)):
     '''
     Returns a list of backtests/evaluations with only the id and name
@@ -78,7 +78,6 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
 @router.post("/backtests", response_model=JobResponse)
 async def create_backtest(backtest: BackTestCreate,
                           database_url: str = Depends(get_database_url)):
-
     job = worker.queue_db(wf.run_backtest,
                           backtest,
                           database_url=database_url)
@@ -88,7 +87,7 @@ async def create_backtest(backtest: BackTestCreate,
 
 @router.delete("/backtests/{backtestId}")
 async def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
-                       session: Session = Depends(get_session)):
+                          session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
@@ -125,7 +124,7 @@ async def create_prediction(prediction: PredictionCreate):
 
 @router.delete("/predictions/{predictionId}")
 async def delete_prediction(prediction_id: Annotated[int, Path(alias="predictionId")],
-                         session: Session = Depends(get_session)):
+                            session: Session = Depends(get_session)):
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
@@ -162,7 +161,7 @@ async def get_datasets(session: Session = Depends(get_session)):
 
 
 @router.get('/datasets/{datasetId}', response_model=DataSetWithObservations)
-async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], 
+async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')],
                       session: Session = Depends(get_session)):
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
@@ -201,7 +200,7 @@ async def create_dataset_csv(csv_file: UploadFile = File(...),
 
 
 @router.delete('/datasets/{datasetId}')
-async def delete_dataset(dataset_id: Annotated[int, Path(alias='datasetId')], 
+async def delete_dataset(dataset_id: Annotated[int, Path(alias='datasetId')],
                          session: Session = Depends(get_session)):
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
@@ -225,7 +224,7 @@ def list_models(session: Session = Depends(get_session)):
 def list_models_v2(session: Session = Depends(get_session)):
     '''List all configured models from the db (new db tables)'''
     # get configured models from db
-    #configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
+    # configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
     configured_models = session.exec(
         select(ConfiguredModelDB)
         .join(ConfiguredModelDB.model_template)
@@ -239,10 +238,10 @@ def list_models_v2(session: Session = Depends(get_session)):
         }
         for m in configured_models
     ]
-    #import json
-    #for m in configured_models_data:
+    # import json
+    # for m in configured_models_data:
     #    logger.info('list model data: ' + json.dumps(m, indent=4))
-    
+
     # temp: convert to ModelSpecRead to preserve existing results
     # TODO: remove ModelSpecRead and return directly as ConfiguredModelDB
     for m in configured_models_data:
@@ -261,10 +260,10 @@ def list_models_v2(session: Session = Depends(get_session)):
             }
             for c in m['required_covariates']
         ]
-    #for m in configured_models_data:
+    # for m in configured_models_data:
     #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
     configured_models_read = [ModelSpecRead.model_validate(m) for m in configured_models_data]
-    #for m in configured_models_read:
+    # for m in configured_models_read:
     #    logger.info('read list model data: ' + json.dumps(m.model_dump(mode='json'), indent=4))
 
     # return
@@ -274,13 +273,13 @@ def list_models_v2(session: Session = Depends(get_session)):
 # TODO: implement model template related endpoints below once it works
 
 
-#@router.get('/models-from-model-templates', response_model=list[ModelSpecRead])
-#def list_models_from_model_templates(session: Session = Depends(get_session)):
+# @router.get('/models-from-model-templates', response_model=list[ModelSpecRead])
+# def list_models_from_model_templates(session: Session = Depends(get_session)):
 #    return SessionWrapper(session=session).list_all(ModelSpec)
 
 
-#@router.get('/model-templates', response_model=list[ModelSpecRead])
-#def list_model_templates(session: Session = Depends(get_session)):
+# @router.get('/model-templates', response_model=list[ModelSpecRead])
+# def list_model_templates(session: Session = Depends(get_session)):
 #    """Lists all model templates by reading local config files and presenting models. 
 #    """
 #    return SessionWrapper(session=session).list_all(ModelTemplateConfig)
@@ -308,3 +307,16 @@ async def get_debug_entry(debug_id: Annotated[int, Path(alias='debugId')],
 @router.get('/feature-sources', response_model=list[FeatureSource])
 def list_feature_types(session: Session = Depends(get_session)):
     return SessionWrapper(session=session).list_all(FeatureSource)
+
+
+
+@router.post('configured-model')
+def add_configured_model(
+        model_configuration: ConfiguredModelDB.get_create_class(),
+        session: Session = Depends(get_session),
+) -> ConfiguredModelDB:
+    """
+    Add a configured model to the database.
+    """
+    wrapper = SessionWrapper(session=session)
+    return wrapper.add_configured_model(model_template_id, configuration)

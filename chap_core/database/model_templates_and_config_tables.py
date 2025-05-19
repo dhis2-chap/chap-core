@@ -35,11 +35,14 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     source_url: Optional[str] = None
 
 
-class ConfiguredModelDB(DBModel, table=True):
+class ModelConfiguration(SQLModel):
+    user_option_values: Optional[dict] = Field(sa_column=Column(JSON))
+    additional_continuous_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+
+
+class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     #  unique constraint on name
     name: str = Field(unique=True)
     id: Optional[int] = Field(primary_key=True, default=None)
     model_template_id: int = Field(foreign_key="modeltemplatedb.id")
     model_template: ModelTemplateDB = Relationship()
-    configuration: Optional[dict] = Field(sa_column=Column(JSON))
-    covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))

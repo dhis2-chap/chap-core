@@ -1,6 +1,6 @@
 import yaml
 from cyclopts import App
-from chap_core.models.model_template_interface import  ModelConfiguration
+from chap_core.models.model_template_interface import ModelConfiguration
 from chap_core.datatypes import remove_field, create_tsdataclass
 from chap_core.external.model_configuration import RunnerConfig, EntryPointConfig, CommandConfig
 from chap_core.model_spec import get_dataclass
@@ -57,7 +57,7 @@ def generate_app(estimator):
     return app
 
 
-def generate_template_app(model_template: InternalModelTemplate):
+def generate_template_app(model_template: InternalModelTemplate, name: str='default'):
     app = App()
 
     @app.command()
@@ -90,9 +90,10 @@ def generate_template_app(model_template: InternalModelTemplate):
 
     def _read_model_config(model_config_path):
         if model_config_path is not None:
-            model_config = model_template.get_config_class().parse_file(model_config_path)
+            return yaml.safe_load(model_config_path)
+            #model_config = model_template.get_config_class().parse_file(model_config_path)
         else:
-            model_config = ModelConfiguration()
+            model_config = {}
         return model_config
 
     # TODO: send in model config again here
@@ -134,21 +135,21 @@ def generate_template_app(model_template: InternalModelTemplate):
         """
         runner_config = RunnerConfig(
             entry_points=EntryPointConfig(
-                train=CommandConfig(command='python main.py train {training_data_filename} {model_path} {model_config_path} --additri',
+                train=CommandConfig(command='python main.py train {train_data} {model} {model_config}',
                                     parameters={
-                                        'training_data_filename': 'str',
-                                        'model_path': 'str',
-                                        'model_config_path': 'str'
+                                        'train_data': 'str',
+                                        'model': 'str',
+                                        'model_config': 'str'
                                     }),
-                predict=CommandConfig(command='python main.py predict {model_filename} {historic_data_filename} {future_data_filename} {output_filename} {model_config_path}',
+                predict=CommandConfig(command='python main.py predict {model} {historic_data} {future_data} {out_file} {model_config}',
                                       parameters={
-                                          'model_filename': 'str',
-                                          'historic_data_filename': 'str',
-                                          'future_data_filename': 'str',
-                                          'output_filename': 'str',
-                                          'model_config_path': 'str'
+                                          'model': 'str',
+                                          'historic_data': 'str',
+                                          'future_data': 'str',
+                                          'out_file': 'str',
+                                          'model_config': 'str'
                                       })))
-        info = model_template.model_template_info.model_dump(mode='json')
+        info = model_template.model_template_info.model_dump(mode='json') | {'name': name}
         print(yaml.dump(info))
         print(yaml.dump(runner_config.model_dump(), sort_keys=False))
 

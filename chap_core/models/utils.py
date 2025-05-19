@@ -72,7 +72,7 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
     else:
         # copy contents of model_path to working_dir
         logger.info(f"Copying files from {model_path} to {working_dir}")
-        shutil.copytree(model_path, working_dir)
+        shutil.copytree(model_path, working_dir, ignore= lambda dir, contents: list({'.venv', 'venv'}.intersection(contents)), dirs_exist_ok=True)
     return working_dir
 
 
@@ -187,10 +187,10 @@ def get_model_from_directory_or_github_url(model_template_path,
 
     template = get_model_template_from_directory_or_github_url(model_template_path, ignore_env=ignore_env, run_dir_type=run_dir_type)
     model_configuration = None
-    config_class = template.get_config_class()
+    # config_class = template.get_config_class()
     if model_configuration_yaml:
         with open(model_configuration_yaml, "r") as file:
             model_configuration = yaml.load(file, Loader=yaml.FullLoader)
-            model_configuration = config_class.model_validate(model_configuration)
+            #model_configuration = config_class.model_validate(model_configuration)
 
     return template.get_model(model_configuration=model_configuration)
