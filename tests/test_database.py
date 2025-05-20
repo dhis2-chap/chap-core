@@ -1,9 +1,10 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel, Session, select
+import logging
 
 from chap_core.database.model_template_seed import add_model_template_from_url, add_configured_model, \
-    seed_configured_models
+    seed_configured_models, seed_configured_models_from_config_dir
 from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
@@ -20,6 +21,9 @@ from chap_core.database.model_spec_tables import seed_with_session_wrapper
 from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData, ModelTemplateDB, \
     ConfiguredModelDB, ModelConfiguration
 from chap_core.database.model_template_seed import template_urls
+
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
@@ -65,13 +69,7 @@ def test_add_predictions(seeded_engine):
         run_prediction('naive_model', 1, 3, name='testing', metadata='', session=session)
 
 
-@pytest.mark.skip
-def test_seed(seeded_engine):
-    with SessionWrapper(seeded_engine) as session:
-        seed_with_session_wrapper(session)
-        seed_with_session_wrapper(session)
-
-
+# TODO: old, remove after refactor? 
 @pytest.fixture
 def model_template_config():
     return ModelTemplateConfigV2(
@@ -90,7 +88,7 @@ def model_template_config():
 
 def test_add_model_template(model_template_config, engine):
     with SessionWrapper(engine) as session:
-        id = session.add_model_template(model_template_config)
+        id = session.add_model_template_from_yaml_config(model_template_config)
         model_template = session.get_model_template(id)
         assert model_template.name == model_template_config.name
         assert model_template.required_covariates == model_template_config.required_covariates
@@ -111,12 +109,28 @@ def test_add_model_template_from_url(engine, url):
 
 
 def test_seed_configured_models(engine):
+    # make sure is clean
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+    # seed with models
     with Session(engine) as session:
+        # ensure db doesnt contain any models
+        configured_models = session.exec(
+            select(ConfiguredModelDB)
+        ).all()
+        assert not configured_models
+        # seed with models
         seed_configured_models(session)
-
-    naive_configured_models = session.exec(
-        select(ConfiguredModelDB)
-        .join(ConfiguredModelDB.model_template)
-        .where(ModelTemplateDB.name == 'naive_model')
-    ).first()
-    assert naive_configured_models
+        # seed again to check that repeated inserts are handled nicely
+        seed_configured_models(session)
+    # test that models have been added
+    with Session(engine) as session:
+        configured_models = session.exec(
+            select(ConfiguredModelDB)
+            .join(ConfiguredModelDB.model_template)
+        ).all()
+        for m in configured_models:
+            logger.info(m)
+        assert len(configured_models) > 1
+        model_names = [m.name for m in configured_models]
+        assert 'naive_model' in model_names
