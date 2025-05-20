@@ -1,3 +1,4 @@
+import abc
 from typing import Optional
 
 
@@ -16,13 +17,16 @@ class Runner:
         ...
 
 
-class TrainPredictRunner:
+class TrainPredictRunner(abc.ABC):
     """
     Specific wrapper for runners that only run train/predict commands
     """
 
+
+    @abc.abstractmethod
     def train(self, train_data: str, model_file_name: str, polygons_file_name: Optional[str]): ...
 
+    @abc.abstractmethod
     def predict(
         self,
         model_file_name: str,

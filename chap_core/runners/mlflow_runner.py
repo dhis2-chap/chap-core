@@ -9,10 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 class MlFlowTrainPredictRunner(TrainPredictRunner):
-    def __init__(self, model_path):
+    def __init__(self, model_path, model_configuration_filename=None):
         self.model_path = model_path
+        self.model_configuration_filename = model_configuration_filename
 
-    def train(self, train_file_name, model_file_name, polygons_file_name=None, model_configuration_filename=None):
+    def train(self, train_file_name, model_file_name, polygons_file_name=None):
         logger.info("Training model using MLflow")
         try:
             return mlflow.projects.run(
@@ -35,8 +36,8 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             )
             raise ModelFailedException(str(e))
 
-    def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None, model_configuration_filename=None):
-        if model_configuration_filename is not None:
+    def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):
+        if self.model_configuration_filename is not None:
             ("Model configuration not supported for MLflow runner")
         return mlflow.projects.run(
             str(self.model_path),

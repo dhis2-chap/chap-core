@@ -32,6 +32,13 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
         skip_environment = True
 
     logger.info(f'skip_environement: {skip_environment}, runner_type: {runner_type}')
+    if model_configuration is not None:
+        model_configuration_file = working_dir / "model_configuration_for_run.yaml"
+        with open(model_configuration_file, "w") as file:
+            d = model_configuration if isinstance(model_configuration, dict) else model_configuration.model_dump()
+            yaml.dump(d, file)
+    else:
+        model_configuration_file = None
 
     if skip_environment or runner_type == "docker":
 
@@ -43,15 +50,10 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
         # pydantic write to yaml
         # under development
         if model_configuration is not None:
-            model_configuration_file = working_dir / "model_configuration_for_run.yaml"
-            with open(model_configuration_file, "w") as file:
-                d = model_configuration if isinstance(model_configuration, dict) else model_configuration.model_dump()
-                yaml.dump(d, file)
             train_command += f" --model_configuration {model_configuration_file}"
             predict_command += f" --model_configuration {model_configuration_file}"
-
         if skip_environment:
-            return CommandLineTrainPredictRunner(CommandLineRunner(working_dir), train_command, predict_command)
+            return CommandLineTrainPredictRunner(CommandLineRunner(working_dir), train_command, predict_command, model_configuration_filename=model_configuration_file)
         else:
             assert model_template_config.docker_env is not None
 
@@ -61,7 +63,7 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
     else:
         # assert model_configuration is None or model_configuration == {}, "ModelConfiguration (for templates) not supported when runner is mlflow for now"
         assert runner_type == "mlflow"
-        return MlFlowTrainPredictRunner(working_dir)
+        return MlFlowTrainPredictRunner(working_dir, model_configuration_filename=model_configuration_file)
 
 
 def get_train_predict_runner(mlproject_file: Path, runner_type: Literal["mlflow", "docker"],
