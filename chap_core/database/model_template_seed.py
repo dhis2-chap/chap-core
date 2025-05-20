@@ -14,9 +14,14 @@ template_urls = {
 }
 
 
+def add_model_template(model_template: ModelTemplateDB, session_wrapper: SessionWrapper) -> int:
+    template_id = session_wrapper.add_model_template(model_template)
+    return template_id
+
+
 def add_model_template_from_url(url: str, session_wrapper: SessionWrapper) -> int:
     model_template_config = ExternalModelTemplate.fetch_config_from_github_url(url)
-    template_id = session_wrapper.add_model_template(model_template_config)
+    template_id = session_wrapper.add_model_template_from_yaml_config(model_template_config)
     return template_id
 
 
@@ -42,8 +47,8 @@ def add_configured_model(model_template_id, configuration: ModelConfiguration, c
 
 
 
-def get_naive_model_spec():
-    model_spec = ModelTemplateDB(
+def get_naive_model_template():
+    model_template = ModelTemplateDB(
         name="naive_model",
         display_name='Naive model used for testing',
         required_covariates=['rainfall', 'mean_temperature'],
@@ -56,30 +61,31 @@ def get_naive_model_spec():
         contact_email="chap@dhis2.org",
         citation_info='Climate Health Analytics Platform. 2025. "Naive model used for testing". HISP Centre, University of Oslo. https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html',
     )
-    return model_spec
+    return model_template
 
 
+# TODO: old, remove after refactor
 def seed_configured_models(session):
     wrapper = SessionWrapper(session=session)
     # add model templates and configured models from template urls
     for url, configs in template_urls.items():
         template_id = add_model_template_from_url(url, wrapper)
         for config in configs:
-            add_configured_model(template_id, ModelConfiguration(additional_continuous_covariates=[], user_option_values=config),'default', wrapper)
+            add_configured_model(template_id, 
+                                 ModelConfiguration(additional_continuous_covariates=[], 
+                                                    user_option_values=config), 
+                                'default', 
+                                wrapper)
     # add naive model template
-    spec = get_naive_model_spec()
-    session.add(spec)
-    session.commit()
+    naive_template = get_naive_model_template()
+    naive_template_id = add_model_template(naive_template, wrapper)
     # and naive configured model
-    config = ConfiguredModelDB(name='default',
-                               model_template_id=spec.id,
-                               configuration={})
-    session.add(config)
+    add_configured_model(naive_template_id, 
+                        ModelConfiguration(additional_continuous_covariates=[], 
+                                           user_option_values={}), 
+                        'default', 
+                        wrapper)
     session.commit()
-    # return
-    return True
-    return spec
-
 
 
 def seed_configured_models_from_config_dir(session, dir=Path("config")/"models"):
@@ -92,18 +98,19 @@ def seed_configured_models_from_config_dir(session, dir=Path("config")/"models")
             version_url = config.url + version
             template_id = add_model_template_from_url(version_url, wrapper)
             for config_name, configured_model_configuration in config.configurations:
-                add_configured_model(template_id, configured_model_configuration, wrapper, configuration_name=config_name)
+                add_configured_model(template_id, 
+                                     configured_model_configuration, 
+                                     config_name,
+                                     wrapper)
 
-    spec = get_naive_model_spec()
-    session.add(spec)
+    # add naive model template
+    naive_template = get_naive_model_template()
+    naive_template_id = add_model_template(naive_template, wrapper)
+    # and naive configured model
+    add_configured_model(naive_template_id, 
+                        ModelConfiguration(additional_continuous_covariates=[], 
+                                           user_option_values={}), 
+                        'default', 
+                        wrapper)
     session.commit()
-    config = ConfiguredModelDB(name='default',
-                               model_template_id=spec.id,
-                               configuration={})
-    session.add(config)
-    session.commit()
-    return spec
 
-       
-                 
- 
