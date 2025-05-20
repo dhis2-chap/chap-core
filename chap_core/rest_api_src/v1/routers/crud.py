@@ -96,6 +96,22 @@ async def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
     return {'message': 'deleted'}
 
 
+class BackTestIds(DBModel):
+    ids: List[int]
+
+
+@router.post("/backtests/batch-delete")
+async def batch_delete_backtests(backtest_ids: BackTestIds, session: Session = Depends(get_session)):
+    deleted_count = 0
+    for backtest_id in backtest_ids.ids:
+        backtest = session.get(BackTest, backtest_id)
+        if backtest is not None:
+            session.delete(backtest)
+            deleted_count += 1
+    session.commit()
+    return {'message': f'Deleted {deleted_count} backtests'}
+
+
 class PredictionCreate(DBModel):
     dataset_id: int
     estimator_id: str
