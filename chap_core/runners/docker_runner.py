@@ -35,9 +35,10 @@ class DockerImageRunner(Runner):
 class DockerRunner(Runner):
     """Runs through a docker image specified by name (e.g. on dockerhub), not a Dockerfile"""
 
-    def __init__(self, docker_name: str, working_dir: str | Path):
+    def __init__(self, docker_name: str, working_dir: str | Path, model_configuration_filename: str | None = None):
         self._docker_name = docker_name
         self._working_dir = working_dir
+        self._model_configuration_filename = model_configuration_filename
 
     def run_command(self, command):
         logger.info(f"Running command {command} in docker container {self._docker_name} in {self._working_dir}")

@@ -97,7 +97,6 @@ class ExternalModel(ConfiguredModel):
         try:
             self._runner.train(train_file_name, self._model_file_name,
                                polygons_file_name="polygons.geojson" if self._polygons_file_name is not None else None,
-                               model_configuration_filename=self._config_filename,
                                )
         except CommandLineException as e:
             logger.error("Error training model, command failed")
@@ -174,7 +173,6 @@ class ExternalModel(ConfiguredModel):
                 "future_data.csv",
                 "predictions.csv",
                 "polygons.geojson" if self._polygons_file_name is not None else None,
-                model_configuration_filename=self._config_filename,
             )
         except CommandLineException as e:
             logger.error("Error predicting model, command failed")
