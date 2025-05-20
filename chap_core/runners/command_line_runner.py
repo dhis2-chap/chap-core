@@ -91,6 +91,7 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         keys = self._handle_polygons(self._train_command, keys, polygons_file_name)
         keys = self._handle_config(self._train_command, keys)
         command = self._format_command(self._train_command, keys)
+        logger.info(f'Running command {command}')
         return self._runner.run_command(command)
 
     def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):

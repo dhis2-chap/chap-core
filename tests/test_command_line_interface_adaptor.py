@@ -21,8 +21,8 @@ class DummyConfig(BaseModel):
 class DummyModel(ConfiguredModel):
     covariate_names: list[str] = ['rainfall', 'mean_temperature', 'population']
 
-    def __init__(self, config: DummyConfig):
-        self._config = config
+    def __init__(self, config: dict):
+        self._config = DummyConfig.model_validate(config)
 
     def save(self, filepath):
         with open(filepath, 'w') as f:
@@ -70,12 +70,11 @@ def model_config_path(tmp_path, model_config):
 
 def test_generate_template_app(dumped_weekly_data_paths, tmp_path, model_config_path):
     app, train, predict, _ = generate_template_app(DummyModelTemplate())
-    write_yaml()
     training_path, historic_path, future_path = dumped_weekly_data_paths
     model_path = tmp_path / 'model'
     train(training_path, model_path, model_config_path)
     predict(model_path, historic_path, future_path, tmp_path/'predictions.csv', model_config_path)
 
-def test_generate_template_app(model_config_path):
+def test_generate_template_app_yaml(model_config_path):
     *_, write_yaml = generate_template_app(DummyModelTemplate())
     write_yaml()
