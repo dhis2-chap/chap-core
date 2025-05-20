@@ -75,6 +75,10 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
     return backtest
 
 
+class BackTestUpdate(DBModel):
+    name: str = None
+
+
 @router.post("/backtests", response_model=JobResponse)
 async def create_backtest(backtest: BackTestCreate,
                           database_url: str = Depends(get_database_url)):
@@ -94,6 +98,26 @@ async def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
     session.delete(backtest)
     session.commit()
     return {'message': 'deleted'}
+
+
+@router.patch("/backtests/{backtestId}", response_model=BackTestRead)
+async def update_backtest(
+    backtest_id: Annotated[int, Path(alias="backtestId")],
+    backtest_update: BackTestUpdate,
+    session: Session = Depends(get_session)
+):
+    db_backtest = session.get(BackTest, backtest_id)
+    if not db_backtest:
+        raise HTTPException(status_code=404, detail="BackTest not found")
+
+    update_data = backtest_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_backtest, key, value)
+
+    session.add(db_backtest)
+    session.commit()
+    session.refresh(db_backtest)
+    return db_backtest
 
 
 class BackTestIds(DBModel):
