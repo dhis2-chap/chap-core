@@ -4,10 +4,10 @@ from pydantic import BaseModel
 
 from chap_core import ModelTemplateInterface
 from chap_core.adaptors.command_line_interface import generate_template_app
-from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
+from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation, ModelConfiguration
 from chap_core.datatypes import Samples
 from chap_core.external.model_configuration import ModelTemplateConfigCommon
-from chap_core.models.configured_model import ModelConfiguration, ConfiguredModel
+from chap_core.models.configured_model import ConfiguredModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 import logging
 
@@ -22,7 +22,7 @@ class DummyModel(ConfiguredModel):
     covariate_names: list[str] = ['rainfall', 'mean_temperature', 'population']
 
     def __init__(self, config: dict):
-        self._config = DummyConfig.model_validate(config)
+        self._config = DummyConfig.model_validate(config.user_option_values)
 
     def save(self, filepath):
         with open(filepath, 'w') as f:
@@ -30,7 +30,7 @@ class DummyModel(ConfiguredModel):
 
     @classmethod
     def load_predictor(cls, filepath):
-        return cls(DummyConfig.parse_file(filepath))
+        return cls(ModelConfiguration.parse_file(filepath))
 
     def train(self, train_data: DataSet):
         logger.info(f'Training with {self._config}')
