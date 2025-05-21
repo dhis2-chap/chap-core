@@ -4,6 +4,7 @@ from chap_core.models.local_configuration import parse_local_model_config_from_d
 
 from .database import SessionWrapper
 from .model_templates_and_config_tables import ModelTemplateDB, ModelConfiguration
+from ..file_io.file_paths import get_config_path
 from ..models.model_template import ExternalModelTemplate
 
 # TODO: remove after refactor
@@ -88,7 +89,7 @@ def seed_configured_models(session):
     session.commit()
 
 
-def seed_configured_models_from_config_dir(session, dir=Path("config")/"models"):
+def seed_configured_models_from_config_dir(session, dir=get_config_path() / "models"):
     # Not tested, draft
     wrapper = SessionWrapper(session=session)
     models = parse_local_model_config_from_directory(dir) 
