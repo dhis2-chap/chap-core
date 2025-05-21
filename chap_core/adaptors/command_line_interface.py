@@ -154,8 +154,9 @@ def generate_template_app(model_template: InternalModelTemplate, name: str='defa
                                       })))
         info = model_template.model_template_info.model_dump(mode='json') | {'name': name}
         runner_config.python_env = pyenv_filename
+
         print(yaml.dump(info))
-        print(yaml.dump(runner_config.model_dump(), sort_keys=False))
+        print(yaml.dump(runner_config.model_dump(exclude_unset=True), sort_keys=False))
 
 
     return app, train, predict, write_template_yaml
