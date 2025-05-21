@@ -109,7 +109,8 @@ def test_add_model_template_from_url(engine, url):
     with SessionWrapper(engine) as session:
         template_id = add_model_template_from_url(url, session)
         configured_model_id = add_configured_model(
-            template_id, ModelConfiguration(user_option_values={}), 'default', session)
+            template_id,
+            ModelConfiguration(user_option_values={}), 'default', session)
         external_model = session.get_configured_model(configured_model_id)
         assert isinstance(external_model, ExternalModel)
 
