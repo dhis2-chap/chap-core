@@ -20,7 +20,7 @@ from functools import partial
 import logging
 
 import numpy as np
-from fastapi import Path
+from fastapi import Path, Query
 from typing import Optional, List, Annotated
 
 import pandas as pd
@@ -120,14 +120,27 @@ async def update_backtest(
     return db_backtest
 
 
-class BackTestIds(DBModel):
-    ids: List[int]
-
-
-@router.post("/backtests/batch-delete")
-async def batch_delete_backtests(backtest_ids: BackTestIds, session: Session = Depends(get_session)):
+@router.delete("/backtests")
+async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Session = Depends(get_session)):
     deleted_count = 0
-    for backtest_id in backtest_ids.ids:
+    backtest_ids_list = []
+
+    if not ids:
+        raise HTTPException(status_code=400, detail="No backtest IDs provided.")
+    raw_id_parts = ids.split(',')
+    if not any(part.strip() for part in raw_id_parts):
+        raise HTTPException(status_code=400, detail="No valid IDs provided. Input consists of only commas or whitespace.")
+    for id_str_part in raw_id_parts:
+        stripped_id_str = id_str_part.strip()
+        if not stripped_id_str:
+            # Handle empty segments from inputs like "1,,2" or "1,"
+            raise HTTPException(status_code=400, detail=f"Invalid ID format: found empty ID segment in '{ids}'. IDs must be non-empty, comma-separated integers.")
+        try:
+            backtest_ids_list.append(int(stripped_id_str))
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid ID format: '{stripped_id_str}' is not a valid integer in '{ids}'.")
+    
+    for backtest_id in backtest_ids_list:
         backtest = session.get(BackTest, backtest_id)
         if backtest is not None:
             session.delete(backtest)
