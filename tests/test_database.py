@@ -4,7 +4,7 @@ from sqlmodel import SQLModel, Session, select
 import logging
 
 from chap_core.database.model_template_seed import add_model_template_from_url, add_configured_model, \
-    seed_configured_models, seed_configured_models_from_config_dir
+    seed_configured_models_from_config_dir
 from chap_core.database.tables import BackTest
 from chap_core.database.dataset_tables import DataSet
 from chap_core.datatypes import HealthPopulationData
@@ -20,10 +20,17 @@ import chap_core.database.database
 from chap_core.database.model_spec_tables import seed_with_session_wrapper
 from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData, ModelTemplateDB, \
     ConfiguredModelDB, ModelConfiguration
-from chap_core.database.model_template_seed import template_urls
 
 
 logger = logging.getLogger(__name__)
+
+
+template_urls = [
+    'https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a',
+    'https://github.com/knutdrand/weekly_ar_model@15cc39068498a852771c314e8ea989e6b555b8a5',
+    'https://github.com/dhis2-chap/chap_auto_ewars@0c41b1d9bd187521e62c58d581e6f5bd5127f7b5',
+    'https://github.com/dhis2-chap/chap_auto_ewars_weekly@51c63a8581bc29bdb40e788a83f701ed30cca83f',
+]
 
 
 @pytest.fixture
@@ -71,7 +78,7 @@ def test_add_predictions(seeded_engine):
 
 # TODO: old, remove after refactor? 
 @pytest.fixture
-def model_template_config():
+def model_template_yaml_config():
     return ModelTemplateConfigV2(
         name='test_model',
         required_covariates=['rainfall', 'mean_temperature'],
@@ -86,17 +93,16 @@ def model_template_config():
     )
 
 
-def test_add_model_template(model_template_config, engine):
+def test_add_model_template_from_yaml_config(model_template_yaml_config, engine):
     with SessionWrapper(engine) as session:
-        id = session.add_model_template_from_yaml_config(model_template_config)
+        id = session.add_model_template_from_yaml_config(model_template_yaml_config)
         model_template = session.get_model_template(id)
-        assert model_template.name == model_template_config.name
-        assert model_template.required_covariates == model_template_config.required_covariates
-        assert model_template.allow_free_additional_continuous_covariates == model_template_config.allow_free_additional_continuous_covariates
-        assert model_template.user_options == model_template_config.user_options
+        assert model_template.name == model_template_yaml_config.name
+        assert model_template.required_covariates == model_template_yaml_config.required_covariates
+        assert model_template.allow_free_additional_continuous_covariates == model_template_yaml_config.allow_free_additional_continuous_covariates
+        assert model_template.user_options == model_template_yaml_config.user_options
 
 
-# @pytest.mark.skip
 @pytest.mark.parametrize('url', template_urls)
 def test_add_model_template_from_url(engine, url):
     # url = 'https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a'
@@ -120,17 +126,18 @@ def test_seed_configured_models(engine):
         ).all()
         assert not configured_models
         # seed with models
-        seed_configured_models(session)
+        seed_configured_models_from_config_dir(session)
         # seed again to check that repeated inserts are handled nicely
-        seed_configured_models(session)
+        seed_configured_models_from_config_dir(session)
     # test that models have been added
     with Session(engine) as session:
         configured_models = session.exec(
             select(ConfiguredModelDB)
             .join(ConfiguredModelDB.model_template)
         ).all()
+        logger.info(f'A total of {len(configured_models)} configured models have been added to the db:')
         for m in configured_models:
-            logger.info(m)
+            logger.info(f'--> {m}')
         assert len(configured_models) > 1
         model_names = [m.name for m in configured_models]
         assert 'naive_model' in model_names

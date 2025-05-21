@@ -164,7 +164,7 @@ class ExternalModelTemplate(ModelTemplateInterface):
         self._ignore_env = ignore_env
 
     @classmethod
-    def fetch_config_from_github_url(cls, github_url) -> ModelTemplateConfig:
+    def fetch_config_from_github_url(cls, github_url) -> ModelTemplateConfigV2:
         content = fetch_mlproject_content(github_url)
         return ModelTemplateConfigV2.model_validate(yaml.safe_load(content) | {'source_url': github_url})
 

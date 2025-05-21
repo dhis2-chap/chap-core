@@ -17,7 +17,7 @@ import os
 
 from chap_core.time_period import TimePeriod
 from .. import ModelTemplateInterface
-from ..external.model_configuration import ModelTemplateConfig
+from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..rest_api_src.data_models import BackTestCreate
@@ -94,7 +94,7 @@ class SessionWrapper:
         # return id
         return model_template.id
 
-    def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfig) -> int:
+    def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
         """Sets the ModelSpecRead a yaml string.
         Note that the yaml string is what's defined in a model template's MLProject file,
         so source_url will have to be added manually."""
@@ -103,7 +103,7 @@ class SessionWrapper:
         # TODO: existing check should probably use name instead of source url
         # parse yaml content as dict
         existing_template = self.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.source_url == model_template_config.source_url)).first()
+            select(ModelTemplateDB).where(ModelTemplateDB.name == model_template_config.name)).first()
         if existing_template:
             logger.info(f"Model template with name {model_template_config.name} already exists. Returning existing id")
             return existing_template.id

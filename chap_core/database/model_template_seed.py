@@ -6,6 +6,7 @@ from .database import SessionWrapper
 from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB, ModelConfiguration
 from ..models.model_template import ExternalModelTemplate
 
+# TODO: remove after refactor
 template_urls = {
     'https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a': [{}],
     'https://github.com/knutdrand/weekly_ar_model@15cc39068498a852771c314e8ea989e6b555b8a5': [{}],
@@ -44,7 +45,6 @@ def add_configured_model(model_template_id, configuration: ModelConfiguration, c
         The ID of the added model.
     """
     return session_wrapper.add_configured_model(model_template_id, configuration, configuration_name)
-
 
 
 def get_naive_model_template():
@@ -92,13 +92,14 @@ def seed_configured_models_from_config_dir(session, dir=Path("config")/"models")
     # Not tested, draft
     wrapper = SessionWrapper(session=session)
     models = parse_local_model_config_from_directory(dir) 
-    for template_name, config in models:
+    for template_name, config in models.items():
         # for every version, add one for each configured model configuration
-        for version, version_url in config.versions.items():
-            version_url = config.url + version
+        for version, version_commit_or_branch in config.versions.items():
+            version_commit_or_branch = version_commit_or_branch.strip('@')
+            version_url = f'{config.url}@{version_commit_or_branch}'
             template_id = add_model_template_from_url(version_url, wrapper)
-            for config_name, configured_model_configuration in config.configurations:
-                add_configured_model(template_id, 
+            for config_name, configured_model_configuration in config.configurations.items():
+                add_configured_model(template_id,
                                      configured_model_configuration, 
                                      config_name,
                                      wrapper)

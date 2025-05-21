@@ -39,6 +39,7 @@ def parse_local_model_config_from_directory(directory: Path=Path("models")/"conf
     """
 
     # First look for the default.yaml file, we only read the lastest version from this file
+    logger.info(f'Parsing default model configs')
     default_file = directory / "default.yaml"
     default_configurations = parse_local_model_config_file(default_file)
 
@@ -52,10 +53,10 @@ def parse_local_model_config_from_directory(directory: Path=Path("models")/"conf
     all_configurations = default_configurations
 
     # Now read all the other yaml files in the directory
-
     for file in directory.glob(search_pattern):
         if file.name == "default.yaml":
             continue
+        logger.info(f'Parsing custom model config file {file}')
         file_configurations = parse_local_model_config_file(file)
         for template_name, config in file_configurations.items():
             if template_name in all_configurations:
