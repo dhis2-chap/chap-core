@@ -1,7 +1,6 @@
 # Module for parsing local configuration of models, i.e. files that are put in config/models directory.
 import logging
 from pathlib import Path
-from typing import Any
 from pydantic import BaseModel, parse_obj_as
 #from pydantic.type_adapter import validate_python
 import yaml
@@ -39,7 +38,7 @@ def parse_local_model_config_from_directory(directory: Path=Path("models")/"conf
     """
 
     # First look for the default.yaml file, we only read the lastest version from this file
-    logger.info(f'Parsing default model configs')
+    logger.info('Parsing default model configs')
     default_file = directory / "default.yaml"
     default_configurations = parse_local_model_config_file(default_file)
 

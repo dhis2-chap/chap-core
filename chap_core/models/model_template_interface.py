@@ -1,9 +1,7 @@
 import abc
 
-from pydantic import BaseModel
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
-from chap_core.external.model_configuration import ModelTemplateSchema
 from chap_core.models.configured_model import ModelConfiguration
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -18,9 +16,9 @@ class ConfiguredModel(abc.ABC):
         pass
 
 
-class ModelConfiguration(BaseModel):
-    additional_continous_covariates: list[str] = []
-    user_options: dict = {}
+# class ModelConfiguration(BaseModel):
+#     additional_continous_covariates: list[str] = []
+#     user_options: dict = {}
 
 
 class ModelTemplateInterface(abc.ABC):

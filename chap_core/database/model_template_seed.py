@@ -3,7 +3,7 @@ from chap_core.model_spec import PeriodType
 from chap_core.models.local_configuration import parse_local_model_config_from_directory
 
 from .database import SessionWrapper
-from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB, ModelConfiguration
+from .model_templates_and_config_tables import ModelTemplateDB, ModelConfiguration
 from ..models.model_template import ExternalModelTemplate
 
 # TODO: remove after refactor
