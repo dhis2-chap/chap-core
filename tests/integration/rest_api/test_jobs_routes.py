@@ -14,6 +14,8 @@ client = TestClient(app)
 base_path = '/v1/jobs'
 evaluate_path = "/v1/evaluate"
 
+
+@pytest.mark.skip(reason='Old API')
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.celery(broker="redis://localhost:6379",
                     backend="redis://localhost:6379",
@@ -35,6 +37,7 @@ def test_predict(big_request_json, celery_session_worker, dependency_overrides):
             break
         logger.info(status.json())
         time.sleep(1)
+
     assert status.status_code == 200, status.json()
     assert status.json() == 'SUCCESS'
     result = client.get(f"{base_path}/{task_id}/evaluation_result")

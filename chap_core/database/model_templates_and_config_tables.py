@@ -36,7 +36,7 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
 
 
 class ModelConfiguration(SQLModel):
-    user_option_values: Optional[dict] = Field(sa_column=Column(JSON))
+    user_option_values: Optional[dict] = Field(sa_column=Column(JSON), default_factory=dict)
     additional_continuous_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 

@@ -14,7 +14,8 @@ from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
 from chap_core.models.model_template import ModelTemplate
-from chap_core.models.utils import get_model_from_directory_or_github_url
+from chap_core.models.utils import get_model_from_directory_or_github_url, \
+    get_model_template_from_directory_or_github_url
 from chap_core.geometry import Polygons
 from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import registry
@@ -154,7 +155,7 @@ def evaluate(
 
 
 @app.command()
-def sanity_check_model(model_url: str, use_local_environement: bool = False, dataset_path=None):
+def sanity_check_model(model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str = None):
     '''
     Check that a model can be loaded, trained and used to make predictions
     '''
@@ -167,7 +168,8 @@ def sanity_check_model(model_url: str, use_local_environement: bool = False, dat
     logger.info('Dataset: ')
     logger.info(dataset.to_pandas())
     try:
-        model = get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
+        model_template = get_model_template_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
+        model = model_template.get_model()#get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
         estimator = model()
     except Exception as e:
         logger.error(f"Error while creating model: {e}")

@@ -4,10 +4,10 @@ from pydantic import BaseModel
 
 from chap_core import ModelTemplateInterface
 from chap_core.adaptors.command_line_interface import generate_template_app
-from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
+from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation, ModelConfiguration
 from chap_core.datatypes import Samples
 from chap_core.external.model_configuration import ModelTemplateConfigCommon
-from chap_core.models.configured_model import ModelConfiguration, ConfiguredModel
+from chap_core.models.configured_model import ConfiguredModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 import logging
 
@@ -21,8 +21,8 @@ class DummyConfig(BaseModel):
 class DummyModel(ConfiguredModel):
     covariate_names: list[str] = ['rainfall', 'mean_temperature', 'population']
 
-    def __init__(self, config: DummyConfig):
-        self._config = config
+    def __init__(self, config: dict):
+        self._config = DummyConfig.model_validate(config.user_option_values)
 
     def save(self, filepath):
         with open(filepath, 'w') as f:
@@ -30,7 +30,7 @@ class DummyModel(ConfiguredModel):
 
     @classmethod
     def load_predictor(cls, filepath):
-        return cls(DummyConfig.parse_file(filepath))
+        return cls(ModelConfiguration.parse_file(filepath))
 
     def train(self, train_data: DataSet):
         logger.info(f'Training with {self._config}')
@@ -70,12 +70,11 @@ def model_config_path(tmp_path, model_config):
 
 def test_generate_template_app(dumped_weekly_data_paths, tmp_path, model_config_path):
     app, train, predict, _ = generate_template_app(DummyModelTemplate())
-    write_yaml()
     training_path, historic_path, future_path = dumped_weekly_data_paths
     model_path = tmp_path / 'model'
     train(training_path, model_path, model_config_path)
     predict(model_path, historic_path, future_path, tmp_path/'predictions.csv', model_config_path)
 
-def test_generate_template_app(model_config_path):
+def test_generate_template_app_yaml(model_config_path):
     *_, write_yaml = generate_template_app(DummyModelTemplate())
     write_yaml()

@@ -1,6 +1,7 @@
 import yaml
 from cyclopts import App
-from chap_core.models.model_template_interface import ModelConfiguration
+#from chap_core.models.model_template_interface import ModelConfiguration
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import remove_field, create_tsdataclass
 from chap_core.external.model_configuration import RunnerConfig, EntryPointConfig, CommandConfig
 from chap_core.model_spec import get_dataclass
@@ -90,11 +91,13 @@ def generate_template_app(model_template: InternalModelTemplate, name: str='defa
 
     def _read_model_config(model_config_path):
         if model_config_path is not None:
-            return yaml.safe_load(model_config_path)
+            with open(model_config_path, "r") as file:
+                model_config = yaml.safe_load(file)
             #model_config = model_template.get_config_class().parse_file(model_config_path)
         else:
             model_config = {}
-        return model_config
+        return ModelConfiguration.model_validate(model_config)
+        # return model_config
 
     # TODO: send in model config again here
     @app.command()
@@ -129,7 +132,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str='defa
         forecasts.to_csv(output_filename)
 
     @app.command()
-    def write_template_yaml():
+    def write_template_yaml(pyenv_filename: str | None = None):
         """
         Write the model template to a yaml file
         """
@@ -150,8 +153,10 @@ def generate_template_app(model_template: InternalModelTemplate, name: str='defa
                                           'model_config': 'str'
                                       })))
         info = model_template.model_template_info.model_dump(mode='json') | {'name': name}
+        runner_config.python_env = pyenv_filename
+
         print(yaml.dump(info))
-        print(yaml.dump(runner_config.model_dump(), sort_keys=False))
+        print(yaml.dump(runner_config.model_dump(exclude_unset=True), sort_keys=False))
 
 
     return app, train, predict, write_template_yaml
