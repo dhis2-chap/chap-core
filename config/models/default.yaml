@@ -67,9 +67,9 @@ deep_learning_model:
         weight-decay: 0.0005
         direct-ar: true
         dropout: 0.4
-    additional_continuous_covariates:
-      - mean_temperature
-      - rainfall
+      additional_continuous_covariates:
+        - mean_temperature
+        - rainfall
     debug:
         user_option_values:
             max-epochs: 2
