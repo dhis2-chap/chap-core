@@ -7,10 +7,12 @@ from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
+import yaml
 from cyclopts import App
 
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
 from chap_core.models.model_template import ModelTemplate
@@ -167,9 +169,14 @@ def sanity_check_model(model_url: str, use_local_environement: bool = False, dat
     context, future, truth = next(tests)
     logger.info('Dataset: ')
     logger.info(dataset.to_pandas())
+
+    if model_config_path is not None:
+        model_config = ModelConfiguration.model_validate(yaml.safe_load(open(model_config_path)))
+    else:
+        model_config = None
     try:
         model_template = get_model_template_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
-        model = model_template.get_model()#get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
+        model = model_template.get_model(model_config)#get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
         estimator = model()
     except Exception as e:
         logger.error(f"Error while creating model: {e}")
