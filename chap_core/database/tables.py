@@ -14,13 +14,16 @@ class BackTestBase(DBModel):
     created: Optional[datetime.datetime] = None
 
 
-class BackTest(BackTestBase, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
-    forecasts: List['BackTestForecast'] = Relationship(back_populates="backtest", cascade_delete=True)
-    metrics: List['BackTestMetric'] = Relationship(back_populates="backtest", cascade_delete=True)
+class BackTestRead(BackTestBase):
+    id: int
     org_units: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     split_periods: List[PeriodID] = Field(default_factory=list, sa_column=Column(JSON))
 
+
+class BackTest(BackTestRead, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
+    forecasts: List['BackTestForecast'] = Relationship(back_populates="backtest", cascade_delete=True)
+    metrics: List['BackTestMetric'] = Relationship(back_populates="backtest", cascade_delete=True)
 
 class ForecastBase(DBModel):
     period: PeriodID
