@@ -3,6 +3,9 @@ from pydantic import BaseModel
 from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData, ModelTemplateInformation
 
 
+# TODO: rename file to model_template_yaml_spec
+
+
 class DockerEnvConfig(BaseModel):
     image: str
 
@@ -17,6 +20,7 @@ class EntryPointConfig(BaseModel):
     predict: CommandConfig
 
 
+# TODO: remove after refactor
 class UserOption(BaseModel):
     name: str
     type: Literal["string", "integer", "float", "boolean"]
@@ -24,12 +28,14 @@ class UserOption(BaseModel):
     default: Optional[str] = None
 
 
+# TODO: remove after refactor
 class ModelInfo(BaseModel):
     author: str
     description: str
     organization: Optional[str]
 
 
+# TODO: remove after refactor
 class ModelTemplateSchema(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):
     '''
     This is all the information that is needed to show the model template in gui
@@ -52,12 +58,14 @@ class ModelTemplateConfigCommon(ModelTemplateInformation, extra='forbid'):
     meta_data: ModelTemplateMetaData = ModelTemplateMetaData()
 
 
+# TODO: maybe rename to ModelTemplateYamlConfig
 class ModelTemplateConfigV2(ModelTemplateConfigCommon, RunnerConfig, extra="forbid"):
     name: str
     source_url: Optional[str] = None
     adapters: Optional[dict[str, str]] = None
 
 
+# TODO: remove after refactor
 class ModelTemplateConfig(ModelTemplateSchema, RunnerConfig):
     '''
     TODO: Try to find a better name that is not confusing

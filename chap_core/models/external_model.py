@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 import pandas as pd
 import yaml
-from pydantic import BaseModel
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import HealthData, Samples

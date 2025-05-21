@@ -17,7 +17,7 @@ import os
 
 from chap_core.time_period import TimePeriod
 from .. import ModelTemplateInterface
-from ..external.model_configuration import ModelTemplateConfig
+from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..rest_api_src.data_models import BackTestCreate
@@ -76,41 +76,83 @@ class SessionWrapper:
             self.session.commit()
         return model
 
-    def add_model_template(self, model_template_config: ModelTemplateConfig) -> int:
+    def add_model_template(self, model_template: ModelTemplateDB) -> int:
+        # check if model template already exists
+        existing_template = self.session.exec(
+            select(ModelTemplateDB)
+            .where(ModelTemplateDB.name == model_template.name)
+        ).first()
+        if existing_template:
+            logger.info(f"Model template with name {model_template.name} already exists. Returning existing id")
+            return existing_template.id
+        
+        # add db entry
+        logger.info(f'Adding model template: {model_template}')
+        self.session.add(model_template)
+        self.session.commit()
+
+        # return id
+        return model_template.id
+
+    def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
         """Sets the ModelSpecRead a yaml string.
         Note that the yaml string is what's defined in a model template's MLProject file,
         so source_url will have to be added manually."""
+        # TODO: maybe just use add_model_template and make sure to structure it correctly first
+        # TODO: needs cleanup
+        # TODO: existing check should probably use name instead of source url
         # parse yaml content as dict
         existing_template = self.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.source_url == model_template_config.source_url)).first()
+            select(ModelTemplateDB).where(ModelTemplateDB.name == model_template_config.name)).first()
         if existing_template:
+            logger.info(f"Model template with name {model_template_config.name} already exists. Returning existing id")
             return existing_template.id
         d = model_template_config.dict()
         info = d.pop('meta_data')
         d = d | info
         db_object = ModelTemplateDB(**d)
 
+        logger.info(f'Adding model template: {db_object}')
         self.session.add(db_object)
         self.session.commit()
         return db_object.id
 
     def add_configured_model(self, model_template_id: int,
                              configuration: ModelConfiguration,
-                             configuration_name='default') -> int:
-        existing_configured = self.session.exec(
-            select(ConfiguredModelDB).where(ConfiguredModelDB.name == configuration_name).where(ConfiguredModelDB.model_template_id == model_template_id)).first()
-        if existing_configured:
-            logger.info(f"Configured model with name {configuration_name} already exists. Returning existing id")
-            return existing_configured.id
+                             configuration_name='default') -> int:       
+        # get model template name
         template_name = self.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first().name
+            select(ModelTemplateDB)
+            .where(ModelTemplateDB.id == model_template_id)
+        ).first().name
 
+        # set configured name
+        if configuration_name == 'default':
+            # default configurations just use the name of their model template (for backwards compatibility)
+            name = template_name
+        else:
+            # combine model template with configuration name to make the name unique
+            name = f'{template_name}:{configuration_name}'
+
+        # check if configured model already exists
+        existing_configured = self.session.exec(
+            select(ConfiguredModelDB)
+            .where(ConfiguredModelDB.name == name)
+        ).first()
+        if existing_configured:
+            logger.info(f"Configured model with name {name} already exists. Returning existing id")
+            return existing_configured.id
+
+        # create and add db entry
         configured_model = ConfiguredModelDB(
-            name=f'{template_name}:{configuration_name}',
+            name=name,
             model_template_id=model_template_id,
             **configuration.dict())
+        logger.info(f'Adding configured model: {configured_model}')
         self.session.add(configured_model)
         self.session.commit()
+
+        # return id
         return configured_model.id
 
     def get_configured_model(self, configured_model_id: int) -> ConfiguredModel:

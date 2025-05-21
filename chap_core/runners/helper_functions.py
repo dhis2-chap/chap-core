@@ -63,7 +63,7 @@ def get_train_predict_runner_from_model_template_config(model_template_config: M
     else:
         # assert model_configuration is None or model_configuration == {}, "ModelConfiguration (for templates) not supported when runner is mlflow for now"
         assert runner_type == "mlflow"
-        return MlFlowTrainPredictRunner(working_dir, model_configuration_filename=model_configuration_file)
+        return MlFlowTrainPredictRunner(working_dir, model_configuration_filename=yaml_filename, train_params=model_template_config.entry_points.train.parameters.keys())
 
 
 def get_train_predict_runner(mlproject_file: Path, runner_type: Literal["mlflow", "docker"],

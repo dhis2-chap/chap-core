@@ -15,7 +15,7 @@ def test_parse_local_model_config_files_from_directory(data_path):
     default_directory = data_path.parent / 'config' / 'models'
     configurations = parse_local_model_config_from_directory(default_directory, search_pattern="*.yaml*")
     print(configurations)
-    assert "vX" in configurations["weekly_ar_model"].versions.keys()
+    assert "stable" in configurations["auto_regressive_weekly"].versions.keys()
     
 
     

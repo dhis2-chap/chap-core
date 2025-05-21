@@ -44,10 +44,11 @@ class IntegrationTest:
     def __init__(self, chap_url, run_all):
         self._chap_url = chap_url
         self._run_all = run_all
+        self._default_model = 'chap_ewars_monthly'
 
     def ensure_up(self):
         response = None
-        logging.info("Ensuring %s is up" % self._chap_url)
+        logger.info("Ensuring %s is up" % self._chap_url)
         for _ in range(20):
             try:
                 response = requests.get(self._chap_url + "/v1/health")
@@ -85,9 +86,13 @@ class IntegrationTest:
     def get_models(self):
         model_url = self._chap_url + "/v1/crud/models"
         models = self._get(model_url)
+        # hacky remove autoreg weekly
+        # TODO: delete after new version is published
+        models = [model for model in models if model['name'] != 'auto_regressive_weekly']
         return models
 
     def make_prediction(self, data):
+        logger.info(f'Making prediction for {data["modelId"]}')
         make_prediction_url = self._chap_url + "/v1/analytics/make-prediction"
         response = self._post(make_prediction_url, json=data)
         job_id = response['id']
@@ -97,6 +102,8 @@ class IntegrationTest:
         return prediction_result
 
     def prediction_flow(self):
+        logger.info(f'Starting prediction flow tests')
+
         self.ensure_up()
         model_list = self.get_models()
         assert 'naive_model' in {model['name'] for model in model_list}
@@ -104,23 +111,30 @@ class IntegrationTest:
             for model in model_list:
                 self.make_prediction(make_prediction_request(model['name']))
         else:
-            self.make_prediction(make_prediction_request('naive_model'))
+            self.make_prediction(make_prediction_request(self._default_model))
 
     def evaluation_flow(self):
+        logger.info(f'Starting evaluation flow tests')
+
         self.ensure_up()
         model_list = self.get_models()
-        model_name = 'naive_model'
-        assert model_name in {model['name'] for model in model_list}
+        assert 'naive_model' in {model['name'] for model in model_list}
+
         data = make_dataset_request()
         #data = make_dataset_request2()
-
         dataset_id = self.make_dataset(data)
-        result, backtest_id = self.evaluate_model(dataset_id, model_name)
-        actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
-        result_org_units = {e['orgUnit'] for e in result}
 
-        org_units = {de['ou'] for de in actual_cases['data']}
-        assert result_org_units == org_units, (result_org_units, org_units)
+        if self._run_all:
+            model_names = [model['name'] for model in model_list]
+        else:
+            model_names = [self._default_model]
+
+        for model_name in model_names:
+            result, backtest_id = self.evaluate_model(dataset_id, model_name)
+            actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
+            result_org_units = {e['orgUnit'] for e in result}
+            org_units = {de['ou'] for de in actual_cases['data']}
+            assert result_org_units == org_units, (result_org_units, org_units)
 
     def make_dataset(self, data):
         make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
@@ -130,6 +144,7 @@ class IntegrationTest:
         return db_id
 
     def evaluate_model(self, dataset_id, model):
+        logger.info(f'Making evaluation for {model}')
         job_id = self._post(self._chap_url + "/v1/crud/backtests/",
                             json={"modelId": model, "datasetId": dataset_id, 'name': 'integration_test'})['id']
         db_id = self.wait_for_db_id(job_id)
@@ -156,13 +171,24 @@ class IntegrationTest:
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
 
-    if len(sys.argv) > 1:
-        hostname = sys.argv[1]
-    else:
-        hostname = 'localhost'
-    chap_url = "http://%s:8000" % hostname
-    suite = IntegrationTest(chap_url, False)
-    #suite.prediction_flow()
+    def str2bool(v):
+        if isinstance(v, bool):
+            return v
+        if v.lower() in ("yes", "true", "t", "1"):
+            return True
+        elif v.lower() in ("no", "false", "f", "0"):
+            return False
+
+    parser = argparse.ArgumentParser(description="Script to run docker db endpoint flows.")
+    parser.add_argument("host", type=str, nargs='?', default="localhost", help="Chap REST server host. Defaults to localhost.")
+    parser.add_argument("run_all", type=str2bool, nargs='?', default='true', help="Turn on to run tests for all available models (default), or turn off to test just a single model for quick local testing.")
+
+    args = parser.parse_args()
+    logger.info(args)
+
+    chap_url = f"http://{args.host}:8000"
+    suite = IntegrationTest(chap_url, args.run_all)
+    suite.prediction_flow()
     suite.evaluation_flow()

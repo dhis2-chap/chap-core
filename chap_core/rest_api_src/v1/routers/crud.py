@@ -34,7 +34,6 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.model_spec_tables import ModelSpecRead, ModelSpec
 from chap_core.database.feature_tables import FeatureSource
 from chap_core.datatypes import FullData, HealthPopulationData
-from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
@@ -43,7 +42,7 @@ from chap_core.database.tables import BackTest, Prediction, \
     PredictionRead, PredictionInfo
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.base_tables import DBModel
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
@@ -371,5 +370,6 @@ def add_configured_model(
     """
     Add a configured model to the database.
     """
-    wrapper = SessionWrapper(session=session)
-    return wrapper.add_configured_model(model_template_id, configuration)
+    raise HTTPException(status_code=501, detail="Not implemented")
+    # wrapper = SessionWrapper(session=session)
+    # return wrapper.add_configured_model(model_template_id, configuration)

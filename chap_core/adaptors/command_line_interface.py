@@ -132,7 +132,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str='defa
         forecasts.to_csv(output_filename)
 
     @app.command()
-    def write_template_yaml():
+    def write_template_yaml(pyenv_filename: str | None = None):
         """
         Write the model template to a yaml file
         """
@@ -153,8 +153,10 @@ def generate_template_app(model_template: InternalModelTemplate, name: str='defa
                                           'model_config': 'str'
                                       })))
         info = model_template.model_template_info.model_dump(mode='json') | {'name': name}
+        runner_config.python_env = pyenv_filename
+
         print(yaml.dump(info))
-        print(yaml.dump(runner_config.model_dump(), sort_keys=False))
+        print(yaml.dump(runner_config.model_dump(exclude_unset=True), sort_keys=False))
 
 
     return app, train, predict, write_template_yaml
