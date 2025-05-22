@@ -7,6 +7,7 @@ Contributor guide
    :caption: Contributor guide 
 
    getting_started
+   chap-contributor-setup
    windows_contributors
    code_overview
    vocabulary

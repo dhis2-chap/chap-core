@@ -19,10 +19,7 @@ This website contains documentation about how to use Chap for **modelers**, **co
    chap-cli/index
    contributor/index
    webapi/index
-   
-   
    changelog
-----
 
 
 

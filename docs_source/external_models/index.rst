@@ -8,7 +8,6 @@ Integrate external models
 
    making_external_models_compatible
    developing_custom_models
-   eveloping_custom_models
    external_model_specification
    running_external_models
    integrating_external_models_with_dhis2

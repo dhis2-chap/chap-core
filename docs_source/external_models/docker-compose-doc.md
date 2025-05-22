@@ -59,7 +59,7 @@ docker-compose up
 
 You can go to [http://localhost:8000/docs](http://localhost:8000/docs) to verify that the REST-API is working. A Swagger page, as shown below, should display:
 
-![Swagger UI](_static/swagger-fastapi.png)
+![Swagger UI](../_static/swagger-fastapi.png)
 
 ## 5. Stop CHAP Core
 
