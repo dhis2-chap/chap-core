@@ -25,7 +25,7 @@ def run_backtest(
     stride: int = 1,
     session: SessionWrapper = None,
 ):
-    dataset = session.get_dataset(info.dataset_id, FullData)
+    dataset = session.get_dataset(info.dataset_id)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
     estimator = registry.get_model(info.model_id, ignore_env=info.model_id.startswith("chap_ewars"))

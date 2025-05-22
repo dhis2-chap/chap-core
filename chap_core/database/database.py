@@ -18,6 +18,7 @@ import os
 
 from chap_core.time_period import TimePeriod
 from .. import ModelTemplateInterface
+from ..datatypes import create_tsdataclass
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
