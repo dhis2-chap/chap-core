@@ -17,7 +17,8 @@ from chap_core.database.dataset_tables import Observation
 import logging
 
 from ...celery_tasks import CeleryPool, JOB_TYPE_KW, JOB_NAME_KW
-from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate, BackTestRead
+from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate, BackTestRead, ImportSummaryResponse, \
+    ValidationError
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -40,7 +41,7 @@ class MetaData(BaseModel):
     data_name_mapping: List[MetaDataEntry]
 
 
-@router.post("/make-dataset", response_model=JobResponse)
+@router.post("/make-dataset", response_model=ImportSummaryResponse)
 def make_dataset(request: DatasetMakeRequest,
                  database_url: str = Depends(get_database_url),
                  worker_settings=Depends(get_settings)):
@@ -48,6 +49,10 @@ def make_dataset(request: DatasetMakeRequest,
     This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
     """
+
+    imported_count: int = 0
+    rejected_list: list[ValidationError] = []
+
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
@@ -59,9 +64,12 @@ def make_dataset(request: DatasetMakeRequest,
         for location, data in provided_data.items():
             isnan = np.isnan(getattr(data, feature_name))
             if np.any(isnan):
-                isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
-                raise HTTPException(status_code=500,
-                                    detail=f'Missing value in {feature_name} in location {location}. Time periods: {isnan_}')
+                rejected_list.append(ValidationError(reason="Missing value for the entire time period", orgUnit=location, feature_name=feature_name))
+                del data
+            else:
+                imported_count += 1
+    if imported_count == 0:
+        raise HTTPException(status_code=500, detail=f'Missing values. No data was imported.')
 
     request.type = 'evaluation'
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
@@ -75,8 +83,8 @@ def make_dataset(request: DatasetMakeRequest,
                           database_url=database_url,
                           worker_config=worker_settings,
                           **{JOB_TYPE_KW: 'create_dataset', JOB_NAME_KW: request.name})
-    return JobResponse(id=job.id)
 
+    return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejected_list)
 
 @router.get("/compatible-backtests/{backtestId}", response_model=List[BackTestRead])
 def get_compatible_backtests(backtest_id: Annotated[int, Path(alias="backtestId")],
