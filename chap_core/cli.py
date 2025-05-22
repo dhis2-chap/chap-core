@@ -16,8 +16,10 @@ from chap_core.database.model_templates_and_config_tables import ModelConfigurat
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
 from chap_core.models.model_template import ModelTemplate
-from chap_core.models.utils import get_model_from_directory_or_github_url, \
-    get_model_template_from_directory_or_github_url
+from chap_core.models.utils import (
+    get_model_from_directory_or_github_url,
+    get_model_template_from_directory_or_github_url,
+)
 from chap_core.geometry import Polygons
 from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import registry
@@ -49,20 +51,20 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
 
 @app.command()
 def evaluate(
-        model_name: ModelType | str,
-        dataset_name: Optional[DataSetType] = None,
-        dataset_country: Optional[str] = None,
-        dataset_csv: Optional[Path] = None,
-        polygons_json: Optional[Path] = None,
-        polygons_id_field: Optional[str] = "id",
-        prediction_length: int = 6,
-        n_splits: int = 7,
-        report_filename: Optional[str] = "report.pdf",
-        ignore_environment: bool = False,
-        debug: bool = False,
-        log_file: Optional[str] = None,
-        run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
-        model_configuration_yaml: Optional[str] = None,
+    model_name: ModelType | str,
+    dataset_name: Optional[DataSetType] = None,
+    dataset_country: Optional[str] = None,
+    dataset_csv: Optional[Path] = None,
+    polygons_json: Optional[Path] = None,
+    polygons_id_field: Optional[str] = "id",
+    prediction_length: int = 6,
+    n_splits: int = 7,
+    report_filename: Optional[str] = "report.pdf",
+    ignore_environment: bool = False,
+    debug: bool = False,
+    log_file: Optional[str] = None,
+    run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+    model_configuration_yaml: Optional[str] = None,
 ):
     """
     Evaluate a model on a dataset using forecast cross validation
@@ -87,17 +89,19 @@ def evaluate(
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
             assert (
-                    dataset_country in dataset.countries
+                dataset_country in dataset.countries
             ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
             dataset = dataset[dataset_country]
-    
+
     if "," in model_name:
         # model_name is not only one model, but contains a list of models
         model_list = model_name.split(",")
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
             model_configuration_yaml_list = model_configuration_yaml.split(",")
-            assert len(model_list) == len(model_configuration_yaml_list), "Number of model configurations does not match number of models"
+            assert len(model_list) == len(
+                model_configuration_yaml_list
+            ), "Number of model configurations does not match number of models"
     else:
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
@@ -106,16 +110,18 @@ def evaluate(
 
     results_dict = {}
     for name, configuration in zip(model_list, model_configuration_yaml_list):
-        template = ModelTemplate.from_directory_or_github_url(name, base_working_dir=Path("./runs/"), 
-                                                            ignore_env=ignore_environment, 
-                                                            run_dir_type=run_directory_type, 
-                                                            )
+        template = ModelTemplate.from_directory_or_github_url(
+            name,
+            base_working_dir=Path("./runs/"),
+            ignore_env=ignore_environment,
+            run_dir_type=run_directory_type,
+        )
         logging.info(f"Model template loaded: {template}")
         if configuration is not None:
             logger.info(f"Loading model configuration from yaml file {configuration}")
             configuration = template.get_model_configuration_from_yaml(Path(configuration))
             logger.info(f"Loaded model configuration from yaml file: {configuration}")
-        
+
         model = template.get_model(configuration)
         model = model()
         try:
@@ -131,11 +137,11 @@ def evaluate(
             return
         print(results)
         results_dict[name] = results
-    
-    #need to iterate through the dict, like key and value or something and then extract the relevant metrics
-    #to a pandas dataframe, and save it as a csv file.
-    #it seems like results contain two dictionairies, one for aggregate metrics and one with seperate ones for each ts
-    
+
+    # need to iterate through the dict, like key and value or something and then extract the relevant metrics
+    # to a pandas dataframe, and save it as a csv file.
+    # it seems like results contain two dictionairies, one for aggregate metrics and one with seperate ones for each ts
+
     data = []
     first_model = True
     for key, value in results_dict.items():
@@ -155,19 +161,20 @@ def evaluate(
     logger.info(f"Evaluation complete. Results saved to {csvname}")
 
 
-
 @app.command()
-def sanity_check_model(model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str = None):
-    '''
+def sanity_check_model(
+    model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str = None
+):
+    """
     Check that a model can be loaded, trained and used to make predictions
-    '''
+    """
     if dataset_path is None:
         dataset = datasets["hydromet_5_filtered"].load()
     else:
         dataset = DataSet.from_csv(dataset_path, FullData)
     train, tests = train_test_generator(dataset, 3, n_test_sets=2)
     context, future, truth = next(tests)
-    logger.info('Dataset: ')
+    logger.info("Dataset: ")
     logger.info(dataset.to_pandas())
 
     if model_config_path is not None:
@@ -176,7 +183,9 @@ def sanity_check_model(model_url: str, use_local_environement: bool = False, dat
         model_config = None
     try:
         model_template = get_model_template_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
-        model = model_template.get_model(model_config)#get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
+        model = model_template.get_model(
+            model_config
+        )  # get_model_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
         estimator = model()
     except Exception as e:
         logger.error(f"Error while creating model: {e}")
@@ -192,7 +201,9 @@ def sanity_check_model(model_url: str, use_local_environement: bool = False, dat
         logger.error(f"Error while forecasting: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(prediction.samples).any(), f"NaNs in predictions for location {location}, {prediction.samples}"
+        assert not np.isnan(
+            prediction.samples
+        ).any(), f"NaNs in predictions for location {location}, {prediction.samples}"
     context, future, truth = next(tests)
     try:
         predictions = predictor.predict(context, future)
@@ -200,17 +211,18 @@ def sanity_check_model(model_url: str, use_local_environement: bool = False, dat
         logger.error(f"Error while forecasting from a future time point: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(prediction.samples).any(), f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
-
+        assert not np.isnan(
+            prediction.samples
+        ).any(), f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
 
 
 @app.command()
 def forecast(
-        model_name: str,
-        dataset_name: DataSetType,
-        n_months: int,
-        model_path: Optional[str] = None,
-        out_path: Optional[str] = Path("./"),
+    model_name: str,
+    dataset_name: DataSetType,
+    n_months: int,
+    model_path: Optional[str] = None,
+    out_path: Optional[str] = Path("./"),
 ):
     """
     Forecast n_months ahead using the given model and dataset
@@ -233,11 +245,11 @@ def forecast(
 
 @app.command()
 def multi_forecast(
-        model_name: str,
-        dataset_name: DataSetType,
-        n_months: int,
-        pre_train_months: int,
-        out_path: Path = Path(""),
+    model_name: str,
+    dataset_name: DataSetType,
+    n_months: int,
+    pre_train_months: int,
+    out_path: Path = Path(""),
 ):
     model = get_model_from_directory_or_github_url(model_name)
     model_name = model.name
@@ -269,6 +281,7 @@ def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool
     Start CHAP as a backend server
     """
     from .rest_api_src.v1.rest_api import main_backend
+
     logger.info("Running chap serve")
     if seedfile is not None:
         data = json.load(open(seedfile))
@@ -283,6 +296,7 @@ def write_open_api_spec(out_path: str):
     Write the OpenAPI spec to a file
     """
     from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
+
     schema = get_openapi_schema()
     with open(out_path, "w") as f:
         json.dump(schema, f, indent=4)
@@ -292,10 +306,7 @@ def base_args(func, *args, **kwargs):
     """
     Decorator that adds some base arguments to a command
     """
-    base_args = [
-        ("debug", bool, False),
-        ("log_file", Optional[str], None)
-    ]
+    base_args = [("debug", bool, False), ("log_file", Optional[str], None)]
 
     def new_func(*args, **kwargs):
         for arg_name, arg_type, default in base_args:
@@ -320,10 +331,14 @@ class AreaPolygons: ...
 
 
 @app.command()
-def backtest(data_filename: Path, model_name: registry.model_type|str, out_folder: Path,
-             prediction_length: int = 12,
-             n_test_sets: int = 20,
-             stride: int = 2):
+def backtest(
+    data_filename: Path,
+    model_name: registry.model_type | str,
+    out_folder: Path,
+    prediction_length: int = 12,
+    n_test_sets: int = 20,
+    stride: int = 2,
+):
     """
     Run a backtest on a dataset using the specified model
 
@@ -336,24 +351,29 @@ def backtest(data_filename: Path, model_name: registry.model_type|str, out_folde
     logger.info(f"Running backtest on {data_filename} with model {model_name}")
     logger.info(f"Dataset period range: {dataset.period_range}, locations: {list(dataset.locations())}")
 
-    if '/' in model_name:
+    if "/" in model_name:
         estimator = get_model_from_directory_or_github_url(model_name)
-        model_name = 'development_model'
+        model_name = "development_model"
     else:
         estimator = registry.get_model(model_name)
-    predictions_list = _backtest(estimator, dataset, prediction_length=prediction_length,
-                                 n_test_sets=n_test_sets, stride=stride, weather_provider=QuickForecastFetcher)
+    predictions_list = _backtest(
+        estimator,
+        dataset,
+        prediction_length=prediction_length,
+        n_test_sets=n_test_sets,
+        stride=stride,
+        weather_provider=QuickForecastFetcher,
+    )
     response = samples_to_evaluation_response(
-        predictions_list,
-        quantiles=[0.05, 0.25, 0.5, 0.75, 0.95],
-        real_data=dataset_to_datalist(dataset, 'dengue'))
+        predictions_list, quantiles=[0.05, 0.25, 0.5, 0.75, 0.95], real_data=dataset_to_datalist(dataset, "dengue")
+    )
     dataframe = pd.DataFrame([entry.model_dump() for entry in response.predictions])
     data_name = data_filename.stem
-    dataframe.to_csv(out_folder / f'{data_name}_evaluation_{model_name}.csv')
+    dataframe.to_csv(out_folder / f"{data_name}_evaluation_{model_name}.csv")
     serialized_response = response.json()
-    out_filename = out_folder / f'{data_name}_evaluation_response_{model_name}.json'
+    out_filename = out_folder / f"{data_name}_evaluation_response_{model_name}.json"
 
-    with open(out_filename, 'w') as out_file:
+    with open(out_filename, "w") as out_file:
         out_file.write(serialized_response)
 
 

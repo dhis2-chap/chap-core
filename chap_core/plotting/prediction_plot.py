@@ -35,7 +35,6 @@ def forecast_plot(
     return plot_forecast(quantiles, true_data)
 
 
-
 def plot_forecast_from_summaries(
     summaries: SummaryStatistics | list[SummaryStatistics],
     true_data: HealthData,

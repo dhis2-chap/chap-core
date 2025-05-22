@@ -26,12 +26,12 @@ def run_add_numbers(a: int, b: int):
     return None
     return {"task_id": cur_job.id, "status": "Task submitted"}
 
-@router.post('/trigger-exception', response_model=JobResponse)
+
+@router.post("/trigger-exception", response_model=JobResponse)
 def trigger_exception(database_url: str = Depends(get_database_url), worker_settings=Depends(get_settings)):
-    job = worker.queue_db(wf.trigger_exception,
-                          database_url=database_url,
-                          worker_config=worker_settings)
+    job = worker.queue_db(wf.trigger_exception, database_url=database_url, worker_config=worker_settings)
     return JobResponse(id=job.id)
+
 
 @router.get("/get-status")
 def get_status(task_id: Optional[str] = None) -> dict:
@@ -47,8 +47,8 @@ def get_status(task_id: Optional[str] = None) -> dict:
     result = {
         "task_id": task_id,
         "status": task_result.state,
-        "result": task_result.result if task_result.successful() else '',
-        "error": str(task_result.result) if task_result.failed() else '',
+        "result": task_result.result if task_result.successful() else "",
+        "error": str(task_result.result) if task_result.failed() else "",
     }
 
     return result

@@ -59,8 +59,7 @@ class PredictionBase(DBModel):
 
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
-    forecasts: List['PredictionSamplesEntry'] = Relationship(back_populates="prediction",
-                                                             cascade_delete=True)
+    forecasts: List["PredictionSamplesEntry"] = Relationship(back_populates="prediction", cascade_delete=True)
 
 
 PredictionInfo = PredictionBase.get_read_class()
@@ -73,7 +72,7 @@ class PredictionRead(PredictionInfo):
 class PredictionSamplesEntry(ForecastBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     prediction_id: int = Field(foreign_key="prediction.id")
-    prediction: 'Prediction' = Relationship(back_populates="forecasts")
+    prediction: "Prediction" = Relationship(back_populates="forecasts")
     values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
 
 
@@ -102,10 +101,16 @@ def test():
     DBModel.metadata.create_all(engine)
     with Session(engine) as session:
         backtest = BackTest(dataset_id="dataset_id", model_id="model_id")
-        forecast = BackTestForecast(period="202101", org_unity="RegionA", last_train_period="202012",
-                                    last_seen_period="202012", values=[1.0, 2.0, 3.0])
-        metric = BackTestMetric(metric_id="metric_id", period="202101", last_train_period="202012",
-                                last_seen_period="202012", value=0.5)
+        forecast = BackTestForecast(
+            period="202101",
+            org_unity="RegionA",
+            last_train_period="202012",
+            last_seen_period="202012",
+            values=[1.0, 2.0, 3.0],
+        )
+        metric = BackTestMetric(
+            metric_id="metric_id", period="202101", last_train_period="202012", last_seen_period="202012", value=0.5
+        )
         backtest.forecasts.append(forecast)
         backtest.metrics.append(metric)
         session.add(backtest)

@@ -5,7 +5,7 @@ import git
 from chap_core.datatypes import HealthData
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
-from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config 
+from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config
 from chap_core.external.model_configuration import ModelTemplateConfig, ModelTemplateConfigV2
 from chap_core.models.model_template import ModelTemplate
 import shutil
@@ -22,7 +22,8 @@ if TYPE_CHECKING:
 def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
     if run_dir_type == "use_existing" and not Path(model_path).exists():
         logging.warning(
-            f"Model path {model_path} does not exist. Will create a directory for the run (using the name 'latest')")
+            f"Model path {model_path} does not exist. Will create a directory for the run (using the name 'latest')"
+        )
         run_dir_type = "latest"
 
     if run_dir_type == "latest":
@@ -37,13 +38,15 @@ def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
         # timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S%f")
         working_dir = base_working_dir / model_name / unique_identifier
         # check that working dir does not exist
-        assert not working_dir.exists(), f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
+        assert (
+            not working_dir.exists()
+        ), f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
     elif run_dir_type == "use_existing":
         working_dir = Path(model_path)
     else:
         raise ValueError(f"Invalid run_dir_type: {run_dir_type}")
 
-    return run_dir_type,working_dir
+    return run_dir_type, working_dir
 
 
 def _get_model_code_base(model_path, base_working_dir, run_dir_type):
@@ -52,8 +55,8 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
     if isinstance(model_path, str) and model_path.startswith("https://github.com"):
         dir_name = model_path.split("/")[-1].replace(".git", "")
         model_name = dir_name
-        if '@' in model_path:
-            model_path, commit = model_path.split('@')
+        if "@" in model_path:
+            model_path, commit = model_path.split("@")
         is_github = True
     else:
         model_name = Path(model_path).name
@@ -65,14 +68,19 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
         working_dir.mkdir(parents=True)
         repo = git.Repo.clone_from(model_path, working_dir)
         if commit:
-            logger.info(f'Checking out commit {commit}')
+            logger.info(f"Checking out commit {commit}")
             repo.git.checkout(commit)
     elif run_dir_type == "use_existing":
         logging.info("Not copying any model files, using existing directory")
     else:
         # copy contents of model_path to working_dir
         logger.info(f"Copying files from {model_path} to {working_dir}")
-        shutil.copytree(model_path, working_dir, ignore= lambda dir, contents: list({'.venv', 'venv'}.intersection(contents)), dirs_exist_ok=True)
+        shutil.copytree(
+            model_path,
+            working_dir,
+            ignore=lambda dir, contents: list({".venv", "venv"}.intersection(contents)),
+            dirs_exist_ok=True,
+        )
     return working_dir
 
 
@@ -87,12 +95,11 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> 
     return model_template
 
 
-def get_model_template_from_directory_or_github_url(model_template_path,
-                                                    base_working_dir=Path("runs/"),
-                                                    ignore_env=False,
-                                                    run_dir_type="timestamp") -> ModelTemplate:
+def get_model_template_from_directory_or_github_url(
+    model_template_path, base_working_dir=Path("runs/"), ignore_env=False, run_dir_type="timestamp"
+) -> ModelTemplate:
     """
-    Note: Preferably use ModelTemplate.from_directory_or_github_url instead of 
+    Note: Preferably use ModelTemplate.from_directory_or_github_url instead of
     using this function directly. This function may be depcrecated in the future.
 
     Gets the model template and initializes a working directory with the code for the model.
@@ -113,7 +120,8 @@ def get_model_template_from_directory_or_github_url(model_template_path,
     """
 
     logger.info(
-        f"Getting model template from {model_template_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}")
+        f"Getting model template from {model_template_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}"
+    )
     working_dir = _get_model_code_base(model_template_path, base_working_dir, run_dir_type)
 
     logger.info(f"Current directory is {os.getcwd()}, working dir is {working_dir}")
@@ -128,7 +136,7 @@ def get_model_template_from_directory_or_github_url(model_template_path,
     return template
 
 
-def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> 'ExternalModel':
+def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> "ExternalModel":
     """parses file and returns the model
     Will not use MLflows project setup if docker is specified
     """
@@ -148,6 +156,7 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> 'External
     # data_type = allowed_data_types.get(config.get("data_type", None), None)
     data_type = HealthData
     from chap_core.models import ExternalModel
+
     return ExternalModel(
         runner,
         name=name,
@@ -157,12 +166,13 @@ def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> 'External
     )
 
 
-def get_model_from_directory_or_github_url(model_template_path,
-                                           base_working_dir=Path("runs/"),
-                                           ignore_env=False,
-                                           run_dir_type: Literal["timestamp", "latest", "use_existing"] = "timestamp",
-                                           model_configuration_yaml: str=None
-                                           ) -> 'ExternalModel':
+def get_model_from_directory_or_github_url(
+    model_template_path,
+    base_working_dir=Path("runs/"),
+    ignore_env=False,
+    run_dir_type: Literal["timestamp", "latest", "use_existing"] = "timestamp",
+    model_configuration_yaml: str = None,
+) -> "ExternalModel":
     """
     NOTE: This function is deprecated, can be removed in the future.
 
@@ -185,12 +195,14 @@ def get_model_from_directory_or_github_url(model_template_path,
         Path to the model configuration yaml file, by default None. This has to be a yaml that is compatible with the model configuration class given by the ModelTemplate.
     """
 
-    template = get_model_template_from_directory_or_github_url(model_template_path, ignore_env=ignore_env, run_dir_type=run_dir_type)
+    template = get_model_template_from_directory_or_github_url(
+        model_template_path, ignore_env=ignore_env, run_dir_type=run_dir_type
+    )
     model_configuration = None
     # config_class = template.get_config_class()
     if model_configuration_yaml:
         with open(model_configuration_yaml, "r") as file:
             model_configuration = yaml.load(file, Loader=yaml.FullLoader)
-            #model_configuration = config_class.model_validate(model_configuration)
+            # model_configuration = config_class.model_validate(model_configuration)
 
     return template.get_model(model_configuration=model_configuration)

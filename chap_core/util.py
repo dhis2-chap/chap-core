@@ -45,15 +45,17 @@ def redis_available():
         r.ping()
         return True
     except Exception as e:
-        if e.__class__.__name__ in ('ModuleNotFoundError', 'ConnectionError'):
+        if e.__class__.__name__ in ("ModuleNotFoundError", "ConnectionError"):
             return False
         else:
             # Handle other exceptions
             raise
 
+
 def load_redis(db=0):
     import redis
-    host = os.getenv('REDIS_HOST', 'localhost') # default to localhost for backward compatibility
-    port = os.getenv('REDIS_PORT', '6379')
+
+    host = os.getenv("REDIS_HOST", "localhost")  # default to localhost for backward compatibility
+    port = os.getenv("REDIS_PORT", "6379")
     r = redis.Redis(host=host, port=int(port), db=db)
     return r

@@ -10,4 +10,4 @@ from . import fetch
 from . import data
 from .models.model_template_interface import ModelTemplateInterface
 
-__all__ = ["fetch", "data", 'ModelTemplateInterface']
+__all__ = ["fetch", "data", "ModelTemplateInterface"]

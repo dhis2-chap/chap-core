@@ -32,9 +32,7 @@ class IsMultiRegionForecastSampler(Protocol):
 
     def train(self, data: DataSet[ClimateHealthTimeSeries]): ...
 
-    def sample(
-        self, future_weather: DataSet[ClimateData], n_samples: int = 1
-    ) -> DataSet[HealthData]: ...
+    def sample(self, future_weather: DataSet[ClimateData], n_samples: int = 1) -> DataSet[HealthData]: ...
 
 
 class IsMultiRegionPredictor(Protocol):
