@@ -1,11 +1,13 @@
 # How to use Modeling App
 
+# This page is not in use at the momement, needs to be updated to Modeling App
+
 **This page contains documentation on how to use the Modeling App to create predictions.**
 
-**NOTE: The old name for this app was *Prediction App*. We are currently updating the documentation
+**NOTE: The old name for this app was _Modeling App_. We are currently updating the documentation
 to reflect the new name. Some references may still be in transition.**
 
-Modeling App enables integration between [CHAP Core](https://github.com/dhis2-chap/chap-core) and [DHIS2](https://dhis2.org/) (2.41+). 
+Modeling App enables integration between [CHAP Core](https://github.com/dhis2-chap/chap-core) and [DHIS2](https://dhis2.org/) (2.41+).
 
 ---
 
@@ -19,7 +21,7 @@ Modeling App enables integration between [CHAP Core](https://github.com/dhis2-ch
 - Ensure you have a DHIS2 data element for the disease data you want to make a prediction for.
 - You select which areas you want to create a prediction for in the "Select organization units" section.
 - "period" in the form refers to the model's training period; the prediction will be for three months. For instance, if you select all periods between January 2013 and August 2024, a prediction will be made for September 2024, October 2024, and November 2024.  
-<br/>
+  <br/>
 
 **Important about selecting period**  
 If your primary goal is to predict the number of cases (rather than to evaluate models), make sure you select the most recent completed period up to today. CHAP Core does not account for specific dates and treats each month's registrations equally. Therefore, it is crucial to ensure that the data you provide is complete. For example, if today's date is the 15th, the data for the current month is likely to be incomplete because it won't include information from the second half of the month. CHAP Core is not able to tell that the data belongs to an incomplete month and will count it as one full month of registration when it in reality is only 15 days. This will cause inaccurate predictions.
@@ -30,7 +32,7 @@ Below is an example of how a filled form could look like:
 
 Click **"Send data to CHAP ➔"** to use the Modeling App to transfer data directly to CHAP Core's REST-API.
 
-> &#x1F6C8; At this point, it's also possible to click **"Download data"** to download the specified disease data from DHIS2 into a CHAP Core-supported format, and continue the remaining analysis [programmatically with the CHAP-cli](../chap-cli/using-pa-with-cli). 
+> &#x1F6C8; At this point, it's also possible to click **"Download data"** to download the specified disease data from DHIS2 into a CHAP Core-supported format, and continue the remaining analysis [programmatically with the CHAP-cli](../chap-cli/using-pa-with-cli).
 
 ---
 

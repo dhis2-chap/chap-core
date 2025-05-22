@@ -1,7 +1,7 @@
 # Integrating External Models with DHIS2 through CHAP
 
-Assuming you have CHAP running on a server with DHIS2 ([see this guide](../installation/running-chap-on-server)), it is possible to 
-make new external models available. 
+Assuming you have CHAP running on a server with DHIS2 ([see this guide](../modeling-app/running-chap-on-server.md)), it is possible to
+make new external models available.
 
 Currently, CHAP has an internal registry of models that can be used.  
 If you want to run a model that is not in the registry, this now has to be done by editing the local CHAP code at the server.  
