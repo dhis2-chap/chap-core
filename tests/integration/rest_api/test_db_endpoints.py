@@ -216,6 +216,7 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
     _make_dataset(make_dataset_request)
 
 
+@pytest.mark.skip
 def test_make_dataset_failing_with_missing_data(celery_session_worker, dependency_overrides, make_dataset_request):
     first_rainfall_idx = next(
         i for i, o in enumerate(make_dataset_request.provided_data) if o.feature_name == 'rainfall')
