@@ -14,7 +14,6 @@ from .api_types import (
 logger = logging.getLogger(__name__)
 
 
-
 class PFeatureModel(FeatureModel):
     properties: dict
 
@@ -23,9 +22,7 @@ class PFeatureCollectionModel(FeatureCollectionModel):
     features: list[PFeatureModel]
 
 
-data_path = (
-    "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_{country_code}_{level}.json.zip"
-)
+data_path = "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_{country_code}_{level}.json.zip"
 
 # country_codes= {'vietnam': 'VNM', 'laos': 'LAO', 'cambodia': 'KHM', 'thailand': 'THA', 'myanmar': 'MMR', 'brazil': 'BRA', 'colombia': 'COL', 'peru': 'PER', 'ecuador': 'ECU', 'bolivia': 'BOL', 'paraguay': 'PRY'}
 
@@ -82,7 +79,6 @@ def add_id(feature, admin_level=1, lookup_dict=None):
     if lookup_dict:
         id = lookup_dict[normalize_name(id)]
     return DFeatureModel(**feature.model_dump(), id=id)
-    
 
 
 def get_area_polygons(country: str, regions: list[str] = None, admin_level: int = 1) -> FeatureCollectionModel:
@@ -110,15 +106,12 @@ def get_area_polygons(country: str, regions: list[str] = None, admin_level: int 
     # TODO: switch feature_dict to use ID_{admin_level} instead of name (there can be duplicate names)
 
     data = get_country_data(country, admin_level=admin_level)
-    feature_dict = {
-        normalize_name(feature.properties[f"NAME_{admin_level}"]): feature
-        for feature in data.features
-    }
+    feature_dict = {normalize_name(feature.properties[f"NAME_{admin_level}"]): feature for feature in data.features}
     for f in feature_dict.values():
         print(f.properties)
-    logger.info(f'Polygon data available for regions: {list(feature_dict.keys())}')
+    logger.info(f"Polygon data available for regions: {list(feature_dict.keys())}")
     if regions:
-        logger.info(f'Filtering to requested regions: {[normalize_name(region) for region in regions]}')
+        logger.info(f"Filtering to requested regions: {[normalize_name(region) for region in regions]}")
         normalized_to_original = {normalize_name(region): region for region in regions}
         features = [
             add_id(feature_dict[normalize_name(region)], admin_level, normalized_to_original)
@@ -126,11 +119,8 @@ def get_area_polygons(country: str, regions: list[str] = None, admin_level: int 
             if normalize_name(region) in feature_dict
         ]
     else:
-        features = [
-            add_id(feature, admin_level)
-            for feature in feature_dict.values()
-        ]
-    
+        features = [add_id(feature, admin_level) for feature in feature_dict.values()]
+
     return DFeatureCollectionModel(
         type="FeatureCollection",
         features=features,
@@ -173,10 +163,10 @@ class Polygons:
 
     def __eq__(self, other):
         return self._polygons == other._polygons
-    
+
     def __len__(self):
         return len(self._polygons.features)
-    
+
     def __iter__(self):
         for feat in self._polygons.features:
             yield feat
@@ -192,32 +182,34 @@ class Polygons:
     @property
     def bbox(self):
         from .geoutils import feature_bbox
+
         boxes = (feature_bbox(feat) for feat in self)
         xmins, ymins, xmaxs, ymaxs = zip(*boxes)
-        bbox = min(xmins),min(ymins),max(xmaxs),max(ymaxs)
+        bbox = min(xmins), min(ymins), max(xmaxs), max(ymaxs)
         return bbox
 
     @classmethod
-    def from_file(cls, filename, id_property='id'):
+    def from_file(cls, filename, id_property="id"):
         return cls.from_geojson(json.load(open(filename)), id_property=id_property)
 
     def to_file(self, filename):
         json.dump(self.to_geojson(), open(filename, "w"))
 
-    def id_to_name_tuple_dict(self)-> Dict[str, Tuple[str]]:
-        '''Returns a dictionary with the id as key and a tuple with the name and parent as value'''
+    def id_to_name_tuple_dict(self) -> Dict[str, Tuple[str]]:
+        """Returns a dictionary with the id as key and a tuple with the name and parent as value"""
         lookup = {}
         for feat in self.feature_collection().features:
             if feat.properties is None:
-                lookup[feat.id] = (feat.id, '-')
+                lookup[feat.id] = (feat.id, "-")
                 continue
-            lookup[feat.id] = (feat.properties.get('name', feat.id),
-                               feat.properties.get('parent', '-'))
+            lookup[feat.id] = (feat.properties.get("name", feat.id), feat.properties.get("parent", "-"))
         return lookup
 
     def get_parent_dict(self):
-        return {feature.id: feature.properties.get('parent', '-') if feature.properties else '-'
-                for feature in self._polygons.features}
+        return {
+            feature.id: feature.properties.get("parent", "-") if feature.properties else "-"
+            for feature in self._polygons.features
+        }
 
     def get_predecessors_map(self, predecessors: list[str]):
         predecessors = set(predecessors)
@@ -225,9 +217,9 @@ class Polygons:
         for feature in self._polygons.features:
             if feature.properties is None:
                 raise ValueError(f"Feature {feature.id} has no properties")
-            if 'parentGraph' not in feature.properties:
+            if "parentGraph" not in feature.properties:
                 raise ValueError(f"Feature {feature.id} has no parentGraph property")
-            possible_parents = [p for p in feature.properties['parentGraph'].split('/') if p in predecessors]
+            possible_parents = [p for p in feature.properties["parentGraph"].split("/") if p in predecessors]
             if len(possible_parents) == 0:
                 raise ValueError(f"Feature {feature.id} has no parent in predecessors")
             if len(possible_parents) > 1:
@@ -251,16 +243,16 @@ class Polygons:
                 logging.error(f"{feature.properties[id_property]}")
                 raise
         return features
-    
+
     @classmethod
-    def from_geojson(cls, geojson: dict, id_property: str='id'):
+    def from_geojson(cls, geojson: dict, id_property: str = "id"):
         # TODO: check or skip non-Polygon features
-        # ... 
+        # ...
 
         # validate features one-by-one
         errors = 0
         features = []
-        for feat in geojson['features']:
+        for feat in geojson["features"]:
             # skip invalid features
             try:
                 feat = DFeatureModel.model_validate(feat)
@@ -270,7 +262,7 @@ class Polygons:
 
         # warn user about skipped features
         if errors:
-            logger.warning(f'Skipped {errors} geojson features due to failed validation')
+            logger.warning(f"Skipped {errors} geojson features due to failed validation")
 
         # create pydantic feature collection and add ids
         features = DFeatureCollectionModel(features=features)

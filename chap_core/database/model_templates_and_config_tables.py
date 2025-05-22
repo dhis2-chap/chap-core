@@ -8,7 +8,7 @@ from chap_core.model_spec import PeriodType
 
 
 class ModelTemplateMetaData(SQLModel):
-    display_name: str = 'No Display Name yet'
+    display_name: str = "No Display Name yet"
     description: str = "No Description yet"
     author: str = "Unknown Author"
     organization: Optional[str] = None
@@ -21,15 +21,16 @@ class ModelTemplateInformation(SQLModel):
     supported_period_type: PeriodType = PeriodType.any
     user_options: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     required_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
-    target: str = 'disease_cases'
+    target: str = "disease_cases"
     allow_free_additional_continuous_covariates: bool = False
 
 
 class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, table=True):
-    '''
+    """
     TODO: Maybe remove Spec from name, or find common convention for all models.
     Just a mixin here to get the model info flat in the database.
-    '''
+    """
+
     name: str = Field(unique=True)
     id: Optional[int] = Field(primary_key=True, default=None)
     source_url: Optional[str] = None

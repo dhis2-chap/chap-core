@@ -7,7 +7,7 @@ logger = logging.getLogger()
 _global_log_file = None
 
 
-def initialize_logging(debug: bool=False, log_file: str=None):
+def initialize_logging(debug: bool = False, log_file: str = None):
     if debug:
         logger.setLevel(level=logging.DEBUG)
         logger.debug("Debug mode enabled")
@@ -42,5 +42,5 @@ def get_log_file_path():
 
 def get_logs():
     if _global_log_file is not None:
-        with open(_global_log_file, 'r') as f:
+        with open(_global_log_file, "r") as f:
             return f.read()

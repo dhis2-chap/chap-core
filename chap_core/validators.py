@@ -10,5 +10,5 @@ def validate_training_data(dataset: DataSet, estimator: Optional[Estimator]) -> 
     Validate the training data
     """
     assert isinstance(dataset, DataSet)
-    if dataset.end_timestamp < dataset.start_timestamp+ 2*delta_year:
+    if dataset.end_timestamp < dataset.start_timestamp + 2 * delta_year:
         raise ValueError("Training data must cover at least two whole years")

@@ -3,9 +3,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
-
-
 class SimpleFileContextManager:
     def __init__(self, filename, mode="r"):
         self.filename = filename
@@ -27,9 +24,3 @@ class SimpleFileContextManager:
     def read(self):
         if self.file:
             return self.file.read()
-
-
-
-
-
-

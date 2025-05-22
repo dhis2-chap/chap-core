@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class ModelSpecBase(ModelTemplateMetaData, DBModel):
-    '''
+    """
     Use inheritance here so that it's flat in the database.
-    '''
+    """
+
     name: str
     # supported_period_types: PeriodType = PeriodType.any
     source_url: Optional[str] = None
@@ -28,9 +29,7 @@ class ModelSpecRead(ModelSpecBase):
     target: FeatureType
 
 
-target_type = FeatureType(name='disease_cases',
-                          display_name='Disease Cases',
-                          description='Disease Cases')
+target_type = FeatureType(name="disease_cases", display_name="Disease Cases", description="Disease Cases")
 
 
 class ModelSpec(ModelSpecBase, table=True):
@@ -63,7 +62,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
         # model_spec = ModelSpec.from_model_spec_read(model_spec_read)
         ModelSpec(
             name="naive_model",
-            display_name='Naive model used for testing',
+            display_name="Naive model used for testing",
             parameters={},
             target=target_type,
             covariates=base_covariates,
@@ -78,7 +77,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
         ),
         ModelSpec(
             name="chap_ewars_weekly",
-            display_name='Weekly CHAP-EWARS model',
+            display_name="Weekly CHAP-EWARS model",
             parameters={},
             target=target_type,
             covariates=base_covariates,
@@ -93,7 +92,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
         ),
         ModelSpec(
             name="chap_ewars_monthly",
-            display_name='Monthly CHAP-EWARS',
+            display_name="Monthly CHAP-EWARS",
             parameters={},
             target=target_type,
             covariates=base_covariates,
@@ -108,7 +107,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
         ),
         ModelSpec(
             name="auto_regressive_weekly",
-            display_name='Weekly Deep Auto Regressive',
+            display_name="Weekly Deep Auto Regressive",
             parameters={},
             target=target_type,
             covariates=base_covariates,
@@ -123,7 +122,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
         ),
         ModelSpec(
             name="auto_regressive_monthly",
-            display_name='Monthly Deep Auto Regressive',
+            display_name="Monthly Deep Auto Regressive",
             parameters={},
             target=target_type,
             covariates=base_covariates,
@@ -165,22 +164,19 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
 
 
 def seed_with_session_wrapper(session_wrapper, get_models_func=get_available_models):
-    '''Seed a database using with the default models'''
+    """Seed a database using with the default models"""
     seeded_feature_types = [
-        FeatureType(name='rainfall',
-                    display_name='Precipitation',
-                    description='Precipitation in mm'),
-        FeatureType(name='mean_temperature',
-                    display_name='Mean Temperature',
-                    description='A measurement of mean temperature'),
-        FeatureType(name='population',
-                    display_name='Population',
-                    description='Population'),
-        target_type]
+        FeatureType(name="rainfall", display_name="Precipitation", description="Precipitation in mm"),
+        FeatureType(
+            name="mean_temperature", display_name="Mean Temperature", description="A measurement of mean temperature"
+        ),
+        FeatureType(name="population", display_name="Population", description="Population"),
+        target_type,
+    ]
 
     db_models = []
     for feature_type in seeded_feature_types:
-        db_models.append(session_wrapper.create_if_not_exists(feature_type, id_name='name'))
+        db_models.append(session_wrapper.create_if_not_exists(feature_type, id_name="name"))
 
     base_covariates = [db_models[0], db_models[1], db_models[2]]
 
@@ -188,4 +184,4 @@ def seed_with_session_wrapper(session_wrapper, get_models_func=get_available_mod
 
     if models is not None:
         for model in models:
-            session_wrapper.create_if_not_exists(model, id_name='name')
+            session_wrapper.create_if_not_exists(model, id_name="name")

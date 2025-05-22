@@ -4,11 +4,13 @@ from typing import Optional
 
 class Runner:
     """
-    An interface for Runners. A runner is able to run "something", e.g. a command on the command line 
+    An interface for Runners. A runner is able to run "something", e.g. a command on the command line
     through Docker."""
+
     def run_command(self, command): ...
 
-    def store_file(self, file_path): ...
+    def store_file(self, file_path):
+        ...
         # not used for anything now
 
     def teardown(self):
@@ -21,7 +23,6 @@ class TrainPredictRunner(abc.ABC):
     """
     Specific wrapper for runners that only run train/predict commands
     """
-
 
     @abc.abstractmethod
     def train(self, train_data: str, model_file_name: str, polygons_file_name: Optional[str]): ...
@@ -37,4 +38,3 @@ class TrainPredictRunner(abc.ABC):
     ): ...
 
     def teardown(self): ...
-

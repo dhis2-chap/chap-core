@@ -2,19 +2,21 @@ from dataclasses import dataclass, field
 from typing import List, Dict
 
 
-#Disease cases
+# Disease cases
 @dataclass
 class DiseaseObservation:
     time_period: str
     disease_cases: int
 
+
 @dataclass
 class DiseaseTimeSeries:
     observations: List[DiseaseObservation]
 
+
 @dataclass
 class MultiLocationDiseaseTimeSeries:
-    timeseries_dict: Dict[str,DiseaseTimeSeries] = field(default_factory=dict)
+    timeseries_dict: Dict[str, DiseaseTimeSeries] = field(default_factory=dict)
 
     def __setitem__(self, location, timeseries):
         self.timeseries_dict[location] = timeseries
@@ -28,11 +30,13 @@ class MultiLocationDiseaseTimeSeries:
     def timeseries(self):
         return iter(self.timeseries_dict.values())
 
-#Assessment metric
+
+# Assessment metric
 @dataclass
 class Error:
     time_period: str
     value: float
+
 
 @dataclass
 class ErrorTimeSeries:
@@ -41,7 +45,7 @@ class ErrorTimeSeries:
 
 @dataclass
 class MultiLocationErrorTimeSeries:
-    timeseries_dict: Dict[str,ErrorTimeSeries]
+    timeseries_dict: Dict[str, ErrorTimeSeries]
 
     def __getitem__(self, location):
         return self.timeseries_dict[location]
@@ -68,6 +72,7 @@ class MultiLocationErrorTimeSeries:
     def get_the_only_timeseries(self):
         assert len(self.timeseries_dict) == 1
         return list(self.timeseries_dict.values())[0]
+
     def get_all_timeperiods(self):
         timeperiods = None
         for ts in self.timeseries():
@@ -77,27 +82,31 @@ class MultiLocationErrorTimeSeries:
             else:
                 assert timeperiods == current_timepriod_value
         return timeperiods
+
     def timeseries_length(self):
         lengths = [len(ts.observations) for ts in self.timeseries()]
         assert len(set(lengths)) == 1
         return lengths[0]
 
-    def locationvalues_per_timepoint(self) -> List[Dict[str,Error]]:
-        return [ dict([(location, timeseries.observations[i]) for location, timeseries in self.timeseries_dict.items()])
-            for i in range(self.timeseries_length())]
+    def locationvalues_per_timepoint(self) -> List[Dict[str, Error]]:
+        return [
+            dict([(location, timeseries.observations[i]) for location, timeseries in self.timeseries_dict.items()])
+            for i in range(self.timeseries_length())
+        ]
 
 
-
-#Forecasts
+# Forecasts
 @dataclass
 class Samples:
     time_period: str
     disease_case_samples: List[float]
 
+
 @dataclass
 class Forecast:
     predictions: List[Samples]
 
+
 @dataclass
 class MultiLocationForecast:
-    timeseries: Dict[str,Forecast]
+    timeseries: Dict[str, Forecast]

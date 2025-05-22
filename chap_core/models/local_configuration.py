@@ -2,7 +2,8 @@
 import logging
 from pathlib import Path
 from pydantic import BaseModel, parse_obj_as
-#from pydantic.type_adapter import validate_python
+
+# from pydantic.type_adapter import validate_python
 import yaml
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -12,12 +13,14 @@ logger = logging.getLogger(__name__)
 
 class LocalModelTemplateWithConfigurations(BaseModel):
     """Class only used for parsing ModelTemplate from config/models/*.yaml files."""
+
     url: str
     versions: dict[str, str]
     configurations: dict[str, ModelConfiguration]
 
 
 Configurations = dict[str, LocalModelTemplateWithConfigurations]
+
 
 def parse_local_model_config_file(file_name) -> Configurations:
     """
@@ -27,18 +30,22 @@ def parse_local_model_config_file(file_name) -> Configurations:
     # parse the yaml file using the pydantic model
     with open(file_name, "r") as file:
         content = yaml.safe_load(file)
-        configurations = parse_obj_as(dict[str, LocalModelTemplateWithConfigurations], content)  # change to validate_python in future
+        configurations = parse_obj_as(
+            dict[str, LocalModelTemplateWithConfigurations], content
+        )  # change to validate_python in future
         return configurations
 
 
-def parse_local_model_config_from_directory(directory: Path=Path("models")/"config", search_pattern="*.yaml") -> Configurations:
+def parse_local_model_config_from_directory(
+    directory: Path = Path("models") / "config", search_pattern="*.yaml"
+) -> Configurations:
     """
     Reads the local model configuration files from the config/models directory and returns a Configurations object.
     The configuration files are in the config/models directory.
     """
 
     # First look for the default.yaml file, we only read the lastest version from this file
-    logger.info('Parsing default model configs')
+    logger.info("Parsing default model configs")
     default_file = directory / "default.yaml"
     default_configurations = parse_local_model_config_file(default_file)
 
@@ -55,13 +62,14 @@ def parse_local_model_config_from_directory(directory: Path=Path("models")/"conf
     for file in directory.glob(search_pattern):
         if file.name == "default.yaml":
             continue
-        logger.info(f'Parsing custom model config file {file}')
+        logger.info(f"Parsing custom model config file {file}")
         file_configurations = parse_local_model_config_file(file)
         for template_name, config in file_configurations.items():
             if template_name in all_configurations:
-                logger.warning(f"Duplicate template name {template_name} in {file.name}. "
-                               "Overwriting with last found from file {file.name}")
+                logger.warning(
+                    f"Duplicate template name {template_name} in {file.name}. "
+                    "Overwriting with last found from file {file.name}"
+                )
                 all_configurations[template_name] = config
-                    
-    return all_configurations
 
+    return all_configurations
