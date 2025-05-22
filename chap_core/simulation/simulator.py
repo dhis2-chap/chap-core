@@ -13,6 +13,3 @@ class Simulator:
 
 class IsDiseaseCaseSimulator(Protocol):
     def simulate(self, climate_data: ClimateData) -> HealthData: ...
-
-
-

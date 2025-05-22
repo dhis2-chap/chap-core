@@ -4,6 +4,7 @@ import numpy as np
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
+
 def assert_tsdataclass_equal(ts_1, ts_2):
     """
     Assert that two time series data classes are equal.
@@ -12,11 +13,10 @@ def assert_tsdataclass_equal(ts_1, ts_2):
     assert dataclasses.fields(ts_1) == dataclasses.fields(ts_2)
     for field in dataclasses.fields(ts_1):
         if field.name == "time_period":
-            assert np.all(getattr(ts_1, field.name)==getattr(ts_2, field.name))
+            assert np.all(getattr(ts_1, field.name) == getattr(ts_2, field.name))
         else:
             np.testing.assert_allclose(getattr(ts_1, field.name), getattr(ts_2, field.name), rtol=1e-5, atol=1e-5)
-            #np.testing.assert(getattr(ts_1, field.name), getattr(ts_2, field.name)), (field.name, getattr(ts_1, field.name), getattr(ts_2, field.name))
-
+            # np.testing.assert(getattr(ts_1, field.name), getattr(ts_2, field.name)), (field.name, getattr(ts_1, field.name), getattr(ts_2, field.name))
 
 
 def assert_dataset_equal(dataset_1: DataSet, dataset_2: DataSet):

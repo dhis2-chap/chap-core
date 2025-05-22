@@ -49,6 +49,7 @@ deep_learning_model:
   url: https://github.com/dhis2-chap/chtorch
   versions:
     v1: "@40a8211bef6d0e078f054b66139ef3fc39021ac2"
+    v2: "@382ae24106b86cd897e2803dd3f50a4b05a2ecfa"
   configurations:
     medium:
       user_option_values:

@@ -8,7 +8,7 @@ class ExternalModelSpec(ModelSpec):
 
 base_features = [fs.rainfall, fs.mean_temperature, fs.population]
 
-# NB: This is maybe outdated and not being used? 
+# NB: This is maybe outdated and not being used?
 # Rest api uses db directly and is populated in  seed_with_session_wrapper
 
 models = (

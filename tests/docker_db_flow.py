@@ -183,7 +183,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Script to run docker db endpoint flows.")
     parser.add_argument("host", type=str, nargs='?', default="localhost", help="Chap REST server host. Defaults to localhost.")
-    parser.add_argument("run_all", type=str2bool, nargs='?', default='true', help="Turn on to run tests for all available models (default), or turn off to test just a single model for quick local testing.")
+    parser.add_argument("run_all", type=str2bool, nargs='?', default='false', help="Turn on to run tests for all available models (default), or turn off to test just a single model for quick local testing.")
 
     args = parser.parse_args()
     logger.info(args)

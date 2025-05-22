@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def parse(date_string: str, default: datetime = None):
     if len(date_string) == 6 and date_string.isdigit():
-        date_string = date_string[:4] + '-' + date_string[4:6]
+        date_string = date_string[:4] + "-" + date_string[4:6]
     return _parse(date_string, default=default)
 
 
@@ -103,7 +103,7 @@ class TimePeriod:
     def from_id(cls, id: str):
         if len(id) == 4:
             return Year(int(id))
-        if 'SunW' in id:
+        if "SunW" in id:
             return Week(*map(int, id.split("SunW")), iso_day=7)
         if "W" in id:
             return Week(*map(int, id.split("W")))
@@ -170,7 +170,7 @@ class TimePeriod:
     @classmethod
     def parse(cls, text_repr: str):
         if "W" in text_repr or "/" in text_repr:
-            if 'SunW' in text_repr:
+            if "SunW" in text_repr:
                 return cls.from_id(text_repr)
             return cls.parse_week(text_repr)
         try:
@@ -257,7 +257,7 @@ class Week(TimePeriod):
     @property
     def id(self):
         if self._day_nr != 1:
-            assert self._day_nr == 7, 'Only support Sunday or Monday as the first day of the week'
+            assert self._day_nr == 7, "Only support Sunday or Monday as the first day of the week"
             return f"{self.year}{self._sep_strings[self._day_nr]}{self.week:02d}"
         return f"{self.year}W{self.week:02d}"
 
@@ -319,9 +319,9 @@ class Week(TimePeriod):
 def clean_timestring(timestring: str):
     if isinstance(timestring, Number):
         return str(timestring)
-    if 'W' in timestring:
-        year, week = timestring.split('W')
-        return f'{year}W{int(week):02d}'
+    if "W" in timestring:
+        year, week = timestring.split("W")
+        return f"{year}W{int(week):02d}"
     return timestring
 
 
@@ -415,7 +415,7 @@ class TimeDelta(DateUtilWrapper):
 
     def n_periods(self, start_stamp: TimeStamp, end_stamp: TimeStamp):
         assert (
-                sum(bool(getattr(self._relative_delta, name, 0)) for name in ("days", "months", "years")) == 1
+            sum(bool(getattr(self._relative_delta, name, 0)) for name in ("days", "months", "years")) == 1
         ), f"Cannot get number of periods for {self}"
         if self._relative_delta.days != 0:
             n_days_diff = (end_stamp.date - start_stamp.date).days
@@ -429,10 +429,10 @@ class TimeDelta(DateUtilWrapper):
 
 class PeriodRange(BNPDataClass):
     def __init__(
-            self,
-            start_timestamp: TimeStamp,
-            end_timestamp: TimeStamp,
-            time_delta: TimeDelta,
+        self,
+        start_timestamp: TimeStamp,
+        end_timestamp: TimeStamp,
+        time_delta: TimeDelta,
     ):
         self._start_timestamp = start_timestamp
         self._end_timestamp = end_timestamp
@@ -552,8 +552,7 @@ class PeriodRange(BNPDataClass):
 
     @classmethod
     def from_pandas(cls, periods: Iterable[pd.Period]):
-        time_deltas = {"M": delta_month, "Y": delta_year, "D": delta_day,
-                       'W-MON': delta_week, 'W-SUN': delta_week}
+        time_deltas = {"M": delta_month, "Y": delta_year, "D": delta_day, "W-MON": delta_week, "W-SUN": delta_week}
         periods = list(periods)
         if not len(periods):
             raise ValueError("Cannot create a period range from an empty list")

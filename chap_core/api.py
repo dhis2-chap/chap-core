@@ -50,8 +50,6 @@ def extract_disease_name(health_data: dict) -> str:
     return health_data["rows"][0][0]
 
 
-
-
 def train_with_validation(model_name, dataset_name, n_months=12):
     dataset = datasets[dataset_name].load()
     # assert not np.any(np.any(np.isnan(data.to_array()[:, 1:])) for data in dataset.values()), "Dataset contains NaN values"
@@ -78,10 +76,10 @@ def train_with_validation(model_name, dataset_name, n_months=12):
 
 
 def forecast(
-        model_name: str,
-        dataset_name: DataSetType,
-        n_months: int,
-        model_path: Optional[str] = None,
+    model_name: str,
+    dataset_name: DataSetType,
+    n_months: int,
+    model_path: Optional[str] = None,
 ):
     logging.basicConfig(level=logging.INFO)
     dataset = datasets[dataset_name].load()

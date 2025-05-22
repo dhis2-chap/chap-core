@@ -26,7 +26,7 @@ class ObservationBase(DBModel):
 class Observation(ObservationBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     dataset_id: int = Field(foreign_key="dataset.id")
-    dataset: 'DataSet' = Relationship(back_populates="observations")
+    dataset: "DataSet" = Relationship(back_populates="observations")
 
 
 class DataSetBase(DBModel):
@@ -39,7 +39,7 @@ class DataSetBase(DBModel):
 class DataSet(DataSetBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     observations: List[Observation] = Relationship(back_populates="dataset", cascade_delete=True)
-    covariates: List['str'] = Field(default_factory=list, sa_column=Column(JSON))
+    covariates: List["str"] = Field(default_factory=list, sa_column=Column(JSON))
     created: Optional[datetime] = None
 
 

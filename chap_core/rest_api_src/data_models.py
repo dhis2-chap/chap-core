@@ -1,12 +1,11 @@
-from datetime import datetime
-from typing import List, Optional
+from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetBase, ObservationBase
-from chap_core.database.tables import BackTestBase, BackTestMetric, BackTestForecast
+from chap_core.database.tables import BackTestBase, BackTestMetric, BackTestForecast, BackTestRead
 
 
 class PredictionBase(BaseModel):
@@ -48,18 +47,9 @@ class JobResponse(BaseModel):
     id: str
 
 
-class BackTestCreate(BackTestBase):
-    ...
+class BackTestCreate(BackTestBase): ...
 
 
-class BackTestRead(BackTestBase):
-    id: int
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    org_unit_ids: List[str] = Field(default_factory=list)
-
-
-# BackTest.get_create_spec()
 class BackTestFull(BackTestRead):
     metrics: list[BackTestMetric]
     forecasts: list[BackTestForecast]
