@@ -74,9 +74,9 @@ def get_database_result(job_id: str) -> DataBaseResponse:
     return DataBaseResponse(id=result)
 
 
-'''
+"""
 Datasets for evaluation are versioned and stored
 Datasets for predictions are not necessarily versioned and stored, but sent in each request
 Evaluation should be run once, then using continous monitoring after 
 Task-id
-'''
+"""

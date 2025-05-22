@@ -62,12 +62,12 @@ def fetch_single_period(polygons: FeatureCollectionModel, start_dt, end_dt, band
 
 
 def fetch_era5_data_generator(
-        credentials: GEECredentials | dict[str, str],
-        polygons: FeatureCollectionModel | str,
-        start_period: str,
-        end_period: str,
-        band_names=list[str],
-        reducer: str = "mean",
+    credentials: GEECredentials | dict[str, str],
+    polygons: FeatureCollectionModel | str,
+    start_period: str,
+    end_period: str,
+    band_names=list[str],
+    reducer: str = "mean",
 ) -> list[ERA5Entry]:
     """
     Fetch ERA5 data for the given polygons, time periods, and band names.
@@ -120,8 +120,9 @@ def fetch_era5_data_generator(
     logger.info(f"Fetching gee data for {n_periods} periods")
     n_simultaneous_requests = 50
     polygon_subsets = [
-        FeatureCollectionModel(type=polygons.type, features=polygons.features[i:i + n_simultaneous_requests])
-        for i in range(0, len(polygons.features), n_simultaneous_requests)]
+        FeatureCollectionModel(type=polygons.type, features=polygons.features[i : i + n_simultaneous_requests])
+        for i in range(0, len(polygons.features), n_simultaneous_requests)
+    ]
 
     for i, period in enumerate(period_range):
         logger.info(f"Fetching period {period}: {i + 1}/{n_periods}")
@@ -131,17 +132,20 @@ def fetch_era5_data_generator(
             logger.info(f"Fetching subset {j + 1}/{len(polygon_subsets)}")
             res = fetch_single_period(subset_polygon, start_day, end_day, band_names, reducer=reducer)
 
-            items = (ERA5Entry(location=loc, period=period.id, band=band, value=value) for loc, properties in
-                     res.items() for band, value in properties.items())
+            items = (
+                ERA5Entry(location=loc, period=period.id, band=band, value=value)
+                for loc, properties in res.items()
+                for band, value in properties.items()
+            )
             yield from items
 
 
 def fetch_era5_data(
-        credentials: GEECredentials | dict[str, str],
-        polygons: FeatureCollectionModel | str,
-        start_period: str,
-        end_period: str,
-        band_names=list[str],
-        reducer: str = "mean",
+    credentials: GEECredentials | dict[str, str],
+    polygons: FeatureCollectionModel | str,
+    start_period: str,
+    end_period: str,
+    band_names=list[str],
+    reducer: str = "mean",
 ) -> list[ERA5Entry]:
     return list(fetch_era5_data_generator(credentials, polygons, start_period, end_period, band_names, reducer=reducer))

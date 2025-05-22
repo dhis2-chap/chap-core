@@ -22,26 +22,26 @@ class ConfiguredModel(abc.ABC):
 
 
 class ModelTemplateInterface(abc.ABC):
-
     @abc.abstractmethod
     def get_schema(self) -> ModelTemplateInformation:
         return self.model_template_info
 
     @abc.abstractmethod
-    def get_model(self, model_configuration: ModelConfiguration | None = None) -> 'ConfiguredModel':
+    def get_model(self, model_configuration: ModelConfiguration | None = None) -> "ConfiguredModel":
         pass
 
-    def get_default_model(self) -> 'ConfiguredModel':
+    def get_default_model(self) -> "ConfiguredModel":
         return self.get_model()
 
 
 class InternalModelTemplate(ModelTemplateInterface):
-    '''
+    """
     This is a practical base class for defining model templates in python.
     The goal is that this can be used to define model templates that can be
     used directly in python, but also provide functionality for exposing them
     throught the chap/mlflow api
-    '''
+    """
+
     model_config_class: type[ModelConfiguration]
     model_template_info: ModelTemplateInformation
 

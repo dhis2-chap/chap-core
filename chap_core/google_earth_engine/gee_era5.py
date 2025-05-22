@@ -30,9 +30,9 @@ class Band(BaseModel):
 
     name: str
     indicator: str
-    reducer: str = 'mean'
+    reducer: str = "mean"
     converter: Callable = lambda x: x
-    periode_reducer: str = 'mean'
+    periode_reducer: str = "mean"
 
 
 orig_bands = [
@@ -131,7 +131,6 @@ class Era5LandGoogleEarthEngineHelperFunctions:
 
     @staticmethod
     def parse_gee_properties(property_dicts: list[dict]) -> DataSet:
-
         df = pd.DataFrame(property_dicts)
         dataclass = create_tsdataclass(list(df["indicator"].unique()))
         location_groups = df.groupby("ou")
@@ -166,7 +165,7 @@ class Era5LandGoogleEarthEngine:
         # read environment variables
         account = os.environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")
         private_key = os.environ.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY").replace("\\n", "\n")
-        
+
         if not account or account is None:
             logger.warning(
                 "GOOGLE_SERVICE_ACCOUNT_EMAIL is not set, you need to set it in the environment variables to use Google Earth Engine"
@@ -192,7 +191,9 @@ class Era5LandGoogleEarthEngine:
             logger.error(e)
             raise GEEError("Could not initialize Google Earth Engine") from e
 
-    def get_historical_era5(self, features: dict, periodes: Iterable[TimePeriod], fetch_requests: Optional[List[FetchRequest]] = None):
+    def get_historical_era5(
+        self, features: dict, periodes: Iterable[TimePeriod], fetch_requests: Optional[List[FetchRequest]] = None
+    ):
         if fetch_requests is None:
             bands = orig_bands
         else:
@@ -232,13 +233,12 @@ class Era5LandGoogleEarthEngine:
         return self.gee_helper.parse_gee_properties(parsed_result)
 
     def get_daily_data(self, regions, periodes: Iterable[TimePeriod], bands=orig_bands):
+        for i, feature in enumerate(regions["features"]):
+            if "properties" not in feature:
+                feature["properties"] = {}
+            if "id" not in feature["properties"]:
+                feature["properties"]["id"] = feature.get("id", f"new_id_{i}")
 
-        for i, feature in enumerate(regions['features']):
-            if 'properties' not in feature:
-                feature['properties'] = {}
-            if 'id' not in feature['properties']:
-                feature['properties']['id'] = feature.get('id', f'new_id_{i}')
-        
         start_date = periodes[0].start_timestamp.date
         end_date = periodes[-1].end_timestamp.date
         era5 = ee.ImageCollection("ECMWF/ERA5_LAND/DAILY_AGGR").select([band.name for band in bands])
@@ -248,11 +248,7 @@ class Era5LandGoogleEarthEngine:
         # Function to extract daily values
         def extract_daily_values(image):
             date = image.date().format("YYYY-MM-dd")
-            stats = image.reduceRegions(
-                collection=regions,
-                reducer=ee.Reducer.mean(),
-                scale=1000
-            )
+            stats = image.reduceRegions(collection=regions, reducer=ee.Reducer.mean(), scale=1000)
             stats = stats.map(lambda feature: feature.set("date", date))
             return stats
 
@@ -287,6 +283,7 @@ class Era5LandGoogleEarthEngine:
 
             # Convert the full data list into a DataFrame
             return pd.DataFrame(full_data)
+
         """ def ee_to_df(feature_collection):
             features = feature_collection.getInfo()["features"]
             data = []

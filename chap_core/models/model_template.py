@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class ModelTemplate:
     """
-    Represents a Model Template that can generate concrete models. 
+    Represents a Model Template that can generate concrete models.
     A template defines the choices allowed for a model
     """
 
@@ -32,11 +32,9 @@ class ModelTemplate:
         self._ignore_env = ignore_env
 
     @classmethod
-    def from_directory_or_github_url(cls,
-                                     model_template_path,
-                                     base_working_dir=Path("runs/"),
-                                     ignore_env=False,
-                                     run_dir_type="timestamp") -> 'ModelTemplate':
+    def from_directory_or_github_url(
+        cls, model_template_path, base_working_dir=Path("runs/"), ignore_env=False, run_dir_type="timestamp"
+    ) -> "ModelTemplate":
         """
         Gets the model template and initializes a working directory with the code for the model.
         model_path can be a local directory or github url
@@ -57,9 +55,8 @@ class ModelTemplate:
         from .utils import get_model_template_from_directory_or_github_url
 
         return get_model_template_from_directory_or_github_url(
-            model_template_path, base_working_dir=base_working_dir,
-            ignore_env=ignore_env, run_dir_type=run_dir_type)
-
+            model_template_path, base_working_dir=base_working_dir, ignore_env=ignore_env, run_dir_type=run_dir_type
+        )
 
     @property
     def name(self):
@@ -69,30 +66,30 @@ class ModelTemplate:
         pass
 
     def __str__(self):
-        return f'ModelTemplate: {self._model_template_config}'
+        return f"ModelTemplate: {self._model_template_config}"
 
     def get_config_class(self) -> type[ModelConfiguration]:
-        '''This will probably not be used'''
+        """This will probably not be used"""
 
         fields = {}
-        types = {'string': str, 'integer': int, 'float': float, 'boolean': bool}
+        types = {"string": str, "integer": int, "float": float, "boolean": bool}
         if self._model_template_config.allow_free_additional_continuous_covariates:
             fields["additional_continuous_covariates"] = (list[str], [])
         for name, user_option in self._model_template_config.user_options.items():
-            T = types[user_option['type']]
-            if user_option.get('default', None) is not None:
-                fields[user_option['title']] = (T, Field(default=T(user_option['default'])))
+            T = types[user_option["type"]]
+            if user_option.get("default", None) is not None:
+                fields[user_option["title"]] = (T, Field(default=T(user_option["default"])))
             else:
-                fields[user_option['title']] = (T, ...)
+                fields[user_option["title"]] = (T, ...)
 
-        # Note that this actually creates a pydantic class dynamically. For instance, if the 
+        # Note that this actually creates a pydantic class dynamically. For instance, if the
         # template has user_options to select a parameterX with default value 0, the class returned could be:
-        #class ModelConfiguration(BaseModel):
+        # class ModelConfiguration(BaseModel):
         #    parameterX: int= Field(default=0)
         # the advantage of creating a pydantic class is that we can get automatic validation and typing
         # when configuring a model template into a model
 
-        return create_model('ModelConfiguration', **fields)
+        return create_model("ModelConfiguration", **fields)
 
     def get_model_configuration_from_yaml(self, yaml_file: Path) -> ModelConfiguration:
         with open(yaml_file, "r") as file:
@@ -105,14 +102,14 @@ class ModelTemplate:
                 logging.error(config)
                 raise e
 
-    def get_default_model(self) -> 'ExternalModel':
+    def get_default_model(self) -> "ExternalModel":
         return self.get_model()
 
-    def get_model(self, model_configuration: ModelConfiguration = None) -> 'ExternalModel':
+    def get_model(self, model_configuration: ModelConfiguration = None) -> "ExternalModel":
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default
-        choices are used. 
+        choices are used.
 
         Parameters
         ----------
@@ -131,11 +128,10 @@ class ModelTemplate:
         # config = ModelTemplateConfig.model_validate(model_configuration)
         from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config
         from .external_model import ExternalModel
+
         runner = get_train_predict_runner_from_model_template_config(
-            self._model_template_config,
-            self._working_dir,
-            self._ignore_env,
-            model_configuration)
+            self._model_template_config, self._working_dir, self._ignore_env, model_configuration
+        )
 
         config = self._model_template_config
         name = config.name
@@ -148,15 +144,15 @@ class ModelTemplate:
             adapters=adapters,
             data_type=data_type,
             working_dir=self._working_dir,
-            configuration=config_passed_to_model
+            configuration=config_passed_to_model,
         )
 
 
 class ExternalModelTemplate(ModelTemplateInterface):
-    '''
+    """
     This class is instanciated when a model is to be run.
     For parsing mlflow and putting into db/rest-api objects, this class should not be used
-    '''
+    """
 
     def __init__(self, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
         self._model_template_config = model_template_config
@@ -166,7 +162,7 @@ class ExternalModelTemplate(ModelTemplateInterface):
     @classmethod
     def fetch_config_from_github_url(cls, github_url) -> ModelTemplateConfigV2:
         content = fetch_mlproject_content(github_url)
-        return ModelTemplateConfigV2.model_validate(yaml.safe_load(content) | {'source_url': github_url})
+        return ModelTemplateConfigV2.model_validate(yaml.safe_load(content) | {"source_url": github_url})
 
     @property
     def model_template_info(self) -> ModelTemplateConfig:

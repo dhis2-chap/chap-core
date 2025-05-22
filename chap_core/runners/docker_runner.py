@@ -59,4 +59,3 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
 
     def teardown(self):
         self._runner.teardown()
-

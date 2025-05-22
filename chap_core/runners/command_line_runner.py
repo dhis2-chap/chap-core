@@ -24,9 +24,9 @@ def run_command(command: str, working_directory=Path(".")):
     # command = command.split()
 
     try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, 
-                                   stderr=subprocess.PIPE, 
-                                   cwd=working_directory, shell=True)
+        process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_directory, shell=True
+        )
         stdout, stderr = process.communicate()
         output = stdout.decode() + "\n" + stderr.decode()
         """
@@ -39,13 +39,17 @@ def run_command(command: str, working_directory=Path(".")):
             output.append(c.decode("utf-8"))
         output = ''.join(output)
         """
-       
+
         streamdata = process.communicate()[0]  # finnish before getting return code
         return_code = process.returncode
 
         if return_code != 0:
-            logger.error(f"Command '{command}' failed with return code {return_code}, ({''.join(map(str, streamdata))}, {output}")
-            raise CommandLineException(f"Command '{command}' failed with return code {return_code}, Full output from command below: \n ----- \n({''.join(map(str, streamdata))}, {output} \n--------")
+            logger.error(
+                f"Command '{command}' failed with return code {return_code}, ({''.join(map(str, streamdata))}, {output}"
+            )
+            raise CommandLineException(
+                f"Command '{command}' failed with return code {return_code}, Full output from command below: \n ----- \n({''.join(map(str, streamdata))}, {output} \n--------"
+            )
         # output = subprocess.check_output(' '.join(command), cwd=working_directory, shell=True)
         # logging.info(output)
     except subprocess.CalledProcessError as e:
@@ -57,7 +61,13 @@ def run_command(command: str, working_directory=Path(".")):
 
 
 class CommandLineTrainPredictRunner(TrainPredictRunner):
-    def __init__(self, runner: CommandLineRunner, train_command: str, predict_command: str, model_configuration_filename: str | None=None):
+    def __init__(
+        self,
+        runner: CommandLineRunner,
+        train_command: str,
+        predict_command: str,
+        model_configuration_filename: str | None = None,
+    ):
         self._runner = runner
         self._train_command = train_command
         self._predict_command = predict_command
@@ -68,14 +78,16 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
             return command.format(**keys)
         except KeyError as e:
             raise ModelConfigurationException(
-                f"Was not able to format command {command}. Does the command contain wrong keys or keys that there is not data for in the dataset?") from e
+                f"Was not able to format command {command}. Does the command contain wrong keys or keys that there is not data for in the dataset?"
+            ) from e
 
     def _handle_polygons(self, command, keys, polygons_file_name=None):
         # adds polygons to keys if polygons exist. Does some checking with compatibility with command
         if polygons_file_name is not None:
             if "{polygons}" not in command:
                 logger.warning(
-                    f"Dataset has polygons, but command {command} does not ask for polygons. Will not insert polygons into command.")
+                    f"Dataset has polygons, but command {command} does not ask for polygons. Will not insert polygons into command."
+                )
             else:
                 keys["polygons"] = polygons_file_name
         return keys
@@ -91,7 +103,7 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         keys = self._handle_polygons(self._train_command, keys, polygons_file_name)
         keys = self._handle_config(self._train_command, keys)
         command = self._format_command(self._train_command, keys)
-        logger.info(f'Running command {command}')
+        logger.info(f"Running command {command}")
         return self._runner.run_command(command)
 
     def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):
