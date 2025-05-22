@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, Column, JSON
 from sqlmodel import Field, Relationship, Session, select
 
 from chap_core.database.base_tables import PeriodID, DBModel
+from chap_core.database.dataset_tables import DataSet
 
 
 class BackTestBase(DBModel):
@@ -13,17 +14,30 @@ class BackTestBase(DBModel):
     name: Optional[str] = None
     created: Optional[datetime.datetime] = None
 
+class DataSetMeta(DBModel):
+    id: int
+    name: str
+    type: Optional[str]
+    created: datetime.datetime
+    covariates: List[str]
 
-class BackTestRead(BackTestBase):
+
+class _BackTestRead(BackTestBase):
     id: int
     org_units: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     split_periods: List[PeriodID] = Field(default_factory=list, sa_column=Column(JSON))
 
 
-class BackTest(BackTestRead, table=True):
+
+class BackTest(_BackTestRead, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
+    dataset: DataSet = Relationship()
     forecasts: List['BackTestForecast'] = Relationship(back_populates="backtest", cascade_delete=True)
     metrics: List['BackTestMetric'] = Relationship(back_populates="backtest", cascade_delete=True)
+
+class BackTestRead(_BackTestRead):
+    dataset: DataSetMeta
+
 
 class ForecastBase(DBModel):
     period: PeriodID
