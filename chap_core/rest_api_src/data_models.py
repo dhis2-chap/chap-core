@@ -36,7 +36,6 @@ class FetchRequest(DBModel):
     feature_name: str
     data_source_name: str
 
-
 class DatasetMakeRequest(DataSetBase):
     geojson: FeatureCollectionModel
     provided_data: List[ObservationBase]
@@ -46,6 +45,15 @@ class DatasetMakeRequest(DataSetBase):
 class JobResponse(BaseModel):
     id: str
 
+class ValidationError(BaseModel):
+    reason: str
+    orgUnit: str
+    feature_name: str
+
+class ImportSummaryResponse(BaseModel):
+    id: str
+    imported_count: int
+    rejected: list[ValidationError]
 
 class BackTestCreate(BackTestBase): ...
 

@@ -17,7 +17,7 @@ from chap_core.database.dataset_tables import Observation
 import logging
 
 from ...celery_tasks import CeleryPool, JOB_TYPE_KW, JOB_NAME_KW
-from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate, BackTestRead
+from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate, BackTestRead, ImportSummaryResponse, ValidationError
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -40,10 +40,10 @@ class MetaData(BaseModel):
     data_name_mapping: List[MetaDataEntry]
 
 
-@router.post("/make-dataset", response_model=JobResponse)
-def make_dataset(
-    request: DatasetMakeRequest, database_url: str = Depends(get_database_url), worker_settings=Depends(get_settings)
-):
+@router.post("/make-dataset", response_model=ImportSummaryResponse)
+def make_dataset(request: DatasetMakeRequest,
+                 database_url: str = Depends(get_database_url),
+                 worker_settings=Depends(get_settings)):
     """
     This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
@@ -65,8 +65,10 @@ def make_dataset(
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_dataset", JOB_NAME_KW: request.name},
     )
-    return JobResponse(id=job.id)
+    if imported_count == 0:
+        raise HTTPException(status_code=500, detail=f'Missing values. No data was imported.')
 
+    return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejected_list)
 
 def _read_dataset(request):
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -77,7 +79,7 @@ def _read_dataset(request):
     return feature_names, provided_data
 
 
-def _validate_full_dataset(feature_names, provided_data):
+def _validate_full_dataset(feature_names, provided_data, rejected_list=None):
     new_data = {}
     for location, data in provided_data.items():
         for feature_name in feature_names:
@@ -85,6 +87,7 @@ def _validate_full_dataset(feature_names, provided_data):
                 continue
             isnan = np.isnan(getattr(data, feature_name))
             if np.any(isnan):
+                rejected_list.append(ValidationError(reason="Missing value for the entire time period", orgUnit=location, feature_name=feature_name))
                 isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
                 logger.warning(f'Missing value in {feature_name} in location {location}. n_periods: {len(isnan_)}')
                 break
