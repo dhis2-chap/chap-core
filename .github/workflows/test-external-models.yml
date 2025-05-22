@@ -5,9 +5,9 @@ name: Test-all (docker, external models, etc)
 
 on:
   push:
-    branches: [ "master", "dev" ]
+    branches: ["master", "dev"]
   pull_request:
-    branches: [ "master", "dev" ]
+    branches: ["master", "dev"]
 
 permissions:
   contents: read
@@ -23,24 +23,24 @@ jobs:
     #    image: ubuntu:latest
     #    options: --user root
     strategy:
-        matrix:
-            os: [ubuntu-latest]
-            python-version: ["3.10"]
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.12"]
     steps:
-    - uses: actions/checkout@v4
-    - name: Install uv
-      uses: astral-sh/setup-uv@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      run: |
-        sudo apt-get install -y libbz2-dev liblzma-dev
-        uv python install ${{ matrix.python-version }}
-    - name: Install the project
-      run: uv sync --dev
-    - name: Install pyenv
-      uses: gabrielfalcao/pyenv-action@v18
-      with:
-        default: "3.10"
-        command: ""
-    - name: Run
-      run: |
-        make test-all
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        run: |
+          sudo apt-get install -y libbz2-dev liblzma-dev
+          uv python install ${{ matrix.python-version }}
+      - name: Install the project
+        run: uv sync --dev
+      - name: Install pyenv
+        uses: gabrielfalcao/pyenv-action@v18
+        with:
+          default: "3.12"
+          command: ""
+      - name: Run
+        run: |
+          make test-all

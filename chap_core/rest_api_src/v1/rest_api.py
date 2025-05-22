@@ -32,6 +32,7 @@ logger.info("Logging initialized")
 
 # Job id and database id
 
+
 def get_app():
     app = FastAPI(root_path="/v1")
     origins = [
@@ -147,14 +148,12 @@ async def predict(data: PredictionRequest, worker_settings=Depends(get_settings)
     """
     try:
         health_data = wf.get_health_dataset(data)
-        target_id = wf.get_target_id(
-            data, ["disease", "diseases", "disease_cases"])
+        target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
 
         func = wf.predict_pipeline_from_health_data if not data.include_data else wf.predict_pipeline_from_full_data
         job = worker.queue(
-            func,
-            health_data.model_dump(), data.estimator_id,
-            data.n_periods, target_id, worker_config=worker_settings)
+            func, health_data.model_dump(), data.estimator_id, data.n_periods, target_id, worker_config=worker_settings
+        )
         internal_state.current_job = job
     except Exception as e:
         logger.error("Failed to run predic. Exception: %s", e)
@@ -165,8 +164,9 @@ async def predict(data: PredictionRequest, worker_settings=Depends(get_settings)
 
 # TODO: include data flag etc
 @app.post("/evaluate")
-async def evaluate(data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1,
-                   worker_settings=Depends(get_settings)) -> dict:
+async def evaluate(
+    data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1, worker_settings=Depends(get_settings)
+) -> dict:
     """
     Start an evaluation task using the given data as training data.
     Results can be retrieved using the get-results endpoint.
@@ -175,8 +175,7 @@ async def evaluate(data: PredictionRequest, n_splits: Optional[int] = 2, stride:
     str_data = json.dumps(json_data)
     job = worker.queue(wf.evaluate, str_data, n_splits, stride, worker_config=worker_settings)
     internal_state.current_job = job
-    return {"status": "success",
-            "task_id": job.id}
+    return {"status": "success", "task_id": job.id}
 
 
 @app.get("/list-models")
@@ -244,7 +243,7 @@ async def get_exception() -> str:
     Retrieve exception information if the job failed
     """
     cur_job = internal_state.current_job
-    return cur_job.exception_info or ''
+    return cur_job.exception_info or ""
 
 
 @app.post("/cancel")
@@ -269,7 +268,7 @@ async def get_status() -> State:
         ready=False,
         status=internal_state.current_job.status,
         progress=internal_state.current_job.progress,
-        logs=""  # get_logs() # todo: fix
+        logs="",  # get_logs() # todo: fix
     )
 
 
@@ -283,7 +282,7 @@ async def health(worker_config=Depends(get_settings)) -> HealthResponse:
     try:
         wf.initialize_gee_client(usecwd=True, worker_config=worker_config)
     except GEEError as e:
-        return HealthResponse(status="failed", message='GEE authentication might not be set up properly: ' + str(e))
+        return HealthResponse(status="failed", message="GEE authentication might not be set up properly: " + str(e))
     return HealthResponse(status="success", message="GEE client initialized")
 
 
@@ -294,6 +293,7 @@ async def version() -> dict:
     """
     # read version from init
     from chap_core import __version__ as chap_core_version
+
     return {"version": chap_core_version}
 
 
@@ -313,14 +313,23 @@ async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
     """
     Check if the modelling app version is compatible with the current API version
     """
-    
+
     # new: Hardcoded minimum version to allow more easy update of frontend
-    from chap_core import __version__ as chap_core_version, __minimum_modelling_app_version__ as minimum_modelling_app_version
+    from chap_core import (
+        __version__ as chap_core_version,
+        __minimum_modelling_app_version__ as minimum_modelling_app_version,
+    )
 
     if Version(modelling_app_version) < Version(minimum_modelling_app_version):
-        return CompatibilityResponse(compatible=False, description=f"Modelling app version {modelling_app_version} is too old. Minimum version is {minimum_modelling_app_version}")
+        return CompatibilityResponse(
+            compatible=False,
+            description=f"Modelling app version {modelling_app_version} is too old. Minimum version is {minimum_modelling_app_version}",
+        )
     else:
-        return CompatibilityResponse(compatible=True, description=f"Modelling app version {modelling_app_version} is compatible with the current API version {chap_core_version}")
+        return CompatibilityResponse(
+            compatible=True,
+            description=f"Modelling app version {modelling_app_version} is compatible with the current API version {chap_core_version}",
+        )
 
     """
     # read version from init (add random string to avoid github caching)
@@ -355,10 +364,9 @@ async def system_info() -> SystemInfoResponse:
     """
     from chap_core import __version__ as chap_core_version
     import platform
+
     return SystemInfoResponse(
-        chap_core_version=chap_core_version,
-        python_version=platform.python_version(),
-        os=platform.platform()
+        chap_core_version=chap_core_version, python_version=platform.python_version(), os=platform.platform()
     )
 
 
@@ -378,10 +386,11 @@ def get_openapi_schema():
 
 def main_backend(seed_data=None, auto_reload=False):
     import uvicorn
+
     if seed_data is not None:
         seed(seed_data)
     if auto_reload:
-        app_path = 'chap_core.rest_api_src.v1.rest_api:app'
+        app_path = "chap_core.rest_api_src.v1.rest_api:app"
         uvicorn.run(app_path, host="0.0.0.0", port=8000, reload=auto_reload)
     else:
         uvicorn.run(app, host="0.0.0.0", port=8000)

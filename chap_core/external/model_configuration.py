@@ -37,9 +37,10 @@ class ModelInfo(BaseModel):
 
 # TODO: remove after refactor
 class ModelTemplateSchema(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):
-    '''
+    """
     This is all the information that is needed to show the model template in gui
-    '''
+    """
+
     name: str
     required_covariates: list[str] = ["rainfall", "mean_temperature", "population"]
     allow_free_additional_continuous_covariates: bool = False
@@ -48,13 +49,14 @@ class ModelTemplateSchema(BaseModel, extra="forbid"):  # pydantic-specific confi
 
 
 class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):
-    '''This is all needed to actually run model'''
+    """This is all needed to actually run model"""
+
     entry_points: EntryPointConfig
     docker_env: Optional[DockerEnvConfig] = None
     python_env: Optional[str] = None
 
 
-class ModelTemplateConfigCommon(ModelTemplateInformation, extra='forbid'):
+class ModelTemplateConfigCommon(ModelTemplateInformation, extra="forbid"):
     meta_data: ModelTemplateMetaData = ModelTemplateMetaData()
 
 
@@ -67,8 +69,9 @@ class ModelTemplateConfigV2(ModelTemplateConfigCommon, RunnerConfig, extra="forb
 
 # TODO: remove after refactor
 class ModelTemplateConfig(ModelTemplateSchema, RunnerConfig):
-    '''
+    """
     TODO: Try to find a better name that is not confusing
     This is all the information that is listed in mlproject file for a model template
-    '''
+    """
+
     adapters: Optional[dict[str, str]] = None

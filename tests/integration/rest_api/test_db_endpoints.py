@@ -266,6 +266,12 @@ def test_backtest_flow_from_request(celery_session_worker,
     assert response.status_code == 200, response.json()
     job_id = response.json()['id']
     db_id = await_result_id(job_id, timeout=120)
+    backtests = client.get("/v1/crud/backtests").json()
+    assert len(backtests) > 0
+    for backtest in backtests:
+        assert 'dataset' in backtest, backtest
+        assert backtest['dataset']['id'] is not None, backtest
+
     response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
     data = response.json()

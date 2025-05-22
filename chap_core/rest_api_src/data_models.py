@@ -1,7 +1,6 @@
-from datetime import datetime
-from typing import List, Optional
+from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
@@ -48,8 +47,7 @@ class JobResponse(BaseModel):
     id: str
 
 
-class BackTestCreate(BackTestBase):
-    ...
+class BackTestCreate(BackTestBase): ...
 
 
 class BackTestFull(BackTestRead):

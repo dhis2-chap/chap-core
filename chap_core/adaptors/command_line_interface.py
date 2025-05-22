@@ -1,6 +1,7 @@
 import yaml
 from cyclopts import App
-#from chap_core.models.model_template_interface import ModelConfiguration
+
+# from chap_core.models.model_template_interface import ModelConfiguration
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import remove_field, create_tsdataclass
 from chap_core.external.model_configuration import RunnerConfig, EntryPointConfig, CommandConfig
@@ -58,7 +59,7 @@ def generate_app(estimator):
     return app
 
 
-def generate_template_app(model_template: InternalModelTemplate, name: str='default'):
+def generate_template_app(model_template: InternalModelTemplate, name: str = "default"):
     app = App()
 
     @app.command()
@@ -93,7 +94,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str='defa
         if model_config_path is not None:
             with open(model_config_path, "r") as file:
                 model_config = yaml.safe_load(file)
-            #model_config = model_template.get_config_class().parse_file(model_config_path)
+            # model_config = model_template.get_config_class().parse_file(model_config_path)
         else:
             model_config = {}
         return ModelConfiguration.model_validate(model_config)
@@ -101,8 +102,13 @@ def generate_template_app(model_template: InternalModelTemplate, name: str='defa
 
     # TODO: send in model config again here
     @app.command()
-    def predict(model_filename: str, historic_data_filename: str,
-                future_data_filename: str, output_filename: str, model_config_path: str = None):
+    def predict(
+        model_filename: str,
+        historic_data_filename: str,
+        future_data_filename: str,
+        output_filename: str,
+        model_config_path: str = None,
+    ):
         """
         Predict using a trained model
 
@@ -138,25 +144,26 @@ def generate_template_app(model_template: InternalModelTemplate, name: str='defa
         """
         runner_config = RunnerConfig(
             entry_points=EntryPointConfig(
-                train=CommandConfig(command='python main.py train {train_data} {model} {model_config}',
-                                    parameters={
-                                        'train_data': 'str',
-                                        'model': 'str',
-                                        'model_config': 'str'
-                                    }),
-                predict=CommandConfig(command='python main.py predict {model} {historic_data} {future_data} {out_file} {model_config}',
-                                      parameters={
-                                          'model': 'str',
-                                          'historic_data': 'str',
-                                          'future_data': 'str',
-                                          'out_file': 'str',
-                                          'model_config': 'str'
-                                      })))
-        info = model_template.model_template_info.model_dump(mode='json') | {'name': name}
+                train=CommandConfig(
+                    command="python main.py train {train_data} {model} {model_config}",
+                    parameters={"train_data": "str", "model": "str", "model_config": "str"},
+                ),
+                predict=CommandConfig(
+                    command="python main.py predict {model} {historic_data} {future_data} {out_file} {model_config}",
+                    parameters={
+                        "model": "str",
+                        "historic_data": "str",
+                        "future_data": "str",
+                        "out_file": "str",
+                        "model_config": "str",
+                    },
+                ),
+            )
+        )
+        info = model_template.model_template_info.model_dump(mode="json") | {"name": name}
         runner_config.python_env = pyenv_filename
 
         print(yaml.dump(info))
         print(yaml.dump(runner_config.model_dump(exclude_unset=True), sort_keys=False))
-
 
     return app, train, predict, write_template_yaml

@@ -38,8 +38,7 @@ from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, Prediction, \
-    PredictionRead, PredictionInfo
+from chap_core.database.tables import BackTest, Prediction, PredictionRead, PredictionInfo
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
@@ -58,16 +57,15 @@ worker = CeleryPool()
 
 @router.get("/backtests", response_model=list[BackTestRead])  # This should be called list
 async def get_backtests(session: Session = Depends(get_session)):
-    '''
+    """
     Returns a list of backtests/evaluations with only the id and name
-    '''
+    """
     backtests = session.exec(select(BackTest)).all()
     return backtests
 
 
 @router_get("/backtests/{backtestId}", response_model=BackTestFull)
-async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
-                       session: Session = Depends(get_session)):
+async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
@@ -79,31 +77,29 @@ class BackTestUpdate(DBModel):
 
 
 @router.post("/backtests", response_model=JobResponse)
-async def create_backtest(backtest: BackTestCreate,
-                          database_url: str = Depends(get_database_url)):
-    job = worker.queue_db(wf.run_backtest,
-                          backtest,
-                          database_url=database_url)
+async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
+    job = worker.queue_db(wf.run_backtest, backtest, database_url=database_url)
 
     return JobResponse(id=job.id)
 
 
 @router.delete("/backtests/{backtestId}")
-async def delete_backtest(backtest_id: Annotated[int, Path(alias="backtestId")],
-                          session: Session = Depends(get_session)):
+async def delete_backtest(
+    backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
+):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     session.delete(backtest)
     session.commit()
-    return {'message': 'deleted'}
+    return {"message": "deleted"}
 
 
 @router.patch("/backtests/{backtestId}", response_model=BackTestRead)
 async def update_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     backtest_update: BackTestUpdate,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     db_backtest = session.get(BackTest, backtest_id)
     if not db_backtest:
@@ -132,8 +128,9 @@ async def get_predictions(session: Session = Depends(get_session)):
 
 
 @router.get("/predictions/{predictionId}", response_model=PredictionRead)
-async def get_prediction(prediction_id: Annotated[int, Path(alias="predictionId")],
-                         session: Session = Depends(get_session)):
+async def get_prediction(
+    prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
+):
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
@@ -146,14 +143,15 @@ async def create_prediction(prediction: PredictionCreate):
 
 
 @router.delete("/predictions/{predictionId}")
-async def delete_prediction(prediction_id: Annotated[int, Path(alias="predictionId")],
-                            session: Session = Depends(get_session)):
+async def delete_prediction(
+    prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
+):
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
     session.delete(prediction)
     session.commit()
-    return {'message': 'deleted'}
+    return {"message": "deleted"}
 
 
 ###########
@@ -177,15 +175,14 @@ class DataSetRead(DBModel):
     covariates: List[str]
 
 
-@router.get('/datasets', response_model=list[DataSetRead])
+@router.get("/datasets", response_model=list[DataSetRead])
 async def get_datasets(session: Session = Depends(get_session)):
     datasets = session.exec(select(DataSet)).all()
     return datasets
 
 
-@router.get('/datasets/{datasetId}', response_model=DataSetWithObservations)
-async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')],
-                      session: Session = Depends(get_session)):
+@router.get("/datasets/{datasetId}", response_model=DataSetWithObservations)
+async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
     assert len(dataset.observations) > 0
@@ -199,39 +196,45 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias='datasetId')],
     return dataset
 
 
-@router.post('/datasets')
-async def create_dataset(data: DatasetCreate, datababase_url=Depends(get_database_url),
-                         worker_settings=Depends(get_settings)) -> JobResponse:
+@router.post("/datasets")
+async def create_dataset(
+    data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)
+) -> JobResponse:
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
-    job = worker.queue_db(wf.harmonize_and_add_health_dataset, health_data.model_dump(), data.name,
-                          database_url=datababase_url, worker_config=worker_settings)
+    job = worker.queue_db(
+        wf.harmonize_and_add_health_dataset,
+        health_data.model_dump(),
+        data.name,
+        database_url=datababase_url,
+        worker_config=worker_settings,
+    )
     return JobResponse(id=job.id)
 
 
-@router.post('/datasets/csvFile')
-async def create_dataset_csv(csv_file: UploadFile = File(...),
-                             geojson_file: UploadFile = File(...),
-                             session: Session = Depends(get_session),
-                             ) -> DataBaseResponse:
+@router.post("/datasets/csvFile")
+async def create_dataset_csv(
+    csv_file: UploadFile = File(...),
+    geojson_file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+) -> DataBaseResponse:
     csv_content = await csv_file.read()
     dataset = InMemoryDataSet.from_csv(pd.io.common.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()
-    features = Polygons.from_geojson(json.loads(geo_json_content), id_property='NAME_1').feature_collection()
-    dataset_id = SessionWrapper(session=session).add_dataset('csv_file', dataset, features.model_dump_json())
+    features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
+    dataset_id = SessionWrapper(session=session).add_dataset("csv_file", dataset, features.model_dump_json())
     return DataBaseResponse(id=dataset_id)
 
 
-@router.delete('/datasets/{datasetId}')
-async def delete_dataset(dataset_id: Annotated[int, Path(alias='datasetId')],
-                         session: Session = Depends(get_session)):
+@router.delete("/datasets/{datasetId}")
+async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
     if dataset is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     session.delete(dataset)
     session.commit()
-    return {'message': 'deleted'}
+    return {"message": "deleted"}
 
 
 ###########
@@ -243,7 +246,7 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias='datasetId')],
 #     return SessionWrapper(session=session).list_all(ModelSpec)
 
 
-@router.get('/models', response_model=list[ModelSpecRead])
+@router.get("/models", response_model=list[ModelSpecRead])
 def list_models(session: Session = Depends(get_session)):
     '''List all configured models from the db (new db tables)'''
     configured_models_read = SessionWrapper(session=session).get_configured_models()
@@ -262,7 +265,7 @@ def list_models(session: Session = Depends(get_session)):
 
 # @router.get('/model-templates', response_model=list[ModelSpecRead])
 # def list_model_templates(session: Session = Depends(get_session)):
-#    """Lists all model templates by reading local config files and presenting models. 
+#    """Lists all model templates by reading local config files and presenting models.
 #    """
 #    return SessionWrapper(session=session).list_all(ModelTemplateConfig)
 
@@ -271,31 +274,31 @@ def list_models(session: Session = Depends(get_session)):
 # other misc
 
 
-@router.post('/debug')
+@router.post("/debug")
 async def debug_entry(database_url: str = Depends(get_database_url)) -> JobResponse:
     job = worker.queue_db(wf.debug, database_url=database_url)
     return JobResponse(id=job.id)
 
 
-@router.get('/debug/{debugId}')
-async def get_debug_entry(debug_id: Annotated[int, Path(alias='debugId')],
-                          session: Session = Depends(get_session)) -> DebugEntry:
+@router.get("/debug/{debugId}")
+async def get_debug_entry(
+    debug_id: Annotated[int, Path(alias="debugId")], session: Session = Depends(get_session)
+) -> DebugEntry:
     debug = session.get(DebugEntry, debug_id)
     if debug is None:
         raise HTTPException(status_code=404, detail="Debug entry not found")
     return debug
 
 
-@router.get('/feature-sources', response_model=list[FeatureSource])
+@router.get("/feature-sources", response_model=list[FeatureSource])
 def list_feature_types(session: Session = Depends(get_session)):
     return SessionWrapper(session=session).list_all(FeatureSource)
 
 
-
-@router.post('configured-model')
+@router.post("configured-model")
 def add_configured_model(
-        model_configuration: ConfiguredModelDB.get_create_class(),
-        session: Session = Depends(get_session),
+    model_configuration: ConfiguredModelDB.get_create_class(),
+    session: Session = Depends(get_session),
 ) -> ConfiguredModelDB:
     """
     Add a configured model to the database.

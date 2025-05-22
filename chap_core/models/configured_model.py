@@ -19,11 +19,10 @@ class ConfiguredModel(abc.ABC):
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         pass
 
-    
-class ModelConfiguration(BaseModel):
 
+class ModelConfiguration(BaseModel):
     """
     BaseClass used for configuration that a ModelTemplate takes for creating specific Models
     """
-    pass
 
+    pass

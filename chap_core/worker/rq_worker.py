@@ -17,8 +17,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 chap_core.log_config.initialize_logging()
-#logger.addHandler(logging.FileHandler('logs/rq_worker.log'))
-#logger.info("Logging initialized")
+# logger.addHandler(logging.FileHandler('logs/rq_worker.log'))
+# logger.info("Logging initialized")
 
 
 class RedisJob(Generic[ReturnType]):
@@ -68,12 +68,12 @@ class RedisQueue:
 
     def read_environment_variables(self):
         load_dotenv(find_dotenv())
-        host = os.getenv("REDIS_HOST", 'localhost') # default to localhost for backward compatibility
-        port = os.getenv("REDIS_PORT", '6379')
+        host = os.getenv("REDIS_HOST", "localhost")  # default to localhost for backward compatibility
+        port = os.getenv("REDIS_PORT", "6379")
         return host, port
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> RedisJob[ReturnType]:
-        return RedisJob(self.q.enqueue(func, *args, **kwargs, result_ttl=604800)) #keep result for a week
+        return RedisJob(self.q.enqueue(func, *args, **kwargs, result_ttl=604800))  # keep result for a week
 
     def __del__(self):
         self.q.connection.close()
