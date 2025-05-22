@@ -1,11 +1,11 @@
-# Running on JSON Data Downloaded from the Prediction App
+# Running on JSON Data Downloaded from the Modeling App
 
 **Use this instruction when CHAP Core is not installed at a backend service on your DHIS2-instance**
 
 ## Convert the JSON Data into a CHAP-DataSet
 
-After downloading the JSON data from the Prediction App, it's practical to first convert the data into a CHAP-DataSet. This 
-fetches the climate data from the Google Earth Engine dataset ERA5-Land Daily Aggregated and harmonizes the data into a single DataSet. 
+After downloading the JSON data from the Modeling App, it's practical to first convert the data into a CHAP-DataSet. This
+fetches the climate data from the Google Earth Engine dataset ERA5-Land Daily Aggregated and harmonizes the data into a single DataSet.
 This is done by running the following command (replace the placeholders with the actual values):
 
 ```bash
@@ -14,7 +14,7 @@ $ chap-cli harmonize <path-to-json-file>.json <path-to-output-file>.csv
 
 ## Evaluate Models on the Dataset
 
-The next step is to evaluate existing models on the dataset to see if some of them perform well on your dataset. Ensure Docker is running. 
+The next step is to evaluate existing models on the dataset to see if some of them perform well on your dataset. Ensure Docker is running.
 This is done by running the following command:
 
 ```bash
@@ -25,7 +25,7 @@ This will generate a report with the evaluation results for the specified model 
 
 ## Predict Using the Best Model
 
-After evaluating the models, you can predict the values for the dataset using the best model. This is done by running the 
+After evaluating the models, you can predict the values for the dataset using the best model. This is done by running the
 predict command:
 
 ```bash

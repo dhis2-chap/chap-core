@@ -1,18 +1,16 @@
-
 # Docker Compose (CHAP Core)
 
-Starting CHAP Core using Docker Compose is specifically for those who want to use the CHAP Core REST-API, either together with other services or with the Prediction App installed on a DHIS2 server. See documentation for [Prediction App](prediction-app/prediction-app.md) for instructions on how to install the Prediction App.
+Starting CHAP Core using Docker Compose is specifically for those who want to use the CHAP Core REST-API, either together with other services or with the Modeling App installed on a DHIS2 server. See documentation for [Modeling App](modeling-app/modeling-app.md) for instructions on how to install the Modeling App.
 
 **Requirements**
+
 - Access to credentials for Google Earth Engine. (Google Service Account Email and Private Key)
 
 ## 1. Install Docker (if not installed)
 
-
 **Docker** is a platform for developing, shipping, and running applications inside containers.
 
 To download and install Docker, visit the official Docker website: [https://docs.docker.com/get-started/get-docker](https://docs.docker.com/get-started/get-docker)
-
 
 ## 2. Clone CHAP Core GitHub-Repository
 
@@ -26,24 +24,24 @@ git clone https://github.com/dhis2-chap/chap-core.git
 
 1. Open your terminal and navigate to the "chap-core" repository you cloned:
 
-    ```sh
-    cd chap-core
-    ```
+   ```sh
+   cd chap-core
+   ```
 
 2. Open the "chap-core" repository in your code editor. For example, if you are using Visual Studio Code, you can use the following command in the terminal:
 
-    ```sh
-    code .
-    ```
+   ```sh
+   code .
+   ```
 
 3. In your code editor, create a new file at the root level of the repository and name it `.env`.
 
 4. Add the following environment variables to the `.env` file. Replace the placeholder values with your actual Google Service Account credentials:
 
-    ```bash
-    GOOGLE_SERVICE_ACCOUNT_EMAIL="your-google-service-account@company.iam.gserviceaccount.com"
-    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----<your-private-key>-----END PRIVATE KEY-----"
-    ```
+   ```bash
+   GOOGLE_SERVICE_ACCOUNT_EMAIL="your-google-service-account@company.iam.gserviceaccount.com"
+   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----<your-private-key>-----END PRIVATE KEY-----"
+   ```
 
 ## 4. Start CHAP Core
 
@@ -64,11 +62,10 @@ You can go to [http://localhost:8000/docs](http://localhost:8000/docs) to verify
 ![Swagger UI](_static/swagger-fastapi.png)
 
 ## 5. Stop CHAP Core
+
 ```sh
 docker-compose down
 ```
-
-
 
 ## Logs
 
