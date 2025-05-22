@@ -22,7 +22,7 @@ def run_backtest(info: BackTestCreate,
                  n_splits: int = 10,
                  stride: int = 1,
                  session: SessionWrapper = None):
-    dataset = session.get_dataset(info.dataset_id, FullData)
+    dataset = session.get_dataset(info.dataset_id)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
     estimator = registry.get_model(info.model_id, ignore_env=info.model_id.startswith('chap_ewars'))
@@ -40,7 +40,7 @@ def run_backtest(info: BackTestCreate,
 
 def run_prediction(estimator_id: registry.model_type, dataset_id: str, n_periods: Optional[int], name: str,
                    metadata: dict, session: SessionWrapper):
-    dataset = session.get_dataset(dataset_id, FullData)
+    dataset = session.get_dataset(dataset_id)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
     estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith('chap_ewars'))

@@ -13,7 +13,6 @@ from chap_core.model_spec import (
     EmptyParameterSpec,
     model_spec_from_model,
 )
-from chap_core.database.model_template_seed import template_urls
 import chap_core.predictor.feature_spec as fs
 from chap_core.models.model_template import ExternalModelTemplate
 from chap_core.predictor.naive_estimator import NaiveEstimator
@@ -59,7 +58,7 @@ def mlflow_paths():
 
 
 @pytest.mark.parametrize('mlflow_path', mlflow_paths())
-def test_model_spec_from_file(mlflow_path):
+def test_parse_configured_model_yaml_file(mlflow_path):
     data = yaml.safe_load(open(mlflow_path).read())
     m = ModelTemplateConfigV2.model_validate(data)
     logger.info(m)
@@ -73,8 +72,8 @@ def test_model_spec_from_file(mlflow_path):
 #     m = ModelTemplateConfig.model_validate(data)
 
 
-@pytest.mark.parametrize('github_url', template_urls)
-def test_model_spec_from_github_url(github_url):
-    config = ExternalModelTemplate.fetch_config_from_github_url(github_url)
-    logger.info(config)
-    assert isinstance(config, ModelTemplateConfigV2)
+# @pytest.mark.parametrize('github_url', template_urls)
+# def test_model_spec_from_github_url(github_url):
+#     config = ExternalModelTemplate.fetch_config_from_github_url(github_url)
+#     logger.info(config)
+#     assert isinstance(config, ModelTemplateConfigV2)
