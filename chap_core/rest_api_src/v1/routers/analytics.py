@@ -69,7 +69,7 @@ def make_dataset(request: DatasetMakeRequest,
             else:
                 imported_count += 1
     if imported_count == 0:
-        raise HTTPException(status_code=500, detail=f'Missing values. No data was imported.')
+        raise HTTPException(status_code=500, detail='Missing values. No data was imported.')
 
     request.type = 'evaluation'
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
