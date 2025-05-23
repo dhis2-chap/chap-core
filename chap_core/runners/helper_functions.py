@@ -66,7 +66,7 @@ def get_train_predict_runner_from_model_template_config(
 
         logging.info(f"Docker image is {model_template_config.docker_env.image}")
         command_runner = DockerRunner(model_template_config.docker_env.image, working_dir)
-        return DockerTrainPredictRunner(command_runner, train_command, predict_command)
+        return DockerTrainPredictRunner(command_runner, train_command, predict_command, yaml_filename)
     else:
         # assert model_configuration is None or model_configuration == {}, "ModelConfiguration (for templates) not supported when runner is mlflow for now"
         assert runner_type == "mlflow"
