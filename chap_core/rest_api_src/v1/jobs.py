@@ -37,6 +37,13 @@ def get_job_status(job_id: str) -> str:
 
 @router.delete("/{job_id}")
 def delete_job(job_id: str) -> dict:
+    job = worker.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status.lower() == "running":
+        raise HTTPException(status_code=400, detail="Cannot delete a running job")
+
     result = redis.delete(f"job_meta:{job_id}")
 
     if result == 0:
