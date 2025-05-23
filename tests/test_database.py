@@ -41,7 +41,7 @@ def engine():
 
 
 @pytest.fixture
-def seeded_engine(engine, weekly_full_data):
+def engine_with_dataset(engine, weekly_full_data):
     with SessionWrapper(engine) as session:
         session.add_dataset('full_data', weekly_full_data, 'polygons')
     return engine
@@ -55,14 +55,14 @@ def test_dataset_roundrip(health_population_data, engine):
 
 
 @pytest.mark.slow
-def test_backtest(seeded_engine):
-    with Session(seeded_engine) as session:
+def test_backtest(engine_with_dataset):
+    with Session(engine_with_dataset) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
-    # with patch('chap_core.database.database.engine', seeded_engine):
-    with SessionWrapper(seeded_engine) as session:
+    # with patch('chap_core.database.database.engine', engine_with_dataset):
+    with SessionWrapper(engine_with_dataset) as session:
         res = run_backtest(BackTestCreate(model_id='naive_model', dataset_id=dataset_id), 12, 2, 1, session=session)
     # res = run_backtest('naive_model', dataset_id, 12, 2, 1)
-    with Session(seeded_engine) as session:
+    with Session(engine_with_dataset) as session:
         backtests = session.exec(select(BackTest)).all()
         assert len(backtests) == 1
         backtest = backtests[0]
@@ -71,8 +71,8 @@ def test_backtest(seeded_engine):
 
 
 @pytest.mark.slow
-def test_add_predictions(seeded_engine):
-    with SessionWrapper(seeded_engine) as session:
+def test_add_predictions(engine_with_dataset):
+    with SessionWrapper(engine_with_dataset) as session:
         run_prediction('naive_model', 1, 3, name='testing', metadata='', session=session)
 
 

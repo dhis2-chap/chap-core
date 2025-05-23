@@ -1,24 +1,24 @@
 import dataclasses
 import datetime
 import time
-from typing import Optional
+from typing import Optional, List
 
 import psycopg2
 import sqlalchemy
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from sqlmodel import SQLModel, create_engine, Session, select
 from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
-from .model_spec_tables import seed_with_session_wrapper
+from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB, ModelConfiguration
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
+from chap_core.datatypes import create_tsdataclass
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
 
 from chap_core.time_period import TimePeriod
 from .. import ModelTemplateInterface
-from ..datatypes import create_tsdataclass
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
@@ -151,6 +151,59 @@ class SessionWrapper:
         # return id
         return configured_model.id
 
+    def get_configured_models(self) -> List[ModelSpecRead]:
+        # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
+
+        # get configured models from db
+        # configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
+        configured_models = self.session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()
+
+        # serialize to json and combine configured model with model template
+        configured_models_data = [
+            {**m.model_dump(mode="json"), **(m.model_template.model_dump(mode="json") if m.model_template else {})}
+            for m in configured_models
+        ]
+        # import json
+        # for m in configured_models_data:
+        #    logger.info('list model data: ' + json.dumps(m, indent=4))
+
+        # temp: convert to ModelSpecRead to preserve existing results
+        # TODO: remove ModelSpecRead and return directly as ConfiguredModelDB
+        for model in configured_models_data:
+            # convert single target value to target dict
+            model["target"] = {
+                "name": model["target"],
+                "displayName": model["target"].replace("_", " ").capitalize(),
+                "description": model["target"].replace("_", " ").capitalize(),
+            }
+            # convert list of required covarate strings to list of covariate dicts
+            model["covariates"] = [
+                {
+                    "name": cov,
+                    "displayName": cov.replace("_", " ").capitalize(),
+                    "description": cov.replace("_", " ").capitalize(),
+                }
+                for cov in model["required_covariates"]
+            ]
+            # add list of additional covariate strings to list of covariate dicts
+            model["covariates"] += [
+                {
+                    "name": cov,
+                    "displayName": cov.replace("_", " ").capitalize(),
+                    "description": cov.replace("_", " ").capitalize(),
+                }
+                for cov in model["additional_continuous_covariates"]
+                if cov not in model["covariates"]
+            ]
+        # for m in configured_models_data:
+        #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
+        configured_models_read = [ModelSpecRead.model_validate(m) for m in configured_models_data]
+        # for m in configured_models_read:
+        #    logger.info('read list model data: ' + json.dumps(m.model_dump(mode='json'), indent=4))
+
+        # return
+        return configured_models_read
+
     def get_configured_model(self, configured_model_id: int) -> ConfiguredModel:
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model.name == "naive_model":
@@ -247,8 +300,11 @@ class SessionWrapper:
         assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
         return dataset.id
 
-    def get_dataset(self, dataset_id, dataclass: type) -> _DataSet:
+    def get_dataset(self, dataset_id, dataclass: type | None = None) -> _DataSet:
         dataset = self.session.get(DataSet, dataset_id)
+        if dataclass is None:
+            field_names = dataset.covariates
+            dataclass = create_tsdataclass(field_names)
         observations = dataset.observations
         new_dataset = observations_to_dataset(dataclass, observations)
         return new_dataset
@@ -275,6 +331,9 @@ def create_db_and_tables():
                 n += 1
                 time.sleep(1)
         with SessionWrapper(engine) as session:
-            seed_with_session_wrapper(session)
+            # seed_with_session_wrapper(session)
+            from .model_template_seed import seed_configured_models_from_config_dir
+
+            seed_configured_models_from_config_dir(session.session)
     else:
         logger.warning("Engine not set. Tables not created")

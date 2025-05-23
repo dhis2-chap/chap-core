@@ -14,6 +14,7 @@ class BackTestBase(DBModel):
     name: Optional[str] = None
     created: Optional[datetime.datetime] = None
 
+
 class DataSetMeta(DBModel):
     id: int
     name: str
@@ -28,12 +29,12 @@ class _BackTestRead(BackTestBase):
     split_periods: List[PeriodID] = Field(default_factory=list, sa_column=Column(JSON))
 
 
-
 class BackTest(_BackTestRead, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     dataset: DataSet = Relationship()
-    forecasts: List['BackTestForecast'] = Relationship(back_populates="backtest", cascade_delete=True)
-    metrics: List['BackTestMetric'] = Relationship(back_populates="backtest", cascade_delete=True)
+    forecasts: List["BackTestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
+    metrics: List["BackTestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)
+
 
 class BackTestRead(_BackTestRead):
     dataset: DataSetMeta

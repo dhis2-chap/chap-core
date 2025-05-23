@@ -7,12 +7,12 @@ from ..file_io.file_paths import get_config_path
 from ..models.model_template import ExternalModelTemplate
 
 # TODO: remove after refactor
-template_urls = {
-    "https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a": [{}],
-    "https://github.com/knutdrand/weekly_ar_model@15cc39068498a852771c314e8ea989e6b555b8a5": [{}],
-    "https://github.com/dhis2-chap/chap_auto_ewars@0c41b1d9bd187521e62c58d581e6f5bd5127f7b5": [{}],
-    "https://github.com/dhis2-chap/chap_auto_ewars_weekly@51c63a8581bc29bdb40e788a83f701ed30cca83f": [{}],
-}
+# template_urls = {
+#     'https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a': [{}],
+#     'https://github.com/knutdrand/weekly_ar_model@15cc39068498a852771c314e8ea989e6b555b8a5': [{}],
+#     'https://github.com/dhis2-chap/chap_auto_ewars@0c41b1d9bd187521e62c58d581e6f5bd5127f7b5': [{}],
+#     'https://github.com/dhis2-chap/chap_auto_ewars_weekly@51c63a8581bc29bdb40e788a83f701ed30cca83f': [{}],
+# }
 
 
 def add_model_template(model_template: ModelTemplateDB, session_wrapper: SessionWrapper) -> int:
@@ -67,29 +67,27 @@ def get_naive_model_template():
 
 
 # TODO: old, remove after refactor
-def seed_configured_models(session):
-    wrapper = SessionWrapper(session=session)
-    # add model templates and configured models from template urls
-    for url, configs in template_urls.items():
-        template_id = add_model_template_from_url(url, wrapper)
-        for config in configs:
-            add_configured_model(
-                template_id,
-                ModelConfiguration(additional_continuous_covariates=[], user_option_values=config),
-                "default",
-                wrapper,
-            )
-    # add naive model template
-    naive_template = get_naive_model_template()
-    naive_template_id = add_model_template(naive_template, wrapper)
-    # and naive configured model
-    add_configured_model(
-        naive_template_id,
-        ModelConfiguration(additional_continuous_covariates=[], user_option_values={}),
-        "default",
-        wrapper,
-    )
-    session.commit()
+# def seed_configured_models(session):
+#     wrapper = SessionWrapper(session=session)
+#     # add model templates and configured models from template urls
+#     for url, configs in template_urls.items():
+#         template_id = add_model_template_from_url(url, wrapper)
+#         for config in configs:
+#             add_configured_model(template_id,
+#                                  ModelConfiguration(additional_continuous_covariates=[],
+#                                                     user_option_values=config),
+#                                 'default',
+#                                 wrapper)
+#     # add naive model template
+#     naive_template = get_naive_model_template()
+#     naive_template_id = add_model_template(naive_template, wrapper)
+#     # and naive configured model
+#     add_configured_model(naive_template_id,
+#                         ModelConfiguration(additional_continuous_covariates=[],
+#                                            user_option_values={}),
+#                         'default',
+#                         wrapper)
+#     session.commit()
 
 
 def seed_configured_models_from_config_dir(session, dir=get_config_path() / "models"):

@@ -299,19 +299,26 @@ def database_url():
 
 @pytest.fixture(scope='session')
 def clean_engine(database_url):
+    # TODO: rename clean_engine_with_models? 
+    # TODO: maybe use the on_startup function instead of manually setting up things? 
     engine = create_engine(database_url,
                            connect_args={"check_same_thread": False})
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
     # old model seeding
     # TODO: remove once the new seeding is implemented
-    with SessionWrapper(engine) as session:
-        seed_with_session_wrapper(session)
+    # with SessionWrapper(engine) as session:
+    #     seed_with_session_wrapper(session)
     # new model seeding
-    from chap_core.database.model_template_seed import seed_configured_models        
+    # from chap_core.database.model_template_seed import seed_configured_models        
+    # from sqlmodel import Session
+    # with Session(engine) as session:
+    #     seed_configured_models(session)
+    # newest model seeding
+    from chap_core.database.model_template_seed import seed_configured_models_from_config_dir
     from sqlmodel import Session
     with Session(engine) as session:
-        seed_configured_models(session)
+        seed_configured_models_from_config_dir(session)
     return engine
 
 
