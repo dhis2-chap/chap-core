@@ -73,19 +73,19 @@ def get_naive_model_template():
 #     for url, configs in template_urls.items():
 #         template_id = add_model_template_from_url(url, wrapper)
 #         for config in configs:
-#             add_configured_model(template_id, 
-#                                  ModelConfiguration(additional_continuous_covariates=[], 
-#                                                     user_option_values=config), 
-#                                 'default', 
+#             add_configured_model(template_id,
+#                                  ModelConfiguration(additional_continuous_covariates=[],
+#                                                     user_option_values=config),
+#                                 'default',
 #                                 wrapper)
 #     # add naive model template
 #     naive_template = get_naive_model_template()
 #     naive_template_id = add_model_template(naive_template, wrapper)
 #     # and naive configured model
-#     add_configured_model(naive_template_id, 
-#                         ModelConfiguration(additional_continuous_covariates=[], 
-#                                            user_option_values={}), 
-#                         'default', 
+#     add_configured_model(naive_template_id,
+#                         ModelConfiguration(additional_continuous_covariates=[],
+#                                            user_option_values={}),
+#                         'default',
 #                         wrapper)
 #     session.commit()
 

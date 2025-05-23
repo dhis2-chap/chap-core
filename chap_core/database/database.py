@@ -13,6 +13,7 @@ from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelD
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
 from chap_core.datatypes import create_tsdataclass
+
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
 
@@ -151,21 +152,15 @@ class SessionWrapper:
         return configured_model.id
 
     def get_configured_models(self) -> List[ModelSpecRead]:
-        # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB? 
+        # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
 
         # get configured models from db
         # configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
-        configured_models = self.session.exec(
-            select(ConfiguredModelDB)
-            .join(ConfiguredModelDB.model_template)
-        ).all()
+        configured_models = self.session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()
 
         # serialize to json and combine configured model with model template
         configured_models_data = [
-            {
-                **m.model_dump(mode='json'),
-                **(m.model_template.model_dump(mode='json') if m.model_template else {})
-            }
+            {**m.model_dump(mode="json"), **(m.model_template.model_dump(mode="json") if m.model_template else {})}
             for m in configured_models
         ]
         # import json
@@ -176,29 +171,29 @@ class SessionWrapper:
         # TODO: remove ModelSpecRead and return directly as ConfiguredModelDB
         for model in configured_models_data:
             # convert single target value to target dict
-            model['target'] = {
-                'name': model['target'],
-                'displayName': model['target'].replace('_', ' ').capitalize(),
-                'description': model['target'].replace('_', ' ').capitalize(),
+            model["target"] = {
+                "name": model["target"],
+                "displayName": model["target"].replace("_", " ").capitalize(),
+                "description": model["target"].replace("_", " ").capitalize(),
             }
             # convert list of required covarate strings to list of covariate dicts
-            model['covariates'] = [
+            model["covariates"] = [
                 {
-                    'name': cov,
-                    'displayName': cov.replace('_', ' ').capitalize(),
-                    'description': cov.replace('_', ' ').capitalize(),
+                    "name": cov,
+                    "displayName": cov.replace("_", " ").capitalize(),
+                    "description": cov.replace("_", " ").capitalize(),
                 }
-                for cov in model['required_covariates']
+                for cov in model["required_covariates"]
             ]
             # add list of additional covariate strings to list of covariate dicts
-            model['covariates'] += [
+            model["covariates"] += [
                 {
-                    'name': cov,
-                    'displayName': cov.replace('_', ' ').capitalize(),
-                    'description': cov.replace('_', ' ').capitalize(),
+                    "name": cov,
+                    "displayName": cov.replace("_", " ").capitalize(),
+                    "description": cov.replace("_", " ").capitalize(),
                 }
-                for cov in model['additional_continuous_covariates']
-                if cov not in model['covariates']
+                for cov in model["additional_continuous_covariates"]
+                if cov not in model["covariates"]
             ]
         # for m in configured_models_data:
         #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
@@ -304,8 +299,8 @@ class SessionWrapper:
         self.session.commit()
         assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
         return dataset.id
-    
-    def get_dataset(self, dataset_id, dataclass: type | None=None) -> _DataSet:
+
+    def get_dataset(self, dataset_id, dataclass: type | None = None) -> _DataSet:
         dataset = self.session.get(DataSet, dataset_id)
         if dataclass is None:
             field_names = dataset.covariates
@@ -336,8 +331,9 @@ def create_db_and_tables():
                 n += 1
                 time.sleep(1)
         with SessionWrapper(engine) as session:
-            #seed_with_session_wrapper(session)
+            # seed_with_session_wrapper(session)
             from .model_template_seed import seed_configured_models_from_config_dir
+
             seed_configured_models_from_config_dir(session.session)
     else:
         logger.warning("Engine not set. Tables not created")

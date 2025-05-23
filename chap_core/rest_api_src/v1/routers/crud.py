@@ -31,7 +31,7 @@ from sqlmodel import Session
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.database import SessionWrapper
-from chap_core.database.model_spec_tables import ModelSpecRead, ModelSpec
+from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.feature_tables import FeatureSource
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
@@ -248,7 +248,7 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 
 @router.get("/models", response_model=list[ModelSpecRead])
 def list_models(session: Session = Depends(get_session)):
-    '''List all configured models from the db (new db tables)'''
+    """List all configured models from the db (new db tables)"""
     configured_models_read = SessionWrapper(session=session).get_configured_models()
 
     # return
