@@ -1,4 +1,4 @@
-# Use JSON-file from Modeling App with CHAP Core CLI
+# Use JSON-file from DHIS2 Modeling App with CHAP Core CLI
 
 This document describes how to use the CHAP Core CLI to analyze the JSON file you get when pressing the "Download button" in the Modeling App. If you have not completed this step, you need to [set up the Modeling App to download a JSON file](../modeling-app/running-chap-on-server.md) first.
 

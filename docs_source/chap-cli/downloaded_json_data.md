@@ -1,4 +1,4 @@
-# Running on JSON Data Downloaded from the Modeling App
+# Running on JSON Data Downloaded from the DHIS2 Modeling App
 
 **Use this instruction when CHAP Core is not installed at a backend service on your DHIS2-instance**
 

@@ -23,7 +23,7 @@ In order to make changes and contribute back to the chap-core Python codebase, y
 
 Installing and activating the development environment above is a required step for the remaining steps below.
 
-### Local installation of a DHIS2 instance with the Modeling app
+### Local installation of a DHIS2 instance with the DHIS2 Modeling app
 
 If you want to test chap-core with the Modeling app, follow these steps to set up a local installation of DHIS2.
 
