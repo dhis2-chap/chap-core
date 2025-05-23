@@ -186,9 +186,6 @@ async def list_models() -> list[ModelSpec]:
     return registry.list_specifications()
 
 
-@app.get("/list-model-templates")
-async def list_model_templates() -> list[ModelTemplateConfig]:
-    pass
 
 
 # @app.get("/jobs/{job_id}/logs")
