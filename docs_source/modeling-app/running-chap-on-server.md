@@ -1,11 +1,11 @@
-# Configure Modeling App and Chap Core to work together
+# Configure DHIS2 Modeling App and Chap Core to work together
 
 **Requirements:**
 
 - Minimum DHIS2 version: **2.40.7**
 - Access to a server running DHIS2
 
-The modeling app is dependent on connecting to a Chap server, as running the models is a process that needs to be handled by Chap Core. In this tutorial, we will deploy Chap Core to the same server that DHIS2 is running on, and making the Chap Core REST API available internally to the DHIS2 backend. The Modeling App will then use the DHIS2 Route API to connect to the Chap Core endpoint. We will explain the purpose of the Route API later.
+The Modeling App is dependent on connecting to a Chap server, as running the models is a process that needs to be handled by Chap Core. In this tutorial, we will deploy Chap Core to the same server that DHIS2 is running on, and making the Chap Core REST API available internally to the DHIS2 backend. The Modeling App will then use the DHIS2 Route API to connect to the Chap Core endpoint. We will explain the purpose of the Route API later.
 
 **IMPORTANT:** We do not want to make the Chap Core endpoint publicly available on the internet, as Chap Core does not have any method of authenticating requests.
 
@@ -33,7 +33,7 @@ We now have Chap Core running in Docker within an LXC container dedicated to Cha
 
 Next, verify if you can connect to Chap Core from the container you are running DHIS2 by executing this container and using the curl command (for instance `curl http://192.168.0.174:8000/docs`).
 
-## Install the Modeling App
+## Install the DHIS2 Modeling App
 
 Go into **App Management** in your DHIS2 instance, and install the [Modeling App](https://apps.dhis2.org/app/a29851f9-82a7-4ecd-8b2c-58e0f220bc75)
 
