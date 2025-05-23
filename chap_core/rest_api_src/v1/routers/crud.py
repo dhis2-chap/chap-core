@@ -240,51 +240,16 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 ###########
 # models
 
+# TODO: remove after refactor
+# @router.get('/models', response_model=list[ModelSpecRead])
+# def list_models(session: Session = Depends(get_session)):
+#     return SessionWrapper(session=session).list_all(ModelSpec)
+
 
 @router.get("/models", response_model=list[ModelSpecRead])
 def list_models(session: Session = Depends(get_session)):
-    return SessionWrapper(session=session).list_all(ModelSpec)
-
-
-@router.get("/models-v2", response_model=list[ModelSpecRead])
-def list_models_v2(session: Session = Depends(get_session)):
-    """List all configured models from the db (new db tables)"""
-    # get configured models from db
-    # configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
-    configured_models = session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()
-
-    # serialize to json and combine configured model with model template
-    configured_models_data = [
-        {**m.model_dump(mode="json"), **(m.model_template.model_dump(mode="json") if m.model_template else {})}
-        for m in configured_models
-    ]
-    # import json
-    # for m in configured_models_data:
-    #    logger.info('list model data: ' + json.dumps(m, indent=4))
-
-    # temp: convert to ModelSpecRead to preserve existing results
-    # TODO: remove ModelSpecRead and return directly as ConfiguredModelDB
-    for m in configured_models_data:
-        # convert single target value to target dict
-        m["target"] = {
-            "name": m["target"],
-            "displayName": m["target"].replace("_", " ").capitalize(),
-            "description": m["target"].replace("_", " ").capitalize(),
-        }
-        # convert list of covarate strings to list of covariate dicts
-        m["covariates"] = [
-            {
-                "name": c,
-                "displayName": c.replace("_", " ").capitalize(),
-                "description": c.replace("_", " ").capitalize(),
-            }
-            for c in m["required_covariates"]
-        ]
-    # for m in configured_models_data:
-    #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
-    configured_models_read = [ModelSpecRead.model_validate(m) for m in configured_models_data]
-    # for m in configured_models_read:
-    #    logger.info('read list model data: ' + json.dumps(m.model_dump(mode='json'), indent=4))
+    '''List all configured models from the db (new db tables)'''
+    configured_models_read = SessionWrapper(session=session).get_configured_models()
 
     # return
     return configured_models_read

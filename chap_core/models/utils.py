@@ -124,7 +124,7 @@ def get_model_template_from_directory_or_github_url(
     )
     working_dir = _get_model_code_base(model_template_path, base_working_dir, run_dir_type)
 
-    logger.info(f"Current directory is {os.getcwd()}, working dir is {working_dir}")
+    logger.info(f"Current directory is {os.getcwd()}, working dir is {working_dir.absolute()}")
     assert os.path.isdir(working_dir), working_dir
     assert os.path.isdir(os.path.abspath(working_dir)), working_dir
 

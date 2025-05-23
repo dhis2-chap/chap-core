@@ -51,7 +51,7 @@ def run_prediction(
     metadata: dict,
     session: SessionWrapper,
 ):
-    dataset = session.get_dataset(dataset_id, FullData)
+    dataset = session.get_dataset(dataset_id)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
     estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith("chap_ewars"))

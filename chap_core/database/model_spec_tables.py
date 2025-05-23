@@ -12,6 +12,9 @@ from sqlmodel import Field, Relationship
 logger = logging.getLogger(__name__)
 
 
+# TODO: legacy, most here will be outdated, and should be moved elsewhere
+
+
 class ModelSpecBase(ModelTemplateMetaData, DBModel):
     """
     Use inheritance here so that it's flat in the database.
