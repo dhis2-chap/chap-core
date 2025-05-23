@@ -298,14 +298,25 @@ def test_backtest_flow_from_request(celery_session_worker,
 
 def test_compatible_backtests(clean_engine, dependency_overrides):
     with Session(clean_engine) as session:
-        backtest = BackTest(dataset_id=1,
+        dataset = DataSet(name='ds',
+                          type='testing',
+                          created=datetime.now(),
+                          covariates=[])
+        session.add(dataset)
+        session.commit()
+
+        ds_id = dataset.id
+        backtest = BackTest(dataset_id=ds_id,
+                            name='testing',
                             model_id='naive_model',
                             org_units=['Oslo', 'Bergen'], split_periods=['202201', '202202'])
-        matching = BackTest(dataset_id=1,
+        matching = BackTest(dataset_id=ds_id,
+                            name='testing2',
                             model_id='chap_auto_ewars',
                             org_units=['Bergen', 'Trondheim'],
                             split_periods=['202202', '202203'])
-        non_matching = BackTest(dataset_id=1,
+        non_matching = BackTest(dataset_id=ds_id,
+                                name='testing3',
                                 model_id='auto_regressive_monthly',
                                 org_units=['Trondheim'],
                                 split_periods=['202203'])
