@@ -41,7 +41,8 @@ from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, Prediction, PredictionRead, PredictionInfo
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, \
+    ModelTemplateMetaData, ModelTemplateInformation, ModelConfiguration
 from chap_core.database.base_tables import DBModel
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
@@ -323,10 +324,33 @@ async def get_debug_entry(
 def list_feature_types(session: Session = Depends(get_session)):
     return SessionWrapper(session=session).list_all(FeatureSource)
 
+class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
+    """
+    ModelTemplateRead is a read model for the ModelTemplateDB.
+    It is used to return the model template in a readable format.
+    """
+    name: str
+    id: int
+    user_options: Optional[dict] = None
+    required_covariates: List[str] = []
 
-@router.post("configured-model")
+@router.get("/modelTemplates", response_model=list[ModelTemplateRead])
+async def list_model_templates(session: Session = Depends(get_session)):
+    """
+    Lists all model templates by reading local config files and presenting models.
+    """
+    model_templates = session.exec(select(ModelTemplateDB)).all()
+    return model_templates
+
+
+class ModelConfigurationCreate(ModelConfiguration):
+    name: str
+    model_template_id: int
+
+
+@router.post("/configuredModel")
 def add_configured_model(
-    model_configuration: ConfiguredModelDB.get_create_class(),
+    model_configuration: ModelConfigurationCreate,
     session: Session = Depends(get_session),
 ) -> ConfiguredModelDB:
     """

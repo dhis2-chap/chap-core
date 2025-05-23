@@ -19,7 +19,7 @@ from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
-from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCreate
+from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCreate, ModelTemplateRead
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 import logging
 
@@ -179,6 +179,23 @@ def test_list_models(celery_session_worker, dependency_overrides):
     assert ewars_model.source_url.startswith('https:/')
 
 
+def test_list_model_templates(celery_session_worker, dependency_overrides):
+    response = client.get("/v1/crud/modelTemplates")
+    assert response.status_code == 200, response.json()
+    assert isinstance(response.json(), list)
+    for m in response.json():
+        logger.info(m)
+    assert len(response.json()) > 0
+    assert 'id' in response.json()[0]
+    for attr_name in ('displayName', 'id', 'description'):
+        '''Check these here to make sure camelCase in response'''
+        assert attr_name in response.json()[0], response.json()[0].keys()
+    models = [ModelTemplateRead.model_validate(m) for m in response.json()]
+    assert 'chap_ewars_monthly' in (m.name for m in models)
+    ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
+    assert 'population' in [f for f in ewars_model.required_covariates], ewars_model.required_covariates
+
+
 def test_get_data_sources():
     response = client.get("/v1/analytics/data-sources")
     data = response.json()
@@ -281,14 +298,25 @@ def test_backtest_flow_from_request(celery_session_worker,
 
 def test_compatible_backtests(clean_engine, dependency_overrides):
     with Session(clean_engine) as session:
-        backtest = BackTest(dataset_id=1,
+        dataset = DataSet(name='ds',
+                          type='testing',
+                          created=datetime.now(),
+                          covariates=[])
+        session.add(dataset)
+        session.commit()
+
+        ds_id = dataset.id
+        backtest = BackTest(dataset_id=ds_id,
+                            name='testing',
                             model_id='naive_model',
                             org_units=['Oslo', 'Bergen'], split_periods=['202201', '202202'])
-        matching = BackTest(dataset_id=1,
+        matching = BackTest(dataset_id=ds_id,
+                            name='testing2',
                             model_id='chap_auto_ewars',
                             org_units=['Bergen', 'Trondheim'],
                             split_periods=['202202', '202203'])
-        non_matching = BackTest(dataset_id=1,
+        non_matching = BackTest(dataset_id=ds_id,
+                                name='testing3',
                                 model_id='auto_regressive_monthly',
                                 org_units=['Trondheim'],
                                 split_periods=['202203'])
