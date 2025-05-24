@@ -76,7 +76,6 @@ def test_add_predictions(engine_with_dataset):
         run_prediction('naive_model', 1, 3, name='testing', metadata='', session=session)
 
 
-# TODO: old, remove after refactor? 
 @pytest.fixture
 def model_template_yaml_config():
     return ModelTemplateConfigV2(

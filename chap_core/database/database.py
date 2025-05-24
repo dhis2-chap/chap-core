@@ -362,7 +362,6 @@ def create_db_and_tables():
                 n += 1
                 time.sleep(1)
         with SessionWrapper(engine) as session:
-            # seed_with_session_wrapper(session) # TODO: remove this commented line after refactor
             from .model_template_seed import seed_configured_models_from_config_dir
             seed_configured_models_from_config_dir(session.session)
     else:
