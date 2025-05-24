@@ -3,6 +3,7 @@ name: Create and publish chap Docker image
 on:
   push:
     branches: ["dev", "master"]
+    # tags: ["1.*"]
 
 env:
   REGISTRY: ghcr.io
@@ -38,11 +39,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ matrix.image_name }}
+      - name: Determine tag from context
+        id: tag
+        run: |
+          TAGS=""
+          REF=${GITHUB_REF}
+
+          if [[ "$REF" == refs/heads/dev ]]; then
+            TAGS="dev"
+          elif [[ "$REF" == refs/heads/master ]]; then
+            TAGS="latest"
+          else # TODO support tags later
+            echo "No valid branch or tag for image publishing"
+            exit 0
+          fi
+
+          echo "TAGS=$TAGS" >> $GITHUB_OUTPUT
+        shell: bash
 
       - name: Build and push Docker image (amd64)
         id: push
@@ -52,8 +65,8 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ matrix.image_name }}:${{ steps.tag.outputs.TAGS }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
