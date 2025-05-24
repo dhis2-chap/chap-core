@@ -20,7 +20,7 @@ from functools import partial
 import logging
 
 import numpy as np
-from fastapi import Path
+from fastapi import Path, Query
 from typing import Optional, List, Annotated
 
 import pandas as pd
@@ -41,7 +41,8 @@ from chap_core.rest_api_src.celery_tasks import CeleryPool
 from chap_core.database.tables import BackTest, Prediction, PredictionRead, PredictionInfo
 from chap_core.database.debug import DebugEntry
 from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, \
+    ModelTemplateMetaData, ModelTemplateInformation, ModelConfiguration
 from chap_core.database.base_tables import DBModel
 from chap_core.data import DataSet as InMemoryDataSet
 import chap_core.rest_api_src.db_worker_functions as wf
@@ -113,6 +114,35 @@ async def update_backtest(
     session.commit()
     session.refresh(db_backtest)
     return db_backtest
+
+
+@router.delete("/backtests")
+async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Session = Depends(get_session)):
+    deleted_count = 0
+    backtest_ids_list = []
+
+    if not ids:
+        raise HTTPException(status_code=400, detail="No backtest IDs provided.")
+    raw_id_parts = ids.split(',')
+    if not any(part.strip() for part in raw_id_parts):
+        raise HTTPException(status_code=400, detail="No valid IDs provided. Input consists of only commas or whitespace.")
+    for id_str_part in raw_id_parts:
+        stripped_id_str = id_str_part.strip()
+        if not stripped_id_str:
+            # Handle empty segments from inputs like "1,,2" or "1,"
+            raise HTTPException(status_code=400, detail=f"Invalid ID format: found empty ID segment in '{ids}'. IDs must be non-empty, comma-separated integers.")
+        try:
+            backtest_ids_list.append(int(stripped_id_str))
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid ID format: '{stripped_id_str}' is not a valid integer in '{ids}'.")
+    
+    for backtest_id in backtest_ids_list:
+        backtest = session.get(BackTest, backtest_id)
+        if backtest is not None:
+            session.delete(backtest)
+            deleted_count += 1
+    session.commit()
+    return {'message': f'Deleted {deleted_count} backtests'}
 
 
 class PredictionCreate(DBModel):
@@ -294,10 +324,33 @@ async def get_debug_entry(
 def list_feature_types(session: Session = Depends(get_session)):
     return SessionWrapper(session=session).list_all(FeatureSource)
 
+class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
+    """
+    ModelTemplateRead is a read model for the ModelTemplateDB.
+    It is used to return the model template in a readable format.
+    """
+    name: str
+    id: int
+    user_options: Optional[dict] = None
+    required_covariates: List[str] = []
 
-@router.post("configured-model")
+@router.get("/modelTemplates", response_model=list[ModelTemplateRead])
+async def list_model_templates(session: Session = Depends(get_session)):
+    """
+    Lists all model templates by reading local config files and presenting models.
+    """
+    model_templates = session.exec(select(ModelTemplateDB)).all()
+    return model_templates
+
+
+class ModelConfigurationCreate(ModelConfiguration):
+    name: str
+    model_template_id: int
+
+
+@router.post("/configuredModel")
 def add_configured_model(
-    model_configuration: ConfiguredModelDB.get_create_class(),
+    model_configuration: ModelConfigurationCreate,
     session: Session = Depends(get_session),
 ) -> ConfiguredModelDB:
     """
