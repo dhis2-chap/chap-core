@@ -41,8 +41,9 @@ def delete_job(job_id: str) -> dict:
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if job.status.lower() == "running":
-        raise HTTPException(status_code=400, detail="Cannot delete a running job")
+    job_status = job.status.lower()
+    if job_status in ["pending", "started", "running"]:
+        raise HTTPException(status_code=400, detail="Cannot delete a running job. Cancel it first.")
 
     result = redis.delete(f"job_meta:{job_id}")
 
@@ -50,6 +51,29 @@ def delete_job(job_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Job not found")
 
     return {"message": f"Job {job_id} deleted successfully"}
+
+
+@router.post("/{job_id}/cancel")
+def cancel_job(job_id: str) -> dict:
+    """
+    Cancel a running job
+    """
+    job = worker.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job_status = job.status.lower()
+    
+    # Check if job is in a cancellable state
+    if job_status in ["success", "failure", "revoked"]:
+        raise HTTPException(status_code=400, detail="Cannot cancel a job that has already finished or been cancelled")
+    
+    if job_status not in ["pending", "started", "running"]:
+        raise HTTPException(status_code=400, detail=f"Cannot cancel job with status '{job.status}'")
+    
+    job.cancel()
+    
+    return {"message": f"Job {job_id} has been cancelled"}
 
 
 @router.get("/{job_id}/logs")
