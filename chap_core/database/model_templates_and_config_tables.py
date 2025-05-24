@@ -3,13 +3,24 @@ from typing import Optional, List
 from sqlalchemy import Column, JSON
 from sqlmodel import SQLModel, Field, Relationship
 
+from enum import Enum
+
 from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
+
+
+# class AuthorAssessedStatus(Enum):
+#     red = 'Red: Highly experimental prototype - not at all validated and only meant for early experimentation'
+#     orange = 'Orange: Has seen promise on limited data, needs manual configuration and careful evaluation'
+#     yellow = 'Yellow: Ready for more rigorous testing'
+#     green = 'Green: Validated, ready for use'
 
 
 class ModelTemplateMetaData(SQLModel):
     display_name: str = "No Display Name yet"
     description: str = "No Description yet"
+    #author_note: str = "No Author note yet"
+    #author_assessed_status: AuthorAssessedStatus = AuthorAssessedStatus('red')
     author: str = "Unknown Author"
     organization: Optional[str] = None
     organization_logo_url: Optional[str] = None
