@@ -209,7 +209,16 @@ class CeleryJob(Generic[ReturnType]):
         return 0
 
     def cancel(self):
-        self._result.revoke()
+        self._result.revoke(terminate=True)
+        
+        # Update Redis metadata to reflect the cancellation
+        r.hmset(
+            f"job_meta:{self._job.id}",
+            {
+                "status": "REVOKED",
+                "end_time": datetime.now().isoformat(),
+            },
+        )
 
     @property
     def id(self):
@@ -217,7 +226,7 @@ class CeleryJob(Generic[ReturnType]):
 
     @property
     def is_finished(self) -> bool:
-        return self._result.state in ("SUCCESS", "FAILURE")
+        return self._result.state in ("SUCCESS", "FAILURE", "REVOKED")
 
     @property
     def exception_info(self) -> str:
@@ -272,7 +281,7 @@ class CeleryPool(Generic[ReturnType]):
     #             for status, host_dict in all_jobs.items() for hostname, jobs in host_dict.items() for info in jobs]
 
     def list_jobs(self, status: str = None):
-        """List all tracked jobs stored by Redis. Optional filter by status: PENDING, STARTED, SUCCESS, FAILURE"""
+        """List all tracked jobs stored by Redis. Optional filter by status: PENDING, STARTED, SUCCESS, FAILURE, REVOKED"""
         keys = r.keys("job_meta:*")
         jobs = []
 
