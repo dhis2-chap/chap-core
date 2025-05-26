@@ -17,7 +17,6 @@ def make_prediction_request(model_name):
     filename = '../example_data/anonymous_make_prediction_request.json'
     data = json.load(open(filename))
     data['modelId'] = model_name
-    print(data.keys())
     return data
 
 
@@ -49,7 +48,7 @@ class IntegrationTest:
     def ensure_up(self):
         response = None
         logger.info("Ensuring %s is up" % self._chap_url)
-        for _ in range(20):
+        for _ in range(40):
             try:
                 response = requests.get(self._chap_url + "/v1/health")
                 break
