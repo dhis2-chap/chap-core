@@ -231,9 +231,15 @@ class SessionWrapper:
         return configured_models_read
 
     def get_configured_model_by_name(self, configured_model_name: str) -> ConfiguredModelDB:
-        configured_model = self.session.exec(
+        try:
+            configured_model = self.session.exec(
             select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
         ).one()
+        except sqlalchemy.exc.NoResultFound:
+            all_names = self.session.exec(
+            select(ConfiguredModelDB.name)).all()
+            raise ValueError(f"Configured model with name {configured_model_name} not found. Available names: {all_names}")
+
         return configured_model
 
     def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
@@ -256,7 +262,8 @@ class SessionWrapper:
         info.created = datetime.datetime.now()
         # org_units = list({location for ds in evaluation_results for location in ds.locations()})
         # split_points = list({er.period_range[0] for er in evaluation_results})
-        backtest = BackTest(**info.dict())
+        model_db_id = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
+        backtest = BackTest(**info.dict() | {'model_db_id': model_db_id})
         self.session.add(backtest)
         org_units = set([])
         split_points = set([])
