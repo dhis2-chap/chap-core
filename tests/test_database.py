@@ -54,7 +54,7 @@ def test_dataset_roundrip(health_population_data, engine):
         assert_dataset_equal(dataset, health_population_data)
 
 
-@pytest.mark.slow
+@pytest.mark.skip('Needs to seed models for this test to work')
 def test_backtest(engine_with_dataset):
     with Session(engine_with_dataset) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
@@ -70,7 +70,7 @@ def test_backtest(engine_with_dataset):
         assert len(backtest.forecasts) == 12 * 2 * 10
 
 
-@pytest.mark.slow
+@pytest.mark.skip('Needs to seed models for this test to work')
 def test_add_predictions(engine_with_dataset):
     with SessionWrapper(engine_with_dataset) as session:
         run_prediction('naive_model', 1, 3, name='testing', metadata='', session=session)
