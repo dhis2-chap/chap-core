@@ -1,7 +1,7 @@
 from typing import Optional, List
 
 import jsonschema
-from pydantic import field_validator, model_validator
+from pydantic import model_validator
 from sqlalchemy import Column, JSON
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -68,7 +68,7 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
         logger.info(user_option_values)
         schema = {'type': 'object',
                   'properties': user_options,
-                  'required': list({key for key, value in user_options.items() if not 'default' in value}),
+                  'required': list({key for key, value in user_options.items() if 'default' not in value}),
                   'additionalProperties': False}
         jsonschema.validate(
             instance=user_option_values,

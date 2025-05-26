@@ -381,9 +381,6 @@ def add_configured_model(
     """
     session_wrapper = SessionWrapper(session=session)
     model_template_id = model_configuration.model_template_id
-    model_template = session.get(ModelTemplateDB, model_template_id)
-    user_options = model_template.user_options
-    #_validate_model_configuration(user_options, model_configuration.user_option_values)
     configuration_name = model_configuration.name
     db_id = session_wrapper.add_configured_model(model_template_id,
                                                  ModelConfiguration(**model_configuration.dict()),
