@@ -196,6 +196,7 @@ def test_health_check_success(dependency_overrides):
     assert response.json()['status'] == "success"
 
 
+@pytest.skip(reason="No longer requireing GEE authentication")
 def test_health_check_fail(dependency_overrides):
     app.dependency_overrides[get_settings] = lambda: WorkerConfig(is_test=True, failing_services=('gee',))
     response = client.get("/v1/health")
