@@ -6,6 +6,7 @@ from sqlmodel import Field, Relationship, Session, select
 
 from chap_core.database.base_tables import PeriodID, DBModel
 from chap_core.database.dataset_tables import DataSet
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, ModelConfiguration
 
 
 class BackTestBase(DBModel):
@@ -34,10 +35,19 @@ class BackTest(_BackTestRead, table=True):
     dataset: DataSet = Relationship()
     forecasts: List["BackTestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
     metrics: List["BackTestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)
+    model_db_id: int = Field(foreign_key="configuredmodeldb.id")
+    configured_model: Optional["ConfiguredModelDB"] = Relationship()
+
+
+class ConfiguredModelRead(ModelConfiguration, DBModel):
+    name: str
+    id: int
+    model_template: ModelTemplateDB
 
 
 class BackTestRead(_BackTestRead):
     dataset: DataSetMeta
+    configured_model: ConfiguredModelRead
 
 
 class ForecastBase(DBModel):

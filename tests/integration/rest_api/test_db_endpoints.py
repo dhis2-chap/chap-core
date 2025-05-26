@@ -269,8 +269,10 @@ def test_backtest_flow_from_request(celery_session_worker,
     assert len(backtests) > 0
     for backtest in backtests:
         assert 'dataset' in backtest, backtest
+        assert 'configuredModel' in backtest, backtest
         assert backtest['dataset']['id'] is not None, backtest
-
+        assert backtest['configuredModel']['name'] is not None, backtest
+        assert 'modelTemplate' in backtest['configuredModel'], backtest['configuredModel']
     response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
     data = response.json()
@@ -291,15 +293,18 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
         backtest = BackTest(dataset_id=ds_id,
                             name='testing',
                             model_id='naive_model',
+                            model_db_id = 1,
                             org_units=['Oslo', 'Bergen'], split_periods=['202201', '202202'])
         matching = BackTest(dataset_id=ds_id,
                             name='testing2',
                             model_id='chap_auto_ewars',
+                            model_db_id=1,
                             org_units=['Bergen', 'Trondheim'],
                             split_periods=['202202', '202203'])
         non_matching = BackTest(dataset_id=ds_id,
                                 name='testing3',
                                 model_id='auto_regressive_monthly',
+                                model_db_id=1,
                                 org_units=['Trondheim'],
                                 split_periods=['202203'])
 

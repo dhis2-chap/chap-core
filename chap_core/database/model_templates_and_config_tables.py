@@ -1,7 +1,7 @@
 from typing import Optional, List
 
 import jsonschema
-from pydantic import model_validator
+from pydantic import model_validator, ConfigDict
 from sqlalchemy import Column, JSON
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -53,10 +53,9 @@ class ModelConfiguration(SQLModel):
     user_option_values: Optional[dict] = Field(sa_column=Column(JSON), default_factory=dict)
     additional_continuous_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
 
-
-
 class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     #  unique constraint on name
+    # model_config = ConfigDict(protected_namespaces=())
     name: str = Field(unique=True)
     id: Optional[int] = Field(primary_key=True, default=None)
     model_template_id: int = Field(foreign_key="modeltemplatedb.id")
@@ -74,10 +73,11 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
             instance=user_option_values,
             schema=schema)
 
-    @model_validator(mode='after')
+    #@model_validator(mode='after')
     def validate_user_options(cls, model):
         try:
-            cls._validate_model_configuration(model.model_template.user_options, model.user_option_values)
+            cls._validate_model_configuration(model.model_template.user_options,
+                                              model.user_option_values)
         except jsonschema.ValidationError as e:
             logger.error(f"Validation error in model configuration: {e}")
             raise ValueError(f"Invalid user options: {e.message}")
