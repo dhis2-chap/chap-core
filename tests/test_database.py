@@ -76,7 +76,6 @@ def test_add_predictions(engine_with_dataset):
         run_prediction('naive_model', 1, 3, name='testing', metadata='', session=session)
 
 
-# TODO: old, remove after refactor? 
 @pytest.fixture
 def model_template_yaml_config():
     return ModelTemplateConfigV2(
@@ -110,8 +109,11 @@ def test_add_model_template_from_url(engine, url):
         template_id = add_model_template_from_url(url, session)
         configured_model_id = add_configured_model(
             template_id,
-            ModelConfiguration(user_option_values={}), 'default', session)
-        external_model = session.get_configured_model(configured_model_id)
+            ModelConfiguration(user_option_values={}),
+            'default',
+            session
+        )
+        external_model = session.get_configured_model_with_code(configured_model_id)
         assert isinstance(external_model, ExternalModel)
 
 

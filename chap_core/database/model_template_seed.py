@@ -6,14 +6,6 @@ from .model_templates_and_config_tables import ModelTemplateDB, ModelConfigurati
 from ..file_io.file_paths import get_config_path
 from ..models.model_template import ExternalModelTemplate
 
-# TODO: remove after refactor
-# template_urls = {
-#     'https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a': [{}],
-#     'https://github.com/knutdrand/weekly_ar_model@15cc39068498a852771c314e8ea989e6b555b8a5': [{}],
-#     'https://github.com/dhis2-chap/chap_auto_ewars@0c41b1d9bd187521e62c58d581e6f5bd5127f7b5': [{}],
-#     'https://github.com/dhis2-chap/chap_auto_ewars_weekly@51c63a8581bc29bdb40e788a83f701ed30cca83f': [{}],
-# }
-
 
 def add_model_template(model_template: ModelTemplateDB, session_wrapper: SessionWrapper) -> int:
     template_id = session_wrapper.add_model_template(model_template)

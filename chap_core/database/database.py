@@ -162,10 +162,33 @@ class SessionWrapper:
         configured_models = self.session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()
 
         # serialize to json and combine configured model with model template
-        configured_models_data = [
-            {**m.model_dump(mode="json"), **(m.model_template.model_dump(mode="json") if m.model_template else {})}
-            for m in configured_models
-        ]
+        configured_models_data = []
+        for configured_model in configured_models:
+            # get configured model and model template json data
+            configured_data = configured_model.model_dump(mode="json")
+            template_data = configured_model.model_template.model_dump(mode="json")
+
+            # add display name for configuration (not stored in db)
+            # stitch together template displayName with configured name stub
+            template_display_name = configured_model.model_template.display_name
+            if ":" in configured_model.name:
+                # configured model name is already stitched together as template_name:configuration_name
+                configuration_stub = configured_model.name.split(":")[-1]
+                # combine model template with configuration name to make the name unique
+                configuration_display_name = configuration_stub.replace("_", " ").capitalize()
+                display_name = f"{template_display_name} [{configuration_display_name}]"
+            else:
+                # default configurations just use the display name of their model template
+                display_name = template_display_name
+            configured_data["display_name"] = display_name
+
+            # merge json data and add to results
+            # NOTE: the sequence is important, starting with template data and add/overwrite with configured model data
+            # ...in case of conflicting attrs, eg id and name
+            merged_data = {**template_data, **configured_data}
+            configured_models_data.append(merged_data)
+
+        # debug
         # import json
         # for m in configured_models_data:
         #    logger.info('list model data: ' + json.dumps(m, indent=4))
@@ -207,11 +230,17 @@ class SessionWrapper:
         # return
         return configured_models_read
 
-    def get_configured_model(self, configured_model_id: int) -> ConfiguredModel:
+    def get_configured_model_by_name(self, configured_model_name: str) -> ConfiguredModelDB:
+        configured_model = self.session.exec(
+            select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
+        ).one()
+        return configured_model
+
+    def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model.name == "naive_model":
             return NaiveEstimator()
-        ignore_env = configured_model.model_template.name.startswith("chap_ewars")
+        ignore_env = configured_model.model_template.name.startswith("chap_ewars")  # TODO: seems hacky, how to fix?
         return ModelTemplate.from_directory_or_github_url(
             configured_model.model_template.source_url,
             ignore_env=ignore_env,
@@ -334,7 +363,6 @@ def create_db_and_tables():
                 n += 1
                 time.sleep(1)
         with SessionWrapper(engine) as session:
-            # seed_with_session_wrapper(session)
             from .model_template_seed import seed_configured_models_from_config_dir
 
             seed_configured_models_from_config_dir(session.session)
