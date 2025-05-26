@@ -19,6 +19,7 @@ from datetime import datetime
 from functools import partial
 import logging
 
+import jsonschema
 import numpy as np
 from fastapi import Path, Query
 from typing import Optional, List, Annotated
@@ -91,7 +92,7 @@ async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(
 
 @router.delete("/backtests/{backtestId}")
 async def delete_backtest(
-    backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
+        backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
@@ -103,9 +104,9 @@ async def delete_backtest(
 
 @router.patch("/backtests/{backtestId}", response_model=BackTestRead)
 async def update_backtest(
-    backtest_id: Annotated[int, Path(alias="backtestId")],
-    backtest_update: BackTestUpdate,
-    session: Session = Depends(get_session),
+        backtest_id: Annotated[int, Path(alias="backtestId")],
+        backtest_update: BackTestUpdate,
+        session: Session = Depends(get_session),
 ):
     db_backtest = session.get(BackTest, backtest_id)
     if not db_backtest:
@@ -171,7 +172,7 @@ async def get_predictions(session: Session = Depends(get_session)):
 
 @router.get("/predictions/{predictionId}", response_model=PredictionRead)
 async def get_prediction(
-    prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
+        prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -186,7 +187,7 @@ async def create_prediction(prediction: PredictionCreate):
 
 @router.delete("/predictions/{predictionId}")
 async def delete_prediction(
-    prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
+        prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -240,7 +241,7 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
 
 @router.post("/datasets")
 async def create_dataset(
-    data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)
+        data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ) -> JobResponse:
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
@@ -256,9 +257,9 @@ async def create_dataset(
 
 @router.post("/datasets/csvFile")
 async def create_dataset_csv(
-    csv_file: UploadFile = File(...),
-    geojson_file: UploadFile = File(...),
-    session: Session = Depends(get_session),
+        csv_file: UploadFile = File(...),
+        geojson_file: UploadFile = File(...),
+        session: Session = Depends(get_session),
 ) -> DataBaseResponse:
     csv_content = await csv_file.read()
     dataset = InMemoryDataSet.from_csv(pd.io.common.BytesIO(csv_content), dataclass=FullData)
@@ -319,7 +320,7 @@ async def debug_entry(database_url: str = Depends(get_database_url)) -> JobRespo
 
 @router.get("/debug/{debugId}")
 async def get_debug_entry(
-    debug_id: Annotated[int, Path(alias="debugId")], session: Session = Depends(get_session)
+        debug_id: Annotated[int, Path(alias="debugId")], session: Session = Depends(get_session)
 ) -> DebugEntry:
     debug = session.get(DebugEntry, debug_id)
     if debug is None:
@@ -337,14 +338,12 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     ModelTemplateRead is a read model for the ModelTemplateDB.
     It is used to return the model template in a readable format.
     """
-
     name: str
     id: int
     user_options: Optional[dict] = None
     required_covariates: List[str] = []
 
-
-@router.get("/modelTemplates", response_model=list[ModelTemplateRead])
+@router.get("/model-templates", response_model=list[ModelTemplateRead])
 async def list_model_templates(session: Session = Depends(get_session)):
     """
     Lists all model templates by reading local config files and presenting models.
@@ -353,19 +352,37 @@ async def list_model_templates(session: Session = Depends(get_session)):
     return model_templates
 
 
-class ModelConfigurationCreate(ModelConfiguration):
+class ModelConfigurationCreate(DBModel):
     name: str
     model_template_id: int
+    user_option_values: Optional[dict] = None
+    additional_continuous_covariates: List[str] = []
 
 
-@router.post("/configuredModel")
+def _validate_model_configuration(user_options, user_option_values):
+    logger.info(user_options)
+    logger.info(user_option_values)
+    schema = {'type': 'object',
+              'properties': user_options,
+              'required': list(user_options.keys()),
+              'additionalProperties': False}
+    jsonschema.validate(
+        instance=user_option_values,
+        schema=schema)
+
+
+@router.post("/configured-models", response_model=ConfiguredModelDB)
 def add_configured_model(
-    model_configuration: ModelConfigurationCreate,
-    session: Session = Depends(get_session),
-) -> ConfiguredModelDB:
+        model_configuration: ModelConfigurationCreate,
+        session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
+):
     """
     Add a configured model to the database.
     """
-    raise HTTPException(status_code=501, detail="Not implemented")
-    # wrapper = SessionWrapper(session=session)
-    # return wrapper.add_configured_model(model_template_id, configuration)
+    session_wrapper = SessionWrapper(session=session)
+    model_template_id = model_configuration.model_template_id
+    configuration_name = model_configuration.name
+    db_id = session_wrapper.add_configured_model(model_template_id,
+                                                 ModelConfiguration(**model_configuration.dict()),
+                                                 configuration_name)
+    return session.get(ConfiguredModelDB, db_id)

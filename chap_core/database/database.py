@@ -124,8 +124,9 @@ class SessionWrapper:
         self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default"
     ) -> int:
         # get model template name
+        model_template = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
         template_name = (
-            self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first().name
+            model_template.name
         )
 
         # set configured name
@@ -143,7 +144,9 @@ class SessionWrapper:
             return existing_configured.id
 
         # create and add db entry
-        configured_model = ConfiguredModelDB(name=name, model_template_id=model_template_id, **configuration.dict())
+        configured_model = ConfiguredModelDB(name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template)
+        configured_model.validate_user_options(configured_model)
+        #configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
         self.session.commit()
