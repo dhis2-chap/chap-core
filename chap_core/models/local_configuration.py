@@ -19,7 +19,7 @@ class LocalModelTemplateWithConfigurations(BaseModel):
     configurations: dict[str, ModelConfiguration]
 
 
-Configurations = dict[str, LocalModelTemplateWithConfigurations]
+Configurations = list[LocalModelTemplateWithConfigurations]
 
 
 def parse_local_model_config_file(file_name) -> Configurations:
@@ -31,13 +31,14 @@ def parse_local_model_config_file(file_name) -> Configurations:
     with open(file_name, "r") as file:
         content = yaml.safe_load(file)
         configurations = parse_obj_as(
-            dict[str, LocalModelTemplateWithConfigurations], content
+            list[LocalModelTemplateWithConfigurations], content
         )  # change to validate_python in future
+        # return
         return configurations
 
 
 def parse_local_model_config_from_directory(
-    directory: Path = Path("models") / "config", search_pattern="*.yaml"
+    directory, search_pattern="*.yaml"
 ) -> Configurations:
     """
     Reads the local model configuration files from the config/models directory and returns a Configurations object.
@@ -51,10 +52,10 @@ def parse_local_model_config_from_directory(
 
     # for every model template in default.yaml, keep only the version defined last
     # in the file, and remove all other versions
-    for model_name in default_configurations:
-        old_versions = list(default_configurations[model_name].versions.items())
+    for config in default_configurations:
+        old_versions = list(config.versions.items())
         new_versions = old_versions[-1:]  # keep only the last version
-        default_configurations[model_name].versions = dict(new_versions)
+        config.versions = dict(new_versions)
 
     all_configurations = default_configurations
 
@@ -64,12 +65,7 @@ def parse_local_model_config_from_directory(
             continue
         logger.info(f"Parsing custom model config file {file}")
         file_configurations = parse_local_model_config_file(file)
-        for template_name, config in file_configurations.items():
-            if template_name in all_configurations:
-                logger.warning(
-                    f"Duplicate template name {template_name} in {file.name}. "
-                    "Overwriting with last found from file {file.name}"
-                )
-                all_configurations[template_name] = config
+        for config in file_configurations:
+            all_configurations.append(config)
 
     return all_configurations
