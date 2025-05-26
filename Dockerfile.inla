@@ -1,39 +1,41 @@
 # Base image with Python 3.12 and uv pre-installed
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-# Enable bytecode compilation for performance
+# Enable bytecode compilation and safe volume handling
 ENV UV_COMPILE_BYTECODE=1
-
-# Copy dependencies instead of linking for volume safety
 ENV UV_LINK_MODE=copy
 
 # Set working directory
 WORKDIR /app
 
-# First install dependencies only (no project code) for better caching
+# Install all system packages in a single layer
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git \
+    libncurses-dev \
+    libreadline-dev \
+    libbz2-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# First install only the dependencies using the lockfile (no source code yet)
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
 
-# Install any extra system packages
-RUN apt-get update && apt-get upgrade -y && apt-get install -y git
-
-# Copy your project source files
+# Copy source files
 COPY ./chap_core ./chap_core
 COPY ./config ./config
-COPY ./scripts/seed.py ./scripts/seed.py
 COPY ./pyproject.toml .
 COPY ./uv.lock .
 COPY ./README.md .
 
-# Now install project (editable or standard mode)
+# Now install the project (with dependencies already cached)
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-# Set PATH to include local virtualenv
+# Final environment path setup
 ENV PATH="/app/.venv/bin:$PATH"
-
 
 # # installs chap with support for some external models
 # FROM ivargr/r_inla
