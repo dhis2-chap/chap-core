@@ -19,8 +19,8 @@ from chap_core.model_spec import PeriodType
 class ModelTemplateMetaData(SQLModel):
     display_name: str = "No Display Name yet"
     description: str = "No Description yet"
-    #author_note: str = "No Author note yet"
-    #author_assessed_status: AuthorAssessedStatus = AuthorAssessedStatus('red')
+    # author_note: str = "No Author note yet"
+    # author_assessed_status: AuthorAssessedStatus = AuthorAssessedStatus('red')
     author: str = "Unknown Author"
     organization: Optional[str] = None
     organization_logo_url: Optional[str] = None
