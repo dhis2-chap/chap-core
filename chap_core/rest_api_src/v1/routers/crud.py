@@ -343,7 +343,7 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     user_options: Optional[dict] = None
     required_covariates: List[str] = []
 
-@router.get("/modelTemplates", response_model=list[ModelTemplateRead])
+@router.get("/model-templates", response_model=list[ModelTemplateRead])
 async def list_model_templates(session: Session = Depends(get_session)):
     """
     Lists all model templates by reading local config files and presenting models.

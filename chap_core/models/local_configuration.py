@@ -1,6 +1,5 @@
 # Module for parsing local configuration of models, i.e. files that are put in config/models directory.
 import logging
-from pathlib import Path
 from pydantic import BaseModel, parse_obj_as
 
 # from pydantic.type_adapter import validate_python
