@@ -3,7 +3,6 @@ from typing import Optional, List
 from sqlalchemy import Column, JSON
 from sqlmodel import SQLModel, Field, Relationship
 
-from enum import Enum
 
 from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
