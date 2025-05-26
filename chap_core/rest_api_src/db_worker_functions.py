@@ -1,5 +1,5 @@
 from typing import Optional
-
+import logging
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.database import SessionWrapper
@@ -13,6 +13,7 @@ from chap_core.rest_api_src.worker_functions import harmonize_health_dataset, Wo
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.time_period import Month
 
+logger = logging.getLogger(__name__)
 
 def trigger_exception(*args, **kwargs):
     raise Exception("Triggered exception")

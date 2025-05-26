@@ -48,14 +48,21 @@ class IntegrationTest:
     def ensure_up(self):
         response = None
         logger.info("Ensuring %s is up" % self._chap_url)
+        errors = []
         for _ in range(40):
             try:
                 response = requests.get(self._chap_url + "/v1/health")
                 break
             except requests.exceptions.ConnectionError as e:
-                logger.error("Failed to connect to %s" % self._chap_url)
-                logger.error(e)
+                #logger.error("Failed to connect to %s" % self._chap_url)
+                #logger.error(e)
+                errors.append(e)
                 time.sleep(5)
+        else:
+            logger.error("Failed to connect to %s after 40 attempts" % self._chap_url)
+            for error in errors:
+                logger.error(error)
+            raise ConnectionError("Could not connect to %s" % self._chap_url)
         assert response is not None
         assert response.status_code == 200, response.status_code
         assert response.json()["status"] == "success"
@@ -162,7 +169,8 @@ class IntegrationTest:
             job_status = self._get(job_url).lower()
             logger.info(job_status)
             if job_status == "failure":
-                raise ValueError("Failed job")
+                logs = self._get(job_url + "/logs")
+                raise ValueError(f"Failed job: {logs}")
             if job_status == "success":
                 return self._get(job_url + "/database_result/")['id']
             time.sleep(1)
