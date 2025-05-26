@@ -270,11 +270,6 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 ###########
 # models
 
-# TODO: remove after refactor
-# @router.get('/models', response_model=list[ModelSpecRead])
-# def list_models(session: Session = Depends(get_session)):
-#     return SessionWrapper(session=session).list_all(ModelSpec)
-
 
 @router.get("/models", response_model=list[ModelSpecRead])
 def list_models(session: Session = Depends(get_session)):

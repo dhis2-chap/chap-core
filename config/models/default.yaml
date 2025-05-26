@@ -45,33 +45,32 @@ auto_regressive_weekly:
       user_option_values:
         n_iterations: 3
 
-# deep_learning_model:
-#   url: https://github.com/dhis2-chap/chtorch
-#   versions:
-#     v1: "@40a8211bef6d0e078f054b66139ef3fc39021ac2"
-#     v2: "@382ae24106b86cd897e2803dd3f50a4b05a2ecfa"
-#   configurations:
-#     medium:
-#       user_option_values:
-#         max-epochs: 200
-#         embedding-type: "sum"
-#         learning-rate: 0.0005
-#         embed-dim: 4
-#         n-hidden: 4
-#         state-dim: 6
-#         num-rnn-layers: 1
-#         output-embedding-dim: 1
-#         batch-size: 64
-#         prediction-length: 3
-#         context-length: 12
-#         max-dim: 16
-#         weight-decay: 0.0005
-#         direct-ar: true
-#         dropout: 0.4
-#       additional_continuous_covariates:
-#         - mean_temperature
-#         - rainfall
-#     debug:
-#         user_option_values:
-#             max-epochs: 2
+deep_learning_model:
+  url: https://github.com/dhis2-chap/chtorch
+  versions:
+    v1: "@ff48ce411c6039188f6f7867026451c55316d7af"
+  configurations:
+    medium:
+      user_option_values:
+        max-epochs: 200
+        embedding-type: "sum"
+        learning-rate: 0.0005
+        embed-dim: 4
+        n-hidden: 4
+        state-dim: 6
+        num-rnn-layers: 1
+        output-embedding-dim: 1
+        batch-size: 64
+        prediction-length: 3
+        context-length: 12
+        max-dim: 16
+        weight-decay: 0.0005
+        direct-ar: true
+        dropout: 0.4
+      additional_continuous_covariates:
+        - mean_temperature
+        - rainfall
+    debug:
+        user_option_values:
+            max-epochs: 2
 
