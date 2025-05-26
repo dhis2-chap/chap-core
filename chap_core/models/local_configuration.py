@@ -16,7 +16,7 @@ class LocalModelTemplateWithConfigurations(BaseModel):
 
     url: str
     versions: dict[str, str]
-    configurations: dict[str, ModelConfiguration]
+    configurations: dict[str, ModelConfiguration] = {'default': ModelConfiguration()}
 
 
 Configurations = dict[str, LocalModelTemplateWithConfigurations]

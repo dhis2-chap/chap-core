@@ -1,11 +1,14 @@
 from typing import Optional, List
 
+import jsonschema
+from pydantic import field_validator, model_validator
 from sqlalchemy import Column, JSON
 from sqlmodel import SQLModel, Field, Relationship
 
 from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
-
+import logging
+logger = logging.getLogger(__name__)
 
 class ModelTemplateMetaData(SQLModel):
     display_name: str = "No Display Name yet"
@@ -41,9 +44,32 @@ class ModelConfiguration(SQLModel):
     additional_continuous_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
+
 class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     #  unique constraint on name
     name: str = Field(unique=True)
     id: Optional[int] = Field(primary_key=True, default=None)
     model_template_id: int = Field(foreign_key="modeltemplatedb.id")
     model_template: ModelTemplateDB = Relationship()
+
+    @classmethod
+    def _validate_model_configuration(cls, user_options, user_option_values):
+        logger.info(user_options)
+        logger.info(user_option_values)
+        schema = {'type': 'object',
+                  'properties': user_options,
+                  'required': list({key for key, value in user_options.items() if not 'default' in value}),
+                  'additionalProperties': False}
+        jsonschema.validate(
+            instance=user_option_values,
+            schema=schema)
+
+    @model_validator(mode='after')
+    def validate_user_options(cls, model):
+        try:
+            cls._validate_model_configuration(model.model_template.user_options, model.user_option_values)
+        except jsonschema.ValidationError as e:
+            logger.error(f"Validation error in model configuration: {e}")
+            raise ValueError(f"Invalid user options: {e.message}")
+        return model
+

@@ -9,30 +9,19 @@ chap_ewars_monthly:
   versions:
     nightly_build: "@main"
     stable: "@0c41b1d9bd187521e62c58d581e6f5bd5127f7b5"
-  configurations:
-    default:
-      user_option_values:
-        n_iterations: 3
+
 
 chap_ewars_weekly: 
   url: https://github.com/dhis2-chap/chap_auto_ewars_weekly
   versions:
     nightly_build: "@main"
     stable: "@51c63a8581bc29bdb40e788a83f701ed30cca83f"
-  configurations:
-    default:
-      user_option_values:
-        n_iterations: 3
 
 auto_regressive_monthly: 
   url: https://github.com/sandvelab/monthly_ar_model
   versions:
     nightly_build: "@master"
     stable: "@5d630df4f43542093f095c7378d47f8053f9f4fa"
-  configurations:
-    default:
-      user_option_values:
-        n_iterations: 3
 
 auto_regressive_weekly: 
   url: https://github.com/knutdrand/weekly_ar_model
@@ -40,10 +29,20 @@ auto_regressive_weekly:
     old_version: "@36a537dac138af428a4167b2a89eac7dafd5d762"
     nightly_build: "@master"
     stable: "@8ec1eb6ea854022350ad86c9e12a6d63638fbdbe"
+
+ewars_model_template:
+  url: https://github.com/dhis2-chap/ewars_template
+  versions:
+    v1: "d666546c3975994183a6386468af217aba06b6c5"
+    v2: 'main'
   configurations:
     default:
       user_option_values:
-        n_iterations: 3
+        n_lags: 3
+        precision: 1
+      additional_continuous_covariates:
+        - rainfall
+        - mean_temperature
 
 # deep_learning_model:
 #   url: https://github.com/dhis2-chap/chtorch
