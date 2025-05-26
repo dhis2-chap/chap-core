@@ -26,8 +26,8 @@
     nightly_build: "@master"
     stable: "@8ec1eb6ea854022350ad86c9e12a6d63638fbdbe"
 
-ewars_model_template:
-  url: https://github.com/dhis2-chap/ewars_template
+
+- url: https://github.com/dhis2-chap/ewars_template
   versions:
     v1: "d666546c3975994183a6386468af217aba06b6c5"
     v2: 'main'
@@ -46,25 +46,24 @@ ewars_model_template:
   configurations:
     medium:
       user_option_values:
-        max-epochs: 200
-        embedding-type: "sum"
-        learning-rate: 0.0005
-        embed-dim: 4
-        n-hidden: 4
-        state-dim: 6
-        num-rnn-layers: 1
-        output-embedding-dim: 1
-        batch-size: 64
-        prediction-length: 3
-        context-length: 12
-        max-dim: 16
-        weight-decay: 0.0005
-        direct-ar: true
+        max_epochs: 200
+        embedding_type: "sum"
+        learning_rate: 0.0005
+        embed_dim: 4
+        n_hidden: 4
+        state_dim: 6
+        num_rnn_layers: 1
+        output_embedding_dim: 1
+        batch_size: 64
+        context_length: 12
+        max_dim: 16
+        weight_decay: 0.0005
+        direct_ar: true
         dropout: 0.4
       additional_continuous_covariates:
         - mean_temperature
         - rainfall
     debug:
         user_option_values:
-            max-epochs: 2
+            max_epochs: 2
 
