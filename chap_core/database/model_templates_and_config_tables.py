@@ -1,7 +1,6 @@
 from typing import Optional, List
 
 import jsonschema
-from pydantic import model_validator, ConfigDict
 from sqlalchemy import Column, JSON
 from sqlmodel import SQLModel, Field, Relationship
 
