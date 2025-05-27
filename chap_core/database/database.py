@@ -246,7 +246,8 @@ class SessionWrapper:
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model.name == "naive_model":
             return NaiveEstimator()
-        ignore_env = configured_model.model_template.name.startswith("chap_ewars")  # TODO: seems hacky, how to fix?
+        template_name = configured_model.model_template.name
+        ignore_env = template_name.startswith("chap_ewars") or template_name=='ewars_template'  # TODO: seems hacky, how to fix?
         return ModelTemplate.from_directory_or_github_url(
             configured_model.model_template.source_url,
             ignore_env=ignore_env,
