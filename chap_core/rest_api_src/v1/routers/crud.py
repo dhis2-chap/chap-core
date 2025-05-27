@@ -281,31 +281,82 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 
 
 ###########
-# models
+# model templates
 
 
-@router.get("/models", response_model=list[ModelSpecRead])
-def list_models(session: Session = Depends(get_session)):
-    """List all configured models from the db (new db tables)"""
+class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
+    """
+    ModelTemplateRead is a read model for the ModelTemplateDB.
+    It is used to return the model template in a readable format.
+    """
+    # TODO: should probably be moved somewhere else? 
+    name: str
+    id: int
+    user_options: Optional[dict] = None
+    required_covariates: List[str] = []
+
+
+@router.get("/model-templates", response_model=list[ModelTemplateRead])
+async def list_model_templates(session: Session = Depends(get_session)):
+    """
+    Lists all model templates from the db.
+    """
+    model_templates = session.exec(select(ModelTemplateDB)).all()
+    return model_templates
+
+
+###########
+# configured models
+
+
+@router.get("/configured-models", response_model=list[ModelSpecRead])
+def list_configured_models(session: Session = Depends(get_session)):
+    """List all configured models from the db"""
     configured_models_read = SessionWrapper(session=session).get_configured_models()
 
     # return
     return configured_models_read
 
 
-# TODO: implement model template related endpoints below once it works
+class ModelConfigurationCreate(DBModel):
+    name: str
+    model_template_id: int
+    user_option_values: Optional[dict] = None
+    additional_continuous_covariates: List[str] = []
 
 
-# @router.get('/models-from-model-templates', response_model=list[ModelSpecRead])
-# def list_models_from_model_templates(session: Session = Depends(get_session)):
-#    return SessionWrapper(session=session).list_all(ModelSpec)
+@router.post("/configured-models", response_model=ConfiguredModelDB)
+def add_configured_model(
+        model_configuration: ModelConfigurationCreate,
+        session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
+):
+    """Add a configured model to the database"""
+    session_wrapper = SessionWrapper(session=session)
+    model_template_id = model_configuration.model_template_id
+    configuration_name = model_configuration.name
+    db_id = session_wrapper.add_configured_model(model_template_id,
+                                                 ModelConfiguration(**model_configuration.dict()),
+                                                 configuration_name)
+    return session.get(ConfiguredModelDB, db_id)
 
 
-# @router.get('/model-templates', response_model=list[ModelSpecRead])
-# def list_model_templates(session: Session = Depends(get_session)):
-#    """Lists all model templates by reading local config files and presenting models.
-#    """
-#    return SessionWrapper(session=session).list_all(ModelTemplateConfig)
+###########
+# models (alias for configured models)
+
+
+@router.get("/models", response_model=list[ModelSpecRead])
+def list_models(session: Session = Depends(get_session)):
+    """List all models from the db (alias for configured models)"""
+    return list_configured_models(session)
+
+
+@router.post("/models", response_model=ConfiguredModelDB)
+def add_model(
+        model_configuration: ModelConfigurationCreate,
+        session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
+):
+    """Add a model to the database (alias for configured models)"""
+    return add_configured_model(model_configuration, session)
 
 
 #############
@@ -327,62 +378,3 @@ async def get_debug_entry(
         raise HTTPException(status_code=404, detail="Debug entry not found")
     return debug
 
-
-@router.get("/feature-sources", response_model=list[FeatureSource])
-def list_feature_types(session: Session = Depends(get_session)):
-    return SessionWrapper(session=session).list_all(FeatureSource)
-
-
-class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
-    """
-    ModelTemplateRead is a read model for the ModelTemplateDB.
-    It is used to return the model template in a readable format.
-    """
-    name: str
-    id: int
-    user_options: Optional[dict] = None
-    required_covariates: List[str] = []
-
-@router.get("/model-templates", response_model=list[ModelTemplateRead])
-async def list_model_templates(session: Session = Depends(get_session)):
-    """
-    Lists all model templates by reading local config files and presenting models.
-    """
-    model_templates = session.exec(select(ModelTemplateDB)).all()
-    return model_templates
-
-
-class ModelConfigurationCreate(DBModel):
-    name: str
-    model_template_id: int
-    user_option_values: Optional[dict] = None
-    additional_continuous_covariates: List[str] = []
-
-
-def _validate_model_configuration(user_options, user_option_values):
-    logger.info(user_options)
-    logger.info(user_option_values)
-    schema = {'type': 'object',
-              'properties': user_options,
-              'required': list(user_options.keys()),
-              'additionalProperties': False}
-    jsonschema.validate(
-        instance=user_option_values,
-        schema=schema)
-
-
-@router.post("/configured-models", response_model=ConfiguredModelDB)
-def add_configured_model(
-        model_configuration: ModelConfigurationCreate,
-        session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
-):
-    """
-    Add a configured model to the database.
-    """
-    session_wrapper = SessionWrapper(session=session)
-    model_template_id = model_configuration.model_template_id
-    configuration_name = model_configuration.name
-    db_id = session_wrapper.add_configured_model(model_template_id,
-                                                 ModelConfiguration(**model_configuration.dict()),
-                                                 configuration_name)
-    return session.get(ConfiguredModelDB, db_id)
