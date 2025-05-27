@@ -1,5 +1,4 @@
-weekly_ar_model: 
-  url: https://github.com/knutdrand/weekly_ar_model
+- url: https://github.com/knutdrand/weekly_ar_model
   versions:
     v0: "@v0.0.1"
     old_decent_version: "@36a537dac138af428a4167b2a89eac7dafd5d762"

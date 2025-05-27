@@ -84,6 +84,8 @@ def model_template_yaml_config():
         allow_free_additional_continuous_covariates=False,
         user_options={},
         meta_data=ModelTemplateMetaData(author='chap_temp',
+                                        author_note='Testing author note',
+                                        author_assessed_status='green',
                                         description='my model',
                                         display_name='My Model'),
         entry_points=EntryPointConfig(train=CommandConfig(command='train', parameters={'param1': 'value1'}),
@@ -100,6 +102,7 @@ def test_add_model_template_from_yaml_config(model_template_yaml_config, engine)
         assert model_template.required_covariates == model_template_yaml_config.required_covariates
         assert model_template.allow_free_additional_continuous_covariates == model_template_yaml_config.allow_free_additional_continuous_covariates
         assert model_template.user_options == model_template_yaml_config.user_options
+        assert model_template.author_assessed_status == model_template_yaml_config.meta_data.author_assessed_status
 
 
 @pytest.mark.parametrize('url', template_urls)

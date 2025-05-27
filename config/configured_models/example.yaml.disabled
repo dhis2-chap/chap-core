@@ -1,7 +1,6 @@
 # This is an example config file for configuring models
 
-weekly_ar_model: 
-  url: https://github.com/knutdrand/weekly_ar_model
+- url: https://github.com/knutdrand/weekly_ar_model
   versions:
     vX: "@123"
   configurations:
