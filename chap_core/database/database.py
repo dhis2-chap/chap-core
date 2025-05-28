@@ -52,12 +52,28 @@ else:
     logger.warning("Database url not set. Database operations will not work")
 
 
-# TODO: move to separate metrics file
-def crps_ensemble_timestep(forecast: np.ndarray, obs: float) -> float:
-    n = len(forecast)
-    term1 = np.mean(np.abs(forecast - obs))
-    term2 = 0.5 * np.mean(np.abs(forecast[:, None] - forecast[None, :]))
+# TODO: move below to separate metrics file
+
+
+def crps_ensemble_timestep(sample_values: np.ndarray, obs: float) -> float:
+    n = len(sample_values)
+    term1 = np.mean(np.abs(sample_values - obs))
+    term2 = 0.5 * np.mean(np.abs(sample_values[:, None] - sample_values[None, :]))
     return float(term1 - term2)
+
+
+def _is_within_percentile(sample_values: np.ndarray, obs: float, lower_percentile: float, higher_percentile: float) -> float:
+    low,high = np.percentile(sample_values, [lower_percentile, higher_percentile])
+    is_within_range = 1 if (low <= obs <= high) else 0
+    return float(is_within_range)
+
+
+def is_within_10th_90th(sample_values: np.ndarray, obs: float) -> float:
+    return _is_within_percentile(sample_values, obs, 10, 90)
+
+
+def is_within_25th_75th(sample_values: np.ndarray, obs: float) -> float:
+    return _is_within_percentile(sample_values, obs, 25, 75)
 
 
 class SessionWrapper:
@@ -277,6 +293,20 @@ class SessionWrapper:
         self.session.add(backtest)
         org_units = set([])
         split_points = set([])
+        # define metrics (for each period)
+        metric_defs = {
+            'crps': crps_ensemble_timestep,
+            'is_within_10th_90th': is_within_10th_90th,
+            'is_within_25th_75th': is_within_25th_75th,
+        }
+        # define aggregate metrics (for entire backtest)
+        # value is tuple of (metric_id used to filter metric values, and function to run on filter metric values)
+        aggregate_metric_defs = {
+            'crps_mean': ('crps', lambda vals: np.mean(vals)),
+            'ratio_within_10th_90th': ('is_within_10th_90th', lambda vals: np.mean(vals)),
+            'ratio_within_25th_75th': ('is_within_25th_75th', lambda vals: np.mean(vals)),
+        }
+        # begin loop
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
             split_points.add(first_period.id)
@@ -294,64 +324,35 @@ class SessionWrapper:
                     )
                     backtest.forecasts.append(forecast)
                     # add misc metrics
-                    # TODO: probably move into separate functions
-                    # add metric for CRPS (Continuous Ranked Probability Score)
-                    crps_score = crps_ensemble_timestep(sample_values, disease_cases)
-                    metric = BackTestMetric(
-                        metric_id="crps", 
-                        period=period.id, 
-                        org_unit=location, 
-                        last_train_period=last_train_period.id, 
-                        last_seen_period=first_period.id, 
-                        value=crps_score,
-                    )
-                    backtest.metrics.append(metric)
-                    # add metric for observed value being within 10th 90th range for this period
-                    low,high = np.percentile(sample_values, [10, 90])
-                    is_within_range = 1 if (low <= disease_cases <= high) else 0
-                    metric = BackTestMetric(
-                        metric_id="is_within_10th_90th", 
-                        period=period.id, 
-                        org_unit=location, 
-                        last_train_period=last_train_period.id, 
-                        last_seen_period=first_period.id, 
-                        value=is_within_range,
-                    )
-                    backtest.metrics.append(metric)
-                    # add metric for observed value being within 25th 75th range for this period
-                    low,high = np.percentile(sample_values, [25, 75])
-                    is_within_range = 1 if (low <= disease_cases <= high) else 0
-                    metric = BackTestMetric(
-                        metric_id="is_within_25th_75th", 
-                        period=period.id, 
-                        org_unit=location, 
-                        last_train_period=last_train_period.id, 
-                        last_seen_period=first_period.id, 
-                        value=is_within_range,
-                    )
-                    backtest.metrics.append(metric)
-        # calculate and add total metrics hardcoded
-        aggregate_metrics = {
-            'crps_mean': np.mean([
-                metric.value
-                for metric in backtest.metrics
-                if metric.metric_id == 'crps'
-            ]),
-            'ratio_within_10th_90th': np.mean([
-                metric.value
-                for metric in backtest.metrics
-                if metric.metric_id == 'is_within_10th_90th'
-            ]),
-            'ratio_within_25th_75th': np.mean([
-                metric.value 
-                for metric in backtest.metrics
-                if metric.metric_id == 'is_within_25th_75th'
-            ]),
-        }
-        aggregate_metrics = {
-            key: float(value)
-            for key,value in aggregate_metrics.items()
-        }
+                    # TODO: should probably be improved with eg custom Metric classes
+                    for metric_id, metric_func in metric_defs.items():
+                        try:
+                            metric_value = metric_func(sample_values, disease_cases)
+                            metric = BackTestMetric(
+                                metric_id=metric_id, 
+                                period=period.id, 
+                                org_unit=location, 
+                                last_train_period=last_train_period.id, 
+                                last_seen_period=first_period.id, 
+                                value=metric_value,
+                            )
+                            backtest.metrics.append(metric)
+                        except Exception as err:
+                            logger.warning(f'Unexpected error computing metric id {metric_id}, for location {location}, split period {first_period.id}, and forecast period {period.id}: {err}')
+        # calculate and add total metrics
+        # TODO: should probably be improved with eg custom Metric classes
+        aggregate_metrics = {}
+        for aggregate_metric_id, (filter_metric_id, aggregate_metric_func) in aggregate_metric_defs.items():
+            try:
+                filtered_metric_values = [
+                    metric.value
+                    for metric in backtest.metrics
+                    if metric.metric_id == filter_metric_id
+                ]
+                aggregate_metric_value = aggregate_metric_func(filtered_metric_values)
+                aggregate_metrics[aggregate_metric_id] = aggregate_metric_value
+            except Exception as err:
+                logger.warning(f'Unexpected error computing aggregate metric id {aggregate_metric_id}: {err}')
         logger.info(f'aggregate metrics {aggregate_metrics}')
         backtest.aggregate_metrics = aggregate_metrics
         # add more
