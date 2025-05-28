@@ -15,7 +15,7 @@ class NaivePredictor:
                 location: Samples(
                     future_data[location].time_period,
                     np.random.poisson(
-                        self.mean_dict[location],
+                        self.mean_dict[location] if not np.isnan(self.mean_dict[location]) else 0,
                         len(future_data[location]) * num_samples,
                     ).reshape(-1, num_samples),
                 )

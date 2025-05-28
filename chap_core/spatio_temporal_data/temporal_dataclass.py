@@ -2,7 +2,7 @@ import logging
 import pickle
 from pathlib import Path
 from typing import Generic, Iterable, Tuple, Type, Callable, Optional
-
+from pathlib import PurePath
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -21,7 +21,7 @@ from ..time_period import PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp, clean_timestring
 import dataclasses
 from typing import TypeVar
-
+from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 FeaturesT = TypeVar("FeaturesT")
@@ -95,11 +95,15 @@ class TemporalDataclass(Generic[FeaturesT]):
         assert period_range.step is None
         if hasattr(self._data.time_period, "searchsorted"):
             return self._restrict_by_slice(period_range)
+
         mask = np.full(len(self._data.time_period), True)
+
         if period_range.start is not None:
             mask = mask & (self._data.time_period >= period_range.start)
+
         if period_range.stop is not None:
             mask = mask & (self._data.time_period <= period_range.stop)
+
         return self._data[mask]
 
     def data(self) -> Iterable[FeaturesT]:
@@ -124,15 +128,22 @@ class Polygon:
     pass
 
 
+class DataSetMetaData(BaseModel):
+    name: str = 'dataset'
+    filename: str | None = None
+    db_id: int | None = None
+
+
 class DataSet(Generic[FeaturesT]):
     """
     Class representing severeal time series at different locations.
     """
 
-    def __init__(self, data_dict: dict[str, FeaturesT], polygons=None):
+    def __init__(self, data_dict: dict[str, FeaturesT], polygons=None, metadata=DataSetMetaData()):
         self._data_dict = {loc: data for loc, data in data_dict.items()}
         self._polygons = polygons
         self._parent_dict = None
+        self.metadata = metadata
 
     def field_names(self):
         return [
@@ -411,6 +422,7 @@ class DataSet(Generic[FeaturesT]):
                 [col for col in csv.columns.tolist() if col not in ("location", "time_period") and "Unnamed" not in col]
             )
         obj = cls.from_pandas(csv, dataclass)
+
         if isinstance(file_name, (str, Path)):
             path = Path(file_name).with_suffix(".geojson")
             if path.exists():
@@ -422,6 +434,9 @@ class DataSet(Generic[FeaturesT]):
                     polygons = Polygons.from_file(path, id_property="NAME_1")
                     with open(path, "r") as f:
                         obj.set_polygons(polygons.feature_collection())
+        if isinstance(file_name, (str, PurePath)):
+            meta_data=  DataSetMetaData(name= str(Path(file_name).stem), filename=str(file_name))
+            obj.metadata = meta_data
         return obj
 
     def join_on_time(self, other: "DataSet[FeaturesT]") -> "DataSet[Tuple[FeaturesT, FeaturesT]]":
