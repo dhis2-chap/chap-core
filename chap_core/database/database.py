@@ -124,10 +124,10 @@ class SessionWrapper:
         self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default"
     ) -> int:
         # get model template name
-        model_template = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
-        template_name = (
-            model_template.name
-        )
+        model_template = self.session.exec(
+            select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)
+        ).first()
+        template_name = model_template.name
 
         # set configured name
         if configuration_name == "default":
@@ -144,9 +144,11 @@ class SessionWrapper:
             return existing_configured.id
 
         # create and add db entry
-        configured_model = ConfiguredModelDB(name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template)
+        configured_model = ConfiguredModelDB(
+            name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template
+        )
         configured_model.validate_user_options(configured_model)
-        #configured_model.validate_user_options(model_template)
+        # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
         self.session.commit()
@@ -233,12 +235,13 @@ class SessionWrapper:
     def get_configured_model_by_name(self, configured_model_name: str) -> ConfiguredModelDB:
         try:
             configured_model = self.session.exec(
-            select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
-        ).one()
+                select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
+            ).one()
         except sqlalchemy.exc.NoResultFound:
-            all_names = self.session.exec(
-            select(ConfiguredModelDB.name)).all()
-            raise ValueError(f"Configured model with name {configured_model_name} not found. Available names: {all_names}")
+            all_names = self.session.exec(select(ConfiguredModelDB.name)).all()
+            raise ValueError(
+                f"Configured model with name {configured_model_name} not found. Available names: {all_names}"
+            )
 
         return configured_model
 
@@ -247,7 +250,9 @@ class SessionWrapper:
         if configured_model.name == "naive_model":
             return NaiveEstimator()
         template_name = configured_model.model_template.name
-        ignore_env = template_name.startswith("chap_ewars") or template_name=='ewars_template'  # TODO: seems hacky, how to fix?
+        ignore_env = (
+            template_name.startswith("chap_ewars") or template_name == "ewars_template"
+        )  # TODO: seems hacky, how to fix?
         return ModelTemplate.from_directory_or_github_url(
             configured_model.model_template.source_url,
             ignore_env=ignore_env,
@@ -263,8 +268,10 @@ class SessionWrapper:
         info.created = datetime.datetime.now()
         # org_units = list({location for ds in evaluation_results for location in ds.locations()})
         # split_points = list({er.period_range[0] for er in evaluation_results})
-        model_db_id = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
-        backtest = BackTest(**info.dict() | {'model_db_id': model_db_id})
+        model_db_id = (
+            self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
+        )
+        backtest = BackTest(**info.dict() | {"model_db_id": model_db_id})
         self.session.add(backtest)
         org_units = set([])
         split_points = set([])
