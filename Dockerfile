@@ -1,39 +1,34 @@
-#THIS DOCKERFILE RUNS THE WEB API
-
-# Use the official Python base image
+# Use slim uv-based Python image with Python 3.12
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-# Enable bytecode compilation
-ENV UV_COMPILE_BYTECODE=1
+# Environment optimizations for uv and path
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH"
 
-# Copy from the cache instead of linking since it's a mounted volume
-ENV UV_LINK_MODE=copy
-
-# Set the working directory in the container
+# Set working directory
 WORKDIR /app
 
-# Install the project's dependencies using the lockfile and settings
+# Install system dependencies in one clean layer
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy pyproject + lock file first for layer caching
+COPY pyproject.toml uv.lock ./
+
+# Install only dependencies (for optimal caching)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
 
-# Install the Python dependencies
-RUN apt-get update
-RUN apt-get upgrade -y
-RUN apt-get install -y git
+# Copy project files
+COPY chap_core/ chap_core/
+COPY config/ config/
+COPY scripts/seed.py scripts/seed.py
+COPY README.md .
 
-COPY ./chap_core ./chap_core
-COPY ./config ./config
-COPY ./scripts/seed.py ./scripts/seed.py
-COPY ./pyproject.toml .
-COPY ./uv.lock .
-COPY ./README.md .
-
-# Then, add the rest of the project source code and install it
-# Installing separately from its dependencies allows optimal layer caching
+# Install project itself (dev=False, project=True)
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
-
-# Place executables in the environment at the front of the path
-ENV PATH="/app/.venv/bin:$PATH"
