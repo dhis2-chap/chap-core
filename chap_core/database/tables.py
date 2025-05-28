@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from sqlalchemy import create_engine, Column, JSON
 from sqlmodel import Field, Relationship, Session, select
@@ -35,6 +35,7 @@ class BackTest(_BackTestRead, table=True):
     dataset: DataSet = Relationship()
     forecasts: List["BackTestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
     metrics: List["BackTestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)
+    aggregate_metrics: Dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
 
@@ -47,6 +48,7 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
 
 class BackTestRead(_BackTestRead):
     dataset: DataSetMeta
+    aggregate_metrics: Dict[str, float]
     configured_model: ConfiguredModelRead
 
 
@@ -101,29 +103,30 @@ class BackTestMetric(DBModel, table=True):
     backtest_id: int = Field(foreign_key="backtest.id")
     metric_id: str
     period: PeriodID
+    org_unit: str
     last_train_period: PeriodID
     last_seen_period: PeriodID
     value: float
     backtest: BackTest = Relationship(back_populates="metrics")
 
 
-def test():
-    engine = create_engine("sqlite://")
-    DBModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        backtest = BackTest(dataset_id="dataset_id", model_id="model_id")
-        forecast = BackTestForecast(
-            period="202101",
-            org_unity="RegionA",
-            last_train_period="202012",
-            last_seen_period="202012",
-            values=[1.0, 2.0, 3.0],
-        )
-        metric = BackTestMetric(
-            metric_id="metric_id", period="202101", last_train_period="202012", last_seen_period="202012", value=0.5
-        )
-        backtest.forecasts.append(forecast)
-        backtest.metrics.append(metric)
-        session.add(backtest)
-        session.commit()
-        print(session.exec(select(BackTestForecast)).all())
+# def test():
+#     engine = create_engine("sqlite://")
+#     DBModel.metadata.create_all(engine)
+#     with Session(engine) as session:
+#         backtest = BackTest(dataset_id="dataset_id", model_id="model_id")
+#         forecast = BackTestForecast(
+#             period="202101",
+#             org_unity="RegionA",
+#             last_train_period="202012",
+#             last_seen_period="202012",
+#             values=[1.0, 2.0, 3.0],
+#         )
+#         metric = BackTestMetric(
+#             metric_id="metric_id", period="202101", last_train_period="202012", last_seen_period="202012", value=0.5
+#         )
+#         backtest.forecasts.append(forecast)
+#         backtest.metrics.append(metric)
+#         session.add(backtest)
+#         session.commit()
+#         print(session.exec(select(BackTestForecast)).all())
