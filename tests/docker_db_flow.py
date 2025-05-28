@@ -223,5 +223,5 @@ if __name__ == "__main__":
 
     chap_url = f"http://{args.host}:8000"
     suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
-    suite.prediction_flow()
     suite.evaluation_flow()
+    suite.prediction_flow()

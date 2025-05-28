@@ -52,14 +52,33 @@ else:
     logger.warning("Database url not set. Database operations will not work")
 
 
+# metric functions
+# each function is run at each forecasted value
+# each function must take samples_values, observation, and evaluation_results
+# NOTE: evaluation_results is provided in order to provide greater context of all forecast samples and observed values
+# TODO: passing evaluation_results is a bit hacky, not always needed, and not very clean (need a better approach)
 # TODO: move below to separate metrics file
+# TODO: probably also move to classes and more flexible
 
 
-def crps_ensemble_timestep(sample_values: np.ndarray, obs: float) -> float:
+def crps_ensemble_timestep(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
     n = len(sample_values)
     term1 = np.mean(np.abs(sample_values - obs))
     term2 = 0.5 * np.mean(np.abs(sample_values[:, None] - sample_values[None, :]))
     return float(term1 - term2)
+
+
+def crps_ensemble_timestep_normalized(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
+    crps = crps_ensemble_timestep(sample_values, obs, evaluation_results)
+    obs_values = [
+        cases
+        for eval_result in evaluation_results
+        for location, samples_with_truth in eval_result.items()
+        for cases in samples_with_truth.disease_cases
+    ]
+    obs_min, obs_max = min(obs_values), max(obs_values)
+    crps_norm = crps / (obs_max - obs_min)
+    return float(crps_norm)
 
 
 def _is_within_percentile(sample_values: np.ndarray, obs: float, lower_percentile: float, higher_percentile: float) -> float:
@@ -68,11 +87,11 @@ def _is_within_percentile(sample_values: np.ndarray, obs: float, lower_percentil
     return float(is_within_range)
 
 
-def is_within_10th_90th(sample_values: np.ndarray, obs: float) -> float:
+def is_within_10th_90th(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
     return _is_within_percentile(sample_values, obs, 10, 90)
 
 
-def is_within_25th_75th(sample_values: np.ndarray, obs: float) -> float:
+def is_within_25th_75th(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
     return _is_within_percentile(sample_values, obs, 25, 75)
 
 
@@ -296,6 +315,7 @@ class SessionWrapper:
         # define metrics (for each period)
         metric_defs = {
             'crps': crps_ensemble_timestep,
+            'crps_norm': crps_ensemble_timestep_normalized,
             'is_within_10th_90th': is_within_10th_90th,
             'is_within_25th_75th': is_within_25th_75th,
         }
@@ -303,17 +323,19 @@ class SessionWrapper:
         # value is tuple of (metric_id used to filter metric values, and function to run on filter metric values)
         aggregate_metric_defs = {
             'crps_mean': ('crps', lambda vals: np.mean(vals)),
+            'crps_norm_mean': ('crps_norm', lambda vals: np.mean(vals)),
             'ratio_within_10th_90th': ('is_within_10th_90th', lambda vals: np.mean(vals)),
             'ratio_within_25th_75th': ('is_within_25th_75th', lambda vals: np.mean(vals)),
         }
         # begin loop
+        evaluation_results = list(evaluation_results) # hacky, to avoid metric funcs using up the iterable before we can loop all splitpoints
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
             split_points.add(first_period.id)
-            for location, samples in eval_result.items():
-                # NOTE: samples is class SamplesWithTruth
+            for location, samples_with_truth in eval_result.items():
+                # NOTE: samples_with_truth is class datatypes.SamplesWithTruth
                 org_units.add(location)
-                for period, sample_values, disease_cases in zip(eval_result.period_range, samples.samples, samples.disease_cases):
+                for period, sample_values, disease_cases in zip(eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases):
                     # add forecast series for this period
                     forecast = BackTestForecast(
                         period=period.id,
@@ -327,7 +349,7 @@ class SessionWrapper:
                     # TODO: should probably be improved with eg custom Metric classes
                     for metric_id, metric_func in metric_defs.items():
                         try:
-                            metric_value = metric_func(sample_values, disease_cases)
+                            metric_value = metric_func(sample_values, disease_cases, evaluation_results)
                             metric = BackTestMetric(
                                 metric_id=metric_id, 
                                 period=period.id, 
@@ -349,7 +371,7 @@ class SessionWrapper:
                     for metric in backtest.metrics
                     if metric.metric_id == filter_metric_id
                 ]
-                aggregate_metric_value = aggregate_metric_func(filtered_metric_values)
+                aggregate_metric_value = float(aggregate_metric_func(filtered_metric_values))
                 aggregate_metrics[aggregate_metric_id] = aggregate_metric_value
             except Exception as err:
                 logger.warning(f'Unexpected error computing aggregate metric id {aggregate_metric_id}: {err}')
