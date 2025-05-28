@@ -15,7 +15,7 @@ class LocalModelTemplateWithConfigurations(BaseModel):
 
     url: str
     versions: dict[str, str]
-    configurations: dict[str, ModelConfiguration] = {'default': ModelConfiguration()}
+    configurations: dict[str, ModelConfiguration] = {"default": ModelConfiguration()}
 
 
 Configurations = list[LocalModelTemplateWithConfigurations]
@@ -36,9 +36,7 @@ def parse_local_model_config_file(file_name) -> Configurations:
         return configurations
 
 
-def parse_local_model_config_from_directory(
-    directory, search_pattern="*.yaml"
-) -> Configurations:
+def parse_local_model_config_from_directory(directory, search_pattern="*.yaml") -> Configurations:
     """
     Reads the local model configuration files from the config/models directory and returns a Configurations object.
     The configuration files are in the config/models directory.
