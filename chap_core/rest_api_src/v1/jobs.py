@@ -64,7 +64,6 @@ def cancel_job(job_id: str) -> dict:
     
     job_status = job.status.lower()
     
-    # Check if job is in a cancellable state
     if job_status in ["success", "failure", "revoked"]:
         raise HTTPException(status_code=400, detail="Cannot cancel a job that has already finished or been cancelled")
     
