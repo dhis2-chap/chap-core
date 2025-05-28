@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from chap_core.api_types import EvaluationResponse
@@ -12,11 +12,27 @@ worker = CeleryPool()
 
 
 @router.get("")
-def list_jobs() -> List[JobDescription]:
+def list_jobs(ids: List[str] = Query(None), status: List[str] = Query(None), type: str = Query(None)) -> List[JobDescription]:
     """
-    List all jobs currently in the queue
+    List all jobs currently in the queue.
+    Optionally filters by a list of job IDs, a list of statuses, and/or a job type.
+    Filtering order: IDs, then type, then status.
     """
-    return worker.list_jobs()
+    jobs_to_return = worker.list_jobs()
+
+    if ids:
+        id_filter_set = set(ids)
+        jobs_to_return = [job for job in jobs_to_return if job.id in id_filter_set]
+
+    if type:
+        type_upper = type.upper()
+        jobs_to_return = [job for job in jobs_to_return if job.type and job.type.upper() == type_upper]
+
+    if status:
+        status_filter_set = set(s.upper() for s in status)
+        jobs_to_return = [job for job in jobs_to_return if job.status and job.status.upper() in status_filter_set]
+    
+    return jobs_to_return
 
 
 def _get_successful_job(job_id):
