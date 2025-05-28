@@ -7,13 +7,12 @@
 - url: https://github.com/dhis2-chap/chap_auto_ewars
   versions:
     nightly_build: "@main"
-    stable: "@0c41b1d9bd187521e62c58d581e6f5bd5127f7b5"
-
+    stable: "@209759add6e13778f7061b8add8fbe814799a6cb"
 
 - url: https://github.com/dhis2-chap/chap_auto_ewars_weekly
   versions:
     nightly_build: "@main"
-    stable: "@51c63a8581bc29bdb40e788a83f701ed30cca83f"
+    stable: "@4f40dd4be671f1d64855c06b10462bd6caddb765"
 
 - url: https://github.com/sandvelab/monthly_ar_model
   versions:
@@ -25,7 +24,6 @@
     old_version: "@36a537dac138af428a4167b2a89eac7dafd5d762"
     nightly_build: "@master"
     stable: "@8ec1eb6ea854022350ad86c9e12a6d63638fbdbe"
-
 
 - url: https://github.com/dhis2-chap/ewars_template
   versions:
@@ -42,7 +40,7 @@
 
 - url: https://github.com/dhis2-chap/chtorch
   versions:
-    v1: "@ff48ce411c6039188f6f7867026451c55316d7af"
+    v1: "@12374124aca159c8511042c99ec3e03ee4b72686"
   configurations:
     medium:
       user_option_values:

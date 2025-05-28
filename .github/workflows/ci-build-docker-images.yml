@@ -3,6 +3,7 @@ name: Create and publish chap Docker image
 on:
   push:
     branches: ["dev", "master"]
+    tags: ["1.*"]
 
 env:
   REGISTRY: ghcr.io
@@ -38,11 +39,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ matrix.image_name }}
+      - name: Determine Docker image tag
+        id: tag
+        run: |
+          REF="${GITHUB_REF}"
+          TAG=""
+
+          if [[ "$REF" == "refs/heads/dev" ]]; then
+            TAG="dev"
+          elif [[ "$REF" == "refs/heads/master" ]]; then
+            TAG="latest"
+          elif [[ "$REF" =~ ^refs/tags/1\..* ]]; then
+            git fetch origin master --depth=1
+            TAG_COMMIT=$(git rev-parse "$REF")
+            if git merge-base --is-ancestor "$TAG_COMMIT" origin/master; then
+              TAG="${REF#refs/tags/}"
+            else
+              echo "❌ Tag does not point to a commit on master. Skipping image build."
+              exit 0
+            fi
+          else
+            echo "No valid branch or tag for image publishing"
+            exit 0
+          fi
+
+          # Output the full tag for the Docker build step
+          echo "TAGS=${{ env.REGISTRY }}/${{ matrix.image_name }}:$TAG" >> "$GITHUB_OUTPUT"
+        shell: bash
 
       - name: Build and push Docker image (amd64)
         id: push
@@ -52,8 +75,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.tag.outputs.TAGS }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2

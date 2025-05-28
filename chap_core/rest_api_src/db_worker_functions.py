@@ -15,6 +15,7 @@ from chap_core.time_period import Month
 
 logger = logging.getLogger(__name__)
 
+
 def trigger_exception(*args, **kwargs):
     raise Exception("Triggered exception")
 

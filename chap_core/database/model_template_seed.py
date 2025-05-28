@@ -49,6 +49,7 @@ def get_naive_model_template():
         description="A simple naive model only to be used for testing purposes.",
         supported_period_type=PeriodType.any,
         author="CHAP team",
+        author_assessed_status="gray",
         organization="HISP Centre, University of Oslo",
         organization_logo_url="https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png",
         source_url="NA",
