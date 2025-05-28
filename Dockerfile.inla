@@ -1,42 +1,41 @@
-# ⚠️ NOTE: If you are on Apple Silicon (arm64), build with:
-#     docker build --platform=linux/amd64 -f Dockerfile.inla .
-# INLA base image is only available for amd64
+# If you have issues with platform compatibility and uv, plesae build with
+#   docker build --platform=linux/amd64 -f Dockerfile.inla .
 
 FROM ivargr/r_inla
-
-# Copy uv and uvx CLI tools from base Python/uv image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Set up env vars for uv and Python
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    PATH="/app/.venv/bin:$PATH"
+# Enable bytecode compilation and safe volume handling
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies in one efficient layer
+# Install all system packages in a single layer
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    apt-get install -y --no-install-recommends \
     git \
     libncurses-dev \
     libreadline-dev \
     libbz2-dev && \
-    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy only dependency files first for better layer caching
-COPY pyproject.toml uv.lock ./
-
-# Install Python dependencies only (no dev, no project code yet)
+# First install only the dependencies using the lockfile (no source code yet)
 RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
 
-# Copy application source files
-COPY chap_core/ chap_core/
-COPY config/ config/
-COPY README.md .
+# Copy source files
+COPY ./chap_core ./chap_core
+COPY ./config ./config
+COPY ./pyproject.toml .
+COPY ./uv.lock .
+COPY ./README.md .
 
-# Install the project itself now that dependencies are cached
+# Now install the project (with dependencies already cached)
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
+
+# Final environment path setup
+ENV PATH="/app/.venv/bin:$PATH"
