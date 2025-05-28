@@ -1,5 +1,5 @@
 from typing import Optional
-
+import logging
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.database import SessionWrapper
@@ -13,6 +13,8 @@ from chap_core.rest_api_src.worker_functions import harmonize_health_dataset, Wo
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.time_period import Month
 
+logger = logging.getLogger(__name__)
+
 
 def trigger_exception(*args, **kwargs):
     raise Exception("Triggered exception")
@@ -25,10 +27,12 @@ def run_backtest(
     stride: int = 1,
     session: SessionWrapper = None,
 ):
+    # NOTE: model_id arg from the user is actually the model's unique name identifier
     dataset = session.get_dataset(info.dataset_id)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
-    estimator = registry.get_model(info.model_id, ignore_env=info.model_id.startswith("chap_ewars"))
+    configured_model = session.get_configured_model_by_name(info.model_id)
+    estimator = session.get_configured_model_with_code(configured_model.id)
     predictions_list = _backtest(
         estimator,
         dataset,
@@ -44,19 +48,21 @@ def run_backtest(
 
 
 def run_prediction(
-    estimator_id: registry.model_type,
+    model_id: str,
     dataset_id: str,
     n_periods: Optional[int],
     name: str,
     metadata: dict,
     session: SessionWrapper,
 ):
+    # NOTE: model_id arg from the user is actually the model's unique name identifier
     dataset = session.get_dataset(dataset_id)
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
-    estimator = registry.get_model(estimator_id, ignore_env=estimator_id.startswith("chap_ewars"))
+    configured_model = session.get_configured_model_by_name(model_id)
+    estimator = session.get_configured_model_with_code(configured_model.id)
     predictions = forecast_ahead(estimator, dataset, n_periods)
-    db_id = session.add_predictions(predictions, dataset_id, estimator_id, name, metadata)
+    db_id = session.add_predictions(predictions, dataset_id, model_id, name, metadata)
     assert db_id is not None
     return db_id
 

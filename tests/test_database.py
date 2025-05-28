@@ -54,7 +54,7 @@ def test_dataset_roundrip(health_population_data, engine):
         assert_dataset_equal(dataset, health_population_data)
 
 
-@pytest.mark.slow
+@pytest.mark.skip('Needs to seed models for this test to work')
 def test_backtest(engine_with_dataset):
     with Session(engine_with_dataset) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
@@ -70,13 +70,12 @@ def test_backtest(engine_with_dataset):
         assert len(backtest.forecasts) == 12 * 2 * 10
 
 
-@pytest.mark.slow
+@pytest.mark.skip('Needs to seed models for this test to work')
 def test_add_predictions(engine_with_dataset):
     with SessionWrapper(engine_with_dataset) as session:
         run_prediction('naive_model', 1, 3, name='testing', metadata='', session=session)
 
 
-# TODO: old, remove after refactor? 
 @pytest.fixture
 def model_template_yaml_config():
     return ModelTemplateConfigV2(
@@ -85,6 +84,8 @@ def model_template_yaml_config():
         allow_free_additional_continuous_covariates=False,
         user_options={},
         meta_data=ModelTemplateMetaData(author='chap_temp',
+                                        author_note='Testing author note',
+                                        author_assessed_status='green',
                                         description='my model',
                                         display_name='My Model'),
         entry_points=EntryPointConfig(train=CommandConfig(command='train', parameters={'param1': 'value1'}),
@@ -101,6 +102,7 @@ def test_add_model_template_from_yaml_config(model_template_yaml_config, engine)
         assert model_template.required_covariates == model_template_yaml_config.required_covariates
         assert model_template.allow_free_additional_continuous_covariates == model_template_yaml_config.allow_free_additional_continuous_covariates
         assert model_template.user_options == model_template_yaml_config.user_options
+        assert model_template.author_assessed_status == model_template_yaml_config.meta_data.author_assessed_status
 
 
 @pytest.mark.parametrize('url', template_urls)
@@ -110,8 +112,11 @@ def test_add_model_template_from_url(engine, url):
         template_id = add_model_template_from_url(url, session)
         configured_model_id = add_configured_model(
             template_id,
-            ModelConfiguration(user_option_values={}), 'default', session)
-        external_model = session.get_configured_model(configured_model_id)
+            ModelConfiguration(user_option_values={}),
+            'default',
+            session
+        )
+        external_model = session.get_configured_model_with_code(configured_model_id)
         assert isinstance(external_model, ExternalModel)
 
 

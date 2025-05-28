@@ -1,4 +1,4 @@
-Using Chap with Modeling App
+Using Chap Core with DHIS2 Modeling App
 ==============================================================
 .. toctree::
    :glob:

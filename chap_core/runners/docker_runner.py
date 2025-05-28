@@ -54,8 +54,16 @@ class DockerTrainPredictRunner(CommandLineTrainPredictRunner):
     """This is basically a CommandLineTrainPredictRunner, but with a DockerRunner
     instead of a CommandLineRunner as runner"""
 
-    def __init__(self, runner: DockerRunner, train_command: str, predict_command: str):
-        super().__init__(runner, train_command, predict_command)
+    def __init__(
+        self,
+        runner: DockerRunner,
+        train_command: str,
+        predict_command: str,
+        model_configuration_filename: str | None = None,
+    ):
+        # assert False, (predict_command, model_configuration_filename)
+
+        super().__init__(runner, train_command, predict_command, model_configuration_filename)
 
     def teardown(self):
         self._runner.teardown()

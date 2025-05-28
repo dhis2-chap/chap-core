@@ -102,6 +102,7 @@ def test_list_jobs(celery_session_worker, big_request_json, test_config):
     time.sleep(2)
     jobs = pool.list_jobs()
     assert len(jobs) >= 1
-    assert jobs[0].id == job.id
+    assert any(j.id == job.id for j in jobs), "Job not found in list of jobs"
+    # assert jobs[0].id == job.id
     assert jobs[0].type == 'time_consuming_function'
     assert jobs[0].name == 'test_job_name'

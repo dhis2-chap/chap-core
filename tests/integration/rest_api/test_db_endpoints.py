@@ -19,7 +19,8 @@ from chap_core.rest_api_src.v1.rest_api import app
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
-from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCreate
+from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCreate, ModelTemplateRead, \
+    ModelConfigurationCreate
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 import logging
 
@@ -142,26 +143,8 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     assert 'orgUnit' in response.json()['observations'][0], response.json()['observations'][0].keys()
 
 
-# TODO: remove after refactor
-# def test_list_models(celery_session_worker, dependency_overrides):
-#     response = client.get("/v1/crud/models")
-#     assert response.status_code == 200, response.json()
-#     assert isinstance(response.json(), list)
-#     for m in response.json():
-#         logger.info(m)
-#     assert len(response.json()) > 0
-#     assert 'id' in response.json()[0]
-#     for attr_name in ('displayName', 'id', 'description'):
-#         '''Check these here to make sure camelCase in response'''
-#         assert attr_name in response.json()[0], response.json()[0].keys()
-#     models = [ModelSpecRead.model_validate(m) for m in response.json()]
-#     assert 'chap_ewars_monthly' in (m.name for m in models)
-#     ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
-#     assert 'population' in (f.name for f in ewars_model.covariates)
-#     assert ewars_model.source_url.startswith('https:/')
-
-
-def test_list_models(celery_session_worker, dependency_overrides):
+def test_list_models_alias(celery_session_worker, dependency_overrides):
+    # alias for list configured models
     response = client.get("/v1/crud/models")
     assert response.status_code == 200, response.json()
     assert isinstance(response.json(), list)
@@ -177,6 +160,41 @@ def test_list_models(celery_session_worker, dependency_overrides):
     ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
     assert 'population' in (f.name for f in ewars_model.covariates)
     assert ewars_model.source_url.startswith('https:/')
+
+
+def test_list_configured_models(celery_session_worker, dependency_overrides):
+    response = client.get("/v1/crud/configured-models")
+    assert response.status_code == 200, response.json()
+    assert isinstance(response.json(), list)
+    for m in response.json():
+        logger.info(m)
+    assert len(response.json()) > 0
+    assert 'id' in response.json()[0]
+    for attr_name in ('displayName', 'id', 'description'):
+        '''Check these here to make sure camelCase in response'''
+        assert attr_name in response.json()[0], response.json()[0].keys()
+    models = [ModelSpecRead.model_validate(m) for m in response.json()]
+    assert 'chap_ewars_monthly' in (m.name for m in models)
+    ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
+    assert 'population' in (f.name for f in ewars_model.covariates)
+    assert ewars_model.source_url.startswith('https:/')
+
+
+def test_list_model_templates(celery_session_worker, dependency_overrides):
+    response = client.get("/v1/crud/model-templates")
+    assert response.status_code == 200, response.json()
+    assert isinstance(response.json(), list)
+    for m in response.json():
+        logger.info(m)
+    assert len(response.json()) > 0
+    assert 'id' in response.json()[0]
+    for attr_name in ('displayName', 'id', 'description'):
+        '''Check these here to make sure camelCase in response'''
+        assert attr_name in response.json()[0], response.json()[0].keys()
+    models = [ModelTemplateRead.model_validate(m) for m in response.json()]
+    assert 'chap_ewars_monthly' in (m.name for m in models)
+    ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
+    assert 'population' in [f for f in ewars_model.required_covariates], ewars_model.required_covariates
 
 
 def test_get_data_sources():
@@ -270,8 +288,10 @@ def test_backtest_flow_from_request(celery_session_worker,
     assert len(backtests) > 0
     for backtest in backtests:
         assert 'dataset' in backtest, backtest
+        assert 'configuredModel' in backtest, backtest
         assert backtest['dataset']['id'] is not None, backtest
-
+        assert backtest['configuredModel']['name'] is not None, backtest
+        assert 'modelTemplate' in backtest['configuredModel'], backtest['configuredModel']
     response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
     data = response.json()
@@ -281,15 +301,29 @@ def test_backtest_flow_from_request(celery_session_worker,
 
 def test_compatible_backtests(clean_engine, dependency_overrides):
     with Session(clean_engine) as session:
-        backtest = BackTest(dataset_id=1,
+        dataset = DataSet(name='ds',
+                          type='testing',
+                          created=datetime.now(),
+                          covariates=[])
+        session.add(dataset)
+        session.commit()
+
+        ds_id = dataset.id
+        backtest = BackTest(dataset_id=ds_id,
+                            name='testing',
                             model_id='naive_model',
+                            model_db_id = 1,
                             org_units=['Oslo', 'Bergen'], split_periods=['202201', '202202'])
-        matching = BackTest(dataset_id=1,
+        matching = BackTest(dataset_id=ds_id,
+                            name='testing2',
                             model_id='chap_auto_ewars',
+                            model_db_id=1,
                             org_units=['Bergen', 'Trondheim'],
                             split_periods=['202202', '202203'])
-        non_matching = BackTest(dataset_id=1,
+        non_matching = BackTest(dataset_id=ds_id,
+                                name='testing3',
                                 model_id='auto_regressive_monthly',
+                                model_db_id=1,
                                 org_units=['Trondheim'],
                                 split_periods=['202203'])
 
@@ -385,7 +419,7 @@ def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
 
 
 def test_backtest_with_data_flow(
-    celery_session_worker, dependency_overrides, example_polygons, make_prediction_request
+        celery_session_worker, dependency_overrides, example_polygons, make_prediction_request
 ):
     data = make_prediction_request.model_dump()
     backtest_name = "test_backtest_with_data"
@@ -414,7 +448,7 @@ def test_backtest_with_data_flow(
 
     backtest_full = BackTestFull.model_validate(response.json())
     assert len(backtest_full.forecasts) > 0
-    #assert len(backtest_full.metrics) > 0
+    # assert len(backtest_full.metrics) > 0
 
     created_dataset_id = backtest_full.dataset_id
     dataset_response = client.get(f"/v1/crud/datasets/{created_dataset_id}")
@@ -426,3 +460,38 @@ def test_backtest_with_data_flow(
     evaluation_entries = eval_response.json()
     assert len(evaluation_entries) > 0
     EvaluationEntry.model_validate(evaluation_entries[0])
+
+
+def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
+    url = "/v1/crud/model-templates"
+    content = get_content(url)
+    assert isinstance(content, list)
+    for m in content:
+        logger.info(m)
+
+    model = next(m for m in content if m['name'] == 'ewars_template')
+    template_id = model['id']
+    print(template_id)
+    config = ModelConfigurationCreate(
+        name='testing',
+        model_template_id=template_id,
+        additional_continuous_covariates=['rainfall'],
+        user_option_values=dict(precision=2., n_lags=3))
+
+    response = client.post("/v1/crud/configured-models", json=config.model_dump())
+    assert response.status_code == 200, response.json()
+
+
+
+    # assert len(content) > 0
+    # models = [ModelTemplateRead.model_validate(m) for m in content]
+    # assert 'chap_ewars_monthly' in (m.name for m in models)
+    # ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
+    # assert 'population' in [f for f in ewars_model.required_covariates], ewars_model.required_covariates
+
+
+def get_content(url):
+    response = client.get(url)
+    content = response.json()
+    assert response.status_code == 200, content
+    return content

@@ -17,16 +17,16 @@ def make_prediction_request(model_name):
     filename = '../example_data/anonymous_make_prediction_request.json'
     data = json.load(open(filename))
     data['modelId'] = model_name
-    print(data.keys())
     return data
 
 
-def make_dataset_request():
-    #filename = '/home/knut/Downloads/request_make_dataset.json'
-    # filename = '/home/knut/Data/ch_data/test_data/make_dataset_request.json'
-    #filename = '/home/knut/Downloads/new_dataset_chap_request_data_2025-05-12T14_45_58.309Z.json'
-    filename = '../example_data/anonymous_make_dataset_request.json'
-    data = json.load(open(filename))
+def make_dataset_request(dataset_path):
+    # set default dataset path if empty
+    if not dataset_path:
+        dataset_path = '../example_data/anonymous_make_dataset_request.json' 
+    # load dataset from json
+    logger.info(f'Using dataset from file {dataset_path}')
+    data = json.load(open(dataset_path))
     return data
 
 
@@ -41,22 +41,29 @@ chap_url = "http://%s:8000" % hostname
 
 
 class IntegrationTest:
-    def __init__(self, chap_url, run_all):
+    def __init__(self, chap_url, model_id=None, dataset_path=None):
         self._chap_url = chap_url
-        self._run_all = run_all
-        self._default_model = 'chap_ewars_monthly'
+        self._model_id = model_id
+        self._dataset_path = dataset_path
 
     def ensure_up(self):
         response = None
         logger.info("Ensuring %s is up" % self._chap_url)
-        for _ in range(20):
+        errors = []
+        for _ in range(40):
             try:
                 response = requests.get(self._chap_url + "/v1/health")
                 break
             except requests.exceptions.ConnectionError as e:
-                logger.error("Failed to connect to %s" % self._chap_url)
-                logger.error(e)
+                #logger.error("Failed to connect to %s" % self._chap_url)
+                #logger.error(e)
+                errors.append(e)
                 time.sleep(5)
+        else:
+            logger.error("Failed to connect to %s after 40 attempts" % self._chap_url)
+            for error in errors:
+                logger.error(error)
+            raise ConnectionError("Could not connect to %s" % self._chap_url)
         assert response is not None
         assert response.status_code == 200, response.status_code
         assert response.json()["status"] == "success"
@@ -107,11 +114,25 @@ class IntegrationTest:
         self.ensure_up()
         model_list = self.get_models()
         assert 'naive_model' in {model['name'] for model in model_list}
-        if self._run_all:
-            for model in model_list:
-                self.make_prediction(make_prediction_request(model['name']))
+
+        all_model_names = [model['name'] for model in model_list]
+        if self._model_id:
+            assert self._model_id in all_model_names
+            model_names = [self._model_id]
         else:
-            self.make_prediction(make_prediction_request(self._default_model))
+            model_names = all_model_names
+
+        errors = []
+        for model_name in model_names:
+            try:
+                self.make_prediction(make_prediction_request(model_name))
+            except Exception as err:
+                msg = f'{model_name}: {err}'
+                logger.error(msg)
+                errors.append(msg)
+
+        if errors:
+            raise Exception(f'Prediction errors: {errors}')
 
     def evaluation_flow(self):
         logger.info(f'Starting evaluation flow tests')
@@ -120,21 +141,31 @@ class IntegrationTest:
         model_list = self.get_models()
         assert 'naive_model' in {model['name'] for model in model_list}
 
-        data = make_dataset_request()
-        #data = make_dataset_request2()
+        data = make_dataset_request(self._dataset_path)
         dataset_id = self.make_dataset(data)
 
-        if self._run_all:
-            model_names = [model['name'] for model in model_list]
+        all_model_names = [model['name'] for model in model_list]        
+        if self._model_id:
+            assert self._model_id in all_model_names
+            model_names = [self._model_id]
         else:
-            model_names = [self._default_model]
+            model_names = all_model_names
 
+        errors = []
         for model_name in model_names:
-            result, backtest_id = self.evaluate_model(dataset_id, model_name)
-            actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
-            result_org_units = {e['orgUnit'] for e in result}
-            org_units = {de['ou'] for de in actual_cases['data']}
-            assert result_org_units == org_units, (result_org_units, org_units)
+            try:
+                result, backtest_id = self.evaluate_model(dataset_id, model_name)
+                actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
+                result_org_units = {e['orgUnit'] for e in result}
+                org_units = {de['ou'] for de in actual_cases['data']}
+                assert result_org_units == org_units, (result_org_units, org_units)
+            except Exception as err:
+                msg = f'{model_name}: {err}'
+                logger.error(msg)
+                errors.append(msg)
+        
+        if errors:
+            raise Exception(f'Evaluation errors: {errors}')
 
     def make_dataset(self, data):
         make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
@@ -163,7 +194,8 @@ class IntegrationTest:
             job_status = self._get(job_url).lower()
             logger.info(job_status)
             if job_status == "failure":
-                raise ValueError("Failed job")
+                logs = self._get(job_url + "/logs")
+                raise ValueError(f"Failed job: {logs}")
             if job_status == "success":
                 return self._get(job_url + "/database_result/")['id']
             time.sleep(1)
@@ -183,12 +215,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Script to run docker db endpoint flows.")
     parser.add_argument("host", type=str, nargs='?', default="localhost", help="Chap REST server host. Defaults to localhost.")
-    parser.add_argument("run_all", type=str2bool, nargs='?', default='false', help="Turn on to run tests for all available models (default), or turn off to test just a single model for quick local testing.")
+    parser.add_argument("model_id", type=str, nargs='?', default='', help="Which model id (name) to test, or leave blank to test all models.")
+    parser.add_argument("dataset_path", type=str, nargs='?', default='', help="Path to which dataset will be used for testss.")
 
     args = parser.parse_args()
     logger.info(args)
 
     chap_url = f"http://{args.host}:8000"
-    suite = IntegrationTest(chap_url, args.run_all)
+    suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
     suite.prediction_flow()
     suite.evaluation_flow()

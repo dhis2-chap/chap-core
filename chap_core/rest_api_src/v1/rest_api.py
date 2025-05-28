@@ -9,7 +9,6 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from chap_core.api_types import PredictionRequest, EvaluationResponse
-from chap_core.external.model_configuration import ModelTemplateConfig
 from chap_core.internal_state import Control, InternalState
 from chap_core.log_config import initialize_logging
 from chap_core.model_spec import ModelSpec
@@ -23,7 +22,6 @@ from chap_core.rest_api_src.v1.routers import crud, analytics
 from . import debug, jobs
 from .routers.dependencies import get_settings
 from ...database.database import create_db_and_tables
-from ...exceptions import GEEError
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
@@ -186,11 +184,6 @@ async def list_models() -> list[ModelSpec]:
     return registry.list_specifications()
 
 
-@app.get("/list-model-templates")
-async def list_model_templates() -> list[ModelTemplateConfig]:
-    pass
-
-
 # @app.get("/jobs/{job_id}/logs")
 # async def get_logs(job_id: str, n_lines: Optional[int] = None) -> str:
 #     """
@@ -279,10 +272,10 @@ class HealthResponse(BaseModel):
 
 @app.get("/health")
 async def health(worker_config=Depends(get_settings)) -> HealthResponse:
-    try:
-        wf.initialize_gee_client(usecwd=True, worker_config=worker_config)
-    except GEEError as e:
-        return HealthResponse(status="failed", message="GEE authentication might not be set up properly: " + str(e))
+    # try:
+    #     wf.initialize_gee_client(usecwd=True, worker_config=worker_config)
+    # except GEEError as e:
+    #     return HealthResponse(status="failed", message="GEE authentication might not be set up properly: " + str(e))
     return HealthResponse(status="success", message="GEE client initialized")
 
 

@@ -124,9 +124,10 @@ class SessionWrapper:
         self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default"
     ) -> int:
         # get model template name
-        template_name = (
-            self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first().name
-        )
+        model_template = self.session.exec(
+            select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)
+        ).first()
+        template_name = model_template.name
 
         # set configured name
         if configuration_name == "default":
@@ -143,7 +144,11 @@ class SessionWrapper:
             return existing_configured.id
 
         # create and add db entry
-        configured_model = ConfiguredModelDB(name=name, model_template_id=model_template_id, **configuration.dict())
+        configured_model = ConfiguredModelDB(
+            name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template
+        )
+        configured_model.validate_user_options(configured_model)
+        # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
         self.session.commit()
@@ -159,10 +164,33 @@ class SessionWrapper:
         configured_models = self.session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()
 
         # serialize to json and combine configured model with model template
-        configured_models_data = [
-            {**m.model_dump(mode="json"), **(m.model_template.model_dump(mode="json") if m.model_template else {})}
-            for m in configured_models
-        ]
+        configured_models_data = []
+        for configured_model in configured_models:
+            # get configured model and model template json data
+            configured_data = configured_model.model_dump(mode="json")
+            template_data = configured_model.model_template.model_dump(mode="json")
+
+            # add display name for configuration (not stored in db)
+            # stitch together template displayName with configured name stub
+            template_display_name = configured_model.model_template.display_name
+            if ":" in configured_model.name:
+                # configured model name is already stitched together as template_name:configuration_name
+                configuration_stub = configured_model.name.split(":")[-1]
+                # combine model template with configuration name to make the name unique
+                configuration_display_name = configuration_stub.replace("_", " ").capitalize()
+                display_name = f"{template_display_name} [{configuration_display_name}]"
+            else:
+                # default configurations just use the display name of their model template
+                display_name = template_display_name
+            configured_data["display_name"] = display_name
+
+            # merge json data and add to results
+            # NOTE: the sequence is important, starting with template data and add/overwrite with configured model data
+            # ...in case of conflicting attrs, eg id and name
+            merged_data = {**template_data, **configured_data}
+            configured_models_data.append(merged_data)
+
+        # debug
         # import json
         # for m in configured_models_data:
         #    logger.info('list model data: ' + json.dumps(m, indent=4))
@@ -204,11 +232,27 @@ class SessionWrapper:
         # return
         return configured_models_read
 
-    def get_configured_model(self, configured_model_id: int) -> ConfiguredModel:
+    def get_configured_model_by_name(self, configured_model_name: str) -> ConfiguredModelDB:
+        try:
+            configured_model = self.session.exec(
+                select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
+            ).one()
+        except sqlalchemy.exc.NoResultFound:
+            all_names = self.session.exec(select(ConfiguredModelDB.name)).all()
+            raise ValueError(
+                f"Configured model with name {configured_model_name} not found. Available names: {all_names}"
+            )
+
+        return configured_model
+
+    def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model.name == "naive_model":
             return NaiveEstimator()
-        ignore_env = configured_model.model_template.name.startswith("chap_ewars")
+        template_name = configured_model.model_template.name
+        ignore_env = (
+            template_name.startswith("chap_ewars") or template_name == "ewars_template"
+        )  # TODO: seems hacky, how to fix?
         return ModelTemplate.from_directory_or_github_url(
             configured_model.model_template.source_url,
             ignore_env=ignore_env,
@@ -224,7 +268,10 @@ class SessionWrapper:
         info.created = datetime.datetime.now()
         # org_units = list({location for ds in evaluation_results for location in ds.locations()})
         # split_points = list({er.period_range[0] for er in evaluation_results})
-        backtest = BackTest(**info.dict())
+        model_db_id = (
+            self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
+        )
+        backtest = BackTest(**info.dict() | {"model_db_id": model_db_id})
         self.session.add(backtest)
         org_units = set([])
         split_points = set([])
@@ -331,7 +378,6 @@ def create_db_and_tables():
                 n += 1
                 time.sleep(1)
         with SessionWrapper(engine) as session:
-            # seed_with_session_wrapper(session)
             from .model_template_seed import seed_configured_models_from_config_dir
 
             seed_configured_models_from_config_dir(session.session)

@@ -1,10 +1,8 @@
-weekly_ar_model: 
-  url: https://github.com/knutdrand/weekly_ar_model
+# This is an example config file for configuring models
+
+- url: https://github.com/knutdrand/weekly_ar_model
   versions:
-    v0: "@v0.0.1"
-    old_decent_version: "@36a537dac138af428a4167b2a89eac7dafd5d762"
-    v2: "@v0.0.2alpha"  # alpha version for testing
-    nightly_build: "@stable"
+    vX: "@123"
   configurations:
     myconfig1:
       additional_continuous_covariates:

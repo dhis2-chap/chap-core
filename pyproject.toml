@@ -1,9 +1,9 @@
 [project]
 name = "chap_core"
-version = "1.0.4"
+version = "1.0.9"
 description = "Climate Health Analysis Platform (CHAP)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 authors = [{ name = "Sandvelab", email = "knutdrand@gmail.com" }]
 license = { text = "AGPLv3 license" }
@@ -50,7 +50,8 @@ dependencies = [
     "xarray",
     "orjson>=3.10.7",
     "celery[pytest]",
-    "packaging"
+    "packaging",
+    "jsonschema",
 ]
 
 [project.urls]
@@ -112,4 +113,3 @@ norecursedirs = [
     ".mypy_cache",
 ]
 ignore = ['tests/test_meteostat_wrapper']
-
