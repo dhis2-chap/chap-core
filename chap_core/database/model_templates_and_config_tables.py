@@ -1,4 +1,5 @@
 from typing import Optional, List
+from enum import Enum
 
 import jsonschema
 from sqlalchemy import Column, JSON
@@ -10,18 +11,20 @@ from chap_core.model_spec import PeriodType
 import logging
 logger = logging.getLogger(__name__)
 
-# class AuthorAssessedStatus(Enum):
-#     red = 'Red: Highly experimental prototype - not at all validated and only meant for early experimentation'
-#     orange = 'Orange: Has seen promise on limited data, needs manual configuration and careful evaluation'
-#     yellow = 'Yellow: Ready for more rigorous testing'
-#     green = 'Green: Validated, ready for use'
+
+class AuthorAssessedStatus(Enum):
+    gray = 'gray' #Gray: Not intended for use, or deprecated/meant for legacy use only.
+    red = 'red' #Red: Highly experimental prototype - not at all validated and only meant for early experimentation
+    orange = 'orange' #Orange: Has seen promise on limited data, needs manual configuration and careful evaluation
+    yellow = 'yellow' #Yellow: Ready for more rigorous testing
+    green = 'green' #Green: Validated, ready for use
 
 
 class ModelTemplateMetaData(SQLModel):
     display_name: str = "No Display Name yet"
     description: str = "No Description yet"
-    # author_note: str = "No Author note yet"
-    # author_assessed_status: AuthorAssessedStatus = AuthorAssessedStatus('red')
+    author_note: str = "No Author note yet"
+    author_assessed_status: AuthorAssessedStatus = AuthorAssessedStatus('red')
     author: str = "Unknown Author"
     organization: Optional[str] = None
     organization_logo_url: Optional[str] = None
