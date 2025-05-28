@@ -19,7 +19,6 @@ from datetime import datetime
 from functools import partial
 import logging
 
-import jsonschema
 import numpy as np
 from fastapi import Path, Query
 from typing import Optional, List, Annotated
@@ -33,7 +32,6 @@ from sqlmodel import Session
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.feature_tables import FeatureSource
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -92,7 +90,7 @@ async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(
 
 @router.delete("/backtests/{backtestId}")
 async def delete_backtest(
-        backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
+    backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
@@ -104,9 +102,9 @@ async def delete_backtest(
 
 @router.patch("/backtests/{backtestId}", response_model=BackTestRead)
 async def update_backtest(
-        backtest_id: Annotated[int, Path(alias="backtestId")],
-        backtest_update: BackTestUpdate,
-        session: Session = Depends(get_session),
+    backtest_id: Annotated[int, Path(alias="backtestId")],
+    backtest_update: BackTestUpdate,
+    session: Session = Depends(get_session),
 ):
     db_backtest = session.get(BackTest, backtest_id)
     if not db_backtest:
@@ -172,7 +170,7 @@ async def get_predictions(session: Session = Depends(get_session)):
 
 @router.get("/predictions/{predictionId}", response_model=PredictionRead)
 async def get_prediction(
-        prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
+    prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -187,7 +185,7 @@ async def create_prediction(prediction: PredictionCreate):
 
 @router.delete("/predictions/{predictionId}")
 async def delete_prediction(
-        prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
+    prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -241,7 +239,7 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
 
 @router.post("/datasets")
 async def create_dataset(
-        data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)
+    data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ) -> JobResponse:
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
@@ -257,9 +255,9 @@ async def create_dataset(
 
 @router.post("/datasets/csvFile")
 async def create_dataset_csv(
-        csv_file: UploadFile = File(...),
-        geojson_file: UploadFile = File(...),
-        session: Session = Depends(get_session),
+    csv_file: UploadFile = File(...),
+    geojson_file: UploadFile = File(...),
+    session: Session = Depends(get_session),
 ) -> DataBaseResponse:
     csv_content = await csv_file.read()
     dataset = InMemoryDataSet.from_csv(pd.io.common.BytesIO(csv_content), dataclass=FullData)
@@ -289,7 +287,8 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     ModelTemplateRead is a read model for the ModelTemplateDB.
     It is used to return the model template in a readable format.
     """
-    # TODO: should probably be moved somewhere else? 
+
+    # TODO: should probably be moved somewhere else?
     name: str
     id: int
     user_options: Optional[dict] = None
@@ -327,16 +326,16 @@ class ModelConfigurationCreate(DBModel):
 
 @router.post("/configured-models", response_model=ConfiguredModelDB)
 def add_configured_model(
-        model_configuration: ModelConfigurationCreate,
-        session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
+    model_configuration: ModelConfigurationCreate,
+    session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
 ):
     """Add a configured model to the database"""
     session_wrapper = SessionWrapper(session=session)
     model_template_id = model_configuration.model_template_id
     configuration_name = model_configuration.name
-    db_id = session_wrapper.add_configured_model(model_template_id,
-                                                 ModelConfiguration(**model_configuration.dict()),
-                                                 configuration_name)
+    db_id = session_wrapper.add_configured_model(
+        model_template_id, ModelConfiguration(**model_configuration.dict()), configuration_name
+    )
     return session.get(ConfiguredModelDB, db_id)
 
 
@@ -352,8 +351,8 @@ def list_models(session: Session = Depends(get_session)):
 
 @router.post("/models", response_model=ConfiguredModelDB)
 def add_model(
-        model_configuration: ModelConfigurationCreate,
-        session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
+    model_configuration: ModelConfigurationCreate,
+    session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
 ):
     """Add a model to the database (alias for configured models)"""
     return add_configured_model(model_configuration, session)
@@ -371,10 +370,9 @@ async def debug_entry(database_url: str = Depends(get_database_url)) -> JobRespo
 
 @router.get("/debug/{debugId}")
 async def get_debug_entry(
-        debug_id: Annotated[int, Path(alias="debugId")], session: Session = Depends(get_session)
+    debug_id: Annotated[int, Path(alias="debugId")], session: Session = Depends(get_session)
 ) -> DebugEntry:
     debug = session.get(DebugEntry, debug_id)
     if debug is None:
         raise HTTPException(status_code=404, detail="Debug entry not found")
     return debug
-
