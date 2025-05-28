@@ -1,3 +1,6 @@
+# If you have issues with platform compatibility and uv, plesae build with
+#   docker build --platform=linux/amd64 -f Dockerfile.inla .
+
 FROM ivargr/r_inla
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
