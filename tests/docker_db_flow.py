@@ -17,6 +17,7 @@ def make_prediction_request(model_name):
     filename = '../example_data/anonymous_make_prediction_request.json'
     data = json.load(open(filename))
     data['modelId'] = model_name
+    data['name'] = f'integration_test: {model_name}'
     return data
 
 
@@ -131,8 +132,7 @@ class IntegrationTest:
                 logger.error(msg)
                 errors.append(msg)
 
-        if errors:
-            raise Exception(f'Prediction errors: {errors}')
+        return errors
 
     def evaluation_flow(self):
         logger.info(f'Starting evaluation flow tests')
@@ -164,8 +164,7 @@ class IntegrationTest:
                 logger.error(msg)
                 errors.append(msg)
         
-        if errors:
-            raise Exception(f'Evaluation errors: {errors}')
+        return errors
 
     def make_dataset(self, data):
         make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
@@ -177,7 +176,7 @@ class IntegrationTest:
     def evaluate_model(self, dataset_id, model):
         logger.info(f'Making evaluation for {model}')
         job_id = self._post(self._chap_url + "/v1/crud/backtests/",
-                            json={"modelId": model, "datasetId": dataset_id, 'name': 'integration_test'})['id']
+                            json={"modelId": model, "datasetId": dataset_id, 'name': f'integration_test: {model}'})['id']
         db_id = self.wait_for_db_id(job_id)
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
         assert evaluation_result['modelId'] == model
@@ -223,5 +222,11 @@ if __name__ == "__main__":
 
     chap_url = f"http://{args.host}:8000"
     suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
-    suite.evaluation_flow()
-    suite.prediction_flow()
+    evaluation_errors = suite.evaluation_flow()
+    prediction_errors = suite.prediction_flow()
+    if evaluation_errors:
+        logger.error(f'Evaluation errors: {evaluation_errors}')
+    if prediction_errors:
+        logger.error(f'Prediction errors: {prediction_errors}')
+    if evaluation_errors or prediction_errors:
+        raise
