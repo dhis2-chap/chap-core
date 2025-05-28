@@ -224,9 +224,7 @@ if __name__ == "__main__":
     suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
     evaluation_errors = suite.evaluation_flow()
     prediction_errors = suite.prediction_flow()
-    if evaluation_errors:
-        logger.error(f'Evaluation errors: {evaluation_errors}')
-    if prediction_errors:
-        logger.error(f'Prediction errors: {prediction_errors}')
     if evaluation_errors or prediction_errors:
-        raise
+        raise Exception(f'One or more evaluation or prediction errors encountered. See the above logs for details.')
+    else:
+        logger.info(f'Script finished without errors.')
