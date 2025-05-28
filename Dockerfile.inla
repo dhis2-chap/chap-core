@@ -1,4 +1,3 @@
-# Base image with Python 3.12 and uv pre-installed
 FROM ivargr/r_inla
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
@@ -37,46 +36,3 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Final environment path setup
 ENV PATH="/app/.venv/bin:$PATH"
-
-# # # installs chap with support for some external models
-# FROM ivargr/r_inla
-
-# RUN apt-get update
-# RUN apt-get install -y python3
-# RUN apt-get install -y python3-pip
-# RUN apt-get install -y libncurses-dev
-# RUN apt-get install -y libreadline-dev
-# RUN apt-get install -y libbz2-dev
-
-
-# # Set the working directory in the container
-
-# # Install the Python dependencies
-# RUN apt-get update && \
-#     apt-get upgrade -y && \
-#     apt-get install -y git
-
-# # Install pyenv
-# RUN sudo apt-get install libffi-dev
-# RUN git clone --depth=1 https://github.com/pyenv/pyenv.git .pyenv
-
-# ENV PYENV_ROOT="/.pyenv"
-# ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
-# RUN pyenv install 3.11.3
-# # RUN pyenv global 3.11.3
-
-# WORKDIR /app
-# COPY ./chap_core ./chap_core
-# COPY ./config ./config
-# COPY ./pyproject.toml ./pyproject.toml
-# COPY ./README.md ./README.md
-
-# RUN git clone https://github.com/pyenv/pyenv.git /pyenv
-# ENV PYENV_ROOT /pyenv
-
-# # get uv
-# COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-# RUN uv sync
-
-# # RUN pip install --upgrade pip
-# # RUN uv pip install --system -e .
