@@ -116,7 +116,7 @@ class IntegrationTest:
         model_list = self.get_models()
         assert 'naive_model' in {model['name'] for model in model_list}
 
-        all_model_names = [model['name'] for model in model_list]
+        all_model_names = self._get_model_names(model_list)
         if self._model_id:
             assert self._model_id in all_model_names
             model_names = [self._model_id]
@@ -125,12 +125,7 @@ class IntegrationTest:
 
         errors = []
         for model_name in model_names:
-            try:
-                self.make_prediction(make_prediction_request(model_name))
-            except Exception as err:
-                msg = f'{model_name}: {err}'
-                logger.error(msg)
-                errors.append(msg)
+            self.make_prediction(make_prediction_request(model_name))
 
         if errors:
             raise Exception(f'Prediction errors: {errors}')
@@ -145,7 +140,7 @@ class IntegrationTest:
         data = make_dataset_request(self._dataset_path)
         dataset_id = self.make_dataset(data)
 
-        all_model_names = [model['name'] for model in model_list]        
+        all_model_names = self._get_model_names(model_list)
         if self._model_id:
             assert self._model_id in all_model_names, f"Model {self._model_id} not found in {all_model_names}"
             model_names = [self._model_id]
@@ -161,6 +156,11 @@ class IntegrationTest:
             assert result_org_units == org_units, (result_org_units, org_units)
 
         return errors
+
+    def _get_model_names(self, model_list):
+        print(model_list)
+        return [model['name'] for model in model_list if
+                model['supportedPeriodType'] in ('month', 'any') and not model['name'].startswith('auto')]
 
     def make_dataset(self, data):
         make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
