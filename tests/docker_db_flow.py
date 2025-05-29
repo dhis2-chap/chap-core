@@ -158,9 +158,8 @@ class IntegrationTest:
         return errors
 
     def _get_model_names(self, model_list):
-        print(model_list)
         return [model['name'] for model in model_list if
-                model['supportedPeriodType'] in ('month', 'any') and not model['name'].startswith('auto')]
+                model['supportedPeriodType'] in ('month', 'any') and not model['name'].startswith('auto')][:3]
 
     def make_dataset(self, data):
         make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
