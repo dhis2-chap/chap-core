@@ -6,6 +6,7 @@ from unittest.mock import patch
 from pathlib import Path
 import numpy as np
 import pytest
+from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 from chap_core.api_types import RequestV1
 from chap_core.assessment.dataset_splitting import train_test_generator
