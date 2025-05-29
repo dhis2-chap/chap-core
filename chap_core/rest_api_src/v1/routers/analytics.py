@@ -11,6 +11,7 @@ from chap_core.api_types import EvaluationEntry, DataList, DataElement, Predicti
 from chap_core.database.base_tables import DBModel
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from .dependencies import get_session, get_database_url, get_settings
 from chap_core.database.tables import BackTest, Prediction, BackTestForecast
 from chap_core.database.dataset_tables import Observation
@@ -49,11 +50,14 @@ def make_dataset(request: DatasetMakeRequest,
     and puts it in the database
     """
     feature_names, provided_data = _read_dataset(request)
-    provided_data = _validate_full_dataset(feature_names, provided_data)
-
+    provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
+    imported_count = len(provided_data.locations())
+    if imported_count == 0:
+        raise HTTPException(status_code=500, detail=f'Missing values. No data was imported.')
     request.type = "evaluation"
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+
     job = worker.queue_db(
         wf.harmonize_and_add_dataset,
         feature_names,
@@ -65,10 +69,8 @@ def make_dataset(request: DatasetMakeRequest,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_dataset", JOB_NAME_KW: request.name},
     )
-    if imported_count == 0:
-        raise HTTPException(status_code=500, detail=f'Missing values. No data was imported.')
 
-    return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejected_list)
+    return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejections)
 
 def _read_dataset(request):
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -79,25 +81,25 @@ def _read_dataset(request):
     return feature_names, provided_data
 
 
-def _validate_full_dataset(feature_names, provided_data, rejected_list=None):
+def _validate_full_dataset(feature_names, provided_data) -> tuple[DataSet, list[ValidationError]]:
     new_data = {}
+    rejected_list = []
     for location, data in provided_data.items():
         for feature_name in feature_names:
             if feature_name == "disease_cases":
                 continue
             isnan = np.isnan(getattr(data, feature_name))
             if np.any(isnan):
-                rejected_list.append(ValidationError(reason="Missing value for the entire time period", orgUnit=location, feature_name=feature_name))
-                isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
-                logger.warning(f'Missing value in {feature_name} in location {location}. n_periods: {len(isnan_)}')
+                isnan_ = [data.time_period[i].id for i in np.flatnonzero(isnan)]
+                rejected_list.append(ValidationError(reason="Missing value for some/all time periods", orgUnit=location, feature_name=feature_name, time_periods=isnan_))
                 break
         else:
             new_data[location] = data
     new_dataset = provided_data.__class__(new_data,
-                                   polygons=provided_data.polygons,
-                                   metadata=provided_data.metadata)
+                                          polygons=provided_data.polygons,
+                                          metadata=provided_data.metadata)
     logger.info(f"Remaining dataset after validation: {len(new_dataset.locations())} locations: {list(new_dataset.locations())}")
-    return new_dataset
+    return new_dataset, rejected_list
 
 
 @router.get("/compatible-backtests/{backtestId}", response_model=List[BackTestRead])
@@ -238,7 +240,7 @@ async def make_prediction(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    provided_data = _validate_full_dataset(feature_names, provided_data)
+    provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
@@ -397,7 +399,7 @@ async def create_backtest_with_data(
     worker_settings=Depends(get_settings),
 ):
     feature_names, provided_data_processed = _read_dataset(request)
-    provided_data_processed = _validate_full_dataset(feature_names, provided_data_processed)
+    provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
     provided_data_processed.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
 
     job = worker.queue_db(

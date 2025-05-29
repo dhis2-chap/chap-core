@@ -49,6 +49,7 @@ class ValidationError(BaseModel):
     reason: str
     orgUnit: str
     feature_name: str
+    time_periods: List[str]
 
 class ImportSummaryResponse(BaseModel):
     id: str
