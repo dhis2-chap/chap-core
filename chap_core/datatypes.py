@@ -123,7 +123,7 @@ class TimeSeriesData:
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
         data_dict["time_period"] = self.time_period
         fields = {
-            key: interpolate_nans(value) if field_names is None or key in field_names else value
+            key: interpolate_nans(value) if ((field_names is None) or (key in field_names) and not np.all(np.isnan(value))) else value
             for key, value in data_dict.items()
             if key != "time_period"
         }

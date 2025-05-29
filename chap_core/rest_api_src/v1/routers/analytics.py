@@ -49,7 +49,7 @@ def make_dataset(
     and puts it in the database
     """
     feature_names, provided_data = _read_dataset(request)
-    _validate_full_dataset(feature_names, provided_data)
+    provided_data = _validate_full_dataset(feature_names, provided_data)
 
     request.type = "evaluation"
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
@@ -78,17 +78,23 @@ def _read_dataset(request):
 
 
 def _validate_full_dataset(feature_names, provided_data):
-    for feature_name in feature_names:
-        if feature_name == "disease_cases":
-            continue
-        for location, data in provided_data.items():
+    new_data = {}
+    for location, data in provided_data.items():
+        for feature_name in feature_names:
+            if feature_name == "disease_cases":
+                continue
             isnan = np.isnan(getattr(data, feature_name))
             if np.any(isnan):
                 isnan_ = [data.time_period[i] for i in np.flatnonzero(isnan)]
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Missing value in {feature_name} in location {location}. Time periods: {isnan_}",
-                )
+                logger.warning(f'Missing value in {feature_name} in location {location}. n_periods: {len(isnan_)}')
+                break
+        else:
+            new_data[location] = data
+    new_dataset = provided_data.__class__(new_data,
+                                   polygons=provided_data.polygons,
+                                   metadata=provided_data.metadata)
+    logger.info(f"Remaining dataset after validation: {len(new_dataset.locations())} locations: {list(new_dataset.locations())}")
+    return new_dataset
 
 
 @router.get("/compatible-backtests/{backtestId}", response_model=List[BackTestRead])
@@ -229,7 +235,7 @@ async def make_prediction(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    _validate_full_dataset(feature_names, provided_data)
+    provided_data = _validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
@@ -388,7 +394,7 @@ async def create_backtest_with_data(
     worker_settings=Depends(get_settings),
 ):
     feature_names, provided_data_processed = _read_dataset(request)
-    _validate_full_dataset(feature_names, provided_data_processed)
+    provided_data_processed = _validate_full_dataset(feature_names, provided_data_processed)
     provided_data_processed.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
 
     job = worker.queue_db(

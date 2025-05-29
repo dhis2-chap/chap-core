@@ -112,6 +112,7 @@ class ExternalModel(ConfiguredModel):
         if self._adapters is None:
             return data
         adapters = self._adapters
+        logger.info(f'Adapting data with columns {data.columns.tolist()} using adapters {adapters}')
         if inverse:
             adapters = {v: k for k, v in adapters.items()}
             # data['disease_cases'] = data[adapters['disase_cases']]
@@ -146,6 +147,7 @@ class ExternalModel(ConfiguredModel):
                     ]  # data['time_period'].dt.year
             else:
                 data[to_name] = data[from_name]
+        logger.info(f"Adapted data to columns {data.columns.tolist()}")
         return data
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:

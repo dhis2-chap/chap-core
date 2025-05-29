@@ -322,6 +322,7 @@ class SessionWrapper:
             for field in dataclasses.fields(next(iter(orig_dataset.values())))
             if field.name not in ["time_period", "location"]
         ]
+        logger.info(f"Field names in dataset: {field_names}")
         dataset = DataSet(
             name=dataset_name,
             polygons=polygons,
@@ -350,6 +351,7 @@ class SessionWrapper:
     def get_dataset(self, dataset_id, dataclass: type | None = None) -> _DataSet:
         dataset = self.session.get(DataSet, dataset_id)
         if dataclass is None:
+            logger.info(f'Getting dataset with covariates: {dataset.covariates} and name: {dataset.name}')
             field_names = dataset.covariates
             dataclass = create_tsdataclass(field_names)
         observations = dataset.observations
