@@ -53,7 +53,7 @@ def make_dataset(request: DatasetMakeRequest,
     provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
     imported_count = len(provided_data.locations())
     if imported_count == 0:
-        raise HTTPException(status_code=500, detail=f'Missing values. No data was imported.')
+        raise HTTPException(status_code=500, detail='Missing values. No data was imported.')
     request.type = "evaluation"
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))

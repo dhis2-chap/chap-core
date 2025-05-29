@@ -34,7 +34,7 @@ def validate_and_filter_dataset_for_evaluation(
     new_data = {}
     rejected = []
     for location, data in dataset.items():
-        if np.any(np.logical_not(np.isnan(getattr(data, target_name)))):
+        if np.any(np.logical_not(np.isnan(getattr(data, target_name)[:-evaluation_length]))):
             new_data[location] = data
 
     logger.warning(f'Rejected regions: {rejected} due to missing target values for the whole training period')

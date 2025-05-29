@@ -13,7 +13,7 @@ from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB, ModelConfiguration
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
-from chap_core.datatypes import create_tsdataclass, SamplesWithTruth
+from chap_core.datatypes import create_tsdataclass
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
@@ -62,7 +62,6 @@ else:
 
 
 def crps_ensemble_timestep(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
-    n = len(sample_values)
     term1 = np.mean(np.abs(sample_values - obs))
     term2 = 0.5 * np.mean(np.abs(sample_values[:, None] - sample_values[None, :]))
     return float(term1 - term2)
