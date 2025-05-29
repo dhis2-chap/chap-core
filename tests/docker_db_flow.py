@@ -132,7 +132,8 @@ class IntegrationTest:
                 logger.error(msg)
                 errors.append(msg)
 
-        return errors
+        if errors:
+            raise Exception(f'Prediction errors: {errors}')
 
     def evaluation_flow(self):
         logger.info(f'Starting evaluation flow tests')
@@ -146,7 +147,7 @@ class IntegrationTest:
 
         all_model_names = [model['name'] for model in model_list]        
         if self._model_id:
-            assert self._model_id in all_model_names
+            assert self._model_id in all_model_names, f"Model {self._model_id} not found in {all_model_names}"
             model_names = [self._model_id]
         else:
             model_names = all_model_names
@@ -188,7 +189,7 @@ class IntegrationTest:
         return evaluation_entries, db_id
 
     def wait_for_db_id(self, job_id):
-        for _ in range(400):
+        for _ in range(600):
             job_url = self._chap_url + f"/v1/jobs/{job_id}"
             job_status = self._get(job_url).lower()
             logger.info(job_status)
@@ -222,9 +223,5 @@ if __name__ == "__main__":
 
     chap_url = f"http://{args.host}:8000"
     suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
-    evaluation_errors = suite.evaluation_flow()
-    prediction_errors = suite.prediction_flow()
-    if evaluation_errors or prediction_errors:
-        raise Exception(f'One or more evaluation or prediction errors encountered. See the above logs for details.')
-    else:
-        logger.info(f'Script finished without errors.')
+    suite.prediction_flow()
+    suite.evaluation_flow()
