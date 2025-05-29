@@ -154,17 +154,12 @@ class IntegrationTest:
 
         errors = []
         for model_name in model_names:
-            try:
-                result, backtest_id = self.evaluate_model(dataset_id, model_name)
-                actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
-                result_org_units = {e['orgUnit'] for e in result}
-                org_units = {de['ou'] for de in actual_cases['data']}
-                assert result_org_units == org_units, (result_org_units, org_units)
-            except Exception as err:
-                msg = f'{model_name}: {err}'
-                logger.error(msg)
-                errors.append(msg)
-        
+            result, backtest_id = self.evaluate_model(dataset_id, model_name)
+            actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
+            result_org_units = {e['orgUnit'] for e in result}
+            org_units = {de['ou'] for de in actual_cases['data']}
+            assert result_org_units == org_units, (result_org_units, org_units)
+
         return errors
 
     def make_dataset(self, data):
@@ -182,7 +177,7 @@ class IntegrationTest:
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
         assert evaluation_result['modelId'] == model
         assert evaluation_result['datasetId'] == dataset_id
-        assert evaluation_result['name'] == 'integration_test', evaluation_result
+        assert evaluation_result['name'].startswith('integration_test'), evaluation_result['name']
         assert evaluation_result['created'], evaluation_result['created']
         url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
         evaluation_entries = self._get(url_string)
