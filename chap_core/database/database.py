@@ -1,18 +1,19 @@
 import dataclasses
 import datetime
 import time
-from typing import Optional, List
+from typing import Optional, List, Iterable
 
+import numpy as np
 import psycopg2
 import sqlalchemy
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from sqlmodel import SQLModel, create_engine, Session, select
-from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
+from .tables import BackTest, BackTestForecast, BackTestMetric, Prediction, PredictionSamplesEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB, ModelConfiguration
 from .debug import DebugEntry
 from .dataset_tables import Observation, DataSet
-from chap_core.datatypes import create_tsdataclass
+from chap_core.datatypes import create_tsdataclass, SamplesWithTruth
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
@@ -49,6 +50,49 @@ if database_url is not None:
         raise ValueError("Failed to connect to database")
 else:
     logger.warning("Database url not set. Database operations will not work")
+
+
+# metric functions
+# each function is run at each forecasted value
+# each function must take samples_values, observation, and evaluation_results
+# NOTE: evaluation_results is provided in order to provide greater context of all forecast samples and observed values
+# TODO: passing evaluation_results is a bit hacky, not always needed, and not very clean (need a better approach)
+# TODO: move below to separate metrics file
+# TODO: probably also move to classes and more flexible
+
+
+def crps_ensemble_timestep(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
+    n = len(sample_values)
+    term1 = np.mean(np.abs(sample_values - obs))
+    term2 = 0.5 * np.mean(np.abs(sample_values[:, None] - sample_values[None, :]))
+    return float(term1 - term2)
+
+
+def crps_ensemble_timestep_normalized(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
+    crps = crps_ensemble_timestep(sample_values, obs, evaluation_results)
+    obs_values = [
+        cases
+        for eval_result in evaluation_results
+        for location, samples_with_truth in eval_result.items()
+        for cases in samples_with_truth.disease_cases
+    ]
+    obs_min, obs_max = min(obs_values), max(obs_values)
+    crps_norm = crps / (obs_max - obs_min)
+    return float(crps_norm)
+
+
+def _is_within_percentile(sample_values: np.ndarray, obs: float, lower_percentile: float, higher_percentile: float) -> float:
+    low,high = np.percentile(sample_values, [lower_percentile, higher_percentile])
+    is_within_range = 1 if (low <= obs <= high) else 0
+    return float(is_within_range)
+
+
+def is_within_10th_90th(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
+    return _is_within_percentile(sample_values, obs, 10, 90)
+
+
+def is_within_25th_75th(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
+    return _is_within_percentile(sample_values, obs, 25, 75)
 
 
 class SessionWrapper:
@@ -124,10 +168,10 @@ class SessionWrapper:
         self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default"
     ) -> int:
         # get model template name
-        model_template = self.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)
-        ).first()
-        template_name = model_template.name
+        model_template = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
+        template_name = (
+            model_template.name
+        )
 
         # set configured name
         if configuration_name == "default":
@@ -144,11 +188,9 @@ class SessionWrapper:
             return existing_configured.id
 
         # create and add db entry
-        configured_model = ConfiguredModelDB(
-            name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template
-        )
+        configured_model = ConfiguredModelDB(name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template)
         configured_model.validate_user_options(configured_model)
-        # configured_model.validate_user_options(model_template)
+        #configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
         self.session.commit()
@@ -235,13 +277,12 @@ class SessionWrapper:
     def get_configured_model_by_name(self, configured_model_name: str) -> ConfiguredModelDB:
         try:
             configured_model = self.session.exec(
-                select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
-            ).one()
+            select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
+        ).one()
         except sqlalchemy.exc.NoResultFound:
-            all_names = self.session.exec(select(ConfiguredModelDB.name)).all()
-            raise ValueError(
-                f"Configured model with name {configured_model_name} not found. Available names: {all_names}"
-            )
+            all_names = self.session.exec(
+            select(ConfiguredModelDB.name)).all()
+            raise ValueError(f"Configured model with name {configured_model_name} not found. Available names: {all_names}")
 
         return configured_model
 
@@ -250,9 +291,7 @@ class SessionWrapper:
         if configured_model.name == "naive_model":
             return NaiveEstimator()
         template_name = configured_model.model_template.name
-        ignore_env = (
-            template_name.startswith("chap_ewars") or template_name == "ewars_template"
-        )  # TODO: seems hacky, how to fix?
+        ignore_env = template_name.startswith("chap_ewars") or template_name=='ewars_template'  # TODO: seems hacky, how to fix?
         return ModelTemplate.from_directory_or_github_url(
             configured_model.model_template.source_url,
             ignore_env=ignore_env,
@@ -264,31 +303,81 @@ class SessionWrapper:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
 
-    def add_evaluation_results(self, evaluation_results, last_train_period: TimePeriod, info: BackTestCreate):
+    def add_evaluation_results(self, evaluation_results: Iterable[DataSet], last_train_period: TimePeriod, info: BackTestCreate):
         info.created = datetime.datetime.now()
         # org_units = list({location for ds in evaluation_results for location in ds.locations()})
         # split_points = list({er.period_range[0] for er in evaluation_results})
-        model_db_id = (
-            self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
-        )
-        backtest = BackTest(**info.dict() | {"model_db_id": model_db_id})
+        model_db_id = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
+        backtest = BackTest(**info.dict() | {'model_db_id': model_db_id})
         self.session.add(backtest)
         org_units = set([])
         split_points = set([])
+        # define metrics (for each period)
+        metric_defs = {
+            'crps': crps_ensemble_timestep,
+            'crps_norm': crps_ensemble_timestep_normalized,
+            'is_within_10th_90th': is_within_10th_90th,
+            'is_within_25th_75th': is_within_25th_75th,
+        }
+        # define aggregate metrics (for entire backtest)
+        # value is tuple of (metric_id used to filter metric values, and function to run on filter metric values)
+        aggregate_metric_defs = {
+            'crps_mean': ('crps', lambda vals: np.mean(vals)),
+            'crps_norm_mean': ('crps_norm', lambda vals: np.mean(vals)),
+            'ratio_within_10th_90th': ('is_within_10th_90th', lambda vals: np.mean(vals)),
+            'ratio_within_25th_75th': ('is_within_25th_75th', lambda vals: np.mean(vals)),
+        }
+        # begin loop
+        evaluation_results = list(evaluation_results) # hacky, to avoid metric funcs using up the iterable before we can loop all splitpoints
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
             split_points.add(first_period.id)
-            for location, samples in eval_result.items():
+            for location, samples_with_truth in eval_result.items():
+                # NOTE: samples_with_truth is class datatypes.SamplesWithTruth
                 org_units.add(location)
-                for period, value in zip(eval_result.period_range, samples.samples):
+                for period, sample_values, disease_cases in zip(eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases):
+                    # add forecast series for this period
                     forecast = BackTestForecast(
                         period=period.id,
                         org_unit=location,
                         last_train_period=last_train_period.id,
                         last_seen_period=first_period.id,
-                        values=value.tolist(),
+                        values=sample_values.tolist(),
                     )
                     backtest.forecasts.append(forecast)
+                    # add misc metrics
+                    # TODO: should probably be improved with eg custom Metric classes
+                    for metric_id, metric_func in metric_defs.items():
+                        try:
+                            metric_value = metric_func(sample_values, disease_cases, evaluation_results)
+                            metric = BackTestMetric(
+                                metric_id=metric_id, 
+                                period=period.id, 
+                                org_unit=location, 
+                                last_train_period=last_train_period.id, 
+                                last_seen_period=first_period.id, 
+                                value=metric_value,
+                            )
+                            backtest.metrics.append(metric)
+                        except Exception as err:
+                            logger.warning(f'Unexpected error computing metric id {metric_id}, for location {location}, split period {first_period.id}, and forecast period {period.id}: {err}')
+        # calculate and add total metrics
+        # TODO: should probably be improved with eg custom Metric classes
+        aggregate_metrics = {}
+        for aggregate_metric_id, (filter_metric_id, aggregate_metric_func) in aggregate_metric_defs.items():
+            try:
+                filtered_metric_values = [
+                    metric.value
+                    for metric in backtest.metrics
+                    if metric.metric_id == filter_metric_id
+                ]
+                aggregate_metric_value = float(aggregate_metric_func(filtered_metric_values))
+                aggregate_metrics[aggregate_metric_id] = aggregate_metric_value
+            except Exception as err:
+                logger.warning(f'Unexpected error computing aggregate metric id {aggregate_metric_id}: {err}')
+        logger.info(f'aggregate metrics {aggregate_metrics}')
+        backtest.aggregate_metrics = aggregate_metrics
+        # add more
         backtest.org_units = list(org_units)
         backtest.split_periods = list(split_points)
         self.session.commit()
