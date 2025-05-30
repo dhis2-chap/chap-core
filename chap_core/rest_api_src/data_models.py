@@ -36,6 +36,7 @@ class FetchRequest(DBModel):
     feature_name: str
     data_source_name: str
 
+
 class DatasetMakeRequest(DataSetBase):
     geojson: FeatureCollectionModel
     provided_data: List[ObservationBase]

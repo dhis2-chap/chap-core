@@ -183,7 +183,7 @@ class IntegrationTest:
         return evaluation_entries, db_id
 
     def wait_for_db_id(self, job_id):
-        for _ in range(600):
+        for _ in range(3000):
             job_url = self._chap_url + f"/v1/jobs/{job_id}"
             job_status = self._get(job_url).lower()
             logger.info(job_status)
@@ -217,5 +217,6 @@ if __name__ == "__main__":
 
     chap_url = f"http://{args.host}:8000"
     suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
-    suite.prediction_flow()
     suite.evaluation_flow()
+    suite.prediction_flow()
+

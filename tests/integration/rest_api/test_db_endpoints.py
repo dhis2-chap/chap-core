@@ -436,25 +436,31 @@ def test_backtest_with_data_flow(
         "stride": stride_val,
     }
 
+    _check_backtest_with_data(request_payload)
+
+
+@pytest.fixture()
+def local_backtest_request(local_data_path):
+    return json.load(open(local_data_path / 'create-backtest-from-data.json', 'r'))
+
+def test_local_backtest_with_data(local_backtest_request, celery_session_worker, dependency_overrides, example_polygons):
+    _check_backtest_with_data(local_backtest_request)
+
+def _check_backtest_with_data(request_payload):
     response = client.post(
         "/v1/analytics/create-backtest-with-data", json=request_payload
     )
     assert response.status_code == 200, response.json()
     job_id = response.json()["id"]
-
     db_id = await_result_id(job_id, timeout=180)
-
     response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
-
     backtest_full = BackTestFull.model_validate(response.json())
     assert len(backtest_full.forecasts) > 0
     # assert len(backtest_full.metrics) > 0
-
     created_dataset_id = backtest_full.dataset_id
     dataset_response = client.get(f"/v1/crud/datasets/{created_dataset_id}")
     assert dataset_response.status_code == 200, dataset_response.json()
-
     eval_params = {"backtestId": db_id, "quantiles": [0.5]}
     eval_response = client.get("/v1/analytics/evaluation-entry", params=eval_params)
     assert eval_response.status_code == 200, eval_response.json()

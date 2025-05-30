@@ -18,7 +18,8 @@ from chap_core.database.dataset_tables import Observation
 import logging
 
 from ...celery_tasks import CeleryPool, JOB_TYPE_KW, JOB_NAME_KW
-from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate, BackTestRead, ImportSummaryResponse, ValidationError
+from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate, BackTestRead, ImportSummaryResponse, \
+    ValidationError
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -72,6 +73,7 @@ def make_dataset(request: DatasetMakeRequest,
 
     return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejections)
 
+
 def _read_dataset(request):
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
@@ -81,30 +83,40 @@ def _read_dataset(request):
     return feature_names, provided_data
 
 
-def _validate_full_dataset(feature_names, provided_data) -> tuple[DataSet, list[ValidationError]]:
+def _validate_full_dataset(feature_names, provided_data, target_name='disease_cases') -> tuple[
+    DataSet, list[ValidationError]]:
     new_data = {}
     rejected_list = []
+    n_locations = len(provided_data.locations())
     for location, data in provided_data.items():
         for feature_name in feature_names:
-            if feature_name == "disease_cases":
+            if feature_name == target_name:
                 continue
             isnan = np.isnan(getattr(data, feature_name))
             if np.any(isnan):
                 isnan_ = [data.time_period[i].id for i in np.flatnonzero(isnan)]
-                rejected_list.append(ValidationError(reason="Missing value for some/all time periods", orgUnit=location, feature_name=feature_name, time_periods=isnan_))
+                rejected_list.append(ValidationError(reason="Missing value for some/all time periods", orgUnit=location,
+                                                     feature_name=feature_name, time_periods=isnan_))
                 break
         else:
             new_data[location] = data
+    if not new_data:
+        raise HTTPException(status_code=500, detail='All regions regjected due to missing values.')
+    else:
+        print(new_data.keys())
+
     new_dataset = provided_data.__class__(new_data,
                                           polygons=provided_data.polygons,
                                           metadata=provided_data.metadata)
-    logger.info(f"Remaining dataset after validation: {len(new_dataset.locations())} locations: {list(new_dataset.locations())}")
+    logger.info(
+        f"Remaining dataset after validation: {len(new_dataset.locations())} (from {n_locations}) locations: {list(new_dataset.locations())} ")
+    assert len(new_dataset.locations()), new_dataset.locations()
     return new_dataset, rejected_list
 
 
 @router.get("/compatible-backtests/{backtestId}", response_model=List[BackTestRead])
 def get_compatible_backtests(
-    backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
+        backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
     """Return a list of backtests that are compatible for comparison with the given backtest"""
     logger.info(f"Checking compatible backtests for {backtest_id}")
@@ -128,9 +140,9 @@ class BacktestDomain(DBModel):
 
 @router.get("/backtest-overlap/{backtestId1}/{backtestId2}", response_model=BacktestDomain)
 def get_backtest_overlap(
-    backtest_id1: Annotated[int, Path(alias="backtestId1")],
-    backtest_id2: Annotated[int, Path(alias="backtestId2")],
-    session: Session = Depends(get_session),
+        backtest_id1: Annotated[int, Path(alias="backtestId1")],
+        backtest_id2: Annotated[int, Path(alias="backtestId2")],
+        session: Session = Depends(get_session),
 ):
     """Return the org units and split periods that are common between two backtests"""
     backtest1 = session.get(BackTest, backtest_id1)
@@ -146,11 +158,11 @@ def get_backtest_overlap(
 
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])
 async def get_evaluation_entries(
-    backtest_id: Annotated[int, Query(alias="backtestId")],
-    quantiles: List[float] = Query(...),
-    split_period: str = Query(None, alias="splitPeriod"),
-    org_units: List[str] = Query(None, alias="orgUnits"),
-    session: Session = Depends(get_session),
+        backtest_id: Annotated[int, Query(alias="backtestId")],
+        quantiles: List[float] = Query(...),
+        split_period: str = Query(None, alias="splitPeriod"),
+        org_units: List[str] = Query(None, alias="orgUnits"),
+        session: Session = Depends(get_session),
 ):
     """
     Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
@@ -198,21 +210,21 @@ class MakePredictionRequest(DatasetMakeRequest):
     meta_data: dict = {}
 
 
-class MakeBacktestRequest(DBModel):
+class BackTestParams(DBModel):
+    n_periods: int
+    n_splits: int
+    stride: int
+
+
+class MakeBacktestRequest(BackTestParams):
     name: str
     model_id: str
     dataset_id: int
-    n_periods: int
-    n_splits: int
-    stride: int
 
 
-class MakeBacktestWithDataRequest(DatasetMakeRequest):
+class MakeBacktestWithDataRequest(DatasetMakeRequest, BackTestParams):
     name: str
     model_id: str
-    n_periods: int
-    n_splits: int
-    stride: int
 
 
 @router.post("/create-backtest", response_model=JobResponse)
@@ -232,7 +244,7 @@ async def create_backtest(request: MakeBacktestRequest, database_url: str = Depe
 
 @router.post("/make-prediction", response_model=JobResponse)
 async def make_prediction(
-    request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
+        request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -259,9 +271,9 @@ async def make_prediction(
 
 @router.get("/prediction-entry/{predictionId}", response_model=List[PredictionEntry])
 def get_prediction_entries(
-    prediction_id: Annotated[int, Path(alias="predictionId")],
-    quantiles: List[float] = Query(...),
-    session: Session = Depends(get_session),
+        prediction_id: Annotated[int, Path(alias="predictionId")],
+        quantiles: List[float] = Query(...),
+        session: Session = Depends(get_session),
 ):
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -278,9 +290,9 @@ def get_prediction_entries(
 
 @router.get("/actualCases/{backtestId}", response_model=DataList)
 async def get_actual_cases(
-    backtest_id: Annotated[int, Path(alias="backtestId")],
-    org_units: List[str] = Query(None, alias="orgUnits"),
-    session: Session = Depends(get_session),
+        backtest_id: Annotated[int, Path(alias="backtestId")],
+        org_units: List[str] = Query(None, alias="orgUnits"),
+        session: Session = Depends(get_session),
 ):
     """
     Return the actual disease cases corresponding to a backtest. Can optionally be filtered on org units.
@@ -394,14 +406,15 @@ async def get_data_sources() -> List[DataSource]:
 
 @router.post("/create-backtest-with-data", response_model=JobResponse)
 async def create_backtest_with_data(
-    request: MakeBacktestWithDataRequest,
-    database_url: str = Depends(get_database_url),
-    worker_settings=Depends(get_settings),
+        request: MakeBacktestWithDataRequest,
+        database_url: str = Depends(get_database_url),
+        worker_settings=Depends(get_settings),
 ):
     feature_names, provided_data_processed = _read_dataset(request)
     provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
     provided_data_processed.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
 
+    logger.info(f'Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations')
     job = worker.queue_db(
         wf.run_backtest_from_composite_dataset,
         feature_names=feature_names,

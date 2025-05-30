@@ -9,7 +9,7 @@ from chap_core.exceptions import CommandLineException, ModelFailedException, NoP
 from chap_core.geometry import Polygons
 from chap_core.models.configured_model import ConfiguredModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period.date_util_wrapper import TimePeriod
+from chap_core.time_period.date_util_wrapper import TimePeriod, Month
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +90,9 @@ class ExternalModel(ConfiguredModel):
             self._write_polygons_to_geojson(train_data, self._polygons_file_name)
             logging.info(f"Will pass polygons file {self._polygons_file_name} to train command and predict command")
 
+        frequency = self._get_frequency(train_data)
         pd = train_data.to_pandas()
-        new_pd = self._adapt_data(pd)
+        new_pd = self._adapt_data(pd,frequency=frequency)
         new_pd.to_csv(train_file_name_full)
 
         yaml.dump(self._configuration, open(self._config_filename, "w"))
@@ -106,7 +107,11 @@ class ExternalModel(ConfiguredModel):
             raise ModelFailedException(str(e))
         return self
 
-    def _adapt_data(self, data: pd.DataFrame, inverse=False):
+    def _get_frequency(self, train_data):
+        frequency = 'M' if isinstance(train_data.period_range[0], Month) else 'W'
+        return frequency
+
+    def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency='M'):
         if self._location_mapping is not None:
             data["location"] = data["location"].apply(self._location_mapping.name_to_index)
         if self._adapters is None:
@@ -124,19 +129,24 @@ class ExternalModel(ConfiguredModel):
                 continue
 
             if from_name == "week":
-                logger.info("Converting time period to week number")
-                if hasattr(data["time_period"], "dt"):
-                    new_val = data["time_period"].dt.week
-                    data[to_name] = new_val
-                else:
-                    data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
+                if frequency == 'W':
+                    logger.info("Converting time period to week number")
+                    if hasattr(data["time_period"], "dt"):
+                        new_val = data["time_period"].dt.week
+                        data[to_name] = new_val
+                    else:
+                        data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
+
 
             elif from_name == "month":
-                logger.info("Converting time period to month")
-                if hasattr(data["time_period"], "dt"):
-                    data[to_name] = data["time_period"].dt.month
-                else:
-                    data[to_name] = [int(str(p).split("-")[-1]) for p in data["time_period"]]
+                if frequency == 'M':
+                    logger.info("Converting time period to month number")
+                
+                    if hasattr(data["time_period"], "dt"):
+                        data[to_name] = data["time_period"].dt.month
+                    else:
+                        data[to_name] = [int(str(p).split("-")[-1]) for p in data["time_period"]]
+
             elif from_name == "year":
                 logger.info("Converting time period to year")
                 if hasattr(data["time_period"], "dt"):
@@ -162,7 +172,7 @@ class ExternalModel(ConfiguredModel):
             (historic_data_name, historic_data),
         ]:
             with open(filename, "w"):
-                adapted_dataset = self._adapt_data(dataset.to_pandas())
+                adapted_dataset = self._adapt_data(dataset.to_pandas(), frequency=self._get_frequency(dataset))
                 adapted_dataset.to_csv(filename)
 
         predictions_file = Path(self._working_dir) / "predictions.csv"

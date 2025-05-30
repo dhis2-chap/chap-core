@@ -166,6 +166,13 @@ class DataSet(Generic[FeaturesT]):
     def set_polygons(self, polygons: FeatureCollectionModel, ignore_validation=False):
         polygon_ids = {feature.id for feature in polygons.features}
         if not ignore_validation:
+            ignored_locations = set(self._data_dict.keys()) - polygon_ids
+            if ignored_locations:
+                logger.warning(
+                    f"Found {len(ignored_locations)} locations in dataset that are not in the polygons: {ignored_locations}"
+                )
+                assert False, (ignored_locations, polygon_ids)
+
             self._data_dict = {location: data for location, data in self._data_dict.items() if location in polygon_ids}
             # for location in self.locations():
             #     if location not in polygon_ids:

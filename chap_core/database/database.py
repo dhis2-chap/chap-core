@@ -349,6 +349,10 @@ class SessionWrapper:
                     for metric_id, metric_func in metric_defs.items():
                         try:
                             metric_value = metric_func(sample_values, disease_cases, evaluation_results)
+                            if np.isnan(metric_value) or np.isinf(metric_value):
+                                logger.warning(f'Computed metric {metric_id} for location {location}, split period {first_period.id}, and forecast period {period.id} is NaN or Inf, skipping.')
+                                continue
+
                             metric = BackTestMetric(
                                 metric_id=metric_id, 
                                 period=period.id, 
@@ -371,6 +375,9 @@ class SessionWrapper:
                     if metric.metric_id == filter_metric_id
                 ]
                 aggregate_metric_value = float(aggregate_metric_func(filtered_metric_values))
+                if np.isnan(aggregate_metric_value) or np.isinf(aggregate_metric_value):
+                    logger.warning(f'Computed aggregate metric {aggregate_metric_id} is NaN or Inf, skipping.')
+                    continue
                 aggregate_metrics[aggregate_metric_id] = aggregate_metric_value
             except Exception as err:
                 logger.warning(f'Unexpected error computing aggregate metric id {aggregate_metric_id}: {err}')
