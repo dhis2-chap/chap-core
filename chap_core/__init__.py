@@ -2,7 +2,7 @@
 
 __author__ = """Sandvelab"""
 __email__ = "knutdrand@gmail.com"
-__version__ = "1.0.10"
+__version__ = "1.0.11"
 __minimum_modelling_app_version__ = "1.1.0"
 from . import fetch
 from . import data
