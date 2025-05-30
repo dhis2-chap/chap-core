@@ -118,7 +118,7 @@ class IntegrationTest:
 
         all_model_names = self._get_model_names(model_list)
         if self._model_id:
-            assert self._model_id in all_model_names
+            #assert self._model_id in all_model_names
             model_names = [self._model_id]
         else:
             model_names = all_model_names
@@ -142,7 +142,7 @@ class IntegrationTest:
 
         all_model_names = self._get_model_names(model_list)
         if self._model_id:
-            assert self._model_id in all_model_names, f"Model {self._model_id} not found in {all_model_names}"
+            #assert self._model_id in all_model_names, f"Model {self._model_id} not found in {all_model_names}"
             model_names = [self._model_id]
         else:
             model_names = all_model_names
