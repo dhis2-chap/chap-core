@@ -1,16 +1,18 @@
 import json
 import os
 import shutil
+import logging
 from unittest.mock import patch
 from pathlib import Path
 import numpy as np
 import pytest
+from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 from chap_core.api_types import RequestV1
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import ObservationBase, DataSet
-from chap_core.database.model_spec_tables import seed_with_session_wrapper
+from chap_core.database.model_spec_tables import get_available_models, seed_with_session_wrapper
 from chap_core.database.tables import *
 import pandas as pd
 
@@ -21,6 +23,7 @@ from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCrea
 from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api_src.worker_functions import WorkerConfig
 from chap_core.services.cache_manager import get_cache
+from chap_core import util
 from .data_fixtures import *
 
 # ignore showing plots in tests
@@ -29,14 +32,13 @@ import matplotlib.pyplot as plt
 # Don't use pytest-celery if on windows
 IS_WINDOWS = os.name == "nt"
 
+# logger
+logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(scope='session')
 def redis_available():
-    import redis
-    try:
-        redis.Redis().ping()
-        return True
-    except redis.exceptions.ConnectionError:
+    if not util.redis_available():
         pytest.skip("Redis not available")
 
 
@@ -44,8 +46,30 @@ pytest_plugins = ("celery.contrib.pytest",)
 
 
 @pytest.fixture(scope='session')
+def celery_config(database_url):
+    '''Overrides the default redis broker for all celery worker tests based on env vars'''
+    logger.debug(f"Using celery database_url: {database_url}")
+    host = os.getenv("REDIS_HOST", "localhost") # default to localhost for backwards compatibility
+    port = os.getenv("REDIS_PORT", "6379")
+    logger.debug(f'Using redis host: {host}:{port}')
+    return {
+        "broker_url": f"redis://{host}:{port}", #/0",
+        "result_backend": f"redis://{host}:{port}", #/1",
+        'task_serializer': 'pickle',
+        'accept_content': ['pickle'],
+        'result_serializer': 'pickle',
+        'database_url': database_url,
+    }
+
+
+@pytest.fixture(scope='session')
 def celery_session_worker(redis_available, celery_session_worker):
     return celery_session_worker
+
+
+@pytest.fixture(scope='session')
+def celery_worker_pool():
+    return 'prefork'
 
 
 # if not IS_WINDOWS:
@@ -276,31 +300,27 @@ def database_url():
 
 @pytest.fixture(scope='session')
 def clean_engine(database_url):
+    # TODO: rename clean_engine_with_models? 
+    # TODO: maybe use the on_startup function instead of manually setting up things? 
     engine = create_engine(database_url,
                            connect_args={"check_same_thread": False})
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
-    with SessionWrapper(engine) as session:
-        seed_with_session_wrapper(session)
+    # old model seeding
+    # TODO: remove once the new seeding is implemented
+    # with SessionWrapper(engine) as session:
+    #     seed_with_session_wrapper(session)
+    # new model seeding
+    # from chap_core.database.model_template_seed import seed_configured_models        
+    # from sqlmodel import Session
+    # with Session(engine) as session:
+    #     seed_configured_models(session)
+    # newest model seeding
+    from chap_core.database.model_template_seed import seed_configured_models_from_config_dir
+    from sqlmodel import Session
+    with Session(engine) as session:
+        seed_configured_models_from_config_dir(session)
     return engine
-
-
-@pytest.fixture(scope='session')
-def celery_config(database_url):
-    print(f"Using database_url: {database_url}")
-    return {
-        'broker_url': 'redis://localhost:6379',
-        'result_backend': 'redis://localhost:6379',
-        'task_serializer': 'pickle',
-        'accept_content': ['pickle'],
-        'result_serializer': 'pickle',
-        'database_url': database_url,
-    }
-
-
-@pytest.fixture(scope='session')
-def celery_worker_pool():
-    return 'prefork'
 
 
 @pytest.fixture

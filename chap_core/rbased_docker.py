@@ -12,7 +12,7 @@ def create_image(r_packages, image_name="r-custom-image"):
         image_name (str): Name of the Docker image to create.
     """
     # Dockerfile template
-    package_string = ', '.join([f'\'{pkg}\'' for pkg in r_packages])
+    package_string = ", ".join([f"'{pkg}'" for pkg in r_packages])
     dockerfile_template = f"""
     FROM rocker/r-base:latest
 
@@ -35,7 +35,7 @@ def create_image(r_packages, image_name="r-custom-image"):
     # return
     # Save the Dockerfile to a temporary file
     dockerfile_path = "./Dockerfile"
-        #dockerfile.write(dockerfile_template)
+    # dockerfile.write(dockerfile_template)
 
     # Initialize the Docker client
     client = docker.from_env()
@@ -43,8 +43,7 @@ def create_image(r_packages, image_name="r-custom-image"):
     try:
         # Build the Docker image
         print(f"Building the Docker image: {image_name}...")
-        image, logs = client.images.build(path=folder.name + "/",
-                                          tag=image_name)
+        image, logs = client.images.build(path=folder.name + "/", tag=image_name)
 
         # Display build logs
         for log in logs:
@@ -59,4 +58,4 @@ def create_image(r_packages, image_name="r-custom-image"):
 
 
 if __name__ == "__main__":
-    create_image(['dplyr', 'fable'], image_name="r-dplyr-fable")
+    create_image(["dplyr", "fable"], image_name="r-dplyr-fable")

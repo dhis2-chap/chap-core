@@ -36,19 +36,14 @@ class JobDescription(BaseModel):
 
 def read_environment_variables():
     load_dotenv(find_dotenv())
-    host = os.getenv("CELERY_BROKER",
-                     "redis://localhost:6379")
+    host = os.getenv("CELERY_BROKER", "redis://localhost:6379")
     return host
 
 
 # Setup celery
 url = read_environment_variables()
 logger.info(f"Connecting to {url}")
-app = Celery(
-    "worker",
-    broker=url,
-    backend=url
-)
+app = Celery("worker", broker=url, backend=url)
 app.conf.update(
     task_serializer="pickle",
     accept_content=["pickle"],  # Allow pickle serialization
@@ -61,8 +56,9 @@ app.conf.update(
 
 
 # Setup Redis connection (for job metadata)
-redis_url = 'redis' if 'localhost' not in url else 'localhost'
-r = Redis(host=redis_url, port=6379, db=2, decode_responses=True) # TODO: how to set this better?
+# TODO: switch to using utils.load_redis()?
+redis_url = "redis" if "localhost" not in url else "localhost"
+r = Redis(host=redis_url, port=6379, db=2, decode_responses=True)  # TODO: how to set this better?
 
 
 # logger.warning("No database URL set")
@@ -71,16 +67,13 @@ r = Redis(host=redis_url, port=6379, db=2, decode_responses=True) # TODO: how to
 
 
 class TrackedTask(Task):
-
     def __call__(self, *args, **kwargs):
         # Extract the current task id
         task_id = self.request.id
 
         # Create a file handler for this task's logs
         file_handler = logging.FileHandler(Path("logs") / f"task_{task_id}.txt")
-        file_formatter = logging.Formatter(
-            '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-        )
+        file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
         file_handler.setFormatter(file_formatter)
 
         # Remember old handlers so we can restore them later
@@ -98,13 +91,16 @@ class TrackedTask(Task):
 
         try:
             # Mark as started when the task is actually executing
-            r.hmset(f"job_meta:{task_id}", {
-                "status": "STARTED",
-                #"start_time": datetime.now().isoformat(), # update the start time
-            })
+            r.hmset(
+                f"job_meta:{task_id}",
+                {
+                    "status": "STARTED",
+                    # "start_time": datetime.now().isoformat(), # update the start time
+                },
+            )
             # Execute the actual task
             return super().__call__(*args, **kwargs)
-        
+
         finally:
             # Close the file handler and restore old handlers after the task is done
             file_handler.close()
@@ -112,49 +108,53 @@ class TrackedTask(Task):
             root_logger.handlers = old_root_handlers
 
     def apply_async(self, args=None, kwargs=None, **options):
-        #print('apply async', args, kwargs, options)
-        job_name = kwargs.pop(JOB_NAME_KW, None) or 'Unnamed'
-        job_type = kwargs.pop(JOB_TYPE_KW, None) or 'Unspecified'
+        # print('apply async', args, kwargs, options)
+        job_name = kwargs.pop(JOB_NAME_KW, None) or "Unnamed"
+        job_type = kwargs.pop(JOB_TYPE_KW, None) or "Unspecified"
         result = super().apply_async(args=args, kwargs=kwargs, **options)
 
-        r.hmset(f"job_meta:{result.id}", {
-            "job_name": job_name,
-            "job_type": job_type,
-            "status": "PENDING",
-            "start_time": datetime.now().isoformat()
-        })
+        r.hmset(
+            f"job_meta:{result.id}",
+            {"job_name": job_name, "job_type": job_type, "status": "PENDING", "start_time": datetime.now().isoformat()},
+        )
 
         return result
 
     def on_success(self, retval, task_id, args, kwargs):
-        print('success!')
-        #start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
-        #duration = time.time() - start
+        print("success!")
+        # start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
+        # duration = time.time() - start
 
-        r.hmset(f"job_meta:{task_id}", {
-            "status": "SUCCESS",
-            #"duration": duration,
-            "result": json.dumps(retval),
-            "end_time": datetime.now().isoformat()
-        })
+        r.hmset(
+            f"job_meta:{task_id}",
+            {
+                "status": "SUCCESS",
+                # "duration": duration,
+                "result": json.dumps(retval),
+                "end_time": datetime.now().isoformat(),
+            },
+        )
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        print('failure!')
-        #start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
-        #duration = time.time() - start
+        print("failure!")
+        # start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
+        # duration = time.time() - start
 
-        r.hmset(f"job_meta:{task_id}", {
-            "status": "FAILURE",
-            #"duration": duration,
-            "error": str(exc),
-            "traceback": str(einfo.traceback),
-            "end_time": datetime.now().isoformat()
-        })
+        r.hmset(
+            f"job_meta:{task_id}",
+            {
+                "status": "FAILURE",
+                # "duration": duration,
+                "error": str(exc),
+                "traceback": str(einfo.traceback),
+                "end_time": datetime.now().isoformat(),
+            },
+        )
 
 
-@shared_task(name='celery.ping')
+@shared_task(name="celery.ping")
 def ping():
-    return 'pong'
+    return "pong"
 
 
 def add_numbers(a: int, b: int):
@@ -181,8 +181,8 @@ def celery_run_with_session(func, *args, **kwargs):
         return func(*args, **kwargs | {"session": session})
 
 
-JOB_TYPE_KW = '__job_type__'
-JOB_NAME_KW = '__job_name__'
+JOB_TYPE_KW = "__job_type__"
+JOB_NAME_KW = "__job_name__"
 
 
 class CeleryJob(Generic[ReturnType]):
@@ -209,7 +209,16 @@ class CeleryJob(Generic[ReturnType]):
         return 0
 
     def cancel(self):
-        self._result.revoke()
+        self._result.revoke(terminate=True)
+        
+        # Update Redis metadata to reflect the cancellation
+        r.hmset(
+            f"job_meta:{self._job.id}",
+            {
+                "status": "REVOKED",
+                "end_time": datetime.now().isoformat(),
+            },
+        )
 
     @property
     def id(self):
@@ -217,19 +226,19 @@ class CeleryJob(Generic[ReturnType]):
 
     @property
     def is_finished(self) -> bool:
-        return self._result.state in ("SUCCESS", "FAILURE")
+        return self._result.state in ("SUCCESS", "FAILURE", "REVOKED")
 
     @property
     def exception_info(self) -> str:
         return str(self._result.traceback or "")
 
     def get_logs(self) -> str:
-        log_file = Path("app/logs") / f"task_{self._job.id}.txt" # TODO: not sure why have to specify app/logs... 
+        log_file = Path("app/logs") / f"task_{self._job.id}.txt"  # TODO: not sure why have to specify app/logs...
         if log_file.exists():
             logs = log_file.read_text()
             job_meta = get_job_meta(self.id)
-            if job_meta['status'] == 'FAILURE':
-                logs += '\n' + job_meta['traceback']
+            if job_meta["status"] == "FAILURE":
+                logs += "\n" + job_meta["traceback"]
             return logs
         return None
 
@@ -252,7 +261,7 @@ class CeleryPool(Generic[ReturnType]):
     def get_job(self, task_id: str) -> CeleryJob[ReturnType]:
         return CeleryJob(AsyncResult(task_id, app=self._celery), app=self._celery)
 
-    #def _describe_job(self, job_info: dict) -> str:
+    # def _describe_job(self, job_info: dict) -> str:
     #    func, *args = job_info["args"]
     #    func_name = func.__name__
     #    return f"{func_name}({', '.join(map(str, args))})"
@@ -270,9 +279,9 @@ class CeleryPool(Generic[ReturnType]):
     #                            hostname=hostname,
     #                            type=self._get_job_type(info))
     #             for status, host_dict in all_jobs.items() for hostname, jobs in host_dict.items() for info in jobs]
-    
+
     def list_jobs(self, status: str = None):
-        """List all tracked jobs stored by Redis. Optional filter by status: PENDING, STARTED, SUCCESS, FAILURE"""
+        """List all tracked jobs stored by Redis. Optional filter by status: PENDING, STARTED, SUCCESS, FAILURE, REVOKED"""
         keys = r.keys("job_meta:*")
         jobs = []
 
@@ -285,16 +294,17 @@ class CeleryPool(Generic[ReturnType]):
 
         return [
             JobDescription(
-                id=meta['task_id'],
-                type=meta.get('job_type', 'Unspecified'),
-                name=meta.get('job_name', 'Unnamed'),
-                status=meta['status'],
-                start_time=meta.get('start_time', None),
-                end_time=meta.get('end_time', None),
-                result=meta.get('result', None),
+                id=meta["task_id"],
+                type=meta.get("job_type", "Unspecified"),
+                name=meta.get("job_name", "Unnamed"),
+                status=meta["status"],
+                start_time=meta.get("start_time", None),
+                end_time=meta.get("end_time", None),
+                result=meta.get("result", None),
             )
-            for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900,1,1).isoformat()), reverse=True)
+            for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900, 1, 1).isoformat()), reverse=True)
         ]
+
 
 def get_job_meta(task_id: str):
     """Fetch Redis metadata for a job by task ID."""

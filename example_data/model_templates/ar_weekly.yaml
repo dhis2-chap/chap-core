@@ -1,0 +1,24 @@
+name: "auto_regressive_weekly"
+python_env: python_env.yml
+entry_points:
+  train:
+    parameters:
+      train_data: str
+      model: str
+    command: "python3.11 main.py train {train_data} {model}"
+  predict:
+    parameters:
+      model: str
+      historic_data: str
+      future_data: str
+      out_file: str
+    command: "python3.11 main.py predict {model} {historic_data} {future_data} {out_file}"
+supported_period_type: 'week'
+meta_data:
+  display_name: 'Weekly Deep Auto Regressive'
+  description: "An experimental deep learning model based on an RNN architecture, focusing on predictions based on auto-regressive time series data."
+  author: "Knut Rand"
+  organization: "HISP Centre, University of Oslo"
+  organization_logo_url: "https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png"
+  contact_email: "knut.rand@dhis2.org"
+  citation_info: 'Rand, Knut. 2025. "Monthly Deep Auto Regressive model". HISP Centre, University of Oslo. https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html'

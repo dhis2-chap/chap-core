@@ -14,14 +14,13 @@ def get_session():
         yield session
 
 
-def get_session_wrapper():
-    ...
+def get_session_wrapper(): ...
 
 
 def get_gee():
-    '''
+    """
     Returns an instance of Era5LandGoogleEarthEngine
-    '''
+    """
     return Era5LandGoogleEarthEngine()
 
 

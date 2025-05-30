@@ -19,14 +19,13 @@ class Job(Generic[ReturnType], Protocol):
     @property
     def is_finished(self) -> bool: ...
 
+
 @dataclasses.dataclass
 class SeededJob:
-    status: str = 'ready'
+    status: str = "ready"
     result: Any = None
     is_finished: bool = True
     progress: float = 1.0
-
-
 
 
 class Worker(Generic[ReturnType], Protocol):

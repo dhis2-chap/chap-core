@@ -1,0 +1,21 @@
+# This is an example config file for configuring models
+
+- url: https://github.com/knutdrand/weekly_ar_model
+  versions:
+    vX: "@123"
+  configurations:
+    myconfig1:
+      additional_continuous_covariates:
+        - rain
+        - temperature
+      user_option_values:
+        n_iterations: 3
+    myconfig2:
+      additional_continuous_covariates:
+        - temperature
+      user_option_values:
+        n_iterations: 5
+
+    
+
+

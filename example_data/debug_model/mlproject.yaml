@@ -11,13 +11,13 @@ entry_points:
       data: 'str'
     command: 'echo "Hello World"'
 
-required_fields:
+required_covariates:
   - 'population'
 
 allow_free_additional_continuous_covariates: true
 
 user_options:
-  - name: 'n_lag_periods'
-    flag: '--n_lag_periods'
+  n_lag_periods:
+    title: 'n_lag_periods'
     type: 'integer'
-    description: 'Numer of lag periods to use in regression model'
+    default: 3

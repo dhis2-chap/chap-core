@@ -6,4 +6,5 @@ COPY tests/docker_db_flow.py docker_db_flow.py
 COPY example_data/anonymous_chap_request.json example_data/anonymous_chap_request.json
 COPY example_data/anonymous_make_prediction_request.json example_data/anonymous_make_prediction_request.json
 COPY example_data/anonymous_make_dataset_request.json example_data/anonymous_make_dataset_request.json
+COPY example_data/anonymous_make_dataset_request2.json example_data/anonymous_make_dataset_request2.json
 RUN pip install requests

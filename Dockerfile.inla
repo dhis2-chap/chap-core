@@ -1,5 +1,5 @@
-# installs chap with support for some external models
-FROM ivargr/r_inla
+FROM ghcr.io/dhis2-chap/docker_r_inla:master
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 RUN apt-get update
 RUN apt-get install -y python3

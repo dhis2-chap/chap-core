@@ -1,0 +1,49 @@
+name: chap_ewars_weekly
+
+target: disease_cases
+required_covariates: 
+  - rainfall
+  - mean_temperature
+  - population
+allow_free_additional_continuous_covariates: False
+supported_period_type: week
+user_options: {}
+
+meta_data: 
+  display_name: Weekly CHAP-EWARS model
+  description: >
+    Modified version of the World Health Organization (WHO) EWARS model.
+    EWARS is a Bayesian hierarchical model implemented with the INLA library.
+  author: CHAP team
+  organization: HISP Centre, University of Oslo
+  organization_logo_url: https://landportal.org/sites/default/files/2024-03/university_of_oslo_logo.png
+  contact_email: knut.rand@dhis2.org
+  citation_info: >
+    Climate Health Analytics Platform. 2025. "Weekly CHAP-EWARS model".
+    HISP Centre, University of Oslo.
+    https://dhis2-chap.github.io/chap-core/external_models/overview_of_supported_models.html
+
+adapters: {'Cases': 'disease_cases',
+           'E': 'population',
+           'week': 'week',
+           'ID_year': 'year',
+           'ID_spat': 'location',
+           'rainsum': 'rainfall',
+           'meantemperature': 'mean_temperature'}
+
+docker_env:
+  image: ivargr/r_inla:latest
+
+entry_points:
+  train:
+    parameters:
+      train_data: path
+      model: str
+    command: "Rscript train.R {train_data} {model}"
+  predict:
+    parameters:
+      historic_data: path
+      future_data: path
+      model: str
+      out_file: path
+    command: "Rscript predict.R {model} {historic_data} {future_data} {out_file} None samples"

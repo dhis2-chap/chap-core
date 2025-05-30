@@ -41,7 +41,7 @@ class TimeSeriesData:
     def resample(self, freq):
         df = self.topandas()
         df["time_period"] = self.time_period.to_period_index()
-        df = df.set_index('time_period')
+        df = df.set_index("time_period")
         df = df.resample(freq).interpolate()
         return self.from_pandas(df.reset_index())
 
@@ -62,13 +62,14 @@ class TimeSeriesData:
 
     def to_pickle_dict(self):
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
-        data_dict['time_period'] = self.time_period.tolist()
+        data_dict["time_period"] = self.time_period.tolist()
         return data_dict
 
     @classmethod
     def from_pickle_dict(cls, data: dict):
         return cls(
-            **{key: PeriodRange.from_strings(value) if key == 'time_period' else value for key, value in data.items()})
+            **{key: PeriodRange.from_strings(value) if key == "time_period" else value for key, value in data.items()}
+        )
 
     @classmethod
     def create_class_from_basemodel(cls, dataclass: type[PeriodObservation]):
@@ -94,7 +95,7 @@ class TimeSeriesData:
         try:
             time_strings = data.time_period.astype(str)
             # check unique
-            assert len(time_strings) == len(set(time_strings)), f'{time_strings} has duplicates'
+            assert len(time_strings) == len(set(time_strings)), f"{time_strings} has duplicates"
             time = PeriodRange.from_strings(time_strings, fill_missing=fill_missing)
         except Exception:
             print("Error in time period: ", data.time_period)
@@ -122,7 +123,7 @@ class TimeSeriesData:
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
         data_dict["time_period"] = self.time_period
         fields = {
-            key: interpolate_nans(value) if field_names is None or key in field_names else value
+            key: interpolate_nans(value) if ((field_names is None) or (key in field_names) and not np.all(np.isnan(value))) else value
             for key, value in data_dict.items()
             if key != "time_period"
         }
@@ -187,9 +188,10 @@ class TimeSeriesData:
     @classmethod
     def from_dict(cls, data: dict):
         return cls(
-            **{key: PeriodRange.from_strings(value) if key == 'time_period' else value for key, value in data.items()})
+            **{key: PeriodRange.from_strings(value) if key == "time_period" else value for key, value in data.items()}
+        )
 
-    def merge(self, other: 'TimeSeriesData', result_class: type['TimeSeriesData']):
+    def merge(self, other: "TimeSeriesData", result_class: type["TimeSeriesData"]):
         data_dict = {}
         if len(self.time_period) != len(other.time_period) or np.any(self.time_period != other.time_period):
             raise ValueError(f"{self.time_period} != {other.time_period}")
@@ -230,6 +232,7 @@ class ClimateData(TimeSeriesData):
 class HealthData(TimeSeriesData):
     disease_cases: int
 
+
 @tsdataclass
 class ClimateHealthTimeSeries(TimeSeriesData):
     rainfall: float
@@ -238,7 +241,7 @@ class ClimateHealthTimeSeries(TimeSeriesData):
 
     @classmethod
     def combine(
-            cls, health_data: HealthData, climate_data: ClimateData, fill_missing=False
+        cls, health_data: HealthData, climate_data: ClimateData, fill_missing=False
     ) -> "ClimateHealthTimeSeries":
         return ClimateHealthTimeSeries(
             time_period=health_data.time_period,
@@ -257,7 +260,7 @@ class FullData(ClimateHealthData):
 
     @classmethod
     def combine(
-            cls, health_data: HealthData, climate_data: ClimateData, population: float
+        cls, health_data: HealthData, climate_data: ClimateData, population: float
     ) -> "ClimateHealthTimeSeries":
         return cls(
             time_period=health_data.time_period,
@@ -352,10 +355,10 @@ class Samples(TimeSeriesData):
             quantile_high=np.quantile(self.samples, q_high, axis=-1),
         )
 
+
 @tsdataclass
 class SamplesWithTruth(Samples):
     disease_cases: float
-
 
 
 @dataclasses.dataclass

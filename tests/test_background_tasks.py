@@ -19,10 +19,10 @@ def simple_task(inputs: list[InputType]) -> list[OutputType]:
 @pytest.fixture
 def queue():
     try:
-        from redis import Redis
+        from chap_core.util import load_redis
         from rq import Queue
-
-        return Queue(connection=Redis())
+        r = load_redis()
+        return Queue(connection=r)
     except ImportError:
         pytest.skip("rq not installed")
 

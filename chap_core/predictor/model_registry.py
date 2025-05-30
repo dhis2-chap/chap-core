@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Literal
-
 import yaml
 
 from .naive_estimator import NaiveEstimator
@@ -8,6 +7,7 @@ from .published_models import model_dict
 from ..models.utils import get_model_from_directory_or_github_url
 from ..model_spec import PeriodType, ModelSpec
 import logging
+
 logger = logging.getLogger(__name__)
 
 naive_spec = ModelSpec(
@@ -53,6 +53,9 @@ class ModelRegistry:
             data = yaml.safe_load(file)
         model_dict = {}
         for model_name, github_url in data.items():
+            # url = giturlparse.parse(github_url)
+            # owner = url.owner
+            # name = url.name
             model_dict[model_name] = ModelSpec(
                 name=model_name,
                 parameters={},
@@ -60,7 +63,7 @@ class ModelRegistry:
                 period=PeriodType.any,
                 description="Model from config file",
                 author="CHAP",
-                github_link=github_url
+                github_link=github_url,
             )
         return cls(model_dict)
 

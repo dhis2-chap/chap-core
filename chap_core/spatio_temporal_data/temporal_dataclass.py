@@ -2,7 +2,7 @@ import logging
 import pickle
 from pathlib import Path
 from typing import Generic, Iterable, Tuple, Type, Callable, Optional
-
+from pathlib import PurePath
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -13,14 +13,15 @@ from ..datatypes import (
     add_field,
     remove_field,
     TimeSeriesArray,
-    TimeSeriesData, create_tsdataclass,
+    TimeSeriesData,
+    create_tsdataclass,
 )
 from ..geometry import Polygons
 from ..time_period import PeriodRange
 from ..time_period.date_util_wrapper import TimeStamp, clean_timestring
 import dataclasses
 from typing import TypeVar
-
+from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 FeaturesT = TypeVar("FeaturesT")
@@ -94,11 +95,15 @@ class TemporalDataclass(Generic[FeaturesT]):
         assert period_range.step is None
         if hasattr(self._data.time_period, "searchsorted"):
             return self._restrict_by_slice(period_range)
+
         mask = np.full(len(self._data.time_period), True)
+
         if period_range.start is not None:
             mask = mask & (self._data.time_period >= period_range.start)
+
         if period_range.stop is not None:
             mask = mask & (self._data.time_period <= period_range.stop)
+
         return self._data[mask]
 
     def data(self) -> Iterable[FeaturesT]:
@@ -123,37 +128,52 @@ class Polygon:
     pass
 
 
+class DataSetMetaData(BaseModel):
+    name: str = 'dataset'
+    filename: str | None = None
+    db_id: int | None = None
+
+
 class DataSet(Generic[FeaturesT]):
     """
     Class representing severeal time series at different locations.
     """
 
-    def __init__(self, data_dict: dict[str, FeaturesT], polygons=None):
-        self._data_dict = {
-            loc: data
-            for loc, data in data_dict.items()
-        }
+    def __init__(self, data_dict: dict[str, FeaturesT], polygons=None, metadata=DataSetMetaData()):
+        self._data_dict = {loc: data for loc, data in data_dict.items()}
         self._polygons = polygons
         self._parent_dict = None
+        self.metadata = metadata
 
     def field_names(self):
-        return [field.name for field in  dataclasses.fields(next(iter(self._data_dict.values()))) if field.name not in  ("time_period", "location")]
+        return [
+            field.name
+            for field in dataclasses.fields(next(iter(self._data_dict.values())))
+            if field.name not in ("time_period", "location")
+        ]
 
     def model_dump(self):
-        return {'data_dict': {loc: data.model_dump() for loc, data in self._data_dict.items()},
-                'polygons': self._polygons and self._polygons.model_dump()}
+        return {
+            "data_dict": {loc: data.model_dump() for loc, data in self._data_dict.items()},
+            "polygons": self._polygons and self._polygons.model_dump(),
+        }
 
     @classmethod
     def from_dict(cls, data: dict, dataclass=type[TemporalDataclass]):
-        data_dict = {loc: dataclass.from_dict(val) for loc, val in data['data_dict'].items()}
-        return cls(data_dict, data['polygons'] and FeatureCollectionModel(**data['polygons']))
+        data_dict = {loc: dataclass.from_dict(val) for loc, val in data["data_dict"].items()}
+        return cls(data_dict, data["polygons"] and FeatureCollectionModel(**data["polygons"]))
 
     def set_polygons(self, polygons: FeatureCollectionModel, ignore_validation=False):
         polygon_ids = {feature.id for feature in polygons.features}
         if not ignore_validation:
-            self._data_dict = {
-                location: data for location, data in self._data_dict.items() if location in polygon_ids
-            }
+            ignored_locations = set(self._data_dict.keys()) - polygon_ids
+            if ignored_locations:
+                logger.warning(
+                    f"Found {len(ignored_locations)} locations in dataset that are not in the polygons: {ignored_locations}"
+                )
+                assert False, (ignored_locations, polygon_ids)
+
+            self._data_dict = {location: data for location, data in self._data_dict.items() if location in polygon_ids}
             # for location in self.locations():
             #     if location not in polygon_ids:
             #         logger.warning(f"Found a location {location} (type: {type(location)}) in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids}.  ")
@@ -163,10 +183,10 @@ class DataSet(Generic[FeaturesT]):
 
     def get_parent_dict(self) -> Optional[dict[str, str]]:
         if not self._polygons:
-            return {location: '-' for location in self.locations()}
+            return {location: "-" for location in self.locations()}
         return Polygons(self._polygons).get_parent_dict()
 
-    def aggregate_to_parent(self, field_name: str = 'disease_cases', nan_indicator='disease_cases'):
+    def aggregate_to_parent(self, field_name: str = "disease_cases", nan_indicator="disease_cases"):
         parent_dict = self.get_parent_dict()
         dataclass = create_tsdataclass([field_name])
         new_dict = {}
@@ -176,8 +196,7 @@ class DataSet(Generic[FeaturesT]):
 
             new_data = getattr(data, field_name).copy()
             if parent not in new_dict:
-                new_dict[parent] = dataclass(period_range,
-                                             np.zeros_like(new_data))
+                new_dict[parent] = dataclass(period_range, np.zeros_like(new_data))
             old_data = getattr(new_dict[parent], field_name)
             new_data = getattr(data, field_name).copy()
             if nan_indicator is not None:
@@ -208,7 +227,11 @@ class DataSet(Generic[FeaturesT]):
 
     @property
     def period_range(self) -> PeriodRange:
-        first_period_range = self._data_dict[next(iter(self._data_dict))].time_period
+        try:
+            first_period_range = self._data_dict[next(iter(self._data_dict))].time_period
+        except StopIteration:
+            raise ValueError(f"No data in dataset {self}")
+
         assert first_period_range.start_timestamp == first_period_range.start_timestamp
         assert first_period_range.end_timestamp == first_period_range.end_timestamp
         return first_period_range
@@ -228,8 +251,13 @@ class DataSet(Generic[FeaturesT]):
         return self._data_dict[location]
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> "DataSet[FeaturesT]":
-        return self.__class__({loc: TemporalDataclass(data).restrict_time_period(period_range).data() for loc, data in
-                               self._data_dict.items()}, self._polygons)
+        return self.__class__(
+            {
+                loc: TemporalDataclass(data).restrict_time_period(period_range).data()
+                for loc, data in self._data_dict.items()
+            },
+            self._polygons,
+        )
 
     def filter_locations(self, locations: Iterable[str]) -> "DataSet[FeaturesT]":
         return self.__class__({loc: data for loc, data in self.items() if loc in locations})
@@ -246,8 +274,8 @@ class DataSet(Generic[FeaturesT]):
 
     def _add_location_info_to_dataframe(self, df, location, parent_dict):
         if parent_dict is not None:
-            df['parent'] = parent_dict[location]
-        df['location'] = location
+            df["parent"] = parent_dict[location]
+        df["location"] = location
         return df
 
     def to_pandas(self) -> pd.DataFrame:
@@ -256,8 +284,8 @@ class DataSet(Generic[FeaturesT]):
 
         try:
             tables = [
-                self._add_location_info_to_dataframe(data.to_pandas(), location, parent_dict) for location, data in
-                self._data_dict.items()
+                self._add_location_info_to_dataframe(data.to_pandas(), location, parent_dict)
+                for location, data in self._data_dict.items()
             ]
         except KeyError:
             logger.error(f"KeyError while looking up {self._data_dict.keys()} in {parent_dict}")
@@ -317,8 +345,12 @@ class DataSet(Generic[FeaturesT]):
         """
         data_dict = {}
         for location, data in df.groupby("location"):
-            data['time_period'] = data['time_period'].apply(clean_timestring)
-            data_dict[location] = dataclass.from_pandas(data.sort_values(by='time_period'), fill_missing)
+            if not isinstance(location, str):
+                logging.warning(f"Location {location} is not a string, converting to string")
+                location = str(location)
+
+            data["time_period"] = data["time_period"].apply(clean_timestring)
+            data_dict[location] = dataclass.from_pandas(data.sort_values(by="time_period"), fill_missing)
         data_dict = cls._fill_missing(data_dict)
 
         return cls(data_dict)
@@ -353,7 +385,7 @@ class DataSet(Generic[FeaturesT]):
 
     @classmethod
     def from_period_observations(
-            cls, observation_dict: dict[str, list[PeriodObservation]]
+        cls, observation_dict: dict[str, list[PeriodObservation]]
     ) -> "DataSet[TimeSeriesData]":
         """
         Create a SpatioTemporalDict from a dictionary of PeriodObservations.
@@ -393,8 +425,11 @@ class DataSet(Generic[FeaturesT]):
     def from_csv(cls, file_name: str, dataclass: Type[FeaturesT] | None = None) -> "DataSet[FeaturesT]":
         csv = pd.read_csv(file_name)
         if dataclass is None:
-            dataclass = create_tsdataclass([col for col in csv.columns.tolist() if col not in ("location", "time_period")])
+            dataclass = create_tsdataclass(
+                [col for col in csv.columns.tolist() if col not in ("location", "time_period") and "Unnamed" not in col]
+            )
         obj = cls.from_pandas(csv, dataclass)
+
         if isinstance(file_name, (str, Path)):
             path = Path(file_name).with_suffix(".geojson")
             if path.exists():
@@ -406,14 +441,18 @@ class DataSet(Generic[FeaturesT]):
                     polygons = Polygons.from_file(path, id_property="NAME_1")
                     with open(path, "r") as f:
                         obj.set_polygons(polygons.feature_collection())
+        if isinstance(file_name, (str, PurePath)):
+            meta_data=  DataSetMetaData(name= str(Path(file_name).stem), filename=str(file_name))
+            obj.metadata = meta_data
         return obj
 
     def join_on_time(self, other: "DataSet[FeaturesT]") -> "DataSet[Tuple[FeaturesT, FeaturesT]]":
         """Join two SpatioTemporalDicts on time. Returns a new SpatioTemporalDict.
         Assumes other is later in time.
         """
-        return self.__class__({loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()},
-                              self._polygons)
+        return self.__class__(
+            {loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()}, self._polygons
+        )
 
     def add_fields(self, new_type, **kwargs: dict[str, Callable]):
         return self.__class__(
@@ -428,14 +467,15 @@ class DataSet(Generic[FeaturesT]):
         )
 
     def remove_field(self, field_name, new_class=None):
-        return self.__class__({loc: remove_field(data, field_name, new_class) for loc, data in self.items()},
-                              self._polygons)
+        return self.__class__(
+            {loc: remove_field(data, field_name, new_class) for loc, data in self.items()}, self._polygons
+        )
 
     @classmethod
     def from_fields(
-            cls,
-            dataclass: type[TimeSeriesData],
-            fields: dict[str, "DataSet[TimeSeriesArray]"],
+        cls,
+        dataclass: type[TimeSeriesData],
+        fields: dict[str, "DataSet[TimeSeriesArray]"],
     ):
         start_timestamp = min(data.start_timestamp for data in fields.values())
         end_timestamp = max(data.end_timestamp for data in fields.values())
@@ -460,7 +500,7 @@ class DataSet(Generic[FeaturesT]):
             )
         return cls(new_dict)
 
-    def merge(self, other_dataset: 'DataSet', result_dataclass: type[TimeSeriesData]) -> 'DataSet':
+    def merge(self, other_dataset: "DataSet", result_dataclass: type[TimeSeriesData]) -> "DataSet":
         polygons_in_merged = None
         if self.polygons is not None and other_dataset.polygons is not None:
             raise Exception("Trying to merge two datasets with polygons, not sure how to do this (not implemented yet)")
@@ -470,8 +510,9 @@ class DataSet(Generic[FeaturesT]):
             polygons_in_merged = self.polygons
         other_locations = set(other_dataset.locations())
         assert all(location in other_locations for location in self.locations()), (self.locations(), other_locations)
-        new_dataset = DataSet({location: self[location].merge(other_dataset[location], result_dataclass) for location in
-                               self.locations()})
+        new_dataset = DataSet(
+            {location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()}
+        )
         if polygons_in_merged is not None:
             new_dataset.set_polygons(polygons_in_merged)
         return new_dataset
@@ -479,12 +520,13 @@ class DataSet(Generic[FeaturesT]):
     def plot(self):
         for location, value in self.items():
             df = value.topandas()
-            df.plot(x='time_period', y='disease_cases')
+            df.plot(x="time_period", y="disease_cases")
             plt.title(location)
             plt.show()
 
     def plot_aggregate(self):
         import plotly.express as px
+
         total = np.zeros(len(self.period_range))
         for location, value in self.items():
             total += np.where(np.isnan(value.disease_cases), 0, value.disease_cases)
@@ -492,11 +534,12 @@ class DataSet(Generic[FeaturesT]):
 
     def to_report(self, pdf_filename: str):
         from matplotlib.backends.backend_pdf import PdfPages
+
         with PdfPages(pdf_filename) as pdf:
             for location, value in self.items():
                 df = value.to_pandas()
-                df.plot(x='time_period', y='disease_cases')
-                df.plot(x='time_period', y='population')
+                df.plot(x="time_period", y="disease_cases")
+                df.plot(x="time_period", y="population")
                 plt.title(location)
                 pdf.savefig()
                 plt.close()

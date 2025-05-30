@@ -36,6 +36,8 @@ class MonthlyClimatePredictor:
                 if field.name in ("time_period"):
                     continue
                 y = getattr(data, field.name)
+                # assert float type
+                assert y.dtype.kind in ("f", "i"), (field.name, y.dtype)
                 assert not np.isnan(y).any(), (field.name, y)
                 model = linear_model.LinearRegression()
                 model.fit(x, y[:, None])
@@ -76,7 +78,8 @@ class QuickForecastFetcher:
 
     def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
         return self._climate_predictor.predict(period_range)
-    
+
+
 class FetcherNd:
     def __init__(self, historical_data: DataSet[SimpleClimateData]):
         self.historical_data = historical_data
@@ -87,7 +90,11 @@ class FetcherNd:
         for location, data in self.historical_data.items():
             prediction_dict[location] = self._cls(
                 period_range,
-                **{field.name: getattr(data, field.name)[-len(period_range):] for field in dataclasses.fields(data) if field.name not in ("time_period" ,)},
+                **{
+                    field.name: getattr(data, field.name)[-len(period_range) :]
+                    for field in dataclasses.fields(data)
+                    if field.name not in ("time_period",)
+                },
             )
 
         return DataSet(prediction_dict)

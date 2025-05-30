@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 #         )
 
 
-def harmonize(input_filename: Path, output_filename: Path, point_buffer : float = None):
+def harmonize(input_filename: Path, output_filename: Path, point_buffer: float = None):
     """
     Harmonize health and population data from dhis2 with climate data from google earth engine.
 
@@ -113,7 +113,9 @@ def evaluate(
     if n_test_sets is None:
         n_periods = 12 if data_set.period_range.delta == delta_month else 52
         n_test_sets = n_periods - prediction_length + 1
-    logger.info(f"Evaluating {model_id} on {data_filename} with {n_test_sets} test sets for {prediction_length} periods ahead")
+    logger.info(
+        f"Evaluating {model_id} on {data_filename} with {n_test_sets} test sets for {prediction_length} periods ahead"
+    )
     model = registry.get_model(model_id)
     results = evaluate_model(
         model,

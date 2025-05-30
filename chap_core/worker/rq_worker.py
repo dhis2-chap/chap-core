@@ -17,8 +17,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 chap_core.log_config.initialize_logging()
-#logger.addHandler(logging.FileHandler('logs/rq_worker.log'))
-#logger.info("Logging initialized")
+# logger.addHandler(logging.FileHandler('logs/rq_worker.log'))
+# logger.info("Logging initialized")
 
 
 class RedisJob(Generic[ReturnType]):
@@ -61,25 +61,19 @@ class RedisQueue:
     """Simple abstraction for a Redis Queue"""
 
     def __init__(self):
+        # TODO: switch to using utils.load_redis()?
         host, port = self.read_environment_variables()
         logger.info("Connecting to Redis queue at %s:%s" % (host, port))
         self.q = Queue(connection=Redis(host=host, port=int(port)), default_timeout=3600)
 
     def read_environment_variables(self):
         load_dotenv(find_dotenv())
-        host = os.environ.get("REDIS_HOST")
-        port = os.environ.get("REDIS_PORT")
-
-        # using default values if environment variables are not set
-        if host is None:
-            host = "localhost"
-        if port is None:
-            port = "6379"
-
+        host = os.getenv("REDIS_HOST", "localhost")  # default to localhost for backward compatibility
+        port = os.getenv("REDIS_PORT", "6379")
         return host, port
 
     def queue(self, func: Callable[..., ReturnType], *args, **kwargs) -> RedisJob[ReturnType]:
-        return RedisJob(self.q.enqueue(func, *args, **kwargs, result_ttl=604800)) #keep result for a week
+        return RedisJob(self.q.enqueue(func, *args, **kwargs, result_ttl=604800))  # keep result for a week
 
     def __del__(self):
         self.q.connection.close()

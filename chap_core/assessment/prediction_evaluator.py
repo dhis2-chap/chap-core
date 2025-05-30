@@ -1,10 +1,11 @@
 from collections import defaultdict
 from typing import Protocol, TypeVar, Iterable, Dict
-
+from gluonts.model import SampleForecast
 from gluonts.evaluation import Evaluator
 from gluonts.model import Forecast
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import numpy as np
 import pandas as pd
 from chap_core.assessment.dataset_splitting import (
     train_test_generator,
@@ -16,12 +17,12 @@ import logging
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-plt.set_loglevel (level = 'warning')
+plt.set_loglevel(level="warning")
 logger = logging.getLogger(__name__)
 
 
-
 FetureType = TypeVar("FeatureType", bound=TimeSeriesData)
+
 
 def without_disease(t):
     return t
@@ -29,9 +30,9 @@ def without_disease(t):
 
 class Predictor(Protocol):
     def predict(
-            self,
-            historic_data: DataSet[FetureType],
-            future_data: DataSet[without_disease(FetureType)],
+        self,
+        historic_data: DataSet[FetureType],
+        future_data: DataSet[without_disease(FetureType)],
     ) -> Samples: ...
 
 
@@ -39,10 +40,9 @@ class Estimator(Protocol):
     def train(self, data: DataSet) -> Predictor: ...
 
 
-def backtest(estimator: Estimator,
-             data: DataSet,
-             prediction_length,
-             n_test_sets, stride=1, weather_provider=None) -> Iterable[DataSet]:
+def backtest(
+    estimator: Estimator, data: DataSet, prediction_length, n_test_sets, stride=1, weather_provider=None
+) -> Iterable[DataSet]:
     train, test_generator = train_test_generator(
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
@@ -54,12 +54,12 @@ def backtest(estimator: Estimator,
 
 
 def evaluate_model(
-        estimator: Estimator,
-        data: DataSet,
-        prediction_length=3,
-        n_test_sets=4,
-        report_filename=None,
-        weather_provider=None,
+    estimator: Estimator,
+    data: DataSet,
+    prediction_length=3,
+    n_test_sets=4,
+    report_filename=None,
+    weather_provider=None,
 ):
     """
     Evaluate a model on a dataset on a held out test set, making multiple predictions on the test set
@@ -93,8 +93,8 @@ def evaluate_model(
         )
         for location in data.keys()
     }
-    #transformed = create_multiloc_timeseries(truth_data)
 
+    # transformed = create_multiloc_timeseries(truth_data)
     if report_filename is None:
         report_filename = "evaluation_report.pdf"
 
@@ -106,33 +106,38 @@ def evaluate_model(
         forecasts_and_truths_generator = plot_forecasts(predictor, plot_test_generatro, truth_data, report_filename)
 
     logger.info("Getting forecasts")
-    #forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
+    # forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
     forecast_list, tss = zip(*forecasts_and_truths_generator)
 
     logger.info("Evaluating")
-    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9], num_workers=None)
+    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9], num_workers=None, allow_nan_forecast=True)
     results = evaluator(tss, forecast_list)
-    logger.info('Finished Evaluating')
+    logger.info("Finished Evaluating")
     return results
 
 
 def create_multiloc_timeseries(truth_data):
     from chap_core.assessment.representations import MultiLocationDiseaseTimeSeries
+
     multi_location_disease_time_series = MultiLocationDiseaseTimeSeries()
     for location, df in truth_data.items():
         from chap_core.assessment.representations import DiseaseTimeSeries
         from chap_core.assessment.representations import DiseaseObservation
-        disease_time_series = DiseaseTimeSeries(observations=[
-            DiseaseObservation(time_period=period, disease_cases=cases)
-            for period, cases in df.itertuples(index=True, name='Pandas')
-        ])
+
+        disease_time_series = DiseaseTimeSeries(
+            observations=[
+                DiseaseObservation(time_period=period, disease_cases=cases)
+                for period, cases in df.itertuples(index=True, name="Pandas")
+            ]
+        )
         multi_location_disease_time_series[location] = disease_time_series
     return multi_location_disease_time_series
 
+
 def _get_forecast_generators(
-        predictor: Predictor,
-        test_generator: Iterable[tuple[DataSet, DataSet, DataSet]],
-        truth_data: Dict[str, pd.DataFrame],
+    predictor: Predictor,
+    test_generator: Iterable[tuple[DataSet, DataSet, DataSet]],
+    truth_data: Dict[str, pd.DataFrame],
 ) -> tuple[list[Forecast], list[pd.DataFrame]]:
     """
     Get the forecast and truth data for a predictor and test generator.
@@ -160,12 +165,12 @@ def _get_forecast_generators(
     return forecast_list, tss
 
 
-def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[Forecast]]:
+def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[SampleForecast]]:
     forecast_dict = defaultdict(list)
 
     for historic_data, future_data, _ in test_generator:
         assert (
-                len(future_data.period_range) > 0
+            len(future_data.period_range) > 0
         ), f"Future data must have at least one period {historic_data.period_range}, {future_data.period_range}"
         forecasts = predictor.predict(historic_data, future_data)
         for location, samples in forecasts.items():
@@ -178,8 +183,27 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
     with PdfPages(pdf_filename) as pdf:
         for location, forecasts in forecast_dict.items():
             logging.info(f"Running on location {location}")
-            _t = truth[location]
+            try:
+                _t = truth[location]
+            except KeyError:
+                location = str(location)
+                try:
+                    _t = truth[location]
+                except KeyError:
+                    logger.error(
+                        f"Location {repr(location)} not found in truth data which has locations {truth.keys()}"
+                    )
+                    raise
+                logging.warning(
+                    f"Had to convert location to string {location}, something has maybe gone wrong at some point with data types"
+                )
+
             for forecast in forecasts:
+                logging.info("Forecasts: ")
+                logging.info(forecasts)
+                if np.any(np.isnan(forecast.samples)):
+                    logger.warning(f"Forecast {forecast} has NaN values: {forecast.samples}")
+
                 plt.figure(figsize=(8, 4))  # Set the figure size
                 t = _t[_t.index <= forecast.index[-1]]
                 forecast.plot(show_label=True)
@@ -213,5 +237,3 @@ def plot_predictions(predictions: DataSet[Samples], truth: DataSet, pdf_filename
             plt.legend()
             pdf.savefig()
             plt.close()  # Close the figure
-
-

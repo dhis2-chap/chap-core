@@ -1,0 +1,34 @@
+name: Version Bump
+
+on:
+  workflow_run:
+    workflows: ["Build and test"]
+    branches: [master]
+    types:
+      - completed
+
+jobs:
+  bump-version:
+    name: Bump Version and Tag
+    runs-on: ubuntu-latest
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Bump version and create Git tag
+        uses: jasonamyers/github-bumpversion-action@v1.0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push bumped version and tag
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: master
+          tags: true

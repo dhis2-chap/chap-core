@@ -2,7 +2,9 @@ import os
 from pathlib import Path
 import docker
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 def create_docker_image(dockerfile_directory: Path | str):
     """Creates a docker image based on path to a directory that should contain a Dockerfile.
@@ -28,8 +30,9 @@ def docker_image_from_fo(fileobject, name):
     return name
 
 
-def run_command_through_docker_container(docker_image_name: str, working_directory: str, command: str,
-                                        remove_after_run: bool = False):
+def run_command_through_docker_container(
+    docker_image_name: str, working_directory: str, command: str, remove_after_run: bool = False
+):
     client = docker.from_env()
     try:
         working_dir_full_path = os.path.abspath(working_directory)
@@ -38,8 +41,12 @@ def run_command_through_docker_container(docker_image_name: str, working_directo
         logging.error(f"Current directory is {os.getcwd()}")
         raise
 
-    logger.info(f"Running command {command} in docker image {docker_image_name} with mount {working_dir_full_path}:/home/run/")
-    logger.info(f"Equivalent docker command: docker run -w /home/run -v {working_dir_full_path}:/home/run/ {docker_image_name} {command}")
+    logger.info(
+        f"Running command {command} in docker image {docker_image_name} with mount {working_dir_full_path}:/home/run/"
+    )
+    logger.info(
+        f"Equivalent docker command: docker run -w /home/run -v {working_dir_full_path}:/home/run/ {docker_image_name} {command}"
+    )
     container = client.containers.run(
         docker_image_name,
         command=command,
