@@ -195,7 +195,7 @@ async def get_evaluation_entries(
     return [
         EvaluationEntry(
             period=forecast.period,
-            orgUnit=fporecast.org_unit,
+            orgUnit=forecast.org_unit,
             quantile=q,
             splitPeriod=forecast.last_seen_period,
             value=np.quantile(forecast.values, q),
@@ -404,7 +404,7 @@ async def get_data_sources() -> List[DataSource]:
     return data_sources
 
 
-@router.post("/create-backtest-with-data", response_model=JobResponse)
+@router.post("/create-backtest-with-data", response_model=ImportSummaryResponse)
 async def create_backtest_with_data(
         request: MakeBacktestWithDataRequest,
         database_url: str = Depends(get_database_url),
@@ -429,4 +429,4 @@ async def create_backtest_with_data(
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
     )
-    return JobResponse(id=job.id)
+    return ImportSummaryResponse(id=job.id, imported_count=len(provided_data_processed.locations()), rejected=rejections)
