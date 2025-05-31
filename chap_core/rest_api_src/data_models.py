@@ -53,7 +53,7 @@ class ValidationError(BaseModel):
     time_periods: List[str]
 
 class ImportSummaryResponse(DBModel):
-    id: str
+    id: str | None
     imported_count: int
     rejected: list[ValidationError]
 

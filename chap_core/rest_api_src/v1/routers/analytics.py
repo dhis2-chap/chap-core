@@ -404,9 +404,10 @@ async def get_data_sources() -> List[DataSource]:
     return data_sources
 
 
-@router.post("/create-backtest-with-data", response_model=ImportSummaryResponse)
+@router.post("/create-backtest-with-data/", response_model=ImportSummaryResponse)
 async def create_backtest_with_data(
         request: MakeBacktestWithDataRequest,
+        dry_run: bool = Query(False, description="If True, only run validation and do not create a backtest",alias="dryRun"),
         database_url: str = Depends(get_database_url),
         worker_settings=Depends(get_settings),
 ):
@@ -415,18 +416,23 @@ async def create_backtest_with_data(
     provided_data_processed.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
 
     logger.info(f'Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations')
-    job = worker.queue_db(
-        wf.run_backtest_from_composite_dataset,
-        feature_names=feature_names,
-        data_to_be_fetched=request.data_to_be_fetched,
-        provided_data_model_dump=provided_data_processed.model_dump(),
-        backtest_name=request.name,
-        model_id=request.model_id,
-        n_periods=request.n_periods,
-        n_splits=request.n_splits,
-        stride=request.stride,
-        database_url=database_url,
-        worker_config=worker_settings,
-        **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
-    )
-    return ImportSummaryResponse(id=job.id, imported_count=len(provided_data_processed.locations()), rejected=rejections)
+    if not dry_run:
+        job = worker.queue_db(
+            wf.run_backtest_from_composite_dataset,
+            feature_names=feature_names,
+            data_to_be_fetched=request.data_to_be_fetched,
+            provided_data_model_dump=provided_data_processed.model_dump(),
+            backtest_name=request.name,
+            model_id=request.model_id,
+            n_periods=request.n_periods,
+            n_splits=request.n_splits,
+            stride=request.stride,
+            database_url=database_url,
+            worker_config=worker_settings,
+            **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
+        )
+        job_id = job.id
+    else:
+        job_id = None
+
+    return ImportSummaryResponse(id=job_id, imported_count=len(provided_data_processed.locations()), rejected=rejections)

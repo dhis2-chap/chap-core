@@ -258,15 +258,14 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
     _make_dataset(make_dataset_request)
 
 
-
 def test_make_dataset_return_rejection_summary(celery_session_worker, dependency_overrides, make_dataset_request):
     first_rainfall_idx = next(
         i for i, o in enumerate(make_dataset_request.provided_data) if o.feature_name == 'rainfall')
     r = make_dataset_request.provided_data.pop(first_rainfall_idx)
     assert r.feature_name == 'rainfall'
-    #with pytest.raises(AssertionError) as excinfo:
+    # with pytest.raises(AssertionError) as excinfo:
     _make_dataset(make_dataset_request, expected_rejections=['LGNjeakKI1q'])
-    #print(excinfo)
+    # print(excinfo)
 
 
 def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
@@ -312,7 +311,7 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
         backtest = BackTest(dataset_id=ds_id,
                             name='testing',
                             model_id='naive_model',
-                            model_db_id = 1,
+                            model_db_id=1,
                             org_units=['Oslo', 'Bergen'], split_periods=['202201', '202202'])
         matching = BackTest(dataset_id=ds_id,
                             name='testing2',
@@ -354,7 +353,6 @@ def _make_dataset(make_dataset_request,
                            data=data)
     content = response.json()
     _check_rejected_org_units(content, expected_rejections)
-
 
     assert response.status_code == 200, content
     db_id = await_result_id(content['id'])
@@ -431,8 +429,9 @@ def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     assert response.json() == 'FAILURE'
 
 
+@pytest.mark.parametrize("dry_run", [True, False])
 def test_backtest_with_data_flow(
-        celery_session_worker, dependency_overrides, example_polygons, make_prediction_request
+        celery_session_worker, dependency_overrides, example_polygons, make_prediction_request, dry_run
 ):
     data = make_prediction_request.model_dump()
     backtest_name = "test_backtest_with_data"
@@ -448,24 +447,33 @@ def test_backtest_with_data_flow(
         "stride": stride_val,
     }
 
-    _check_backtest_with_data(request_payload, expected_rejections=[])
+    _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run)
 
 
 @pytest.fixture()
 def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / 'create-backtest-from-data.json', 'r'))
 
-def test_local_backtest_with_data(local_backtest_request, celery_session_worker, dependency_overrides, example_polygons):
+
+def test_local_backtest_with_data(local_backtest_request, celery_session_worker, dependency_overrides,
+                                  example_polygons):
     _check_backtest_with_data(local_backtest_request)
 
-def _check_backtest_with_data(request_payload, expected_rejections=None):
+
+def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False):
+    url = "/v1/analytics/create-backtest-with-data"
+    if dry_run:
+        url+= "?dryRun=true"
     response = client.post(
-        "/v1/analytics/create-backtest-with-data", json=request_payload
+        url, json=request_payload
     )
     content = response.json()
     assert response.status_code == 200, content
     _check_rejected_org_units(content, expected_rejections)
     job_id = content["id"]
+    if dry_run:
+        assert job_id is None, "Job ID should be None for dry run"
+        return
     db_id = await_result_id(job_id, timeout=180)
     response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
