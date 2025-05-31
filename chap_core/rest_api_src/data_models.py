@@ -46,9 +46,9 @@ class DatasetMakeRequest(DataSetBase):
 class JobResponse(BaseModel):
     id: str
 
-class ValidationError(BaseModel):
+class ValidationError(DBModel):
     reason: str
-    orgUnit: str
+    org_unit: str
     feature_name: str
     time_periods: List[str]
 

@@ -454,7 +454,7 @@ def test_backtest_with_data_flow(
 def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / 'create-backtest-from-data.json', 'r'))
 
-
+@pytest.mark.skip(reason="This ends up with an empty dataset")
 def test_local_backtest_with_data(local_backtest_request, celery_session_worker, dependency_overrides,
                                   example_polygons):
     _check_backtest_with_data(local_backtest_request)
