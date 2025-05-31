@@ -422,27 +422,34 @@ async def create_backtest_with_data(
         ValidationError(reason='Missing polygon in geojson', orgUnit=location, feature_name='polygon', time_periods=[])
         for location in polygon_rejected)
     imported_count = len(provided_data_processed.locations())
+    if dry_run:
+        return ImportSummaryResponse(
+            id=None, imported_count=imported_count, rejected=rejections
+        )
+
     if imported_count == 0:
-        raise HTTPException(status_code=500, detail='Missing values. No data was imported.')
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "Missing values. No data was imported.",
+                "rejected": [r.model_dump() for r in rejections]
+            }
+        )
 
     logger.info(f'Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations')
-    if not dry_run:
-        job = worker.queue_db(
-            wf.run_backtest_from_composite_dataset,
-            feature_names=feature_names,
-            data_to_be_fetched=request.data_to_be_fetched,
-            provided_data_model_dump=provided_data_processed.model_dump(),
-            backtest_name=request.name,
-            model_id=request.model_id,
-            n_periods=request.n_periods,
-            n_splits=request.n_splits,
-            stride=request.stride,
-            database_url=database_url,
-            worker_config=worker_settings,
-            **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
-        )
-        job_id = job.id
-    else:
-        job_id = None
-
-    return ImportSummaryResponse(id=job_id, imported_count=len(provided_data_processed.locations()), rejected=rejections)
+    job = worker.queue_db(
+        wf.run_backtest_from_composite_dataset,
+        feature_names=feature_names,
+        data_to_be_fetched=request.data_to_be_fetched,
+        provided_data_model_dump=provided_data_processed.model_dump(),
+        backtest_name=request.name,
+        model_id=request.model_id,
+        n_periods=request.n_periods,
+        n_splits=request.n_splits,
+        stride=request.stride,
+        database_url=database_url,
+        worker_config=worker_settings,
+        **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
+    )
+    job_id = job.id
+    return ImportSummaryResponse(id=job_id, imported_count=imported_count, rejected=rejections)

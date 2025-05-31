@@ -454,10 +454,23 @@ def test_backtest_with_data_flow(
 def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / 'create-backtest-from-data.json', 'r'))
 
-@pytest.mark.skip(reason="This ends up with an empty dataset")
+#@pytest.mark.skip(reason="This ends up with an empty dataset")
 def test_local_backtest_with_data(local_backtest_request, celery_session_worker, dependency_overrides,
                                   example_polygons):
-    _check_backtest_with_data(local_backtest_request)
+
+    url = "/v1/analytics/create-backtest-with-data"
+    response = client.post(
+        url, json=local_backtest_request
+    )
+    content = response.json()
+    assert response.status_code == 500, content
+    detail = content['detail']
+    assert 'missing' in detail['message'].lower(), detail['message'].lower()
+    assert len(detail['rejected'])==1
+
+
+
+
 
 
 def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False):
