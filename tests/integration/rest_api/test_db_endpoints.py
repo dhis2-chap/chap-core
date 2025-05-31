@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 from datetime import datetime
 
-from pydantic import ValidationError
 from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, PredictionEntry, DataList
@@ -259,15 +258,15 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
     _make_dataset(make_dataset_request)
 
 
-@pytest.mark.skip
-def test_make_dataset_failing_with_missing_data(celery_session_worker, dependency_overrides, make_dataset_request):
+
+def test_make_dataset_return_rejection_summary(celery_session_worker, dependency_overrides, make_dataset_request):
     first_rainfall_idx = next(
         i for i, o in enumerate(make_dataset_request.provided_data) if o.feature_name == 'rainfall')
     r = make_dataset_request.provided_data.pop(first_rainfall_idx)
     assert r.feature_name == 'rainfall'
-    with pytest.raises(AssertionError) as excinfo:
-        _make_dataset(make_dataset_request)
-    print(excinfo)
+    #with pytest.raises(AssertionError) as excinfo:
+    _make_dataset(make_dataset_request, expected_rejections=['LGNjeakKI1q'])
+    #print(excinfo)
 
 
 def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
@@ -347,12 +346,20 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
 
 
 def _make_dataset(make_dataset_request,
-                  wanted_field_names=['rainfall', 'disease_cases', 'population', 'mean_temperature']):
+                  wanted_field_names=['rainfall', 'disease_cases', 'population', 'mean_temperature'],
+                  expected_rejections=None
+                  ):
     data = make_dataset_request.model_dump_json()
     response = client.post("/v1/analytics/make-dataset",
                            data=data)
-    assert response.status_code == 200, response.json()
-    db_id = await_result_id(response.json()['id'])
+    content = response.json()
+    if expected_rejections:
+        rejected_regions = {rejection['orgUnit'] for rejection in content['rejected']}
+        assert rejected_regions == set(expected_rejections), (rejected_regions, expected_rejections)
+
+
+    assert response.status_code == 200, content
+    db_id = await_result_id(content['id'])
     dataset_list = client.get("/v1/crud/datasets").json()
     assert len(dataset_list) > 0
     assert db_id in {ds['id'] for ds in dataset_list}

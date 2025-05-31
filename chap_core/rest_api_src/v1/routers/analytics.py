@@ -195,7 +195,7 @@ async def get_evaluation_entries(
     return [
         EvaluationEntry(
             period=forecast.period,
-            orgUnit=forecast.org_unit,
+            orgUnit=fporecast.org_unit,
             quantile=q,
             splitPeriod=forecast.last_seen_period,
             value=np.quantile(forecast.values, q),

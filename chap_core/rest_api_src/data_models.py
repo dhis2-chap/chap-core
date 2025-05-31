@@ -52,7 +52,7 @@ class ValidationError(BaseModel):
     feature_name: str
     time_periods: List[str]
 
-class ImportSummaryResponse(BaseModel):
+class ImportSummaryResponse(DBModel):
     id: str
     imported_count: int
     rejected: list[ValidationError]
