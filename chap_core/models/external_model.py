@@ -104,7 +104,7 @@ class ExternalModel(ConfiguredModel):
             )
         except CommandLineException as e:
             logger.error("Error training model, command failed")
-            raise ModelFailedException(str(e))
+            raise ModelFailedException(str(e)) from e
         return self
 
     def _get_frequency(self, train_data):
@@ -191,7 +191,7 @@ class ExternalModel(ConfiguredModel):
             )
         except CommandLineException as e:
             logger.error("Error predicting model, command failed")
-            raise ModelFailedException(str(e))
+            raise ModelFailedException(str(e)) from e
 
         try:
             df = pd.read_csv(predictions_file)
