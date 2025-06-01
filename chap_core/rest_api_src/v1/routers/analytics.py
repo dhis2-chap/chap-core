@@ -52,12 +52,16 @@ def make_dataset(request: DatasetMakeRequest,
     """
     feature_names, provided_data = _read_dataset(request)
     provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
+    # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
+    polygon_rejected = provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+    rejections.extend(
+        ValidationError(reason='Missing polygon in geojson', orgUnit=location, feature_name='polygon', time_periods=[])
+        for location in polygon_rejected)
     imported_count = len(provided_data.locations())
     if imported_count == 0:
         raise HTTPException(status_code=500, detail='Missing values. No data was imported.')
     request.type = "evaluation"
-    # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
-    provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+
 
     job = worker.queue_db(
         wf.harmonize_and_add_dataset,
@@ -404,15 +408,33 @@ async def get_data_sources() -> List[DataSource]:
     return data_sources
 
 
-@router.post("/create-backtest-with-data", response_model=JobResponse)
+@router.post("/create-backtest-with-data/", response_model=ImportSummaryResponse)
 async def create_backtest_with_data(
         request: MakeBacktestWithDataRequest,
+        dry_run: bool = Query(False, description="If True, only run validation and do not create a backtest",alias="dryRun"),
         database_url: str = Depends(get_database_url),
         worker_settings=Depends(get_settings),
 ):
     feature_names, provided_data_processed = _read_dataset(request)
     provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
-    provided_data_processed.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+    polygon_rejected = provided_data_processed.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+    rejections.extend(
+        ValidationError(reason='Missing polygon in geojson', orgUnit=location, feature_name='polygon', time_periods=[])
+        for location in polygon_rejected)
+    imported_count = len(provided_data_processed.locations())
+    if dry_run:
+        return ImportSummaryResponse(
+            id=None, imported_count=imported_count, rejected=rejections
+        )
+
+    if imported_count == 0:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "Missing values. No data was imported.",
+                "rejected": [r.model_dump() for r in rejections]
+            }
+        )
 
     logger.info(f'Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations')
     job = worker.queue_db(
@@ -429,4 +451,5 @@ async def create_backtest_with_data(
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
     )
-    return JobResponse(id=job.id)
+    job_id = job.id
+    return ImportSummaryResponse(id=job_id, imported_count=imported_count, rejected=rejections)

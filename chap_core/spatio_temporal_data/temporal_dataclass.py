@@ -163,23 +163,25 @@ class DataSet(Generic[FeaturesT]):
         data_dict = {loc: dataclass.from_dict(val) for loc, val in data["data_dict"].items()}
         return cls(data_dict, data["polygons"] and FeatureCollectionModel(**data["polygons"]))
 
-    def set_polygons(self, polygons: FeatureCollectionModel, ignore_validation=False):
+    def set_polygons(self, polygons: FeatureCollectionModel, ignore_validation=False) -> list[str]:
         polygon_ids = {feature.id for feature in polygons.features}
+
         if not ignore_validation:
             ignored_locations = set(self._data_dict.keys()) - polygon_ids
             if ignored_locations:
                 logger.warning(
                     f"Found {len(ignored_locations)} locations in dataset that are not in the polygons: {ignored_locations}"
                 )
-                assert False, (ignored_locations, polygon_ids)
-
             self._data_dict = {location: data for location, data in self._data_dict.items() if location in polygon_ids}
+        else:
+            ignored_locations = {}
             # for location in self.locations():
             #     if location not in polygon_ids:
             #         logger.warning(f"Found a location {location} (type: {type(location)}) in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids}.  ")
             #         del self._data_dict[location]
             #    assert location in polygon_ids, f"Found a location {location} (type: {type(location)}) in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids}.  "
         self._polygons = polygons
+        return list(ignored_locations)
 
     def get_parent_dict(self) -> Optional[dict[str, str]]:
         if not self._polygons:

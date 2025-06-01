@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 from datetime import datetime
 
-from pydantic import ValidationError
 from sqlmodel import Session
 
 from chap_core.api_types import EvaluationEntry, PredictionEntry, DataList
@@ -259,15 +258,14 @@ def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_
     _make_dataset(make_dataset_request)
 
 
-@pytest.mark.skip
-def test_make_dataset_failing_with_missing_data(celery_session_worker, dependency_overrides, make_dataset_request):
+def test_make_dataset_return_rejection_summary(celery_session_worker, dependency_overrides, make_dataset_request):
     first_rainfall_idx = next(
         i for i, o in enumerate(make_dataset_request.provided_data) if o.feature_name == 'rainfall')
     r = make_dataset_request.provided_data.pop(first_rainfall_idx)
     assert r.feature_name == 'rainfall'
-    with pytest.raises(AssertionError) as excinfo:
-        _make_dataset(make_dataset_request)
-    print(excinfo)
+    # with pytest.raises(AssertionError) as excinfo:
+    _make_dataset(make_dataset_request, expected_rejections=['LGNjeakKI1q'])
+    # print(excinfo)
 
 
 def test_make_dataset_anonymous(celery_session_worker, dependency_overrides, anonymous_make_dataset_request):
@@ -313,7 +311,7 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
         backtest = BackTest(dataset_id=ds_id,
                             name='testing',
                             model_id='naive_model',
-                            model_db_id = 1,
+                            model_db_id=1,
                             org_units=['Oslo', 'Bergen'], split_periods=['202201', '202202'])
         matching = BackTest(dataset_id=ds_id,
                             name='testing2',
@@ -347,12 +345,17 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
 
 
 def _make_dataset(make_dataset_request,
-                  wanted_field_names=['rainfall', 'disease_cases', 'population', 'mean_temperature']):
+                  wanted_field_names=['rainfall', 'disease_cases', 'population', 'mean_temperature'],
+                  expected_rejections=None
+                  ):
     data = make_dataset_request.model_dump_json()
     response = client.post("/v1/analytics/make-dataset",
                            data=data)
-    assert response.status_code == 200, response.json()
-    db_id = await_result_id(response.json()['id'])
+    content = response.json()
+    _check_rejected_org_units(content, expected_rejections)
+
+    assert response.status_code == 200, content
+    db_id = await_result_id(content['id'])
     dataset_list = client.get("/v1/crud/datasets").json()
     assert len(dataset_list) > 0
     assert db_id in {ds['id'] for ds in dataset_list}
@@ -371,6 +374,13 @@ def _make_dataset(make_dataset_request,
     # assert 'mean_temperature' in field_names
     assert len(field_names) == len(wanted_field_names)
     return db_id
+
+
+def _check_rejected_org_units(content, expected_rejections):
+    if expected_rejections is not None:
+        assert 'rejected' in content, content
+        rejected_regions = {rejection['orgUnit'] for rejection in content['rejected']}
+        assert rejected_regions == set(expected_rejections), (rejected_regions, expected_rejections)
 
 
 @pytest.mark.skip(reason="Failing because of missing geojson file")
@@ -419,8 +429,9 @@ def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     assert response.json() == 'FAILURE'
 
 
+@pytest.mark.parametrize("dry_run", [True, False])
 def test_backtest_with_data_flow(
-        celery_session_worker, dependency_overrides, example_polygons, make_prediction_request
+        celery_session_worker, dependency_overrides, example_polygons, make_prediction_request, dry_run
 ):
     data = make_prediction_request.model_dump()
     backtest_name = "test_backtest_with_data"
@@ -436,22 +447,46 @@ def test_backtest_with_data_flow(
         "stride": stride_val,
     }
 
-    _check_backtest_with_data(request_payload)
+    _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run)
 
 
 @pytest.fixture()
 def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / 'create-backtest-from-data.json', 'r'))
 
-def test_local_backtest_with_data(local_backtest_request, celery_session_worker, dependency_overrides, example_polygons):
-    _check_backtest_with_data(local_backtest_request)
+#@pytest.mark.skip(reason="This ends up with an empty dataset")
+def test_local_backtest_with_data(local_backtest_request, celery_session_worker, dependency_overrides,
+                                  example_polygons):
 
-def _check_backtest_with_data(request_payload):
+    url = "/v1/analytics/create-backtest-with-data"
     response = client.post(
-        "/v1/analytics/create-backtest-with-data", json=request_payload
+        url, json=local_backtest_request
     )
-    assert response.status_code == 200, response.json()
-    job_id = response.json()["id"]
+    content = response.json()
+    assert response.status_code == 500, content
+    detail = content['detail']
+    assert 'missing' in detail['message'].lower(), detail['message'].lower()
+    assert len(detail['rejected'])==1
+
+
+
+
+
+
+def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False):
+    url = "/v1/analytics/create-backtest-with-data"
+    if dry_run:
+        url+= "?dryRun=true"
+    response = client.post(
+        url, json=request_payload
+    )
+    content = response.json()
+    assert response.status_code == 200, content
+    _check_rejected_org_units(content, expected_rejections)
+    job_id = content["id"]
+    if dry_run:
+        assert job_id is None, "Job ID should be None for dry run"
+        return
     db_id = await_result_id(job_id, timeout=180)
     response = client.get(f"/v1/crud/backtests/{db_id}")
     assert response.status_code == 200, response.json()
@@ -487,14 +522,6 @@ def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
 
     response = client.post("/v1/crud/configured-models", json=config.model_dump())
     assert response.status_code == 200, response.json()
-
-
-
-    # assert len(content) > 0
-    # models = [ModelTemplateRead.model_validate(m) for m in content]
-    # assert 'chap_ewars_monthly' in (m.name for m in models)
-    # ewars_model = next(m for m in models if m.name == 'chap_ewars_monthly')
-    # assert 'population' in [f for f in ewars_model.required_covariates], ewars_model.required_covariates
 
 
 def get_content(url):

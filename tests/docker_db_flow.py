@@ -37,6 +37,15 @@ def make_dataset_request2():
     return data
 
 
+def make_backtest_with_data_request(model_name):
+    # TODO: current file lacks population data so will only work with naive model
+    filename = '../example_data/create-backtest-with-data.json'
+    data = json.load(open(filename))
+    data['modelId'] = model_name
+    data['name'] = f'integration_test: {model_name} with data'
+    return data
+
+
 hostname = 'chap'
 chap_url = "http://%s:8000" % hostname
 
@@ -99,6 +108,19 @@ class IntegrationTest:
         models = [model for model in models if model['name'] != 'auto_regressive_weekly']
         return models
 
+    def _get_model_names(self, model_list):
+        # hacky only consider monthly or any period models
+        # TODO: delete after new version is published
+        return [model['name'] for model in model_list if
+                model['supportedPeriodType'] in ('month', 'any')]
+
+    def make_dataset(self, data):
+        make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
+        response = self._post(make_dataset_url, json=data)
+        job_id = response['id']
+        db_id = self.wait_for_db_id(job_id)
+        return db_id
+
     def make_prediction(self, data):
         logger.info(f'Making prediction for {data["modelId"]}')
         make_prediction_url = self._chap_url + "/v1/analytics/make-prediction"
@@ -118,17 +140,36 @@ class IntegrationTest:
 
         all_model_names = self._get_model_names(model_list)
         if self._model_id:
-            #assert self._model_id in all_model_names
+            assert self._model_id in all_model_names, f"Model {self._model_id} not found in {all_model_names}"
             model_names = [self._model_id]
         else:
             model_names = all_model_names
 
         errors = []
         for model_name in model_names:
-            self.make_prediction(make_prediction_request(model_name))
+            try:
+                self.make_prediction(make_prediction_request(model_name))
+            except Exception as err:
+                msg = f'Error making prediction for model {model_name}: {err}'
+                logger.error(msg)
+                errors.append(msg)
 
         if errors:
-            raise Exception(f'Prediction errors: {errors}')
+            raise Exception('One or more prediction errors, for details see above logs')
+
+    def evaluate_model(self, model, dataset_id):
+        logger.info(f'Making evaluation for {model}')
+        job_id = self._post(self._chap_url + "/v1/crud/backtests/",
+                            json={"modelId": model, "datasetId": dataset_id, 'name': f'integration_test: {model}'})['id']
+        db_id = self.wait_for_db_id(job_id)
+        evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
+        assert evaluation_result['modelId'] == model
+        assert evaluation_result['datasetId'] == dataset_id
+        assert evaluation_result['name'].startswith('integration_test'), evaluation_result['name']
+        assert evaluation_result['created'], evaluation_result['created']
+        url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
+        evaluation_entries = self._get(url_string)
+        return evaluation_entries, db_id
 
     def evaluation_flow(self):
         logger.info(f'Starting evaluation flow tests')
@@ -142,45 +183,68 @@ class IntegrationTest:
 
         all_model_names = self._get_model_names(model_list)
         if self._model_id:
-            #assert self._model_id in all_model_names, f"Model {self._model_id} not found in {all_model_names}"
+            assert self._model_id in all_model_names, f"Model {self._model_id} not found in {all_model_names}"
             model_names = [self._model_id]
         else:
             model_names = all_model_names
 
         errors = []
         for model_name in model_names:
-            result, backtest_id = self.evaluate_model(dataset_id, model_name)
-            actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
-            result_org_units = {e['orgUnit'] for e in result}
-            org_units = {de['ou'] for de in actual_cases['data']}
-            assert result_org_units == org_units, (result_org_units, org_units)
+            try:
+                result, backtest_id = self.evaluate_model(model_name, dataset_id)
+                actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
+                result_org_units = {e['orgUnit'] for e in result}
+                org_units = {de['ou'] for de in actual_cases['data']}
+                assert result_org_units == org_units, (result_org_units, org_units)
+            except Exception as err:
+                msg = f'Error making evaluation for model {model_name}: {err}'
+                logger.error(msg)
+                errors.append(msg)
 
-        return errors
+        if errors:
+            raise Exception('One or more evaluation errors, for details see above logs')
 
-    def _get_model_names(self, model_list):
-        return [model['name'] for model in model_list if
-                model['supportedPeriodType'] in ('month', 'any') and not model['name'].startswith('auto')][:3]
-
-    def make_dataset(self, data):
-        make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
-        response = self._post(make_dataset_url, json=data)
-        job_id = response['id']
-        db_id = self.wait_for_db_id(job_id)
-        return db_id
-
-    def evaluate_model(self, dataset_id, model):
-        logger.info(f'Making evaluation for {model}')
-        job_id = self._post(self._chap_url + "/v1/crud/backtests/",
-                            json={"modelId": model, "datasetId": dataset_id, 'name': f'integration_test: {model}'})['id']
+    def evaluate_model_with_data(self, data):
+        logger.info(f'Making evaluation for {data["modelId"]}')
+        job_id = self._post(self._chap_url + "/v1/analytics/create-backtest-with-data/", json=data)['id']
         db_id = self.wait_for_db_id(job_id)
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
-        assert evaluation_result['modelId'] == model
-        assert evaluation_result['datasetId'] == dataset_id
+        assert evaluation_result['modelId'] == data["modelId"]
         assert evaluation_result['name'].startswith('integration_test'), evaluation_result['name']
         assert evaluation_result['created'], evaluation_result['created']
         url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
         evaluation_entries = self._get(url_string)
         return evaluation_entries, db_id
+
+    def evaluation_with_data_flow(self):
+        logger.info(f'Starting evaluation with data flow tests')
+
+        self.ensure_up()
+        model_list = self.get_models()
+        assert 'naive_model' in {model['name'] for model in model_list}
+
+        all_model_names = self._get_model_names(model_list)
+        if self._model_id:
+            assert self._model_id in all_model_names, f"Model {self._model_id} not found in {all_model_names}"
+            model_names = [self._model_id]
+        else:
+            model_names = all_model_names
+
+        errors = []
+        for model_name in model_names:
+            try:
+                result, backtest_id = self.evaluate_model_with_data(make_backtest_with_data_request(model_name))
+                actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
+                result_org_units = {e['orgUnit'] for e in result}
+                org_units = {de['ou'] for de in actual_cases['data']}
+                assert result_org_units == org_units, (result_org_units, org_units)
+            except Exception as err:
+                msg = f'Error making evaluation with data for model {model_name}: {err}'
+                logger.error(msg)
+                errors.append(msg)
+
+        if errors:
+            raise Exception('One or more evaluation with data errors, for details see above logs')
 
     def wait_for_db_id(self, job_id):
         for _ in range(3000):
@@ -218,5 +282,5 @@ if __name__ == "__main__":
     chap_url = f"http://{args.host}:8000"
     suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
     suite.evaluation_flow()
+    # suite.evaluation_with_data_flow() # current create-backtest-with-data.json lacks population data so will only work with naive_model
     suite.prediction_flow()
-
