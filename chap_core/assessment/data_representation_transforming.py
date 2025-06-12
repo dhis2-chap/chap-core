@@ -1,3 +1,4 @@
+import itertools
 from collections import defaultdict
 from typing import Dict, List
 
@@ -13,10 +14,15 @@ from chap_core.database.dataset_tables import DataSetWithObservations, Observati
 from collections import defaultdict
 from typing import List, Dict
 
-def convert_to_multi_location_forecast(backTestList: List[BackTestForecast]) -> MultiLocationForecast:
+def convert_to_multi_location_forecast(backTestList: List[BackTestForecast]) -> Dict[str,MultiLocationForecast]:
     # Group samples by location
+    all_splitpoint_timeseries = {}
+    backTestList = sorted(backTestList, key=lambda x:x.last_seen_period)
+    for last_seen_period, forecast_list in itertools.groupby(backTestList, key=lambda x:x.last_seen_period):
+        all_splitpoint_timeseries[last_seen_period] = convert_single_splitpoint_to_multi_location_forecast(forecast_list)
+    return all_splitpoint_timeseries
+def convert_single_splitpoint_to_multi_location_forecast(backTestList: List[BackTestForecast]) -> MultiLocationForecast:
     location_forecasts: Dict[str, List[Samples]] = defaultdict(list)
-
     for forecast in backTestList:
         location_key = str(forecast.org_unit)  # Or use forecast.backtest.location if available
 
@@ -56,8 +62,9 @@ def convert_to_multi_location_timeseries(obs: List[ObservationBase]) -> MultiLoc
 
 forecasts = BackTestFull.parse_file('BackTestRead.json')
 truths = DataSetWithObservations.parse_file('DatasetRead.json')
-f2 = convert_to_multi_location_forecast(forecasts.forecasts)
+f2 = list(convert_to_multi_location_forecast(forecasts.forecasts).values())[0]
 t2 =convert_to_multi_location_timeseries(truths.observations)
+t2 = t2.filter_by_time_periods(f2.time_periods())
 
 def mean(samples):
     return sum(samples)/len(samples)

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import List, Dict, Set
 
 
 #Disease cases
@@ -28,6 +28,14 @@ class MultiLocationDiseaseTimeSeries:
     def timeseries(self):
         return iter(self.timeseries_dict.values())
 
+    def filter_by_time_periods(self, time_periods: List[str]) -> 'MultiLocationDiseaseTimeSeries':
+        filtered = MultiLocationDiseaseTimeSeries()
+        for location, timeseries in self.timeseries_dict.items():
+            filtered_observations = [
+                obs for obs in timeseries.observations if obs.time_period in time_periods
+            ]
+            filtered[location] = DiseaseTimeSeries(filtered_observations)
+        return filtered
 #Assessment metric
 @dataclass
 class Error:
@@ -101,3 +109,10 @@ class Forecast:
 @dataclass
 class MultiLocationForecast:
     timeseries: Dict[str,Forecast]
+
+    def time_periods(self) -> Set[str]:
+        periods = set()
+        for forecast in self.timeseries.values():
+            for sample in forecast.predictions:
+                periods.add(sample.time_period)
+        return periods
