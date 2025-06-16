@@ -35,24 +35,28 @@ def predict_malaria_affected_simple(temp, precip, pop):
     return estimated_cases
 
 
-def predict_malaria_affected_best(temp, precip, pop):
+def predict_malaria_affected_best(temp, precip, pop, intervention=None):
+    # NOTE: intervention is population coverage between 0-1
     alpha = 1e-5
     beta = 1.0
     gamma = 0.15
     delta =- 0.005
     epsilon = 0.01
     noise_std = 0.2
+    vulnerable_pop = pop * intervention
     log_m = (np.log(alpha) +
-             beta * np.log(pop) +
+             beta * np.log(vulnerable_pop) +
              gamma * temp +
              delta * temp**2 +
              epsilon * precip +
              np.random.normal(0, noise_std))
+
     malaria_cases = np.exp(log_m)
+
     return malaria_cases
 
 
-def generate_synthetic_malaria_data(orgunits, periods, temps, precips, pops,
+def generate_synthetic_malaria_data(orgunits, periods, temps, precips, pops, interventions,
                                     random_seed=16):
     """
     Generate a synthetic malaria dataset.
@@ -81,10 +85,11 @@ def generate_synthetic_malaria_data(orgunits, periods, temps, precips, pops,
             temp = float(temps[key].replace(',','.'))
             precip = float(precips[key].replace(',','.'))
             pop = float(pops[key])
+            intervention = float(interventions[key]) if interventions else None
 
             # predict value at this timestep
             #malaria_cases = predict_malaria_affected_simple(temp, precip, pop)
-            malaria_cases = predict_malaria_affected_best(temp, precip, pop)
+            malaria_cases = predict_malaria_affected_best(temp, precip, pop, intervention=intervention)
 
             # ensure non-negative
             malaria_cases = max(0, np.round(malaria_cases))
@@ -95,6 +100,7 @@ def generate_synthetic_malaria_data(orgunits, periods, temps, precips, pops,
                 "temperature": temp,
                 "precipitation": precip,
                 "population": pop,
+                "intervention": intervention,
                 "malaria_cases": int(malaria_cases)
             })
 
@@ -186,6 +192,7 @@ if __name__ == '__main__':
     data_element_map = {
         'malaria_cases': 'bpfrQkyWG4i',
         'population': 'Pi3zfVY962v',
+        'intervention': 'VdgJdaoJqCx',
     }
 
     # load
@@ -200,6 +207,14 @@ if __name__ == '__main__':
     df['Total population'] = df.merge(
         pop_df, on='organisationunitname', how='left'
     )['Total population']
+    print(df)
+
+    # join with interventions
+    path = r'C:\Users\karimba\Documents\Github\chap-core\scripts\ghana_intervention_data.csv'
+    inter_df = pd.read_csv(path, sep=';')
+    df['Incecticide treated nets use'] = df.merge(
+        inter_df, on='organisationunitname', how='left'
+    )['Incecticide treated nets use']
     print(df)
 
     # standardize to dhis2 conventions
@@ -221,9 +236,13 @@ if __name__ == '__main__':
         (row['orgUnit'],row['period']): row['Total population']
         for row in df.to_dict(orient="records")
     }
+    interventions = {
+        (row['orgUnit'],row['period']): row['Incecticide treated nets use']
+        for row in df.to_dict(orient="records")
+    }
 
     # simulate
-    sim = generate_synthetic_malaria_data(orgunits, periods, temps, precips, pops=pops)
+    sim = generate_synthetic_malaria_data(orgunits, periods, temps, precips, pops=pops, interventions=interventions)
     print(sim)
 
     # cpmvert to dhis2 long format
