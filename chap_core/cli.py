@@ -67,7 +67,80 @@ def evaluate(
     model_configuration_yaml: Optional[str] = None,
 ):
     """
-    Evaluate a model on a dataset using forecast cross validation
+    Evaluate a model's predictive performance using time series cross-validation.
+
+    This command performs systematic evaluation of a model by training on historical data
+    and testing predictions on held-out future periods. It generates comprehensive metrics
+    and visualizations to assess model accuracy and reliability.
+
+    Parameters
+    ----------
+    model_name : str
+        Model identifier. Can be:
+        - Built-in model name (e.g., 'naive_model')
+        - Local directory path to external model
+        - GitHub URL (e.g., 'https://github.com/user/model@commit')
+        - Comma-separated list for comparing multiple models
+    dataset_name : str, optional
+        Name of built-in dataset (e.g., 'ISIMIP_dengue_harmonized', 'hydromet_5_filtered')
+        Use --dataset-csv if providing custom data
+    dataset_country : str, optional
+        Country to filter from multi-country datasets (e.g., 'vietnam', 'laos')
+    dataset_csv : Path, optional
+        Path to custom CSV dataset with columns: location, time_period, disease_cases, etc.
+    polygons_json : Path, optional
+        Path to GeoJSON file with geographic boundaries for locations
+    polygons_id_field : str, default 'id'
+        Field name in polygons JSON to match with dataset locations
+    prediction_length : int, default 6
+        Number of time periods to forecast ahead (e.g., 6 months)
+    n_splits : int, default 7
+        Number of train/test splits for cross-validation
+        More splits = more robust evaluation but longer runtime
+    report_filename : str, default 'report.pdf'
+        Output PDF file with evaluation plots and metrics
+        Also generates CSV with same name containing numerical results
+    ignore_environment : bool, default False
+        Skip environment validation for external models (for development)
+    debug : bool, default False
+        Enable debug logging for troubleshooting
+    log_file : str, optional
+        Path to log file (logs to console if not specified)
+    run_directory_type : {'latest', 'timestamp', 'use_existing'}, default 'timestamp'
+        How to handle model execution directory:
+        - 'timestamp': Create new timestamped directory
+        - 'latest': Overwrite existing directory
+        - 'use_existing': Use existing directory if available
+    model_configuration_yaml : str, optional
+        Path to YAML file with model-specific configuration parameters
+        For multiple models, provide comma-separated list of config files
+
+    Examples
+    --------
+    Basic evaluation:
+        chap evaluate --model-name naive_model --dataset-name hydromet_5_filtered
+
+    Multi-country dataset:
+        chap evaluate --model-name naive_model --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam
+
+    External model from GitHub:
+        chap evaluate --model-name https://github.com/user/dengue-model@main --dataset-name hydromet_5_filtered
+
+    Custom dataset with polygons:
+        chap evaluate --model-name naive_model --dataset-csv ./data.csv --polygons-json ./boundaries.geojson
+
+    Compare multiple models:
+        chap evaluate --model-name model1,model2,model3 --dataset-name hydromet_5_filtered
+
+    With custom configuration:
+        chap evaluate --model-name external_model --dataset-name hydromet_5_filtered --model-configuration-yaml config.yaml
+
+    Notes
+    -----
+    - Evaluation uses time series cross-validation to avoid data leakage
+    - Results include metrics like MAE, RMSE, CRPS, and coverage probabilities
+    - PDF report contains forecast plots for visual inspection
+    - CSV output contains detailed numerical results for further analysis
     """
 
     initialize_logging(debug, log_file)
