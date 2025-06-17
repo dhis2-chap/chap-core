@@ -148,6 +148,12 @@ tests/test_outputs
 example_data/era5_land_daily_data.csv
 tests/test.db
 
+# Ignore custom model templates and configured models
+config/configured_models/*
+!config/configured_models/default.yaml
+config/model_templates/*
+!config/model_templates/default.yaml
+
 # ignore mac finder setting files
 .DS_Store
 
