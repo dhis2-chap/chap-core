@@ -42,26 +42,27 @@ class ModelTemplateInformation(SQLModel):
 
 class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, table=True):
     """
-    TODO: Maybe remove Spec from name, or find common convention for all models.
     Just a mixin here to get the model info flat in the database.
     """
 
     name: str = Field(unique=True)
     id: Optional[int] = Field(primary_key=True, default=None)
     source_url: Optional[str] = None
+    configured_models: List['ConfiguredModelDB'] = Relationship(back_populates='model_template', cascade_delete=True)
 
 
 class ModelConfiguration(SQLModel):
     user_option_values: Optional[dict] = Field(sa_column=Column(JSON), default_factory=dict)
     additional_continuous_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
 
+
 class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     #  unique constraint on name
     # model_config = ConfigDict(protected_namespaces=())
     name: str = Field(unique=True)
     id: Optional[int] = Field(primary_key=True, default=None)
-    model_template_id: int = Field(foreign_key="modeltemplatedb.id")
-    model_template: ModelTemplateDB = Relationship()
+    model_template_id: int = Field(foreign_key="modeltemplatedb.id", ondelete='CASCADE')
+    model_template: ModelTemplateDB = Relationship(back_populates="configured_models")
 
     @classmethod
     def _validate_model_configuration(cls, user_options, user_option_values):

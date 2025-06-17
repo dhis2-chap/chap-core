@@ -60,6 +60,10 @@ router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This m
 worker = CeleryPool()
 
 
+###########
+# backtests
+
+
 @router.get("/backtests", response_model=list[BackTestRead])  # This should be called list
 async def get_backtests(session: Session = Depends(get_session)):
     """
@@ -154,6 +158,10 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
             deleted_count += 1
     session.commit()
     return {"message": f"Deleted {deleted_count} backtests"}
+
+
+###########
+# predictions
 
 
 class PredictionCreate(DBModel):
@@ -302,6 +310,18 @@ async def list_model_templates(session: Session = Depends(get_session)):
     """
     model_templates = session.exec(select(ModelTemplateDB)).all()
     return model_templates
+
+
+@router.delete("/model-templates/{modelTemplateId}")
+async def delete_model_template(
+    model_template_id: Annotated[int, Path(alias="modelTemplateId")], session: Session = Depends(get_session)
+):
+    model_template = session.get(ModelTemplateDB, model_template_id)
+    if model_template is None:
+        raise HTTPException(status_code=404, detail="Model Template not found")
+    session.delete(model_template)
+    session.commit()
+    return {"message": "deleted"}
 
 
 ###########
