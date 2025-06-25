@@ -1,38 +1,32 @@
 FROM ghcr.io/dhis2-chap/docker_r_inla:master
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN apt-get update
-RUN apt-get install -y python3
-RUN apt-get install -y python3-pip
-RUN apt-get install -y libncurses-dev
-RUN apt-get install -y libreadline-dev
-RUN apt-get install -y libbz2-dev
 
-
-# Set the working directory in the container
-
-# Install the Python dependencies
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y git
+# Install system dependencies in a single layer
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    libncurses-dev \
+    libreadline-dev \
+    libbz2-dev \
+    libffi-dev \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install pyenv
-RUN sudo apt-get install libffi-dev
-RUN git clone --depth=1 https://github.com/pyenv/pyenv.git .pyenv
-
-ENV PYENV_ROOT="/.pyenv"
+RUN git clone https://github.com/pyenv/pyenv.git /pyenv
+ENV PYENV_ROOT=/pyenv
 ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
-RUN pyenv install 3.11.3
-# RUN pyenv global 3.11.3
+
+RUN pyenv install 3.11
 
 WORKDIR /app
 COPY ./chap_core ./chap_core
 COPY ./config ./config
+COPY ./.python-version ./.python-version
 COPY ./pyproject.toml ./pyproject.toml
 COPY ./README.md ./README.md
-
-RUN git clone https://github.com/pyenv/pyenv.git /pyenv
-ENV PYENV_ROOT /pyenv
 
 # get uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
