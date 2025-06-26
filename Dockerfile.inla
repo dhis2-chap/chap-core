@@ -3,7 +3,6 @@ FROM ghcr.io/dhis2-chap/docker_r_inla:master
 # Copy uv binary from official image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Install required build dependencies for pyenv + Python 3.11
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -42,5 +41,4 @@ COPY ./config ./config
 COPY ./pyproject.toml ./pyproject.toml
 COPY ./README.md ./README.md
 
-# Sync Python dependencies using uv under pyenv's Python
 RUN uv sync
