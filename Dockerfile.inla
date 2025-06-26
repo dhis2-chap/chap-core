@@ -1,26 +1,37 @@
 FROM ghcr.io/dhis2-chap/docker_r_inla:master
 
-# Copy `uv` binary from uv stage
+# Copy uv binary from official image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Install required system dependencies in one layer
+# Install required build dependencies for pyenv + Python 3.11
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
-    libncurses-dev \
-    libreadline-dev \
-    libbz2-dev \
-    libffi-dev \
     git \
+    curl \
+    libffi-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libncurses-dev \
+    libssl-dev \
+    libsqlite3-dev \
+    make \
+    build-essential \
+    zlib1g-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pyenv (used for Python version management)
-RUN git clone https://github.com/pyenv/pyenv.git /pyenv
+# Install pyenv and use .python-version to control Python version
 ENV PYENV_ROOT=/pyenv
-ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
+ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT
 
-RUN pyenv install 3.11
+# Copy version file before installing Python (so we can use it)
+COPY .python-version ./.python-version
+
+# Install specific Python version using pyenv
+RUN pyenv install --skip-existing "$(cat .python-version)" && \
+    pyenv global "$(cat .python-version)"
 
 # Set working directory
 WORKDIR /app
@@ -28,9 +39,8 @@ WORKDIR /app
 # Copy project files
 COPY ./chap_core ./chap_core
 COPY ./config ./config
-COPY ./.python-version ./.python-version
 COPY ./pyproject.toml ./pyproject.toml
 COPY ./README.md ./README.md
 
-# Sync Python dependencies using uv
+# Sync Python dependencies using uv under pyenv's Python
 RUN uv sync
