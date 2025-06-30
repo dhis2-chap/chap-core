@@ -40,25 +40,26 @@ ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT
 
 # Copy Python version file and install specific Python version
-COPY --chown=chap:chap .python-version ./.python-version
+COPY .python-version ./.python-version
 RUN pyenv install --skip-existing "$(cat .python-version)" && \
     pyenv global "$(cat .python-version)"
 
 # Set working directory
 WORKDIR /app
 
-# Copy application source
-COPY --chown=chap:chap ./pyproject.toml .
-COPY --chown=chap:chap ./uv.lock .
-COPY --chown=chap:chap ./chap_core ./chap_core
-COPY --chown=chap:chap ./config ./config
-COPY --chown=chap:chap ./README.md .
+# Copy project files and assign ownership to 'chap'
+COPY ./pyproject.toml .
+COPY ./uv.lock .
+COPY ./chap_core ./chap_core
+COPY ./config ./config
+COPY ./README.md .
 
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # Switch to non-root user
+RUN chown -R chap:chap /app
 USER chap
 
 # Ensure local venv tools are prioritized

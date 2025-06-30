@@ -22,18 +22,19 @@ RUN apt-get update && apt-get upgrade -y && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy project files and assign ownership to 'chap'
-COPY --chown=chap:chap ./pyproject.toml .
-COPY --chown=chap:chap ./uv.lock .
-COPY --chown=chap:chap ./chap_core ./chap_core
-COPY --chown=chap:chap ./config ./config
-COPY --chown=chap:chap ./scripts/seed.py ./scripts/seed.py
-COPY --chown=chap:chap ./README.md .
+COPY ./pyproject.toml .
+COPY ./uv.lock .
+COPY ./chap_core ./chap_core
+COPY ./config ./config
+COPY ./scripts/seed.py ./scripts/seed.py
+COPY ./README.md .
 
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # Switch to non-root user
+RUN chown -R chap:chap /app
 USER chap
 
 # Ensure virtual environment is first in PATH
