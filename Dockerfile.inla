@@ -47,10 +47,17 @@ RUN pyenv install --skip-existing "$(cat .python-version)" && \
 # Set working directory
 WORKDIR /app
 
+# Copy project metadata and lockfiles first (to leverage caching)
+COPY --chown=chap:chap ./pyproject.toml .
+COPY --chown=chap:chap ./uv.lock .
+
+# Install only production dependencies
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
 # Copy project files and assign ownership to 'chap'
 COPY --chown=chap:chap ./chap_core ./chap_core
 COPY --chown=chap:chap ./config ./config
-COPY --chown=chap:chap ./pyproject.toml .
 COPY --chown=chap:chap ./README.md .
 
 # Switch to non-root user
@@ -58,6 +65,3 @@ USER chap
 
 # Ensure local venv tools are prioritized
 ENV PATH="/app/.venv/bin:$PATH"
-
-# Install production dependencies using uv
-RUN uv sync --frozen --no-dev
