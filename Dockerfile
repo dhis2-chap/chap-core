@@ -35,8 +35,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # Switch to non-root user
-RUN chown -R chap:chap /app
-USER chap
+# RUN chown -R chap:chap /app
+# USER chap
 
 # Ensure virtual environment is first in PATH
 ENV PATH="/app/.venv/bin:$PATH"
