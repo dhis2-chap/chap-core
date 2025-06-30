@@ -60,4 +60,4 @@ USER chap
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Install production dependencies using uv
-RUN uv sync --no-dev
+RUN uv sync --frozen --no-dev

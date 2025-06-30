@@ -27,7 +27,7 @@ COPY --chown=chap:chap ./uv.lock .
 
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev
+    uv sync --frozen --no-dev
 
 # Copy application source and remaining files
 COPY --chown=chap:chap ./chap_core ./chap_core
