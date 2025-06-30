@@ -24,6 +24,7 @@ RUN apt-get update && apt-get upgrade -y && \
 # Copy project files and assign ownership to 'chap'
 COPY ./pyproject.toml .
 COPY ./uv.lock .
+COPY ./.python-version .python-version
 COPY ./chap_core ./chap_core
 COPY ./config ./config
 COPY ./scripts/seed.py ./scripts/seed.py
