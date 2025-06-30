@@ -21,19 +21,17 @@ RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends git && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy project metadata and lockfiles first (to leverage caching)
+# Copy project files and assign ownership to 'chap'
 COPY --chown=chap:chap ./pyproject.toml .
 COPY --chown=chap:chap ./uv.lock .
-
-# Install only production dependencies
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
-
-# Copy application source and remaining files
 COPY --chown=chap:chap ./chap_core ./chap_core
 COPY --chown=chap:chap ./config ./config
 COPY --chown=chap:chap ./scripts/seed.py ./scripts/seed.py
 COPY --chown=chap:chap ./README.md .
+
+# Install only production dependencies
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 # Switch to non-root user
 USER chap
