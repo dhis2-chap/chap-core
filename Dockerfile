@@ -35,6 +35,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # Switch to non-root user
+RUN mkdir -p /logs
+RUN chown -R chap:chap /logs
+# RUN mkdir -p /app/logs
 RUN chown -R chap:chap /app
 USER chap
 
