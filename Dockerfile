@@ -38,7 +38,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN mkdir /logs && \
     chown -R chap:chap /logs && \
     chown -R chap:chap /app
-USER chap
+# USER chap
 
 # Ensure virtual environment is first in PATH
 ENV PATH="/app/.venv/bin:$PATH"
