@@ -63,7 +63,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN mkdir /logs && \
     chown -R chap:chap /logs && \
     chown -R chap:chap /app
-# USER chap
+USER chap
 
 # Ensure local venv tools are prioritized
 ENV PATH="/app/.venv/bin:$PATH"
