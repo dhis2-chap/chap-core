@@ -25,7 +25,7 @@ services:
     expose:
       - "8000"
     command: /app/.venv/bin/chap serve
-    working_dir: /
+    working_dir: /app
     networks:
       - chap-network
     volumes:
