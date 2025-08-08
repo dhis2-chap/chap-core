@@ -8,6 +8,7 @@ docker compose -f compose.yml -f compose.integration.test.yml up --build --detac
 
 echo RUNNING DOCKER LOGS CHAP
 docker exec chap whoami
+docker exec chap chown -R chap:chap /app
 docker exec chap ls -l /app
 docker exec chap ls -l /app/logs
 docker logs chap
