@@ -8,8 +8,10 @@ docker compose -f compose.yml -f compose.integration.test.yml up --build --detac
 
 echo RUNNING DOCKER LOGS CHAP
 docker logs chap
+sleep 10
 # docker attach chap_frontend_emulator
 
 exit_code=$(docker inspect chap_frontend_emulator --format='{{.State.ExitCode}}')
-docker compose down
+# docker compose down
+docker logs chap
 [ "$exit_code" -eq "0" ] || { echo "Variable is not zero."; exit 1; }
