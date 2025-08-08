@@ -35,9 +35,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # Switch to non-root user
-RUN mkdir /logs && \
-    chown -R chap:chap /logs && \
-    chown -R chap:chap /app
+RUN mkdir /logs
+RUN mkdir /app/logs
+RUN chown -R chap:chap /logs
+RUN chown -R chap:chap /app
 USER chap
 
 # Ensure virtual environment is first in PATH
