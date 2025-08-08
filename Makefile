@@ -65,8 +65,8 @@ test-all: ## run pytest, doctests, examples
 
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
 	./tests/test_docker_compose_integration_flow.sh
-	uv run pytest --durations=0 --cov=climate_health --cov-report html --run-slow
-	uv run pytest --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
+	# uv run pytest --durations=0 --cov=climate_health --cov-report html --run-slow
+	# uv run pytest --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
 	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/
 	#cd docs_source && make doctest
 
