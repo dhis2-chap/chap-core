@@ -28,8 +28,8 @@ services:
     working_dir: /app
     networks:
       - chap-network
-    volumes:
-      - ./logs:/app/logs
+  #    volumes:
+  #      - ./logs:/app/logs
 
   worker:
     container_name: worker
@@ -51,8 +51,8 @@ services:
     # 'sh -c "/app/.venv/bin/rq worker --url redis://redis:6379/0 > /app/logs/worker.log 2>&1"'
     networks:
       - chap-network
-    volumes:
-      - ./logs:/app/logs
+    #volumes:
+    #  - ./logs:/app/logs
 
   postgres:
     image: postgres
