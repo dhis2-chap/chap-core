@@ -7,6 +7,7 @@ docker compose down --volumes  # delete the db
 docker compose -f compose.yml -f compose.integration.test.yml up --build --detach --force-recreate
 
 echo RUNNING DOCKER LOGS CHAP
+docker exec chap whoami
 docker logs chap
 sleep 10
 # docker attach chap_frontend_emulator

@@ -40,6 +40,7 @@ RUN mkdir /app/logs
 RUN chown -R chap:chap /logs
 RUN chown -R chap:chap /app
 USER chap
+RUN touch /app/logs/rest_api.log
 
 # Ensure virtual environment is first in PATH
 ENV PATH="/app/.venv/bin:$PATH"
