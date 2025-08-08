@@ -5,8 +5,10 @@ set -e
 docker compose down --volumes  # delete the db
 # note: for debugging failed tests, run the below command without --detach
 docker compose -f compose.yml -f compose.integration.test.yml up --build --detach --force-recreate
+
+echo RUNNING DOCKER LOGS CHAP
 docker logs chap
-docker attach chap_frontend_emulator
+# docker attach chap_frontend_emulator
 
 exit_code=$(docker inspect chap_frontend_emulator --format='{{.State.ExitCode}}')
 docker compose down
