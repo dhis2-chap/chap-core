@@ -148,7 +148,7 @@ class ExternalWebModel(ExternalModelBase):
             self._write_polygons_to_geojson(train_data, self._polygons_file_name)
             polygons_json = Polygons(train_data.polygons).to_json()
             files["polygons"] = ("polygons.geojson", polygons_json, "application/geo+json")
-            logger.info(f"Will pass polygons file to train and predict commands")
+            logger.info("Will pass polygons file to train and predict commands")
         
         # Add configuration if present
         if self._configuration:
