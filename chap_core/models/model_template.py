@@ -129,6 +129,8 @@ class ModelTemplate:
         from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config
         from .external_model import ExternalModel
 
+        # if model is web based, no runner and model should be ExternalWebModel
+
         runner = get_train_predict_runner_from_model_template_config(
             self._model_template_config, self._working_dir, self._ignore_env, model_configuration
         )
