@@ -1,6 +1,5 @@
 import logging
-
-from click.types import Path
+from pathlib import Path
 
 # get root logger
 logger = logging.getLogger()
