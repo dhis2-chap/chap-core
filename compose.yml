@@ -25,11 +25,11 @@ services:
     expose:
       - "8000"
     command: /app/.venv/bin/chap serve
-    working_dir: /
+    working_dir: /app
     networks:
       - chap-network
-    volumes:
-      - ./logs:/app/logs
+  #    volumes:
+  #      - ./logs:/app/logs
 
   worker:
     container_name: worker
@@ -47,11 +47,12 @@ services:
       - C_FORCE_ROOT=1 #TODO: Remove this when we have a proper user
     # sh -c to get logging as part of the command to work
     command: "/app/.venv/bin/celery -A chap_core.rest_api_src.celery_tasks worker --loglevel=info"
+    working_dir: /app
     # 'sh -c "/app/.venv/bin/rq worker --url redis://redis:6379/0 > /app/logs/worker.log 2>&1"'
     networks:
       - chap-network
-    volumes:
-      - ./logs:/app/logs
+    #volumes:
+    #  - ./logs:/app/logs
 
   postgres:
     image: postgres
