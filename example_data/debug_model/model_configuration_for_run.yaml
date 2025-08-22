@@ -1,4 +1,0 @@
-additional_continuous_covariates:
-- elevation
-- population_density
-n_lag_periods: 3
