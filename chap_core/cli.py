@@ -160,9 +160,9 @@ def evaluate(
 
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
-            assert dataset_country in dataset.countries, (
-                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
-            )
+            assert (
+                dataset_country in dataset.countries
+            ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
             dataset = dataset[dataset_country]
 
     if "," in model_name:
@@ -171,9 +171,9 @@ def evaluate(
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
             model_configuration_yaml_list = model_configuration_yaml.split(",")
-            assert len(model_list) == len(model_configuration_yaml_list), (
-                "Number of model configurations does not match number of models"
-            )
+            assert len(model_list) == len(
+                model_configuration_yaml_list
+            ), "Number of model configurations does not match number of models"
     else:
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
@@ -275,9 +275,9 @@ def sanity_check_model(
         logger.error(f"Error while forecasting: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(prediction.samples).any(), (
-            f"NaNs in predictions for location {location}, {prediction.samples}"
-        )
+        assert not np.isnan(
+            prediction.samples
+        ).any(), f"NaNs in predictions for location {location}, {prediction.samples}"
     context, future, truth = next(tests)
     try:
         predictions = predictor.predict(context, future)
@@ -285,9 +285,9 @@ def sanity_check_model(
         logger.error(f"Error while forecasting from a future time point: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(prediction.samples).any(), (
-            f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
-        )
+        assert not np.isnan(
+            prediction.samples
+        ).any(), f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
 
 
 @app.command()

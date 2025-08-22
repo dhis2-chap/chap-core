@@ -210,7 +210,7 @@ class CeleryJob(Generic[ReturnType]):
 
     def cancel(self):
         self._result.revoke(terminate=True)
-        
+
         # Update Redis metadata to reflect the cancellation
         r.hmset(
             f"job_meta:{self._job.id}",

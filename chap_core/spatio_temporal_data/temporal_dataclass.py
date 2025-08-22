@@ -22,6 +22,7 @@ from ..time_period.date_util_wrapper import TimeStamp, clean_timestring
 import dataclasses
 from typing import TypeVar
 from pydantic import BaseModel
+
 logger = logging.getLogger(__name__)
 
 FeaturesT = TypeVar("FeaturesT")
@@ -129,7 +130,7 @@ class Polygon:
 
 
 class DataSetMetaData(BaseModel):
-    name: str = 'dataset'
+    name: str = "dataset"
     filename: str | None = None
     db_id: int | None = None
 
@@ -444,7 +445,7 @@ class DataSet(Generic[FeaturesT]):
                     with open(path, "r") as f:
                         obj.set_polygons(polygons.feature_collection())
         if isinstance(file_name, (str, PurePath)):
-            meta_data=  DataSetMetaData(name= str(Path(file_name).stem), filename=str(file_name))
+            meta_data = DataSetMetaData(name=str(Path(file_name).stem), filename=str(file_name))
             obj.metadata = meta_data
         return obj
 

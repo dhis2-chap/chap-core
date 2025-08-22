@@ -9,6 +9,7 @@ from sqlmodel import SQLModel, Field, Relationship
 from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +49,7 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     name: str = Field(unique=True)
     id: Optional[int] = Field(primary_key=True, default=None)
     source_url: Optional[str] = None
-    configured_models: List['ConfiguredModelDB'] = Relationship(back_populates='model_template', cascade_delete=True)
+    configured_models: List["ConfiguredModelDB"] = Relationship(back_populates="model_template", cascade_delete=True)
 
 
 class ModelConfiguration(SQLModel):
@@ -61,7 +62,7 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     # model_config = ConfigDict(protected_namespaces=())
     name: str = Field(unique=True)
     id: Optional[int] = Field(primary_key=True, default=None)
-    model_template_id: int = Field(foreign_key="modeltemplatedb.id", ondelete='CASCADE')
+    model_template_id: int = Field(foreign_key="modeltemplatedb.id", ondelete="CASCADE")
     model_template: ModelTemplateDB = Relationship(back_populates="configured_models")
 
     @classmethod
