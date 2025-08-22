@@ -33,7 +33,6 @@ def test_docker_runner():
     assert "test" in output
 
 
-
 def test_run_command():
     command = "echo 'test'"
     output = CommandLineRunner("./").run_command(command)

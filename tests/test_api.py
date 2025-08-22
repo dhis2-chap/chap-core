@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 
-
 @pytest.fixture
 def example_zip(data_path):
     return data_path / "sample_dhis_data.zip"
@@ -18,7 +17,3 @@ def zip_filepath(data_path):
 @pytest.fixture
 def zip_filepath_population(data_path):
     return data_path / "sample_dhis_data.zip"
-
-
-
-

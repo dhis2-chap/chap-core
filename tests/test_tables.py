@@ -8,4 +8,3 @@ def test_dbmodel():
     data = TestModel(snake_case_name="test")
     json_data = data.model_dump(by_alias=True)
     assert json_data == {"snakeCaseName": "test"}
-

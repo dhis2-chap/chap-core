@@ -21,6 +21,7 @@ def queue():
     try:
         from chap_core.util import load_redis
         from rq import Queue
+
         r = load_redis()
         return Queue(connection=r)
     except ImportError:

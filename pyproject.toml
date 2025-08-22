@@ -89,7 +89,7 @@ target-version = "py312"
 # select = ["E", "F", "I"]
 lint.fixable = ["ALL"]
 # exclude = [".git", ".mypy_cache", ".ruff_cache"]
-include = ["chap_core/**/*.py"]
+include = ["chap_core/**/*.py", "tests/**/*.py"]
 line-length = 120
 
 # disable complaining about unused imports in __init__.py

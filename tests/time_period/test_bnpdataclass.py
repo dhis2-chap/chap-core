@@ -10,8 +10,9 @@ class TestClass:
 
 
 def test_year():
-    years = PeriodRange.from_strings(['2013', '2014', '2015'])
+    years = PeriodRange.from_strings(["2013", "2014", "2015"])
     assert years.year[0] == 2013
+
 
 @pytest.mark.xfail
 def test_indataclass():
@@ -20,12 +21,14 @@ def test_indataclass():
     assert test.period.year[0] == 2015
     assert test.sort_by("period").period.year[0] == 2013
 
+
 @pytest.mark.xfail
 def test_argsort():
     year = Year([2015, 2014, 2013])
     assert year.argsort()[0] == 2
     assert year.argsort()[1] == 1
     assert year.argsort()[2] == 0
+
 
 @pytest.mark.xfail
 def test_argsort_days():
