@@ -86,17 +86,16 @@ dev-dependencies = [
 
 [tool.ruff]
 target-version = "py312"
-# select = ["E", "F", "I"]
-lint.fixable = ["ALL"]
-# exclude = [".git", ".mypy_cache", ".ruff_cache"]
-# include = ["chap_core/**/*.py", "tests/**/*.py"]
-include = [
-    "chap_core/**/*.py",
-] # we want to include tests here also, but there are too many ruff check fails
 line-length = 120
+# Let Ruff discover both chap_core and tests for both "check" and "format"
+include = ["chap_core/**/*.py", "tests/**/*.py"]
 
-# disable complaining about unused imports in __init__.py
+[tool.ruff.lint]
+fixable = ["ALL"]
+
+# Disable all linting in tests, but still allow formatting there.
 [tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ALL"]
 "__init__.py" = ["F401"]
 
 [tool.ruff.format]
