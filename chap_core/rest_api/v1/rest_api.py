@@ -8,16 +8,16 @@ from fastapi.responses import FileResponse, ORJSONResponse
 from packaging.version import Version
 from pydantic import BaseModel
 
-import chap_core.rest_api_src.worker_functions as wf
+import chap_core.rest_api.worker_functions as wf
 from chap_core.api_types import EvaluationResponse, PredictionRequest
 from chap_core.internal_state import Control, InternalState
 from chap_core.log_config import initialize_logging
 from chap_core.model_spec import ModelSpec
 from chap_core.predictor.feature_spec import Feature, all_features
 from chap_core.predictor.model_registry import registry
-from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.rest_api_src.data_models import FullPredictionResponse
-from chap_core.rest_api_src.v1.routers import analytics, crud
+from chap_core.rest_api.celery_tasks import CeleryPool
+from chap_core.rest_api.data_models import FullPredictionResponse
+from chap_core.rest_api.v1.routers import analytics, crud
 from chap_core.worker.interface import SeededJob
 
 from ...database.database import create_db_and_tables
@@ -392,7 +392,7 @@ def main_backend(seed_data=None, auto_reload=False):
     if seed_data is not None:
         seed(seed_data)
     if auto_reload:
-        app_path = "chap_core.rest_api_src.v1.rest_api:app"
+        app_path = "chap_core.rest_api.v1.rest_api:app"
         uvicorn.run(app_path, host="0.0.0.0", port=8000, reload=auto_reload)
     else:
         uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,10 +1,10 @@
-from typing import Optional, List
+from typing import List, Optional
 
 import numpy as np
 
 from chap_core.datatypes import create_tsdataclass
 from chap_core.exceptions import GEEError
-from chap_core.rest_api_src.data_models import FetchRequest
+from chap_core.rest_api.data_models import FetchRequest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
