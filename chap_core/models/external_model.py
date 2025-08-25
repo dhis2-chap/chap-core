@@ -76,6 +76,9 @@ class ExternalModelBase(ConfiguredModel):
         frequency = 'M' if isinstance(train_data.period_range[0], Month) else 'W'
         return frequency
 
+    def __call__(self):
+        return self
+
 
 
 class ExternalModel(ExternalModelBase):
@@ -112,9 +115,6 @@ class ExternalModel(ExternalModelBase):
     @property
     def name(self):
         return self._name
-
-    def __call__(self):
-        return self
 
     @property
     def configuration(self):
