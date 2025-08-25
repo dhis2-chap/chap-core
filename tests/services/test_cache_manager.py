@@ -8,6 +8,4 @@ def test_get_cache_test_env():
     """
     cache = get_cache()
     assert isinstance(cache, Cache), "Expected a Cache instance"
-    assert (
-        "test_cache" in cache.directory
-    ), "Cache should be initialized in the test environment directory"
+    assert "test_cache" in cache.directory, "Cache should be initialized in the test environment directory"

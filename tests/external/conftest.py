@@ -3,10 +3,12 @@ import pytest
 
 from chap_core.assessment.dataset_splitting import train_test_split_with_weather
 from chap_core.datatypes import ClimateHealthTimeSeries
-#from chap_core.external.models.jax_models.model_spec import NutsParams
+
+# from chap_core.external.models.jax_models.model_spec import NutsParams
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 from chap_core.datatypes import FullData
+
 
 @pytest.fixture()
 def data(data_path):

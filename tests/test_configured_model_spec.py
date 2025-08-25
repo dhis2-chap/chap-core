@@ -3,6 +3,7 @@ import pytest
 import yaml
 import logging
 from chap_core.file_io.file_paths import get_example_data_path
+
 logger = logging.getLogger(__name__)
 
 from chap_core.external.model_configuration import ModelTemplateConfigV2, ModelTemplateConfig
@@ -18,7 +19,7 @@ from chap_core.models.model_template import ExternalModelTemplate
 from chap_core.predictor.naive_estimator import NaiveEstimator
 
 
-# TODO: below commented tests are duplicate and probably outdated, ok to delete? 
+# TODO: below commented tests are duplicate and probably outdated, ok to delete?
 
 # def test_model_spec_from_yaml(models_path):
 #     model_spec = model_spec_from_yaml(models_path / "ewars_Plus/config.yml")
@@ -49,15 +50,12 @@ from chap_core.predictor.naive_estimator import NaiveEstimator
 
 def mlflow_paths():
     # NOTE: had to hardcode data folder here since cant use fixture as input for parametrize
-    template_folder = get_example_data_path() / 'model_templates'
-    names = [
-        name for name in os.listdir(template_folder)
-        if name.endswith('.yaml')
-    ]
+    template_folder = get_example_data_path() / "model_templates"
+    names = [name for name in os.listdir(template_folder) if name.endswith(".yaml")]
     return [os.path.join(template_folder, name) for name in names]
 
 
-@pytest.mark.parametrize('mlflow_path', mlflow_paths())
+@pytest.mark.parametrize("mlflow_path", mlflow_paths())
 def test_parse_configured_model_yaml_file(mlflow_path):
     data = yaml.safe_load(open(mlflow_path).read())
     m = ModelTemplateConfigV2.model_validate(data)
@@ -65,7 +63,7 @@ def test_parse_configured_model_yaml_file(mlflow_path):
     assert isinstance(m, ModelTemplateConfigV2)
 
 
-# TODO: delete? probably not necessary to test single models like this, enough with list of mlflow_paths? 
+# TODO: delete? probably not necessary to test single models like this, enough with list of mlflow_paths?
 
 # def test_naive_model_from_yaml_string(naive_yaml_string):
 #     data = yaml.safe_load(naive_yaml_string)

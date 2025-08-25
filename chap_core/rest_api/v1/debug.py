@@ -2,12 +2,14 @@ import logging
 from typing import Optional
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, HTTPException, Depends
-import chap_core.rest_api_src.db_worker_functions as wf
-from .jobs import worker
+from fastapi import APIRouter, Depends, HTTPException
+
+import chap_core.rest_api.db_worker_functions as wf
+
+from ..celery_tasks import CeleryPool, celery
 from ..data_models import JobResponse
-from .routers.dependencies import get_settings, get_database_url
-from ..celery_tasks import celery, CeleryPool
+from .jobs import worker
+from .routers.dependencies import get_database_url, get_settings
 
 router = APIRouter(prefix="/debug", tags=["debug"])
 logger = logging.getLogger(__name__)

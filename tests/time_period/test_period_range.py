@@ -1,8 +1,8 @@
 import pytest
 from bionumpy.util.testing import assert_bnpdataclass_equal
 
-#from chap_core.time_period.period_range import period_range
-#from chap_core.time_period.dataclasses import Month, Day
+# from chap_core.time_period.period_range import period_range
+# from chap_core.time_period.dataclasses import Month, Day
 # from chap_core.time_period import Month, Day, Year
 
 
@@ -29,7 +29,5 @@ def test_period_range_day():
 
 @pytest.mark.skip("legacy")
 def test_wierd_period_range():
-    day_range = period_rangep(
-        Day.single_entry(2020, 0, 0), Day.single_entry(2020, 1, 28)
-    )
+    day_range = period_rangep(Day.single_entry(2020, 0, 0), Day.single_entry(2020, 1, 28))
     assert len(day_range) == 31 + 29

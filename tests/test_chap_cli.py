@@ -72,8 +72,9 @@ def test_predict(predict_input_path, tmp_path, do_summary):
     assert output_path.exists()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import pathlib
+
     file_path = "/mnt/c/Users/karimba/Downloads/chap_request_data_2025-03-31T12_11_15.087Z.json"
-    output_path = pathlib.Path(__file__).parent / 'test_outputs'
+    output_path = pathlib.Path(__file__).parent / "test_outputs"
     test_harmonize_with_points(file_path, output_path, None, 0.1)

@@ -1,9 +1,10 @@
 import dataclasses
 import json
+
 import pytest
 
 from chap_core.datatypes import SummaryStatistics
-from chap_core.rest_api_src.worker_functions import predictions_to_datavalue
+from chap_core.rest_api.worker_functions import predictions_to_datavalue
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
 
@@ -36,9 +37,7 @@ def predictions():
 
 def test_predictions_to_json_real(predictions):
     attrs = ["median", "quantile_high", "quantile_low"]
-    data_values = predictions_to_datavalue(
-        predictions, attribute_mapping=dict(zip(attrs, attrs))
-    )
+    data_values = predictions_to_datavalue(predictions, attribute_mapping=dict(zip(attrs, attrs)))
     json_body = [dataclasses.asdict(element) for element in data_values]
     assert len(json_body) == 6
     assert json_body[0]["dataElement"] == "median"

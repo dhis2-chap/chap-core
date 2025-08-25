@@ -135,15 +135,11 @@ def band(request):
 
 @pytest.fixture()
 def periode(ee):
-    return ee.Dictionary(
-        {"period": "1", "start_date": "2023-01-01", "end_date": "2023-01-02"}
-    )
+    return ee.Dictionary({"period": "1", "start_date": "2023-01-01", "end_date": "2023-01-02"})
 
 
 def test_get_period(band: Band, collection, periode):
-    image: ee.Image = era5_land_gee_helper.get_image_for_period(
-        periode, band, collection
-    )
+    image: ee.Image = era5_land_gee_helper.get_image_for_period(periode, band, collection)
 
     fetched_image = image.getInfo()
 
@@ -152,19 +148,11 @@ def test_get_period(band: Band, collection, periode):
     assert len(fetched_image["bands"]) == 1
     assert fetched_image["bands"][0]["id"] == band.name
     assert fetched_image["properties"]["system:time_start"] == int(
-        (
-            datetime.strptime(periode.getInfo().get("start_date"), "%Y-%m-%d")
-            .replace(tzinfo=timezone.utc)
-            .timestamp()
-        )
+        (datetime.strptime(periode.getInfo().get("start_date"), "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
         * 1000
     )
     assert fetched_image["properties"]["system:time_end"] == int(
-        (
-            datetime.strptime(periode.getInfo().get("end_date"), "%Y-%m-%d")
-            .replace(tzinfo=timezone.utc)
-            .timestamp()
-        )
+        (datetime.strptime(periode.getInfo().get("end_date"), "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
         * 1000
     )
 
@@ -193,9 +181,7 @@ def test_create_ee_dict(time_periode):
 
 @pytest.fixture()
 def ee_feature(ee):
-    return ee.Feature(
-        ee.Geometry.Point([-114.318, 38.985]), {"system:index": "abc123", "mean": 244}
-    )
+    return ee.Feature(ee.Geometry.Point([-114.318, 38.985]), {"system:index": "abc123", "mean": 244})
 
 
 @pytest.fixture()
@@ -210,9 +196,7 @@ def ee_image(ee):
 
 
 def test_creat_ee_feature(ee_feature, ee_image):
-    feature = era5_land_gee_helper.creat_ee_feature(
-        ee_feature, ee_image, "mean"
-    ).getInfo()
+    feature = era5_land_gee_helper.creat_ee_feature(ee_feature, ee_image, "mean").getInfo()
 
     assert feature is not None
     assert feature["properties"]["ou"] == "abc123"
@@ -338,25 +322,25 @@ def polygons(polygon_json):
 def polygon_json(data_path):
     return open(data_path / "Organisation units.geojson").read()
 
+
 def test_get_daily_data(era5_land_gee, polygons, data_path, tmp_path):
     polygons.features = polygons.features[:2]
     period_range = [
-            Month(2023, 1),
-            Month(2023, 2),
-        ]
+        Month(2023, 1),
+        Month(2023, 2),
+    ]
     period_range = PeriodRange.from_period_list(False, period_range)
-    
+
     data = era5_land_gee.get_daily_data(
         polygons.model_dump(),
         period_range,
     )
     assert data is not None
     print(data)
-    assert len(data) > 2 *28* len(polygons.features)
+    assert len(data) > 2 * 28 * len(polygons.features)
     data.to_csv(data_path / "era5_land_daily_data.csv", index=False)
 
-
-#def test_pack_daily_data(data_path, tmp_path):
+    # def test_pack_daily_data(data_path, tmp_path):
     data = pd.read_csv(data_path / "era5_land_daily_data.csv")
     period_range = [Month(2023, 1), Month(2023, 2)]
     period_range = PeriodRange.from_period_list(False, period_range)
@@ -375,13 +359,17 @@ def test_get_daily_data(era5_land_gee, polygons, data_path, tmp_path):
         assert d.temperature_2m.shape == (2, 31), d.temperature_2m
         assert d.total_precipitation_sum.shape == (2, 31), d.total_precipitation_sum
 
+
 def test_harmonize_daily_data(polygons, ee):
     polygons.features = polygons.features[:2]
-    data = HealthPopulationData(PeriodRange.from_period_list(False, [Month(2023, 1), Month(2023, 2)]),
-                                       disease_cases=[1, 2], population=[100, 200])
+    data = HealthPopulationData(
+        PeriodRange.from_period_list(False, [Month(2023, 1), Month(2023, 2)]),
+        disease_cases=[1, 2],
+        population=[100, 200],
+    )
     health_population_data = DataSet({f.id: data for f in polygons.features})
     health_population_data.set_polygons(polygons)
-    
+
     @tsdataclass
     class NewClass(HealthPopulationData):
         temperature_2m: float

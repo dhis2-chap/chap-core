@@ -20,9 +20,7 @@ def test_plot_timeseries_data():
     plot_timeseries_data(data)
 
 
-@pytest.mark.xfail(
-    reason="Plotting doesnt work with Period on the x-axis. Need to fix this."
-)
+@pytest.mark.xfail(reason="Plotting doesnt work with Period on the x-axis. Need to fix this.")
 def test_plot_timeseries_data_and_write():
     filename = "test_plot_timeseries_data_and_write.png"
     data = RandomNoiseSimulator(100).simulate()
@@ -41,9 +39,7 @@ def create_monthly_health_data_for_time(daily_data):
     start_month = Month(start_day.year, start_day.month)
     end_day = daily_data.time_period[-1]
     end_month = Month(end_day.year, end_day.month)
-    return PeriodRange.from_time_periods(
-        start_month, end_month
-    )  # , exclusive_end=False)
+    return PeriodRange.from_time_periods(start_month, end_month)  # , exclusive_end=False)
 
 
 def test_multiperiod_plot(daily_climate_data: ClimateData):
@@ -57,14 +53,10 @@ class MockSampler:
         self.true_data = true_data
 
     def sample(self, climate_data):
-        return self.true_data[: len(climate_data)].disease_cases + np.random.poisson(
-            10, len(climate_data)
-        )
+        return self.true_data[: len(climate_data)].disease_cases + np.random.poisson(10, len(climate_data))
 
 
-@pytest.mark.xfail(
-    reason="Plotting doesnt work with Period on the x-axis. Need to fix this."
-)
+@pytest.mark.xfail(reason="Plotting doesnt work with Period on the x-axis. Need to fix this.")
 def test_forecast_plot():
     # create curve with period 12
     tp = period_range(Month(2010, 1), Month(2020, 1))

@@ -33,16 +33,12 @@ def python_script_filename() -> str:
 
 @pytest.fixture()
 def python_model_train_command() -> str:
-    return "python " + str(
-        TEST_PATH / "mock_predictor_script.py train {train_data} {model}"
-    )
+    return "python " + str(TEST_PATH / "mock_predictor_script.py train {train_data} {model}")
 
 
 @pytest.fixture()
 def python_model_predict_command() -> str:
-    return "python " + str(
-        TEST_PATH / "mock_predictor_script.py predict {future_data} {model} {out_file}"
-    )
+    return "python " + str(TEST_PATH / "mock_predictor_script.py predict {future_data} {model} {out_file}")
 
 
 @pytest.fixture()
@@ -58,4 +54,3 @@ def load_data_func(data_path):
         return DataSet.from_pandas(pd.read_csv(file_name), ClimateHealthTimeSeries)
 
     return load_data_set
-

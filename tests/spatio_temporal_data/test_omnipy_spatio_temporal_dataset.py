@@ -15,9 +15,7 @@ from chap_core.spatio_temporal_data.omnipy_spatio_temporal_dataset import (
     MultiResolutionTemporalDataOmnipyModel,
 )
 
-JsonTestDataType: TypeAlias = dict[
-    str, dict[str, dict[str, list[dict[str, JsonScalar]]]]
-]
+JsonTestDataType: TypeAlias = dict[str, dict[str, dict[str, list[dict[str, JsonScalar]]]]]
 
 
 @pytest.fixture
@@ -102,12 +100,8 @@ class MyTemporalDataOmnipyDataset(TemporalDataOmnipyDataset):
     def _set_standard_field_description(self) -> None:
         super()._set_standard_field_description()
 
-        self.set_model(
-            "disease", MultiResolutionTemporalDataOmnipyModel[DiseaseFeatures]
-        )
-        self.set_model(
-            "weather", MultiResolutionTemporalDataOmnipyModel[ClimateFeatures]
-        )
+        self.set_model("disease", MultiResolutionTemporalDataOmnipyModel[DiseaseFeatures])
+        self.set_model("weather", MultiResolutionTemporalDataOmnipyModel[ClimateFeatures])
 
 
 def test_spatio_temporal_dataset(
@@ -116,9 +110,7 @@ def test_spatio_temporal_dataset(
 ):
     persist_path = str(tmp_path / "simple_test_data")
 
-    init_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataOmnipyDataset](
-        simple_test_data
-    )
+    init_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataOmnipyDataset](simple_test_data)
     init_dataset.save(persist_path)
 
     loaded_dataset = SpatioTemporalDataOmnipyDataset[MyTemporalDataOmnipyDataset]()

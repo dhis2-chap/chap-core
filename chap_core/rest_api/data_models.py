@@ -46,16 +46,19 @@ class DatasetMakeRequest(DataSetBase):
 class JobResponse(BaseModel):
     id: str
 
+
 class ValidationError(DBModel):
     reason: str
     org_unit: str
     feature_name: str
     time_periods: List[str]
 
+
 class ImportSummaryResponse(DBModel):
     id: str | None
     imported_count: int
     rejected: list[ValidationError]
+
 
 class BackTestCreate(BackTestBase): ...
 

@@ -1,19 +1,19 @@
-from typing import Optional
 import logging
+from typing import Optional
 
 import numpy as np
 
 from chap_core.assessment.forecast import forecast_ahead
+from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.climate_predictor import QuickForecastFetcher
+from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.predictor.model_registry import registry
-from chap_core.assessment.prediction_evaluator import backtest as _backtest
-from chap_core.rest_api_src.data_models import FetchRequest, BackTestCreate
+from chap_core.rest_api.data_models import BackTestCreate, FetchRequest
 
-# from chap_core.rest_api_src.v1.routers.crud import BackTestCreate
-from chap_core.rest_api_src.worker_functions import harmonize_health_dataset, WorkerConfig
-from chap_core.data import DataSet as InMemoryDataSet
+# from chap_core.rest_api.v1.routers.crud import BackTestCreate
+from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 
@@ -25,11 +25,8 @@ def trigger_exception(*args, **kwargs):
 
 
 def validate_and_filter_dataset_for_evaluation(
-        dataset: DataSet,
-        target_name: str,
-        n_periods: int,
-        n_splits: int,
-        stride: int) -> DataSet:
+    dataset: DataSet, target_name: str, n_periods: int, n_splits: int, stride: int
+) -> DataSet:
     evaluation_length = n_periods + (n_splits - 1) * stride
     new_data = {}
     rejected = []
@@ -37,18 +34,18 @@ def validate_and_filter_dataset_for_evaluation(
         if np.any(np.logical_not(np.isnan(getattr(data, target_name)[:-evaluation_length]))):
             new_data[location] = data
 
-    logger.warning(f'Rejected regions: {rejected} due to missing target values for the whole training period')
-    logger.info(f'Remaining regions: {list(new_data.keys())} with {len(new_data)} entries')
+    logger.warning(f"Rejected regions: {rejected} due to missing target values for the whole training period")
+    logger.info(f"Remaining regions: {list(new_data.keys())} with {len(new_data)} entries")
 
     return DataSet(new_data, metadata=dataset.metadata, polygons=dataset.polygons)
 
 
 def run_backtest(
-        info: BackTestCreate,
-        n_periods: Optional[int] = None,
-        n_splits: int = 10,
-        stride: int = 1,
-        session: SessionWrapper = None,
+    info: BackTestCreate,
+    n_periods: Optional[int] = None,
+    n_splits: int = 10,
+    stride: int = 1,
+    session: SessionWrapper = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     dataset = session.get_dataset(info.dataset_id)
@@ -56,7 +53,7 @@ def run_backtest(
         n_periods = _get_n_periods(dataset)
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
-        target_name='disease_cases',
+        target_name="disease_cases",
         n_periods=n_periods,
         n_splits=n_splits,
         stride=stride,
@@ -78,12 +75,12 @@ def run_backtest(
 
 
 def run_prediction(
-        model_id: str,
-        dataset_id: str,
-        n_periods: Optional[int],
-        name: str,
-        metadata: dict,
-        session: SessionWrapper,
+    model_id: str,
+    dataset_id: str,
+    n_periods: Optional[int],
+    name: str,
+    metadata: dict,
+    session: SessionWrapper,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     dataset = session.get_dataset(dataset_id)
@@ -102,7 +99,7 @@ def debug(session: SessionWrapper):
 
 
 def harmonize_and_add_health_dataset(
-        health_dataset: FullData, name: str, session: SessionWrapper, worker_config=WorkerConfig()
+    health_dataset: FullData, name: str, session: SessionWrapper, worker_config=WorkerConfig()
 ) -> FullData:
     health_dataset = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False, worker_config=worker_config)
@@ -111,13 +108,13 @@ def harmonize_and_add_health_dataset(
 
 
 def harmonize_and_add_dataset(
-        provided_field_names: list[str],
-        data_to_be_fetched: list[FetchRequest],
-        health_dataset: InMemoryDataSet,
-        name: str,
-        ds_type: str,
-        session: SessionWrapper,
-        worker_config=WorkerConfig(),
+    provided_field_names: list[str],
+    data_to_be_fetched: list[FetchRequest],
+    health_dataset: InMemoryDataSet,
+    name: str,
+    ds_type: str,
+    session: SessionWrapper,
+    worker_config=WorkerConfig(),
 ) -> FullData:
     provided_dataclass = create_tsdataclass(provided_field_names)
     health_dataset = InMemoryDataSet.from_dict(health_dataset, provided_dataclass)
@@ -140,14 +137,14 @@ def _get_n_periods(health_dataset):
 
 
 def predict_pipeline_from_composite_dataset(
-        provided_field_names: list[str],
-        data_to_be_fetched: list[FetchRequest],
-        health_dataset: InMemoryDataSet,
-        name: str,
-        model_id: registry.model_type,
-        metadata: str,
-        session: SessionWrapper,
-        worker_config=WorkerConfig(),
+    provided_field_names: list[str],
+    data_to_be_fetched: list[FetchRequest],
+    health_dataset: InMemoryDataSet,
+    name: str,
+    model_id: registry.model_type,
+    metadata: str,
+    session: SessionWrapper,
+    worker_config=WorkerConfig(),
 ) -> int:
     dataset_id = harmonize_and_add_dataset(
         provided_field_names, data_to_be_fetched, health_dataset, name, "prediction", session, worker_config
@@ -156,16 +153,16 @@ def predict_pipeline_from_composite_dataset(
 
 
 def run_backtest_from_composite_dataset(
-        feature_names: list[str],
-        data_to_be_fetched: list[FetchRequest],
-        provided_data_model_dump: dict,
-        backtest_name: str,
-        model_id: registry.model_type,
-        n_periods: int,
-        n_splits: int,
-        stride: int,
-        session: SessionWrapper,
-        worker_config=WorkerConfig(),
+    feature_names: list[str],
+    data_to_be_fetched: list[FetchRequest],
+    provided_data_model_dump: dict,
+    backtest_name: str,
+    model_id: registry.model_type,
+    n_periods: int,
+    n_splits: int,
+    stride: int,
+    session: SessionWrapper,
+    worker_config=WorkerConfig(),
 ) -> int:
     dataset_id = harmonize_and_add_dataset(
         provided_field_names=feature_names,

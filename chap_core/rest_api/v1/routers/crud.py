@@ -15,42 +15,39 @@ Magic is used to make the returned objects camelCase while internal objects are 
 """
 
 import json
+import logging
 from datetime import datetime
 from functools import partial
-import logging
+from typing import Annotated, List, Optional
 
 import numpy as np
-from fastapi import Path, Query
-from typing import Optional, List, Annotated
-
 import pandas as pd
-from sqlmodel import select
+from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from sqlmodel import Session, select
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from sqlmodel import Session
-
+import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
+from chap_core.data import DataSet as InMemoryDataSet
+from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
-from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.datatypes import FullData, HealthPopulationData
-from chap_core.geometry import Polygons
-from chap_core.spatio_temporal_data.converters import observations_to_dataset
-from .dependencies import get_session, get_database_url, get_settings
-from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.database.tables import BackTest, Prediction, PredictionRead, PredictionInfo
+from chap_core.database.dataset_tables import DataSet, DataSetBase, DataSetWithObservations, ObservationBase
 from chap_core.database.debug import DebugEntry
-from chap_core.database.dataset_tables import ObservationBase, DataSetBase, DataSet, DataSetWithObservations
+from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
-    ModelTemplateDB,
-    ModelTemplateMetaData,
-    ModelTemplateInformation,
     ModelConfiguration,
+    ModelTemplateDB,
+    ModelTemplateInformation,
+    ModelTemplateMetaData,
 )
-from chap_core.database.base_tables import DBModel
-from chap_core.data import DataSet as InMemoryDataSet
-import chap_core.rest_api_src.db_worker_functions as wf
-from ...data_models import JobResponse, BackTestCreate, BackTestRead, BackTestFull
+from chap_core.database.tables import BackTest, Prediction, PredictionInfo, PredictionRead
+from chap_core.datatypes import FullData, HealthPopulationData
+from chap_core.geometry import Polygons
+from chap_core.rest_api.celery_tasks import CeleryPool
+from chap_core.spatio_temporal_data.converters import observations_to_dataset
+
+from ...data_models import BackTestCreate, BackTestFull, BackTestRead, JobResponse
+from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
 

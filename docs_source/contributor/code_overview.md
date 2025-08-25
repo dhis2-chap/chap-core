@@ -13,13 +13,13 @@ By looking at the code in the `cli.py` file, you can see how the different comma
 
 The REST API is the main entry point for the Modeling App, and supports functionality like training models, predicting, harmonizing data etc.
 
-- The main entry point for the API is in `rest_api_src/v1/rest_api.py` (newer versions will have a different version number than v1).
+- The main entry point for the API is in `rest_api/v1/rest_api.py` (newer versions will have a different version number than v1).
 - The API is built using the `fastapi` library, and we are currently using Celery to handle asynchronous tasks (like training a model).
 - Celery is currently abstracted away using the `CeleryPool` and `CeleryJob` classes.
 
 ### More about the rest API endpoints
 
-The main endpoints for the REST API are defined in `rest_api_src/v[some version number]/rest_api.py.
+The main endpoints for the REST API are defined in `rest_api/v[some version number]/rest_api.py.
 
 - crud: mainly just database operations
 - analytics: A bad name (should be changed in the future). Bigger things that are written specifically to be used by the frontend. Things that are not used by the modelling app should be deleted in the future (e.g. prediction-entry)
@@ -27,7 +27,7 @@ The main endpoints for the REST API are defined in `rest_api_src/v[some version 
 - jobs:
 - default: used by the old Prediction app (will be taken away at some point)
 
-We use pydantic models to define all input and return types in the REST API. See `rest_api_src/data_models.py`. We also use pydantic models to define database schemas (see `dataset_tables.py`). These models are overriden for the rest API if the REST API needs anything to be different. The database gives the objects IDs (if there is a primary key is default None). The overrides for the REST API have become a bit of mess and are defined many places. These should ideally be cleaned up and put in one file.
+We use pydantic models to define all input and return types in the REST API. See `rest_api/data_models.py`. We also use pydantic models to define database schemas (see `dataset_tables.py`). These models are overriden for the rest API if the REST API needs anything to be different. The database gives the objects IDs (if there is a primary key is default None). The overrides for the REST API have become a bit of mess and are defined many places. These should ideally be cleaned up and put in one file.
 
 A messy thing about the database models is that many tables have an id field that has the same behavious. This could ideally be solved by a decorator look for fields that have that behavious and create three classes from it: One for the database, one for Read and one for Create, so that we don't need to do inheritance to get these classes. This has to be done by adding methods to get the classes.
 

@@ -3,6 +3,7 @@ This is meant to be a standalone python file for testing the flow with docker co
 
 This file should be possible to run without chap installed, only with the necessary requirements
 """
+
 import json
 import time
 
@@ -19,7 +20,7 @@ def dataset():
     return data
 
 
-hostname = 'chap'
+hostname = "chap"
 chap_url = "http://%s:8000" % hostname
 
 
@@ -71,7 +72,7 @@ def evaluate_model(chap_url, data, model, timeout=600):
             logger.error(response)
             continue
         job_status = response.json()
-        if job_status['status'] == "failed":
+        if job_status["status"] == "failed":
             exception_info = requests.get(chap_url + "/v1/get-exception").json()
             if "Earth Engine client library not initialized" in exception_info:
                 logger.warning("Exception: %s" % exception_info)
@@ -83,12 +84,12 @@ def evaluate_model(chap_url, data, model, timeout=600):
 
         print("Waiting for model to finish")
         time.sleep(5)
-        if job_status['ready']:
+        if job_status["ready"]:
             break
     else:
         raise TimeoutError("Model evaluation took too long")
     results = requests.get(chap_url + "/v1/get-results")
-    
+
     if results.status_code != 200:
         exception_info = requests.get(chap_url + "/v1/get-exception").json()
         logger.error("Failed to get results")
@@ -99,9 +100,8 @@ def evaluate_model(chap_url, data, model, timeout=600):
     print("STatus code", results.status_code)
     print("RESULTS", results)
     results = results.json()
-    assert len(results['dataValues']) == 45, len(results['dataValues'])
+    assert len(results["dataValues"]) == 45, len(results["dataValues"])
 
 
 if __name__ == "__main__":
     main()
-

@@ -1,25 +1,30 @@
-from typing import List, Annotated
+import logging
+from typing import Annotated, List
 
-import chap_core.rest_api_src.db_worker_functions as wf
 import numpy as np
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, confloat
-
-from fastapi import APIRouter, HTTPException, Depends, Query, Path
 from sqlmodel import Session, select
 
-from chap_core.api_types import EvaluationEntry, DataList, DataElement, PredictionEntry, FeatureCollectionModel
+import chap_core.rest_api.db_worker_functions as wf
+from chap_core.api_types import DataElement, DataList, EvaluationEntry, FeatureCollectionModel, PredictionEntry
 from chap_core.database.base_tables import DBModel
+from chap_core.database.dataset_tables import Observation
+from chap_core.database.tables import BackTest, BackTestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from .dependencies import get_session, get_database_url, get_settings
-from chap_core.database.tables import BackTest, Prediction, BackTestForecast
-from chap_core.database.dataset_tables import Observation
-import logging
 
-from ...celery_tasks import CeleryPool, JOB_TYPE_KW, JOB_NAME_KW
-from ...data_models import DatasetMakeRequest, JobResponse, BackTestCreate, BackTestRead, ImportSummaryResponse, \
-    ValidationError
+from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool
+from ...data_models import (
+    BackTestCreate,
+    BackTestRead,
+    DatasetMakeRequest,
+    ImportSummaryResponse,
+    JobResponse,
+    ValidationError,
+)
+from .dependencies import get_database_url, get_session, get_settings
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -43,9 +48,9 @@ class MetaData(BaseModel):
 
 
 @router.post("/make-dataset", response_model=ImportSummaryResponse)
-def make_dataset(request: DatasetMakeRequest,
-                 database_url: str = Depends(get_database_url),
-                 worker_settings=Depends(get_settings)):
+def make_dataset(
+    request: DatasetMakeRequest, database_url: str = Depends(get_database_url), worker_settings=Depends(get_settings)
+):
     """
     This endpoint creates a dataset from the provided data and the data to be fetched3
     and puts it in the database
@@ -55,13 +60,13 @@ def make_dataset(request: DatasetMakeRequest,
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     polygon_rejected = provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
-        ValidationError(reason='Missing polygon in geojson', orgUnit=location, feature_name='polygon', time_periods=[])
-        for location in polygon_rejected)
+        ValidationError(reason="Missing polygon in geojson", orgUnit=location, feature_name="polygon", time_periods=[])
+        for location in polygon_rejected
+    )
     imported_count = len(provided_data.locations())
     if imported_count == 0:
-        raise HTTPException(status_code=500, detail='Missing values. No data was imported.')
+        raise HTTPException(status_code=500, detail="Missing values. No data was imported.")
     request.type = "evaluation"
-
 
     job = worker.queue_db(
         wf.harmonize_and_add_dataset,
@@ -87,8 +92,9 @@ def _read_dataset(request):
     return feature_names, provided_data
 
 
-def _validate_full_dataset(feature_names, provided_data, target_name='disease_cases') -> tuple[
-    DataSet, list[ValidationError]]:
+def _validate_full_dataset(
+    feature_names, provided_data, target_name="disease_cases"
+) -> tuple[DataSet, list[ValidationError]]:
     new_data = {}
     rejected_list = []
     n_locations = len(provided_data.locations())
@@ -99,28 +105,33 @@ def _validate_full_dataset(feature_names, provided_data, target_name='disease_ca
             isnan = np.isnan(getattr(data, feature_name))
             if np.any(isnan):
                 isnan_ = [data.time_period[i].id for i in np.flatnonzero(isnan)]
-                rejected_list.append(ValidationError(reason="Missing value for some/all time periods", orgUnit=location,
-                                                     feature_name=feature_name, time_periods=isnan_))
+                rejected_list.append(
+                    ValidationError(
+                        reason="Missing value for some/all time periods",
+                        orgUnit=location,
+                        feature_name=feature_name,
+                        time_periods=isnan_,
+                    )
+                )
                 break
         else:
             new_data[location] = data
     if not new_data:
-        raise HTTPException(status_code=500, detail='All regions regjected due to missing values.')
+        raise HTTPException(status_code=500, detail="All regions regjected due to missing values.")
     else:
         print(new_data.keys())
 
-    new_dataset = provided_data.__class__(new_data,
-                                          polygons=provided_data.polygons,
-                                          metadata=provided_data.metadata)
+    new_dataset = provided_data.__class__(new_data, polygons=provided_data.polygons, metadata=provided_data.metadata)
     logger.info(
-        f"Remaining dataset after validation: {len(new_dataset.locations())} (from {n_locations}) locations: {list(new_dataset.locations())} ")
+        f"Remaining dataset after validation: {len(new_dataset.locations())} (from {n_locations}) locations: {list(new_dataset.locations())} "
+    )
     assert len(new_dataset.locations()), new_dataset.locations()
     return new_dataset, rejected_list
 
 
 @router.get("/compatible-backtests/{backtestId}", response_model=List[BackTestRead])
 def get_compatible_backtests(
-        backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
+    backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
     """Return a list of backtests that are compatible for comparison with the given backtest"""
     logger.info(f"Checking compatible backtests for {backtest_id}")
@@ -144,9 +155,9 @@ class BacktestDomain(DBModel):
 
 @router.get("/backtest-overlap/{backtestId1}/{backtestId2}", response_model=BacktestDomain)
 def get_backtest_overlap(
-        backtest_id1: Annotated[int, Path(alias="backtestId1")],
-        backtest_id2: Annotated[int, Path(alias="backtestId2")],
-        session: Session = Depends(get_session),
+    backtest_id1: Annotated[int, Path(alias="backtestId1")],
+    backtest_id2: Annotated[int, Path(alias="backtestId2")],
+    session: Session = Depends(get_session),
 ):
     """Return the org units and split periods that are common between two backtests"""
     backtest1 = session.get(BackTest, backtest_id1)
@@ -162,11 +173,11 @@ def get_backtest_overlap(
 
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])
 async def get_evaluation_entries(
-        backtest_id: Annotated[int, Query(alias="backtestId")],
-        quantiles: List[float] = Query(...),
-        split_period: str = Query(None, alias="splitPeriod"),
-        org_units: List[str] = Query(None, alias="orgUnits"),
-        session: Session = Depends(get_session),
+    backtest_id: Annotated[int, Query(alias="backtestId")],
+    quantiles: List[float] = Query(...),
+    split_period: str = Query(None, alias="splitPeriod"),
+    org_units: List[str] = Query(None, alias="orgUnits"),
+    session: Session = Depends(get_session),
 ):
     """
     Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
@@ -248,7 +259,7 @@ async def create_backtest(request: MakeBacktestRequest, database_url: str = Depe
 
 @router.post("/make-prediction", response_model=JobResponse)
 async def make_prediction(
-        request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
+    request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -275,9 +286,9 @@ async def make_prediction(
 
 @router.get("/prediction-entry/{predictionId}", response_model=List[PredictionEntry])
 def get_prediction_entries(
-        prediction_id: Annotated[int, Path(alias="predictionId")],
-        quantiles: List[float] = Query(...),
-        session: Session = Depends(get_session),
+    prediction_id: Annotated[int, Path(alias="predictionId")],
+    quantiles: List[float] = Query(...),
+    session: Session = Depends(get_session),
 ):
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -294,9 +305,9 @@ def get_prediction_entries(
 
 @router.get("/actualCases/{backtestId}", response_model=DataList)
 async def get_actual_cases(
-        backtest_id: Annotated[int, Path(alias="backtestId")],
-        org_units: List[str] = Query(None, alias="orgUnits"),
-        session: Session = Depends(get_session),
+    backtest_id: Annotated[int, Path(alias="backtestId")],
+    org_units: List[str] = Query(None, alias="orgUnits"),
+    session: Session = Depends(get_session),
 ):
     """
     Return the actual disease cases corresponding to a backtest. Can optionally be filtered on org units.
@@ -410,33 +421,36 @@ async def get_data_sources() -> List[DataSource]:
 
 @router.post("/create-backtest-with-data/", response_model=ImportSummaryResponse)
 async def create_backtest_with_data(
-        request: MakeBacktestWithDataRequest,
-        dry_run: bool = Query(False, description="If True, only run validation and do not create a backtest",alias="dryRun"),
-        database_url: str = Depends(get_database_url),
-        worker_settings=Depends(get_settings),
+    request: MakeBacktestWithDataRequest,
+    dry_run: bool = Query(
+        False, description="If True, only run validation and do not create a backtest", alias="dryRun"
+    ),
+    database_url: str = Depends(get_database_url),
+    worker_settings=Depends(get_settings),
 ):
     feature_names, provided_data_processed = _read_dataset(request)
     provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
     polygon_rejected = provided_data_processed.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
-        ValidationError(reason='Missing polygon in geojson', orgUnit=location, feature_name='polygon', time_periods=[])
-        for location in polygon_rejected)
+        ValidationError(reason="Missing polygon in geojson", orgUnit=location, feature_name="polygon", time_periods=[])
+        for location in polygon_rejected
+    )
     imported_count = len(provided_data_processed.locations())
     if dry_run:
-        return ImportSummaryResponse(
-            id=None, imported_count=imported_count, rejected=rejections
-        )
+        return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
 
     if imported_count == 0:
         raise HTTPException(
             status_code=500,
             detail={
                 "message": "Missing values. No data was imported.",
-                "rejected": [r.model_dump() for r in rejections]
-            }
+                "rejected": [r.model_dump() for r in rejections],
+            },
         )
 
-    logger.info(f'Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations')
+    logger.info(
+        f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations"
+    )
     job = worker.queue_db(
         wf.run_backtest_from_composite_dataset,
         feature_names=feature_names,

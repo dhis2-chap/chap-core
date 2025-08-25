@@ -1,27 +1,28 @@
 import json
 import logging
 from typing import Optional
-from packaging.version import Version
-from fastapi import HTTPException, Depends
-from pydantic import BaseModel
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
 
-from chap_core.api_types import PredictionRequest, EvaluationResponse
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, ORJSONResponse
+from packaging.version import Version
+from pydantic import BaseModel
+
+import chap_core.rest_api.worker_functions as wf
+from chap_core.api_types import EvaluationResponse, PredictionRequest
 from chap_core.internal_state import Control, InternalState
 from chap_core.log_config import initialize_logging
 from chap_core.model_spec import ModelSpec
 from chap_core.predictor.feature_spec import Feature, all_features
-from chap_core.rest_api_src.data_models import FullPredictionResponse
-import chap_core.rest_api_src.worker_functions as wf
 from chap_core.predictor.model_registry import registry
+from chap_core.rest_api.celery_tasks import CeleryPool
+from chap_core.rest_api.data_models import FullPredictionResponse
+from chap_core.rest_api.v1.routers import analytics, crud
 from chap_core.worker.interface import SeededJob
-from chap_core.rest_api_src.celery_tasks import CeleryPool
-from chap_core.rest_api_src.v1.routers import crud, analytics
+
+from ...database.database import create_db_and_tables
 from . import debug, jobs
 from .routers.dependencies import get_settings
-from ...database.database import create_db_and_tables
 
 initialize_logging(True, "logs/rest_api.log")
 logger = logging.getLogger(__name__)
@@ -31,13 +32,18 @@ logger.info("Logging initialized")
 # Job id and database id
 
 
-def get_app():
-    app = FastAPI(root_path="/v1")
+def create_api():
+    app = FastAPI(
+        root_path="/v1",
+        default_response_class=ORJSONResponse,
+    )
+
     origins = [
         "*",  # Allow all origins
         "http://localhost:3000",
         "localhost:3000",
     ]
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -49,7 +55,7 @@ def get_app():
     return app
 
 
-app = get_app()
+app = create_api()
 app.include_router(crud.router)
 app.include_router(analytics.router)
 app.include_router(debug.router)
@@ -309,8 +315,10 @@ async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
 
     # new: Hardcoded minimum version to allow more easy update of frontend
     from chap_core import (
-        __version__ as chap_core_version,
         __minimum_modelling_app_version__ as minimum_modelling_app_version,
+    )
+    from chap_core import (
+        __version__ as chap_core_version,
     )
 
     if Version(modelling_app_version) < Version(minimum_modelling_app_version):
@@ -327,7 +335,7 @@ async def is_compatible(modelling_app_version: str) -> CompatibilityResponse:
     """
     # read version from init (add random string to avoid github caching)
     random_string = str(random.randint(0, 10000000000))
-    compatibility_file = f"https://raw.githubusercontent.com/dhis2-chap/versioning/refs/heads/main/modelling-app-chap-core.yml?r={random_string}"   
+    compatibility_file = f"https://raw.githubusercontent.com/dhis2-chap/versioning/refs/heads/main/modelling-app-chap-core.yml?r={random_string}"
     response = requests.get(compatibility_file)
     if response.status_code != 200:
         return CompatibilityResponse(compatible = False, description="Could not load compatibility file")
@@ -355,8 +363,9 @@ async def system_info() -> SystemInfoResponse:
     """
     Retrieve system information
     """
-    from chap_core import __version__ as chap_core_version
     import platform
+
+    from chap_core import __version__ as chap_core_version
 
     return SystemInfoResponse(
         chap_core_version=chap_core_version, python_version=platform.python_version(), os=platform.platform()
@@ -383,7 +392,7 @@ def main_backend(seed_data=None, auto_reload=False):
     if seed_data is not None:
         seed(seed_data)
     if auto_reload:
-        app_path = "chap_core.rest_api_src.v1.rest_api:app"
+        app_path = "chap_core.rest_api.v1.rest_api:app"
         uvicorn.run(app_path, host="0.0.0.0", port=8000, reload=auto_reload)
     else:
         uvicorn.run(app, host="0.0.0.0", port=8000)
