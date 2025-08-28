@@ -50,6 +50,39 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
 
 
 @app.command()
+def hpo_eval(
+    model_name: ModelType | str,
+    dataset_name: Optional[DataSetType] = None,
+    dataset_country: Optional[str] = None,
+    dataset_csv: Optional[Path] = None,
+    polygons_json: Optional[Path] = None,
+    polygons_id_field: Optional[str] = "id",
+    prediction_length: int = 6,
+    n_splits: int = 7,
+    report_filename: Optional[str] = "report.pdf",
+    ignore_environment: bool = False,
+    debug: bool = False,
+    log_file: Optional[str] = None,
+    run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+    #new
+    model_configuration_yaml: Optional[str] = None,
+    optimize_metric: str = "MSE", # must match a key of metrics (e.g., "mase", "rmse", etc.)
+):
+    model_configuration_yaml_list = model_configuration_yaml.split(",")
+    import sys
+    best_score = sys.maxsize
+    best_config = ""
+    for config in model_configuration_yaml_list:
+        results_dict = evaluate(model_name, dataset_name, prediction_length=3, model_configuration_yaml=config)
+        metric_score = results_dict[model_name][0][optimize_metric]
+        if metric_score < best_score:
+            best_score = metric_score
+            best_config = config
+        print("cur score:", metric_score, "cur config:", config)
+    print("best score:", best_score, "best config:", best_config)
+
+
+@app.command()
 def evaluate(
     model_name: ModelType | str,
     dataset_name: Optional[DataSetType] = None,
@@ -210,6 +243,7 @@ def evaluate(
         except NoPredictionsError as e:
             logger.error(f"No predictions were made: {e}")
             return
+        print("!!RESULTS:")
         print(results)
         results_dict[name] = results
 
@@ -234,6 +268,8 @@ def evaluate(
     # write dataframe to csvname
     dataframe.to_csv(csvname, index=False, header=False)
     logger.info(f"Evaluation complete. Results saved to {csvname}")
+
+    return results_dict
 
 
 @app.command()
