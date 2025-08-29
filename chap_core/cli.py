@@ -10,6 +10,9 @@ import pandas as pd
 import yaml
 from cyclopts import App
 
+from typing import Any, Tuple
+import itertools
+
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -49,8 +52,28 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
     data_frame.to_csv(file_object, mode="a", header=False)
 
 
+def _dedup(values):
+    """Deduplicate while preserving order; works for scalars, lists, dicts, None."""
+    seen = set()
+    out = []
+    for v in values if isinstance(values, list) else [values]:
+        try:
+            key = json.dumps(v, sort_keys=True, separators=(",", ":"), default=str)
+        except Exception:
+            key = repr(v)
+        if key not in seen:
+            seen.add(key)
+            out.append(v)
+    return out
+            
+
+def _write_yaml(path: str, data: dict) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, sort_keys=False)
+
+
 @app.command()
-def hpo_eval(
+def hpo(
     model_name: ModelType | str,
     dataset_name: Optional[DataSetType] = None,
     dataset_country: Optional[str] = None,
@@ -64,22 +87,68 @@ def hpo_eval(
     debug: bool = False,
     log_file: Optional[str] = None,
     run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
-    #new
     model_configuration_yaml: Optional[str] = None,
-    optimize_metric: str = "MSE", # must match a key of metrics (e.g., "mase", "rmse", etc.)
-):
-    model_configuration_yaml_list = model_configuration_yaml.split(",")
-    import sys
-    best_score = sys.maxsize
-    best_config = ""
-    for config in model_configuration_yaml_list:
-        results_dict = evaluate(model_name, dataset_name, prediction_length=3, model_configuration_yaml=config)
-        metric_score = results_dict[model_name][0][optimize_metric]
-        if metric_score < best_score:
-            best_score = metric_score
-            best_config = config
-        print("cur score:", metric_score, "cur config:", config)
-    print("best score:", best_score, "best config:", best_config)
+    output_config_yaml: Optional[str] = "output_config.yaml",
+    optimize_metric: str = "MSE",
+    lower_is_better: bool = True
+) -> Tuple[float, dict[str, Any]]:
+    """
+    Iterate over all hyperparameter combinations from a grid-style YAML and, for each
+    combo, write a single-value YAML to `output_config_yaml` and call `evaluate`.
+
+    Returns (best_score, best_params) and leaves `output_config_yaml` written with the best config.
+
+    The grid YAML must have:
+      user_option_values:
+        param_a: [v1, v2, ...]
+        param_b: [w1, w2, ...]
+      # any other top-level keys are preserved
+    """
+    with open(model_configuration_yaml, "r", encoding="utf-8") as f:
+        base_cfg = yaml.safe_load(f) or {}
+
+    if "user_option_values" not in base_cfg or not isinstance(base_cfg["user_option_values"], dict):
+        raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
+
+    keys = list(base_cfg["user_option_values"].keys())
+    values_lists = []
+    for k in keys:
+        vals = _dedup(base_cfg["user_option_values"][k])
+        if not vals:
+            raise ValueError(f"'user_option_values.{k}' has no values to try.")
+        values_lists.append(vals)
+
+    best_score = float("inf") if lower_is_better else float("-inf")
+    best_cfg = None
+    best_params: dict[str, Any] = {}
+
+    base_cfg.pop("user_option_values")
+
+    for combo in itertools.product(*values_lists):
+        params = dict(zip(keys, combo))
+        cfg = base_cfg.copy()
+        cfg["user_option_values"] = params
+
+        _write_yaml(output_config_yaml, cfg)
+
+        results_dict = evaluate(model_name, dataset_name, prediction_length=3, model_configuration_yaml=output_config_yaml)
+        score = results_dict[model_name][0][optimize_metric]
+
+        is_better = (score < best_score) if lower_is_better else (score > best_score)
+        if is_better or best_cfg is None:
+            best_score = score
+            best_cfg = cfg
+            best_params = params
+
+        print(f"Tried {params} -> score={score}")
+
+    if best_cfg is not None:
+        _write_yaml(output_config_yaml, best_cfg)
+        print(f"\nBest params: {best_params} | best score: {best_score}")
+    else:
+        print("No combinations evaluated.")
+
+    return best_score, best_params
 
 
 @app.command()
