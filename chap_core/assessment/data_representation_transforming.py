@@ -7,7 +7,7 @@ from chap_core.assessment.representations import MultiLocationForecast, Samples,
     MultiLocationDiseaseTimeSeries, DiseaseObservation, DiseaseTimeSeries, MultiLocationErrorTimeSeries, \
     ErrorTimeSeries, Error
 from chap_core.database.tables import BackTestForecast
-from chap_core.rest_api_src.data_models import BackTestFull
+from chap_core.rest_api.data_models import BackTestFull
 from chap_core.database.dataset_tables import DataSetWithObservations, ObservationBase
 
 
@@ -60,11 +60,6 @@ def convert_to_multi_location_timeseries(obs: List[ObservationBase]) -> MultiLoc
 
     return multi_ts
 
-forecasts = BackTestFull.parse_file('BackTestRead.json')
-truths = DataSetWithObservations.parse_file('DatasetRead.json')
-f2 = list(convert_to_multi_location_forecast(forecasts.forecasts).values())[0]
-t2 =convert_to_multi_location_timeseries(truths.observations)
-t2 = t2.filter_by_time_periods(f2.time_periods())
 
 def mean(samples):
     return sum(samples)/len(samples)
@@ -88,5 +83,3 @@ class MAEonMeanPredictions(Evaluator):
             evaluation_result[location] = ErrorTimeSeries(observations=[Error(time_period="Full_period", value=mean_absolute_error)])
         return evaluation_result
 
-mae = MAEonMeanPredictions().evaluate(t2, f2)
-print(f"MAE: {mae}")
