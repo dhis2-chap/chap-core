@@ -1,4 +1,3 @@
-from pathlib import Path
 from chap_core.exceptions import ModelFailedException
 from chap_core.runners.runner import TrainPredictRunner
 import mlflow.exceptions
