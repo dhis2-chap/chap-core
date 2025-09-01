@@ -6,6 +6,7 @@ from sqlmodel import Session, SQLModel, select
 
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet
+from chap_core.database.datasets_seed import seed_example_datasets
 from chap_core.database.model_template_seed import (
     add_configured_model,
     add_model_template_from_url,
@@ -153,3 +154,9 @@ def test_seed_configured_models(engine):
         assert len(configured_models) > 1
         model_names = [m.name for m in configured_models]
         assert "naive_model" in model_names
+
+
+def test_seed_datasets_to_db(engine):
+    with Session(engine) as session:
+        wrapper = SessionWrapper(session=session)
+        seed_example_datasets(wrapper)
