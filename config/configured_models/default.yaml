@@ -66,3 +66,6 @@
         user_option_values:
             max_epochs: 2
 
+- url: https://github.com/dhis2-chap/rwanda_sarimax
+  versions:
+    v1: "@dev"
