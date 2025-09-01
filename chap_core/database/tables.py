@@ -45,7 +45,7 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
     id: int
     model_template: ModelTemplateDB
 
-
+OldBackTestRead = _BackTestRead
 class BackTestRead(_BackTestRead):
     dataset: DataSetMeta
     aggregate_metrics: Dict[str, float]
