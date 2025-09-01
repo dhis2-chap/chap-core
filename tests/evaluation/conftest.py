@@ -69,6 +69,7 @@ def backtest(dataset):
     return BackTest(
         id=1,
         dataset_id=dataset.id,
+        dataset=dataset,
         model_id="Test Model",
         name="Test BackTest",
         created=None,
