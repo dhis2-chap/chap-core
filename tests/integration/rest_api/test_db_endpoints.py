@@ -511,9 +511,10 @@ def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
     response = client.post("/v1/crud/configured-models", json=config.model_dump())
     assert response.status_code == 200, response.json()
 
-
 def get_content(url):
     response = client.get(url)
     content = response.json()
     assert response.status_code == 200, content
     return content
+
+
