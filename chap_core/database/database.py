@@ -409,6 +409,7 @@ class SessionWrapper:
         self.session.commit()
         return backtest.id
 
+
     def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict = {}):
         n_periods = len(list(predictions.values())[0])
         prediction = Prediction(
