@@ -7,12 +7,9 @@ from chap_core.assessment.representations import MultiLocationForecast, Samples,
     MultiLocationDiseaseTimeSeries, DiseaseObservation, DiseaseTimeSeries, MultiLocationErrorTimeSeries, \
     ErrorTimeSeries, Error
 from chap_core.database.tables import BackTestForecast
-from chap_core.rest_api.data_models import BackTestFull
-from chap_core.database.dataset_tables import DataSetWithObservations, ObservationBase
+from chap_core.database.dataset_tables import ObservationBase
 
 
-from collections import defaultdict
-from typing import List, Dict
 
 def convert_to_multi_location_forecast(backTestList: List[BackTestForecast]) -> Dict[str,MultiLocationForecast]:
     # Group samples by location

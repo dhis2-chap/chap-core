@@ -312,6 +312,18 @@ class SessionWrapper:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
 
+    def get_backtest_with_truth(self, backtest_id: int) -> BackTest:
+        backtest = self.session.get(BackTest, backtest_id)
+        if backtest is None:
+            raise ValueError(f"Backtest with id {backtest_id} not found")
+        dataset = backtest.dataset
+        if dataset is None:
+            raise ValueError(f"Dataset for backtest with id {backtest_id} not found")
+        entries = backtest.forecasts
+        if entries is None or len(entries) == 0:
+            raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
+
+
     def add_evaluation_results(
         self, evaluation_results: Iterable[DataSet], last_train_period: TimePeriod, info: BackTestCreate
     ):
