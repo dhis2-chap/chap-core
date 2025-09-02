@@ -17,7 +17,7 @@ from chap_core.predictor.feature_spec import Feature, all_features
 from chap_core.predictor.model_registry import registry
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.rest_api.data_models import FullPredictionResponse
-from chap_core.rest_api.v1.routers import analytics, crud
+from chap_core.rest_api.v1.routers import analytics, crud, visualization
 from chap_core.worker.interface import SeededJob
 
 from ...database.database import create_db_and_tables
@@ -60,6 +60,7 @@ app.include_router(crud.router)
 app.include_router(analytics.router)
 app.include_router(debug.router)
 app.include_router(jobs.router)
+app.include_router(visualization.router)
 
 
 class State(BaseModel):

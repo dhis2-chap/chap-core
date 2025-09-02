@@ -52,6 +52,7 @@ dependencies = [
     "celery[pytest]",
     "packaging",
     "jsonschema",
+    "altair"
 ]
 
 [project.urls]

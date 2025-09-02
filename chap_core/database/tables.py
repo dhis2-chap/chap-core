@@ -102,8 +102,8 @@ class BackTestMetric(DBModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     backtest_id: int = Field(foreign_key="backtest.id")
     metric_id: str
-    period: PeriodID
-    org_unit: str
+    period: PeriodID # Should this be optional and be null for aggregate metrics?
+    org_unit: str # Should this be optional and be null for aggregate metrics?
     last_train_period: PeriodID
     last_seen_period: PeriodID
     value: float

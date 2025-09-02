@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from chap_core.database.dataset_tables import DataSetWithObservations, Observation, DataSet
-from chap_core.database.tables import BackTestRead, OldBackTestRead, BackTestForecast, BackTest
+from chap_core.database.tables import BackTestRead, OldBackTestRead, BackTestForecast, BackTest, BackTestMetric
 from chap_core.rest_api.v1.routers.crud import DataSetRead
 
 
@@ -30,6 +30,9 @@ def dataset_read(data_folder):
     data['covariates'] = []
     return DataSetWithObservations.model_validate(data)
 
+org_units = ['OrgUnit1', 'OrgUnit2']
+periods = ['2022-01', '2022-02']
+last_seen_periods = ['2021-11', '2021-12']
 
 @pytest.fixture
 def dataset():
@@ -38,8 +41,8 @@ def dataset():
             feature_name='disease_cases',
             id=t*2+loc,
             dataset_id=1,
-            period=f'2022-0{t+1}',
-            org_unit=f'OrgUnit{loc+1}',
+            period=periods[t],
+            org_unit=org_units[loc],
             value=float(t+loc)) for t in range(3) for loc in range(2)]
     return DataSet(
         id=1,
@@ -53,19 +56,22 @@ def dataset():
 
 
 @pytest.fixture
-def backtest(dataset):
-    forecasts = [
+def forecasts():
+    return [
         BackTestForecast(
-            id=t*2+loc,
+            id=t*2*2+loc*2+ls,
             backtest_id=1,
             period=f'2022-0{t+2}',
             org_unit=f'OrgUnit{loc+1}',
-            last_train_period=f'2022-0{t+1}',
-            last_seen_period=f'2022-0{t+1}',
+            last_train_period=last_seen_periods[ls],
+            last_seen_period=last_seen_periods[ls],
             values=[float(t+loc+1), float(t+loc+2), float(t+loc+3)]
-        ) for t in range(2) for loc in range(2)
+        ) for t in range(2) for loc in range(2) for ls in range(2)
     ]
 
+
+@pytest.fixture
+def backtest(dataset, forecasts):
     return BackTest(
         id=1,
         dataset_id=dataset.id,
@@ -77,3 +83,20 @@ def backtest(dataset):
         forecasts=forecasts,
         metrics=[]
     )
+
+@pytest.fixture
+def backtest_metrics(forecasts):
+    return [
+        BackTestMetric(
+            id=forecast.id,
+            backtest_id=forecast.backtest_id,
+            metric_id="MAE",
+            period=forecast.period,
+            org_unit=forecast.org_unit,
+            last_train_period=forecast.last_train_period,
+            last_seen_period=forecast.last_seen_period,
+            value=sum(forecast.values) / len(forecast.values)  # Example metric calculation
+        )
+        for forecast in forecasts
+    ]
+

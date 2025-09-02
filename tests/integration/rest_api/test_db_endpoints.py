@@ -489,6 +489,8 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     evaluation_entries = eval_response.json()
     assert len(evaluation_entries) > 0
     EvaluationEntry.model_validate(evaluation_entries[0])
+    response = client.get(f'/v1/visualization/metric_by_horizon/{db_id}/crps')
+    assert response.status_code == 200, response.json()
 
 
 def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
