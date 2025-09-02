@@ -423,7 +423,7 @@ def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
     assert response.json() == "FAILURE"
 
 
-@pytest.mark.parametrize("dry_run", [True, False])
+@pytest.mark.parametrize("dry_run", [False, True])
 def test_backtest_with_data_flow(
     celery_session_worker, dependency_overrides, example_polygons, make_prediction_request, dry_run
 ):
@@ -489,8 +489,10 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     evaluation_entries = eval_response.json()
     assert len(evaluation_entries) > 0
     EvaluationEntry.model_validate(evaluation_entries[0])
-    response = client.get(f'/v1/visualization/metric_by_horizon/{db_id}/crps')
-    assert response.status_code == 200, response.json()
+    for plot_name in ['metric_by_horizon', 'metric_map']:
+        response = client.get(f"/v1/visualization/{plot_name}/{db_id}/crps")
+        assert response.status_code == 200, response.json()
+
 
 
 def test_add_configured_model_flow(celery_session_worker, dependency_overrides):

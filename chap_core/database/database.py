@@ -467,7 +467,7 @@ class SessionWrapper:
         logger.info(f"Field names in dataset: {field_names}")
         dataset = DataSet(
             name=dataset_name,
-            polygons=polygons,
+            geojson=polygons,
             created=datetime.datetime.now(),
             covariates=field_names,
             type=dataset_type,
@@ -529,6 +529,6 @@ def create_db_and_tables():
             from .model_template_seed import seed_configured_models_from_config_dir
 
             seed_configured_models_from_config_dir(session.session)
-            seed_example_datasets(session)
+            #seed_example_datasets(session)
     else:
         logger.warning("Engine not set. Tables not created")

@@ -1,4 +1,6 @@
 import abc
+from typing import Optional
+
 import altair as alt
 import numpy as np
 import pandas as pd
@@ -48,12 +50,14 @@ class MetricRegistry:
         return self.seeded_aggregations.get(metric_id)
 
 class MetricPlot(abc.ABC):
-    def __init__(self, metrics: list[Metric]):
+    def __init__(self, metrics: list[Metric], geojson: Optional[dict] = None):
         self._metrics = metrics
+        self._geojson = geojson
 
     @abc.abstractmethod
     def plot(self) -> alt.Chart:
         pass
+
 
 class MetricByHorizon(MetricPlot):
     def plot_from_df(self, df: pd.DataFrame) -> alt.Chart:
@@ -68,6 +72,37 @@ class MetricByHorizon(MetricPlot):
             height=400,
             title='Mean Metric by Horizon'
         ).interactive()
+
+        return chart
+
+    def plot(self) -> alt.Chart:
+        return self.plot_from_df(create_metric_table(self._metrics))
+
+    def plot_spec(self) -> dict:
+        chart = self.plot()
+        return chart.to_dict()
+
+class MetricMap(MetricPlot):
+    def plot_from_df(self, df: pd.DataFrame) -> alt.Chart:
+        # 2. Example values per region
+        #data = pd.DataFrame({"region_id": [1, 2, 3, 4], "value": [10, 50, 30, 70]})
+        data = df
+        # 3. Convert GeoDataFrame to JSON (FeatureCollection)
+        geojson_data = self._geojson
+
+        # 4. Build Altair chart
+        #    Use feature properties to join with your values DataFrame
+        chart = (
+            alt.Chart(alt.Data(values=geojson_data["features"]))
+            .mark_geoshape(stroke="black", strokeWidth=0.5)
+            .encode(
+                color=alt.Color("value:Q", scale=alt.Scale(scheme="blues")),
+                tooltip=["properties.:N", "value:Q"],
+            )
+            .transform_lookup(lookup="properties.region_id", from_=alt.LookupData(data, "region_id", ["value"]))
+            .project(type="identity")  # no reprojection; assumes coords already in lon/lat
+            .properties(width=600, height=400)
+        )
 
         return chart
 
