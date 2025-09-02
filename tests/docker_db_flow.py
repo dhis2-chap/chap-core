@@ -43,6 +43,9 @@ def make_backtest_with_data_request(model_name):
     data = json.load(open(filename))
     data["modelId"] = model_name
     data["name"] = f"integration_test: {model_name} with data"
+    population_entires = [entry | {'featureName': 'population', 'value': 1_000_000}
+    for entry in data['providedData'] if entry['featureName'] == 'rainfall']
+    data["providedData"].extend(population_entires)
     return data
 
 
@@ -253,7 +256,10 @@ class IntegrationTest:
             job_status = self._get(job_url).lower()
             logger.info(job_status)
             if job_status == "failure":
-                logs = self._get(job_url + "/logs")
+                try:
+                    logs = self._get(job_url + "/logs")
+                except:
+                    logs = "Could not get logs"
                 raise ValueError(f"Failed job: {logs}")
             if job_status == "success":
                 return self._get(job_url + "/database_result/")["id"]
@@ -292,6 +298,5 @@ if __name__ == "__main__":
 
     chap_url = f"http://{args.host}:8000"
     suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
-    suite.evaluation_flow()
-    # suite.evaluation_with_data_flow() # current create-backtest-with-data.json lacks population data so will only work with naive_model
+    suite.evaluation_with_data_flow()
     suite.prediction_flow()
