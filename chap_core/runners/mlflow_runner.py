@@ -22,9 +22,10 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             self.extra_params = [key for key in train_params if key not in ["train_data", "model"]]
 
     def train(self, train_file_name, model_file_name, polygons_file_name=None):
-        logger.info("Training model using MLflow")
         try:
+            #train_file_name = Path(self.model_path) /  Path(train_file_name)
             keys = {"train_data": str(train_file_name), "model": str(model_file_name)}
+            logger.info("Training model using MLflow, working dir is %s. Train data: %s" % (self.model_path, keys))
             possible_extra = {
                 "model_config": str(self.model_configuration_filename) if self.model_configuration_filename else None,
             }
@@ -45,6 +46,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             raise ModelFailedException(str(e)) from e
 
     def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):
+        logging.info("Running predict with output to %s" % output_file)
         if self.model_configuration_filename is not None:
             ("Model configuration not supported for MLflow runner")
         params = {
@@ -53,6 +55,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             "model": str(model_file_name),
             "out_file": str(output_file),
         }
+        logging.info("Params for predict: %s" % params)
         extra_params = {
             "model_config": str(self.model_configuration_filename) if self.model_configuration_filename else None,
         }

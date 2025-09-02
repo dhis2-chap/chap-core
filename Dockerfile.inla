@@ -62,6 +62,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Switch to non-root user
 RUN mkdir /app/logs
 RUN chown -R chap:chap /app
+RUN chown -R chap:chap /pyenv
 USER chap
 
 # Ensure local venv tools are prioritized

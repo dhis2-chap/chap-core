@@ -1,9 +1,11 @@
 import dataclasses
 import datetime
+import json
 import logging
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
+from pathlib import Path
 import time
 from typing import Iterable, List, Optional
 
@@ -12,7 +14,9 @@ import psycopg2
 import sqlalchemy
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from chap_core.datatypes import create_tsdataclass
+from chap_core.database.datasets_seed import seed_example_datasets
+from chap_core.datatypes import FullData, create_tsdataclass
+from chap_core.geometry import Polygons
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.time_period import TimePeriod
 
@@ -441,6 +445,16 @@ class SessionWrapper:
         self.session.commit()
         return prediction.id
 
+    def add_dataset_from_csv(self, name: str, csv_path: Path, geojson_path: Optional[Path] = None):
+        dataset = _DataSet.from_csv(csv_path, dataclass=FullData)
+        geojson_content = open(geojson_path, "r").read() if geojson_path else None
+        features = None
+        if geojson_content is not None:
+            features = Polygons.from_geojson(json.loads(geojson_content), id_property="NAME_1").feature_collection()
+            features = features.model_dump_json()
+
+        return self.add_dataset(name, dataset, features)
+
     def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons, dataset_type: str | None = None):
         logger.info(
             f"Adding dataset {dataset_name} with {len(list(orig_dataset.locations()))} locations and {len(orig_dataset.period_range)} time periods"
@@ -486,6 +500,10 @@ class SessionWrapper:
         new_dataset = observations_to_dataset(dataclass, observations)
         return new_dataset
 
+    def get_dataset_by_name(self, dataset_name: str) -> Optional[DataSet]:
+        dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()
+        return dataset
+
     def add_debug(self):
         """Function for debuging"""
         debug_entry = DebugEntry(timestamp=time.time())
@@ -511,5 +529,6 @@ def create_db_and_tables():
             from .model_template_seed import seed_configured_models_from_config_dir
 
             seed_configured_models_from_config_dir(session.session)
+            seed_example_datasets(session)
     else:
         logger.warning("Engine not set. Tables not created")
