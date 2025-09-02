@@ -69,3 +69,12 @@
 - url: https://github.com/dhis2-chap/rwanda_sarimax
   versions:
     v1: "@dev"
+
+- url: https://github.com/dhis2-chap/rwanda_random_forest
+  versions:
+    v1: "@chap"
+
+
+- url: https://github.com/dhis2-chap/INLA_baseline_model
+  versions:
+    v1: "@chap"
