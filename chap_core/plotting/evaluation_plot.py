@@ -68,8 +68,8 @@ class MetricByHorizon(MetricPlot):
             y=alt.Y('value:Q', title='Mean Metric Value'),
             tooltip=['horizon', 'org_unit', 'value']
         ).properties(
-            width=600,
-            height=400,
+            width="container",
+            height="container",
             title='Mean Metric by Horizon'
         ).interactive()
 
@@ -101,7 +101,7 @@ class MetricMap(MetricPlot):
             )
             .transform_lookup(lookup="properties.region_id", from_=alt.LookupData(data, "region_id", ["value"]))
             .project(type="identity")  # no reprojection; assumes coords already in lon/lat
-            .properties(width=600, height=400)
+            .properties(width="container", height="container")
         )
 
         return chart
