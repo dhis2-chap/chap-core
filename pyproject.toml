@@ -116,6 +116,17 @@ norecursedirs = [
     "tests/",
     ".mypy_cache",
     "runs",
-    "dist"
+    "dist",
+    "external_models"
+
 ]
-ignore = ['tests/test_meteostat_wrapper']
+filterwarnings = [
+    "ignore::DeprecationWarning:plotly.io._kaleido",
+    # Celery plugin is imported before pytest can rewrite it
+    # This is expected behavior when using celery.contrib.pytest
+    "ignore::pytest.PytestAssertRewriteWarning"
+]
+python_files = "test_*.py"
+# Import mode to avoid other assertion rewriting issues
+# Ignore specific test files that should not run
+addopts = "--import-mode=importlib --ignore=tests/test_meteostat_wrapper"

@@ -45,7 +45,7 @@ class MultiRegionNaivePredictor:
 
     def predict(self, future_weather: DataSet[ClimateData]) -> HealthData:
         prediction_dict = {
-            location: HealthData(entry.data().time_period[:1], np.full(1, self._average_cases[location]))
+            location: HealthData(entry.time_period[:1], np.full(1, self._average_cases[location]))
             for location, entry in future_weather.items()
         }
         return DataSet(prediction_dict)
@@ -58,7 +58,6 @@ class MultiRegionPoissonModel:
         self._saved_state = {}
 
     def _create_feature_matrix(self, data: ClimateHealthTimeSeries):
-        data = data.data()
         lagged_values = data.disease_cases[:-1, None]
         month = np.array([period.month for period in data.time_period])
         season = month[1:, None] == np.arange(1, 13)
@@ -67,7 +66,7 @@ class MultiRegionPoissonModel:
     def train(self, data: DataSet[ClimateHealthTimeSeries]):
         for location, location_data in data.items():
             X = self._create_feature_matrix(location_data)
-            y = location_data.data().disease_cases[1:]
+            y = location_data.disease_cases[1:]
             mask = ~np.isnan(X).any(axis=1) & ~np.isnan(y)
             assert mask[-1]
             X = X[mask]
@@ -76,7 +75,7 @@ class MultiRegionPoissonModel:
             model.fit(X, y)
             self._models[location] = model
 
-            saved_data = location_data.data()[-1:]
+            saved_data = location_data[-1:]
             assert not np.any(np.isnan(saved_data.disease_cases)), f"{saved_data.disease_cases}"
             self._saved_state[location] = TemporalDataclass(saved_data)
 
@@ -89,15 +88,15 @@ class MultiRegionPoissonModel:
                 state_values.data().__class__(
                     **{
                         field.name: getattr(location_data.data(), field.name)
-                        for field in dataclasses.fields(location_data.data())
+                        for field in dataclasses.fields(location_data)
                     }
-                    | {"disease_cases": np.full(len(location_data.data()), 0)}
+                    | {"disease_cases": np.full(len(location_data), 0)}
                 )
             )
             # location_data.data().disease_cases = np.full(len(location_data.data()), np.nan)
             X = self._create_feature_matrix(state_values.join(location_data))
             prediction = self._models[location].predict(X[-1:])
-            prediction_dict[location] = HealthData(location_data.data().time_period[:1], np.atleast_1d(prediction))
+            prediction_dict[location] = HealthData(location_data.time_period[:1], np.atleast_1d(prediction))
 
         return DataSet(prediction_dict)
 

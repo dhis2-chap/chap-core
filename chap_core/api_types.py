@@ -25,7 +25,7 @@ class DataElement(BaseModel):
 class DataList(BaseModel):
     featureId: str
     dhis2Id: str
-    data: list[DataElement] = Field(..., min_items=1)
+    data: list[DataElement] = Field(..., min_length=1)
 
 
 class DataElementV2(BaseModel):
@@ -37,7 +37,7 @@ class DataElementV2(BaseModel):
 class DataListV2(BaseModel):
     featureId: str
     dataElement: str
-    data: list[DataElementV2] = Field(..., min_items=1)
+    data: list[DataElementV2] = Field(..., min_length=1)
 
 
 class RequestV1(BaseModel):

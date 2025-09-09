@@ -6,7 +6,7 @@ from typing import Callable, Iterable, List, Optional
 import ee
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from chap_core.datatypes import create_tsdataclass
 from chap_core.exceptions import GEEError
@@ -27,9 +27,8 @@ def kelvin_to_celsium(v):
 
 
 class Band(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     name: str
     indicator: str
     reducer: str = "mean"
@@ -56,9 +55,8 @@ orig_bands = [
 
 
 class Periode(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     id: str
     startDate: datetime.datetime
     endDate: datetime.datetime

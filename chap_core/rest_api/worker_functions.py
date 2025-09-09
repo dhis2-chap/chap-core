@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Union
 import ee
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from chap_core.api_types import (
     DataElement,
@@ -44,12 +44,10 @@ class DataValue:
 
 
 class WorkerConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    
     is_test: bool = False
     failing_services: Tuple[str] = ()
-
-    # Make it frozen so that we can't accidentally change it
-    class Config:
-        frozen = True
 
 
 def initialize_gee_client(usecwd=False, worker_config: WorkerConfig = WorkerConfig()):
