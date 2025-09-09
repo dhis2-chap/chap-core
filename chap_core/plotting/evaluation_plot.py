@@ -5,8 +5,8 @@ import altair as alt
 import numpy as np
 import pandas as pd
 import pydantic
-alt.renderers.enable('browser')
 from chap_core.assessment.metric_table import create_metric_table
+alt.renderers.enable('browser')
 
 
 class Metric(abc.ABC):

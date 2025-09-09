@@ -1,5 +1,4 @@
 from typing import Any, Optional
-import json
 import numpy as np
 
 from pydantic import BaseModel, Field

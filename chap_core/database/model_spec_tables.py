@@ -1,7 +1,6 @@
 import logging
 from typing import Optional, List
 
-from pydantic import field_validator
 from sqlalchemy import JSON, Column
 
 from chap_core.database.base_tables import DBModel

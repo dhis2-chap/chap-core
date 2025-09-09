@@ -14,7 +14,6 @@ import psycopg2
 import sqlalchemy
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from chap_core.database.datasets_seed import seed_example_datasets
 from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.predictor.naive_estimator import NaiveEstimator

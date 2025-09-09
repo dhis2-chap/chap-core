@@ -91,6 +91,7 @@ target-version = "py312"
 line-length = 120
 # Let Ruff discover both chap_core and tests for both "check" and "format"
 include = ["chap_core/**/*.py", "tests/**/*.py"]
+exclude = ["external_models/**"]
 
 [tool.ruff.lint]
 fixable = ["ALL"]
