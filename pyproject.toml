@@ -115,5 +115,7 @@ norecursedirs = [
     "tests/spatio_temporal_data",
     "tests/",
     ".mypy_cache",
+    "runs",
+    "dist"
 ]
 ignore = ['tests/test_meteostat_wrapper']
