@@ -1,4 +1,6 @@
 from typing import Any, Optional
+import json
+import numpy as np
 
 from pydantic import BaseModel, Field
 from pydantic_geojson import (
@@ -68,6 +70,30 @@ class EvaluationEntry(PredictionEntry):
 class EvaluationResponse(BaseModel):
     actualCases: DataList
     predictions: list[EvaluationEntry]
+    
+    def model_dump(self, **kwargs):
+        """Override to handle special types during serialization"""
+        data = super().model_dump(**kwargs)
+        return self._clean_for_json(data)
+    
+    def _clean_for_json(self, obj):
+        """Recursively clean data for JSON serialization"""
+        if isinstance(obj, dict):
+            return {k: self._clean_for_json(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._clean_for_json(item) for item in obj]
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, (np.integer, np.floating)):
+            return obj.item()
+        elif hasattr(obj, 'id'):
+            # Handle period objects with id attribute
+            return obj.id
+        elif obj is None or isinstance(obj, (str, int, float, bool)):
+            return obj
+        else:
+            # Fallback to string representation
+            return str(obj)
 
 
 class PeriodObservation(BaseModel):

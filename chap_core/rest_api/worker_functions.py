@@ -119,7 +119,7 @@ def _convert_prediction_request(json_data: PredictionRequest, worker_config: Wor
 
 def dataset_to_datalist(dataset: DataSet[HealthData], target_id: str) -> DataList:
     element_list = [
-        DataElement(pe=str(row.time_period), value=row.disease_cases, ou=location)
+        DataElement(pe=row.time_period.id, value=row.disease_cases, ou=location)
         for location, data in dataset.items()
         for row in data
     ]
@@ -155,7 +155,7 @@ def __clean_actual_cases(real_data: DataList) -> DataList:
         featureId=real_data.featureId,
         dhis2Id=real_data.dhis2Id,
         data=[
-            DataElement(pe=str(row.time_period), ou=location, value=row.value if not np.isnan(row.value) else None)
+            DataElement(pe=row.time_period.id, ou=location, value=row.value if not np.isnan(row.value) else None)
             for location, ts_array in dataset.items()
             for row in ts_array
         ],
@@ -171,7 +171,7 @@ def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataL
             for q, quantile in calculated_quantiles.items():
                 for period, value in zip(predictions.period_range, quantile):
                     entry = EvaluationEntry(
-                        orgUnit=location, period=str(period), quantile=q, value=value, splitPeriod=str(first_period)
+                        orgUnit=location, period=period.id, quantile=q, value=value, splitPeriod=first_period.id
                     )
                     evaluation_entries.append(entry)
     real_data = __clean_actual_cases(real_data)
