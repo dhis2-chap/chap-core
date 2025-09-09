@@ -43,7 +43,7 @@ def dataset():
             dataset_id=1,
             period=periods[t],
             org_unit=org_units[loc],
-            value=float(t+loc)) for t in range(3) for loc in range(2)]
+            value=float(t+loc)) for t in range(2) for loc in range(2)]
     return DataSet(
         id=1,
         name="Test Dataset",

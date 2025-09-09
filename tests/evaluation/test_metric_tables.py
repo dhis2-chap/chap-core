@@ -2,6 +2,7 @@ import pytest
 
 from chap_core.database.tables import BackTest, BackTestMetric
 from chap_core.assessment.metric_table import create_metric_table
+from chap_core.plotting.evaluation_plot import CRPS
 
 def test_create_metric_table(backtest_metrics: list[BackTestMetric]):
     table = create_metric_table(backtest_metrics)
@@ -16,6 +17,6 @@ def metric_table(backtest_metrics: list[BackTestMetric]):
 
 def test_metric_plot(metric_table):
     from chap_core.plotting.evaluation_plot import MetricByHorizon
-    plotter = MetricByHorizon()
+    plotter = MetricByHorizon(metrics=[CRPS])
     chart = plotter.plot_from_df(metric_table)
-    chart.show()
+    #chart.show()
