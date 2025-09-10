@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def make_prediction_request(model_name):
-    filename = "../example_data/anonymous_make_prediction_request.json"
+    filename = "example_data/anonymous_make_prediction_request.json"
     data = json.load(open(filename))
     data["modelId"] = model_name
     data["name"] = f"integration_test: {model_name}"
@@ -24,7 +24,7 @@ def make_prediction_request(model_name):
 def make_dataset_request(dataset_path):
     # set default dataset path if empty
     if not dataset_path:
-        dataset_path = "../example_data/anonymous_make_dataset_request.json"
+        dataset_path = "example_data/anonymous_make_dataset_request.json"
     # load dataset from json
     logger.info(f"Using dataset from file {dataset_path}")
     data = json.load(open(dataset_path))
@@ -32,14 +32,14 @@ def make_dataset_request(dataset_path):
 
 
 def make_dataset_request2():
-    filename = "../example_data/anonymous_make_dataset_request2.json"
+    filename = "example_data/anonymous_make_dataset_request2.json"
     data = json.load(open(filename))
     return data
 
 
 def make_backtest_with_data_request(model_name):
     # TODO: current file lacks population data so will only work with naive model
-    filename = "../example_data/create-backtest-with-data.json"
+    filename = "example_data/create-backtest-with-data.json"
     data = json.load(open(filename))
     data["modelId"] = model_name
     data["name"] = f"integration_test: {model_name} with data"
