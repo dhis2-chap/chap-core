@@ -2,7 +2,7 @@ import pytest
 
 from chap_core.database.tables import BackTest, BackTestMetric
 from chap_core.assessment.metric_table import create_metric_table
-from chap_core.plotting.evaluation_plot import CRPS
+from chap_core.metrics.metrics import CRPS
 
 def test_create_metric_table(backtest_metrics: list[BackTestMetric]):
     table = create_metric_table(backtest_metrics)
