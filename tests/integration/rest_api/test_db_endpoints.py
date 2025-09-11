@@ -68,12 +68,12 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
     assert data.timestamp > start_timestamp
 
 def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
-    response = client.get("/v1/metrics/1")
+    response = client.get("/v1/visualization/metrics/1")
     assert response.status_code == 200
     assert any(metric['id'] == 'crps' for metric in response.json())
 
 def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
-    response = client.get("/v1/crud/visualizations/1")
+    response = client.get("/v1/visualization/1")
     assert response.status_code == 200
     assert 'metric_by_horizon'in response.json()
 

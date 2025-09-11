@@ -7,6 +7,7 @@ from gluonts import pydantic
 from sqlmodel import Session
 from starlette.responses import JSONResponse
 
+from chap_core.database.base_tables import DBModel
 from chap_core.database.tables import BackTest
 from chap_core.plotting.evaluation_plot import MetricByHorizon, MetricMap
 from chap_core.rest_api.v1.routers.dependencies import get_session
@@ -28,10 +29,10 @@ def list_visualizations(backtest_id: int):
     """
     return list(plot_registry.keys())
 
-class VisualizationParams(pydantic.BaseModel):
+class VisualizationParams(DBModel):
     metric_id: int
 
-class Metric(pydantic.BaseModel):
+class Metric(DBModel):
     id: str
     display_name: str
     description: str = ''
