@@ -3,7 +3,6 @@ import logging
 from functools import partial
 
 from fastapi import APIRouter, Depends
-from gluonts import pydantic
 from sqlmodel import Session
 from starlette.responses import JSONResponse
 
