@@ -32,21 +32,21 @@ class VisualizationParams(pydantic.BaseModel):
     metric_id: int
 
 class Metric(pydantic.BaseModel):
-    metric_id: str
+    id: str
     display_name: str
     description: str = ''
 
-metrics = [Metric(metric_id= 'crps',
+metrics = [Metric(id='crps',
                   display_name='CRPS',
                   description='Checking if the sampled distribuion matches the truth'),
-           Metric(metric_id= 'crps_norm',
+           Metric(id='crps_norm',
                   display_name='CRPS norm',
                   description='Checking'),
-           Metric(metric_id= 'is_within_10th_90th',
+           Metric(id='is_within_10th_90th',
                   display_name='Within 10th 90th percentile'),
-           Metric(metric_id= 'is_within_25th_75th',
+           Metric(id='is_within_25th_75th',
                   display_name='Within 25th 75th percentile'),
-           Metric(metric_id= 'is_within_25th_75th',
+           Metric(id='is_within_25th_75th',
                   display_name='Within 25th 75th percentile')]
 
 @router.get("/metrics/{backtest_id}", response_model=list[Metric])
