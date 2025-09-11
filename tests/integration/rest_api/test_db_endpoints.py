@@ -75,7 +75,7 @@ def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
 def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
     response = client.get("/v1/visualization/1")
     assert response.status_code == 200
-    assert 'metric_by_horizon'in response.json()
+    assert any(plot['id'] == 'metric_by_horizon' for plot in  response.json())
 
 
 # @pytest.mark.slow
