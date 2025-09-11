@@ -230,6 +230,7 @@ class SessionWrapper:
                 # combine model template with configuration name to make the name unique
                 configuration_display_name = configuration_stub.replace("_", " ").capitalize()
                 display_name = f"{template_display_name} [{configuration_display_name}]"
+                configured_data["configuration_name"] = configuration_display_name
             else:
                 # default configurations just use the display name of their model template
                 display_name = template_display_name

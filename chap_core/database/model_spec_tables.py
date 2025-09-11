@@ -37,7 +37,7 @@ class ModelSpecRead(ModelSpecBase):
     id: int
     covariates: List[FeatureType]
     target: FeatureType
-
+    configuration_name: Optional[str] = None
 
 target_type = FeatureType(name="disease_cases", display_name="Disease Cases", description="Disease Cases")
 

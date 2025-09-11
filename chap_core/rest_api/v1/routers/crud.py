@@ -374,6 +374,52 @@ def add_model(
     """Add a model to the database (alias for configured models)"""
     return add_configured_model(model_configuration, session)
 
+class ModelUpdate(DBModel):
+    name: str | None = None
+
+
+"""The user should be able to update the name of the model"""
+@router.patch("/models/{modelId}", response_model=ConfiguredModelDB)
+async def update_model(
+    model_id: Annotated[int, Path(alias="modelId")],
+    model_update: ModelUpdate,
+    session: Session = Depends(get_session),
+):
+    db_model = session.get(ConfiguredModelDB, model_id)
+    if not db_model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    update_data = model_update.model_dump(exclude_unset=True)
+
+    # Only support updating the configured-name part, preserving the template prefix
+    if "name" in update_data and update_data["name"] is not None:
+        current_full_name = db_model.name
+        template_prefix = current_full_name.split(":")[0]
+        incoming_name = str(update_data["name"]).strip()
+
+        # Allow full "template:configured" input only if template is unchanged; otherwise reject
+        if ":" in incoming_name:
+            new_prefix, new_stub = incoming_name.split(":", 1)
+            if new_prefix != template_prefix:
+                raise HTTPException(status_code=400, detail="Cannot change model template via rename")
+            new_configured_stub = new_stub.strip()
+        else:
+            new_configured_stub = incoming_name
+
+        final_name = f"{template_prefix}:{new_configured_stub}" if new_configured_stub else template_prefix
+
+        existing = session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == final_name)).first()
+        
+        if existing and existing.id != db_model.id:
+            raise HTTPException(status_code=409, detail="A model with this name already exists")
+
+        db_model.name = final_name
+
+    session.add(db_model)
+    session.commit()
+    session.refresh(db_model)
+    return {"message": "Model updated"}
+
 
 #############
 # other misc
