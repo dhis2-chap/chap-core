@@ -7,7 +7,6 @@ from gluonts import pydantic
 from sqlmodel import Session
 from starlette.responses import JSONResponse
 
-from chap_core.database.dataset_tables import DataSet
 from chap_core.database.tables import BackTest
 from chap_core.plotting.evaluation_plot import MetricByHorizon, MetricMap
 from chap_core.rest_api.v1.routers.dependencies import get_session

@@ -91,6 +91,7 @@ target-version = "py312"
 line-length = 120
 # Let Ruff discover both chap_core and tests for both "check" and "format"
 include = ["chap_core/**/*.py", "tests/**/*.py"]
+exclude = ["external_models/**"]
 
 [tool.ruff.lint]
 fixable = ["ALL"]
@@ -115,5 +116,18 @@ norecursedirs = [
     "tests/spatio_temporal_data",
     "tests/",
     ".mypy_cache",
+    "runs",
+    "dist",
+    "external_models"
+
 ]
-ignore = ['tests/test_meteostat_wrapper']
+filterwarnings = [
+    "ignore::DeprecationWarning:plotly.io._kaleido",
+    # Celery plugin is imported before pytest can rewrite it
+    # This is expected behavior when using celery.contrib.pytest
+    "ignore::pytest.PytestAssertRewriteWarning"
+]
+python_files = "test_*.py"
+# Import mode to avoid other assertion rewriting issues
+# Ignore specific test files that should not run
+addopts = "--import-mode=importlib --ignore=tests/test_meteostat_wrapper"
