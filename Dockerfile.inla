@@ -60,8 +60,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # Switch to non-root user
+# skipping chown because slow
 RUN mkdir /app/logs
-RUN chown -R chap:chap /app
+RUN chown -R chap:chap /app/logs
+# RUN chown -R chap:chap /app/*
 RUN chown -R chap:chap /pyenv
 USER chap
 
