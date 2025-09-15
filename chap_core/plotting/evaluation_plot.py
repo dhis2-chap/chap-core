@@ -4,6 +4,7 @@ from typing import Optional
 import altair as alt
 import pandas as pd
 from chap_core.assessment.metric_table import create_metric_table
+from chap_core.database.base_tables import DBModel
 from chap_core.metrics.metrics import Metric
 alt.renderers.enable('browser')
 
@@ -17,8 +18,19 @@ class MetricPlot(abc.ABC):
     def plot(self) -> alt.Chart:
         pass
 
+class VisualizationInfo(DBModel):
+    id: str
+    display_name: str
+    description: str
+
 
 class MetricByHorizon(MetricPlot):
+    visualization_info = VisualizationInfo(
+        id='metric_by_horizon',
+        display_name="Horizon Plot",
+        description='Shows the aggregated metric by forecast horizon')
+
+
     def plot_from_df(self, df: pd.DataFrame) -> alt.Chart:
         # aggregate for each horizon
         adf  = df.groupby(['horizon', 'org_unit']).agg({'value': 'mean'}).reset_index()
@@ -42,6 +54,12 @@ class MetricByHorizon(MetricPlot):
         return chart.to_dict()
 
 class MetricMap(MetricPlot):
+    visualization_info = VisualizationInfo(
+        id='metric_map',
+        display_name="Map",
+        description='Shows a map of aggregated metrics per org unit'
+    )
+
     def plot_from_df(self, df: pd.DataFrame) -> alt.Chart:
         # 2. Example values per region
         #data = pd.DataFrame({"region_id": [1, 2, 3, 4], "value": [10, 50, 30, 70]})
