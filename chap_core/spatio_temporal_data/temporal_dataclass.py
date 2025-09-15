@@ -1,4 +1,5 @@
 import logging
+from numbers import Number
 import pickle
 from pathlib import Path
 from typing import Generic, Iterable, Tuple, Type, Callable, Optional
@@ -352,7 +353,11 @@ class DataSet(Generic[FeaturesT]):
                 logging.warning(f"Location {location} is not a string, converting to string")
                 location = str(location)
 
-            data["time_period"] = data["time_period"].apply(clean_timestring)
+            time_element = data["time_period"].iloc[0]
+            if isinstance(time_element, str) or isinstance(time_element, Number):
+                # if time periods are string, clean them and convert to periods
+                data["time_period"] = data["time_period"].apply(clean_timestring)
+
             data_dict[location] = dataclass.from_pandas(data.sort_values(by="time_period"), fill_missing)
         data_dict = cls._fill_missing(data_dict)
 
