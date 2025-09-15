@@ -9,4 +9,5 @@ services:
     networks:
       - chap-network
     command: 
+      python docker_db_flow.py chap auto_regressive_monthly;
       python docker_db_flow.py chap naive_model;
