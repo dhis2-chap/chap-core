@@ -30,8 +30,7 @@ dependencies = [
     "plotly==6.3.0",
     "pooch==1.8.2",
     "pycountry==24.6.1",
-    "pydantic-geojson==0.2.0",
-    "pydantic==2.11.7",
+    "pydantic==2.11.9",
     "python-dateutil==2.9.0.post0",
     "python-dotenv==1.1.1",
     "python-multipart==0.0.20",
@@ -49,6 +48,7 @@ dependencies = [
     "jsonschema==4.25.1",
     "altair==5.5.0",
     "virtualenv>=20.34.0",
+    "pydantic-geojson>=0.2.0",
 ]
 
 [project.urls]

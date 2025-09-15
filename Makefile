@@ -67,6 +67,14 @@ test-all: ## run pytest, doctests, examples
 	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/
 	#cd docs_source && make doctest
 
+	# clean up manually for now
+	rm evaluation_report.pdf
+	rm example_data/debug_model/model_configuration_for_run.yaml
+	rm model.pkl
+	rm model_config.yaml
+	rm predictions.csv
+	rm report.csv
+
 coverage: ## check code coverage quickly with the default Python
 	coverage report -m
 	coverage html
