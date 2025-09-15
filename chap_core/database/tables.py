@@ -1,3 +1,6 @@
+"""
+todo: comment this file, make it clear which classes are central and being used
+"""
 import datetime
 from typing import Optional, List, Dict
 

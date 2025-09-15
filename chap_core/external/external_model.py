@@ -3,6 +3,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# todo: remove, remove file
 class SimpleFileContextManager:
     def __init__(self, filename, mode="r"):
         self.filename = filename

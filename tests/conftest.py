@@ -296,6 +296,7 @@ class GEEMock:
 
 @pytest.fixture(scope="session")
 def database_url():
+    # todo: fix tmp path
     cur_dir = Path(__file__).parent
     return f"sqlite:///{cur_dir}/test.db"
 

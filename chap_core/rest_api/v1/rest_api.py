@@ -74,6 +74,7 @@ internal_state = InternalState(Control({}), {})
 state = State(ready=True, status="idle")
 
 
+# todo: move this
 class NaiveJob:
     def __init__(self, func, *args, **kwargs):
         # todo: init a root logger to capture all logs from the job

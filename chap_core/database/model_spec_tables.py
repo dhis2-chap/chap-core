@@ -61,6 +61,7 @@ def get_available_models_from_config_dir(config_dir: str, base_covariates) -> Li
     pass
 
 
+# todo: check if can be removed
 def get_available_models(base_covariates) -> List[ModelSpec]:
     """
     Returns a list of models that are available in chap
@@ -173,6 +174,8 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
     """
 
 
+
+# todo: can probably be deleted
 def seed_with_session_wrapper(session_wrapper, get_models_func=get_available_models):
     """Seed a database using with the default models"""
     seeded_feature_types = [
