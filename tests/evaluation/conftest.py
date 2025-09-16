@@ -61,7 +61,7 @@ def forecasts():
         BackTestForecast(
             id=t*2*2+loc*2+ls,
             backtest_id=1,
-            period=f'2022-0{t+2}',
+            period=f'2022-0{t+1}',
             org_unit=f'OrgUnit{loc+1}',
             last_train_period=last_seen_periods[ls],
             last_seen_period=last_seen_periods[ls],

@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Set
 
 
+
 # Disease cases
 @dataclass
 class DiseaseObservation:
@@ -127,3 +128,7 @@ class MultiLocationForecast:
             for sample in forecast.predictions:
                 periods.add(sample.time_period)
         return periods
+
+
+
+
