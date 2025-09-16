@@ -10,9 +10,6 @@ import pandas as pd
 import yaml
 from cyclopts import App
 
-from typing import Any, Tuple
-import itertools
-
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -40,6 +37,10 @@ from chap_core.time_period.date_util_wrapper import delta_month
 from chap_core.assessment.prediction_evaluator import evaluate_model, backtest as _backtest
 from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
 
+from chap_core.hpo.hpoModel import HpoModel, Direction
+from chap_core.hpo.objective import Objective 
+from chap_core.hpo.searcher import GridSearcher
+
 import logging
 
 logger = logging.getLogger()
@@ -52,35 +53,15 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
     data_frame.to_csv(file_object, mode="a", header=False)
 
 
-def _dedup(values):
-    """Deduplicate while preserving order; works for scalars, lists, dicts, None."""
-    seen = set()
-    out = []
-    for v in values if isinstance(values, list) else [values]:
-        try:
-            key = json.dumps(v, sort_keys=True, separators=(",", ":"), default=str)
-        except Exception:
-            key = repr(v)
-        if key not in seen:
-            seen.add(key)
-            out.append(v)
-    return out
-            
-
-def _write_yaml(path: str, data: dict) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, sort_keys=False)
-
-
 @app.command()
-def hpo(
+def evaluate_hpo(
     model_name: ModelType | str,
     dataset_name: Optional[DataSetType] = None,
     dataset_country: Optional[str] = None,
     dataset_csv: Optional[Path] = None,
     polygons_json: Optional[Path] = None,
     polygons_id_field: Optional[str] = "id",
-    prediction_length: int = 6,
+    prediction_length: int = 3,
     n_splits: int = 7,
     report_filename: Optional[str] = "report.pdf",
     ignore_environment: bool = False,
@@ -88,67 +69,111 @@ def hpo(
     log_file: Optional[str] = None,
     run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
     model_configuration_yaml: Optional[str] = None,
-    output_config_yaml: Optional[str] = "output_config.yaml",
-    optimize_metric: str = "MSE",
-    lower_is_better: bool = True
-) -> Tuple[float, dict[str, Any]]:
+    metric: Optional[str] = "MSE",
+    direction: Direction = "minimize",
+    evaluate_hpo: Optional[bool] = True,
+):
     """
-    Iterate over all hyperparameter combinations from a grid-style YAML and, for each
-    combo, write a single-value YAML to `output_config_yaml` and call `evaluate`.
-
-    Returns (best_score, best_params) and leaves `output_config_yaml` written with the best config.
-
-    The grid YAML must have:
-      user_option_values:
-        param_a: [v1, v2, ...]
-        param_b: [w1, w2, ...]
-      # any other top-level keys are preserved
+    Same as evaluate, but has three added arguments and a if check on argument evaluate_hpo. 
     """
-    with open(model_configuration_yaml, "r", encoding="utf-8") as f:
-        base_cfg = yaml.safe_load(f) or {}
-
-    if "user_option_values" not in base_cfg or not isinstance(base_cfg["user_option_values"], dict):
-        raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
-
-    keys = list(base_cfg["user_option_values"].keys())
-    values_lists = []
-    for k in keys:
-        vals = _dedup(base_cfg["user_option_values"][k])
-        if not vals:
-            raise ValueError(f"'user_option_values.{k}' has no values to try.")
-        values_lists.append(vals)
-
-    best_score = float("inf") if lower_is_better else float("-inf")
-    best_cfg = None
-    best_params: dict[str, Any] = {}
-
-    base_cfg.pop("user_option_values")
-
-    for combo in itertools.product(*values_lists):
-        params = dict(zip(keys, combo))
-        cfg = base_cfg.copy()
-        cfg["user_option_values"] = params
-
-        _write_yaml(output_config_yaml, cfg)
-
-        results_dict = evaluate(model_name, dataset_name, prediction_length=3, model_configuration_yaml=output_config_yaml)
-        score = results_dict[model_name][0][optimize_metric]
-
-        is_better = (score < best_score) if lower_is_better else (score > best_score)
-        if is_better or best_cfg is None:
-            best_score = score
-            best_cfg = cfg
-            best_params = params
-
-        print(f"Tried {params} -> score={score}")
-
-    if best_cfg is not None:
-        _write_yaml(output_config_yaml, best_cfg)
-        print(f"\nBest params: {best_params} | best score: {best_score}")
+    initialize_logging(debug, log_file)
+    if dataset_name is None:
+        assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
+        logging.info(f"Loading dataset from {dataset_csv}")
+        dataset = DataSet.from_csv(dataset_csv, FullData)
+        if polygons_json is not None:
+            logging.info(f"Loading polygons from {polygons_json}")
+            polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)
+            polygons.filter_locations(dataset.locations())
+            dataset.set_polygons(polygons.data)
     else:
-        print("No combinations evaluated.")
+        logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
 
-    return best_score, best_params
+        dataset = datasets[dataset_name]
+        dataset = dataset.load()
+
+        if isinstance(dataset, MultiCountryDataSet):
+            assert dataset_country is not None, "Must specify a country for multi country datasets"
+            assert (
+                dataset_country in dataset.countries
+            ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            dataset = dataset[dataset_country]
+
+    if "," in model_name:
+        # model_name is not only one model, but contains a list of models
+        model_list = model_name.split(",")
+        model_configuration_yaml_list = [None for _ in model_list]
+        if model_configuration_yaml is not None:
+            model_configuration_yaml_list = model_configuration_yaml.split(",")
+            assert len(model_list) == len(
+                model_configuration_yaml_list
+            ), "Number of model configurations does not match number of models"
+    else:
+        model_list = [model_name]
+        model_configuration_yaml_list = [model_configuration_yaml]
+
+    logging.info(f"Model configuration: {model_configuration_yaml_list}")
+
+    results_dict = {}
+    for name, configuration in zip(model_list, model_configuration_yaml_list):
+        if not evaluate_hpo:
+            template = ModelTemplate.from_directory_or_github_url(
+                name,
+                base_working_dir=Path("./runs/"),
+                ignore_env=ignore_environment,
+                run_dir_type=run_directory_type,
+            )
+            logging.info(f"Model template loaded: {template}")
+            if configuration is not None:
+                logger.info(f"Loading model configuration from yaml file {configuration}")
+                configuration = ModelConfiguration.model_validate(
+                    yaml.safe_load(open(configuration))
+                )  # template.get_model_configuration_from_yaml(Path(configuration))
+                logger.info(f"Loaded model configuration from yaml file: {configuration}")
+
+            model = template.get_model(configuration)
+            model = model()
+        else:
+            print("Creating HpoModel")
+            objective = Objective(model_name, metric, prediction_length, n_splits)
+            model = HpoModel(GridSearcher(), objective, direction, model_configuration_yaml)
+        try:
+            results = evaluate_model(
+                estimator=model,
+                data=dataset,
+                prediction_length=prediction_length,
+                n_test_sets=n_splits,
+                report_filename=report_filename,
+            )
+        except NoPredictionsError as e:
+            logger.error(f"No predictions were made: {e}")
+            return
+        print(f"Results: {results}")
+        results_dict[name] = results
+
+    # need to iterate through the dict, like key and value or something and then extract the relevant metrics
+    # to a pandas dataframe, and save it as a csv file.
+    # it seems like results contain two dictionairies, one for aggregate metrics and one with seperate ones for each ts
+
+    data = []
+    first_model = True
+    for key, value in results_dict.items():
+        aggregate_metric_dist = value[0]
+        row = [key]
+        for k, v in aggregate_metric_dist.items():
+            row.append(v)
+        if first_model:
+            data.append(["Model"] + list(aggregate_metric_dist.keys()))
+            first_model = False
+        data.append(row)
+    dataframe = pd.DataFrame(data)
+    csvname = Path(report_filename).with_suffix(".csv")
+
+    # write dataframe to csvname
+    dataframe.to_csv(csvname, index=False, header=False)
+    logger.info(f"Evaluation complete. Results saved to {csvname}")
+
+    return results_dict
 
 
 @app.command()
@@ -168,83 +193,6 @@ def evaluate(
     run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
     model_configuration_yaml: Optional[str] = None,
 ):
-    """
-    Evaluate a model's predictive performance using time series cross-validation.
-
-    This command performs systematic evaluation of a model by training on historical data
-    and testing predictions on held-out future periods. It generates comprehensive metrics
-    and visualizations to assess model accuracy and reliability.
-
-    Parameters
-    ----------
-    model_name : str
-        Model identifier. Can be:
-        - Built-in model name (e.g., 'naive_model')
-        - Local directory path to external model
-        - GitHub URL (e.g., 'https://github.com/user/model@commit')
-        - Comma-separated list for comparing multiple models
-    dataset_name : str, optional
-        Name of built-in dataset (e.g., 'ISIMIP_dengue_harmonized', 'hydromet_5_filtered')
-        Use --dataset-csv if providing custom data
-    dataset_country : str, optional
-        Country to filter from multi-country datasets (e.g., 'vietnam', 'laos')
-    dataset_csv : Path, optional
-        Path to custom CSV dataset with columns: location, time_period, disease_cases, etc.
-    polygons_json : Path, optional
-        Path to GeoJSON file with geographic boundaries for locations
-    polygons_id_field : str, default 'id'
-        Field name in polygons JSON to match with dataset locations
-    prediction_length : int, default 6
-        Number of time periods to forecast ahead (e.g., 6 months)
-    n_splits : int, default 7
-        Number of train/test splits for cross-validation
-        More splits = more robust evaluation but longer runtime
-    report_filename : str, default 'report.pdf'
-        Output PDF file with evaluation plots and metrics
-        Also generates CSV with same name containing numerical results
-    ignore_environment : bool, default False
-        Skip environment validation for external models (for development)
-    debug : bool, default False
-        Enable debug logging for troubleshooting
-    log_file : str, optional
-        Path to log file (logs to console if not specified)
-    run_directory_type : {'latest', 'timestamp', 'use_existing'}, default 'timestamp'
-        How to handle model execution directory:
-        - 'timestamp': Create new timestamped directory
-        - 'latest': Overwrite existing directory
-        - 'use_existing': Use existing directory if available
-    model_configuration_yaml : str, optional
-        Path to YAML file with model-specific configuration parameters
-        For multiple models, provide comma-separated list of config files
-
-    Examples
-    --------
-    Basic evaluation:
-        chap evaluate --model-name naive_model --dataset-name hydromet_5_filtered
-
-    Multi-country dataset:
-        chap evaluate --model-name naive_model --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam
-
-    External model from GitHub:
-        chap evaluate --model-name https://github.com/user/dengue-model@main --dataset-name hydromet_5_filtered
-
-    Custom dataset with polygons:
-        chap evaluate --model-name naive_model --dataset-csv ./data.csv --polygons-json ./boundaries.geojson
-
-    Compare multiple models:
-        chap evaluate --model-name model1,model2,model3 --dataset-name hydromet_5_filtered
-
-    With custom configuration:
-        chap evaluate --model-name external_model --dataset-name hydromet_5_filtered --model-configuration-yaml config.yaml
-
-    Notes
-    -----
-    - Evaluation uses time series cross-validation to avoid data leakage
-    - Results include metrics like MAE, RMSE, CRPS, and coverage probabilities
-    - PDF report contains forecast plots for visual inspection
-    - CSV output contains detailed numerical results for further analysis
-    """
-
     initialize_logging(debug, log_file)
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
