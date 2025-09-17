@@ -1,3 +1,4 @@
+from idlelib.debugobj import ObjectTreeItem
 from typing import Literal, Optional, Any, Tuple, Callable
 import yaml
 
@@ -7,10 +8,8 @@ from chap_core.file_io.example_data_set import DataSetType
 
 from .hpoModelInterface import HpoModelInterface
 from .searcher import Searcher
-from .base import dedup, write_yaml 
-
+from .base import dedup, write_yaml
 Direction = Literal["maximize", "minimize"]
-
 import logging
 
 logger = logging.getLogger()
@@ -21,16 +20,17 @@ class HpoModel(HpoModelInterface):
     def __init__(
             self, 
             searcher: Searcher, 
-            objective: callable, 
+            objective: 'Objective',
             direction: Direction = "minimize", 
             model_configuration_yaml: Optional[str] = None,
     ):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
+
         self._searcher = searcher
         self._objective = objective
         self._direction = direction
-        self._model_configuration_yaml = model_configuration_yaml
+        self._model_configuration_yaml = model_configuration_yaml #TODO: this should a parsed dict
     
     def train(self, dataset: Optional[DataSetType],) -> Tuple[str, dict[str, Any]]:
         """
@@ -64,9 +64,12 @@ class HpoModel(HpoModelInterface):
             params = self._searcher.ask()
             if params is None:
                 break 
+
+
             config = base_configs.copy()
             config["user_option_values"] = params
 
+            # Maybe best to seperate hpo_config and other configs in two files ??
             score = self._objective(config, dataset)
             self._searcher.tell(params, score)
 

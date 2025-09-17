@@ -4,5 +4,5 @@ import abc
 
 class HpoModelInterface(ConfiguredModel): 
     @abc.abstractmethod
-    def get_best_config():
+    def get_best_config(self) -> dict:
         pass
