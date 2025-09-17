@@ -85,7 +85,7 @@ class TPESearcher(Searcher):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
         self.direction = direction 
-        self.ax_trials = max_trials
+        self.max_trials = max_trials
         self._pending: dict[int, optuna.trial.Trial] = {}
 
     def reset(self, search_space: dict[str, list], seed: Optional[int] = None) -> None:
@@ -102,18 +102,18 @@ class TPESearcher(Searcher):
             for k in self._keys
         }
         self._pending.clear()
-        self._aksed = 0
+        self._asked = 0
     
     def ask(self) -> Optional[dict[str, Any]]:
         if self._study is None:
             raise RuntimeError("OptunaTPESearcher not initialized. Call reset(search_space, seed)")
         
-        if self.max_trials is not None and self._aksed >= self.max_trials:
+        if self.max_trials is not None and self._asked >= self.max_trials:
             return None 
 
         trial = self._study.ask(self._dists)
         self._pending[trial.number] = trial
-        self._aksked += 1
+        self._asked += 1
 
         params = dict(trial.params)
         params[_TRIAL_ID_KEY] = trial.number
