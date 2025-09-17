@@ -28,7 +28,7 @@ class FlatObserved(FlatData):
     """
     Observed disease cases
     """
-    disease_cases: pa.typing.Series[int]
+    disease_cases: pa.typing.Series[float] = pa.Field(nullable=True)  # float to also allow nan
 
 
 class FlatForecasts(FlatDataWithHorizon):
@@ -116,8 +116,8 @@ def convert_backtest_observations_to_flat_observations(
             row = {
                 'location': str(obs.org_unit),
                 'time_period': str(obs.period),
-                'disease_cases': int(obs.value)  # Convert to int as per schema
-            }
+                'disease_cases': float(obs.value) 
+            } 
             rows.append(row)
     
     # Create DataFrame from rows

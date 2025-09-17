@@ -186,5 +186,5 @@ def make_plot_from_backtest_object(backtest: BackTest, plotting_class: MetricPlo
     flat_forecasts = convert_backtest_to_flat_forecasts(backtest.forecasts)
     flat_observations = convert_backtest_observations_to_flat_observations(backtest.dataset.observations)
     metric_data = metric.compute(flat_observations, flat_forecasts)
-    return plotting_class(metric_data, geojson).plot()
+    return plotting_class(metric_data, geojson).plot_spec()
     

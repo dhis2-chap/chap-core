@@ -1,3 +1,4 @@
+import numpy as np
 from chap_core.assessment.metrics import RMSE, DetailedRMSE, compute_all_aggregated_metrics_from_backtest
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 import pytest
@@ -19,9 +20,17 @@ def flat_observations():
     return FlatObserved(pd.DataFrame({
         "location": ["loc1", "loc1", "loc2", "loc2"],
         "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
-        "disease_cases": [11, 13, 19, 21],
+        "disease_cases": [11.0, 13.0, 19.0, 21.0],
     }))
 
+
+
+def test_flat_observed_with_nan():
+    return FlatObserved(pd.DataFrame({
+        "location": ["loc1", "loc1", "loc2", "loc2"],
+        "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
+        "disease_cases": [11.0, None, np.nan, 21.0],
+    }))
 
 
 def test_rmse(flat_forecasts, flat_observations):
