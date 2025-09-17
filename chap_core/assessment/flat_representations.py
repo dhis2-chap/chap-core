@@ -1,11 +1,10 @@
 from __future__ import annotations
-from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping, List
 
 import pandas as pd
 import pandera as pa
-from pandera import Column, Check, DataFrameSchema
+from pandera import Check
 import pandera.pandas as pa
 from pandera.pandas import DataFrameModel
 
@@ -13,147 +12,34 @@ from chap_core.database.tables import BackTestForecast
 from chap_core.database.dataset_tables import ObservationBase
 from chap_core.time_period import TimePeriod
 
-# -------------------------------------------------------------------
-# 1) Dimensions and global registry (implementers never touch this)
-# -------------------------------------------------------------------
 
-class Dim(str, Enum):
-    location = "location"
-    time_period = "time_period"
-    horizon_distance = "horizon_distance"
-
-# Central truth: dtype + optional checks
-DIM_REGISTRY: Mapping[Dim, tuple[type, Check | None]] = {
-    Dim.location: (str, None),
-    Dim.time_period: (str, None),  # could enforce ISO date format with regex
-    Dim.horizon_distance: (int, Check.ge(0)),
-}
-
-
-@dataclass(frozen=True)
-class MetricSpec:
-    group_by: tuple[Dim, ...] = ()
-    metric_name: str = "metric"  # always the same
-
-
-class MetricBase:
-    spec: MetricSpec = MetricSpec()
-
-    alignment_keys: tuple[str, ...] = tuple(d.value for d in Dim)
-
-    def compute(self, obs: pd.DataFrame, fcst: pd.DataFrame) -> pd.DataFrame:
-        """Public API: run _compute and validate result schema."""
-        out = self._compute(obs, fcst)
-
-        # expected columns = group_by dims + "metric"
-        expected_cols = [*(d.value for d in self.spec.group_by), self.spec.metric_name]
-        missing = [c for c in expected_cols if c not in out.columns]
-        extra = [c for c in out.columns if c not in expected_cols]
-        if missing or extra:
-            raise ValueError(
-                f"{self.__class__.__name__} produced wrong columns.\n"
-                f"Expected: {expected_cols}\n"
-                f"Missing: {missing}\n"
-                f"Extra: {extra}"
-            )
-
-        return self._make_schema().validate(out)
-
-    def _compute(self, obs: pd.DataFrame, fcst: pd.DataFrame) -> pd.DataFrame:
-        raise NotImplementedError
-
-    def _make_schema(self) -> DataFrameSchema:
-        cols: dict[str, Column] = {}
-
-        # group-by dims
-        for d in self.spec.group_by:
-            dtype, chk = DIM_REGISTRY[d]
-            cols[d.value] = Column(dtype, chk) if chk else Column(dtype)
-
-        # metric column: always float, non-negative check optional
-        cols[self.spec.metric_name] = Column(float)
-
-        return DataFrameSchema(cols, strict=True, coerce=True)
-
-
-class MAE(MetricBase):
-    spec = MetricSpec(group_by=(Dim.location, Dim.horizon_distance))
-
-    def _compute(self, obs: pd.DataFrame, fcst: pd.DataFrame) -> pd.DataFrame:
-        keys = list(self.alignment_keys)
-        merged = fcst.merge(
-            obs[keys + ["disease_cases"]],
-            on=keys,
-            how="inner",
-            validate="many_to_one",
-        )
-        merged["abs_err"] = (merged["forecast"] - merged["disease_cases"]).abs()
-
-        # per-sample mean
-        per_sample = (
-            merged.groupby(keys + ["sample"], as_index=False, dropna=False)["abs_err"]
-                  .mean()
-        )
-
-        keep = [d.value for d in self.spec.group_by]
-        if keep:
-            out = (
-                per_sample.groupby(keep, as_index=False, dropna=False)["abs_err"]
-                          .mean()
-                          .rename(columns={"abs_err": "metric"})
-            )
-        else:
-            out = pd.DataFrame({"metric": [per_sample["abs_err"].mean()]})
-
-        return out
-
-
-class RMSE(MetricBase):
-    spec = MetricSpec(group_by=(Dim.location,))
-
-    def _compute(self, obs: pd.DataFrame, fcst: pd.DataFrame) -> pd.DataFrame:
-        keys = list(self.alignment_keys)
-        merged = fcst.merge(
-            obs[keys + ["disease_cases"]],
-            on=keys,
-            how="inner",
-            validate="many_to_one",
-        )
-        merged["sq_err"] = (merged["forecast"] - merged["disease_cases"]) ** 2
-
-        per_sample = (
-            merged.groupby(keys + ["sample"], as_index=False, dropna=False)["sq_err"]
-                  .mean()
-        )
-
-        keep = [d.value for d in self.spec.group_by]
-        if keep:
-            out = (
-                per_sample.groupby(keep, as_index=False, dropna=False)["sq_err"]
-                          .mean()
-                          .apply(lambda s: s**0.5)
-                          .reset_index()
-                          .rename(columns={"sq_err": "metric"})
-            )
-        else:
-            out = pd.DataFrame({"metric": [per_sample["sq_err"].mean() ** 0.5]})
-
-        return out
-
-
-class BaseFlatDataSchema(DataFrameModel):
+class FlatData(DataFrameModel):
+    """
+    Base class for data points that include location and time_period.
+    """
     location: pa.typing.Series[str]
     time_period: pa.typing.Series[str]
+    
+
+class FlatDataWithHorizon(FlatData):
     horizon_distance: pa.typing.Series[int]
 
 
-class ObservedFlatDataSchema(BaseFlatDataSchema):
+class FlatObserved(FlatData):
+    """
+    Observed disease cases
+    """
     disease_cases: pa.typing.Series[int]
 
 
-class ForecastFlatDataSchema(BaseFlatDataSchema):
+class FlatForecasts(FlatDataWithHorizon):
+    """
+    Forecasted disease cases. Note that cases are in forecast field, and that samples is used
+    so we can represent multiple samples per location/time_period/horizon_distance in the dataframe. 
+    """
     sample: pa.typing.Series[int]  # index of sample
     forecast: pa.typing.Series[int]  # actual forecast value
+
 
 
 def horizon_diff(period: str, period2: str) -> int:
@@ -163,7 +49,7 @@ def horizon_diff(period: str, period2: str) -> int:
     return (tp - tp2) // tp.time_delta
 
 
-def convert_to_forecast_flat_data(backtest_forecasts: List[BackTestForecast]) -> pd.DataFrame:
+def convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast]) -> pd.DataFrame:
     """
     Convert a list of BackTestForecast objects to a flat DataFrame format
     conforming to ForecastFlatDataSchema.
@@ -198,50 +84,13 @@ def convert_to_forecast_flat_data(backtest_forecasts: List[BackTestForecast]) ->
     df = pd.DataFrame(rows)
     
     # Validate against schema
-    ForecastFlatDataSchema.validate(df)
+    FlatForecasts.validate(df)
     
     return df
 
 
-def convert_to_forecast_flat_data_with_validation(
-    backtest_forecasts: List[BackTestForecast]
-) -> pd.DataFrame:
-    """
-    Convert a list of BackTestForecast objects to a flat DataFrame format
-    with additional validation and error handling.
-    
-    This is a wrapper around convert_to_forecast_flat_data that adds
-    additional checks and error handling.
-    
-    Args:
-        backtest_forecasts: List of BackTestForecast objects
-        
-    Returns:
-        pd.DataFrame conforming to ForecastFlatDataSchema
-        
-    Raises:
-        ValueError: If the input is empty or contains invalid data
-    """
-    if not backtest_forecasts:
-        raise ValueError("Input list of BackTestForecast objects cannot be empty")
-    
-    # Check that all forecasts have values
-    for i, forecast in enumerate(backtest_forecasts):
-        if not forecast.values:
-            raise ValueError(f"BackTestForecast at index {i} has no sample values")
-        if forecast.period is None:
-            raise ValueError(f"BackTestForecast at index {i} has no period")
-        if forecast.last_seen_period is None:
-            raise ValueError(f"BackTestForecast at index {i} has no last_seen_period")
-        if forecast.org_unit is None:
-            raise ValueError(f"BackTestForecast at index {i} has no org_unit")
-    
-    return convert_to_forecast_flat_data(backtest_forecasts)
-
-
-def convert_observations_to_flat_data(
+def convert_backtest_observations_to_flat_observations(
     observations: List[ObservationBase],
-    reference_period: str = None
 ) -> pd.DataFrame:
     """
     Convert a list of ObservationBase objects to a flat DataFrame format
@@ -262,15 +111,9 @@ def convert_observations_to_flat_data(
         # Only process disease_cases observations
         if obs.feature_name == "disease_cases" and obs.value is not None:
             # Calculate horizon distance if reference period is provided
-            if reference_period:
-                horizon_distance = horizon_diff(str(obs.period), reference_period)
-            else:
-                horizon_distance = 0
-            
             row = {
                 'location': str(obs.org_unit),
                 'time_period': str(obs.period),
-                'horizon_distance': horizon_distance,
                 'disease_cases': int(obs.value)  # Convert to int as per schema
             }
             rows.append(row)
@@ -280,7 +123,7 @@ def convert_observations_to_flat_data(
     
     if not df.empty:
         # Validate against schema
-        ObservedFlatDataSchema.validate(df)
+        FlatObserved.validate(df)
     
     return df
 
@@ -309,4 +152,27 @@ def group_flat_forecast_by_horizon(
         grouped = flat_forecast_df
     
     return grouped
+
+
+class DataDimension(str, Enum):
+    """
+    Enum for the possible dimensions metrics datasets can have
+    """
+    location = "location"
+    time_period = "time_period"
+    horizon_distance = "horizon_distance"
+
+
+# Registry of types for each dimension
+DIM_REGISTRY: Mapping[DataDimension, tuple[type, Check | None]] = {
+    DataDimension.location: (str, None),
+    DataDimension.time_period: (str, None),
+    DataDimension.horizon_distance: (int, Check.ge(0)),
+}
+
+
+
+
+
+
 

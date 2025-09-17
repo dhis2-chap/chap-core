@@ -1,5 +1,5 @@
 import pytest
-from chap_core.assessment.flat_representations import convert_to_forecast_flat_data
+from chap_core.assessment.flat_representations import convert_backtest_observations_to_flat_observations, convert_backtest_to_flat_forecasts
 
 
 def test_convert_backtest_to_flat_forecast(backtest):
@@ -9,6 +9,8 @@ def test_convert_backtest_to_flat_forecast(backtest):
     This test uses the same backtest fixture as test_external_evaluation
     and prints the resulting flat DataFrame.
     """
-    flat_df = convert_to_forecast_flat_data(backtest.forecasts)
+    flat_forecasts = convert_backtest_to_flat_forecasts(backtest.forecasts)
+    flat_observations = convert_backtest_observations_to_flat_observations(backtest.dataset.observations)
     
-    print(flat_df)
+    print(flat_forecasts)
+    print(flat_observations)

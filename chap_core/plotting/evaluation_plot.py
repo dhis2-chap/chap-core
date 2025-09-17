@@ -30,7 +30,6 @@ class MetricByHorizon(MetricPlot):
         display_name="Horizon Plot",
         description='Shows the aggregated metric by forecast horizon')
 
-
     def plot_from_df(self, df: pd.DataFrame) -> alt.Chart:
         # aggregate for each horizon
         adf  = df.groupby(['horizon', 'org_unit']).agg({'value': 'mean'}).reset_index()
