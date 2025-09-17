@@ -41,6 +41,9 @@ class FlatForecasts(FlatDataWithHorizon):
     forecast: pa.typing.Series[int]  # actual forecast value
 
 
+class FlatMetric(FlatDataWithHorizon):
+    metric: pa.typing.Series[float]
+
 
 def horizon_diff(period: str, period2: str) -> int:
     """Calculate the difference between two time periods in terms of time units."""

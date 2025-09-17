@@ -379,6 +379,8 @@ class SessionWrapper:
                         values=sample_values.tolist(),
                     )
                     backtest.forecasts.append(forecast)
+
+
                     # add misc metrics
                     # TODO: should probably be improved with eg custom Metric classes
                     for metric_id, metric_func in metric_defs.items():

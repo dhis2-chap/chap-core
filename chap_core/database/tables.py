@@ -102,6 +102,11 @@ class BackTestForecast(ForecastBase, table=True):
 
 
 class BackTestMetric(DBModel, table=True):
+    """
+    This class has been used when computing metrics per location/time_point/split_point adhoc
+    in database.py. This id depcrecated and not used in the new metric system.
+    Can be removed when no references left to this class.
+    """
     id: Optional[int] = Field(primary_key=True, default=None)
     backtest_id: int = Field(foreign_key="backtest.id")
     metric_id: str
