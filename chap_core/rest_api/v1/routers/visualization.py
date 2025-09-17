@@ -75,7 +75,7 @@ def generate_visualization(
     if not backtest:
         return {"error": "Backtest not found"}
 
-    suitable_metrics = {id: metric for id, metric in available_metrics.items() if metric.gives_highest_resolution()}
+    suitable_metrics = {id: metric for id, metric in available_metrics.items() if metric().gives_highest_resolution()}
     if metric_id not in suitable_metrics:
         return {"error": f"Metric {metric_id} not found or not suitable for visualization"}
 

@@ -70,7 +70,7 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
 def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
     response = client.get("/v1/visualization/metrics/1")
     assert response.status_code == 200
-    assert any(metric['id'] == 'crps' for metric in response.json())
+    assert any(metric['id'] == 'detailed_crps' for metric in response.json())
 
 def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
     response = client.get("/v1/visualization/1")

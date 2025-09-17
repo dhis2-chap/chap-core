@@ -14,7 +14,8 @@ import psycopg2
 import sqlalchemy
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from chap_core.datatypes import FullData, create_tsdataclass
+from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
+from chap_core.datatypes import FullData, SamplesWithTruth, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.time_period import TimePeriod
@@ -64,6 +65,8 @@ else:
 # TODO: move below to separate metrics file
 # TODO: probably also move to classes and more flexible
 
+
+# todo: all these functions for metrics are not used anymore, can be removed in the future
 
 def crps_ensemble_timestep(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
     term1 = np.mean(np.abs(sample_values - obs))
@@ -330,7 +333,7 @@ class SessionWrapper:
 
 
     def add_evaluation_results(
-        self, evaluation_results: Iterable[DataSet], last_train_period: TimePeriod, info: BackTestCreate
+        self, evaluation_results: Iterable[_DataSet[SamplesWithTruth]], last_train_period: TimePeriod, info: BackTestCreate
     ):
         info.created = datetime.datetime.now()
         # org_units = list({location for ds in evaluation_results for location in ds.locations()})
@@ -383,6 +386,9 @@ class SessionWrapper:
 
                     # add misc metrics
                     # TODO: should probably be improved with eg custom Metric classes
+                    # todo: this can be remove, we now don't but detailed metrics in db, but instead compute
+                    # them directly where we need them (e.g. in visualization endpoint)
+                    """
                     for metric_id, metric_func in metric_defs.items():
                         try:
                             metric_value = metric_func(sample_values, disease_cases, evaluation_results)
@@ -405,8 +411,10 @@ class SessionWrapper:
                             logger.warning(
                                 f"Unexpected error computing metric id {metric_id}, for location {location}, split period {first_period.id}, and forecast period {period.id}: {err}"
                             )
+                    """
         # calculate and add total metrics
         # TODO: should probably be improved with eg custom Metric classes
+        """
         aggregate_metrics = {}
         for aggregate_metric_id, (filter_metric_id, aggregate_metric_func) in aggregate_metric_defs.items():
             try:
@@ -420,12 +428,19 @@ class SessionWrapper:
                 aggregate_metrics[aggregate_metric_id] = aggregate_metric_value
             except Exception as err:
                 logger.warning(f"Unexpected error computing aggregate metric id {aggregate_metric_id}: {err}")
-        logger.info(f"aggregate metrics {aggregate_metrics}")
-        backtest.aggregate_metrics = aggregate_metrics
-        # add more
+        """
+        
         backtest.org_units = list(org_units)
         backtest.split_periods = list(split_points)
         self.session.commit()
+
+        # read full backtest object so that we can compute aggregate metrics using this object
+        backtest = self.session.get(BackTest, backtest.id)
+        aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
+        logger.info(f"aggregate metrics {aggregate_metrics}")
+        backtest.aggregate_metrics = aggregate_metrics
+        self.session.commit()
+        # add more
         return backtest.id
 
 

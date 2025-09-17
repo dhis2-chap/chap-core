@@ -1,8 +1,23 @@
+"""
+This file contains metric implementations that are based on "flat" datastructures (from flat_representations.py).
+
+New metrics can be implemented in this file by sublacscing MetricBase and implementing the compute-method.
+
+Metrics that should be available should be added to the available_metrics dict.
+
+"""
+
+
+import logging
 from dataclasses import dataclass
-from pandera import Column, DataFrameSchema
-from chap_core.assessment.flat_representations import DIM_REGISTRY, DataDimension, FlatForecasts, FlatObserved
+import pandera.pandas as pa
+from chap_core.assessment.flat_representations import DIM_REGISTRY, DataDimension, FlatForecasts, FlatObserved, convert_backtest_observations_to_flat_observations, convert_backtest_to_flat_forecasts
 import pandas as pd
 import numpy as np
+
+from chap_core.database.tables import BackTest
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -37,13 +52,13 @@ class MetricBase:
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError
 
-    def _make_schema(self) -> DataFrameSchema:
-        cols: dict[str, Column] = {}
+    def _make_schema(self) -> pa.DataFrameSchema:
+        cols: dict[str, pa.Column] = {}
         for d in self.spec.group_by:
             dtype, chk = DIM_REGISTRY[d]
-            cols[d.value] = Column(dtype, chk) if chk else Column(dtype)
-        cols[self.spec.metric_name] = Column(float)
-        return DataFrameSchema(cols, strict=True, coerce=True)
+            cols[d.value] = pa.Column(dtype, chk) if chk else pa.Column(dtype)
+        cols[self.spec.metric_name] = pa.Column(float)
+        return pa.DataFrameSchema(cols, strict=True, coerce=True)
 
     def get_name(self) -> str:
         return self.spec.metric_name
@@ -54,6 +69,11 @@ class MetricBase:
         """
         return len(self.spec.group_by) == 3
 
+    def is_full_aggregate(self) -> bool:
+        """
+        Returns True if the metric gives only one number for the whole dataset
+        """
+        return len(self.spec.group_by) == 0 
 
 class RMSE(MetricBase):
     """
@@ -205,14 +225,14 @@ class DetailedCRPS(MetricBase):
         return pd.DataFrame(results)
 
 
-class CRPS(MetricBase):
+class CRPSPerLocation(MetricBase):
     """
     Continuous Ranked Probability Score (CRPS) metric aggregated by location.
     Groups by location to give average CRPS per location across all time periods and horizons.
     """
     spec = MetricSpec(
         group_by=(DataDimension.location,),
-        metric_id='crps',
+        metric_id='crps_per_location',
         description='Average CRPS per location'
     )
     
@@ -228,6 +248,28 @@ class CRPS(MetricBase):
         )
         
         return location_crps
+
+
+class CRPS(MetricBase):
+    """
+    Continuous Ranked Probability Score (CRPS) metric for the entire dataset.
+    Gives one CRPS value across all locations, time periods and horizons.
+    """
+    spec = MetricSpec(
+        group_by=(),
+        metric_id='crps',
+        description='Overall CRPS across entire dataset'
+    )
+    
+    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        # First compute CRPS per location
+        crps_per_location_metric = CRPSPerLocation()
+        location_results = crps_per_location_metric.compute(observations, forecasts)
+        
+        # Aggregate across all locations to get overall CRPS
+        overall_crps = location_results['metric'].mean()
+        
+        return pd.DataFrame({'metric': [overall_crps]})
 
 
 class DetailedCRPSNorm(MetricBase):
@@ -378,14 +420,14 @@ class IsWithin25th75thDetailed(MetricBase):
         return pd.DataFrame(results)
 
 
-class RatioWithin10th90th(MetricBase):
+class RatioWithin10th90thPerLocation(MetricBase):
     """
     Ratio of observations within 10th-90th percentile, aggregated by location.
     Groups by location to give the proportion of forecasts where observation fell within range.
     """
     spec = MetricSpec(
         group_by=(DataDimension.location,),
-        metric_id='ratio_within_10th_90th',
+        metric_id='ratio_within_10th_90th_per_location',
         description='Ratio of observations within 10th-90th percentile per location'
     )
     
@@ -403,14 +445,36 @@ class RatioWithin10th90th(MetricBase):
         return location_ratios
 
 
-class RatioWithin25th75th(MetricBase):
+class RatioWithin10th90th(MetricBase):
+    """
+    Overall ratio of observations within 10th-90th percentile for entire dataset.
+    Gives one ratio value across all locations, time periods and horizons.
+    """
+    spec = MetricSpec(
+        group_by=(),
+        metric_id='ratio_within_10th_90th',
+        description='Overall ratio of observations within 10th-90th percentile'
+    )
+    
+    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        # First compute ratio per location
+        ratio_per_location_metric = RatioWithin10th90thPerLocation()
+        location_results = ratio_per_location_metric.compute(observations, forecasts)
+        
+        # Aggregate across all locations to get overall ratio
+        overall_ratio = location_results['metric'].mean()
+        
+        return pd.DataFrame({'metric': [overall_ratio]})
+
+
+class RatioWithin25th75thPerLocation(MetricBase):
     """
     Ratio of observations within 25th-75th percentile, aggregated by location.
     Groups by location to give the proportion of forecasts where observation fell within range.
     """
     spec = MetricSpec(
         group_by=(DataDimension.location,),
-        metric_id='ratio_within_25th_75th',
+        metric_id='ratio_within_25th_75th_per_location',
         description='Ratio of observations within 25th-75th percentile per location'
     )
     
@@ -428,6 +492,28 @@ class RatioWithin25th75th(MetricBase):
         return location_ratios
 
 
+class RatioWithin25th75th(MetricBase):
+    """
+    Overall ratio of observations within 25th-75th percentile for entire dataset.
+    Gives one ratio value across all locations, time periods and horizons.
+    """
+    spec = MetricSpec(
+        group_by=(),
+        metric_id='ratio_within_25th_75th',
+        description='Overall ratio of observations within 25th-75th percentile'
+    )
+    
+    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        # First compute ratio per location
+        ratio_per_location_metric = RatioWithin25th75thPerLocation()
+        location_results = ratio_per_location_metric.compute(observations, forecasts)
+        
+        # Aggregate across all locations to get overall ratio
+        overall_ratio = location_results['metric'].mean()
+        
+        return pd.DataFrame({'metric': [overall_ratio]})
+
+
 class TestMetricDetailed(MetricBase):
     """
     Test metric that counts the number of forecast samples per location/time_period/horizon_distance.
@@ -436,7 +522,7 @@ class TestMetricDetailed(MetricBase):
     """
     spec = MetricSpec(
         group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
-        metric_id='test_sample_count',
+        metric_id='test_sample_count_detailed',
         description='Number of forecast samples per location, time period and horizon'
     )
     
@@ -454,17 +540,58 @@ class TestMetricDetailed(MetricBase):
         return sample_counts
 
 
+class TestMetric(MetricBase):
+    """
+    Test metric that counts the total number of forecast samples in the entire dataset.
+    Returns a single number representing the total sample count.
+    """
+    spec = MetricSpec(
+        group_by=(),
+        metric_id='test_sample_count',
+        description='Total number of forecast samples in dataset'
+    )
+    
+    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        # Count total number of rows in forecasts (each row is one sample)
+        total_samples = float(len(forecasts))
+        return pd.DataFrame({'metric': [total_samples]})
+
+
 available_metrics: dict[str, MetricBase] = {
     'rmse': RMSE,
     'mae': MAE,
     'detailed_rmse': DetailedRMSE,
     'detailed_crps': DetailedCRPS,
+    'crps_per_location': CRPSPerLocation,
     'crps': CRPS,
     'detailed_crps_norm': DetailedCRPSNorm,
     'crps_norm': CRPSNorm,
     'is_within_10th_90th_detailed': IsWithin10th90thDetailed,
     'is_within_25th_75th_detailed': IsWithin25th75thDetailed,
+    'ratio_within_10th_90th_per_location': RatioWithin10th90thPerLocation,
     'ratio_within_10th_90th': RatioWithin10th90th,
+    'ratio_within_25th_75th_per_location': RatioWithin25th75thPerLocation,
     'ratio_within_25th_75th': RatioWithin25th75th,
-    'test_sample_count': TestMetricDetailed,
+    'test_sample_count_detailed': TestMetricDetailed,
+    'test_sample_count': TestMetric,
 }
+
+
+
+def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str, float]:
+    relevant_metrics = {id: metric for id, metric in available_metrics.items() if metric().is_full_aggregate()}
+    logger.info(f"Relevant metrics for aggregation: {relevant_metrics.keys()}")
+
+    # Convert to flat representation
+    flat_forecasts = FlatForecasts(convert_backtest_to_flat_forecasts(backtest.forecasts))
+    flat_observations = FlatObserved(convert_backtest_observations_to_flat_observations(backtest.dataset.observations))
+
+    results = {}
+    for id, metric_cls in relevant_metrics.items():
+        metric = metric_cls()
+        metric_df = metric.get_metric(flat_observations, flat_forecasts)
+        if len(metric_df) != 1:
+            raise ValueError(f"Metric {id} was expected to return a single aggregated value, but got {len(metric_df)} rows.")
+        results[id] = float(metric_df[metric.spec.metric_name].iloc[0])
+
+    return results
