@@ -8,7 +8,6 @@ from chap_core.assessment.metric_table import create_metric_table
 from chap_core.assessment.metrics import MetricBase
 from chap_core.database.base_tables import DBModel
 from chap_core.database.tables import BackTest, BackTestMetric
-from chap_core.metrics.metrics import Metric
 alt.renderers.enable('browser')
 
 

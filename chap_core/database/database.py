@@ -31,7 +31,7 @@ from .dataset_tables import DataSet, Observation
 from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
-from .tables import BackTest, BackTestForecast, BackTestMetric, Prediction, PredictionSamplesEntry
+from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -346,6 +346,8 @@ class SessionWrapper:
         org_units = set([])
         split_points = set([])
         # define metrics (for each period)
+        """
+        # todo: remove
         metric_defs = {
             "crps": crps_ensemble_timestep,
             "crps_norm": crps_ensemble_timestep_normalized,
@@ -360,6 +362,7 @@ class SessionWrapper:
             "ratio_within_10th_90th": ("is_within_10th_90th", lambda vals: np.mean(vals)),
             "ratio_within_25th_75th": ("is_within_25th_75th", lambda vals: np.mean(vals)),
         }
+        """
         # begin loop
         evaluation_results = list(
             evaluation_results

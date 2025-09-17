@@ -86,6 +86,8 @@ def generate_visualization(
     plot_spec = make_plot_from_backtest_object(backtest, plot_class, suitable_metrics[metric_id](), geojson)
     return JSONResponse(plot_spec)
 
+    # todo: old solution fetching metrics computed from db, can be removed
+    """
     all_metrics = list(backtest.metrics)
     print(all_metrics)
     print(metric_id)
@@ -93,5 +95,6 @@ def generate_visualization(
                if metric.metric_id == metric_id]
     plot_spec = plt_class(metrics, geojson).plot_spec()
     return JSONResponse(plot_spec)
+    """
 
 

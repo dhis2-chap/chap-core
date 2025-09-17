@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Mapping, List
 
 import pandas as pd
-import pandera as pa
 from pandera import Check
 import pandera.pandas as pa
 from pandera.pandas import DataFrameModel
