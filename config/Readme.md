@@ -1,7 +1,7 @@
 # Configuration
 
-This directory contains configuration files for the setup of the Chap modelling platforms.
+This directory is used for various configuration of chap-core.
 
-These config files can be edited by the user.
+Specifically:
 
-TODO: This folder needs cleanup/restructuring
+- configured_models: This contains configueration for which configured models should be seed into the chap-core database (see default.yaml for details on how to configure)

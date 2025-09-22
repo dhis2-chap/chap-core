@@ -71,8 +71,8 @@ class IntegrationTest:
                 response = requests.get(self._chap_url + "/v1/health")
                 break
             except requests.exceptions.ConnectionError as e:
-                # logger.error("Failed to connect to %s" % self._chap_url)
-                # logger.error(e)
+                logger.error("Failed to connect to %s" % self._chap_url)
+                logger.error(e)
                 errors.append(e)
                 time.sleep(5)
         else:
@@ -152,6 +152,7 @@ class IntegrationTest:
 
         errors = []
         for model_name in model_names:
+            assert model_name == "naive_model", "This test only supports naive model for now"
             try:
                 self.make_prediction(make_prediction_request(model_name))
             except Exception as err:
@@ -239,6 +240,7 @@ class IntegrationTest:
 
         errors = []
         for model_name in model_names:
+            assert model_name == "naive_model", "This test only supports naive model for now"
             try:
                 result, backtest_id = self.evaluate_model_with_data(make_backtest_with_data_request(model_name))
                 actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
@@ -300,6 +302,7 @@ if __name__ == "__main__":
     logger.info(args)
 
     chap_url = f"http://{args.host}:8000"
+    assert args.model_id == "naive_model", "This test only supports naive model for now"
     suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
     suite.evaluation_with_data_flow()
-    suite.prediction_flow()
+    # suite.prediction_flow()

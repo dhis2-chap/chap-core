@@ -11,6 +11,21 @@ multiple supported models, automatic brokering of compatible models for a given 
 
 
 
+Depending on who you are, you can go these subpages in the documentation:
+
+
+Wanting to use the modeling app with chap on a dhis2 instance
+--------------------------------------------------------------
+TODO
+
+A model developer developing a model from scratch
+--------------------------------------------------------------
+TODO
+
+
+
+
+
 .. toctree::
    :glob:
    :maxdepth: 1

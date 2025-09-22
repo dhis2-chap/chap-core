@@ -56,15 +56,6 @@ else:
     logger.warning("Database url not set. Database operations will not work")
 
 
-# metric functions
-# each function is run at each forecasted value
-# each function must take samples_values, observation, and evaluation_results
-# NOTE: evaluation_results is provided in order to provide greater context of all forecast samples and observed values
-# TODO: passing evaluation_results is a bit hacky, not always needed, and not very clean (need a better approach)
-# TODO: move below to separate metrics file
-# TODO: probably also move to classes and more flexible
-
-
 class SessionWrapper:
     """
     This is a wrapper around data access operations.
