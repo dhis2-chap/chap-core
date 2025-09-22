@@ -45,7 +45,7 @@ class MetricBase:
     def get_metric(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         out = self.compute(observations, forecasts)
 
-        expected = [*(d.value for d in self.spec.group_by), self.spec.metric_name]
+        expected = [*(d.value for d in self.spec.group_by), "metric"]
         missing = [c for c in expected if c not in out.columns]
         extra = [c for c in out.columns if c not in expected]
         if missing or extra:
@@ -64,7 +64,7 @@ class MetricBase:
         for d in self.spec.group_by:
             dtype, chk = DIM_REGISTRY[d]
             cols[d.value] = pa.Column(dtype, chk) if chk else pa.Column(dtype)
-        cols[self.spec.metric_name] = pa.Column(float)
+        cols["metric"] = pa.Column(float)
         return pa.DataFrameSchema(cols, strict=True, coerce=True)
 
     def get_name(self) -> str:
@@ -89,7 +89,7 @@ class RMSE(MetricBase):
     Groups by location to give RMSE per location across all time periods and horizons.
     """
 
-    spec = MetricSpec(group_by=(DataDimension.location,))
+    spec = MetricSpec(group_by=(DataDimension.location,), metric_name="RMSE")
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         # Merge observations with forecasts on location and time_period
@@ -119,7 +119,7 @@ class MAE(MetricBase):
     Groups by location and horizon_distance to show error patterns across forecast horizons.
     """
 
-    spec = MetricSpec(group_by=(DataDimension.location, DataDimension.horizon_distance))
+    spec = MetricSpec(group_by=(DataDimension.location, DataDimension.horizon_distance), metric_name="MAE")
 
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
         # Merge observations with forecasts
@@ -150,7 +150,7 @@ class DetailedRMSE(MetricBase):
     This provides the highest resolution view of model performance.
     """
 
-    spec = MetricSpec(group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance))
+    spec = MetricSpec(group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance), metric_name="RMSE")
 
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
         # Merge observations with forecasts on location and time_period
@@ -182,6 +182,7 @@ class DetailedCRPS(MetricBase):
 
     spec = MetricSpec(
         group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        metric_name="CRPS",
         metric_id="detailed_crps",
         description="CRPS per location, time period and horizon",
     )
@@ -220,7 +221,7 @@ class CRPSPerLocation(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location,), metric_id="crps_per_location", description="Average CRPS per location"
+        group_by=(DataDimension.location,), metric_name="CRPS", metric_id="crps_per_location", description="Average CRPS per location"
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
@@ -240,7 +241,7 @@ class CRPS(MetricBase):
     Gives one CRPS value across all locations, time periods and horizons.
     """
 
-    spec = MetricSpec(group_by=(), metric_id="crps", description="Overall CRPS across entire dataset")
+    spec = MetricSpec(group_by=(), metric_name="CRPS", metric_id="crps", description="Overall CRPS across entire dataset")
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         # First compute CRPS per location
@@ -262,6 +263,7 @@ class DetailedCRPSNorm(MetricBase):
 
     spec = MetricSpec(
         group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        metric_name="CRPS Normalized",
         metric_id="detailed_crps_norm",
         description="Normalized CRPS per location, time period and horizon",
     )
@@ -294,7 +296,7 @@ class CRPSNorm(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location,), metric_id="crps_norm", description="Average normalized CRPS per location"
+        group_by=(DataDimension.location,), metric_name="CRPS Normalized", metric_id="crps_norm", description="Average normalized CRPS per location"
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
@@ -317,6 +319,7 @@ class IsWithin10th90thDetailed(MetricBase):
 
     spec = MetricSpec(
         group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        metric_name="Within 10-90 Percentile",
         metric_id="is_within_10th_90th_detailed",
         description="Binary indicator if observation is within 10th-90th percentile per location, time period and horizon",
     )
@@ -361,6 +364,7 @@ class IsWithin25th75thDetailed(MetricBase):
 
     spec = MetricSpec(
         group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        metric_name="Within 25-75 Percentile",
         metric_id="is_within_25th_75th_detailed",
         description="Binary indicator if observation is within 25th-75th percentile per location, time period and horizon",
     )
@@ -404,6 +408,7 @@ class RatioWithin10th90thPerLocation(MetricBase):
 
     spec = MetricSpec(
         group_by=(DataDimension.location,),
+        metric_name="Ratio Within 10-90 Percentile",
         metric_id="ratio_within_10th_90th_per_location",
         description="Ratio of observations within 10th-90th percentile per location",
     )
@@ -427,6 +432,7 @@ class RatioWithin10th90th(MetricBase):
 
     spec = MetricSpec(
         group_by=(),
+        metric_name="Ratio Within 10-90 Percentile",
         metric_id="ratio_within_10th_90th",
         description="Overall ratio of observations within 10th-90th percentile",
     )
@@ -450,6 +456,7 @@ class RatioWithin25th75thPerLocation(MetricBase):
 
     spec = MetricSpec(
         group_by=(DataDimension.location,),
+        metric_name="Ratio Within 25-75 Percentile",
         metric_id="ratio_within_25th_75th_per_location",
         description="Ratio of observations within 25th-75th percentile per location",
     )
@@ -473,6 +480,7 @@ class RatioWithin25th75th(MetricBase):
 
     spec = MetricSpec(
         group_by=(),
+        metric_name="Ratio Within 25-75 Percentile",
         metric_id="ratio_within_25th_75th",
         description="Overall ratio of observations within 25th-75th percentile",
     )
@@ -497,6 +505,7 @@ class TestMetricDetailed(MetricBase):
 
     spec = MetricSpec(
         group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        metric_name="Sample Count",
         metric_id="test_sample_count_detailed",
         description="Number of forecast samples per location, time period and horizon",
     )
@@ -522,7 +531,7 @@ class TestMetric(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(), metric_id="test_sample_count", description="Total number of forecast samples in dataset"
+        group_by=(), metric_name="Sample Count", metric_id="test_sample_count", description="Total number of forecast samples in dataset"
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
@@ -551,6 +560,11 @@ available_metrics: dict[str, MetricBase] = {
 }
 
 
+#metric_suites = { 
+#   "malaria_standard": ["rmse", "mae", "crps", "crps_norm", "ratio_within_10th_90th"],
+#}
+
+
 def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str, float]:
     relevant_metrics = {id: metric for id, metric in available_metrics.items() if metric().is_full_aggregate()}
     logger.info(f"Relevant metrics for aggregation: {relevant_metrics.keys()}")
@@ -567,6 +581,6 @@ def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str
             raise ValueError(
                 f"Metric {id} was expected to return a single aggregated value, but got {len(metric_df)} rows."
             )
-        results[id] = float(metric_df[metric.spec.metric_name].iloc[0])
+        results[id] = float(metric_df["metric"].iloc[0])
 
     return results
