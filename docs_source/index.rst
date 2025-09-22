@@ -1,42 +1,17 @@
 The Chap Modeling Platform
 ==============================================================
+Chap is a Climate & Health Modeling Platform that brings together disease forecasting models into a unified ecosystem, connecting researchers with cutting-edge epidimiological models to policy makers and health practitioners. It makes complex modeling workflows accessible to users, automates rigorous model evaluation, provides a broad range of generic convenience functionality available to modellers, and integrates directly with DHIS2, the world's leading health information system.
 
-The Chap Modeling Platform is a platform for forecasting and for assessing forecasts of climate-sensitive health outcomes.
-In the early phase, the focus is on vector-borne diseases like malaria and dengue.
+We here provide technical documentation tailored to:
 
-The platform can perform data parsing, data integration, forecasting based on any of
-multiple supported models, automatic brokering of compatible models for a given prediction context and robust forecast assessment and method comparison.
+* `Model developers <external_models/index.rst>`_
+* `Platform contributors <aa>`_
+* `System administrators wanting to set up Chap with connections to DHIS2 and the Modeling App <aa>`_
 
-**Chap Core** is the name of the `backend service <https://github.com/dhis2-chap/chap-core>`_ and the `Python package <https://pypi.org/project/chap-core/>`_ in the Chap Modeling Platform. This website contains documentation about how to use Chap Core for **modelers**, **contributors**, **developers**, and **system administrators wanting to use Chap with DHIS2/Modeling App**. For more general information about the Chap project, we refer you to `the Chap Modelling Platform wiki <https://github.com/dhis2-chap/chap-core/wiki>`_. 
+For more general information about the Chap project, we refer you to `the Chap Modelling Platform wiki <https://github.com/dhis2-chap/chap-core/wiki>`_.
 
+A full listing of the documentation is available `here <full_listing.rst>`_.
 
-
-Depending on who you are, you can go these subpages in the documentation:
-
-
-Wanting to use the modeling app with chap on a dhis2 instance
---------------------------------------------------------------
-TODO
-
-A model developer developing a model from scratch
---------------------------------------------------------------
-TODO
-
-
-
-
-
-.. toctree::
-   :glob:
-   :maxdepth: 1
-   :caption: Contents
-
-   modeling-app/index
-   external_models/index
-   chap-cli/index
-   contributor/index
-   webapi/index
-   changelog
 
 
 

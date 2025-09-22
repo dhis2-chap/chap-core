@@ -1,5 +1,7 @@
-# Running models with examples
-When running external models from the command line interface of a local CHAP setup, chap evaluate needs a few arguments. The following commands can be used to run some implemented external models on datasets internally in CHAP.  Note that this might fail for Windows users. The general syntax is to state the argument name(which starts with "--"), and then the actual value aften an empty space, for instance --dataset-name followed by ISIMIP_dengue_harmonized. If you want a different name for the produced report simply change report.pdf. All the code for the models can be found at the url referenced in the commands.
+# Examples of chap evaluate commands
+
+The following are examples of running various chap-integrated models on various datasets:
+
 * minimalist_example_r: 
 `chap evaluate --model-name https://github.com/dhis2-chap/minimalist_example_r --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --report-filename report.pdf --debug --n-splits=2`
 * minimalist_multiregion_r: 
