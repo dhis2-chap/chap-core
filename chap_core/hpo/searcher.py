@@ -1,6 +1,5 @@
 from typing import Any, Optional
 import itertools
-from .base import ObjectiveResult
 import random
 
 import optuna

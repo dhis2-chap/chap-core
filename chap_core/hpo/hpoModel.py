@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 from idlelib.debugobj import ObjectTreeItem
+=======
+>>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
 from typing import Literal, Optional, Any, Tuple, Callable
 import yaml
 
@@ -8,8 +11,15 @@ from chap_core.file_io.example_data_set import DataSetType
 
 from .hpoModelInterface import HpoModelInterface
 from .searcher import Searcher
+<<<<<<< HEAD
 from .base import dedup, write_yaml
 Direction = Literal["maximize", "minimize"]
+=======
+from .base import dedup, write_yaml 
+
+Direction = Literal["maximize", "minimize"]
+
+>>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
 import logging
 
 logger = logging.getLogger()
@@ -20,17 +30,28 @@ class HpoModel(HpoModelInterface):
     def __init__(
             self, 
             searcher: Searcher, 
+<<<<<<< HEAD
             objective: 'Objective',
+=======
+            objective: callable, 
+>>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
             direction: Direction = "minimize", 
             model_configuration_yaml: Optional[str] = None,
     ):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
+<<<<<<< HEAD
 
         self._searcher = searcher
         self._objective = objective
         self._direction = direction
         self._model_configuration_yaml = model_configuration_yaml #TODO: this should a parsed dict
+=======
+        self._searcher = searcher
+        self._objective = objective
+        self._direction = direction
+        self._model_configuration_yaml = model_configuration_yaml
+>>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
     
     def train(self, dataset: Optional[DataSetType],) -> Tuple[str, dict[str, Any]]:
         """
@@ -64,12 +85,18 @@ class HpoModel(HpoModelInterface):
             params = self._searcher.ask()
             if params is None:
                 break 
+<<<<<<< HEAD
 
 
             config = base_configs.copy()
             config["user_option_values"] = params
 
             # Maybe best to seperate hpo_config and other configs in two files ??
+=======
+            config = base_configs.copy()
+            config["user_option_values"] = params
+
+>>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
             score = self._objective(config, dataset)
             self._searcher.tell(params, score)
 
