@@ -10,11 +10,16 @@ We here provide technical documentation tailored to:
 
 For more general information about the Chap project, we refer you to `the Chap Modelling Platform wiki <https://github.com/dhis2-chap/chap-core/wiki>`_.
 
-A full listing of the documentation is available `here <full_listing.rst>`_.
+.. toctree::
+   :glob:
+   :maxdepth: 1
+   :caption: Contents
 
-
-
-
-
+   modeling-app/index
+   external_models/index
+   chap-cli/index
+   contributor/index
+   webapi/index
+   changelog
 
 

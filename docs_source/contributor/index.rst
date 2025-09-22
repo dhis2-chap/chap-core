@@ -14,3 +14,4 @@ Contributor guide
    testing
    writing_building_documentation
    r_docker_image
+   development_tools
