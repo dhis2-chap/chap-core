@@ -43,7 +43,7 @@ After following any of the guides above, you should have a DHIS2 instance runnin
 
 - Go to that url in your webbrowser and log in.
 - First install the `App Management` app, then install the app called `Modeling` through the App Hub.
-- In the Modeling app, you will be told to put in an url to Chap. Since DHIS2 runs through a Docker container, you will need to put in an IP to your local computer. This ip can be found by running `ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}'` in your terminal (you may have to install ifconfig). Put `http://` before that IP and `:8000/**` after, e.g. `http://172.18.0.1:8000/**`.
+- In the Modeling app, you will be told to put in an url to Chap. The following url should work: `http://host.docker.internal:8000/**`.
 
 ### Code guidelines
 
