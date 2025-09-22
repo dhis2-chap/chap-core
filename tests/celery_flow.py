@@ -3,6 +3,7 @@ This is meant to be a standalone python file for testing the flow with docker co
 
 This file should be possible to run without chap installed, only with the necessary requirements
 """
+
 import json
 import time
 
@@ -12,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-hostname = 'chap'
+hostname = "chap"
 chap_url = "http://%s:8000" % hostname
 
 

@@ -1,9 +1,22 @@
+# BASE IMAGE: Preconfigured R and INLA setup
 FROM ghcr.io/dhis2-chap/docker_r_inla:master
 
-# Copy uv binary from official image
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
+
+# Use copy mode for mounted volumes (avoids symlink issues in Docker)
+ENV UV_LINK_MODE=copy
+
+# Copy uv binary from official source image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-RUN apt-get update && apt-get install -y \
+# Create non-root user 'chap' and prepare /app directory
+RUN useradd -m -s /bin/bash chap && \
+    mkdir -p /app && chown -R chap:chap /app
+
+# Install system dependencies (in one efficient layer)
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     git \
@@ -16,29 +29,43 @@ RUN apt-get update && apt-get install -y \
     libsqlite3-dev \
     make \
     build-essential \
-    zlib1g-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    zlib1g-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install pyenv and use .python-version to control Python version
+# Set pyenv environment variables
 ENV PYENV_ROOT=/pyenv
 ENV PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+
+# Install pyenv
 RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT
 
-# Copy version file before installing Python (so we can use it)
+# Copy Python version file and install specific Python version
 COPY .python-version ./.python-version
-
-# Install specific Python version using pyenv
 RUN pyenv install --skip-existing "$(cat .python-version)" && \
     pyenv global "$(cat .python-version)"
 
 # Set working directory
 WORKDIR /app
 
-# Copy project files
+# Copy project files and assign ownership to 'chap'
+COPY ./pyproject.toml .
+COPY ./uv.lock .
+COPY ./.python-version .python-version
 COPY ./chap_core ./chap_core
 COPY ./config ./config
-COPY ./pyproject.toml ./pyproject.toml
-COPY ./README.md ./README.md
+COPY ./README.md .
 
-RUN uv sync
+# Install only production dependencies
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+# Switch to non-root user
+# skipping chown because slow
+RUN mkdir /app/logs
+RUN chown -R chap:chap /app/logs
+# RUN chown -R chap:chap /app/*
+RUN chown -R chap:chap /pyenv
+USER chap
+
+# Ensure local venv tools are prioritized
+ENV PATH="/app/.venv/bin:$PATH"

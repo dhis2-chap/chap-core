@@ -57,10 +57,7 @@ def get_month(s):
 def get_data(filename: Path):
     data = pd.read_csv(filename, sep="\t", header=1)
     data["period_string"] = data["periodname"]
-    data["periodname"] = [
-        get_date(s.strip().split()[0], int(s.strip().split()[-1]))
-        for s in data["periodname"]
-    ]
+    data["periodname"] = [get_date(s.strip().split()[0], int(s.strip().split()[-1])) for s in data["periodname"]]
     data = data.sort_values(by="periodname")
     data = data.iloc[:-2]  # remove november, december 2023
     return data
@@ -71,9 +68,7 @@ def messy_standardization_function(filename: Path, geolocator):
     month = [get_month(s) for s in data["period_string"]]
     print(month[0].month, month[-1].month)
     time_period = period_range(month[0], month[-1], exclusive_end=False)
-    data_dict = {
-        get_city_name(c): HealthData(time_period, data[c]) for c in data.columns[1:]
-    }
+    data_dict = {get_city_name(c): HealthData(time_period, data[c]) for c in data.columns[1:]}
     from chap_core._legacy_dataset import SpatioTemporalDict
 
     return SpatioTemporalDict(data_dict)
@@ -87,9 +82,7 @@ def link_up_geo_data(data: DataSet[HealthData], geolocator):
         if location is None:
             print("Could not geocode", city)
             continue
-        climate_data = climate_database.get_data(
-            location, health_data.time_period[0], health_data.time_period[-1]
-        )
+        climate_data = climate_database.get_data(location, health_data.time_period[0], health_data.time_period[-1])
         full_data[city] = ClimateHealthData.combine(health_data, climate_data)
     return DataSet(full_data)
 

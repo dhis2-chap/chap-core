@@ -1,9 +1,9 @@
 import pytest
 from sqlmodel import Session
 
-from chap_core.rest_api_src.v1.rest_api import app
-from chap_core.rest_api_src.v1.routers.dependencies import get_session, get_database_url, get_settings
-from chap_core.rest_api_src.worker_functions import WorkerConfig
+from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.v1.routers.dependencies import get_database_url, get_session, get_settings
+from chap_core.rest_api.worker_functions import WorkerConfig
 
 
 @pytest.fixture
@@ -17,3 +17,4 @@ def dependency_overrides(clean_engine):
     app.dependency_overrides[get_settings] = lambda: WorkerConfig(is_test=True)
     yield
     app.dependency_overrides.clear()
+

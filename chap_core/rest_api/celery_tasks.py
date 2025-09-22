@@ -124,13 +124,29 @@ class TrackedTask(Task):
         print("success!")
         # start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
         # duration = time.time() - start
+        print(retval)
+        try:
+            retval = json.dumps(retval)
+        except TypeError:
+            logger.error("RETVAL: Could not serialize return value to JSON")
+            logger.error(str(retval))
+            r.hmset(
+                f"job_meta:{task_id}",
+                {
+                    "status": "FAILURE",
+                    # "duration": duration,
+                    "error": "Could not serialize return value to JSON",
+                    "end_time": datetime.now().isoformat(),
+                },
+            )
+            raise Exception("Could not serialize return value to JSON. Return value is:" + str(retval))
 
         r.hmset(
             f"job_meta:{task_id}",
             {
                 "status": "SUCCESS",
                 # "duration": duration,
-                "result": json.dumps(retval),
+                "result": retval,
                 "end_time": datetime.now().isoformat(),
             },
         )
@@ -210,7 +226,7 @@ class CeleryJob(Generic[ReturnType]):
 
     def cancel(self):
         self._result.revoke(terminate=True)
-        
+
         # Update Redis metadata to reflect the cancellation
         r.hmset(
             f"job_meta:{self._job.id}",

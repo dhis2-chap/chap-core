@@ -14,7 +14,72 @@ from chap_core.time_period.date_util_wrapper import TimePeriod, Month
 logger = logging.getLogger(__name__)
 
 
-class ExternalModel(ConfiguredModel):
+class ExternalModelBase(ConfiguredModel):
+    """
+    A base class for external models that provides some utility methods"""
+
+    def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency="M"):
+        if self._location_mapping is not None:
+            data["location"] = data["location"].apply(self._location_mapping.name_to_index)
+        if self._adapters is None:
+            return data
+        adapters = self._adapters
+        logger.info(f"Adapting data with columns {data.columns.tolist()} using adapters {adapters}")
+        if inverse:
+            adapters = {v: k for k, v in adapters.items()}
+            # data['disease_cases'] = data[adapters['disase_cases']]
+            return data
+
+        for to_name, from_name in adapters.items():
+            # ignore if the column is not present
+            if from_name == "disease_cases" and "disease_cases" not in data.columns:
+                continue
+
+            if from_name == "week":
+                if frequency == "W":
+                    logger.info("Converting time period to week number")
+                    if hasattr(data["time_period"], "dt"):
+                        new_val = data["time_period"].dt.week
+                        data[to_name] = new_val
+                    else:
+                        data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
+
+            elif from_name == "month":
+                if frequency == "M":
+                    logger.info("Converting time period to month number")
+
+                    if hasattr(data["time_period"], "dt"):
+                        data[to_name] = data["time_period"].dt.month
+                    else:
+                        data[to_name] = [int(str(p).split("-")[-1]) for p in data["time_period"]]
+
+            elif from_name == "year":
+                logger.info("Converting time period to year")
+                if hasattr(data["time_period"], "dt"):
+                    data[to_name] = data["time_period"].dt.year
+                else:
+                    data[to_name] = [
+                        int(str(p).split("W")[0]) for p in data["time_period"]
+                    ]  # data['time_period'].dt.year
+            else:
+                data[to_name] = data[from_name]
+        logger.info(f"Adapted data to columns {data.columns.tolist()}")
+        return data
+
+    def _write_polygons_to_geojson(self, dataset: DataSet, out_file_name):
+        if dataset.polygons is not None:
+            logging.info(f"Writing polygons to {out_file_name}")
+            Polygons(dataset.polygons).to_file(out_file_name)
+
+    def _get_frequency(self, train_data):
+        frequency = "M" if isinstance(train_data.period_range[0], Month) else "W"
+        return frequency
+
+    def __call__(self):
+        return self
+
+
+class ExternalModel(ExternalModelBase):
     """
     An ExternalModel is a specififc implementation of a ConfiguredModel that represents
     a model that is "external" in the sense that it needs to be run through a runner (e.g. a DockerRunner).
@@ -49,9 +114,6 @@ class ExternalModel(ConfiguredModel):
     def name(self):
         return self._name
 
-    def __call__(self):
-        return self
-
     @property
     def configuration(self):
         return self._configuration
@@ -63,11 +125,6 @@ class ExternalModel(ConfiguredModel):
     @property
     def optional_fields(self):
         return self._optional_fields
-
-    def _write_polygons_to_geojson(self, dataset: DataSet, out_file_name):
-        if dataset.polygons is not None:
-            logging.info(f"Writing polygons to {out_file_name}")
-            Polygons(dataset.polygons).to_file(out_file_name)
 
     def train(self, train_data: DataSet, extra_args=None):
         """
@@ -92,7 +149,7 @@ class ExternalModel(ConfiguredModel):
 
         frequency = self._get_frequency(train_data)
         pd = train_data.to_pandas()
-        new_pd = self._adapt_data(pd,frequency=frequency)
+        new_pd = self._adapt_data(pd, frequency=frequency)
         new_pd.to_csv(train_file_name_full)
 
         yaml.dump(self._configuration, open(self._config_filename, "w"))
@@ -106,59 +163,6 @@ class ExternalModel(ConfiguredModel):
             logger.error("Error training model, command failed")
             raise ModelFailedException(str(e)) from e
         return self
-
-    def _get_frequency(self, train_data):
-        frequency = 'M' if isinstance(train_data.period_range[0], Month) else 'W'
-        return frequency
-
-    def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency='M'):
-        if self._location_mapping is not None:
-            data["location"] = data["location"].apply(self._location_mapping.name_to_index)
-        if self._adapters is None:
-            return data
-        adapters = self._adapters
-        logger.info(f'Adapting data with columns {data.columns.tolist()} using adapters {adapters}')
-        if inverse:
-            adapters = {v: k for k, v in adapters.items()}
-            # data['disease_cases'] = data[adapters['disase_cases']]
-            return data
-
-        for to_name, from_name in adapters.items():
-            # ignore if the column is not present
-            if from_name == "disease_cases" and "disease_cases" not in data.columns:
-                continue
-
-            if from_name == "week":
-                if frequency == 'W':
-                    logger.info("Converting time period to week number")
-                    if hasattr(data["time_period"], "dt"):
-                        new_val = data["time_period"].dt.week
-                        data[to_name] = new_val
-                    else:
-                        data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
-
-
-            elif from_name == "month":
-                if frequency == 'M':
-                    logger.info("Converting time period to month number")
-                
-                    if hasattr(data["time_period"], "dt"):
-                        data[to_name] = data["time_period"].dt.month
-                    else:
-                        data[to_name] = [int(str(p).split("-")[-1]) for p in data["time_period"]]
-
-            elif from_name == "year":
-                logger.info("Converting time period to year")
-                if hasattr(data["time_period"], "dt"):
-                    data[to_name] = data["time_period"].dt.year
-                else:
-                    data[to_name] = [
-                        int(str(p).split("W")[0]) for p in data["time_period"]
-                    ]  # data['time_period'].dt.year
-            else:
-                data[to_name] = data[from_name]
-        logger.info(f"Adapted data to columns {data.columns.tolist()}")
-        return data
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         logging.info("Running predict")

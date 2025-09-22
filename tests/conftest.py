@@ -1,33 +1,31 @@
 import json
+import logging
 import os
 import shutil
-import logging
-from unittest.mock import patch
 from pathlib import Path
-import numpy as np
-import pytest
-from sqlalchemy import create_engine
-from sqlmodel import SQLModel
-from chap_core.api_types import RequestV1
-from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_tables import ObservationBase, DataSet
-from chap_core.database.model_spec_tables import get_available_models, seed_with_session_wrapper
-from chap_core.database.tables import *
-import pandas as pd
-
-from chap_core.datatypes import HealthPopulationData, SimpleClimateData
-from chap_core.geometry import Polygons
-from chap_core.rest_api_src.data_models import FetchRequest
-from chap_core.rest_api_src.v1.routers.crud import DatasetCreate, PredictionCreate
-from chap_core.rest_api_src.v1.routers.analytics import MakePredictionRequest
-from chap_core.rest_api_src.worker_functions import WorkerConfig
-from chap_core.services.cache_manager import get_cache
-from chap_core import util
-from .data_fixtures import *
+from unittest.mock import patch
 
 # ignore showing plots in tests
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
+from sqlalchemy import create_engine
+from sqlmodel import SQLModel
+
+from chap_core import util
+from chap_core.api_types import RequestV1
+from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.database.dataset_tables import DataSet, ObservationBase
+from chap_core.database.tables import *
+from chap_core.datatypes import HealthPopulationData, SimpleClimateData
+from chap_core.geometry import Polygons
+from chap_core.rest_api.data_models import FetchRequest
+from chap_core.rest_api.v1.routers.crud import DatasetCreate, PredictionCreate
+from chap_core.rest_api.worker_functions import WorkerConfig
+from chap_core.services.cache_manager import get_cache
+
+from .data_fixtures import *
 
 # Don't use pytest-celery if on windows
 IS_WINDOWS = os.name == "nt"
@@ -36,7 +34,7 @@ IS_WINDOWS = os.name == "nt"
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def redis_available():
     if not util.redis_available():
         pytest.skip("Redis not available")
@@ -45,31 +43,31 @@ def redis_available():
 pytest_plugins = ("celery.contrib.pytest",)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def celery_config(database_url):
-    '''Overrides the default redis broker for all celery worker tests based on env vars'''
+    """Overrides the default redis broker for all celery worker tests based on env vars"""
     logger.debug(f"Using celery database_url: {database_url}")
-    host = os.getenv("REDIS_HOST", "localhost") # default to localhost for backwards compatibility
+    host = os.getenv("REDIS_HOST", "localhost")  # default to localhost for backwards compatibility
     port = os.getenv("REDIS_PORT", "6379")
-    logger.debug(f'Using redis host: {host}:{port}')
+    logger.debug(f"Using redis host: {host}:{port}")
     return {
-        "broker_url": f"redis://{host}:{port}", #/0",
-        "result_backend": f"redis://{host}:{port}", #/1",
-        'task_serializer': 'pickle',
-        'accept_content': ['pickle'],
-        'result_serializer': 'pickle',
-        'database_url': database_url,
+        "broker_url": f"redis://{host}:{port}",  # /0",
+        "result_backend": f"redis://{host}:{port}",  # /1",
+        "task_serializer": "pickle",
+        "accept_content": ["pickle"],
+        "result_serializer": "pickle",
+        "database_url": database_url,
     }
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def celery_session_worker(redis_available, celery_session_worker):
     return celery_session_worker
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def celery_worker_pool():
-    return 'prefork'
+    return "prefork"
 
 
 # if not IS_WINDOWS:
@@ -83,9 +81,7 @@ plt.ion()
 
 
 def pytest_addoption(parser):
-    parser.addoption(
-        "--run-slow", action="store_true", default=False, help="Run slow tests"
-    )
+    parser.addoption("--run-slow", action="store_true", default=False, help="Run slow tests")
 
 
 def pytest_configure(config):
@@ -119,7 +115,7 @@ def models_path():
 
 @pytest.fixture
 def local_data_path():
-    path = Path('/home/knut/Data/ch_data/')
+    path = Path("/home/knut/Data/ch_data/")
     if not path.exists():
         pytest.skip("Data path does not exist")
     return path
@@ -156,20 +152,18 @@ def weekly_full_data(nicaragua_path):
     file_name = nicaragua_path
     return DataSet.from_pandas(pd.read_csv(file_name), FullData)
 
+
 @pytest.fixture
 def dumped_weekly_data_paths(weekly_full_data, tmp_path):
-    train, tests = train_test_generator(weekly_full_data,
-                                        prediction_length=12)
-    training_path = tmp_path / 'training_data.csv'
+    train, tests = train_test_generator(weekly_full_data, prediction_length=12)
+    training_path = tmp_path / "training_data.csv"
     train.to_csv(training_path)
     historic, masked, _ = next(tests)
-    historic_path = tmp_path / 'historic_data.csv'
+    historic_path = tmp_path / "historic_data.csv"
     historic.to_csv(historic_path)
-    future_path = tmp_path / 'future_data.csv'
+    future_path = tmp_path / "future_data.csv"
     masked.to_csv(future_path)
     return training_path, historic_path, future_path
-
-
 
 
 @pytest.fixture()
@@ -184,7 +178,7 @@ def google_earth_engine():
 
 @pytest.fixture()
 def mocked_gee(gee_mock):
-    with patch('chap_core.rest_api_src.worker_functions.Era5LandGoogleEarthEngine', gee_mock):
+    with patch("chap_core.rest_api.worker_functions.Era5LandGoogleEarthEngine", gee_mock):
         yield
 
 
@@ -214,7 +208,7 @@ def laos_request(local_data_path):
     with open(filepath, "r") as f:
         text = f.read()
     dicts = json.loads(text)
-    dicts['estimator_id'] = 'naive_model'
+    dicts["estimator_id"] = "naive_model"
     return json.dumps(dicts)
 
 
@@ -224,7 +218,7 @@ def laos_request_2(local_data_path):
     with open(filepath, "r") as f:
         text = f.read()
     dicts = json.loads(text)
-    dicts['estimator_id'] = 'naive_model'
+    dicts["estimator_id"] = "naive_model"
     return json.dumps(dicts)
 
 
@@ -234,20 +228,28 @@ def laos_request_3(local_data_path):
     with open(filepath, "r") as f:
         text = f.read()
     dicts = json.loads(text)
-    dicts['estimator_id'] = 'naive_model'
+    dicts["estimator_id"] = "naive_model"
     return json.dumps(dicts)
 
 
 @pytest.fixture
 def dataset_create(big_request_json):
     data = RequestV1.model_validate_json(big_request_json)
-    return DatasetCreate(name='test',
-                         type='evaluation',
-                         geojson=data.orgUnitsGeoJson.model_dump(),
-                         observations=[ObservationBase(
-                             feature_name=f.featureId if f.featureId != 'diseases' else 'disease_cases',
-                             period=d.pe, orgUnit=d.ou,
-                             value=d.value) for f in data.features for d in f.data])
+    return DatasetCreate(
+        name="test",
+        type="evaluation",
+        geojson=data.orgUnitsGeoJson.model_dump(),
+        observations=[
+            ObservationBase(
+                feature_name=f.featureId if f.featureId != "diseases" else "disease_cases",
+                period=d.pe,
+                orgUnit=d.ou,
+                value=d.value,
+            )
+            for f in data.features
+            for d in f.data
+        ],
+    )
 
 
 @pytest.fixture()
@@ -257,9 +259,7 @@ def example_polygons(data_path):
 
 @pytest.fixture
 def make_prediction_request(dataset_create):
-    return PredictionCreate(model_id='naive_model',
-                            metaData={'test': 'test2'},
-                            **dataset_create.dict())
+    return PredictionCreate(model_id="naive_model", metaData={"test": "test2"}, **dataset_create.dict())
 
 
 # @pytest.fixture
@@ -267,7 +267,7 @@ def make_prediction_request(dataset_create):
 #     app = Celery(
 #         broker="memory://",
 #         backend="cache+memory://",
-#         include=['chap_core.rest_api_src.celery_tasks']
+#         include=['chap_core.rest_api.celery_tasks']
 #     )
 #     #app.conf.task_always_eager = True  # Run tasks synchronously
 #     #app.conf.result_backend = "cache+memory://"
@@ -280,30 +280,32 @@ def make_prediction_request(dataset_create):
 #     )
 #     return app
 
+
 class GEEMock:
-    def __init__(self, *args, **kwargs):
-        ...
+    def __init__(self, *args, **kwargs): ...
 
     def get_historical_era5(self, features, periodes, fetch_requests: Optional[List[FetchRequest]] = None):
-        locations = [f['id'] for f in features['features']]
-        return DataSet({location:
-                            SimpleClimateData(periodes, np.random.rand(len(periodes)),
-                                              np.random.rand(len(periodes)))
-                        for location in locations})
+        locations = [f["id"] for f in features["features"]]
+        return DataSet(
+            {
+                location: SimpleClimateData(periodes, np.random.rand(len(periodes)), np.random.rand(len(periodes)))
+                for location in locations
+            }
+        )
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def database_url():
+    # todo: fix tmp path
     cur_dir = Path(__file__).parent
-    return f'sqlite:///{cur_dir}/test.db'
+    return f"sqlite:///{cur_dir}/test.db"
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def clean_engine(database_url):
-    # TODO: rename clean_engine_with_models? 
-    # TODO: maybe use the on_startup function instead of manually setting up things? 
-    engine = create_engine(database_url,
-                           connect_args={"check_same_thread": False})
+    # TODO: rename clean_engine_with_models?
+    # TODO: maybe use the on_startup function instead of manually setting up things?
+    engine = create_engine(database_url, connect_args={"check_same_thread": False})
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
     # old model seeding
@@ -311,13 +313,15 @@ def clean_engine(database_url):
     # with SessionWrapper(engine) as session:
     #     seed_with_session_wrapper(session)
     # new model seeding
-    # from chap_core.database.model_template_seed import seed_configured_models        
+    # from chap_core.database.model_template_seed import seed_configured_models
     # from sqlmodel import Session
     # with Session(engine) as session:
     #     seed_configured_models(session)
     # newest model seeding
-    from chap_core.database.model_template_seed import seed_configured_models_from_config_dir
     from sqlmodel import Session
+
+    from chap_core.database.model_template_seed import seed_configured_models_from_config_dir
+
     with Session(engine) as session:
         seed_configured_models_from_config_dir(session)
     return engine

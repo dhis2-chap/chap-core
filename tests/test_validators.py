@@ -9,40 +9,42 @@ from chap_core.validators import validate_training_data
 
 @pytest.fixture
 def small_training_data_months():
-    period_range = PeriodRange.from_strings(['2020-01', '2020-02'])
+    period_range = PeriodRange.from_strings(["2020-01", "2020-02"])
     return zero_data(period_range)
 
 
 @pytest.fixture
 def small_training_data_weeks():
-    period_range = PeriodRange.from_strings(['2020W01', '2020W02'])
+    period_range = PeriodRange.from_strings(["2020W01", "2020W02"])
     return zero_data(period_range)
 
 
 def zero_data(period_range):
-    data = FullData(period_range,
-                    np.zeros(len(period_range)),
-                    np.zeros(len(period_range)),
-                    np.zeros(len(period_range)),
-                    np.zeros(len(period_range)))
-    return DataSet({'location1': data})
+    data = FullData(
+        period_range,
+        np.zeros(len(period_range)),
+        np.zeros(len(period_range)),
+        np.zeros(len(period_range)),
+        np.zeros(len(period_range)),
+    )
+    return DataSet({"location1": data})
 
 
 @pytest.fixture()
 def big_training_data_months():
-    period_range = PeriodRange.from_start_and_n_periods('2020-01', 24)
+    period_range = PeriodRange.from_start_and_n_periods("2020-01", 24)
     return zero_data(period_range)
 
 
 @pytest.fixture()
 def just_too_small_months():
-    period_range = PeriodRange.from_start_and_n_periods('2020-01', 23)
+    period_range = PeriodRange.from_start_and_n_periods("2020-01", 23)
     return zero_data(period_range)
 
 
 @pytest.fixture()
 def just_too_small_weeks():
-    period_range = PeriodRange.from_start_and_n_periods('2020W03', 103)
+    period_range = PeriodRange.from_start_and_n_periods("2020W03", 103)
     return zero_data(period_range)
 
 

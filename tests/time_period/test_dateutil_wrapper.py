@@ -113,17 +113,20 @@ def test_from_id(period1):
 def period_range(period1, period3):
     return PeriodRange.from_time_periods(start_period=period1, end_period=period3)
 
+
 @pytest.fixture()
 def weekly_period_range():
     start_period = Week(2020, 1)
     end_period = Week(2020, 3)
     return PeriodRange.from_time_periods(start_period=start_period, end_period=end_period)
 
+
 def test_weekly_to_pandas(weekly_period_range):
     df = weekly_period_range.topandas()
     print(df)
     pr = PeriodRange.from_pandas(df)
     assert all(pr == weekly_period_range)
+
 
 def test_period_range(period_range):
     assert len(period_range) == 14
@@ -200,9 +203,7 @@ def test_topandas(period_range):
 
 
 def test_from_pandas(period_range):
-    series = pd.Series(
-        [pd.Period("2020-01"), pd.Period("2020-02"), pd.Period("2020-03")]
-    )
+    series = pd.Series([pd.Period("2020-01"), pd.Period("2020-02"), pd.Period("2020-03")])
     period_range = PeriodRange.from_pandas(series)
     assert len(period_range) == 3
     assert period_range[0] == Month(2020, 1)
@@ -237,12 +238,8 @@ def test_from_strings_fill_missing(periods, missing):
 def test_searchsorted(period_range, period2):
     array_comparison = np.arange(len(period_range))
     assert period_range.searchsorted(period2) == array_comparison.searchsorted(1)
-    assert period_range.searchsorted(
-        period2, side="right"
-    ) == array_comparison.searchsorted(1, side="right")
-    assert period_range.searchsorted(
-        period2, side="left"
-    ) == array_comparison.searchsorted(1, side="left")
+    assert period_range.searchsorted(period2, side="right") == array_comparison.searchsorted(1, side="right")
+    assert period_range.searchsorted(period2, side="left") == array_comparison.searchsorted(1, side="left")
 
 
 def test_from_start_and_n_periods():

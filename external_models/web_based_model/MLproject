@@ -1,0 +1,12 @@
+name: web_based_model
+
+rest_api_url: "http://localhost:8005"
+
+user_options:
+  some_option:
+    title: some_option
+    type: integer
+    default: '10'
+    description: "Some option for the model" 
+
+  

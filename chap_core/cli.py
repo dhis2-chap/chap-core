@@ -2,6 +2,7 @@
 
 import dataclasses
 import json
+import logging
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -10,34 +11,32 @@ import pandas as pd
 import yaml
 from cyclopts import App
 
+from chap_core import api
 from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
+from chap_core.assessment.prediction_evaluator import backtest as _backtest
+from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
+from chap_core.file_io.example_data_set import DataSetType, datasets
+from chap_core.geometry import Polygons
+from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import (
     get_model_from_directory_or_github_url,
     get_model_template_from_directory_or_github_url,
 )
-from chap_core.geometry import Polygons
-from chap_core.log_config import initialize_logging
+from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
+from chap_core.predictor import ModelType
 from chap_core.predictor.model_registry import registry
-
-from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist
+from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core import api
-from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
-from chap_core.predictor import ModelType
-from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
-from chap_core.assessment.prediction_evaluator import evaluate_model, backtest as _backtest
-from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
-
-import logging
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -67,7 +66,80 @@ def evaluate(
     model_configuration_yaml: Optional[str] = None,
 ):
     """
-    Evaluate a model on a dataset using forecast cross validation
+    Evaluate a model's predictive performance using time series cross-validation.
+
+    This command performs systematic evaluation of a model by training on historical data
+    and testing predictions on held-out future periods. It generates comprehensive metrics
+    and visualizations to assess model accuracy and reliability.
+
+    Parameters
+    ----------
+    model_name : str
+        Model identifier. Can be:
+        - Built-in model name (e.g., 'naive_model')
+        - Local directory path to external model
+        - GitHub URL (e.g., 'https://github.com/user/model@commit')
+        - Comma-separated list for comparing multiple models
+    dataset_name : str, optional
+        Name of built-in dataset (e.g., 'ISIMIP_dengue_harmonized', 'hydromet_5_filtered')
+        Use --dataset-csv if providing custom data
+    dataset_country : str, optional
+        Country to filter from multi-country datasets (e.g., 'vietnam', 'laos')
+    dataset_csv : Path, optional
+        Path to custom CSV dataset with columns: location, time_period, disease_cases, etc.
+    polygons_json : Path, optional
+        Path to GeoJSON file with geographic boundaries for locations
+    polygons_id_field : str, default 'id'
+        Field name in polygons JSON to match with dataset locations
+    prediction_length : int, default 6
+        Number of time periods to forecast ahead (e.g., 6 months)
+    n_splits : int, default 7
+        Number of train/test splits for cross-validation
+        More splits = more robust evaluation but longer runtime
+    report_filename : str, default 'report.pdf'
+        Output PDF file with evaluation plots and metrics
+        Also generates CSV with same name containing numerical results
+    ignore_environment : bool, default False
+        Skip environment validation for external models (for development)
+    debug : bool, default False
+        Enable debug logging for troubleshooting
+    log_file : str, optional
+        Path to log file (logs to console if not specified)
+    run_directory_type : {'latest', 'timestamp', 'use_existing'}, default 'timestamp'
+        How to handle model execution directory:
+        - 'timestamp': Create new timestamped directory
+        - 'latest': Overwrite existing directory
+        - 'use_existing': Use existing directory if available
+    model_configuration_yaml : str, optional
+        Path to YAML file with model-specific configuration parameters
+        For multiple models, provide comma-separated list of config files
+
+    Examples
+    --------
+    Basic evaluation:
+        chap evaluate --model-name naive_model --dataset-name hydromet_5_filtered
+
+    Multi-country dataset:
+        chap evaluate --model-name naive_model --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam
+
+    External model from GitHub:
+        chap evaluate --model-name https://github.com/user/dengue-model@main --dataset-name hydromet_5_filtered
+
+    Custom dataset with polygons:
+        chap evaluate --model-name naive_model --dataset-csv ./data.csv --polygons-json ./boundaries.geojson
+
+    Compare multiple models:
+        chap evaluate --model-name model1,model2,model3 --dataset-name hydromet_5_filtered
+
+    With custom configuration:
+        chap evaluate --model-name external_model --dataset-name hydromet_5_filtered --model-configuration-yaml config.yaml
+
+    Notes
+    -----
+    - Evaluation uses time series cross-validation to avoid data leakage
+    - Results include metrics like MAE, RMSE, CRPS, and coverage probabilities
+    - PDF report contains forecast plots for visual inspection
+    - CSV output contains detailed numerical results for further analysis
     """
 
     initialize_logging(debug, log_file)
@@ -282,7 +354,7 @@ def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool
     """
     Start CHAP as a backend server
     """
-    from .rest_api_src.v1.rest_api import main_backend
+    from .rest_api.v1.rest_api import main_backend
 
     logger.info("Running chap serve")
     if seedfile is not None:
@@ -297,7 +369,7 @@ def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
     """
-    from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
+    from chap_core.rest_api.v1.rest_api import get_openapi_schema
 
     schema = get_openapi_schema()
     with open(out_path, "w") as f:

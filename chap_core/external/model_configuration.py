@@ -51,7 +51,7 @@ class ModelTemplateSchema(BaseModel, extra="forbid"):  # pydantic-specific confi
 class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):
     """This is all needed to actually run model"""
 
-    entry_points: EntryPointConfig
+    entry_points: Optional[EntryPointConfig] = None
     docker_env: Optional[DockerEnvConfig] = None
     python_env: Optional[str] = None
 
@@ -65,6 +65,7 @@ class ModelTemplateConfigV2(ModelTemplateConfigCommon, RunnerConfig, extra="forb
     name: str
     source_url: Optional[str] = None
     adapters: Optional[dict[str, str]] = None
+    rest_api_url: Optional[str] = None
 
 
 # TODO: remove after refactor

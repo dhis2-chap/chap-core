@@ -1,6 +1,7 @@
 import pytest
+
 from chap_core.api_types import RequestV1
-from chap_core.rest_api_src.worker_functions import v1_conversion
+from chap_core.rest_api.worker_functions import v1_conversion
 
 
 @pytest.fixture

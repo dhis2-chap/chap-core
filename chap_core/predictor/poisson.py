@@ -21,4 +21,11 @@ class Poisson:
             "Temperature": [1, 2, 3, 4, 5],
         })
         """
+        # Ensure y is a 1D array to avoid sklearn warnings
+        if hasattr(y, 'values'):
+            # If y is a DataFrame or Series, get the values and flatten
+            y = y.values.ravel()
+        elif hasattr(y, 'ravel'):
+            # If y is a numpy array, ensure it's 1D
+            y = y.ravel()
         self.model.fit(x, y)

@@ -1,14 +1,16 @@
 import datetime
 import logging
-from typing import Iterable, List, Callable, Optional
-from dotenv import find_dotenv, load_dotenv
-import ee
 import os
+from typing import Callable, Iterable, List, Optional
+
+import ee
 import pandas as pd
-from pydantic import BaseModel
+from dotenv import find_dotenv, load_dotenv
+from pydantic import BaseModel, ConfigDict
+
 from chap_core.datatypes import create_tsdataclass
 from chap_core.exceptions import GEEError
-from chap_core.rest_api_src.data_models import FetchRequest
+from chap_core.rest_api.data_models import FetchRequest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import PeriodRange, TimePeriod
 
@@ -25,9 +27,8 @@ def kelvin_to_celsium(v):
 
 
 class Band(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     name: str
     indicator: str
     reducer: str = "mean"
@@ -54,9 +55,8 @@ orig_bands = [
 
 
 class Periode(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
     id: str
     startDate: datetime.datetime
     endDate: datetime.datetime
@@ -125,7 +125,7 @@ class Era5LandGoogleEarthEngineHelperFunctions:
         # Keeps every f.properties, and replace the band values with the converted values
         for i in range(0, size, take):
             result = result + (feature_collection.toList(take, i).getInfo())
-            logger.log(logging.INFO, f" Fetched {i+take} of {size}")
+            logger.log(logging.INFO, f" Fetched {i + take} of {size}")
 
         return result
 

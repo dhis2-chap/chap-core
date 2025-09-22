@@ -1,3 +1,6 @@
+"""
+todo: comment this file, make it clear which classes are central and being used
+"""
 import datetime
 from typing import Optional, List, Dict
 
@@ -45,7 +48,7 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
     id: int
     model_template: ModelTemplateDB
 
-
+OldBackTestRead = _BackTestRead
 class BackTestRead(_BackTestRead):
     dataset: DataSetMeta
     aggregate_metrics: Dict[str, float]
@@ -99,11 +102,16 @@ class BackTestForecast(ForecastBase, table=True):
 
 
 class BackTestMetric(DBModel, table=True):
+    """
+    This class has been used when computing metrics per location/time_point/split_point adhoc
+    in database.py. This id depcrecated and not used in the new metric system.
+    Can be removed when no references left to this class.
+    """
     id: Optional[int] = Field(primary_key=True, default=None)
     backtest_id: int = Field(foreign_key="backtest.id")
     metric_id: str
-    period: PeriodID
-    org_unit: str
+    period: PeriodID # Should this be optional and be null for aggregate metrics?
+    org_unit: str # Should this be optional and be null for aggregate metrics?
     last_train_period: PeriodID
     last_seen_period: PeriodID
     value: float

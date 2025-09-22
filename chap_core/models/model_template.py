@@ -10,6 +10,7 @@ from chap_core.models.configured_model import ModelConfiguration
 from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
 from chap_core.external.github import fetch_mlproject_content
+from chap_core.models.external_web_model import ExternalWebModel
 
 if TYPE_CHECKING:
     from chap_core.external.external_model import ExternalModel
@@ -129,6 +130,20 @@ class ModelTemplate:
         from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config
         from .external_model import ExternalModel
 
+        data_type = HealthData
+
+        # if model is web based, no runner and model should be ExternalWebModel
+        if self._model_template_config.rest_api_url is not None:
+            return ExternalWebModel(
+                self._model_template_config.rest_api_url,
+                self._model_template_config.name,
+                7200,
+                5,
+                model_configuration,
+                self._model_template_config.adapters,
+                self._working_dir,
+            )
+
         runner = get_train_predict_runner_from_model_template_config(
             self._model_template_config, self._working_dir, self._ignore_env, model_configuration
         )
@@ -136,7 +151,6 @@ class ModelTemplate:
         config = self._model_template_config
         name = config.name
         adapters = config.adapters  # config.get("adapters", None)
-        data_type = HealthData
 
         return ExternalModel(
             runner,

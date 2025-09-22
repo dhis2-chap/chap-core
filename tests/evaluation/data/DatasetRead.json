@@ -1,0 +1,2817 @@
+{
+  "name": "my first dataset",
+  "type": "evaluation",
+  "geojson": null,
+  "id": 30,
+  "observations": [
+    {
+      "value": 12775,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201704",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201704",
+      "featureName": "population"
+    },
+    {
+      "value": 135.447,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201704",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.55,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201704",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 13823,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201705",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201705",
+      "featureName": "population"
+    },
+    {
+      "value": 101.013,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201705",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.34,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201705",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 8780,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201706",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201706",
+      "featureName": "population"
+    },
+    {
+      "value": 7.39,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201706",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.34,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201706",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 11552,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201707",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201707",
+      "featureName": "population"
+    },
+    {
+      "value": 14.845,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201707",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.86,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201707",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1872,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201708",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201708",
+      "featureName": "population"
+    },
+    {
+      "value": 89.758,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201708",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.41,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201708",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 4053,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201709",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201709",
+      "featureName": "population"
+    },
+    {
+      "value": 166.001,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201709",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.9,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201709",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 5213,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201710",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201710",
+      "featureName": "population"
+    },
+    {
+      "value": 197.593,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201710",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.96,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201710",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12644,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201711",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201711",
+      "featureName": "population"
+    },
+    {
+      "value": 222.029,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201711",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.23,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201711",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12074,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201712",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201712",
+      "featureName": "population"
+    },
+    {
+      "value": 133.791,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201712",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.92,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201712",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 3312,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201801",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201801",
+      "featureName": "population"
+    },
+    {
+      "value": 195.095,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201801",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.57,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201801",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 13449,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201802",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201802",
+      "featureName": "population"
+    },
+    {
+      "value": 173.396,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201802",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.28,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201802",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 3437,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201803",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201803",
+      "featureName": "population"
+    },
+    {
+      "value": 289.482,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201803",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.6,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201803",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 18683,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201804",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201804",
+      "featureName": "population"
+    },
+    {
+      "value": 424.443,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201804",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.09,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201804",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 10290,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201805",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201805",
+      "featureName": "population"
+    },
+    {
+      "value": 103.124,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201805",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.19,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201805",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 8885,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201806",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201806",
+      "featureName": "population"
+    },
+    {
+      "value": 25.044,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201806",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.67,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201806",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1619,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201807",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201807",
+      "featureName": "population"
+    },
+    {
+      "value": 21.294,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201807",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.48,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201807",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 3585,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201808",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201808",
+      "featureName": "population"
+    },
+    {
+      "value": 126.067,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201808",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.58,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201808",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 16445,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201809",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201809",
+      "featureName": "population"
+    },
+    {
+      "value": 82.643,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201809",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.72,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201809",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 3208,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201810",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201810",
+      "featureName": "population"
+    },
+    {
+      "value": 174.964,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201810",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.59,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201810",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 18587,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201811",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201811",
+      "featureName": "population"
+    },
+    {
+      "value": 187.648,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201811",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.63,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201811",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1510,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201812",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201812",
+      "featureName": "population"
+    },
+    {
+      "value": 209.092,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201812",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.27,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201812",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 3511,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201901",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201901",
+      "featureName": "population"
+    },
+    {
+      "value": 136.196,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201901",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.19,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201901",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 6714,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201902",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201902",
+      "featureName": "population"
+    },
+    {
+      "value": 107.643,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201902",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.64,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201902",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 9969,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201903",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201903",
+      "featureName": "population"
+    },
+    {
+      "value": 163.157,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201903",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.56,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201903",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 18852,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201904",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201904",
+      "featureName": "population"
+    },
+    {
+      "value": 220.801,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201904",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.09,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201904",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1094,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201905",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201905",
+      "featureName": "population"
+    },
+    {
+      "value": 154.742,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201905",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.4,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201905",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 4347,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201906",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201906",
+      "featureName": "population"
+    },
+    {
+      "value": 72.829,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201906",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.72,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201906",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 10553,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201907",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201907",
+      "featureName": "population"
+    },
+    {
+      "value": 38.433,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201907",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.08,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201907",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1800,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201908",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201908",
+      "featureName": "population"
+    },
+    {
+      "value": 67.622,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201908",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.38,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201908",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 15145,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201909",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201909",
+      "featureName": "population"
+    },
+    {
+      "value": 119.909,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201909",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.11,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201909",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 2328,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201910",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201910",
+      "featureName": "population"
+    },
+    {
+      "value": 250.15,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201910",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 16.86,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201910",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 4566,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201911",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201911",
+      "featureName": "population"
+    },
+    {
+      "value": 200.092,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201911",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.62,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201911",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 18203,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201912",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201912",
+      "featureName": "population"
+    },
+    {
+      "value": 324.635,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201912",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.59,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "201912",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 7899,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202001",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202001",
+      "featureName": "population"
+    },
+    {
+      "value": 167.571,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202001",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.35,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202001",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 3944,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202002",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202002",
+      "featureName": "population"
+    },
+    {
+      "value": 241.475,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202002",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.5,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202002",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1903,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202003",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202003",
+      "featureName": "population"
+    },
+    {
+      "value": 275.613,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202003",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 18.37,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202003",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 4372,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202004",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202004",
+      "featureName": "population"
+    },
+    {
+      "value": 280.664,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202004",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.96,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202004",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1227,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202005",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202005",
+      "featureName": "population"
+    },
+    {
+      "value": 97.675,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202005",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.87,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202005",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 17531,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202006",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202006",
+      "featureName": "population"
+    },
+    {
+      "value": 42.883,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202006",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 17.78,
+      "orgUnit": "DTxwpZ1iTSq",
+      "period": "202006",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 13682,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201704",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201704",
+      "featureName": "population"
+    },
+    {
+      "value": 97.736,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201704",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.83,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201704",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 17917,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201705",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201705",
+      "featureName": "population"
+    },
+    {
+      "value": 78.679,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201705",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.71,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201705",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12220,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201706",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201706",
+      "featureName": "population"
+    },
+    {
+      "value": 2.799,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201706",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 22.25,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201706",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 17119,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201707",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201707",
+      "featureName": "population"
+    },
+    {
+      "value": 5.476,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201707",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 22.73,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201707",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 15748,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201708",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201708",
+      "featureName": "population"
+    },
+    {
+      "value": 28.299,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201708",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 22.2,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201708",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 15583,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201709",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201709",
+      "featureName": "population"
+    },
+    {
+      "value": 74.568,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201709",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.39,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201709",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12541,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201710",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201710",
+      "featureName": "population"
+    },
+    {
+      "value": 95.505,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201710",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.46,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201710",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 6574,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201711",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201711",
+      "featureName": "population"
+    },
+    {
+      "value": 120.755,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201711",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.38,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201711",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 10177,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201712",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201712",
+      "featureName": "population"
+    },
+    {
+      "value": 73.639,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201712",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.16,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201712",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 19683,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201801",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201801",
+      "featureName": "population"
+    },
+    {
+      "value": 95.882,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201801",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.94,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201801",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 5729,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201802",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201802",
+      "featureName": "population"
+    },
+    {
+      "value": 75.793,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201802",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.94,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201802",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 18149,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201803",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201803",
+      "featureName": "population"
+    },
+    {
+      "value": 138.949,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201803",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.76,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201803",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 13813,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201804",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201804",
+      "featureName": "population"
+    },
+    {
+      "value": 253.375,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201804",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.92,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201804",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1011,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201805",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201805",
+      "featureName": "population"
+    },
+    {
+      "value": 73.075,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201805",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.34,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201805",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 3514,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201806",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201806",
+      "featureName": "population"
+    },
+    {
+      "value": 9.544,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201806",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.06,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201806",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 2085,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201807",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201807",
+      "featureName": "population"
+    },
+    {
+      "value": 5.81,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201807",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.02,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201807",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 3193,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201808",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201808",
+      "featureName": "population"
+    },
+    {
+      "value": 90.466,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201808",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.91,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201808",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 4120,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201809",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201809",
+      "featureName": "population"
+    },
+    {
+      "value": 54.118,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201809",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.9,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201809",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1627,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201810",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201810",
+      "featureName": "population"
+    },
+    {
+      "value": 101.141,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201810",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.93,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201810",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 16801,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201811",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201811",
+      "featureName": "population"
+    },
+    {
+      "value": 94.605,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201811",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.94,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201811",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 16598,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201812",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201812",
+      "featureName": "population"
+    },
+    {
+      "value": 101.398,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201812",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.46,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201812",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 4829,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201901",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201901",
+      "featureName": "population"
+    },
+    {
+      "value": 54.965,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201901",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.7,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201901",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 15990,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201902",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201902",
+      "featureName": "population"
+    },
+    {
+      "value": 52.169,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201902",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 22.37,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201902",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12206,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201903",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201903",
+      "featureName": "population"
+    },
+    {
+      "value": 74.902,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201903",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 22.34,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201903",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 17031,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201904",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201904",
+      "featureName": "population"
+    },
+    {
+      "value": 111.19,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201904",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.39,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201904",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 11159,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201905",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201905",
+      "featureName": "population"
+    },
+    {
+      "value": 95.995,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201905",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.64,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201905",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 11028,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201906",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201906",
+      "featureName": "population"
+    },
+    {
+      "value": 35.899,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201906",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.36,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201906",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 5253,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201907",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201907",
+      "featureName": "population"
+    },
+    {
+      "value": 11.574,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201907",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.89,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201907",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 18187,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201908",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201908",
+      "featureName": "population"
+    },
+    {
+      "value": 37.824,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201908",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 22.01,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201908",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 19299,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201909",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201909",
+      "featureName": "population"
+    },
+    {
+      "value": 63.789,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201909",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.57,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201909",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 9362,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201910",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201910",
+      "featureName": "population"
+    },
+    {
+      "value": 163.988,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201910",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.13,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201910",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12923,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201911",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201911",
+      "featureName": "population"
+    },
+    {
+      "value": 96.665,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201911",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.9,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201911",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 18709,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201912",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201912",
+      "featureName": "population"
+    },
+    {
+      "value": 152.87,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201912",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.53,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "201912",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 2324,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202001",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202001",
+      "featureName": "population"
+    },
+    {
+      "value": 71.139,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202001",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.52,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202001",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12611,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202002",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202002",
+      "featureName": "population"
+    },
+    {
+      "value": 121.169,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202002",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.57,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202002",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 5505,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202003",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202003",
+      "featureName": "population"
+    },
+    {
+      "value": 148.348,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202003",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.33,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202003",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 5056,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202004",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202004",
+      "featureName": "population"
+    },
+    {
+      "value": 202.813,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202004",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.92,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202004",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1581,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202005",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202005",
+      "featureName": "population"
+    },
+    {
+      "value": 59.145,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202005",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.1,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202005",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 19352,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202006",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202006",
+      "featureName": "population"
+    },
+    {
+      "value": 26.565,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202006",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.4,
+      "orgUnit": "LGNjeakKI1q",
+      "period": "202006",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 11477,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201704",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201704",
+      "featureName": "population"
+    },
+    {
+      "value": 121.821,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201704",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.64,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201704",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12021,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201705",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201705",
+      "featureName": "population"
+    },
+    {
+      "value": 112.665,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201705",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.47,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201705",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 16619,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201706",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201706",
+      "featureName": "population"
+    },
+    {
+      "value": 2.906,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201706",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.73,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201706",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 3347,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201707",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201707",
+      "featureName": "population"
+    },
+    {
+      "value": 1.099,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201707",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.6,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201707",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 5380,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201708",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201708",
+      "featureName": "population"
+    },
+    {
+      "value": 33.859,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201708",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21.28,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201708",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 11257,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201709",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201709",
+      "featureName": "population"
+    },
+    {
+      "value": 103.64,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201709",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.38,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201709",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 14864,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201710",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201710",
+      "featureName": "population"
+    },
+    {
+      "value": 139.092,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201710",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.29,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201710",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12104,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201711",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201711",
+      "featureName": "population"
+    },
+    {
+      "value": 149.597,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201711",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.29,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201711",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 15578,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201712",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201712",
+      "featureName": "population"
+    },
+    {
+      "value": 112.777,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201712",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.02,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201712",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 9322,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201801",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201801",
+      "featureName": "population"
+    },
+    {
+      "value": 176.517,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201801",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.79,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201801",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 8391,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201802",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201802",
+      "featureName": "population"
+    },
+    {
+      "value": 106.185,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201802",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.43,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201802",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 19817,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201803",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201803",
+      "featureName": "population"
+    },
+    {
+      "value": 171.375,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201803",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.76,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201803",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 12349,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201804",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201804",
+      "featureName": "population"
+    },
+    {
+      "value": 312.645,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201804",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.1,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201804",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 17446,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201805",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201805",
+      "featureName": "population"
+    },
+    {
+      "value": 95.072,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201805",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.28,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201805",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 13066,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201806",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201806",
+      "featureName": "population"
+    },
+    {
+      "value": 15.08,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201806",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.97,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201806",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 4676,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201807",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201807",
+      "featureName": "population"
+    },
+    {
+      "value": 2.879,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201807",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.92,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201807",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 10839,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201808",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201808",
+      "featureName": "population"
+    },
+    {
+      "value": 122.615,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201808",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.95,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201808",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 11084,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201809",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201809",
+      "featureName": "population"
+    },
+    {
+      "value": 56.05,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201809",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.98,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201809",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 19823,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201810",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201810",
+      "featureName": "population"
+    },
+    {
+      "value": 122.265,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201810",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.86,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201810",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 18144,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201811",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201811",
+      "featureName": "population"
+    },
+    {
+      "value": 135.316,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201811",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.7,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201811",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 11657,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201812",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201812",
+      "featureName": "population"
+    },
+    {
+      "value": 121.453,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201812",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.42,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201812",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 2616,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201901",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201901",
+      "featureName": "population"
+    },
+    {
+      "value": 79.68,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201901",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.35,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201901",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 13126,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201902",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201902",
+      "featureName": "population"
+    },
+    {
+      "value": 83.798,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201902",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.74,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201902",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 17031,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201903",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201903",
+      "featureName": "population"
+    },
+    {
+      "value": 122.886,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201903",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.74,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201903",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 6156,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201904",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201904",
+      "featureName": "population"
+    },
+    {
+      "value": 137.075,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201904",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.21,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201904",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 6135,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201905",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201905",
+      "featureName": "population"
+    },
+    {
+      "value": 142.14,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201905",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.4,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201905",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 1033,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201906",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201906",
+      "featureName": "population"
+    },
+    {
+      "value": 29.867,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201906",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.15,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201906",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 16880,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201907",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201907",
+      "featureName": "population"
+    },
+    {
+      "value": 20.215,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201907",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.66,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201907",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 16109,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201908",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201908",
+      "featureName": "population"
+    },
+    {
+      "value": 38.178,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201908",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 21,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201908",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 14049,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201909",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201909",
+      "featureName": "population"
+    },
+    {
+      "value": 77.904,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201909",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.64,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201909",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 19443,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201910",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201910",
+      "featureName": "population"
+    },
+    {
+      "value": 208.76,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201910",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201910",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 14110,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201911",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201911",
+      "featureName": "population"
+    },
+    {
+      "value": 135.996,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201911",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.84,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201911",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 15331,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201912",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201912",
+      "featureName": "population"
+    },
+    {
+      "value": 191.386,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201912",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.73,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "201912",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 2147,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202001",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202001",
+      "featureName": "population"
+    },
+    {
+      "value": 96.138,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202001",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.61,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202001",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 8509,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202002",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202002",
+      "featureName": "population"
+    },
+    {
+      "value": 129.286,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202002",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.65,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202002",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 4052,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202003",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202003",
+      "featureName": "population"
+    },
+    {
+      "value": 217.685,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202003",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.37,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202003",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 16391,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202004",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202004",
+      "featureName": "population"
+    },
+    {
+      "value": 261.782,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202004",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 19.99,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202004",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 16425,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202005",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202005",
+      "featureName": "population"
+    },
+    {
+      "value": 81.209,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202005",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.02,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202005",
+      "featureName": "mean_temperature"
+    },
+    {
+      "value": 2801,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202006",
+      "featureName": "disease_cases"
+    },
+    {
+      "value": 100000,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202006",
+      "featureName": "population"
+    },
+    {
+      "value": 39.387,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202006",
+      "featureName": "rainfall"
+    },
+    {
+      "value": 20.11,
+      "orgUnit": "MnK7wTQx9wc",
+      "period": "202006",
+      "featureName": "mean_temperature"
+    }
+  ],
+  "created": "2025-04-28T09:14:25.370938"
+}
