@@ -39,7 +39,7 @@ from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
 
 from chap_core.hpo.hpoModel import HpoModel, Direction
 from chap_core.hpo.objective import Objective 
-from chap_core.hpo.searcher import GridSearcher
+from chap_core.hpo.searcher import GridSearcher, RandomSearcher, TPESearcher
 
 import logging
 
@@ -134,9 +134,21 @@ def evaluate_hpo(
             model = template.get_model(configuration)
             model = model()
         else:
+            if configuration is not None:
+                logger.info(f"Loading model configuration from yaml file {configuration}")
+                # base_configs = ModelConfiguration.model_validate(
+                #     yaml.safe_load(open(configuration))
+                # )
+                with open(configuration, "r", encoding="utf-8") as f:
+                    base_configs = yaml.safe_load(f) or {} # check if this returns a dict
+                logger.info(f"Loaded model base configurations from yaml file: {base_configs}")
+
+            if "user_option_values" not in base_configs or not isinstance(base_configs["user_option_values"], dict):
+                raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
+            
             print("Creating HpoModel")
-            objective = Objective(model_name, metric, prediction_length, n_splits)
-            model = HpoModel(GridSearcher(), objective, direction, model_configuration_yaml)
+            objective = Objective(name, metric, prediction_length, n_splits)
+            model = HpoModel(GridSearcher(), objective, direction, base_configs)
         try:
             results = evaluate_model(
                 estimator=model,

@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 from idlelib.debugobj import ObjectTreeItem
-=======
->>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
 from typing import Literal, Optional, Any, Tuple, Callable
 import yaml
 
@@ -11,15 +8,8 @@ from chap_core.file_io.example_data_set import DataSetType
 
 from .hpoModelInterface import HpoModelInterface
 from .searcher import Searcher
-<<<<<<< HEAD
 from .base import dedup, write_yaml
 Direction = Literal["maximize", "minimize"]
-=======
-from .base import dedup, write_yaml 
-
-Direction = Literal["maximize", "minimize"]
-
->>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
 import logging
 
 logger = logging.getLogger()
@@ -30,28 +20,18 @@ class HpoModel(HpoModelInterface):
     def __init__(
             self, 
             searcher: Searcher, 
-<<<<<<< HEAD
             objective: 'Objective',
-=======
-            objective: callable, 
->>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
             direction: Direction = "minimize", 
             model_configuration_yaml: Optional[str] = None,
     ):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
-<<<<<<< HEAD
 
         self._searcher = searcher
         self._objective = objective
         self._direction = direction
-        self._model_configuration_yaml = model_configuration_yaml #TODO: this should a parsed dict
-=======
-        self._searcher = searcher
-        self._objective = objective
-        self._direction = direction
-        self._model_configuration_yaml = model_configuration_yaml
->>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
+        # self._model_configuration_yaml = model_configuration_yaml #TODO: this should a parsed dict
+        self.base_configs = Optinal[dict[str, list]] = None
     
     def train(self, dataset: Optional[DataSetType],) -> Tuple[str, dict[str, Any]]:
         """
@@ -61,20 +41,20 @@ class HpoModel(HpoModelInterface):
         if self._model_configuration_yaml is not None:
             logger.info(f"Loading model configuration from yaml file {self._model_configuration_yaml}")
             with open(self._model_configuration_yaml, "r", encoding="utf-8") as f:
-                base_configs = yaml.safe_load(f) or {} # check if this returns a dict
-            logger.info(f"Loaded model base configurations from yaml file: {base_configs}")
+                self.base_configs = yaml.safe_load(f) or {} # check if this returns a dict
+            logger.info(f"Loaded model base configurations from yaml file: {self.base_configs}")
 
-        if "user_option_values" not in base_configs or not isinstance(base_configs["user_option_values"], dict):
+        if "user_option_values" not in self.base_configs or not isinstance(self.base_configs["user_option_values"], dict):
             raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
 
-        hpo_configs = base_configs["user_option_values"]
+        hpo_configs = self.base_configs["user_option_values"]
         for key, vals in hpo_configs.items():
             deduped = dedup(vals)
             if not deduped:
                 raise ValueError(f"'user_option_values.{key}' has no values to try.")
             hpo_configs[key] = deduped
 
-        base_configs.pop("user_option_values")
+        self.base_configs.pop("user_option_values")
 
         best_score = float("inf") if self._direction=="minimize" else float("-inf")
         best_params: dict[str, Any] = {}
@@ -85,18 +65,12 @@ class HpoModel(HpoModelInterface):
             params = self._searcher.ask()
             if params is None:
                 break 
-<<<<<<< HEAD
 
 
-            config = base_configs.copy()
+            config = self.base_configs.copy()
             config["user_option_values"] = params
 
             # Maybe best to seperate hpo_config and other configs in two files ??
-=======
-            config = base_configs.copy()
-            config["user_option_values"] = params
-
->>>>>>> bb9fca5 (Composition, hpoModel, objective, searcher)
             score = self._objective(config, dataset)
             self._searcher.tell(params, score)
 
