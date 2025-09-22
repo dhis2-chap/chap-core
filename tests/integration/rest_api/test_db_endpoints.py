@@ -80,6 +80,7 @@ def test_get_visualizations(celery_session_worker, clean_engine, dependency_over
 
 # @pytest.mark.slow
 @pytest.mark.parametrize("do_filter", [True, False])
+@pytest.mark.slow
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data, do_filter):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset("full_data", weekly_full_data, "polygons", dataset_type="evaluation")

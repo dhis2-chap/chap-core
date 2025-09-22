@@ -121,6 +121,7 @@ def test_add_model_template_from_yaml_config(model_template_yaml_config, engine)
 
 
 @pytest.mark.parametrize("url", template_urls)
+#@pytest.mark.slow
 def test_add_model_template_from_url(engine, url):
     # url = 'https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a'
     with SessionWrapper(engine) as session:

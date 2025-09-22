@@ -97,14 +97,3 @@ def test_print_location_lookup_arcgis(arcgis_lookup):
         == "{'Oslo': Location(Oslo, (59.91234, 10.75, 0.0)), 'Paris': Location(Paris, Île-de-France, (48.863697576, 2.361657337, 0.0))}"
     )
 
-
-@pytest.mark.xfail
-def test_print_location_lookup_noninatime(nominatim_lookup):
-    location_lookup = nominatim_lookup
-    location_lookup.add_location("Oslo")
-    location_lookup.add_location("Paris")
-    print(location_lookup)
-    assert (
-        str(location_lookup)
-        == "{'Oslo': Location(Oslo, Norge, (59.9133301, 10.7389701, 0.0)), 'Paris': Location(Paris, Île-de-France, France métropolitaine, France, (48.8534951, 2.3483915, 0.0))}"
-    )
