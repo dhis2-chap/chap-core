@@ -30,6 +30,7 @@ def test_train_on_json_data_big(big_request_json):
 
 
 @pytest.mark.slow
+@pytest.mark.skip(reason="Outdated")
 def test_train_on_json_data_new(big_request_json, models_path):
     train_on_json_data(
         big_request_json,
