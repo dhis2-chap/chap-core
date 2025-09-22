@@ -28,7 +28,7 @@ def kelvin_to_celsium(v):
 
 class Band(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+
     name: str
     indicator: str
     reducer: str = "mean"
@@ -56,7 +56,7 @@ orig_bands = [
 
 class Periode(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+
     id: str
     startDate: datetime.datetime
     endDate: datetime.datetime

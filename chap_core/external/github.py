@@ -32,9 +32,9 @@ def fetch_mlproject_content(github_url: str) -> str:
     # fetch this MLProject file and parse it
     try:
         fetched = requests.get(raw_mlproject_url)
-        assert (
-            fetched.status_code == 200
-        ), f"Error fetching MLProject file from {raw_mlproject_url}: {fetched.status_code, fetched.content}"
+        assert fetched.status_code == 200, (
+            f"Error fetching MLProject file from {raw_mlproject_url}: {fetched.status_code, fetched.content}"
+        )
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching MLProject file: {e}")
         return None

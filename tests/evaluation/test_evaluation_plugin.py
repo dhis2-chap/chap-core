@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+
 logger = logging.getLogger(__name__)
 
 from chap_core.assessment.data_representation_transforming import (
@@ -10,7 +11,7 @@ from chap_core.assessment.data_representation_transforming import (
 )
 
 
-#@pytest.mark.xfail(reason="Failing. Under development?")
+# @pytest.mark.xfail(reason="Failing. Under development?")
 def test_external_evaluation(backtest):
     dataset = backtest.dataset
     f2 = list(convert_to_multi_location_forecast(backtest.forecasts).values())[0]
@@ -19,4 +20,5 @@ def test_external_evaluation(backtest):
     mae = MAEonMeanPredictions().evaluate(t2, f2)
     print(mae)
     logger.warning(
-        'We need to convert this to a format that chap can work on. Or create db entries for aggregated metrics and type ans specify different types of results.')
+        "We need to convert this to a format that chap can work on. Or create db entries for aggregated metrics and type ans specify different types of results."
+    )

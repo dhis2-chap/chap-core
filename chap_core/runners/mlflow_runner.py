@@ -23,7 +23,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
 
     def train(self, train_file_name, model_file_name, polygons_file_name=None):
         try:
-            #train_file_name = Path(self.model_path) /  Path(train_file_name)
+            # train_file_name = Path(self.model_path) /  Path(train_file_name)
             keys = {"train_data": str(train_file_name), "model": str(model_file_name)}
             logger.info("Training model using MLflow, working dir is %s. Train data: %s" % (self.model_path, keys))
             possible_extra = {

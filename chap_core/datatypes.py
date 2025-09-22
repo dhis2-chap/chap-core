@@ -280,7 +280,7 @@ class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
 
 class ClimateHealthTimeSeriesModel(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    
+
     time_period: str | pd.Period
     rainfall: float
     mean_temperature: float

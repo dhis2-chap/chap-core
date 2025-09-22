@@ -17,4 +17,3 @@ def dependency_overrides(clean_engine):
     app.dependency_overrides[get_settings] = lambda: WorkerConfig(is_test=True)
     yield
     app.dependency_overrides.clear()
-

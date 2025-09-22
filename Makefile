@@ -48,10 +48,11 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr .pytest_cache
 	rm -fr .ruff_cache
 
-lint/flake8: ## check style with flake8
-	flake8 climate_health tests
-
-lint: lint/flake8 ## check style
+lint:
+	@echo "Linting code..."
+	uv run ruff check --fix
+	@echo "Formatting code..."
+	uv run ruff format
 
 test: ## run tests quickly with the default Python
 	pytest
@@ -66,14 +67,6 @@ test-all: ## run pytest, doctests, examples
 	uv run pytest --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
 	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/
 	#cd docs_source && make doctest
-
-	# clean up manually for now
-	rm evaluation_report.pdf
-	rm example_data/debug_model/model_configuration_for_run.yaml
-	rm model.pkl
-	rm model_config.yaml
-	rm predictions.csv
-	rm report.csv
 
 coverage: ## check code coverage quickly with the default Python
 	coverage report -m

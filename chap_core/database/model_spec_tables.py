@@ -23,15 +23,14 @@ class ModelSpecBase(ModelTemplateMetaData, DBModel):
     name: str
     # supported_period_types: PeriodType = PeriodType.any
     source_url: Optional[str] = None
-    supported_period_type: PeriodType = PeriodType.any  #] = [PeriodType.month, PeriodType.week]
+    supported_period_type: PeriodType = PeriodType.any  # ] = [PeriodType.month, PeriodType.week]
 
-    #@field_validator("supported_period_type", mode="before")
-    #def wrap_in_list(cls, v):
+    # @field_validator("supported_period_type", mode="before")
+    # def wrap_in_list(cls, v):
     #    if isinstance(v, list):
     #        return v
     #    return [v]
 
-    
 
 class ModelSpecRead(ModelSpecBase):
     id: int
@@ -172,7 +171,6 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
         ),
     ]
     """
-
 
 
 # todo: can probably be deleted

@@ -37,7 +37,7 @@ def test_simplify_polygons(data_path, output_path):
     print("geo interface")
     size1 = len(json.dumps(polygons.__geo_interface__))
     size2 = len(json.dumps(simplified.__geo_interface__))
-    print(f"total geojson byte size reduced from {size1/1000}kb to {size2/1000}kb")
+    print(f"total geojson byte size reduced from {size1 / 1000}kb to {size2 / 1000}kb")
     assert size2 < size1
 
 

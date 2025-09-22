@@ -43,8 +43,11 @@ def make_backtest_with_data_request(model_name):
     data = json.load(open(filename))
     data["modelId"] = model_name
     data["name"] = f"integration_test: {model_name} with data"
-    population_entires = [entry | {'featureName': 'population', 'value': 1_000_000}
-    for entry in data['providedData'] if entry['featureName'] == 'rainfall']
+    population_entires = [
+        entry | {"featureName": "population", "value": 1_000_000}
+        for entry in data["providedData"]
+        if entry["featureName"] == "rainfall"
+    ]
     data["providedData"].extend(population_entires)
     return data
 
@@ -124,7 +127,7 @@ class IntegrationTest:
         return db_id
 
     def make_prediction(self, data):
-        logger.info(f'Making prediction for {data["modelId"]}')
+        logger.info(f"Making prediction for {data['modelId']}")
         make_prediction_url = self._chap_url + "/v1/analytics/make-prediction"
         response = self._post(make_prediction_url, json=data)
         job_id = response["id"]
@@ -209,7 +212,7 @@ class IntegrationTest:
             raise Exception("One or more evaluation errors, for details see above logs")
 
     def evaluate_model_with_data(self, data):
-        logger.info(f'Making evaluation for {data["modelId"]}')
+        logger.info(f"Making evaluation for {data['modelId']}")
         job_id = self._post(self._chap_url + "/v1/analytics/create-backtest-with-data/", json=data)["id"]
         db_id = self.wait_for_db_id(job_id)
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")

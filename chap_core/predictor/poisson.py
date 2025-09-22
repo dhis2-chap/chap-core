@@ -22,10 +22,10 @@ class Poisson:
         })
         """
         # Ensure y is a 1D array to avoid sklearn warnings
-        if hasattr(y, 'values'):
+        if hasattr(y, "values"):
             # If y is a DataFrame or Series, get the values and flatten
             y = y.values.ravel()
-        elif hasattr(y, 'ravel'):
+        elif hasattr(y, "ravel"):
             # If y is a numpy array, ensure it's 1D
             y = y.ravel()
         self.model.fit(x, y)

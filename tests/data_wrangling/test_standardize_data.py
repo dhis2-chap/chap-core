@@ -87,7 +87,7 @@ def test_standardize_separated_data_linear_flow(
 
 
 @pytest.mark.skip(
-    reason="Depends on planned modifiers that are not yet implemented in Omnipy. " "In any case redundant with FuncFlow"
+    reason="Depends on planned modifiers that are not yet implemented in Omnipy. In any case redundant with FuncFlow"
 )
 def test_standardize_separated_data_dag_flow(
     separated_data: Annotated[StrDataset, pytest.fixture],

@@ -32,5 +32,3 @@ def test_parse_configured_model_yaml_file(mlflow_path):
     m = ModelTemplateConfigV2.model_validate(data)
     logger.info(m)
     assert isinstance(m, ModelTemplateConfigV2)
-
-

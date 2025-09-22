@@ -169,9 +169,9 @@ def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[S
     forecast_dict = defaultdict(list)
 
     for historic_data, future_data, _ in test_generator:
-        assert (
-            len(future_data.period_range) > 0
-        ), f"Future data must have at least one period {historic_data.period_range}, {future_data.period_range}"
+        assert len(future_data.period_range) > 0, (
+            f"Future data must have at least one period {historic_data.period_range}, {future_data.period_range}"
+        )
         forecasts = predictor.predict(historic_data, future_data)
         for location, samples in forecasts.items():
             forecast_dict[location].append(ForecastAdaptor.from_samples(samples))

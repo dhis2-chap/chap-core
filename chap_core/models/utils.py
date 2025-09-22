@@ -38,9 +38,9 @@ def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
         # timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S%f")
         working_dir = base_working_dir / model_name / unique_identifier
         # check that working dir does not exist
-        assert (
-            not working_dir.exists()
-        ), f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
+        assert not working_dir.exists(), (
+            f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
+        )
     elif run_dir_type == "use_existing":
         working_dir = Path(model_path)
     else:

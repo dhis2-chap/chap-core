@@ -9,7 +9,6 @@ from pathlib import Path
 import time
 from typing import Iterable, List, Optional
 
-import numpy as np
 import psycopg2
 import sqlalchemy
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -292,9 +291,11 @@ class SessionWrapper:
         if entries is None or len(entries) == 0:
             raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
 
-
     def add_evaluation_results(
-        self, evaluation_results: Iterable[_DataSet[SamplesWithTruth]], last_train_period: TimePeriod, info: BackTestCreate
+        self,
+        evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
+        last_train_period: TimePeriod,
+        info: BackTestCreate,
     ):
         info.created = datetime.datetime.now()
         # org_units = list({location for ds in evaluation_results for location in ds.locations()})
@@ -329,7 +330,6 @@ class SessionWrapper:
                     )
                     backtest.forecasts.append(forecast)
 
-       
         backtest.org_units = list(org_units)
         backtest.split_periods = list(split_points)
         self.session.commit()
@@ -342,7 +342,6 @@ class SessionWrapper:
         self.session.commit()
         # add more
         return backtest.id
-
 
     def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict = {}):
         n_periods = len(list(predictions.values())[0])
@@ -447,6 +446,6 @@ def create_db_and_tables():
             from .model_template_seed import seed_configured_models_from_config_dir
 
             seed_configured_models_from_config_dir(session.session)
-            #seed_example_datasets(session)
+            # seed_example_datasets(session)
     else:
         logger.warning("Engine not set. Tables not created")

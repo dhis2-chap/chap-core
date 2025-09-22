@@ -96,4 +96,3 @@ def test_print_location_lookup_arcgis(arcgis_lookup):
         str(location_lookup)
         == "{'Oslo': Location(Oslo, (59.91234, 10.75, 0.0)), 'Paris': Location(Paris, Île-de-France, (48.863697576, 2.361657337, 0.0))}"
     )
-

@@ -414,9 +414,9 @@ class TimeDelta(DateUtilWrapper):
         return f"TimeDelta({self._relative_delta})"
 
     def n_periods(self, start_stamp: TimeStamp, end_stamp: TimeStamp):
-        assert (
-            sum(bool(getattr(self._relative_delta, name, 0)) for name in ("days", "months", "years")) == 1
-        ), f"Cannot get number of periods for {self}"
+        assert sum(bool(getattr(self._relative_delta, name, 0)) for name in ("days", "months", "years")) == 1, (
+            f"Cannot get number of periods for {self}"
+        )
         if self._relative_delta.days != 0:
             n_days_diff = (end_stamp.date - start_stamp.date).days
             return n_days_diff // self._relative_delta.days

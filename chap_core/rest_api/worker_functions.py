@@ -45,7 +45,7 @@ class DataValue:
 
 class WorkerConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
-    
+
     is_test: bool = False
     failing_services: Tuple[str] = ()
 
