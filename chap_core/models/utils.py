@@ -2,11 +2,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
 import git
-from chap_core.datatypes import HealthData
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
-from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config
-from chap_core.external.model_configuration import ModelTemplateConfig, ModelTemplateConfigV2
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.model_template import ModelTemplate
 import shutil
 import uuid
@@ -142,36 +140,6 @@ def get_model_template_from_directory_or_github_url(
 
     template = get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
     return template
-
-
-def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> "ExternalModel":
-    """parses file and returns the model
-    Will not use MLflows project setup if docker is specified
-    """
-
-    with open(mlproject_file, "r") as file:
-        config = yaml.load(file, Loader=yaml.FullLoader)
-    working_dir = Path(mlproject_file).parent
-    config = ModelTemplateConfig.model_validate(config)
-    runner = get_train_predict_runner_from_model_template_config(config, working_dir, ignore_env)
-    # runner = get_train_predict_runner(mlproject_file, runner_type, skip_environment=ignore_env)
-
-    logging.info("Runner is %s", runner)
-    logging.info("Will create ExternalMlflowModel")
-    name = config.name
-    adapters = config.adapters  # config.get("adapters", None)
-    # allowed_data_types = {"HealthData": HealthData}
-    # data_type = allowed_data_types.get(config.get("data_type", None), None)
-    data_type = HealthData
-    from chap_core.models import ExternalModel
-
-    return ExternalModel(
-        runner,
-        name=name,
-        adapters=adapters,
-        data_type=data_type,
-        working_dir=Path(mlproject_file).parent,
-    )
 
 
 def get_model_from_directory_or_github_url(

@@ -104,6 +104,7 @@ def test_predict_laos(laos_request_3):
 
 def test_dataset_from_request_v1(big_request_json):
     from chap_core.rest_api.worker_functions import dataset_from_request_v1
+
     data = PredictionRequest.model_validate_json(big_request_json)
     dataset = dataset_from_request_v1(data)
     print(dataset)

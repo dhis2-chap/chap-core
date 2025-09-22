@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import yaml
 import logging
 from chap_core.datatypes import HealthData
-from chap_core.external.model_configuration import ModelTemplateConfig, ModelTemplateConfigV2
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.configured_model import ModelConfiguration
 from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
@@ -27,7 +27,7 @@ class ModelTemplate:
     A template defines the choices allowed for a model
     """
 
-    def __init__(self, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
+    def __init__(self, model_template_config: ModelTemplateConfigV2, working_dir: str, ignore_env=False):
         self._model_template_config = model_template_config
         self._working_dir = working_dir
         self._ignore_env = ignore_env
@@ -168,7 +168,7 @@ class ExternalModelTemplate(ModelTemplateInterface):
     For parsing mlflow and putting into db/rest-api objects, this class should not be used
     """
 
-    def __init__(self, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
+    def __init__(self, model_template_config: ModelTemplateConfigV2, working_dir: str, ignore_env=False):
         self._model_template_config = model_template_config
         self._working_dir = working_dir
         self._ignore_env = ignore_env
@@ -179,9 +179,11 @@ class ExternalModelTemplate(ModelTemplateInterface):
         return ModelTemplateConfigV2.model_validate(yaml.safe_load(content) | {"source_url": github_url})
 
     @property
-    def model_template_info(self) -> ModelTemplateConfig:
+    def model_template_info(self) -> ModelTemplateConfigV2:
         return self._model_template_config
 
     @classmethod
-    def from_model_template_config(cls, model_template_config: ModelTemplateConfig, working_dir: str, ignore_env=False):
+    def from_model_template_config(
+        cls, model_template_config: ModelTemplateConfigV2, working_dir: str, ignore_env=False
+    ):
         return cls(ModelTemplate(model_template_config, working_dir, ignore_env))

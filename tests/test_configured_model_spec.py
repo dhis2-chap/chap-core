@@ -6,17 +6,7 @@ from chap_core.file_io.file_paths import get_example_data_path
 
 logger = logging.getLogger(__name__)
 
-from chap_core.external.model_configuration import ModelTemplateConfigV2, ModelTemplateConfig
-from chap_core.model_spec import (
-    ModelSpec,
-    model_spec_from_yaml,
-    PeriodType,
-    EmptyParameterSpec,
-    model_spec_from_model,
-)
-import chap_core.predictor.feature_spec as fs
-from chap_core.models.model_template import ExternalModelTemplate
-from chap_core.predictor.naive_estimator import NaiveEstimator
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 
 def mlflow_paths():

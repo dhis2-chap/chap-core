@@ -62,6 +62,8 @@ class ModelTemplateConfigCommon(ModelTemplateInformation, extra="forbid"):
 
 # TODO: maybe rename to ModelTemplateYamlConfig
 class ModelTemplateConfigV2(ModelTemplateConfigCommon, RunnerConfig, extra="forbid"):
+    """This is used to parse MLProject files"""
+
     name: str
     source_url: Optional[str] = None
     adapters: Optional[dict[str, str]] = None

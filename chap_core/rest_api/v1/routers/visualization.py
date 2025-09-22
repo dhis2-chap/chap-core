@@ -48,15 +48,6 @@ class Metric(DBModel):
     description: str = ""
 
 
-# todo: this metrics list is outdated and not used after transitioning to new metric system
-metrics = [
-    Metric(id="crps", display_name="CRPS", description="Checking if the sampled distribuion matches the truth"),
-    Metric(id="crps_norm", display_name="CRPS norm", description="Checking"),
-    Metric(id="is_within_10th_90th", display_name="Within 10th 90th percentile"),
-    Metric(id="is_within_25th_75th", display_name="Within 25th 75th percentile"),
-]
-
-
 @router.get("/metrics/{backtest_id}", response_model=list[Metric])
 def get_available_metrics(backtest_id: int):
     logger.info(f"Getting available metrics for backtest {backtest_id}")

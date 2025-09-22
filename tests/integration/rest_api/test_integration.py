@@ -219,12 +219,3 @@ def test_run_job_with_too_little_data(big_request_json, monkeypatch):
     # this test requires some functionality to go from json data to a dataset
     # that we can change and then go back (or to generate api data directory from a dataset)
     pass
-    """"
-    monkeypatch.setattr("chap_core.rest_api.v1.rest_api.worker", NaiveWorker())
-    model_name = "naive_model"
-    data = set_model_in_json(big_request_json, model_name)
-    client = TestClient(app)
-    response = client.post(predict_path, json=json.loads(data))
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
-    """
