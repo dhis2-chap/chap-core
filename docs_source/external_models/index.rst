@@ -26,5 +26,4 @@ We provide more detailed documentation depending on who you are:
    running_models_in_chap
    side_by_side_comparison
    supporting_functionality
-   surplus_after_refactoring
    train_and_predict
