@@ -66,45 +66,6 @@ else:
 # TODO: probably also move to classes and more flexible
 
 
-# todo: all these functions for metrics are not used anymore, can be removed in the future
-
-def crps_ensemble_timestep(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
-    term1 = np.mean(np.abs(sample_values - obs))
-    term2 = 0.5 * np.mean(np.abs(sample_values[:, None] - sample_values[None, :]))
-    return float(term1 - term2)
-
-
-def crps_ensemble_timestep_normalized(
-    sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]
-) -> float:
-    crps = crps_ensemble_timestep(sample_values, obs, evaluation_results)
-    obs_values = [
-        cases
-        for eval_result in evaluation_results
-        for location, samples_with_truth in eval_result.items()
-        for cases in samples_with_truth.disease_cases
-    ]
-    obs_min, obs_max = min(obs_values), max(obs_values)
-    crps_norm = crps / (obs_max - obs_min)
-    return float(crps_norm)
-
-
-def _is_within_percentile(
-    sample_values: np.ndarray, obs: float, lower_percentile: float, higher_percentile: float
-) -> float:
-    low, high = np.percentile(sample_values, [lower_percentile, higher_percentile])
-    is_within_range = 1 if (low <= obs <= high) else 0
-    return float(is_within_range)
-
-
-def is_within_10th_90th(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
-    return _is_within_percentile(sample_values, obs, 10, 90)
-
-
-def is_within_25th_75th(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
-    return _is_within_percentile(sample_values, obs, 25, 75)
-
-
 class SessionWrapper:
     """
     This is a wrapper around data access operations.
@@ -346,24 +307,6 @@ class SessionWrapper:
         org_units = set([])
         split_points = set([])
         # define metrics (for each period)
-        """
-        # todo: remove
-        metric_defs = {
-            "crps": crps_ensemble_timestep,
-            "crps_norm": crps_ensemble_timestep_normalized,
-            "is_within_10th_90th": is_within_10th_90th,
-            "is_within_25th_75th": is_within_25th_75th,
-        }
-        # define aggregate metrics (for entire backtest)
-        # value is tuple of (metric_id used to filter metric values, and function to run on filter metric values)
-        aggregate_metric_defs = {
-            "crps_mean": ("crps", lambda vals: np.mean(vals)),
-            "crps_norm_mean": ("crps_norm", lambda vals: np.mean(vals)),
-            "ratio_within_10th_90th": ("is_within_10th_90th", lambda vals: np.mean(vals)),
-            "ratio_within_25th_75th": ("is_within_25th_75th", lambda vals: np.mean(vals)),
-        }
-        """
-        # begin loop
         evaluation_results = list(
             evaluation_results
         )  # hacky, to avoid metric funcs using up the iterable before we can loop all splitpoints
@@ -386,53 +329,7 @@ class SessionWrapper:
                     )
                     backtest.forecasts.append(forecast)
 
-
-                    # add misc metrics
-                    # TODO: should probably be improved with eg custom Metric classes
-                    # todo: this can be remove, we now don't but detailed metrics in db, but instead compute
-                    # them directly where we need them (e.g. in visualization endpoint)
-                    """
-                    for metric_id, metric_func in metric_defs.items():
-                        try:
-                            metric_value = metric_func(sample_values, disease_cases, evaluation_results)
-                            if np.isnan(metric_value) or np.isinf(metric_value):
-                                logger.warning(
-                                    f"Computed metric {metric_id} for location {location}, split period {first_period.id}, and forecast period {period.id} is NaN or Inf, skipping."
-                                )
-                                continue
-
-                            metric = BackTestMetric(
-                                metric_id=metric_id,
-                                period=period.id,
-                                org_unit=location,
-                                last_train_period=last_train_period.id,
-                                last_seen_period=first_period.id,
-                                value=metric_value,
-                            )
-                            backtest.metrics.append(metric)
-                        except Exception as err:
-                            logger.warning(
-                                f"Unexpected error computing metric id {metric_id}, for location {location}, split period {first_period.id}, and forecast period {period.id}: {err}"
-                            )
-                    """
-        # calculate and add total metrics
-        # TODO: should probably be improved with eg custom Metric classes
-        """
-        aggregate_metrics = {}
-        for aggregate_metric_id, (filter_metric_id, aggregate_metric_func) in aggregate_metric_defs.items():
-            try:
-                filtered_metric_values = [
-                    metric.value for metric in backtest.metrics if metric.metric_id == filter_metric_id
-                ]
-                aggregate_metric_value = float(aggregate_metric_func(filtered_metric_values))
-                if np.isnan(aggregate_metric_value) or np.isinf(aggregate_metric_value):
-                    logger.warning(f"Computed aggregate metric {aggregate_metric_id} is NaN or Inf, skipping.")
-                    continue
-                aggregate_metrics[aggregate_metric_id] = aggregate_metric_value
-            except Exception as err:
-                logger.warning(f"Unexpected error computing aggregate metric id {aggregate_metric_id}: {err}")
-        """
-        
+       
         backtest.org_units = list(org_units)
         backtest.split_periods = list(split_points)
         self.session.commit()

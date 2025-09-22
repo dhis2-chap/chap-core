@@ -308,16 +308,6 @@ def clean_engine(database_url):
     engine = create_engine(database_url, connect_args={"check_same_thread": False})
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
-    # old model seeding
-    # TODO: remove once the new seeding is implemented
-    # with SessionWrapper(engine) as session:
-    #     seed_with_session_wrapper(session)
-    # new model seeding
-    # from chap_core.database.model_template_seed import seed_configured_models
-    # from sqlmodel import Session
-    # with Session(engine) as session:
-    #     seed_configured_models(session)
-    # newest model seeding
     from sqlmodel import Session
 
     from chap_core.database.model_template_seed import seed_configured_models_from_config_dir

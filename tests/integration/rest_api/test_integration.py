@@ -9,7 +9,8 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from chap_core.rest_api.v1.rest_api import NaiveWorker, app
+from chap_core.rest_api.v1.jobs import NaiveWorker
+from chap_core.rest_api.v1.rest_api import app
 from chap_core.rest_api.v1.routers.dependencies import get_settings
 from chap_core.rest_api.worker_functions import WorkerConfig
 from chap_core.util import redis_available

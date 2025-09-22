@@ -74,66 +74,6 @@ internal_state = InternalState(Control({}), {})
 state = State(ready=True, status="idle")
 
 
-# todo: move this
-class NaiveJob:
-    def __init__(self, func, *args, **kwargs):
-        # todo: init a root logger to capture all logs from the job
-        self._exception_info = ""
-        self._result = ""
-        self._status = ""
-        self._finished = False
-        logger.info("Starting naive job")
-        try:
-            self._result = func(*args, **kwargs)
-            self._status = "finished"
-            logger.info("Naive job finished successfully")
-            self._finished = True
-        except Exception as e:
-            self._exception_info = str(e)
-            logger.info("Naive job failed with exception: %s", e)
-            self._status = "failed"
-            self._result = ""
-
-    @property
-    def id(self):
-        return "naive_job"
-
-    @property
-    def status(self):
-        return self._status
-
-    @property
-    def exception_info(self):
-        return self._exception_info
-
-    @property
-    def progress(self):
-        return 1
-
-    @property
-    def result(self):
-        return self._result
-
-    def cancel(self):
-        pass
-
-    @property
-    def is_finished(self):
-        return self._finished
-
-    def get_logs(self, n_lines: Optional[int]):
-        """Retrives logs from the current job"""
-        return ""
-
-
-class NaiveWorker:
-    job_class = NaiveJob
-
-    def queue(self, func, *args, **kwargs):
-        # return self.job_class(func(*args, **kwargs))
-        return self.job_class(func, *args, **kwargs)
-
-
 worker = CeleryPool()
 
 

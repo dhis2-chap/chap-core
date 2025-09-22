@@ -1,12 +1,19 @@
-from typing import List
+import logging
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from chap_core.api_types import EvaluationResponse
+from chap_core.log_config import initialize_logging
 from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.data_models import FullPredictionResponse
+
+initialize_logging(True, "logs/rest_api.log")
+logger = logging.getLogger(__name__)
+logger.info("Logging initialized")
+
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 worker = CeleryPool()
@@ -129,3 +136,63 @@ Datasets for predictions are not necessarily versioned and stored, but sent in e
 Evaluation should be run once, then using continous monitoring after
 Task-id
 """
+
+
+# todo: move this
+class NaiveJob:
+    def __init__(self, func, *args, **kwargs):
+        # todo: init a root logger to capture all logs from the job
+        self._exception_info = ""
+        self._result = ""
+        self._status = ""
+        self._finished = False
+        logger.info("Starting naive job")
+        try:
+            self._result = func(*args, **kwargs)
+            self._status = "finished"
+            logger.info("Naive job finished successfully")
+            self._finished = True
+        except Exception as e:
+            self._exception_info = str(e)
+            logger.info("Naive job failed with exception: %s", e)
+            self._status = "failed"
+            self._result = ""
+
+    @property
+    def id(self):
+        return "naive_job"
+
+    @property
+    def status(self):
+        return self._status
+
+    @property
+    def exception_info(self):
+        return self._exception_info
+
+    @property
+    def progress(self):
+        return 1
+
+    @property
+    def result(self):
+        return self._result
+
+    def cancel(self):
+        pass
+
+    @property
+    def is_finished(self):
+        return self._finished
+
+    def get_logs(self, n_lines: Optional[int]):
+        """Retrives logs from the current job"""
+        return ""
+
+
+class NaiveWorker:
+    job_class = NaiveJob
+
+    def queue(self, func, *args, **kwargs):
+        # return self.job_class(func(*args, **kwargs))
+        return self.job_class(func, *args, **kwargs)

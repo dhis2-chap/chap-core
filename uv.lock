@@ -235,7 +235,7 @@ wheels = [
 
 [[package]]
 name = "chap-core"
-version = "1.0.9"
+version = "1.0.17"
 source = { editable = "." }
 dependencies = [
     { name = "altair" },

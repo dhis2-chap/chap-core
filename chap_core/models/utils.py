@@ -66,10 +66,18 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
 
     if is_github:
         working_dir.mkdir(parents=True)
-        repo = git.Repo.clone_from(model_path, working_dir)
         if commit:
-            logger.info(f"Checking out commit {commit}")
+            # For specific commits, clone with --filter to minimize download
+            # then fetch only the specific commit
+            logger.info(f"Cloning repository with specific commit {commit}")
+            repo = git.Repo.clone_from(model_path, working_dir, filter="blob:none", no_checkout=True)
+            # Fetch only the specific commit with minimal history
+            repo.git.fetch("origin", commit, depth=1)
             repo.git.checkout(commit)
+        else:
+            # For latest branch, use shallow clone with depth=1
+            logger.info(f"Cloning repository {model_path} (shallow clone)")
+            repo = git.Repo.clone_from(model_path, working_dir, depth=1)
     elif run_dir_type == "use_existing":
         logging.info("Not copying any model files, using existing directory")
     else:
