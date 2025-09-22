@@ -166,27 +166,6 @@ def dumped_weekly_data_paths(weekly_full_data, tmp_path):
     return training_path, historic_path, future_path
 
 
-@pytest.fixture()
-def google_earth_engine():
-    from chap_core.google_earth_engine.gee_era5 import GoogleEarthEngine
-
-    try:
-        return GoogleEarthEngine()
-    except:
-        pytest.skip("Google Earth Engine not available")
-
-
-@pytest.fixture()
-def mocked_gee(gee_mock):
-    with patch("chap_core.rest_api.worker_functions.Era5LandGoogleEarthEngine", gee_mock):
-        yield
-
-
-@pytest.fixture()
-def gee_mock():
-    return GEEMock
-
-
 @pytest.fixture
 def request_json(data_path):
     return open(data_path / "v1_api/request.json", "r").read()

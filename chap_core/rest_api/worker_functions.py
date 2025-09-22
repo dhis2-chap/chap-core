@@ -4,7 +4,6 @@ import logging
 import os
 from typing import List, Optional, Tuple, Union
 
-import ee
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, ConfigDict
@@ -23,9 +22,6 @@ from chap_core.assessment.prediction_evaluator import backtest
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, HealthData, HealthPopulationData, Samples, TimeSeriesArray, create_tsdataclass
-from chap_core.geometry import Polygons
-from chap_core.geoutils import simplify_topology
-from chap_core.google_earth_engine.gee_era5 import Era5LandGoogleEarthEngine
 from chap_core.predictor.model_registry import registry
 from chap_core.rest_api.data_models import FetchRequest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -48,15 +44,6 @@ class WorkerConfig(BaseModel):
 
     is_test: bool = False
     failing_services: Tuple[str] = ()
-
-
-def initialize_gee_client(usecwd=False, worker_config: WorkerConfig = WorkerConfig()):
-    if worker_config.is_test:
-        from chap_core.testing.mocks import GEEMock
-
-        return GEEMock(worker_config)
-    gee_client = Era5LandGoogleEarthEngine(usecwd=usecwd)
-    return gee_client
 
 
 def predict_pipeline_from_health_data(
@@ -238,26 +225,11 @@ base_fetch_requests = (
 def harmonize_health_dataset(
     dataset,
     usecwd_for_credentials,
-    fetch_requests: List[FetchRequest] = base_fetch_requests,
+    fetch_requests: List[FetchRequest] = None,
     worker_config: WorkerConfig = WorkerConfig(),
 ):
-    gee_client = initialize_gee_client(usecwd=usecwd_for_credentials, worker_config=worker_config)
-    period_range = dataset.period_range
-
-    try:
-        climate_data = gee_client.get_historical_era5(
-            dataset.polygons.model_dump(), periodes=period_range, fetch_requests=fetch_requests
-        )
-    except ee.EEException as e:
-        logger.error(f"Failed to get climate data: {e}, trying to downsample")
-        polygons = simplify_topology(Polygons(dataset.polygons)).feature_collection()
-        climate_data = gee_client.get_historical_era5(
-            polygons.model_dump(), periodes=period_range, fetch_requests=fetch_requests
-        )
-
-    dataclass = create_tsdataclass(dataset.field_names() + [d.feature_name for d in fetch_requests])
-    train_data = dataset.merge(climate_data, dataclass)
-    return train_data
+    assert not fetch_requests, "Google earth engine no longer supported"
+    return dataset
 
 
 def get_health_dataset(json_data: PredictionRequest, dataclass=None, colnames=("ou", "pe")):

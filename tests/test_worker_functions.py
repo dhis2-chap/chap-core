@@ -30,7 +30,7 @@ def test_train_on_json_data_big(big_request_json):
 
 
 @pytest.mark.slow
-def test_train_on_json_data_new(big_request_json, mocked_gee, models_path):
+def test_train_on_json_data_new(big_request_json, models_path):
     train_on_json_data(
         big_request_json,
         # models_path/'naive_python_model_with_mlproject_file_and_docker',
@@ -76,11 +76,11 @@ def test_get_health_dataset():
     assert data["location1"].mean_temperature[0] == 23.0
 
 
-def test_predict(big_request_json, mocked_gee):
+def test_predict(big_request_json):
     predict(big_request_json)
 
 
-def test_evaluate(big_request_json, mocked_gee):
+def test_evaluate(big_request_json):
     results = evaluate(big_request_json, n_splits=2, stride=1)
     actual_cases = results.actualCases
     assert all(len(element.pe) == 6 for element in actual_cases.data)
@@ -88,7 +88,7 @@ def test_evaluate(big_request_json, mocked_gee):
     assert len(actual_cases.data) > 100
 
 
-def test_evaluate_laos(laos_request_2, mocked_gee):
+def test_evaluate_laos(laos_request_2):
     results = evaluate(laos_request_2, n_splits=2, stride=1)
     actual_cases = results.actualCases
     assert all(len(element.pe) == 6 for element in actual_cases.data), [element.pe for element in actual_cases.data]
@@ -98,13 +98,12 @@ def test_evaluate_laos(laos_request_2, mocked_gee):
     )
 
 
-def test_predict_laos(laos_request_3, mocked_gee):
+def test_predict_laos(laos_request_3):
     results = predict(laos_request_3)
 
 
-def test_dataset_from_request_v1(big_request_json, mocked_gee):
+def test_dataset_from_request_v1(big_request_json):
     from chap_core.rest_api.worker_functions import dataset_from_request_v1
-
     data = PredictionRequest.model_validate_json(big_request_json)
     dataset = dataset_from_request_v1(data)
     print(dataset)

@@ -232,7 +232,9 @@ def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_
 
 @pytest.fixture()
 def make_dataset_request(example_polygons) -> DatasetMakeRequest:
-    fetch_request = [FetchRequest(feature_name="mean_temperature", data_source_name="mean_2m_air_temperature")]
+    pytest.skip("We don it support fetching from gee anymore")
+    # fetch_request = [FetchRequest(feature_name="mean_temperature", data_source_name="mean_2m_air_temperature")]
+    fetch_request = []  # we don't support fetch request anymore
     proivided_features = ["rainfall", "disease_cases", "population"]
     return create_make_data_request(example_polygons, fetch_request, proivided_features)
 
@@ -256,8 +258,11 @@ def create_make_data_request(example_polygons, fetch_request, proivided_features
 
 @pytest.fixture()
 def anonymous_make_dataset_request(data_path):
+    pytest.skip("We don't support requests with fetching from gee anymore")
     with open(data_path / "anonymous_make_dataset_request.json", "r") as f:
-        return DatasetMakeRequest.model_validate_json(f.read())
+        request = DatasetMakeRequest.model_validate_json(f.read())
+        request.data_to_be_fetched = []
+        return request
 
 
 def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_request):
@@ -405,10 +410,10 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     model = next(m for m in models if m.name == "naive_model")
     features = [f.name for f in model.covariates]
     fetched_feature, *provided_features = features
-    provided_features = provided_features + ["disease_cases"]
+    provided_features = features + ["disease_cases"]
     data_sources = client.get("/v1/analytics/data-sources").json()
     data_source = next(ds for ds in data_sources if fetched_feature in ds["supportedFeatures"])
-    fetch_request = [FetchRequest(feature_name=fetched_feature, data_source_name=data_source["name"])]
+    fetch_request = []  # [FetchRequest(feature_name=fetched_feature, data_source_name=data_source["name"])]
     request = create_make_data_request(example_polygons, fetch_request, provided_features)
     request = MakePredictionRequest(model_id=model.name, **request.dict())
     data = request.model_dump_json()
