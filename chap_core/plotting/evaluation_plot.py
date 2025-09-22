@@ -171,11 +171,11 @@ class MetricMapV2(MetricPlotV2):
             alt.Chart(alt.Data(values=geojson_data["features"]))
             .mark_geoshape(stroke="black", strokeWidth=0.5)
             .encode(
-                color=alt.Color("value:Q", scale=alt.Scale(scheme="blues"), title="Metric Value"),
-                tooltip=["properties.name:N", "value:Q"],
+                color=alt.Color("value:Q", scale=alt.Scale(scheme="reds"), title="Metric Value"),
+                tooltip=[alt.Tooltip("properties.name:N", title="org unit"), "value:Q"],
             )
             .transform_lookup(
-                lookup="properties.org_unit",  # Assuming geojson has org_unit property
+                lookup="id",  # Assuming geojson has org_unit property
                 from_=alt.LookupData(agg_df, "org_unit", ["value"]),
             )
             .project(type="identity")  # Assumes coords already in lon/lat
