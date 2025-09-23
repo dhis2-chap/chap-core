@@ -22,7 +22,8 @@ class HpoModel(HpoModelInterface):
             searcher: Searcher, 
             objective: 'Objective',
             direction: Direction = "minimize", 
-            model_configuration_yaml: Optional[str] = None,
+            # model_configuration_yaml: Optional[str] = None,
+            model_configuration: Optional[dict[str, list]] = None,
     ):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
@@ -31,22 +32,13 @@ class HpoModel(HpoModelInterface):
         self._objective = objective
         self._direction = direction
         # self._model_configuration_yaml = model_configuration_yaml #TODO: this should a parsed dict
-        self.base_configs = Optinal[dict[str, list]] = None
+        self.base_configs = model_configuration
     
     def train(self, dataset: Optional[DataSetType],) -> Tuple[str, dict[str, Any]]:
         """
         Runs hyperparameter optimization over a discrete search space.
         Returns the optimized and trained (trained on the whole dataset argument) predictor.
         """
-        if self._model_configuration_yaml is not None:
-            logger.info(f"Loading model configuration from yaml file {self._model_configuration_yaml}")
-            with open(self._model_configuration_yaml, "r", encoding="utf-8") as f:
-                self.base_configs = yaml.safe_load(f) or {} # check if this returns a dict
-            logger.info(f"Loaded model base configurations from yaml file: {self.base_configs}")
-
-        if "user_option_values" not in self.base_configs or not isinstance(self.base_configs["user_option_values"], dict):
-            raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
-
         hpo_configs = self.base_configs["user_option_values"]
         for key, vals in hpo_configs.items():
             deduped = dedup(vals)

@@ -5,6 +5,32 @@ import yaml
 import json
 
 
+"""
+Constraints on non-categorical hyperparameter values:   
+    log=True
+        floats: step=None and low/high > 0
+        ints: step=1 and low/high > 0
+    log=False (uniform)
+        floats: step=None (continuous) or step > 0
+        ints: step >= 1 and step-type=int
+    Bounds are inclusive, when step is used, high is included only if it lies exactly on the grid.
+"""
+
+@dataclass(frozen=True)
+class Int:
+    low: int
+    high: int 
+    step: int = 1 
+    log: bool = False
+
+@dataclass(frozen=True)
+class Float:
+    low: float
+    high: float 
+    step: Optional[float] = None
+    log: bool = False
+
+
 def dedup(values):
     """Deduplicate while preserving order; works for scalars, lists, dicts, None."""
     seen = set()
@@ -23,6 +49,56 @@ def dedup(values):
 def write_yaml(path: str, data: dict) -> None:
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, sort_keys=False)
+
+
+def load_search_space_from_yaml(path: str) -> dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as f:
+        raw = yaml.safe_load(f)
+
+    if not isinstance(raw, dict) or not raw:
+        raise ValueError("YAML must define a non-empty mapping of parameters")
+    
+    space: dict[str, Any] = {}
+
+    for name, spec in raw.items():
+        if not isinstance(spec, dict):
+            raise ValueError(f"'{name}': each spec must be a mapping")
+
+        # Categorical values
+        if "values" in spec:
+            values = spec["values"]
+            if not isinstance(values, list) or not values:
+                raise ValueError(f"'{name}': 'values' must be a non-empty list")
+            space[name] = values 
+            continue 
+        
+        if "low" not in spec or "high" not in spec:
+            raise ValueError(f"'{name}': expected 'low' and 'high'")
+        
+        low, high = spec["low"], spec["high"]
+        type_ = spec.get("type", None) # default decided base on type of low, high
+        log = bool(spec.get("log", False))
+        step = spec.get("step", None) # None for int is 1
+
+        # Suggest int
+        if (type_ or "").lower() == "int" or (isinstance(low, int) and isinstance(high, int) and type_ is None):
+            if log and step not in (None, 1):
+                raise ValueError(f"'{name}': log-int requires step==1 (or omit)")
+            step_val = 1 if step is None else int(step)
+            space[name] = Int(low=int(low), high=int(high), step=step_val, log=log)
+            continue
+        
+        # Suggest float
+        if (type_ or "").lower() == "float" or type_ is None:
+            if log and step is not None:
+                raise ValueError(f"'{name}': log-float requires step==None")
+            step_val = None if step is None else float(step)
+            space[name] = Float(low=float(low), high=float(high), step=step_val, log=log)
+            continue
+
+        raise ValueError(f"'{name}': unknown spec type '{type_}'")
+    
+    return space
 
 
 # @dataclass
