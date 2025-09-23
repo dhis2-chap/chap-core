@@ -171,13 +171,35 @@ def get_backtest_overlap(
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
 
 
+@router.get("/prediction-entry", response_model=List[EvaluationEntry])
+async def get_prediction_entry(prediction_id: Annotated[int, Query(alias="predictionId")],
+                               quantiles: List[float] = Query(...),
+                               session: Session = Depends(get_session)
+                               ):
+    """
+    return
+    """
+    prediction = session.get(Prediction, prediction_id)
+    if prediction is None:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    return [
+        EvaluationEntry(
+            period=forecast.period,
+            orgUnit=forecast.org_unit,
+            quantile=q,
+            value=np.quantile(forecast.values, q),
+        )
+        for forecast in prediction.forecasts
+        for q in quantiles
+    ]
+
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])
 async def get_evaluation_entries(
-    backtest_id: Annotated[int, Query(alias="backtestId")],
-    quantiles: List[float] = Query(...),
-    split_period: str = Query(None, alias="splitPeriod"),
-    org_units: List[str] = Query(None, alias="orgUnits"),
-    session: Session = Depends(get_session),
+        backtest_id: Annotated[int, Query(alias="backtestId")],
+        quantiles: List[float] = Query(...),
+        split_period: str = Query(None, alias="splitPeriod"),
+        org_units: List[str] = Query(None, alias="orgUnits"),
+        session: Session = Depends(get_session),
 ):
     """
     Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
@@ -185,28 +207,23 @@ async def get_evaluation_entries(
     logger.info(
         f"Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} "
     )
-    backtest = session.get(BackTest, backtest_id)
-
-    # forecasts = session.exec()
+    if backtest_id is not None:
+        backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     if org_units is not None:
         org_units = set(org_units)
         logger.info("Filtering evaluation entries to org_units: %s", org_units)
 
-    expr = select(BackTestForecast).where(BackTestForecast.backtest_id == backtest_id)
+    cls = BackTestForecast
+    expr = select(cls).where(cls.backtest_id == backtest_id)
     if split_period:
-        expr = expr.where(BackTestForecast.last_seen_period == split_period)
+        expr = expr.where(cls.last_seen_period == split_period)
     if org_units:
-        expr = expr.where(BackTestForecast.org_unit.in_(org_units))
+        expr = expr.where(cls.org_unit.in_(org_units))
     forecasts = session.exec(expr)
 
-    # forecasts = list(backtest.forecasts)
     logger.info(forecasts)
-    # filtered_forecasts = [forecast for forecast in forecasts
-    #                       if ((split_period is None) or forecast.last_seen_period == split_period) and
-    #                       ((org_units is None) or forecast.org_unit in org_units)]
-
     return [
         EvaluationEntry(
             period=forecast.period,

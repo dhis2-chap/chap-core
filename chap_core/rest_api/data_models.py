@@ -27,10 +27,6 @@ class FullPredictionResponse(BaseModel):
     dataValues: List[PredictionResponse]
 
 
-class FullPredictionSampleResponse(BaseModel):
-    diseaseId: str
-    dataValues: List[PredictionSamplResponse]
-
 
 class FetchRequest(DBModel):
     feature_name: str

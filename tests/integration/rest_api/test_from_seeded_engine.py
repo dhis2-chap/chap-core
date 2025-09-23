@@ -34,3 +34,8 @@ def test_get_evaluation_entries(override_session):
     params = {"backtestId": 1, "quantiles": [0.1, 0.5, 0.9]}
     evaluation_entries = client.get_json("/v1/analytics/evaluation-entry", params=params)
     assert len(evaluation_entries) > 3
+
+def test_get_prediction_entries(override_session):
+    params = {"predictionId": 1, "quantiles": [0.0, 0.5, 0.9]}
+    prediction_entries = client.get_json("/v1/analytics/prediction-entry/", params=params)
+    assert len(prediction_entries) > 3

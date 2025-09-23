@@ -63,10 +63,11 @@ class BackTestRead(_BackTestRead):
 class ForecastBase(DBModel):
     period: PeriodID
     org_unit: str
+    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class ForecastRead(ForecastBase):
-    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
+    ...
 
 
 class PredictionBase(DBModel):
@@ -95,8 +96,6 @@ class PredictionSamplesEntry(ForecastBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     prediction_id: int = Field(foreign_key="prediction.id")
     prediction: "Prediction" = Relationship(back_populates="forecasts")
-    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
-
 
 class BackTestForecast(ForecastBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
@@ -104,7 +103,7 @@ class BackTestForecast(ForecastBase, table=True):
     last_train_period: PeriodID
     last_seen_period: PeriodID
     backtest: BackTest = Relationship(back_populates="forecasts")
-    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
+
 
 
 class BackTestMetric(DBModel, table=True):
