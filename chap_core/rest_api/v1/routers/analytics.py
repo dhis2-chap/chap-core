@@ -171,7 +171,7 @@ def get_backtest_overlap(
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
 
 
-@router.get("/prediction-entry", response_model=List[EvaluationEntry])
+@router.get("/prediction-entry", response_model=List[PredictionEntry])
 async def get_prediction_entry(prediction_id: Annotated[int, Query(alias="predictionId")],
                                quantiles: List[float] = Query(...),
                                session: Session = Depends(get_session)
@@ -183,7 +183,7 @@ async def get_prediction_entry(prediction_id: Annotated[int, Query(alias="predic
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
     return [
-        EvaluationEntry(
+        PredictionEntry(
             period=forecast.period,
             orgUnit=forecast.org_unit,
             quantile=q,

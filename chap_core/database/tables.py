@@ -63,7 +63,7 @@ class BackTestRead(_BackTestRead):
 class ForecastBase(DBModel):
     period: PeriodID
     org_unit: str
-    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
+    values: List[float] = Field(default_factory=list, sa_type=JSON)
 
 
 class ForecastRead(ForecastBase):
