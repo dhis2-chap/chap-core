@@ -339,7 +339,7 @@ async def get_actual_cases(
     return DataList(featureId="disease_cases", dhis2Id="disease_cases", data=data_list)
 
 
-class DataSource(DBModel):
+class ChapDataSource(DBModel):
     name: str
     display_name: str
     supported_features: List[str]
@@ -348,63 +348,63 @@ class DataSource(DBModel):
 
 
 data_sources = [
-    DataSource(
+    ChapDataSource(
         name="mean_2m_air_temperature",
         display_name="Mean 2m Air Temperature",
         supported_features=["mean_temperature"],
         description="Average air temperature at 2m height (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="minimum_2m_air_temperature",
         display_name="Minimum 2m Air Temperature",
         supported_features=[""],
         description="Minimum air temperature at 2m height (daily minimum)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="maximum_2m_air_temperature",
         display_name="Maximum 2m Air Temperature",
         supported_features=[""],
         description="Maximum air temperature at 2m height (daily maximum)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="dewpoint_2m_temperature",
         display_name="Dewpoint 2m Temperature",
         supported_features=[""],
         description="Dewpoint temperature at 2m height (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="total_precipitation",
         display_name="Total Precipitation",
         supported_features=["rainfall"],
         description="Total precipitation (daily sums)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="surface_pressure",
         display_name="Surface Pressure",
         supported_features=["surface_pressure"],
         description="Surface pressure (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="mean_sea_level_pressure",
         display_name="Mean Sea Level Pressure",
         supported_features=["mean_sea_level_pressure"],
         description="Mean sea level pressure (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="u_component_of_wind_10m",
         display_name="U Component of Wind 10m",
         supported_features=["u_component_of_wind_10m"],
         description="10m u-component of wind (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="v_component_of_wind_10m",
         display_name="V Component of Wind 10m",
         supported_features=["v_component_of_wind_10m"],
@@ -414,8 +414,8 @@ data_sources = [
 ]
 
 
-@router.get("/data-sources", response_model=List[DataSource])
-async def get_data_sources() -> List[DataSource]:
+@router.get("/data-sources", response_model=List[ChapDataSource])
+async def get_data_sources() -> List[ChapDataSource]:
     return data_sources
 
 

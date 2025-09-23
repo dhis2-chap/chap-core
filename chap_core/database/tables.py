@@ -13,6 +13,7 @@ from chap_core.database.dataset_tables import DataSet
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, ModelConfiguration
 
 
+
 class BackTestBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
     model_id: str
@@ -75,6 +76,7 @@ class PredictionBase(DBModel):
     name: str
     created: datetime.datetime
     meta_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
+
 
 
 class Prediction(PredictionBase, table=True):

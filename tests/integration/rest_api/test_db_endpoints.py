@@ -445,19 +445,6 @@ def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
 def  test_backtest_with_data_flow(
     celery_session_worker, dependency_overrides, example_polygons, create_backtest_with_data_request, dry_run
 ):
-    # data = make_prediction_request.model_dump()
-    # backtest_name = "test_backtest_with_data"
-    # n_periods_val = 3
-    # n_splits_val = 10
-    # stride_val = 1
-    #
-    # request_payload = {
-    #     **data,
-    #     "name": backtest_name,
-    #     "n_periods": n_periods_val,
-    #     "n_splits": n_splits_val,
-    #     "stride": stride_val,
-    # }
     request_payload = create_backtest_with_data_request.model_dump()
     _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run)
 
