@@ -82,7 +82,7 @@ class PredictionBase(DBModel):
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     forecasts: List["PredictionSamplesEntry"] = Relationship(back_populates="prediction", cascade_delete=True)
-
+    dataset: DataSet = Relationship()
 
 PredictionInfo = PredictionBase.get_read_class()
 

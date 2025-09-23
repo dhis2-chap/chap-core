@@ -1,6 +1,6 @@
 from chap_core.database.dataset_tables import DataSet
 from .db_fixtures import seeded_session, p_seeded_engine, base_engine, seeded_database_url
-from .data_fixtures import dataset, dataset_observations, geojson, feature_names, org_units, seen_periods
+from .data_fixtures import dataset, dataset_observations, geojson, feature_names, org_units, seen_periods, prediction
 from chap_core.rest_api.data_models import DatasetMakeRequest
 
 

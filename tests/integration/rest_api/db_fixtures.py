@@ -2,7 +2,7 @@
 from sqlalchemy import create_engine
 import pytest
 from sqlmodel import SQLModel, Session
-from .data_fixtures import dataset
+from .data_fixtures import dataset, prediction
 
 @pytest.fixture
 def seeded_database_url(tmp_path):
@@ -24,11 +24,11 @@ def base_engine(seeded_database_url):
 
 
 @pytest.fixture
-def p_seeded_engine(base_engine, dataset):
+def p_seeded_engine(base_engine, prediction):
     with Session(base_engine) as session:
-        session.add(dataset)
+        session.add(prediction)
         session.commit()
-        session.refresh(dataset)
+        session.refresh(prediction)
     return base_engine
 
 @pytest.fixture

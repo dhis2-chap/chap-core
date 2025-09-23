@@ -6,6 +6,7 @@ from pydantic_geojson import PointModel
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.dataset_tables import DataSet, Observation, DataSource
+from chap_core.database.tables import Prediction
 from chap_core.rest_api.v1.routers.analytics import BackTestParams
 
 
@@ -66,4 +67,9 @@ def dataset(org_units, feature_names, seen_periods, dataset_observations, geojso
 
 @pytest.fixture
 def prediction(dataset):
-    ...
+    return Prediction(
+        model_id='naive_model',
+        n_periods=3,
+        name='test prediction',
+        created=datetime.datetime.now(),
+        dataset=dataset)
