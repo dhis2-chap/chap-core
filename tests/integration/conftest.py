@@ -1,13 +1,12 @@
 import pytest
 from sqlmodel import Session
-from tests.integration.rest_api.db_fixtures import seeded_session
+
+from chap_core.database.dataset_tables import DataSource
 from chap_core.rest_api.data_models import DatasetMakeRequest
 from chap_core.rest_api.v1.rest_api import app
-from chap_core.rest_api.v1.routers.analytics import MakeBacktestWithDataRequest
+from chap_core.rest_api.v1.routers.analytics import MakeBacktestWithDataRequest, data_sources
 from chap_core.rest_api.v1.routers.dependencies import get_database_url, get_session, get_settings
 from chap_core.rest_api.worker_functions import WorkerConfig
-from tests.integration.rest_api.data_fixtures import feature_names, seen_periods, org_units, backtest_params, geojson, \
-    dataset_observations
 
 
 @pytest.fixture
@@ -32,6 +31,7 @@ def dataset_make_request(feature_names, seen_periods, backtest_params, org_units
         geojson =geojson,
         provided_data = observations,
         data_to_be_fetched = [],
+        data_sources=[DataSource(covariate=fn, data_element_id=f'de_{i}') for i, fn in enumerate(feature_names+['disease_cases'])],
     )
 
 

@@ -72,7 +72,8 @@ class DataSetBase(DBModel):
     type: Optional[str] = None
     geojson: Optional[str] = None
     data_sources: List[DataSource] = Field(default_factory=list, sa_column=Column(PydanticListType(DataSource)))
-    # Optional[FeatureCollectionModel] = Field(default=None, sa_type=AutoString) #fix from https://github.com/fastapi/sqlmodel/discussions/730#discussioncomment-7952622
+    first_period: Optional[PeriodID] = None
+    last_period: Optional[PeriodID] = None
 
 
 class DataSet(DataSetBase, table=True):
