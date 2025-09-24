@@ -464,16 +464,19 @@ async def create_backtest_with_data(
     logger.info(
         f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations"
     )
+    if request.data_to_be_fetched:
+        raise HTTPException(
+            status_code=400, detail="data_to_be_fetched is not supported when providing data for backtest"
+        )
 
     bt_params = BackTestParams(**request.model_dump()).model_dump()
     job = worker.queue_db(
         wf.run_backtest_from_composite_dataset,
         feature_names=feature_names,
-        data_to_be_fetched=request.data_to_be_fetched,
         provided_data_model_dump=provided_data_processed.model_dump(),
         backtest_name=request.name,
         model_id=request.model_id,
-        backtest_params=bt_params,
+        backtest_params_dump=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},

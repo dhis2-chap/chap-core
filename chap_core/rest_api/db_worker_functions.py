@@ -154,27 +154,23 @@ def predict_pipeline_from_composite_dataset(
 
 
 
-
 def run_backtest_from_composite_dataset(
     feature_names: list[str],
-    data_to_be_fetched: list[FetchRequest],
     provided_data_model_dump: dict,
     backtest_name: str,
     model_id: registry.model_type,
-    backtest_params: BackTestParams,
+    backtest_params_dump: dict,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
 ) -> int:
-    dataset_id = harmonize_and_add_dataset(
-        provided_field_names=feature_names,
-        data_to_be_fetched=data_to_be_fetched,
-        health_dataset=provided_data_model_dump,
-        name=f"{backtest_name}_ds",
-        ds_type="evaluation",
-        session=session,
-        worker_config=worker_config,
-    )
-    bp = BackTestParams.model_validate(backtest_params)
+
+    ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
+    dataset_id = session.add_dataset(
+        dataset_name=backtest_name,
+        orig_dataset=ds,
+        polygons=ds.polygons.model_dump_json(), dataset_type="evaluation")
+
+    bp = BackTestParams.model_validate(backtest_params_dump)
     backtest_create_info = BackTestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)
 
     return run_backtest(
