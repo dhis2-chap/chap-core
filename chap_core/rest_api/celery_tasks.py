@@ -250,6 +250,8 @@ class CeleryJob(Generic[ReturnType]):
 
     def get_logs(self) -> str:
         log_file = Path("app/logs") / f"task_{self._job.id}.txt"  # TODO: not sure why have to specify app/logs...
+        logger.info(f"Looking for log file at {log_file}")
+        logger.info(f"Job id is: {self._job.id}")
         if log_file.exists():
             logs = log_file.read_text()
             job_meta = get_job_meta(self.id)
