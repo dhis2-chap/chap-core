@@ -316,8 +316,12 @@ async def system_info() -> SystemInfoResponse:
 
 @app.on_event("startup")
 def on_startup():
+    print("DEBUG: Starting ChAP REST API")
+    logger.info("Starting ChAP REST API")
     logger.info("Starting up.")
+    print("DEBUG: About to call create_db_and_tables()")
     create_db_and_tables()
+    print("DEBUG: Finished create_db_and_tables()")
 
 
 def seed(data):
