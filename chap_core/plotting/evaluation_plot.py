@@ -98,7 +98,7 @@ class MetricMapV2(MetricPlotV2):
                 lookup="id",  # Assuming geojson has org_unit property
                 from_=alt.LookupData(agg_df, "org_unit", ["value"]),
             )
-            .project(type="identity")  # Assumes coords already in lon/lat
+            .project(type="equirectangular")  # Use equirectangular projection for proper proportions
             .properties(width=600, height=400, title="Metric Map by Location")
         )
         return chart
