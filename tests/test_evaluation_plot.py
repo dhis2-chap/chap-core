@@ -4,8 +4,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from chap_core.assessment.metrics import DetailedRMSE
 from chap_core.database.tables import BackTestMetric
-from chap_core.plotting.evaluation_plot import MetricMap, MetricMapV2
+from chap_core.plotting.evaluation_plot import MetricByHorizonV2, MetricMapV2, make_plot_from_backtest_object
 
 
 @pytest.fixture
@@ -51,3 +52,6 @@ def test_plot_from_df(rwanda_geojson, rwanda_metrics):
     # print(feature_props)
     # assert False
 
+
+def test_evaluation_plot_from_backtest_object(backtest):
+    plot = make_plot_from_backtest_object(backtest, MetricByHorizonV2, DetailedRMSE())
