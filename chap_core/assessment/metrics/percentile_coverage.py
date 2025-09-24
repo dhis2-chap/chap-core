@@ -16,7 +16,7 @@ class IsWithin10th90thDetailed(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
         metric_name="Within 10-90 Percentile",
         metric_id="is_within_10th_90th_detailed",
         description="Binary indicator if observation is within 10th-90th percentile per location, time period and horizon",
@@ -61,7 +61,7 @@ class IsWithin25th75thDetailed(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
         metric_name="Within 25-75 Percentile",
         metric_id="is_within_25th_75th_detailed",
         description="Binary indicator if observation is within 25th-75th percentile per location, time period and horizon",
@@ -105,7 +105,7 @@ class RatioWithin10th90thPerLocation(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location,),
+        output_dimensions=(DataDimension.location,),
         metric_name="Ratio Within 10-90 Percentile",
         metric_id="ratio_within_10th_90th_per_location",
         description="Ratio of observations within 10th-90th percentile per location",
@@ -129,7 +129,7 @@ class RatioWithin10th90th(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(),
+        output_dimensions=(),
         metric_name="Ratio Within 10-90 Percentile",
         metric_id="ratio_within_10th_90th",
         description="Overall ratio of observations within 10th-90th percentile",
@@ -153,7 +153,7 @@ class RatioWithin25th75thPerLocation(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location,),
+        output_dimensions=(DataDimension.location,),
         metric_name="Ratio Within 25-75 Percentile",
         metric_id="ratio_within_25th_75th_per_location",
         description="Ratio of observations within 25th-75th percentile per location",
@@ -177,7 +177,7 @@ class RatioWithin25th75th(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(),
+        output_dimensions=(),
         metric_name="Ratio Within 25-75 Percentile",
         metric_id="ratio_within_25th_75th",
         description="Overall ratio of observations within 25th-75th percentile",

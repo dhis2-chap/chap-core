@@ -13,7 +13,7 @@ class RMSE(MetricBase):
     Groups by location to give RMSE per location across all time periods and horizons.
     """
 
-    spec = MetricSpec(group_by=(DataDimension.location,), metric_name="RMSE")
+    spec = MetricSpec(output_dimensions=(DataDimension.location,), metric_name="RMSE")
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         # Merge observations with forecasts on location and time_period
@@ -45,7 +45,7 @@ class DetailedRMSE(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance), metric_name="RMSE"
+        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance), metric_name="RMSE"
     )
 
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:

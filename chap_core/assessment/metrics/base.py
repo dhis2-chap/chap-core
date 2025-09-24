@@ -15,7 +15,7 @@ from chap_core.assessment.flat_representations import (
 
 @dataclass(frozen=True)
 class MetricSpec:
-    group_by: tuple[DataDimension, ...] = ()
+    output_dimensions: tuple[DataDimension, ...] = ()
     metric_name: str = "metric"
     metric_id: str = "metric"
     description: str = "No description provided"
@@ -32,7 +32,7 @@ class MetricBase:
     def get_metric(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         out = self.compute(observations, forecasts)
 
-        expected = [*(d.value for d in self.spec.group_by), "metric"]
+        expected = [*(d for d in self.spec.output_dimensions), "metric"]
         missing = [c for c in expected if c not in out.columns]
         extra = [c for c in out.columns if c not in expected]
         if missing or extra:
@@ -48,7 +48,7 @@ class MetricBase:
 
     def _make_schema(self) -> pa.DataFrameSchema:
         cols: dict[str, pa.Column] = {}
-        for d in self.spec.group_by:
+        for d in self.spec.output_dimensions:
             dtype, chk = DIM_REGISTRY[d]
             cols[d.value] = pa.Column(dtype, chk) if chk else pa.Column(dtype)
         cols["metric"] = pa.Column(float)
@@ -61,10 +61,10 @@ class MetricBase:
         """
         Returns True if the metric gives one number per location/time_period/horizon_distance combination.
         """
-        return len(self.spec.group_by) == 3
+        return len(self.spec.output_dimensions) == 3
 
     def is_full_aggregate(self) -> bool:
         """
         Returns True if the metric gives only one number for the whole dataset
         """
-        return len(self.spec.group_by) == 0
+        return len(self.spec.output_dimensions) == 0

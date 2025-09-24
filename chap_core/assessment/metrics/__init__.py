@@ -25,6 +25,7 @@ from chap_core.assessment.metrics.percentile_coverage import (
     RatioWithin25th75thPerLocation,
 )
 from chap_core.assessment.metrics.test_metrics import TestMetric, TestMetricDetailed
+from chap_core.assessment.metrics.example_metric import ExampleMetric
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ __all__ = [
     "RatioWithin25th75thPerLocation",
     "TestMetric",
     "TestMetricDetailed",
+    "ExampleMetric",
 ]
 
 # Dictionary of available metrics for easy lookup
@@ -67,6 +69,7 @@ available_metrics = {
     "ratio_within_25th_75th": RatioWithin25th75th,
     "test_sample_count_detailed": TestMetricDetailed,
     "test_sample_count": TestMetric,
+    "example_metric": ExampleMetric,
 }
 
 

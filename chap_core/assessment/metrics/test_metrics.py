@@ -15,7 +15,7 @@ class TestMetricDetailed(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
         metric_name="Sample Count",
         metric_id="test_sample_count_detailed",
         description="Number of forecast samples per location, time period and horizon",
@@ -42,7 +42,7 @@ class TestMetric(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(),
+        output_dimensions=(),
         metric_name="Sample Count",
         metric_id="test_sample_count",
         description="Total number of forecast samples in dataset",

@@ -16,7 +16,7 @@ class DetailedCRPSNorm(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
         metric_name="CRPS Normalized",
         metric_id="detailed_crps_norm",
         description="Normalized CRPS per location, time period and horizon",
@@ -50,7 +50,7 @@ class CRPSNorm(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location,),
+        output_dimensions=(DataDimension.location,),
         metric_name="CRPS Normalized",
         metric_id="crps_norm",
         description="Average normalized CRPS per location",

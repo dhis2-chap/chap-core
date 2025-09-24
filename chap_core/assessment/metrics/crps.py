@@ -16,7 +16,7 @@ class DetailedCRPS(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
         metric_name="CRPS",
         metric_id="detailed_crps",
         description="CRPS per location, time period and horizon",
@@ -56,7 +56,7 @@ class CRPSPerLocation(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location,),
+        output_dimensions=(DataDimension.location,),
         metric_name="CRPS",
         metric_id="crps_per_location",
         description="Average CRPS per location",
@@ -80,7 +80,7 @@ class CRPS(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(), metric_name="CRPS", metric_id="crps", description="Overall CRPS across entire dataset"
+        output_dimensions=(), metric_name="CRPS", metric_id="crps", description="Overall CRPS across entire dataset"
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:

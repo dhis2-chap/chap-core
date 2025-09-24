@@ -13,7 +13,7 @@ class MAE(MetricBase):
     Groups by location and horizon_distance to show error patterns across forecast horizons.
     """
 
-    spec = MetricSpec(group_by=(DataDimension.location, DataDimension.horizon_distance), metric_name="MAE")
+    spec = MetricSpec(output_dimensions=(DataDimension.location, DataDimension.horizon_distance), metric_name="MAE")
 
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
         # Merge observations with forecasts
