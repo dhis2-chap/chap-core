@@ -38,7 +38,10 @@ def await_result_id(job_id, timeout=30):
         if status == "SUCCESS":
             return client.get(f"/v1/jobs/{job_id}/database_result").json()["id"]
         if status == "FAILURE":
-            assert False, ("Job failed", response.json())
+            res = client.get(f"/v1/jobs/{job_id}/logs").json()
+            assert False, ("Job failed", response.json(), res)
+
+
         logger.info(status)
         time.sleep(1)
     assert False, "Timed out"

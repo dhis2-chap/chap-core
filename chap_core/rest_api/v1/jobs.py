@@ -58,7 +58,13 @@ def _get_successful_job(job_id):
 
 @router.get("/{job_id}")
 def get_job_status(job_id: str) -> str:
-    return worker.get_job(job_id).status
+    status = worker.get_job(job_id).status
+    logger.info(f'status of job {job_id}: {status}')
+    if status.lower() in ('failed', 'failure'):
+        print(worker.get_job(job_id).exception_info)
+        print(worker.get_job(job_id).result)
+        print(worker.get_job(job_id).get_logs())
+    return status
 
 
 @router.delete("/{job_id}")
