@@ -9,7 +9,7 @@ from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import PeriodID, DBModel
-from chap_core.database.dataset_tables import DataSet, DataSetBase, DataSetInfo
+from chap_core.database.dataset_tables import DataSet, DataSetInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, ModelConfiguration
 
 

@@ -27,26 +27,12 @@ def rwanda_metrics(rwanda_orgunits) -> list[BackTestMetric]:
     time_periods = ["2022-02", "2022-03"]
     rows = [
         {"location": ou, "time_period": tp, "horizon_distance": 1, "metric": float((i * o + o) % 5)}
-        #'last_seen_period': '2022-01',
-        #'metric_id': 'crps'}
         for i, tp in enumerate(time_periods)
         for o, ou in enumerate(rwanda_orgunits)
     ]
     return pd.DataFrame(rows)
 
-    return [
-        BackTestMetric(
-            period=tp, org_unit=ou, value=float((i * o + o) % 5), last_seen_period="2022-01", metric_id="crps"
-        )
-        for i, tp in enumerate(time_periods)
-        for o, ou in enumerate(rwanda_orgunits)
-    ]
-
 
 def test_plot_from_df(rwanda_geojson, rwanda_metrics):
     MetricMapV2(rwanda_metrics, rwanda_geojson).plot()
-    # feature_props = rwanda_geojson['features'][0]['properties']
-
-    # print(feature_props)
-    # assert False
 

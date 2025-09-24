@@ -78,6 +78,15 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], se
         raise HTTPException(status_code=404, detail="BackTest not found")
     return backtest
 
+@router_get("/backtests/{backtestId}/info", response_model=BackTestRead)
+def get_backtest_info(
+    backtest_id: Annotated[int, Path(alias="backtestId")], session:
+    Session = Depends(get_session)
+):
+    backtest = session.get(BackTest, backtest_id)
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="BackTest not found")
+    return backtest
 
 class BackTestUpdate(DBModel):
     name: str = None
@@ -212,7 +221,6 @@ class DataBaseResponse(DBModel):
 class DatasetCreate(DataSetCreateInfo):
     observations: List[ObservationBase]
     geojson: FeatureCollectionModel
-
 
 
 @router.get("/datasets", response_model=list[DataSetInfo])

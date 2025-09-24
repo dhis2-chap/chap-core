@@ -3,7 +3,7 @@ from sqlmodel import Session
 from starlette.testclient import TestClient
 
 from chap_core.database.dataset_tables import DataSet
-from chap_core.rest_api.data_models import BackTestFull
+from chap_core.database.tables import BackTestRead
 from chap_core.rest_api.v1.rest_api import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -48,6 +48,10 @@ def test_get_prediction_entries(override_session):
     prediction_entries = client.get_json("/v1/analytics/prediction-entry", params=params)
     assert len(prediction_entries) > 3
 
-def test_get_backetest(override_session):
-    backtest = client.get_obj("/v1/crud/backtests/1", __model__ = BackTestFull)
-    assert backtest.dataset.data_sources[0].covariate == 'mean_temperature'
+def test_get_backtest(override_session):
+    backtest: BackTestRead = client.get_obj("/v1/crud/backtests/1/info", __model__ = BackTestRead)
+    dataset = backtest.dataset
+    assert dataset.data_sources[0].covariate == 'mean_temperature'
+    assert len(dataset.org_units) == 3, dataset.org_units
+    assert dataset.first_period
+    assert dataset.last_period

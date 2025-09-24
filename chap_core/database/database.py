@@ -385,6 +385,7 @@ class SessionWrapper:
             last_period=orig_dataset.period_range[-1].id,
             covariates=field_names,
             created=datetime.datetime.now(),
+            org_units=list(orig_dataset.locations()),
             **dataset_info.model_dump())
         dataset = DataSet(
             geojson=polygons,

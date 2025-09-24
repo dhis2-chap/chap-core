@@ -77,6 +77,7 @@ class DataSetInfo(DataSetCreateInfo):
     last_period: Optional[PeriodID] = None
     covariates: List["str"] = Field(default_factory=list, sa_column=Column(JSON))
     created: Optional[datetime] = None
+    org_units: List["str"] = Field(default_factory=list, sa_column=Column(JSON))
 
 class DataSetBase(DataSetInfo):
     geojson: Optional[str] = None
