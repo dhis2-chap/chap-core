@@ -4,6 +4,7 @@ from chap_core.assessment.flat_representations import FlatMetric
 from chap_core.database.tables import BackTest, BackTestMetric
 from chap_core.assessment.metric_table import create_metric_table
 from chap_core.metrics.metrics import CRPS
+from chap_core.plotting.evaluation_plot import MetricByHorizonV2
 
 
 def test_create_metric_table(backtest_metrics: list[BackTestMetric]):
@@ -16,13 +17,6 @@ def test_create_metric_table(backtest_metrics: list[BackTestMetric]):
 # @pytest.fixture
 # def metric_table(backtest_metrics: list[BackTestMetric]):
 #   return create_metric_table(backtest_metrics)
-
-
-def test_metric_plot(backtest_metrics):
-    from chap_core.plotting.evaluation_plot import MetricByHorizon
-
-    plotter = MetricByHorizon(metrics=backtest_metrics)
-    chart = plotter.plot()
 
 
 @pytest.fixture
@@ -40,8 +34,6 @@ def flat_metric_data():
 
 
 def test_metric_plot_v2(flat_metric_data: FlatMetric):
-    from chap_core.plotting.evaluation_plot import MetricByHorizonV2
-
     plotter = MetricByHorizonV2(metric_data=flat_metric_data)
     chart = plotter.plot()
     print(chart)

@@ -9,9 +9,7 @@ from starlette.responses import JSONResponse
 from chap_core.database.base_tables import DBModel
 from chap_core.database.tables import BackTest
 from chap_core.plotting.evaluation_plot import (
-    MetricByHorizon,
     MetricByHorizonV2,
-    MetricMap,
     MetricMapV2,
     VisualizationInfo,
     make_plot_from_backtest_object,
@@ -25,7 +23,6 @@ router = APIRouter(prefix="/visualization", tags=["Visualization"])
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 
-plot_registry = {cls.visualization_info.id: cls for cls in [MetricByHorizon, MetricMap]}
 plot_registry_v2 = {cls.visualization_info.id: cls for cls in [MetricByHorizonV2, MetricMapV2]}
 
 
@@ -35,7 +32,7 @@ def list_visualizations(backtest_id: int):
     """
     List available visualizations
     """
-    return list(cls.visualization_info for cls in plot_registry.values())
+    return list(cls.visualization_info for cls in plot_registry_v2.values())
 
 
 class VisualizationParams(DBModel):
