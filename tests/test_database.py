@@ -67,10 +67,8 @@ def test_dataset_roundrip(health_population_data, engine):
 def test_backtest(engine_with_dataset):
     with Session(engine_with_dataset) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
-    # with patch('chap_core.database.database.engine', engine_with_dataset):
     with SessionWrapper(engine_with_dataset) as session:
         res = run_backtest(BackTestCreate(model_id="naive_model", dataset_id=dataset_id), 12, 2, 1, session=session)
-    # res = run_backtest('naive_model', dataset_id, 12, 2, 1)
     with Session(engine_with_dataset) as session:
         backtests = session.exec(select(BackTest)).all()
         assert len(backtests) == 1
