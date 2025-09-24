@@ -309,7 +309,9 @@ class DataSet(Generic[FeaturesT]):
         return data_dict
 
     @classmethod
-    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT]=None, fill_missing=False) -> "DataSet[FeaturesT]":
+    def from_pandas(
+        cls, df: pd.DataFrame, dataclass: Type[FeaturesT] = None, fill_missing=False
+    ) -> "DataSet[FeaturesT]":
         """
         Create a SpatioTemporalDict from a pandas dataframe.
         The dataframe needs to have a 'location' column, and a 'time_period' column.
@@ -349,9 +351,9 @@ class DataSet(Generic[FeaturesT]):
         """
         if dataclass is None:
             dataclass = create_tsdataclass(
-                [col for col in csv.columns.tolist() if col not in ("location", "time_period") and "Unnamed" not in col]
+                [col for col in df.columns.tolist() if col not in ("location", "time_period") and "Unnamed" not in col]
             )
-        
+
         data_dict = {}
         for location, data in df.groupby("location"):
             if not isinstance(location, str):
