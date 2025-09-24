@@ -3,7 +3,6 @@ import pandas as pd
 from chap_core.assessment.flat_representations import FlatMetric
 from chap_core.database.tables import BackTest, BackTestMetric
 from chap_core.assessment.metric_table import create_metric_table
-from chap_core.metrics.metrics import CRPS
 from chap_core.plotting.evaluation_plot import MetricByHorizonV2
 
 
