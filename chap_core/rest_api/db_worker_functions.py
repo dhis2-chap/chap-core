@@ -9,6 +9,7 @@ from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
+from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.predictor.model_registry import registry
 from chap_core.rest_api.data_models import BackTestCreate, FetchRequest
@@ -104,7 +105,8 @@ def harmonize_and_add_health_dataset(
 ) -> FullData:
     health_dataset = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False, worker_config=worker_config)
-    db_id = session.add_dataset(name, dataset, polygons=health_dataset.polygons.model_dump_json())
+    db_id = session.add_dataset(
+        DataSetCreateInfo(name=name), dataset, polygons=health_dataset.polygons.model_dump_json())
     return db_id
 
 
@@ -165,10 +167,12 @@ def run_backtest_from_composite_dataset(
 ) -> int:
 
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
+    dataset_info = DataSetCreateInfo(name=backtest_name, type="evaluation")
+
     dataset_id = session.add_dataset(
-        dataset_name=backtest_name,
+        datset_info=dataset_info,
         orig_dataset=ds,
-        polygons=ds.polygons.model_dump_json(), dataset_type="evaluation")
+        polygons=ds.polygons.model_dump_json())
 
     bp = BackTestParams.model_validate(backtest_params_dump)
     backtest_create_info = BackTestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)

@@ -361,7 +361,7 @@ class SessionWrapper:
             features = Polygons.from_geojson(json.loads(geojson_content), id_property="NAME_1").feature_collection()
             features = features.model_dump_json()
 
-        return self.add_dataset(name, dataset, features)
+        return self.add_dataset(DataSetCreateInfo(name=name), dataset, features)
 
     def add_dataset(self, dataset_info: str | DataSetCreateInfo, orig_dataset: _DataSet, polygons, dataset_type: str | None = None):
         if isinstance(dataset_info, str):
