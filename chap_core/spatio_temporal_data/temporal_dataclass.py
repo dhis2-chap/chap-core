@@ -161,7 +161,7 @@ class DataSet(Generic[FeaturesT]):
         }
 
     @classmethod
-    def from_dict(cls, data: dict, dataclass=type[TemporalDataclass]):
+    def from_dict(cls, data: dict, dataclass: type[TemporalDataclass]):
         data_dict = {loc: dataclass.from_dict(val) for loc, val in data["data_dict"].items()}
         return cls(data_dict, data["polygons"] and FeatureCollectionModel(**data["polygons"]))
 

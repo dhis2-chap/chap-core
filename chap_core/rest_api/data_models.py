@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
-from chap_core.database.dataset_tables import DataSetBase, ObservationBase
+from chap_core.database.dataset_tables import ObservationBase, DataSetCreateInfo
 from chap_core.database.tables import BackTestBase, BackTestMetric, BackTestForecast, BackTestRead
 
 
@@ -27,17 +27,12 @@ class FullPredictionResponse(BaseModel):
     dataValues: List[PredictionResponse]
 
 
-class FullPredictionSampleResponse(BaseModel):
-    diseaseId: str
-    dataValues: List[PredictionSamplResponse]
-
-
 class FetchRequest(DBModel):
     feature_name: str
     data_source_name: str
 
 
-class DatasetMakeRequest(DataSetBase):
+class DatasetMakeRequest(DataSetCreateInfo):
     geojson: FeatureCollectionModel
     provided_data: List[ObservationBase]
     data_to_be_fetched: List[FetchRequest]

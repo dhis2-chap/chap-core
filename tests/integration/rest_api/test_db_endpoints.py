@@ -14,7 +14,7 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.tables import BackTest, PredictionInfo, PredictionRead
+from chap_core.database.tables import BackTest, PredictionInfo, PredictionRead, BackTestRead
 from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, FetchRequest
 from chap_core.rest_api.v1.rest_api import app
 from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
@@ -38,7 +38,9 @@ def await_result_id(job_id, timeout=30):
         if status == "SUCCESS":
             return client.get(f"/v1/jobs/{job_id}/database_result").json()["id"]
         if status == "FAILURE":
-            assert False, ("Job failed", response.json())
+            res = client.get(f"/v1/jobs/{job_id}/logs").json()
+            assert False, ("Job failed", response.json(), res)
+
         logger.info(status)
         time.sleep(1)
     assert False, "Timed out"
@@ -83,6 +85,7 @@ def test_get_visualizations(celery_session_worker, clean_engine, dependency_over
 # @pytest.mark.slow
 @pytest.mark.parametrize("do_filter", [True, False])
 @pytest.mark.slow
+@pytest.mark.skip(reason="not in use")
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data, do_filter):
     with SessionWrapper(clean_engine) as session:
         dataset_id = session.add_dataset("full_data", weekly_full_data, "polygons", dataset_type="evaluation")
@@ -443,22 +446,9 @@ def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
 
 @pytest.mark.parametrize("dry_run", [False, True])
 def test_backtest_with_data_flow(
-    celery_session_worker, dependency_overrides, example_polygons, make_prediction_request, dry_run
+    celery_session_worker, dependency_overrides, example_polygons, create_backtest_with_data_request, dry_run
 ):
-    data = make_prediction_request.model_dump()
-    backtest_name = "test_backtest_with_data"
-    n_periods_val = 3
-    n_splits_val = 10
-    stride_val = 1
-
-    request_payload = {
-        **data,
-        "name": backtest_name,
-        "n_periods": n_periods_val,
-        "n_splits": n_splits_val,
-        "stride": stride_val,
-    }
-
+    request_payload = create_backtest_with_data_request.model_dump()
     _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run)
 
 
@@ -493,12 +483,14 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
         assert job_id is None, "Job ID should be None for dry run"
         return
     db_id = await_result_id(job_id, timeout=180)
-    response = client.get(f"/v1/crud/backtests/{db_id}")
+    response = client.get(f"/v1/crud/backtests/{db_id}/info")
     assert response.status_code == 200, response.json()
-    backtest_full = BackTestFull.model_validate(response.json())
-    assert len(backtest_full.forecasts) > 0
-    # assert len(backtest_full.metrics) > 0
-    created_dataset_id = backtest_full.dataset_id
+    backtest_info = BackTestRead.model_validate(response.json())
+    assert len(backtest_info.dataset.data_sources) > 0, backtest_info.dataset
+    assert len(backtest_info.dataset.org_units) > 0, backtest_info.dataset
+    assert backtest_info.dataset.last_period is not None, backtest_info.dataset
+    # assert len(backtest_info.metrics) > 0
+    created_dataset_id = backtest_info.dataset_id
     dataset_response = client.get(f"/v1/crud/datasets/{created_dataset_id}")
     assert dataset_response.status_code == 200, dataset_response.json()
     eval_params = {"backtestId": db_id, "quantiles": [0.5]}

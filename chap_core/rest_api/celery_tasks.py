@@ -1,3 +1,4 @@
+import inspect
 import os
 from datetime import datetime
 from pathlib import Path
@@ -193,8 +194,12 @@ def celery_run_with_session(func, *args, **kwargs):
     if database_url not in ENGINES_CACHE:
         ENGINES_CACHE[database_url] = create_engine(database_url)
     engine = ENGINES_CACHE[database_url]
+
+    named_args = inspect.getfullargspec(func).args
+    logger.info(f"Running {named_args}")
     with SessionWrapper(engine) as session:
-        return func(*args, **kwargs | {"session": session})
+        ret = func(*args, **kwargs | {"session": session})
+        return ret
 
 
 JOB_TYPE_KW = "__job_type__"

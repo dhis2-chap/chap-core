@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel, select
 
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_tables import DataSet
+from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
 from chap_core.database.datasets_seed import seed_example_datasets
 from chap_core.database.model_template_seed import (
     add_configured_model,
@@ -56,8 +56,9 @@ def engine_with_dataset(engine, weekly_full_data):
 
 
 def test_dataset_roundrip(health_population_data, engine):
+    info = DataSetCreateInfo(name="health_population")
     with SessionWrapper(engine) as session:
-        dataset_id = session.add_dataset("health_population", health_population_data, "polygons")
+        dataset_id = session.add_dataset(info, health_population_data, "polygons")
         dataset = session.get_dataset(dataset_id, HealthPopulationData)
         assert_dataset_equal(dataset, health_population_data)
 
@@ -66,10 +67,8 @@ def test_dataset_roundrip(health_population_data, engine):
 def test_backtest(engine_with_dataset):
     with Session(engine_with_dataset) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
-    # with patch('chap_core.database.database.engine', engine_with_dataset):
     with SessionWrapper(engine_with_dataset) as session:
         res = run_backtest(BackTestCreate(model_id="naive_model", dataset_id=dataset_id), 12, 2, 1, session=session)
-    # res = run_backtest('naive_model', dataset_id, 12, 2, 1)
     with Session(engine_with_dataset) as session:
         backtests = session.exec(select(BackTest)).all()
         assert len(backtests) == 1
@@ -81,7 +80,7 @@ def test_backtest(engine_with_dataset):
 @pytest.mark.skip("Needs to seed models for this test to work")
 def test_add_predictions(engine_with_dataset):
     with SessionWrapper(engine_with_dataset) as session:
-        run_prediction("naive_model", 1, 3, name="testing", metadata="", session=session)
+        run_prediction("naive_model", 1, 3, name="testing", session=session)
 
 
 @pytest.fixture

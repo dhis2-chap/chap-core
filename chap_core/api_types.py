@@ -7,6 +7,8 @@ from pydantic_geojson import (
     FeatureModel as _FeatureModel,
 )
 
+from chap_core.database.base_tables import DBModel
+
 
 class FeatureModel(_FeatureModel):
     id: Optional[str] = None
@@ -64,6 +66,12 @@ class PredictionEntry(BaseModel):
 
 class EvaluationEntry(PredictionEntry):
     splitPeriod: str
+
+
+class BackTestParams(DBModel):
+    n_periods: int
+    n_splits: int
+    stride: int
 
 
 class EvaluationResponse(BaseModel):
