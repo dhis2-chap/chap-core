@@ -7,9 +7,16 @@ from pydantic import BaseModel, confloat
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
-from chap_core.api_types import DataElement, DataList, EvaluationEntry, FeatureCollectionModel, PredictionEntry
+from chap_core.api_types import (
+    DataElement,
+    DataList,
+    EvaluationEntry,
+    FeatureCollectionModel,
+    PredictionEntry,
+    BackTestParams,
+)
 from chap_core.database.base_tables import DBModel
-from chap_core.database.dataset_tables import Observation
+from chap_core.database.dataset_tables import Observation, DataSetCreateInfo
 from chap_core.database.tables import BackTest, BackTestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -171,6 +178,30 @@ def get_backtest_overlap(
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
 
 
+@router.get("/prediction-entry", response_model=List[PredictionEntry])
+async def get_prediction_entry(
+    prediction_id: Annotated[int, Query(alias="predictionId")],
+    quantiles: List[float] = Query(...),
+    session: Session = Depends(get_session),
+):
+    """
+    return
+    """
+    prediction = session.get(Prediction, prediction_id)
+    if prediction is None:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    return [
+        PredictionEntry(
+            period=forecast.period,
+            orgUnit=forecast.org_unit,
+            quantile=q,
+            value=np.quantile(forecast.values, q),
+        )
+        for forecast in prediction.forecasts
+        for q in quantiles
+    ]
+
+
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])
 async def get_evaluation_entries(
     backtest_id: Annotated[int, Query(alias="backtestId")],
@@ -185,28 +216,23 @@ async def get_evaluation_entries(
     logger.info(
         f"Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} "
     )
-    backtest = session.get(BackTest, backtest_id)
-
-    # forecasts = session.exec()
+    if backtest_id is not None:
+        backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     if org_units is not None:
         org_units = set(org_units)
         logger.info("Filtering evaluation entries to org_units: %s", org_units)
 
-    expr = select(BackTestForecast).where(BackTestForecast.backtest_id == backtest_id)
+    cls = BackTestForecast
+    expr = select(cls).where(cls.backtest_id == backtest_id)
     if split_period:
-        expr = expr.where(BackTestForecast.last_seen_period == split_period)
+        expr = expr.where(cls.last_seen_period == split_period)
     if org_units:
-        expr = expr.where(BackTestForecast.org_unit.in_(org_units))
+        expr = expr.where(cls.org_unit.in_(org_units))
     forecasts = session.exec(expr)
 
-    # forecasts = list(backtest.forecasts)
     logger.info(forecasts)
-    # filtered_forecasts = [forecast for forecast in forecasts
-    #                       if ((split_period is None) or forecast.last_seen_period == split_period) and
-    #                       ((org_units is None) or forecast.org_unit in org_units)]
-
     return [
         EvaluationEntry(
             period=forecast.period,
@@ -223,12 +249,6 @@ async def get_evaluation_entries(
 class MakePredictionRequest(DatasetMakeRequest):
     model_id: str
     meta_data: dict = {}
-
-
-class BackTestParams(DBModel):
-    n_periods: int
-    n_splits: int
-    stride: int
 
 
 class MakeBacktestRequest(BackTestParams):
@@ -269,14 +289,16 @@ async def make_prediction(
         provided_data = provided_data.interpolate(["population"])
     provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+    if request.data_to_be_fetched:
+        raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
+    dataset_info = DataSetCreateInfo.model_validate(request.model_dump()).model_dump()
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,
-        request.data_to_be_fetched,
         provided_data.model_dump(),
         request.name,
         request.model_id,
-        request.meta_data if request.meta_data is not None else "",
+        dataset_create_info=dataset_info,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_prediction", JOB_NAME_KW: request.name},
@@ -339,7 +361,7 @@ async def get_actual_cases(
     return DataList(featureId="disease_cases", dhis2Id="disease_cases", data=data_list)
 
 
-class DataSource(DBModel):
+class ChapDataSource(DBModel):
     name: str
     display_name: str
     supported_features: List[str]
@@ -348,63 +370,63 @@ class DataSource(DBModel):
 
 
 data_sources = [
-    DataSource(
+    ChapDataSource(
         name="mean_2m_air_temperature",
         display_name="Mean 2m Air Temperature",
         supported_features=["mean_temperature"],
         description="Average air temperature at 2m height (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="minimum_2m_air_temperature",
         display_name="Minimum 2m Air Temperature",
         supported_features=[""],
         description="Minimum air temperature at 2m height (daily minimum)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="maximum_2m_air_temperature",
         display_name="Maximum 2m Air Temperature",
         supported_features=[""],
         description="Maximum air temperature at 2m height (daily maximum)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="dewpoint_2m_temperature",
         display_name="Dewpoint 2m Temperature",
         supported_features=[""],
         description="Dewpoint temperature at 2m height (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="total_precipitation",
         display_name="Total Precipitation",
         supported_features=["rainfall"],
         description="Total precipitation (daily sums)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="surface_pressure",
         display_name="Surface Pressure",
         supported_features=["surface_pressure"],
         description="Surface pressure (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="mean_sea_level_pressure",
         display_name="Mean Sea Level Pressure",
         supported_features=["mean_sea_level_pressure"],
         description="Mean sea level pressure (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="u_component_of_wind_10m",
         display_name="U Component of Wind 10m",
         supported_features=["u_component_of_wind_10m"],
         description="10m u-component of wind (daily average)",
         dataset="era5",
     ),
-    DataSource(
+    ChapDataSource(
         name="v_component_of_wind_10m",
         display_name="V Component of Wind 10m",
         supported_features=["v_component_of_wind_10m"],
@@ -414,8 +436,8 @@ data_sources = [
 ]
 
 
-@router.get("/data-sources", response_model=List[DataSource])
-async def get_data_sources() -> List[DataSource]:
+@router.get("/data-sources", response_model=List[ChapDataSource])
+async def get_data_sources() -> List[ChapDataSource]:
     return data_sources
 
 
@@ -451,16 +473,22 @@ async def create_backtest_with_data(
     logger.info(
         f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations"
     )
+    if request.data_to_be_fetched:
+        raise HTTPException(
+            status_code=400, detail="data_to_be_fetched is not supported when providing data for backtest"
+        )
+
+    bt_params = BackTestParams(**request.model_dump()).model_dump()
+    dataset_create_info = DataSetCreateInfo(**request.model_dump()).model_dump()
+    dataset_create_info["type"] = "evaluation"
     job = worker.queue_db(
         wf.run_backtest_from_composite_dataset,
         feature_names=feature_names,
-        data_to_be_fetched=request.data_to_be_fetched,
         provided_data_model_dump=provided_data_processed.model_dump(),
+        dataset_create_dump=dataset_create_info,
         backtest_name=request.name,
         model_id=request.model_id,
-        n_periods=request.n_periods,
-        n_splits=request.n_splits,
-        stride=request.stride,
+        backtest_params_dump=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},

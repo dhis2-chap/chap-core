@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
+from typing import Optional, List
 from unittest.mock import patch
 
 # ignore showing plots in tests
@@ -17,7 +18,6 @@ from chap_core import util
 from chap_core.api_types import RequestV1
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import DataSet, ObservationBase
-from chap_core.database.tables import *
 from chap_core.datatypes import HealthPopulationData, SimpleClimateData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.data_models import FetchRequest
