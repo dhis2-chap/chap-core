@@ -385,7 +385,7 @@ class SessionWrapper:
             type=dataset_type,
             first_period=orig_dataset.period_range[0].id,
             last_period=orig_dataset.period_range[-1].id,
-            data_sources=data_sources or [],
+            data_sources=dataset_info.data_sources,
         )
 
         for location, data in orig_dataset.items():
