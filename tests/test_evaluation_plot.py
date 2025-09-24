@@ -35,4 +35,3 @@ def rwanda_metrics(rwanda_orgunits) -> list[BackTestMetric]:
 
 def test_plot_from_df(rwanda_geojson, rwanda_metrics):
     MetricMapV2(rwanda_metrics, rwanda_geojson).plot()
-

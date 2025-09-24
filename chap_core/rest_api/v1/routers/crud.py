@@ -16,7 +16,6 @@ Magic is used to make the returned objects camelCase while internal objects are 
 
 import json
 import logging
-from datetime import datetime
 from functools import partial
 from typing import Annotated, List, Optional
 
@@ -30,8 +29,13 @@ from chap_core.api_types import FeatureCollectionModel
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_tables import DataSet, DataSetBase, DataSetWithObservations, ObservationBase, \
-    DataSetInfo, DataSetCreateInfo
+from chap_core.database.dataset_tables import (
+    DataSet,
+    DataSetWithObservations,
+    ObservationBase,
+    DataSetInfo,
+    DataSetCreateInfo,
+)
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import (
@@ -78,15 +82,14 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], se
         raise HTTPException(status_code=404, detail="BackTest not found")
     return backtest
 
+
 @router_get("/backtests/{backtestId}/info", response_model=BackTestRead)
-def get_backtest_info(
-    backtest_id: Annotated[int, Path(alias="backtestId")], session:
-    Session = Depends(get_session)
-):
+def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     return backtest
+
 
 class BackTestUpdate(DBModel):
     name: str = None

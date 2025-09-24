@@ -13,7 +13,6 @@ from chap_core.database.dataset_tables import DataSet, DataSetInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, ModelConfiguration
 
 
-
 class BackTestBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
     model_id: str
@@ -23,8 +22,8 @@ class BackTestBase(DBModel):
 
 class DataSetMeta(DataSetInfo):
     id: int
-    #created: datetime.datetime
-    #covariates: List[str]
+    # created: datetime.datetime
+    # covariates: List[str]
 
 
 class _BackTestRead(BackTestBase):
@@ -64,8 +63,7 @@ class ForecastBase(DBModel):
     values: List[float] = Field(default_factory=list, sa_type=JSON)
 
 
-class ForecastRead(ForecastBase):
-    ...
+class ForecastRead(ForecastBase): ...
 
 
 class PredictionBase(DBModel):
@@ -77,11 +75,11 @@ class PredictionBase(DBModel):
     meta_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
 
-
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     forecasts: List["PredictionSamplesEntry"] = Relationship(back_populates="prediction", cascade_delete=True)
     dataset: DataSet = Relationship()
+
 
 PredictionInfo = PredictionBase.get_read_class()
 
@@ -95,13 +93,13 @@ class PredictionSamplesEntry(ForecastBase, table=True):
     prediction_id: int = Field(foreign_key="prediction.id")
     prediction: "Prediction" = Relationship(back_populates="forecasts")
 
+
 class BackTestForecast(ForecastBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     backtest_id: int = Field(foreign_key="backtest.id")
     last_train_period: PeriodID
     last_seen_period: PeriodID
     backtest: BackTest = Relationship(back_populates="forecasts")
-
 
 
 class BackTestMetric(DBModel, table=True):

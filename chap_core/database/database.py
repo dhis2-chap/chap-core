@@ -26,7 +26,7 @@ from ..models.configured_model import ConfiguredModel
 from ..rest_api.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-from .dataset_tables import DataSet, Observation, DataSource, DataSetCreateInfo, DataSetInfo
+from .dataset_tables import DataSet, Observation, DataSetCreateInfo, DataSetInfo
 from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
@@ -364,13 +364,13 @@ class SessionWrapper:
         return self.add_dataset(DataSetCreateInfo(name=name), dataset, features)
 
     def add_dataset(self, dataset_info: DataSetCreateInfo, orig_dataset: _DataSet, polygons):
-        '''
+        """
         Add a dataset to the database. The dataset is provided as a spatio-temporal dataclass.
         The polygons should be provided as a geojson feature collection.
         The dataset_info should contain information about the dataset, such as its name and data sources.
         The function sets some derived fields in the dataset_info, such as the first and last time period and the covariates.
         The function returns the id of the newly created dataset.
-        '''
+        """
         logger.info(
             f"Adding dataset {dataset_info.name} with {len(list(orig_dataset.locations()))} locations and {len(orig_dataset.period_range)} time periods"
         )
@@ -386,11 +386,9 @@ class SessionWrapper:
             covariates=field_names,
             created=datetime.datetime.now(),
             org_units=list(orig_dataset.locations()),
-            **dataset_info.model_dump())
-        dataset = DataSet(
-            geojson=polygons,
-            **full_info.model_dump()
+            **dataset_info.model_dump(),
         )
+        dataset = DataSet(geojson=polygons, **full_info.model_dump())
 
         for location, data in orig_dataset.items():
             field_names = [

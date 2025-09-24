@@ -105,7 +105,8 @@ def harmonize_and_add_health_dataset(
     health_dataset = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)
     dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False, worker_config=worker_config)
     db_id = session.add_dataset(
-        DataSetCreateInfo(name=name), dataset, polygons=health_dataset.polygons.model_dump_json())
+        DataSetCreateInfo(name=name), dataset, polygons=health_dataset.polygons.model_dump_json()
+    )
     return db_id
 
 
@@ -127,9 +128,7 @@ def harmonize_and_add_dataset(
     else:
         full_dataset = health_dataset
     info = DataSetCreateInfo(name=name, type=ds_type)
-    db_id = session.add_dataset(
-        info, full_dataset, polygons=health_dataset.polygons.model_dump_json()
-    )
+    db_id = session.add_dataset(info, full_dataset, polygons=health_dataset.polygons.model_dump_json())
     return db_id
 
 
@@ -150,13 +149,9 @@ def predict_pipeline_from_composite_dataset(
 ) -> int:
     ds = InMemoryDataSet.from_dict(health_dataset, create_tsdataclass(provided_field_names))
     dataset_info = DataSetCreateInfo.model_validate(dataset_create_info)
-    dataset_id = session.add_dataset(
-        dataset_info=dataset_info,
-        orig_dataset=ds,
-        polygons=ds.polygons.model_dump_json())
+    dataset_id = session.add_dataset(dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json())
 
     return run_prediction(model_id, dataset_id, None, name, session)
-
 
 
 def run_backtest_from_composite_dataset(
@@ -171,11 +166,8 @@ def run_backtest_from_composite_dataset(
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
     dataset_info = DataSetCreateInfo.model_validate(dataset_create_dump)
-    #dataset_info = DataSetCreateInfo(name=backtest_name, type="evaluation")
-    dataset_id = session.add_dataset(
-        dataset_info=dataset_info,
-        orig_dataset=ds,
-        polygons=ds.polygons.model_dump_json())
+    # dataset_info = DataSetCreateInfo(name=backtest_name, type="evaluation")
+    dataset_id = session.add_dataset(dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json())
 
     bp = BackTestParams.model_validate(backtest_params_dump)
     backtest_create_info = BackTestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)

@@ -41,7 +41,6 @@ def await_result_id(job_id, timeout=30):
             res = client.get(f"/v1/jobs/{job_id}/logs").json()
             assert False, ("Job failed", response.json(), res)
 
-
         logger.info(status)
         time.sleep(1)
     assert False, "Timed out"
@@ -446,7 +445,7 @@ def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
 
 
 @pytest.mark.parametrize("dry_run", [False, True])
-def  test_backtest_with_data_flow(
+def test_backtest_with_data_flow(
     celery_session_worker, dependency_overrides, example_polygons, create_backtest_with_data_request, dry_run
 ):
     request_payload = create_backtest_with_data_request.model_dump()

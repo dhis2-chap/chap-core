@@ -67,6 +67,7 @@ class PredictionEntry(BaseModel):
 class EvaluationEntry(PredictionEntry):
     splitPeriod: str
 
+
 class BackTestParams(DBModel):
     n_periods: int
     n_splits: int

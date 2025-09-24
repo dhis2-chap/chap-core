@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
-from chap_core.database.dataset_tables import DataSetBase, ObservationBase, DataSetInfo, DataSetCreateInfo
+from chap_core.database.dataset_tables import ObservationBase, DataSetCreateInfo
 from chap_core.database.tables import BackTestBase, BackTestMetric, BackTestForecast, BackTestRead
 
 
@@ -25,7 +25,6 @@ class PredictionSamplResponse(PredictionBase):
 class FullPredictionResponse(BaseModel):
     diseaseId: str
     dataValues: List[PredictionResponse]
-
 
 
 class FetchRequest(DBModel):

@@ -7,7 +7,6 @@ from chap_core.database.dataset_tables import DataSetWithObservations, Observati
 from chap_core.database.tables import BackTestRead, OldBackTestRead, BackTestForecast, BackTest, BackTestMetric
 
 
-
 @pytest.fixture
 def data_folder():
     return Path(__file__).parent / "data"

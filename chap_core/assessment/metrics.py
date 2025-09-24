@@ -150,7 +150,9 @@ class DetailedRMSE(MetricBase):
     This provides the highest resolution view of model performance.
     """
 
-    spec = MetricSpec(group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance), metric_name="RMSE")
+    spec = MetricSpec(
+        group_by=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance), metric_name="RMSE"
+    )
 
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
         # Merge observations with forecasts on location and time_period
@@ -221,7 +223,10 @@ class CRPSPerLocation(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location,), metric_name="CRPS", metric_id="crps_per_location", description="Average CRPS per location"
+        group_by=(DataDimension.location,),
+        metric_name="CRPS",
+        metric_id="crps_per_location",
+        description="Average CRPS per location",
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
@@ -241,7 +246,9 @@ class CRPS(MetricBase):
     Gives one CRPS value across all locations, time periods and horizons.
     """
 
-    spec = MetricSpec(group_by=(), metric_name="CRPS", metric_id="crps", description="Overall CRPS across entire dataset")
+    spec = MetricSpec(
+        group_by=(), metric_name="CRPS", metric_id="crps", description="Overall CRPS across entire dataset"
+    )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         # First compute CRPS per location
@@ -296,7 +303,10 @@ class CRPSNorm(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(DataDimension.location,), metric_name="CRPS Normalized", metric_id="crps_norm", description="Average normalized CRPS per location"
+        group_by=(DataDimension.location,),
+        metric_name="CRPS Normalized",
+        metric_id="crps_norm",
+        description="Average normalized CRPS per location",
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
@@ -531,7 +541,10 @@ class TestMetric(MetricBase):
     """
 
     spec = MetricSpec(
-        group_by=(), metric_name="Sample Count", metric_id="test_sample_count", description="Total number of forecast samples in dataset"
+        group_by=(),
+        metric_name="Sample Count",
+        metric_id="test_sample_count",
+        description="Total number of forecast samples in dataset",
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
@@ -560,9 +573,9 @@ available_metrics: dict[str, MetricBase] = {
 }
 
 
-#metric_suites = { 
+# metric_suites = {
 #   "malaria_standard": ["rmse", "mae", "crps", "crps_norm", "ratio_within_10th_90th"],
-#}
+# }
 
 
 def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str, float]:

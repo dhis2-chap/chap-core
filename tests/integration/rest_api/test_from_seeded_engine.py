@@ -7,6 +7,7 @@ from chap_core.database.tables import BackTestRead
 from chap_core.rest_api.v1.rest_api import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
+
 class DirectClient(TestClient):
     def get_json(self, *args, **kwargs):
         response = self.get(*args, **kwargs)
@@ -14,13 +15,13 @@ class DirectClient(TestClient):
         return response.json()
 
     def get_obj(self, *args, **kwargs):
-        model= kwargs.pop('__model__')
+        model = kwargs.pop("__model__")
         response = self.get_json(*args, **kwargs)
         return model.model_validate(response)
 
 
-
 client = DirectClient(app)
+
 
 @pytest.fixture
 def override_session(p_seeded_engine):
@@ -32,9 +33,10 @@ def override_session(p_seeded_engine):
     yield
     app.dependency_overrides.clear()
 
+
 def test_dataset(seeded_session):
     dataset = seeded_session.query(DataSet)
-    assert dataset[0].data_sources[0].covariate == 'mean_temperature'
+    assert dataset[0].data_sources[0].covariate == "mean_temperature"
     assert dataset.count() == 1
 
 
@@ -43,15 +45,17 @@ def test_get_evaluation_entries(override_session):
     evaluation_entries = client.get_json("/v1/analytics/evaluation-entry", params=params)
     assert len(evaluation_entries) > 3
 
+
 def test_get_prediction_entries(override_session):
     params = {"predictionId": 1, "quantiles": [0.0, 0.5, 0.9]}
     prediction_entries = client.get_json("/v1/analytics/prediction-entry", params=params)
     assert len(prediction_entries) > 3
 
+
 def test_get_backtest(override_session):
-    backtest: BackTestRead = client.get_obj("/v1/crud/backtests/1/info", __model__ = BackTestRead)
+    backtest: BackTestRead = client.get_obj("/v1/crud/backtests/1/info", __model__=BackTestRead)
     dataset = backtest.dataset
-    assert dataset.data_sources[0].covariate == 'mean_temperature'
+    assert dataset.data_sources[0].covariate == "mean_temperature"
     assert len(dataset.org_units) == 3, dataset.org_units
     assert dataset.first_period
     assert dataset.last_period

@@ -24,22 +24,22 @@ def dependency_overrides(clean_engine):
 
 @pytest.fixture
 def dataset_make_request(feature_names, seen_periods, backtest_params, org_units, geojson, dataset_observations):
-    observations = dataset_observations  #(feature_names, org_units, seen_periods)
+    observations = dataset_observations  # (feature_names, org_units, seen_periods)
 
     return DatasetMakeRequest(
-        name='testing dataset',
-        geojson =geojson,
-        provided_data = observations,
-        data_to_be_fetched = [],
-        data_sources=[DataSource(covariate=fn, data_element_id=f'de_{i}') for i, fn in enumerate(feature_names+['disease_cases'])],
+        name="testing dataset",
+        geojson=geojson,
+        provided_data=observations,
+        data_to_be_fetched=[],
+        data_sources=[
+            DataSource(covariate=fn, data_element_id=f"de_{i}")
+            for i, fn in enumerate(feature_names + ["disease_cases"])
+        ],
     )
 
 
 @pytest.fixture
-def create_backtest_with_data_request(dataset_make_request, backtest_params)-> MakeBacktestWithDataRequest:
+def create_backtest_with_data_request(dataset_make_request, backtest_params) -> MakeBacktestWithDataRequest:
     return MakeBacktestWithDataRequest(
-        model_id='naive_model',
-        **(dataset_make_request.model_dump() | backtest_params.model_dump())
+        model_id="naive_model", **(dataset_make_request.model_dump() | backtest_params.model_dump())
     )
-
-

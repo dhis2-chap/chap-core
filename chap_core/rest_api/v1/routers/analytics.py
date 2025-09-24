@@ -7,7 +7,14 @@ from pydantic import BaseModel, confloat
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
-from chap_core.api_types import DataElement, DataList, EvaluationEntry, FeatureCollectionModel, PredictionEntry, BackTestParams
+from chap_core.api_types import (
+    DataElement,
+    DataList,
+    EvaluationEntry,
+    FeatureCollectionModel,
+    PredictionEntry,
+    BackTestParams,
+)
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import Observation, DataSetCreateInfo
 from chap_core.database.tables import BackTest, BackTestForecast, Prediction
@@ -172,10 +179,11 @@ def get_backtest_overlap(
 
 
 @router.get("/prediction-entry", response_model=List[PredictionEntry])
-async def get_prediction_entry(prediction_id: Annotated[int, Query(alias="predictionId")],
-                               quantiles: List[float] = Query(...),
-                               session: Session = Depends(get_session)
-                               ):
+async def get_prediction_entry(
+    prediction_id: Annotated[int, Query(alias="predictionId")],
+    quantiles: List[float] = Query(...),
+    session: Session = Depends(get_session),
+):
     """
     return
     """
@@ -193,13 +201,14 @@ async def get_prediction_entry(prediction_id: Annotated[int, Query(alias="predic
         for q in quantiles
     ]
 
+
 @router.get("/evaluation-entry", response_model=List[EvaluationEntry])
 async def get_evaluation_entries(
-        backtest_id: Annotated[int, Query(alias="backtestId")],
-        quantiles: List[float] = Query(...),
-        split_period: str = Query(None, alias="splitPeriod"),
-        org_units: List[str] = Query(None, alias="orgUnits"),
-        session: Session = Depends(get_session),
+    backtest_id: Annotated[int, Query(alias="backtestId")],
+    quantiles: List[float] = Query(...),
+    split_period: str = Query(None, alias="splitPeriod"),
+    org_units: List[str] = Query(None, alias="orgUnits"),
+    session: Session = Depends(get_session),
 ):
     """
     Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
@@ -240,8 +249,6 @@ async def get_evaluation_entries(
 class MakePredictionRequest(DatasetMakeRequest):
     model_id: str
     meta_data: dict = {}
-
-
 
 
 class MakeBacktestRequest(BackTestParams):
@@ -472,8 +479,8 @@ async def create_backtest_with_data(
         )
 
     bt_params = BackTestParams(**request.model_dump()).model_dump()
-    dataset_create_info= DataSetCreateInfo(**request.model_dump()).model_dump()
-    dataset_create_info['type'] = 'evaluation'
+    dataset_create_info = DataSetCreateInfo(**request.model_dump()).model_dump()
+    dataset_create_info["type"] = "evaluation"
     job = worker.queue_db(
         wf.run_backtest_from_composite_dataset,
         feature_names=feature_names,

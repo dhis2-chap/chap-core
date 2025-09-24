@@ -1,11 +1,8 @@
 from datetime import datetime
-from typing import Optional, List, Annotated, Any
+from typing import Optional, List
 
 from pydantic_geojson import FeatureModel
-from sqlalchemy import JSON, Column, TypeDecorator, String
-from sqlalchemy.types import UserDefinedType
-from pydantic import field_validator
-import json
+from sqlalchemy import JSON, Column, TypeDecorator
 
 from sqlmodel import Field, Relationship
 
@@ -21,6 +18,7 @@ class FeatureCollectionModel(_FeatureCollectionModel):
 
 class PydanticListType(TypeDecorator):
     """Custom SQLAlchemy type that automatically serializes/deserializes Pydantic model lists"""
+
     impl = JSON
     cache_ok = True
 
@@ -33,10 +31,7 @@ class PydanticListType(TypeDecorator):
         if value is None:
             return None
         if isinstance(value, list):
-            return [
-                item.model_dump() if hasattr(item, 'model_dump') else item
-                for item in value
-            ]
+            return [item.model_dump() if hasattr(item, "model_dump") else item for item in value]
         return value
 
     def process_result_value(self, value, dialect):
@@ -44,10 +39,7 @@ class PydanticListType(TypeDecorator):
         if value is None:
             return []
         if isinstance(value, list):
-            return [
-                self.pydantic_model_class(**item) if isinstance(item, dict) else item
-                for item in value
-            ]
+            return [self.pydantic_model_class(**item) if isinstance(item, dict) else item for item in value]
         return value
 
 
@@ -63,14 +55,17 @@ class Observation(ObservationBase, table=True):
     dataset_id: int = Field(foreign_key="dataset.id")
     dataset: "DataSet" = Relationship(back_populates="observations")
 
+
 class DataSource(DBModel):
     covariate: str
     data_element_id: str
+
 
 class DataSetCreateInfo(DBModel):
     name: str
     data_sources: List[DataSource] = Field(default_factory=list, sa_column=Column(PydanticListType(DataSource)))
     type: Optional[str] = None
+
 
 class DataSetInfo(DataSetCreateInfo):
     first_period: Optional[PeriodID] = None
@@ -78,6 +73,7 @@ class DataSetInfo(DataSetCreateInfo):
     covariates: List["str"] = Field(default_factory=list, sa_column=Column(JSON))
     created: Optional[datetime] = None
     org_units: List["str"] = Field(default_factory=list, sa_column=Column(JSON))
+
 
 class DataSetBase(DataSetInfo):
     geojson: Optional[str] = None
