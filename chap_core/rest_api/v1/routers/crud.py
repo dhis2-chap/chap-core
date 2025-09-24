@@ -30,7 +30,8 @@ from chap_core.api_types import FeatureCollectionModel
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_tables import DataSet, DataSetBase, DataSetWithObservations, ObservationBase
+from chap_core.database.dataset_tables import DataSet, DataSetBase, DataSetWithObservations, ObservationBase, \
+    DataSetInfo, DataSetCreateInfo
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import (
@@ -208,20 +209,13 @@ class DataBaseResponse(DBModel):
     id: int
 
 
-class DatasetCreate(DataSetBase):
+class DatasetCreate(DataSetCreateInfo):
     observations: List[ObservationBase]
     geojson: FeatureCollectionModel
 
 
-class DataSetRead(DBModel):
-    id: int
-    name: str
-    type: Optional[str]
-    created: Optional[datetime]
-    covariates: List[str]
 
-
-@router.get("/datasets", response_model=list[DataSetRead])
+@router.get("/datasets", response_model=list[DataSetInfo])
 async def get_datasets(session: Session = Depends(get_session)):
     datasets = session.exec(select(DataSet)).all()
     return datasets

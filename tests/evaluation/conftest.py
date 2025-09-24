@@ -5,7 +5,7 @@ import pytest
 
 from chap_core.database.dataset_tables import DataSetWithObservations, Observation, DataSet
 from chap_core.database.tables import BackTestRead, OldBackTestRead, BackTestForecast, BackTest, BackTestMetric
-from chap_core.rest_api.v1.routers.crud import DataSetRead
+
 
 
 @pytest.fixture
