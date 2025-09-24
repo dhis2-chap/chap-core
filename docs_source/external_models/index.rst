@@ -11,7 +11,7 @@ The Chap platform brings several advantages to you as a model developer:
 We provide more detailed documentation depending on who you are:
 
 * `Experienced climate health modellers <experienced_modeller.md>`_ who want to develop or adapt existing models to be compatible with Chap.
-* `Someone new to modelling<newcomer.md>`_ that want to learn the principles of spatiotemporal modelling and how to more easily implement such models through Chap.
+* `Someone new to modelling <newcomer.md>`_ that want to learn the principles of spatiotemporal modelling and how to more easily implement such models through Chap.
 
 .. toctree::
    :glob:
