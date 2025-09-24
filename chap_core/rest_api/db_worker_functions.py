@@ -170,7 +170,7 @@ def run_backtest_from_composite_dataset(
     dataset_info = DataSetCreateInfo(name=backtest_name, type="evaluation")
 
     dataset_id = session.add_dataset(
-        datset_info=dataset_info,
+        dataset_info=dataset_info,
         orig_dataset=ds,
         polygons=ds.polygons.model_dump_json())
 
