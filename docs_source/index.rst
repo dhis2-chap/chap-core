@@ -4,7 +4,7 @@ Chap is a Climate & Health Modeling Platform that brings together disease foreca
 
 We here provide technical documentation tailored to:
 
-* `Model developers <external_models/index.rst>`_
+* `Model developers <external_models/index>`_
 * `Platform contributors <aa>`_
 * `System administrators wanting to set up Chap with connections to DHIS2 and the Modeling App <aa>`_
 
