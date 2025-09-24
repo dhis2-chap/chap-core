@@ -26,7 +26,7 @@ from ..models.configured_model import ConfiguredModel
 from ..rest_api.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-from .dataset_tables import DataSet, Observation
+from .dataset_tables import DataSet, Observation, DataSource
 from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
@@ -363,7 +363,7 @@ class SessionWrapper:
 
         return self.add_dataset(name, dataset, features)
 
-    def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons, dataset_type: str | None = None):
+    def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons, dataset_type: str | None = None, data_sources: list[DataSource] = None):
         logger.info(
             f"Adding dataset {dataset_name} with {len(list(orig_dataset.locations()))} locations and {len(orig_dataset.period_range)} time periods"
         )
@@ -379,7 +379,11 @@ class SessionWrapper:
             created=datetime.datetime.now(),
             covariates=field_names,
             type=dataset_type,
+            first_period=orig_dataset.period_range[0].id,
+            last_period=orig_dataset.period_range[-1].id,
+            data_sources=data_sources or [],
         )
+
         for location, data in orig_dataset.items():
             field_names = [
                 field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]
@@ -393,6 +397,7 @@ class SessionWrapper:
                         feature_name=field,
                     )
                     dataset.observations.append(observation)
+
         self.session.add(dataset)
         self.session.commit()
         assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None

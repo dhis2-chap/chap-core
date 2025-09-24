@@ -3,6 +3,7 @@ from typing import Optional
 
 import numpy as np
 
+from chap_core.api_types import BackTestParams
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.climate_predictor import QuickForecastFetcher
@@ -152,15 +153,15 @@ def predict_pipeline_from_composite_dataset(
     return run_prediction(model_id, dataset_id, None, name, metadata, session)
 
 
+
+
 def run_backtest_from_composite_dataset(
     feature_names: list[str],
     data_to_be_fetched: list[FetchRequest],
     provided_data_model_dump: dict,
     backtest_name: str,
     model_id: registry.model_type,
-    n_periods: int,
-    n_splits: int,
-    stride: int,
+    backtest_params: BackTestParams,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
 ) -> int:
@@ -173,13 +174,13 @@ def run_backtest_from_composite_dataset(
         session=session,
         worker_config=worker_config,
     )
-
+    bp = BackTestParams.model_validate(backtest_params)
     backtest_create_info = BackTestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)
 
     return run_backtest(
         info=backtest_create_info,
-        n_periods=n_periods,
-        n_splits=n_splits,
-        stride=stride,
+        n_periods=bp.n_periods,
+        n_splits=bp.n_splits,
+        stride=bp.stride,
         session=session,
     )

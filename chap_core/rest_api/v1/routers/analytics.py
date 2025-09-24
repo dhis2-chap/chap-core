@@ -7,7 +7,7 @@ from pydantic import BaseModel, confloat
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
-from chap_core.api_types import DataElement, DataList, EvaluationEntry, FeatureCollectionModel, PredictionEntry
+from chap_core.api_types import DataElement, DataList, EvaluationEntry, FeatureCollectionModel, PredictionEntry, BackTestParams
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import Observation
 from chap_core.database.tables import BackTest, BackTestForecast, Prediction
@@ -242,10 +242,6 @@ class MakePredictionRequest(DatasetMakeRequest):
     meta_data: dict = {}
 
 
-class BackTestParams(DBModel):
-    n_periods: int
-    n_splits: int
-    stride: int
 
 
 class MakeBacktestRequest(BackTestParams):
@@ -468,6 +464,8 @@ async def create_backtest_with_data(
     logger.info(
         f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations"
     )
+
+    bt_params = BackTestParams(**request.model_dump()).model_dump()
     job = worker.queue_db(
         wf.run_backtest_from_composite_dataset,
         feature_names=feature_names,
@@ -475,9 +473,7 @@ async def create_backtest_with_data(
         provided_data_model_dump=provided_data_processed.model_dump(),
         backtest_name=request.name,
         model_id=request.model_id,
-        n_periods=request.n_periods,
-        n_splits=request.n_splits,
-        stride=request.stride,
+        backtest_params=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
