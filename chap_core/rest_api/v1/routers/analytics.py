@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import DataElement, DataList, EvaluationEntry, FeatureCollectionModel, PredictionEntry, BackTestParams
 from chap_core.database.base_tables import DBModel
-from chap_core.database.dataset_tables import Observation
+from chap_core.database.dataset_tables import Observation, DataSetCreateInfo
 from chap_core.database.tables import BackTest, BackTestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -282,14 +282,16 @@ async def make_prediction(
         provided_data = provided_data.interpolate(["population"])
     provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+    if request.data_to_be_fetched:
+        raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
+    dataset_info = DataSetCreateInfo.model_validate(request.model_dump()).model_dump()
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,
-        request.data_to_be_fetched,
         provided_data.model_dump(),
         request.name,
         request.model_id,
-        request.meta_data if request.meta_data is not None else "",
+        dataset_create_info=dataset_info,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_prediction", JOB_NAME_KW: request.name},
@@ -470,10 +472,13 @@ async def create_backtest_with_data(
         )
 
     bt_params = BackTestParams(**request.model_dump()).model_dump()
+    dataset_create_info= DataSetCreateInfo(**request.model_dump()).model_dump()
+    dataset_create_info['type'] = 'evaluation'
     job = worker.queue_db(
         wf.run_backtest_from_composite_dataset,
         feature_names=feature_names,
         provided_data_model_dump=provided_data_processed.model_dump(),
+        dataset_create_dump=dataset_create_info,
         backtest_name=request.name,
         model_id=request.model_id,
         backtest_params_dump=bt_params,

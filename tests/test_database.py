@@ -80,7 +80,7 @@ def test_backtest(engine_with_dataset):
 @pytest.mark.skip("Needs to seed models for this test to work")
 def test_add_predictions(engine_with_dataset):
     with SessionWrapper(engine_with_dataset) as session:
-        run_prediction("naive_model", 1, 3, name="testing", metadata="", session=session)
+        run_prediction("naive_model", 1, 3, name="testing", session=session)
 
 
 @pytest.fixture
