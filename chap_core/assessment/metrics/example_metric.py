@@ -1,6 +1,7 @@
 """
 Example metric for demonstration purposes.
 """
+
 import pandas as pd
 from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.base import MetricBase, MetricSpec
