@@ -10,10 +10,12 @@ def test_from_samples():
 
 
 def test_from_pandas():
-    df = pd.DataFrame({
-        "location": ["Oslo", "Oslo", "Bergen", "Bergen"],
-        "time_period": ["2020-01", "2020-02", "2020-01", "2020-02"],
-        "disease_cases": [10, 20, 30, 40],
-    })
+    df = pd.DataFrame(
+        {
+            "location": ["Oslo", "Oslo", "Bergen", "Bergen"],
+            "time_period": ["2020-01", "2020-02", "2020-01", "2020-02"],
+            "disease_cases": [10, 20, 30, 40],
+        }
+    )
     ds = DataSet.from_pandas(df)
     print(ds)
