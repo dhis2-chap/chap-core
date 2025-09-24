@@ -11,6 +11,7 @@ from chap_core.plotting.evaluation_plot import MetricMap, MetricMapV2
 @pytest.fixture
 def rwanda_geojson():
     path = Path("/Users/knutdr/Data/ch_data/rainfall_pop_temp_cases.json")
+    path = Path("rainfall_pop_temp_cases.json")
     if not path.exists():
         pytest.skip("Local data not found")
     d = json.loads(path.read_text())

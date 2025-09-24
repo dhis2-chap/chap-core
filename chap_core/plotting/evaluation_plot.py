@@ -68,7 +68,7 @@ class MetricByHorizonV2(MetricPlotV2):
             .mark_bar(point=True)
             .encode(
                 x=alt.X("horizon_distance:O", title="Horizon (periods ahead)"),
-                y=alt.Y("value:Q", title="Mean Metric Value"),
+                y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "location", "metric"],
             )
             .properties(width=600, height=400, title="Mean Metric by Horizon")
@@ -181,7 +181,6 @@ class MetricMapV2(MetricPlotV2):
             .project(type="identity")  # Assumes coords already in lon/lat
             .properties(width=600, height=400, title="Metric Map by Location")
         )
-
         return chart
 
 
