@@ -26,7 +26,7 @@ from ..models.configured_model import ConfiguredModel
 from ..rest_api.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-from .dataset_tables import DataSet, Observation, DataSource
+from .dataset_tables import DataSet, Observation, DataSource, DataSetCreateInfo
 from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
@@ -363,7 +363,11 @@ class SessionWrapper:
 
         return self.add_dataset(name, dataset, features)
 
-    def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons, dataset_type: str | None = None, data_sources: list[DataSource] = None):
+    def add_dataset(self, dataset_info: str | DataSetCreateInfo, orig_dataset: _DataSet, polygons, dataset_type: str | None = None):
+        if isinstance(dataset_info, str):
+            dataset_info= DataSetCreateInfo(name=dataset_info, type=dataset_type, data_sources=[])
+        dataset_name = dataset_info.name
+        dataset_type = dataset_info.type
         logger.info(
             f"Adding dataset {dataset_name} with {len(list(orig_dataset.locations()))} locations and {len(orig_dataset.period_range)} time periods"
         )
