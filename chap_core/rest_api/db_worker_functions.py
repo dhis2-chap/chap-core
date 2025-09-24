@@ -127,8 +127,9 @@ def harmonize_and_add_dataset(
         )
     else:
         full_dataset = health_dataset
+    info = DataSetCreateInfo(name=name, type=ds_type)
     db_id = session.add_dataset(
-        name, full_dataset, polygons=health_dataset.polygons.model_dump_json(), dataset_type=ds_type
+        info, full_dataset, polygons=health_dataset.polygons.model_dump_json()
     )
     return db_id
 

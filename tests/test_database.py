@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel, select
 
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_tables import DataSet
+from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
 from chap_core.database.datasets_seed import seed_example_datasets
 from chap_core.database.model_template_seed import (
     add_configured_model,
@@ -56,8 +56,9 @@ def engine_with_dataset(engine, weekly_full_data):
 
 
 def test_dataset_roundrip(health_population_data, engine):
+    info = DataSetCreateInfo(name="health_population")
     with SessionWrapper(engine) as session:
-        dataset_id = session.add_dataset("health_population", health_population_data, "polygons")
+        dataset_id = session.add_dataset(info, health_population_data, "polygons")
         dataset = session.get_dataset(dataset_id, HealthPopulationData)
         assert_dataset_equal(dataset, health_population_data)
 

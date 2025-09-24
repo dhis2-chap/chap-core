@@ -363,9 +363,9 @@ class SessionWrapper:
 
         return self.add_dataset(DataSetCreateInfo(name=name), dataset, features)
 
-    def add_dataset(self, dataset_info: str | DataSetCreateInfo, orig_dataset: _DataSet, polygons, dataset_type: str | None = None):
-        if isinstance(dataset_info, str):
-            dataset_info= DataSetCreateInfo(name=dataset_info, type=dataset_type, data_sources=[])
+    def add_dataset(self, dataset_info: str | DataSetCreateInfo, orig_dataset: _DataSet, polygons):
+        #if isinstance(dataset_info, str):
+        #    dataset_info= DataSetCreateInfo(name=dataset_info, type=dataset_type, data_sources=[])
         dataset_name = dataset_info.name
         dataset_type = dataset_info.type
         logger.info(
