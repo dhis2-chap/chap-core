@@ -263,7 +263,9 @@ class CeleryJob(Generic[ReturnType]):
             if job_meta["status"] == "FAILURE":
                 logs += "\n" + job_meta["traceback"]
             return logs
-        return None
+        else:
+            # fallback to traceback if log file not found
+            return self.exception_info
 
 
 class CeleryPool(Generic[ReturnType]):
