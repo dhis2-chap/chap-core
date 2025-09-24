@@ -51,6 +51,3 @@ def test_plot_from_df(rwanda_geojson, rwanda_metrics):
     # print(feature_props)
     # assert False
 
-
-def test_plot():
-    assert False
