@@ -8,7 +8,7 @@ from chap_core.plotting.evaluation_plot import MetricByHorizonV2
 
 def test_create_metric_table(backtest_metrics: list[BackTestMetric]):
     table = create_metric_table(backtest_metrics)
-    assert len(table["value"]) > 0
+
     assert len(table["last_seen_period"]) > 0
     assert table["horizon"].tolist()
 

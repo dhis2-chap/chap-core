@@ -15,7 +15,7 @@ from chap_core.plotting.evaluation_plot import (
     make_plot_from_backtest_object,
 )
 from chap_core.rest_api.v1.routers.dependencies import get_session
-from chap_core.assessment.metrics import available_metrics
+from chap_core.assessment.metrics import available_metrics  # Import from __init__.py
 
 logger = logging.getLogger(__name__)
 

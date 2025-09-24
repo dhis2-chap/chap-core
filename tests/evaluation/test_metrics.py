@@ -1,5 +1,6 @@
 import numpy as np
-from chap_core.assessment.metrics import RMSE, DetailedRMSE, compute_all_aggregated_metrics_from_backtest
+from chap_core.assessment.metrics.rmse import RMSE, DetailedRMSE
+from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 import pytest
 import pandas as pd

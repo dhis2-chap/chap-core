@@ -7,7 +7,7 @@ from chap_core.assessment.flat_representations import (
     convert_backtest_observations_to_flat_observations,
     convert_backtest_to_flat_forecasts,
 )
-from chap_core.assessment.metrics import MetricBase
+from chap_core.assessment.metrics.base import MetricBase
 from chap_core.database.base_tables import DBModel
 from chap_core.database.tables import BackTest
 
