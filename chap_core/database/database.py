@@ -381,10 +381,10 @@ class SessionWrapper:
         ]
         logger.info(f"Field names in dataset: {field_names}")
         if isinstance(orig_dataset.period_range[0], Month):
-            period_type = 'month'
+            period_type = "month"
         else:
             assert isinstance(orig_dataset.period_range[0], Week), orig_dataset.period_range[0]
-            period_type = 'week'
+            period_type = "week"
         full_info = DataSetInfo(
             first_period=orig_dataset.period_range[0].id,
             last_period=orig_dataset.period_range[-1].id,
@@ -452,7 +452,7 @@ def create_db_and_tables():
                 _run_generic_migration(engine)
 
                 SQLModel.metadata.create_all(engine)
-                logger.info(f"Table created")
+                logger.info("Table created")
                 break
             except sqlalchemy.exc.OperationalError as e:
                 logger.error(f"Failed to create tables: {e}. Trying again")
@@ -487,7 +487,7 @@ def _run_generic_migration(engine):
                 continue
 
             # Get existing columns in the database
-            existing_columns = {col['name'] for col in inspector.get_columns(table_name)}
+            existing_columns = {col["name"] for col in inspector.get_columns(table_name)}
 
             # Check for missing columns
             for column in table.columns:
@@ -504,7 +504,9 @@ def _run_generic_migration(engine):
                         # Set default value based on column type and properties
                         default_value = _get_column_default_value(column)
                         if default_value is not None:
-                            update_sql = f"UPDATE {table_name} SET {column.name} = :default_val WHERE {column.name} IS NULL"
+                            update_sql = (
+                                f"UPDATE {table_name} SET {column.name} = :default_val WHERE {column.name} IS NULL"
+                            )
                             conn.execute(sqlalchemy.text(update_sql), {"default_val": default_value})
                             logger.info(f"Set default value for {column.name} in existing records")
 
@@ -522,25 +524,25 @@ def _get_column_default_value(column):
     """
     # Check if column has a default value defined
     if column.default is not None:
-        if hasattr(column.default, 'arg') and column.default.arg is not None:
+        if hasattr(column.default, "arg") and column.default.arg is not None:
             return column.default.arg
 
     # Check column type and provide appropriate defaults
     column_type = str(column.type).lower()
 
-    if 'json' in column_type:
+    if "json" in column_type:
         # For JSON columns, return empty array or object
-        if 'list' in str(column.type) or 'array' in column_type:
-            return '[]'  # Empty array for lists
+        if "list" in str(column.type) or "array" in column_type:
+            return "[]"  # Empty array for lists
         else:
-            return '{}'  # Empty object for general JSON
-    elif 'varchar' in column_type or 'text' in column_type:
-        return ''  # Empty string for text columns
-    elif 'integer' in column_type or 'numeric' in column_type:
+            return "{}"  # Empty object for general JSON
+    elif "varchar" in column_type or "text" in column_type:
+        return ""  # Empty string for text columns
+    elif "integer" in column_type or "numeric" in column_type:
         return 0  # Zero for numeric columns
-    elif 'boolean' in column_type:
+    elif "boolean" in column_type:
         return False  # False for boolean columns
-    elif 'timestamp' in column_type or 'datetime' in column_type:
+    elif "timestamp" in column_type or "datetime" in column_type:
         return None  # Let NULL remain for timestamps
 
     return None  # Default to NULL for unknown types

@@ -64,7 +64,9 @@ class DataSource(DBModel):
 class DataSetCreateInfo(DBModel):
     name: str
 
-    data_sources: Optional[List[DataSource]] = Field(default_factory=list, sa_column=Column(PydanticListType(DataSource)))
+    data_sources: Optional[List[DataSource]] = Field(
+        default_factory=list, sa_column=Column(PydanticListType(DataSource))
+    )
     type: Optional[str] = None
 
 
@@ -76,6 +78,7 @@ class DataSetInfo(DataSetCreateInfo):
     created: Optional[datetime] = None
 
     period_type: Optional[str] = None
+
 
 class DataSetBase(DataSetInfo):
     geojson: Optional[str] = None
