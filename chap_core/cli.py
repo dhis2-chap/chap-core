@@ -152,7 +152,7 @@ def evaluate_hpo(
             
             print("Creating HpoModel")
             objective = Objective(name, metric, prediction_length, n_splits)
-            model = HpoModel(RandomSearcher(3), objective, direction, base_configs)
+            model = HpoModel(GridSearcher(), objective, direction, base_configs)
         try:
             results = evaluate_model(
                 estimator=model,

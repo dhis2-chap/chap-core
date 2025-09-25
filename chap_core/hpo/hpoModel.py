@@ -62,19 +62,18 @@ class HpoModel(HpoModelInterface):
                 break 
             
             trial_number = None
-            if params.get("_TRIAL_ID_KEY"): # for TPESearcher
-                trial_number = params[_TRIAL_ID_KEY]
-                params.pop("_TRIAL_ID_KEY")
+            if params.get("_trial_id") is not None: # for TPESearcher
+                trial_number = params.pop("_trial_id")
             
             config = self.base_configs.copy()
             config["user_option_values"] = params
 
             # Maybe best to seperate hpo_config and other configs in two files ??
             score = self._objective(config, dataset)
-            if trial_number:
-                params["_TRIAL_ID_KEY"] = trial_numer
+            if trial_number is not None:
+                params["_trial_id"] = trial_number
                 self._searcher.tell(params, score)
-                params.pop("_TRIAL_ID_KEY")
+                params.pop("_trial_id")
             else: 
                 self._searcher.tell(params, score)
 
