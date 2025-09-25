@@ -40,6 +40,7 @@ from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
 from chap_core.hpo.hpoModel import HpoModel, Direction
 from chap_core.hpo.objective import Objective 
 from chap_core.hpo.searcher import GridSearcher, RandomSearcher, TPESearcher
+from chap_core.hpo.base import load_search_space_from_yaml
 
 import logging
 
@@ -139,8 +140,11 @@ def evaluate_hpo(
                 # base_configs = ModelConfiguration.model_validate(
                 #     yaml.safe_load(open(configuration))
                 # )
-                with open(configuration, "r", encoding="utf-8") as f:
-                    base_configs = yaml.safe_load(f) or {} # check if this returns a dict
+                # with open(configuration, "r", encoding="utf-8") as f:
+                #     base_configs = yaml.safe_load(f) or {} # check if this returns a dict
+                configs = load_search_space_from_yaml(configuration)
+                base_configs = {"user_option_values": configs}
+                print(f"base configs in cli: {base_configs}")
                 logger.info(f"Loaded model base configurations from yaml file: {base_configs}")
 
             if "user_option_values" not in base_configs or not isinstance(base_configs["user_option_values"], dict):
@@ -148,7 +152,7 @@ def evaluate_hpo(
             
             print("Creating HpoModel")
             objective = Objective(name, metric, prediction_length, n_splits)
-            model = HpoModel(GridSearcher(), objective, direction, base_configs)
+            model = HpoModel(RandomSearcher(3), objective, direction, base_configs)
         try:
             results = evaluate_model(
                 estimator=model,

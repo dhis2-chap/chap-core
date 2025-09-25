@@ -39,12 +39,14 @@ class HpoModel(HpoModelInterface):
         Runs hyperparameter optimization over a discrete search space.
         Returns the optimized and trained (trained on the whole dataset argument) predictor.
         """
+        print(f"base configs in hpoModel: {self.base_configs}")
         hpo_configs = self.base_configs["user_option_values"]
-        for key, vals in hpo_configs.items():
-            deduped = dedup(vals)
-            if not deduped:
-                raise ValueError(f"'user_option_values.{key}' has no values to try.")
-            hpo_configs[key] = deduped
+        print(f"hpo configs in hpoModel sent to searcher reset: {hpo_configs}")
+        # for key, vals in hpo_configs.items(): # wraps Float and Int in a list
+        #     deduped = dedup(vals)
+        #     if not deduped:
+        #         raise ValueError(f"'user_option_values.{key}' has no values to try.")
+        #     hpo_configs[key] = deduped
 
         self.base_configs.pop("user_option_values")
 
@@ -55,16 +57,26 @@ class HpoModel(HpoModelInterface):
         self._searcher.reset(hpo_configs)
         while True:
             params = self._searcher.ask()
+            print(f"params from searcher: {params}")
             if params is None:
                 break 
-
-
+            
+            trial_number = None
+            if params.get("_TRIAL_ID_KEY"): # for TPESearcher
+                trial_number = params[_TRIAL_ID_KEY]
+                params.pop("_TRIAL_ID_KEY")
+            
             config = self.base_configs.copy()
             config["user_option_values"] = params
 
             # Maybe best to seperate hpo_config and other configs in two files ??
             score = self._objective(config, dataset)
-            self._searcher.tell(params, score)
+            if trial_number:
+                params["_TRIAL_ID_KEY"] = trial_numer
+                self._searcher.tell(params, score)
+                params.pop("_TRIAL_ID_KEY")
+            else: 
+                self._searcher.tell(params, score)
 
             is_better = (score < best_score) if self._direction == "minimize" else (score > best_score)
             if is_better or best_params is None:

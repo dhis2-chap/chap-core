@@ -1,8 +1,9 @@
 from typing import Any, Optional
 import itertools
 import random
-
 import optuna
+import math 
+from .base import Int, Float
 
 _TRIAL_ID_KEY = "_trial_id" # reserved key we inject into params
 
@@ -54,6 +55,7 @@ class RandomSearcher(Searcher):
     
     def reset(self, search_space: dict[str, Any], seed: Optional[int] = None) -> None:
         self.search_space = _validate_search_space_extended(search_space)
+        print(f"randomSearcher search space in reset: {self.search_space}")
         self.rng = random.Random(seed)
         self.keys = list(search_space.keys())
         self.emitted = 0
@@ -100,7 +102,9 @@ class RandomSearcher(Searcher):
             raise RuntimeError("RandomSearch not initialized. Call reset(search_space, seed)")
         if self.emitted >= self.max_trials:
             return None 
-        params = {k: self._sample_one(self.search_space[k] for k in self.keys)}
+        params = {k: self._sample_one(self.search_space[k]) for k in self.keys}
+        print(f"spec for weight_decay: {self.search_space["weight_decay"]}")
+        print(f"one sample of weight_decay: {self._sample_one(self.search_space["weight_decay"])}")
         # config = {k: self.rng.choice(self.search_space[k]) for k in self.keys}
         self.emitted += 1
         return params
@@ -130,7 +134,8 @@ class TPESearcher(Searcher):
         self._asked = 0
 
     def reset(self, search_space: dict[str, list], seed: Optional[int] = None) -> None:
-        validate_search_space(search_space)
+        # validate_search_space(search_space)
+        search_space = _validate_search_space_extended(search_space)
         
         self._keys = list(search_space.keys())
         self._dists = {
@@ -187,6 +192,7 @@ def _validate_search_space_extended(search_space: dict[str, Any]) -> dict[str, A
     normalized: dict[str, Any] = {}
 
     for k, spec in search_space.items():
+        print(f"key, spec in validate_space: {k}, {spec}")
         # Categorical 
         if isinstance(spec, list):
             if not spec:
