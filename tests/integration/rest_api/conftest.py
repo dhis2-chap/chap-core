@@ -70,6 +70,18 @@ def dataset(org_units, feature_names, seen_periods, dataset_observations, geojso
         org_units=org_units,
     )
 
+@pytest.fixture
+def dataset_wo_meta(org_units, feature_names, seen_periods, dataset_observations, geojson):
+    return DataSet(
+        name="incomplete_dataset",
+        geojson=geojson.model_dump_json(),
+        observations=dataset_observations,
+        covariates=feature_names,
+        created=datetime.datetime.now(),
+        first_period=seen_periods[0],
+        last_period=seen_periods[-1],
+    )
+
 
 @pytest.fixture
 def predictions(future_periods, org_units):
@@ -146,12 +158,13 @@ def base_engine(seeded_database_url):
 
 
 @pytest.fixture
-def p_seeded_engine(base_engine, prediction, backtest):
+def p_seeded_engine(base_engine, prediction, backtest, dataset_wo_meta):
     from sqlmodel import Session
 
     with Session(base_engine) as session:
         session.add(prediction)
         session.add(backtest)
+        session.add(dataset_wo_meta)
         session.commit()
         session.refresh(prediction)
     return base_engine

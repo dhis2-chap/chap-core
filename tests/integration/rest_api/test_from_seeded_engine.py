@@ -34,11 +34,11 @@ def override_session(p_seeded_engine):
     app.dependency_overrides.clear()
 
 
-def test_dataset(seeded_session):
+def test_dataset(seeded_session: Session):
     dataset = seeded_session.query(DataSet)
     assert dataset[0].data_sources[0].covariate == "mean_temperature"
-    assert dataset.count() == 1
-
+    assert dataset.count() == 2
+    assert not dataset[1].data_sources
 
 def test_get_evaluation_entries(override_session):
     params = {"backtestId": 1, "quantiles": [0.1, 0.5, 0.9]}
