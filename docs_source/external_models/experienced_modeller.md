@@ -1,8 +1,8 @@
 # Documentation for experienced modellers 
 
 The following are required to develop or integrate an existing model with Chap:
-- Make chap-compatible [train and predict endpoints](train_and_predict.md) (functions) for you model
-- [Describe your model](describe_model.md)) in a simple yaml-based format 
+- Make chap-compatible [train and predict endpoints](train_and_predict.md) (functions) for you model that accepts the standard chap data formats
+- [Describe your model](describe_model.md) in a simple yaml-based format 
 - Check that your model [runs through Chap](running_models_in_chap.md)
 
 To get started, we recommend to follow our simple tutorial:
