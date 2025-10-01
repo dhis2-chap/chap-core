@@ -70,6 +70,7 @@ def dataset(org_units, feature_names, seen_periods, dataset_observations, geojso
         org_units=org_units,
     )
 
+
 @pytest.fixture
 def dataset_wo_meta(org_units, feature_names, seen_periods, dataset_observations, geojson):
     return DataSet(
