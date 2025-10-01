@@ -1,7 +1,7 @@
 name: naive_python
 
 docker_env:
-  image: python:3.10
+  image: python:3.13
 
 #python_env: python_env.yaml
 

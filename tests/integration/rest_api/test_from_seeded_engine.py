@@ -40,6 +40,7 @@ def test_dataset(seeded_session: Session):
     assert dataset.count() == 2
     assert not dataset[1].data_sources
 
+
 def test_get_evaluation_entries(override_session):
     params = {"backtestId": 1, "quantiles": [0.1, 0.5, 0.9]}
     evaluation_entries = client.get_json("/v1/analytics/evaluation-entry", params=params)

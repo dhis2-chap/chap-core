@@ -5,14 +5,14 @@ entry_points:
     parameters:
       train_data: str
       model: str
-    command: "python3.11 main.py train {train_data} {model}"
+    command: "python3.13 main.py train {train_data} {model}"
   predict:
     parameters:
       model: str
       historic_data: str
       future_data: str
       out_file: str
-    command: "python3.11 main.py predict {model} {historic_data} {future_data} {out_file}"
+    command: "python3.13 main.py predict {model} {historic_data} {future_data} {out_file}"
 supported_period_type: 'week'
 meta_data:
   display_name: 'Weekly Deep Auto Regressive'
