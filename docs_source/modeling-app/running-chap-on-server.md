@@ -45,7 +45,7 @@ The Modeling App supports a user interface for creating the needed route, where 
 
 **IMPORTANT:** You need to configure the route as a "wildcard route", by ending the IP with `/**` More information about Wildcard routes could be found [here](https://docs.dhis2.org/en/develop/using-the-api/dhis-core-version-242/route.html#wildcard-routes).
 
-**IMPORTANT:** If you are on version 4.42 and higher by default the routes will only work for https hosts. If you are using chap in a internal network with SSL, you need to allow http routes to created. More information can be found [here](https://docs.dhis2.org/en/develop/using-the-api/dhis-core-version-242/route.html#required-permissions). For testing purposes using `route.remote_servers_allowed=http://*` in your `dhis.conf` should give you the old behavior.
+**IMPORTANT:** If you are on version v42 and higher by default the routes will only work for https hosts. If you are using chap in a internal network with SSL, you need to allow http routes to created. More information can be found [here](https://docs.dhis2.org/en/develop/using-the-api/dhis-core-version-242/route.html#required-permissions). For testing purposes using `route.remote_servers_allowed=http://*` in your `dhis.conf` should give you the old behavior.
 
 ## Verifying the route is working in the Modeling App
 
