@@ -63,17 +63,22 @@ class DataSource(DBModel):
 
 class DataSetCreateInfo(DBModel):
     name: str
-    data_sources: List[DataSource] = Field(default_factory=list)
+
+    data_sources: Optional[List[DataSource]] = Field(
+        default_factory=list, sa_column=Column(PydanticListType(DataSource))
+    )
     type: Optional[str] = None
 
 
 class DataSetInfo(DataSetCreateInfo):
-    first_period: Optional[PeriodID] = None
-    last_period: Optional[PeriodID] = None
     covariates: List["str"] = Field(default_factory=list, sa_column=Column(JSON))
+    first_period: Optional[PeriodID] = Field(default=None)
+    last_period: Optional[PeriodID] = Field(default=None)
+    org_units: Optional[List["str"]] = Field(default_factory=list, sa_column=Column(JSON))
     created: Optional[datetime] = None
-    org_units: List["str"] = Field(default_factory=list)
+
     period_type: Optional[str] = None
+
 
 class DataSetBase(DataSetInfo):
     geojson: Optional[str] = None
@@ -82,10 +87,7 @@ class DataSetBase(DataSetInfo):
 class DataSet(DataSetBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     observations: List[Observation] = Relationship(back_populates="dataset", cascade_delete=True)
-    data_sources: List[DataSource] = Field(default_factory=list, sa_column=Column(PydanticListType(DataSource)))
-    first_period: Optional[PeriodID] = Field(default=None)
-    last_period: Optional[PeriodID] = Field(default=None)
-    org_units: Optional[List["str"]] = Field(default_factory=list, sa_column=Column(JSON))
+
 
 class DataSetWithObservations(DataSetBase):
     id: int
