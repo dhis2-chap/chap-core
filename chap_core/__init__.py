@@ -1,8 +1,8 @@
 """Top-level package for chap-core."""
 
-__author__ = """Sandvelab"""
-__email__ = "knutdrand@gmail.com"
-__version__ = "1.0.17"
+__author__ = """Chap Team"""
+__email__ = "chap@dhis2.org"
+__version__ = "1.1.0"
 __minimum_modelling_app_version__ = "1.1.0"
 from . import fetch
 from . import data
