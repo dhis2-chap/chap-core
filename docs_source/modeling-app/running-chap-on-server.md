@@ -43,7 +43,9 @@ The newer version of DHIS2 supports a built-in reverse proxy named [Routes API](
 
 The Modeling App supports a user interface for creating the needed route, where you only need to specify which IP the request should be forwarded to by the route. To create a new route, it requires you to have the DHIS2 System Administrator Role. In the form where you create the route, you need to speficy the IP adress (for instance `http://192.168.0.174/**`) you located (and verified that was accessible from the DHIS2 container) in the step above.
 
-**IMPORTANT:** You need to configure the route as a "wildcard route", by ending the IP with `/**` More information about Wildcard routes could be found [here](https://docs.dhis2.org/en/develop/using-the-api/dhis-core-version-242/route.html#wildcard-routes)
+**IMPORTANT:** You need to configure the route as a "wildcard route", by ending the IP with `/**` More information about Wildcard routes could be found [here](https://docs.dhis2.org/en/develop/using-the-api/dhis-core-version-242/route.html#wildcard-routes).
+
+**IMPORTANT:** If you are on version 4.42 and higher by default the routes will only work for https hosts. If you are using chap in a internal network with SSL, you need to allow http routes to created. More information can be found [here](https://docs.dhis2.org/en/develop/using-the-api/dhis-core-version-242/route.html#required-permissions). For testing purposes using `route.remote_servers_allowed=http://*` in your `dhis.conf` should give you the old behavior.
 
 ## Verifying the route is working in the Modeling App
 
