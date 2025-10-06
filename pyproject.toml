@@ -1,11 +1,11 @@
 [project]
 name = "chap_core"
-version = "1.0.17"
+version = "1.1.0"
 description = "Climate Health Analysis Platform (CHAP)"
 readme = "README.md"
 requires-python = ">=3.12"
 
-authors = [{ name = "Sandvelab", email = "knutdrand@gmail.com" }]
+authors = [{ name = "Chap Team", email = "chap@dhis2.org" }]
 license = { text = "AGPLv3 license" }
 keywords = ["chap_core"]
 
