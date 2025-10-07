@@ -24,7 +24,6 @@ services:
       - "8000:8000"
     expose:
       - "8000"
-    # command: /app/.venv/bin/chap serve
     working_dir: /app
     networks:
       - chap-network
