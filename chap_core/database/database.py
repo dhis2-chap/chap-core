@@ -33,28 +33,35 @@ from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfigura
 from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
-engine = None
-database_url = os.getenv("CHAP_DATABASE_URL", default=None)
-logger.info(f"Database url: {database_url}")
-if database_url is not None:
-    n = 0
-    while n < 30:
-        try:
-            engine = create_engine(database_url, echo=True)
-            break
-        except sqlalchemy.exc.OperationalError as e:
-            logger.error(f"Failed to connect to database: {e}. Trying again")
-            n += 1
-            time.sleep(1)
-        except psycopg2.OperationalError as e:
-            logger.error(f"Failed to connect to database: {e}. Trying again")
-            n += 1
-            time.sleep(1)
-    else:
-        raise ValueError("Failed to connect to database")
-else:
-    logger.warning("Database url not set. Database operations will not work")
 
+# Global engine variable
+#engine = None
+
+def set_up_engine():
+    engine = None
+    database_url = os.getenv("CHAP_DATABASE_URL", default=None)
+    logger.info(f"Database url: {database_url}")
+    if database_url is not None:
+        n = 0
+        while n < 30:
+            try:
+                engine = create_engine(database_url)
+                break
+            except sqlalchemy.exc.OperationalError as e:
+                logger.error(f"Failed to connect to database: {e}. Trying again")
+                n += 1
+                time.sleep(1)
+            except psycopg2.OperationalError as e:
+                logger.error(f"Failed to connect to database: {e}. Trying again")
+                n += 1
+                time.sleep(1)
+        else:
+            raise ValueError("Failed to connect to database")
+    else:
+        logger.warning("Database url not set. Database operations will not work")
+    return engine
+
+engine = set_up_engine()
 
 class SessionWrapper:
     """
@@ -439,6 +446,7 @@ class SessionWrapper:
 
 def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
+
     if engine is not None:
         logger.info("Engine set. Creating tables")
         n = 0

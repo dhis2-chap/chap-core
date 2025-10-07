@@ -20,7 +20,7 @@ from chap_core.rest_api.data_models import FullPredictionResponse
 from chap_core.rest_api.v1.routers import analytics, crud, visualization
 from chap_core.worker.interface import SeededJob
 
-from ...database.database import create_db_and_tables
+from ...database.database import create_db_and_tables, engine
 from . import debug, jobs
 from .routers.dependencies import get_settings
 
@@ -316,12 +316,7 @@ async def system_info() -> SystemInfoResponse:
 
 @app.on_event("startup")
 def on_startup():
-    print("DEBUG: Starting ChAP REST API")
-    logger.info("Starting ChAP REST API")
-    logger.info("Starting up.")
-    print("DEBUG: About to call create_db_and_tables()")
     create_db_and_tables()
-    print("DEBUG: Finished create_db_and_tables()")
 
 
 def seed(data):

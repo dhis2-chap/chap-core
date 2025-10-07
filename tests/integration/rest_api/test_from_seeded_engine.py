@@ -37,6 +37,7 @@ def override_session(p_seeded_engine):
 def test_dataset(seeded_session: Session):
     dataset = seeded_session.query(DataSet)
     assert dataset[0].data_sources[0].covariate == "mean_temperature"
+    assert dataset[0].period_type == "month"
     assert dataset.count() == 2
     assert not dataset[1].data_sources
 

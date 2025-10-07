@@ -28,9 +28,12 @@ from chap_core.models.utils import (
     get_model_from_directory_or_github_url,
     get_model_template_from_directory_or_github_url,
 )
+from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
+from chap_core.plotting.season_plot import SeasonPlot, SeasonCorrelationBarPlot
 from chap_core.predictor import ModelType
 from chap_core.predictor.model_registry import registry
+from chap_core.rest_api.v1.routers.visualization import plot_registry_v2
 from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
@@ -421,7 +424,8 @@ def backtest(
         model_name: str: Name of the model to use
         out_folder: Path: Path to the output folder
     """
-    dataset = DataSet.from_csv(data_filename, FullData)
+    dataset = DataSet.from_csv(data_filename,
+                               FullData)
     logger.info(f"Running backtest on {data_filename} with model {model_name}")
     logger.info(f"Dataset period range: {dataset.period_range}, locations: {list(dataset.locations())}")
 
@@ -430,6 +434,7 @@ def backtest(
         model_name = "development_model"
     else:
         estimator = registry.get_model(model_name)
+
     predictions_list = _backtest(
         estimator,
         dataset,
@@ -438,9 +443,11 @@ def backtest(
         stride=stride,
         weather_provider=QuickForecastFetcher,
     )
+
     response = samples_to_evaluation_response(
         predictions_list, quantiles=[0.05, 0.25, 0.5, 0.75, 0.95], real_data=dataset_to_datalist(dataset, "dengue")
     )
+
     dataframe = pd.DataFrame([entry.model_dump() for entry in response.predictions])
     data_name = data_filename.stem
     dataframe.to_csv(out_folder / f"{data_name}_evaluation_{model_name}.csv")
@@ -449,6 +456,18 @@ def backtest(
 
     with open(out_filename, "w") as out_file:
         out_file.write(serialized_response)
+
+@app.command()
+def plot_dataset(data_filename: Path, plot_name: str ='standardized_feature_plot'):
+    dataset_plot_registry = {
+        'standardized_feature_plot': StandardizedFeaturePlot,
+        'season_plot': SeasonCorrelationBarPlot
+    }
+    plot_cls = dataset_plot_registry.get(plot_name, StandardizedFeaturePlot)
+    df = pd.read_csv(data_filename)
+    plotter = plot_cls(df)
+    fig = plotter.plot()
+    fig.show()
 
 
 def main_function():

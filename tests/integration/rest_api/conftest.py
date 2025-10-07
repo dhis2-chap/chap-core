@@ -68,6 +68,7 @@ def dataset(org_units, feature_names, seen_periods, dataset_observations, geojso
         first_period=seen_periods[0],
         last_period=seen_periods[-1],
         org_units=org_units,
+        period_type="month",
     )
 
 
