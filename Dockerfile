@@ -36,12 +36,29 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Switch to non-root user
 USER chap
-EXPOSE 8000
 
+# Set the default port Gunicorn will bind to inside the container.
+# Can be overridden at runtime with: `docker run -e PORT=9000 -p 9000:9000 myimage`
 ENV PORT=8000
+
+# Worker timeout (in seconds).  
+# If a worker does not respond within this time, Gunicorn will kill it.  
+# Helps prevent "hung" workers from stalling the app.
 ENV TIMEOUT=60
+
+# Graceful timeout (in seconds).  
+# How long Gunicorn will wait for workers to finish ongoing requests  
+# before forcefully killing them during a restart or reload.
 ENV GRACEFUL_TIMEOUT=30
+
+# Keep-alive (in seconds).  
+# The amount of time to wait for the next request on a persistent HTTP connection  
+# before closing it.
 ENV KEEPALIVE=5
+
+# List of IPs (or `*`) from which Gunicorn will trust X-Forwarded-* headers.  
+# Required when running behind a reverse proxy (like Nginx, Traefik, or Docker ingress).  
+# `*` means "trust all", which is fine in container setups where the proxy is controlled.
 ENV FORWARDED_ALLOW_IPS="*"
 
 # Ensure virtual environment is first in PATH
