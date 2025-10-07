@@ -78,7 +78,7 @@ class SeasonCorrelationBarPlot(SeasonCorrelationPlot):
                     correlations.append({
                         'location': location,
                         'seasonal_month': seasonal_month,
-                        f'correlation': corr,
+                        'correlation': corr,
                         'feature': feature_name,
                         'outcome': outcome,
                         'combination': f'{feature_name}_vs_season_{outcome}'

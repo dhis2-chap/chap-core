@@ -30,10 +30,9 @@ from chap_core.models.utils import (
 )
 from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
-from chap_core.plotting.season_plot import SeasonPlot, SeasonCorrelationBarPlot
+from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.predictor import ModelType
 from chap_core.predictor.model_registry import registry
-from chap_core.rest_api.v1.routers.visualization import plot_registry_v2
 from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
