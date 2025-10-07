@@ -71,21 +71,30 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/health').read()" || exit 1
 
 ENTRYPOINT ["/usr/bin/tini","--"]
+
 CMD ["sh","-c", "\
-    : ${FORWARDED_ALLOW_IPS:='*'}; \
-    if [ -z \"$WORKERS\" ]; then \
-    WORKERS=$(( ( $(nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4) * 2 ) + 1 )); \
+effective_cpus() { \
+  base=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1); \
+  if read -r quota period < /sys/fs/cgroup/cpu.max 2>/dev/null; then \
+    if [ \"$quota\" != \"max\" ]; then \
+      echo $(( (quota + period - 1) / period )); return; \
     fi; \
-    exec gunicorn -c gunicorn.conf.py -k uvicorn.workers.UvicornWorker chap_core.rest_api.v1.rest_api:app \
-    --bind 0.0.0.0:${PORT} \
-    --workers ${WORKERS} \
-    --timeout ${TIMEOUT} \
-    --graceful-timeout ${GRACEFUL_TIMEOUT} \
-    --keep-alive ${KEEPALIVE} \
-    --forwarded-allow-ips=${FORWARDED_ALLOW_IPS} \
-    --max-requests ${MAX_REQUESTS} \
-    --max-requests-jitter ${MAX_REQUESTS_JITTER} \
-    --access-logfile - \
-    --error-logfile - \
-    --worker-tmp-dir /dev/shm \
-    "]
+  fi; \
+  echo \"$base\"; \
+}; \
+: ${FORWARDED_ALLOW_IPS:='*'}; \
+CPUS=$(effective_cpus); \
+: ${WORKERS:=$(( CPUS * 2 + 1 ))}; \
+exec gunicorn -c gunicorn.conf.py -k uvicorn.workers.UvicornWorker chap_core.rest_api.v1.rest_api:app \
+  --bind 0.0.0.0:${PORT} \
+  --workers ${WORKERS} \
+  --timeout ${TIMEOUT} \
+  --graceful-timeout ${GRACEFUL_TIMEOUT} \
+  --keep-alive ${KEEPALIVE} \
+  --forwarded-allow-ips=${FORWARDED_ALLOW_IPS} \
+  --max-requests ${MAX_REQUESTS} \
+  --max-requests-jitter ${MAX_REQUESTS_JITTER} \
+  --access-logfile - \
+  --error-logfile - \
+  --worker-tmp-dir /dev/shm \
+"]
