@@ -9,7 +9,6 @@ __pycache__/
 .env
 .env.*
 target/*.tmp
-tests/
 
 # other
 /chap_core/web_interface
