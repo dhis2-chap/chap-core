@@ -18,7 +18,7 @@ WORKDIR /app
 
 # Install required system packages efficiently
 RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends git && \
+    apt-get install -y --no-install-recommends git tini && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy project files and assign ownership to 'chap'
@@ -36,6 +36,33 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Switch to non-root user
 USER chap
+EXPOSE 8000
+
+ENV PORT=8000
+ENV TIMEOUT=60
+ENV GRACEFUL_TIMEOUT=30
+ENV KEEPALIVE=5
+ENV FORWARDED_ALLOW_IPS="*"
 
 # Ensure virtual environment is first in PATH
 ENV PATH="/app/.venv/bin:$PATH"
+
+ENTRYPOINT ["/usr/bin/tini","--"]
+CMD ["sh","-c", "\
+    : ${FORWARDED_ALLOW_IPS:='*'}; \
+    if [ -z \"$WORKERS\" ]; then \
+    WORKERS=$(( ( $(nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 2) * 2 ) + 1 )); \
+    fi; \
+    exec gunicorn -k uvicorn.workers.UvicornWorker chap_core.rest_api.v1.rest_api:app \
+    --bind 0.0.0.0:${PORT} \
+    --workers ${WORKERS} \
+    --timeout ${TIMEOUT} \
+    --graceful-timeout ${GRACEFUL_TIMEOUT} \
+    --keep-alive ${KEEPALIVE} \
+    --forwarded-allow-ips=${FORWARDED_ALLOW_IPS} \
+    --max-requests 1000 \
+    --max-requests-jitter 200 \
+    --access-logfile - \
+    --error-logfile - \
+    --worker-tmp-dir /dev/shm \
+    "]
