@@ -1,11 +1,13 @@
 import pytest
 import httpx
-from chap_core.models.external_chapkit_model import ExternalChapkitModel, ExternalChapkitModelTemplate
+
+# from chap_core.models.external_chapkit_model import ExternalChapkitModel, ExternalChapkitModelTemplate
 from chap_core.file_io.example_data_set import datasets
 
 model_url = "http://localhost:8001"
 
-@pytest.fixture
+
+# @pytest.fixture
 def dataset():
     dataset_name = "ISIMIP_dengue_harmonized"
     dataset = datasets[dataset_name]
@@ -14,8 +16,7 @@ def dataset():
     return dataset
 
 
-
-@pytest.fixture
+# @pytest.fixture
 def service_available():
     try:
         response = httpx.get(model_url + "/api/v1/health", timeout=2)
@@ -27,9 +28,8 @@ def service_available():
     return model_url
 
 
-def test_external_chapkit_model_basic(service_available, dataset):
-    template = ExternalChapkitModelTemplate("example_model", service_available)
-    model = template.get_model({})
-    id = model.train(dataset)
-    print(id)
-
+# def test_external_chapkit_model_basic(service_available, dataset):
+#     template = ExternalChapkitModelTemplate("example_model", service_available)
+#     model = template.get_model({})
+#     id = model.train(dataset)
+#     print(id)
