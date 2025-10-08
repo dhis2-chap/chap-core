@@ -5,7 +5,8 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet as _DataSe
 
 
 def observations_to_dataset(dataclass, observations, fill_missing=False):
-    dataframe = pd.DataFrame([obs.model_dump() for obs in observations]).rename(
+    obs_dicts = [obs.model_dump() for obs in observations]
+    dataframe = pd.DataFrame(obs_dicts).rename(
         columns={"org_unit": "location", "period": "time_period"}
     )
     dataframe = dataframe.set_index(["location", "time_period"])

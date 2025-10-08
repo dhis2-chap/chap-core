@@ -25,8 +25,14 @@ def temperature_transform(x):
 
 class DatasetPlot(ABC):
     def __init__(self, df: pd.DataFrame):
-        df['ideal_temperature'] = temperature_transform(df['mean_temperature'])
+        # df['ideal_temperature'] = temperature_transform(df['mean_temperature'])
         self._df = df
+
+    @classmethod
+    def from_pandas(cls, df: pd.DataFrame, selected_features=None):
+        df = df.copy()
+        df['time_period'] = df['time_period'].astype(str)
+        return cls(df, selected_features=selected_features)
 
     def _get_feature_names(self) -> list:
         return [name for name in self._get_colnames() if name not in ('log1p', 'log1p', 'population')]
@@ -41,6 +47,9 @@ class DatasetPlot(ABC):
         colnames = list(colnames)
         print(colnames)
         return colnames
+
+    def plot_spec(self):
+        return self.plot().to_dict(format='vega')
 
     @abstractmethod
     def plot(self) -> alt.Chart:
@@ -61,6 +70,7 @@ class StandardizedFeaturePlot(DatasetPlot):
     def __init__(self, df: pd.DataFrame, selected_features=None):
         super().__init__(df)
         self.selected_features = selected_features
+
 
     def _standardize(self, col: np.array) -> np.array:
         # Handle NaN values properly

@@ -50,7 +50,7 @@ def dataset_observations(feature_names: list[str], org_units: list[str], seen_pe
     observations = [
         Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2))
         for ou_id, ou in enumerate(org_units)
-        for fn in feature_names + ["disease_cases"]
+        for fn in (feature_names + ["disease_cases"])
         for t, tp in enumerate(seen_periods)
     ]
     return observations
@@ -62,7 +62,7 @@ def dataset(org_units, feature_names, seen_periods, dataset_observations, geojso
         name="testing dataset",
         geojson=geojson.model_dump_json(),
         observations=dataset_observations,
-        covariates=feature_names,
+        covariates=feature_names + ["disease_cases"],
         created=datetime.datetime.now(),
         data_sources=[DataSource(covariate=fn, data_element_id=f"de_{i}") for i, fn in enumerate(feature_names)],
         first_period=seen_periods[0],
@@ -78,7 +78,7 @@ def dataset_wo_meta(org_units, feature_names, seen_periods, dataset_observations
         name="incomplete_dataset",
         geojson=geojson.model_dump_json(),
         observations=dataset_observations,
-        covariates=feature_names,
+        covariates=feature_names + ["disease_cases"],
         created=datetime.datetime.now(),
         first_period=seen_periods[0],
         last_period=seen_periods[-1],

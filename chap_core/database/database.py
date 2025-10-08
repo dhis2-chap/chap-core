@@ -424,6 +424,8 @@ class SessionWrapper:
 
     def get_dataset(self, dataset_id, dataclass: type | None = None) -> _DataSet:
         dataset = self.session.get(DataSet, dataset_id)
+        if dataset is None:
+            raise ValueError(f"Dataset with id {dataset_id} not found")
         if dataclass is None:
             logger.info(f"Getting dataset with covariates: {dataset.covariates} and name: {dataset.name}")
             field_names = dataset.covariates
