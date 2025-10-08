@@ -3,7 +3,7 @@ import httpx
 from chap_core.models.external_chapkit_model import ExternalChapkitModel, ExternalChapkitModelTemplate
 from chap_core.file_io.example_data_set import datasets
 
-model_url = "http://localhost:8001"
+model_url = "http://localhost:8002"
 
 @pytest.fixture
 def dataset():
@@ -29,7 +29,11 @@ def service_available():
 
 def test_external_chapkit_model_basic(service_available, dataset):
     template = ExternalChapkitModelTemplate("example_model", service_available)
-    model = template.get_model({})
+    model = template.get_model({"max_epochs": 2})
     id = model.train(dataset)
+    print("__________") 
     print(id)
+    prediction = model.predict(dataset, dataset)
+
+    print(prediction)
 
