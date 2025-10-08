@@ -27,6 +27,7 @@ def run_command(command: str, working_directory=Path(".")):
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_directory, shell=True
         )
+        print("COMMAND__________----------------", command)
         stdout, stderr = process.communicate()
         output = stdout.decode() + "\n" + stderr.decode()
         """
