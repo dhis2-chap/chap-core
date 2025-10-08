@@ -15,6 +15,7 @@ from chap_core.time_period import PeriodRange
 from chap_core.data.datasets import ISIMIP_dengue_harmonized
 from .data_fixtures import train_data_pop, full_data
 
+
 @pytest.fixture
 def full_dataset():
     dataset = ISIMIP_dengue_harmonized
@@ -34,12 +35,8 @@ def test_to_dataset(gluonts_vietnam_dataset):
 
 
 def test_to_testinstances(train_data_pop: DataSet):
-    train, test = train_test_split(
-        train_data_pop, prediction_start_period=train_data_pop.period_range[-3]
-    )
-    ds = DataSetAdaptor().to_gluonts_testinstances(
-        train, test.remove_field("disease_cases"), 3
-    )
+    train, test = train_test_split(train_data_pop, prediction_start_period=train_data_pop.period_range[-3])
+    ds = DataSetAdaptor().to_gluonts_testinstances(train, test.remove_field("disease_cases"), 3)
     print(list(ds))
 
 
@@ -82,7 +79,5 @@ def test_full_data(full_dataset):
 
 
 def test_forecast_adaptor():
-    samples = Samples(
-        PeriodRange.from_strings(["2021-01", "2021-02"]), np.arange(6).reshape(2, 3)
-    )
+    samples = Samples(PeriodRange.from_strings(["2021-01", "2021-02"]), np.arange(6).reshape(2, 3))
     assert ForecastAdaptor.from_samples(samples).samples.shape == (3, 2)

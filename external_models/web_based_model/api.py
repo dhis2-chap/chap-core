@@ -7,9 +7,15 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, Optional
+import io
+import csv
+import random
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
+import logging
+logger = logging.getLogger(__name__)
+
 
 app = FastAPI(
     title="Web-Based CHAP Model API",
@@ -68,6 +74,7 @@ async def train(
     - job_id: Unique identifier to track the training job
     """
     # Generate unique job ID
+    logger.info(f"Received training request for model '{model_name}'")
     job_id = str(uuid.uuid4())
     
     # Create job entry
@@ -87,6 +94,7 @@ async def train(
     # 4. Update job status to COMPLETED/FAILED when done
     
     # For now, just read the files to ensure they're valid
+    logger.info(f"Reading training data from {training_data.filename}")
     await training_data.read()
     if polygons:
         await polygons.read()
@@ -97,6 +105,7 @@ async def train(
     job.status = JobStatus.COMPLETED
     job.updated_at = datetime.now(timezone.utc)
     
+    logger.info(f"Training job '{job_id}' for model '{model_name}' completed successfully")
     return TrainResponse(
         job_id=job_id,
         message=f"Training job started for model '{model_name}'",
@@ -143,19 +152,67 @@ async def predict(
     # 5. Save predictions to job_results when done
     # 6. Update job status to COMPLETED/FAILED
     
-    # For now, just read the files to ensure they're valid
+    # Read the future data to generate predictions based on it
     await historic_data.read()
-    await future_data.read()
+    future_data_content = await future_data.read()
     if polygons:
         await polygons.read()
     
-    # For testing: immediately mark job as completed and store mock results
+    # Parse the future data CSV to get locations and time periods
+    try:
+        # Decode the CSV content
+        csv_text = future_data_content.decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(csv_text))
+        
+        # Generate mock predictions based on future data
+        output_rows = []
+        for row in csv_reader:
+            # Extract location and time_period from the future data
+            location = row.get('location', 'unknown')
+            time_period = row.get('time_period', 'unknown')
+            
+            # Generate mock prediction samples
+            # Base value between 50 and 200 for realistic disease case counts
+            base_value = random.randint(50, 200)
+            # Add some variation for each sample (±10%)
+            sample_0 = int(base_value * random.uniform(0.9, 1.1))
+            sample_1 = int(base_value * random.uniform(0.9, 1.1))
+            sample_2 = int(base_value * random.uniform(0.9, 1.1))
+            
+            output_rows.append({
+                'time_period': time_period,
+                'location': location,
+                'sample_0': sample_0,
+                'sample_1': sample_1,
+                'sample_2': sample_2
+            })
+        
+        # Create CSV output
+        output = io.StringIO()
+        if output_rows:
+            fieldnames = ['time_period', 'location', 'sample_0', 'sample_1', 'sample_2']
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(output_rows)
+            predictions_csv = output.getvalue().encode('utf-8')
+        else:
+            # If no rows in future data, return empty predictions with headers
+            predictions_csv = b"time_period,location,sample_0,sample_1,sample_2\n"
+        
+        # Store the predictions for this job
+        job_results[job_id] = predictions_csv
+        
+        logger.info(f"Generated {len(output_rows)} prediction rows for job {job_id}")
+        
+    except Exception as e:
+        logger.error(f"Error processing future data: {e}")
+        # Fall back to simple mock data if parsing fails
+        mock_csv = b"time_period,location,sample_0,sample_1,sample_2\n2023-07,loc1,100,105,95\n2023-08,loc1,110,115,105\n2023-09,loc1,105,110,100"
+        job_results[job_id] = mock_csv
+    
+    # Mark job as completed
     job.status = JobStatus.COMPLETED
     job.updated_at = datetime.now(timezone.utc)
-    
-    # Store mock prediction results for this job
-    mock_csv = b"time_period,location,sample_0,sample_1,sample_2\n2023-07,loc1,100,105,95\n2023-08,loc1,110,115,105\n2023-09,loc1,105,110,100"
-    job_results[job_id] = mock_csv
     
     return PredictResponse(
         job_id=job_id,

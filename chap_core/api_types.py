@@ -1,10 +1,13 @@
 from typing import Any, Optional
+import numpy as np
 
 from pydantic import BaseModel, Field
 from pydantic_geojson import (
     FeatureCollectionModel as _FeatureCollectionModel,
     FeatureModel as _FeatureModel,
 )
+
+from chap_core.database.base_tables import DBModel
 
 
 class FeatureModel(_FeatureModel):
@@ -25,7 +28,7 @@ class DataElement(BaseModel):
 class DataList(BaseModel):
     featureId: str
     dhis2Id: str
-    data: list[DataElement] = Field(..., min_items=1)
+    data: list[DataElement] = Field(..., min_length=1)
 
 
 class DataElementV2(BaseModel):
@@ -37,7 +40,7 @@ class DataElementV2(BaseModel):
 class DataListV2(BaseModel):
     featureId: str
     dataElement: str
-    data: list[DataElementV2] = Field(..., min_items=1)
+    data: list[DataElementV2] = Field(..., min_length=1)
 
 
 class RequestV1(BaseModel):
@@ -65,9 +68,39 @@ class EvaluationEntry(PredictionEntry):
     splitPeriod: str
 
 
+class BackTestParams(DBModel):
+    n_periods: int
+    n_splits: int
+    stride: int
+
+
 class EvaluationResponse(BaseModel):
     actualCases: DataList
     predictions: list[EvaluationEntry]
+
+    def model_dump(self, **kwargs):
+        """Override to handle special types during serialization"""
+        data = super().model_dump(**kwargs)
+        return self._clean_for_json(data)
+
+    def _clean_for_json(self, obj):
+        """Recursively clean data for JSON serialization"""
+        if isinstance(obj, dict):
+            return {k: self._clean_for_json(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._clean_for_json(item) for item in obj]
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, (np.integer, np.floating)):
+            return obj.item()
+        elif hasattr(obj, "id"):
+            # Handle period objects with id attribute
+            return obj.id
+        elif obj is None or isinstance(obj, (str, int, float, bool)):
+            return obj
+        else:
+            # Fallback to string representation
+            return str(obj)
 
 
 class PeriodObservation(BaseModel):

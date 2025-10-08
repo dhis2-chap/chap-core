@@ -14,39 +14,45 @@ logging.basicConfig(level=logging.INFO)
 
 
 def make_prediction_request(model_name):
-    filename = '../example_data/anonymous_make_prediction_request.json'
+    filename = "example_data/anonymous_make_prediction_request.json"
     data = json.load(open(filename))
-    data['modelId'] = model_name
-    data['name'] = f'integration_test: {model_name}'
+    data["modelId"] = model_name
+    data["name"] = f"integration_test: {model_name}"
     return data
 
 
 def make_dataset_request(dataset_path):
     # set default dataset path if empty
     if not dataset_path:
-        dataset_path = '../example_data/anonymous_make_dataset_request.json' 
+        dataset_path = "example_data/anonymous_make_dataset_request.json"
     # load dataset from json
-    logger.info(f'Using dataset from file {dataset_path}')
+    logger.info(f"Using dataset from file {dataset_path}")
     data = json.load(open(dataset_path))
     return data
 
 
 def make_dataset_request2():
-    filename = '../example_data/anonymous_make_dataset_request2.json'
+    filename = "example_data/anonymous_make_dataset_request2.json"
     data = json.load(open(filename))
     return data
 
 
 def make_backtest_with_data_request(model_name):
     # TODO: current file lacks population data so will only work with naive model
-    filename = '../example_data/create-backtest-with-data.json'
+    filename = "example_data/create-backtest-with-data.json"
     data = json.load(open(filename))
-    data['modelId'] = model_name
-    data['name'] = f'integration_test: {model_name} with data'
+    data["modelId"] = model_name
+    data["name"] = f"integration_test: {model_name} with data"
+    population_entires = [
+        entry | {"featureName": "population", "value": 1_000_000}
+        for entry in data["providedData"]
+        if entry["featureName"] == "rainfall"
+    ]
+    data["providedData"].extend(population_entires)
     return data
 
 
-hostname = 'chap'
+hostname = "chap"
 chap_url = "http://%s:8000" % hostname
 
 
@@ -65,8 +71,8 @@ class IntegrationTest:
                 response = requests.get(self._chap_url + "/v1/health")
                 break
             except requests.exceptions.ConnectionError as e:
-                #logger.error("Failed to connect to %s" % self._chap_url)
-                #logger.error(e)
+                logger.error("Failed to connect to %s" % self._chap_url)
+                logger.error(e)
                 errors.append(e)
                 time.sleep(5)
         else:
@@ -83,7 +89,7 @@ class IntegrationTest:
             response = requests.get(url)
         except:
             logger.error("Failed to connect to %s" % chap_url)
-            logger.error('Failed to get %s' % url)
+            logger.error("Failed to get %s" % url)
             exception_info = requests.get(chap_url + "/v1/get-exception").json()
             logger.error(exception_info)
             raise
@@ -95,7 +101,7 @@ class IntegrationTest:
             response = requests.post(url, json=json)
         except:
             logger.error("Failed to connect to %s" % chap_url)
-            logger.error('Failed to get %s' % url)
+            logger.error("Failed to get %s" % url)
             raise
         assert response.status_code == 200, (response.status_code, response.text)
         return response.json()
@@ -105,38 +111,37 @@ class IntegrationTest:
         models = self._get(model_url)
         # hacky remove autoreg weekly
         # TODO: delete after new version is published
-        models = [model for model in models if model['name'] != 'auto_regressive_weekly']
+        models = [model for model in models if model["name"] != "auto_regressive_weekly"]
         return models
 
     def _get_model_names(self, model_list):
         # hacky only consider monthly or any period models
         # TODO: delete after new version is published
-        return [model['name'] for model in model_list if
-                model['supportedPeriodType'] in ('month', 'any')]
+        return [model["name"] for model in model_list if model["supportedPeriodType"] in ("month", "any")]
 
     def make_dataset(self, data):
         make_dataset_url = self._chap_url + "/v1/analytics/make-dataset"
         response = self._post(make_dataset_url, json=data)
-        job_id = response['id']
+        job_id = response["id"]
         db_id = self.wait_for_db_id(job_id)
         return db_id
 
     def make_prediction(self, data):
-        logger.info(f'Making prediction for {data["modelId"]}')
+        logger.info(f"Making prediction for {data['modelId']}")
         make_prediction_url = self._chap_url + "/v1/analytics/make-prediction"
         response = self._post(make_prediction_url, json=data)
-        job_id = response['id']
+        job_id = response["id"]
         db_id = self.wait_for_db_id(job_id)
         prediction_result = self._get(self._chap_url + f"/v1/crud/predictions/{db_id}")
-        assert prediction_result['modelId'] == data['modelId']
+        assert prediction_result["modelId"] == data["modelId"]
         return prediction_result
 
     def prediction_flow(self):
-        logger.info(f'Starting prediction flow tests')
+        logger.info(f"Starting prediction flow tests")
 
         self.ensure_up()
         model_list = self.get_models()
-        assert 'naive_model' in {model['name'] for model in model_list}
+        assert "naive_model" in {model["name"] for model in model_list}
 
         all_model_names = self._get_model_names(model_list)
         if self._model_id:
@@ -147,36 +152,39 @@ class IntegrationTest:
 
         errors = []
         for model_name in model_names:
+            assert model_name == "naive_model", "This test only supports naive model for now"
             try:
                 self.make_prediction(make_prediction_request(model_name))
             except Exception as err:
-                msg = f'Error making prediction for model {model_name}: {err}'
+                msg = f"Error making prediction for model {model_name}: {err}"
                 logger.error(msg)
                 errors.append(msg)
 
         if errors:
-            raise Exception('One or more prediction errors, for details see above logs')
+            raise Exception("One or more prediction errors, for details see above logs")
 
     def evaluate_model(self, model, dataset_id):
-        logger.info(f'Making evaluation for {model}')
-        job_id = self._post(self._chap_url + "/v1/crud/backtests/",
-                            json={"modelId": model, "datasetId": dataset_id, 'name': f'integration_test: {model}'})['id']
+        logger.info(f"Making evaluation for {model}")
+        job_id = self._post(
+            self._chap_url + "/v1/crud/backtests/",
+            json={"modelId": model, "datasetId": dataset_id, "name": f"integration_test: {model}"},
+        )["id"]
         db_id = self.wait_for_db_id(job_id)
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
-        assert evaluation_result['modelId'] == model
-        assert evaluation_result['datasetId'] == dataset_id
-        assert evaluation_result['name'].startswith('integration_test'), evaluation_result['name']
-        assert evaluation_result['created'], evaluation_result['created']
-        url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
+        assert evaluation_result["modelId"] == model
+        assert evaluation_result["datasetId"] == dataset_id
+        assert evaluation_result["name"].startswith("integration_test"), evaluation_result["name"]
+        assert evaluation_result["created"], evaluation_result["created"]
+        url_string = self._chap_url + f"/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5"
         evaluation_entries = self._get(url_string)
         return evaluation_entries, db_id
 
     def evaluation_flow(self):
-        logger.info(f'Starting evaluation flow tests')
+        logger.info(f"Starting evaluation flow tests")
 
         self.ensure_up()
         model_list = self.get_models()
-        assert 'naive_model' in {model['name'] for model in model_list}
+        assert "naive_model" in {model["name"] for model in model_list}
 
         data = make_dataset_request(self._dataset_path)
         dataset_id = self.make_dataset(data)
@@ -193,35 +201,35 @@ class IntegrationTest:
             try:
                 result, backtest_id = self.evaluate_model(model_name, dataset_id)
                 actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
-                result_org_units = {e['orgUnit'] for e in result}
-                org_units = {de['ou'] for de in actual_cases['data']}
+                result_org_units = {e["orgUnit"] for e in result}
+                org_units = {de["ou"] for de in actual_cases["data"]}
                 assert result_org_units == org_units, (result_org_units, org_units)
             except Exception as err:
-                msg = f'Error making evaluation for model {model_name}: {err}'
+                msg = f"Error making evaluation for model {model_name}: {err}"
                 logger.error(msg)
                 errors.append(msg)
 
         if errors:
-            raise Exception('One or more evaluation errors, for details see above logs')
+            raise Exception("One or more evaluation errors, for details see above logs")
 
     def evaluate_model_with_data(self, data):
-        logger.info(f'Making evaluation for {data["modelId"]}')
-        job_id = self._post(self._chap_url + "/v1/analytics/create-backtest-with-data/", json=data)['id']
+        logger.info(f"Making evaluation for {data['modelId']}")
+        job_id = self._post(self._chap_url + "/v1/analytics/create-backtest-with-data/", json=data)["id"]
         db_id = self.wait_for_db_id(job_id)
         evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
-        assert evaluation_result['modelId'] == data["modelId"]
-        assert evaluation_result['name'].startswith('integration_test'), evaluation_result['name']
-        assert evaluation_result['created'], evaluation_result['created']
-        url_string = self._chap_url + f'/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5'
+        assert evaluation_result["modelId"] == data["modelId"]
+        assert evaluation_result["name"].startswith("integration_test"), evaluation_result["name"]
+        assert evaluation_result["created"], evaluation_result["created"]
+        url_string = self._chap_url + f"/v1/analytics/evaluation-entry?backtestId={db_id}&quantiles=0.5"
         evaluation_entries = self._get(url_string)
         return evaluation_entries, db_id
 
     def evaluation_with_data_flow(self):
-        logger.info(f'Starting evaluation with data flow tests')
+        logger.info(f"Starting evaluation with data flow tests")
 
         self.ensure_up()
         model_list = self.get_models()
-        assert 'naive_model' in {model['name'] for model in model_list}
+        assert "naive_model" in {model["name"] for model in model_list}
 
         all_model_names = self._get_model_names(model_list)
         if self._model_id:
@@ -232,19 +240,20 @@ class IntegrationTest:
 
         errors = []
         for model_name in model_names:
+            assert model_name == "naive_model", "This test only supports naive model for now"
             try:
                 result, backtest_id = self.evaluate_model_with_data(make_backtest_with_data_request(model_name))
                 actual_cases = self._get(self._chap_url + f"/v1/analytics/actualCases/{backtest_id}")
-                result_org_units = {e['orgUnit'] for e in result}
-                org_units = {de['ou'] for de in actual_cases['data']}
+                result_org_units = {e["orgUnit"] for e in result}
+                org_units = {de["ou"] for de in actual_cases["data"]}
                 assert result_org_units == org_units, (result_org_units, org_units)
             except Exception as err:
-                msg = f'Error making evaluation with data for model {model_name}: {err}'
+                msg = f"Error making evaluation with data for model {model_name}: {err}"
                 logger.error(msg)
                 errors.append(msg)
 
         if errors:
-            raise Exception('One or more evaluation with data errors, for details see above logs')
+            raise Exception("One or more evaluation with data errors, for details see above logs")
 
     def wait_for_db_id(self, job_id):
         for _ in range(3000):
@@ -252,10 +261,13 @@ class IntegrationTest:
             job_status = self._get(job_url).lower()
             logger.info(job_status)
             if job_status == "failure":
-                logs = self._get(job_url + "/logs")
+                try:
+                    logs = self._get(job_url + "/logs")
+                except:
+                    logs = "Could not get logs"
                 raise ValueError(f"Failed job: {logs}")
             if job_status == "success":
-                return self._get(job_url + "/database_result/")['id']
+                return self._get(job_url + "/database_result/")["id"]
             time.sleep(1)
         raise TimeoutError("Job took too long")
 
@@ -272,15 +284,25 @@ if __name__ == "__main__":
             return False
 
     parser = argparse.ArgumentParser(description="Script to run docker db endpoint flows.")
-    parser.add_argument("host", type=str, nargs='?', default="localhost", help="Chap REST server host. Defaults to localhost.")
-    parser.add_argument("model_id", type=str, nargs='?', default='', help="Which model id (name) to test, or leave blank to test all models.")
-    parser.add_argument("dataset_path", type=str, nargs='?', default='', help="Path to which dataset will be used for testss.")
+    parser.add_argument(
+        "host", type=str, nargs="?", default="localhost", help="Chap REST server host. Defaults to localhost."
+    )
+    parser.add_argument(
+        "model_id",
+        type=str,
+        nargs="?",
+        default="",
+        help="Which model id (name) to test, or leave blank to test all models.",
+    )
+    parser.add_argument(
+        "dataset_path", type=str, nargs="?", default="", help="Path to which dataset will be used for testss."
+    )
 
     args = parser.parse_args()
     logger.info(args)
 
     chap_url = f"http://{args.host}:8000"
+    assert args.model_id == "naive_model", "This test only supports naive model for now"
     suite = IntegrationTest(chap_url, args.model_id, args.dataset_path)
-    suite.evaluation_flow()
-    # suite.evaluation_with_data_flow() # current create-backtest-with-data.json lacks population data so will only work with naive_model
-    suite.prediction_flow()
+    suite.evaluation_with_data_flow()
+    # suite.prediction_flow()

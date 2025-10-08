@@ -30,9 +30,7 @@ def runtime(
 ) -> Generator[IsRuntime, None, None]:
     runtime = Runtime()
 
-    runtime.config.job.output_storage.local.persist_data_dir_path = os.path.join(
-        tmp_dir_path, "outputs"
-    )
+    runtime.config.job.output_storage.local.persist_data_dir_path = os.path.join(tmp_dir_path, "outputs")
     runtime.config.root_log.file_log_dir_path = os.path.join(tmp_dir_path, "logs")
 
     yield runtime
@@ -50,12 +48,8 @@ def separated_data(
 
 
 @fixture(scope="module")
-def separate_standardized_path() -> (
-    Annotated[Generator[str, None, None], pytest.fixture]
-):
-    separate_standardized_path = str(
-        EXAMPLE_DATA_PATH / "nonstandard_separate_standardized"
-    )
+def separate_standardized_path() -> Annotated[Generator[str, None, None], pytest.fixture]:
+    separate_standardized_path = str(EXAMPLE_DATA_PATH / "nonstandard_separate_standardized")
     yield separate_standardized_path
     os.unlink(f"{separate_standardized_path}.tar.gz")
 
@@ -93,8 +87,7 @@ def test_standardize_separated_data_linear_flow(
 
 
 @pytest.mark.skip(
-    reason="Depends on planned modifiers that are not yet implemented in Omnipy. "
-    "In any case redundant with FuncFlow"
+    reason="Depends on planned modifiers that are not yet implemented in Omnipy. In any case redundant with FuncFlow"
 )
 def test_standardize_separated_data_dag_flow(
     separated_data: Annotated[StrDataset, pytest.fixture],

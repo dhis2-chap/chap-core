@@ -1,32 +1,36 @@
 import dataclasses
 import datetime
-import time
-from typing import Optional, List, Iterable
-
-import numpy as np
-import psycopg2
-import sqlalchemy
-from chap_core.predictor.naive_estimator import NaiveEstimator
-from sqlmodel import SQLModel, create_engine, Session, select
-from .tables import BackTest, BackTestForecast, BackTestMetric, Prediction, PredictionSamplesEntry
-from .model_spec_tables import ModelSpecRead
-from .model_templates_and_config_tables import ModelTemplateDB, ConfiguredModelDB, ModelConfiguration
-from .debug import DebugEntry
-from .dataset_tables import Observation, DataSet
-from chap_core.datatypes import create_tsdataclass
+import json
+import logging
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
+from pathlib import Path
+import time
+from typing import Iterable, List, Optional
 
-from chap_core.time_period import TimePeriod
+import psycopg2
+import sqlalchemy
+from sqlmodel import Session, SQLModel, create_engine, select
+
+from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
+from chap_core.datatypes import FullData, SamplesWithTruth, create_tsdataclass
+from chap_core.geometry import Polygons
+from chap_core.predictor.naive_estimator import NaiveEstimator
+from chap_core.time_period import TimePeriod, Month, Week
+
 from .. import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
-from ..rest_api_src.data_models import BackTestCreate
+from ..rest_api.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-import logging
+from .dataset_tables import DataSet, Observation, DataSetCreateInfo, DataSetInfo
+from .debug import DebugEntry
+from .model_spec_tables import ModelSpecRead
+from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
+from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -36,7 +40,7 @@ if database_url is not None:
     n = 0
     while n < 30:
         try:
-            engine = create_engine(database_url)
+            engine = create_engine(database_url, echo=True)
             break
         except sqlalchemy.exc.OperationalError as e:
             logger.error(f"Failed to connect to database: {e}. Trying again")
@@ -52,51 +56,11 @@ else:
     logger.warning("Database url not set. Database operations will not work")
 
 
-# metric functions
-# each function is run at each forecasted value
-# each function must take samples_values, observation, and evaluation_results
-# NOTE: evaluation_results is provided in order to provide greater context of all forecast samples and observed values
-# TODO: passing evaluation_results is a bit hacky, not always needed, and not very clean (need a better approach)
-# TODO: move below to separate metrics file
-# TODO: probably also move to classes and more flexible
-
-
-def crps_ensemble_timestep(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
-    term1 = np.mean(np.abs(sample_values - obs))
-    term2 = 0.5 * np.mean(np.abs(sample_values[:, None] - sample_values[None, :]))
-    return float(term1 - term2)
-
-
-def crps_ensemble_timestep_normalized(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
-    crps = crps_ensemble_timestep(sample_values, obs, evaluation_results)
-    obs_values = [
-        cases
-        for eval_result in evaluation_results
-        for location, samples_with_truth in eval_result.items()
-        for cases in samples_with_truth.disease_cases
-    ]
-    obs_min, obs_max = min(obs_values), max(obs_values)
-    crps_norm = crps / (obs_max - obs_min)
-    return float(crps_norm)
-
-
-def _is_within_percentile(sample_values: np.ndarray, obs: float, lower_percentile: float, higher_percentile: float) -> float:
-    low,high = np.percentile(sample_values, [lower_percentile, higher_percentile])
-    is_within_range = 1 if (low <= obs <= high) else 0
-    return float(is_within_range)
-
-
-def is_within_10th_90th(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
-    return _is_within_percentile(sample_values, obs, 10, 90)
-
-
-def is_within_25th_75th(sample_values: np.ndarray, obs: float, evaluation_results: Iterable[DataSet]) -> float:
-    return _is_within_percentile(sample_values, obs, 25, 75)
-
-
 class SessionWrapper:
     """
-    This is a wrapper around data access operations
+    This is a wrapper around data access operations.
+    This class handles cases when putting things in/out of db requires
+    more than just adding/getting a row, e.g. transforming data etc.
     """
 
     def __init__(self, local_engine=None, session=None):
@@ -167,10 +131,10 @@ class SessionWrapper:
         self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default"
     ) -> int:
         # get model template name
-        model_template = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
-        template_name = (
-            model_template.name
-        )
+        model_template = self.session.exec(
+            select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)
+        ).first()
+        template_name = model_template.name
 
         # set configured name
         if configuration_name == "default":
@@ -187,9 +151,11 @@ class SessionWrapper:
             return existing_configured.id
 
         # create and add db entry
-        configured_model = ConfiguredModelDB(name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template)
+        configured_model = ConfiguredModelDB(
+            name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template
+        )
         configured_model.validate_user_options(configured_model)
-        #configured_model.validate_user_options(model_template)
+        # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
         self.session.commit()
@@ -276,12 +242,13 @@ class SessionWrapper:
     def get_configured_model_by_name(self, configured_model_name: str) -> ConfiguredModelDB:
         try:
             configured_model = self.session.exec(
-            select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
-        ).one()
+                select(ConfiguredModelDB).where(ConfiguredModelDB.name == configured_model_name)
+            ).one()
         except sqlalchemy.exc.NoResultFound:
-            all_names = self.session.exec(
-            select(ConfiguredModelDB.name)).all()
-            raise ValueError(f"Configured model with name {configured_model_name} not found. Available names: {all_names}")
+            all_names = self.session.exec(select(ConfiguredModelDB.name)).all()
+            raise ValueError(
+                f"Configured model with name {configured_model_name} not found. Available names: {all_names}"
+            )
 
         return configured_model
 
@@ -290,7 +257,9 @@ class SessionWrapper:
         if configured_model.name == "naive_model":
             return NaiveEstimator()
         template_name = configured_model.model_template.name
-        ignore_env = template_name.startswith("chap_ewars") or template_name=='ewars_template'  # TODO: seems hacky, how to fix?
+        ignore_env = (
+            template_name.startswith("chap_ewars") or template_name == "ewars_template"
+        )  # TODO: seems hacky, how to fix?
         return ModelTemplate.from_directory_or_github_url(
             configured_model.model_template.source_url,
             ignore_env=ignore_env,
@@ -302,39 +271,46 @@ class SessionWrapper:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
 
-    def add_evaluation_results(self, evaluation_results: Iterable[DataSet], last_train_period: TimePeriod, info: BackTestCreate):
+    def get_backtest_with_truth(self, backtest_id: int) -> BackTest:
+        backtest = self.session.get(BackTest, backtest_id)
+        if backtest is None:
+            raise ValueError(f"Backtest with id {backtest_id} not found")
+        dataset = backtest.dataset
+        if dataset is None:
+            raise ValueError(f"Dataset for backtest with id {backtest_id} not found")
+        entries = backtest.forecasts
+        if entries is None or len(entries) == 0:
+            raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
+
+    def add_evaluation_results(
+        self,
+        evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
+        last_train_period: TimePeriod,
+        info: BackTestCreate,
+    ):
         info.created = datetime.datetime.now()
         # org_units = list({location for ds in evaluation_results for location in ds.locations()})
         # split_points = list({er.period_range[0] for er in evaluation_results})
-        model_db_id = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
-        backtest = BackTest(**info.dict() | {'model_db_id': model_db_id})
+        model_db_id = (
+            self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
+        )
+        backtest = BackTest(**info.dict() | {"model_db_id": model_db_id})
         self.session.add(backtest)
         org_units = set([])
         split_points = set([])
         # define metrics (for each period)
-        metric_defs = {
-            'crps': crps_ensemble_timestep,
-            'crps_norm': crps_ensemble_timestep_normalized,
-            'is_within_10th_90th': is_within_10th_90th,
-            'is_within_25th_75th': is_within_25th_75th,
-        }
-        # define aggregate metrics (for entire backtest)
-        # value is tuple of (metric_id used to filter metric values, and function to run on filter metric values)
-        aggregate_metric_defs = {
-            'crps_mean': ('crps', lambda vals: np.mean(vals)),
-            'crps_norm_mean': ('crps_norm', lambda vals: np.mean(vals)),
-            'ratio_within_10th_90th': ('is_within_10th_90th', lambda vals: np.mean(vals)),
-            'ratio_within_25th_75th': ('is_within_25th_75th', lambda vals: np.mean(vals)),
-        }
-        # begin loop
-        evaluation_results = list(evaluation_results) # hacky, to avoid metric funcs using up the iterable before we can loop all splitpoints
+        evaluation_results = list(
+            evaluation_results
+        )  # hacky, to avoid metric funcs using up the iterable before we can loop all splitpoints
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
             split_points.add(first_period.id)
             for location, samples_with_truth in eval_result.items():
                 # NOTE: samples_with_truth is class datatypes.SamplesWithTruth
                 org_units.add(location)
-                for period, sample_values, disease_cases in zip(eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases):
+                for period, sample_values, disease_cases in zip(
+                    eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases
+                ):
                     # add forecast series for this period
                     forecast = BackTestForecast(
                         period=period.id,
@@ -344,49 +320,18 @@ class SessionWrapper:
                         values=sample_values.tolist(),
                     )
                     backtest.forecasts.append(forecast)
-                    # add misc metrics
-                    # TODO: should probably be improved with eg custom Metric classes
-                    for metric_id, metric_func in metric_defs.items():
-                        try:
-                            metric_value = metric_func(sample_values, disease_cases, evaluation_results)
-                            if np.isnan(metric_value) or np.isinf(metric_value):
-                                logger.warning(f'Computed metric {metric_id} for location {location}, split period {first_period.id}, and forecast period {period.id} is NaN or Inf, skipping.')
-                                continue
 
-                            metric = BackTestMetric(
-                                metric_id=metric_id, 
-                                period=period.id, 
-                                org_unit=location, 
-                                last_train_period=last_train_period.id, 
-                                last_seen_period=first_period.id, 
-                                value=metric_value,
-                            )
-                            backtest.metrics.append(metric)
-                        except Exception as err:
-                            logger.warning(f'Unexpected error computing metric id {metric_id}, for location {location}, split period {first_period.id}, and forecast period {period.id}: {err}')
-        # calculate and add total metrics
-        # TODO: should probably be improved with eg custom Metric classes
-        aggregate_metrics = {}
-        for aggregate_metric_id, (filter_metric_id, aggregate_metric_func) in aggregate_metric_defs.items():
-            try:
-                filtered_metric_values = [
-                    metric.value
-                    for metric in backtest.metrics
-                    if metric.metric_id == filter_metric_id
-                ]
-                aggregate_metric_value = float(aggregate_metric_func(filtered_metric_values))
-                if np.isnan(aggregate_metric_value) or np.isinf(aggregate_metric_value):
-                    logger.warning(f'Computed aggregate metric {aggregate_metric_id} is NaN or Inf, skipping.')
-                    continue
-                aggregate_metrics[aggregate_metric_id] = aggregate_metric_value
-            except Exception as err:
-                logger.warning(f'Unexpected error computing aggregate metric id {aggregate_metric_id}: {err}')
-        logger.info(f'aggregate metrics {aggregate_metrics}')
-        backtest.aggregate_metrics = aggregate_metrics
-        # add more
         backtest.org_units = list(org_units)
         backtest.split_periods = list(split_points)
         self.session.commit()
+
+        # read full backtest object so that we can compute aggregate metrics using this object
+        backtest = self.session.get(BackTest, backtest.id)
+        aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
+        logger.info(f"aggregate metrics {aggregate_metrics}")
+        backtest.aggregate_metrics = aggregate_metrics
+        self.session.commit()
+        # add more
         return backtest.id
 
     def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict = {}):
@@ -408,9 +353,26 @@ class SessionWrapper:
         self.session.commit()
         return prediction.id
 
-    def add_dataset(self, dataset_name, orig_dataset: _DataSet, polygons, dataset_type: str | None = None):
+    def add_dataset_from_csv(self, name: str, csv_path: Path, geojson_path: Optional[Path] = None):
+        dataset = _DataSet.from_csv(csv_path, dataclass=FullData)
+        geojson_content = open(geojson_path, "r").read() if geojson_path else None
+        features = None
+        if geojson_content is not None:
+            features = Polygons.from_geojson(json.loads(geojson_content), id_property="NAME_1").feature_collection()
+            features = features.model_dump_json()
+
+        return self.add_dataset(DataSetCreateInfo(name=name), dataset, features)
+
+    def add_dataset(self, dataset_info: DataSetCreateInfo, orig_dataset: _DataSet, polygons):
+        """
+        Add a dataset to the database. The dataset is provided as a spatio-temporal dataclass.
+        The polygons should be provided as a geojson feature collection.
+        The dataset_info should contain information about the dataset, such as its name and data sources.
+        The function sets some derived fields in the dataset_info, such as the first and last time period and the covariates.
+        The function returns the id of the newly created dataset.
+        """
         logger.info(
-            f"Adding dataset {dataset_name} with {len(list(orig_dataset.locations()))} locations and {len(orig_dataset.period_range)} time periods"
+            f"Adding dataset {dataset_info.name} with {len(list(orig_dataset.locations()))} locations and {len(orig_dataset.period_range)} time periods"
         )
         field_names = [
             field.name
@@ -418,13 +380,22 @@ class SessionWrapper:
             if field.name not in ["time_period", "location"]
         ]
         logger.info(f"Field names in dataset: {field_names}")
-        dataset = DataSet(
-            name=dataset_name,
-            polygons=polygons,
-            created=datetime.datetime.now(),
+        if isinstance(orig_dataset.period_range[0], Month):
+            period_type = "month"
+        else:
+            assert isinstance(orig_dataset.period_range[0], Week), orig_dataset.period_range[0]
+            period_type = "week"
+        full_info = DataSetInfo(
+            first_period=orig_dataset.period_range[0].id,
+            last_period=orig_dataset.period_range[-1].id,
             covariates=field_names,
-            type=dataset_type,
+            created=datetime.datetime.now(),
+            org_units=list(orig_dataset.locations()),
+            period_type=period_type,
+            **dataset_info.model_dump(),
         )
+        dataset = DataSet(geojson=polygons, **full_info.model_dump())
+
         for location, data in orig_dataset.items():
             field_names = [
                 field.name for field in dataclasses.fields(data) if field.name not in ["time_period", "location"]
@@ -438,6 +409,7 @@ class SessionWrapper:
                         feature_name=field,
                     )
                     dataset.observations.append(observation)
+
         self.session.add(dataset)
         self.session.commit()
         assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
@@ -446,12 +418,16 @@ class SessionWrapper:
     def get_dataset(self, dataset_id, dataclass: type | None = None) -> _DataSet:
         dataset = self.session.get(DataSet, dataset_id)
         if dataclass is None:
-            logger.info(f'Getting dataset with covariates: {dataset.covariates} and name: {dataset.name}')
+            logger.info(f"Getting dataset with covariates: {dataset.covariates} and name: {dataset.name}")
             field_names = dataset.covariates
             dataclass = create_tsdataclass(field_names)
         observations = dataset.observations
         new_dataset = observations_to_dataset(dataclass, observations)
         return new_dataset
+
+    def get_dataset_by_name(self, dataset_name: str) -> Optional[DataSet]:
+        dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()
+        return dataset
 
     def add_debug(self):
         """Function for debuging"""
@@ -468,15 +444,105 @@ def create_db_and_tables():
         n = 0
         while n < 30:
             try:
+                print("DEBUG: About to create tables with metadata:")
+                for table_name, table in SQLModel.metadata.tables.items():
+                    print(f"DEBUG: Table {table_name} - Columns: {[col.name for col in table.columns]}")
+
+                # Run generic migration before creating tables
+                _run_generic_migration(engine)
+
                 SQLModel.metadata.create_all(engine)
+                logger.info("Table created")
                 break
             except sqlalchemy.exc.OperationalError as e:
                 logger.error(f"Failed to create tables: {e}. Trying again")
                 n += 1
                 time.sleep(1)
+                if n >= 20:
+                    raise e
         with SessionWrapper(engine) as session:
             from .model_template_seed import seed_configured_models_from_config_dir
 
             seed_configured_models_from_config_dir(session.session)
+            # seed_example_datasets(session)
     else:
         logger.warning("Engine not set. Tables not created")
+
+
+def _run_generic_migration(engine):
+    """
+    Generic migration function that adds missing columns to existing tables
+    and sets default values for new columns in existing records.
+    """
+    logger.info("Running generic migration for missing columns")
+
+    with engine.connect() as conn:
+        # Get current database schema
+        inspector = sqlalchemy.inspect(engine)
+        existing_tables = inspector.get_table_names()
+
+        for table_name, table in SQLModel.metadata.tables.items():
+            if table_name not in existing_tables:
+                logger.info(f"Table {table_name} doesn't exist yet, will be created")
+                continue
+
+            # Get existing columns in the database
+            existing_columns = {col["name"] for col in inspector.get_columns(table_name)}
+
+            # Check for missing columns
+            for column in table.columns:
+                if column.name not in existing_columns:
+                    logger.info(f"Adding missing column {column.name} to table {table_name}")
+
+                    # Add the column
+                    column_type = column.type.compile(dialect=engine.dialect)
+                    add_column_sql = f"ALTER TABLE {table_name} ADD COLUMN {column.name} {column_type}"
+
+                    try:
+                        conn.execute(sqlalchemy.text(add_column_sql))
+
+                        # Set default value based on column type and properties
+                        default_value = _get_column_default_value(column)
+                        if default_value is not None:
+                            update_sql = (
+                                f"UPDATE {table_name} SET {column.name} = :default_val WHERE {column.name} IS NULL"
+                            )
+                            conn.execute(sqlalchemy.text(update_sql), {"default_val": default_value})
+                            logger.info(f"Set default value for {column.name} in existing records")
+
+                        conn.commit()
+                        logger.info(f"Successfully added column {column.name} to {table_name}")
+
+                    except Exception as e:
+                        logger.error(f"Failed to add column {column.name} to {table_name}: {e}")
+                        conn.rollback()
+
+
+def _get_column_default_value(column):
+    """
+    Determine appropriate default value for a column based on its type and properties.
+    """
+    # Check if column has a default value defined
+    if column.default is not None:
+        if hasattr(column.default, "arg") and column.default.arg is not None:
+            return column.default.arg
+
+    # Check column type and provide appropriate defaults
+    column_type = str(column.type).lower()
+
+    if "json" in column_type:
+        # For JSON columns, return empty array or object
+        if "list" in str(column.type) or "array" in column_type:
+            return "[]"  # Empty array for lists
+        else:
+            return "{}"  # Empty object for general JSON
+    elif "varchar" in column_type or "text" in column_type:
+        return ""  # Empty string for text columns
+    elif "integer" in column_type or "numeric" in column_type:
+        return 0  # Zero for numeric columns
+    elif "boolean" in column_type:
+        return False  # False for boolean columns
+    elif "timestamp" in column_type or "datetime" in column_type:
+        return None  # Let NULL remain for timestamps
+
+    return None  # Default to NULL for unknown types

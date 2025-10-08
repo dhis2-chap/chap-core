@@ -1,6 +1,6 @@
 import logging
 from typing import Literal, Optional
-from chap_core.external.model_configuration import ModelTemplateConfig
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.model_template import ModelConfiguration
 from chap_core.runners.command_line_runner import CommandLineRunner, CommandLineTrainPredictRunner
 from chap_core.runners.docker_runner import DockerRunner, DockerTrainPredictRunner
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_train_predict_runner_from_model_template_config(
-    model_template_config: ModelTemplateConfig,
+    model_template_config: ModelTemplateConfigV2,
     working_dir: Path,
     skip_environment=False,
     model_configuration: Optional["ModelConfiguration"] = None,

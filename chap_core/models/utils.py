@@ -2,11 +2,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
 import git
-from chap_core.datatypes import HealthData
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
-from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config
-from chap_core.external.model_configuration import ModelTemplateConfig, ModelTemplateConfigV2
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.model_template import ModelTemplate
 import shutil
 import uuid
@@ -38,9 +36,9 @@ def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
         # timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S%f")
         working_dir = base_working_dir / model_name / unique_identifier
         # check that working dir does not exist
-        assert (
-            not working_dir.exists()
-        ), f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
+        assert not working_dir.exists(), (
+            f"Working dir {working_dir} already exists. This should not happen if make_run_dir is True"
+        )
     elif run_dir_type == "use_existing":
         working_dir = Path(model_path)
     else:
@@ -66,10 +64,18 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
 
     if is_github:
         working_dir.mkdir(parents=True)
-        repo = git.Repo.clone_from(model_path, working_dir)
         if commit:
-            logger.info(f"Checking out commit {commit}")
+            # For specific commits, clone with --filter to minimize download
+            # then fetch only the specific commit
+            logger.info(f"Cloning repository with specific commit {commit}")
+            repo = git.Repo.clone_from(model_path, working_dir, filter="blob:none", no_checkout=True)
+            # Fetch only the specific commit with minimal history
+            repo.git.fetch("origin", commit, depth=1)
             repo.git.checkout(commit)
+        else:
+            # For latest branch, use shallow clone with depth=1
+            logger.info(f"Cloning repository {model_path} (shallow clone)")
+            repo = git.Repo.clone_from(model_path, working_dir, depth=1)
     elif run_dir_type == "use_existing":
         logging.info("Not copying any model files, using existing directory")
     else:
@@ -134,36 +140,6 @@ def get_model_template_from_directory_or_github_url(
 
     template = get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
     return template
-
-
-def get_model_from_mlproject_file(mlproject_file, ignore_env=False) -> "ExternalModel":
-    """parses file and returns the model
-    Will not use MLflows project setup if docker is specified
-    """
-
-    with open(mlproject_file, "r") as file:
-        config = yaml.load(file, Loader=yaml.FullLoader)
-    working_dir = Path(mlproject_file).parent
-    config = ModelTemplateConfig.model_validate(config)
-    runner = get_train_predict_runner_from_model_template_config(config, working_dir, ignore_env)
-    # runner = get_train_predict_runner(mlproject_file, runner_type, skip_environment=ignore_env)
-
-    logging.info("Runner is %s", runner)
-    logging.info("Will create ExternalMlflowModel")
-    name = config.name
-    adapters = config.adapters  # config.get("adapters", None)
-    # allowed_data_types = {"HealthData": HealthData}
-    # data_type = allowed_data_types.get(config.get("data_type", None), None)
-    data_type = HealthData
-    from chap_core.models import ExternalModel
-
-    return ExternalModel(
-        runner,
-        name=name,
-        adapters=adapters,
-        data_type=data_type,
-        working_dir=Path(mlproject_file).parent,
-    )
 
 
 def get_model_from_directory_or_github_url(

@@ -23,7 +23,13 @@ class ModelSpecBase(ModelTemplateMetaData, DBModel):
     name: str
     # supported_period_types: PeriodType = PeriodType.any
     source_url: Optional[str] = None
-    supported_period_type: PeriodType = PeriodType.any
+    supported_period_type: PeriodType = PeriodType.any  # ] = [PeriodType.month, PeriodType.week]
+
+    # @field_validator("supported_period_type", mode="before")
+    # def wrap_in_list(cls, v):
+    #    if isinstance(v, list):
+    #        return v
+    #    return [v]
 
 
 class ModelSpecRead(ModelSpecBase):
@@ -54,6 +60,7 @@ def get_available_models_from_config_dir(config_dir: str, base_covariates) -> Li
     pass
 
 
+# todo: check if can be removed
 def get_available_models(base_covariates) -> List[ModelSpec]:
     """
     Returns a list of models that are available in chap
@@ -166,6 +173,7 @@ def get_available_models(base_covariates) -> List[ModelSpec]:
     """
 
 
+# todo: can probably be deleted
 def seed_with_session_wrapper(session_wrapper, get_models_func=get_available_models):
     """Seed a database using with the default models"""
     seeded_feature_types = [

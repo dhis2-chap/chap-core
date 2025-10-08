@@ -1,6 +1,5 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
-./.ruff_cache
 *.py[cod]
 *$py.class
 
@@ -47,6 +46,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+.ruff_cache/
 
 # Translations
 *.mo
@@ -158,5 +158,5 @@ config/model_templates/*
 .DS_Store
 
 
-#ignore 
+#ignore
 /logs/*

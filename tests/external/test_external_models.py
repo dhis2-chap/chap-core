@@ -1,11 +1,11 @@
+import pytest
+
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.exceptions import InvalidModelException, ModelFailedException
 from chap_core.file_io.example_data_set import datasets
-import pytest
 from chap_core.geometry import Polygons
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 from chap_core.testing.external_model import sanity_check_external_model
-from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.util import docker_available, pyenv_available
 
 
@@ -58,10 +58,10 @@ def test_external_sanity_deepar(models_path, dataset):
     folder_path = "https://github.com/dhis2-chap/minimalist_example"
     template = get_model_template_from_directory_or_github_url(folder_path, run_dir_type="latest")
     model = template.get_model()
-    #model = get_model_from_directory_or_github_url(folder_path, run_dir_type="latest")
+    # model = get_model_from_directory_or_github_url(folder_path, run_dir_type="latest")
     evaluate_model(model, dataset)
-    
-    #sanity_check_external_model("https://github.com/dhis2-chap/minimalist_example")
+
+    # sanity_check_external_model("https://github.com/dhis2-chap/minimalist_example")
 
 
 @pytest.mark.skip(reason="Under development")
@@ -71,5 +71,4 @@ def test_that_polygons_are_sent_to_runners_through_external_model(data_path, dat
     # check that commands get polygons correctly by fetching the runner and
     # inspect the commands
     polygons = Polygons.from_file(data_path / "example_polygons.geojson").data
-    #dataset.set_polygons(polygons)
-    
+    # dataset.set_polygons(polygons)

@@ -2,6 +2,7 @@
 
 import dataclasses
 import json
+import logging
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -10,29 +11,31 @@ import pandas as pd
 import yaml
 from cyclopts import App
 
+from chap_core import api
 from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
+from chap_core.assessment.prediction_evaluator import backtest as _backtest
+from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
+from chap_core.file_io.example_data_set import DataSetType, datasets
+from chap_core.geometry import Polygons
+from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import (
     get_model_from_directory_or_github_url,
     get_model_template_from_directory_or_github_url,
 )
-from chap_core.geometry import Polygons
-from chap_core.log_config import initialize_logging
+from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
+from chap_core.predictor import ModelType
 from chap_core.predictor.model_registry import registry
-
-from chap_core.rest_api_src.worker_functions import samples_to_evaluation_response, dataset_to_datalist
+from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core import api
-from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
-from chap_core.predictor import ModelType
-from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
 from chap_core.assessment.prediction_evaluator import evaluate_model, backtest as _backtest
 from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
@@ -193,6 +196,141 @@ def evaluate_hpo(
 
 
 @app.command()
+def evaluate_hpo(
+    model_name: ModelType | str,
+    dataset_name: Optional[DataSetType] = None,
+    dataset_country: Optional[str] = None,
+    dataset_csv: Optional[Path] = None,
+    polygons_json: Optional[Path] = None,
+    polygons_id_field: Optional[str] = "id",
+    prediction_length: int = 3,
+    n_splits: int = 7,
+    report_filename: Optional[str] = "report.pdf",
+    ignore_environment: bool = False,
+    debug: bool = False,
+    log_file: Optional[str] = None,
+    run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+    model_configuration_yaml: Optional[str] = None,
+    metric: Optional[str] = "MSE",
+    direction: Direction = "minimize",
+    evaluate_hpo: Optional[bool] = True,
+):
+    initialize_logging(debug, log_file)
+    if dataset_name is None:
+        assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
+        logging.info(f"Loading dataset from {dataset_csv}")
+        dataset = DataSet.from_csv(dataset_csv, FullData)
+        if polygons_json is not None:
+            logging.info(f"Loading polygons from {polygons_json}")
+            polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)
+            polygons.filter_locations(dataset.locations())
+            dataset.set_polygons(polygons.data)
+    else:
+        logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
+
+        dataset = datasets[dataset_name]
+        dataset = dataset.load()
+
+        if isinstance(dataset, MultiCountryDataSet):
+            assert dataset_country is not None, "Must specify a country for multi country datasets"
+            assert (
+                dataset_country in dataset.countries
+            ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            dataset = dataset[dataset_country]
+
+    if "," in model_name:
+        # model_name is not only one model, but contains a list of models
+        model_list = model_name.split(",")
+        model_configuration_yaml_list = [None for _ in model_list]
+        if model_configuration_yaml is not None:
+            model_configuration_yaml_list = model_configuration_yaml.split(",")
+            assert len(model_list) == len(
+                model_configuration_yaml_list
+            ), "Number of model configurations does not match number of models"
+    else:
+        model_list = [model_name]
+        model_configuration_yaml_list = [model_configuration_yaml]
+
+    logging.info(f"Model configuration: {model_configuration_yaml_list}")
+
+    results_dict = {}
+    for name, configuration in zip(model_list, model_configuration_yaml_list):
+        if not evaluate_hpo:
+            template = ModelTemplate.from_directory_or_github_url(
+                name,
+                base_working_dir=Path("./runs/"),
+                ignore_env=ignore_environment,
+                run_dir_type=run_directory_type,
+            )
+            logging.info(f"Model template loaded: {template}")
+            if configuration is not None:
+                logger.info(f"Loading model configuration from yaml file {configuration}")
+                configuration = ModelConfiguration.model_validate(
+                    yaml.safe_load(open(configuration))
+                )  # template.get_model_configuration_from_yaml(Path(configuration))
+                logger.info(f"Loaded model configuration from yaml file: {configuration}")
+
+            model = template.get_model(configuration)
+            model = model()
+        else:
+            if configuration is not None:
+                logger.info(f"Loading model configuration from yaml file {configuration}")
+                # base_configs = ModelConfiguration.model_validate(
+                #     yaml.safe_load(open(configuration))
+                # )
+                # with open(configuration, "r", encoding="utf-8") as f:
+                #     base_configs = yaml.safe_load(f) or {} # check if this returns a dict
+                configs = load_search_space_from_yaml(configuration)
+                base_configs = {"user_option_values": configs}
+                print(f"base configs in cli: {base_configs}")
+                logger.info(f"Loaded model base configurations from yaml file: {base_configs}")
+
+            if "user_option_values" not in base_configs or not isinstance(base_configs["user_option_values"], dict):
+                raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
+            
+            print("Creating HpoModel")
+            objective = Objective(name, metric, prediction_length, n_splits)
+            model = HpoModel(GridSearcher(), objective, direction, base_configs)
+        try:
+            results = evaluate_model(
+                estimator=model,
+                data=dataset,
+                prediction_length=prediction_length,
+                n_test_sets=n_splits,
+                report_filename=report_filename,
+            )
+        except NoPredictionsError as e:
+            logger.error(f"No predictions were made: {e}")
+            return
+        print(f"Results: {results}")
+        results_dict[name] = results
+
+    # need to iterate through the dict, like key and value or something and then extract the relevant metrics
+    # to a pandas dataframe, and save it as a csv file.
+    # it seems like results contain two dictionairies, one for aggregate metrics and one with seperate ones for each ts
+
+    data = []
+    first_model = True
+    for key, value in results_dict.items():
+        aggregate_metric_dist = value[0]
+        row = [key]
+        for k, v in aggregate_metric_dist.items():
+            row.append(v)
+        if first_model:
+            data.append(["Model"] + list(aggregate_metric_dist.keys()))
+            first_model = False
+        data.append(row)
+    dataframe = pd.DataFrame(data)
+    csvname = Path(report_filename).with_suffix(".csv")
+
+    # write dataframe to csvname
+    dataframe.to_csv(csvname, index=False, header=False)
+    logger.info(f"Evaluation complete. Results saved to {csvname}")
+
+    return results_dict
+
+
+@app.command()
 def evaluate(
     model_name: ModelType | str,
     dataset_name: Optional[DataSetType] = None,
@@ -227,9 +365,9 @@ def evaluate(
 
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
-            assert (
-                dataset_country in dataset.countries
-            ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            assert dataset_country in dataset.countries, (
+                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            )
             dataset = dataset[dataset_country]
 
     if "," in model_name:
@@ -238,9 +376,9 @@ def evaluate(
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
             model_configuration_yaml_list = model_configuration_yaml.split(",")
-            assert len(model_list) == len(
-                model_configuration_yaml_list
-            ), "Number of model configurations does not match number of models"
+            assert len(model_list) == len(model_configuration_yaml_list), (
+                "Number of model configurations does not match number of models"
+            )
     else:
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
@@ -345,9 +483,9 @@ def sanity_check_model(
         logger.error(f"Error while forecasting: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(
-            prediction.samples
-        ).any(), f"NaNs in predictions for location {location}, {prediction.samples}"
+        assert not np.isnan(prediction.samples).any(), (
+            f"NaNs in predictions for location {location}, {prediction.samples}"
+        )
     context, future, truth = next(tests)
     try:
         predictions = predictor.predict(context, future)
@@ -355,9 +493,9 @@ def sanity_check_model(
         logger.error(f"Error while forecasting from a future time point: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(
-            prediction.samples
-        ).any(), f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
+        assert not np.isnan(prediction.samples).any(), (
+            f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
+        )
 
 
 @app.command()
@@ -424,7 +562,7 @@ def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool
     """
     Start CHAP as a backend server
     """
-    from .rest_api_src.v1.rest_api import main_backend
+    from .rest_api.v1.rest_api import main_backend
 
     logger.info("Running chap serve")
     if seedfile is not None:
@@ -439,7 +577,7 @@ def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
     """
-    from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
+    from chap_core.rest_api.v1.rest_api import get_openapi_schema
 
     schema = get_openapi_schema()
     with open(out_path, "w") as f:

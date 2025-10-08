@@ -4,10 +4,10 @@ The following is our recommended setup for creating a development environment wh
 
 If you are an external contributor without write-access to the chap-core repository you will first need to [fork the chap-core repository to your own GitHub account](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo?tool=webui).
 
-1.  Start by downloading the latest chap-core `dev` branch to a local folder of your choice, either from the main repository or from your own fork:
+1.  Start by downloading the latest chap-core `master` branch to a local folder of your choice, either from the main repository or from your own fork:
 
     ```bash
-    $ git clone https://github.com/dhis2-chap/chap-core/tree/dev
+    $ git clone https://github.com/dhis2-chap/chap-core/tree/master
     $ cd chap-core
     ```
 

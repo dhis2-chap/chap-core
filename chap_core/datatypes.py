@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 import dataclasses
 
 from typing_extensions import deprecated
@@ -123,7 +123,9 @@ class TimeSeriesData:
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
         data_dict["time_period"] = self.time_period
         fields = {
-            key: interpolate_nans(value) if ((field_names is None) or (key in field_names) and not np.all(np.isnan(value))) else value
+            key: interpolate_nans(value)
+            if ((field_names is None) or (key in field_names) and not np.all(np.isnan(value)))
+            else value
             for key, value in data_dict.items()
             if key != "time_period"
         }
@@ -277,13 +279,12 @@ class LocatedClimateHealthTimeSeries(ClimateHealthTimeSeries):
 
 
 class ClimateHealthTimeSeriesModel(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     time_period: str | pd.Period
     rainfall: float
     mean_temperature: float
     disease_cases: int
-
-    class Config:
-        arbitrary_types_allowed = True
 
     @field_validator("time_period")
     def parse_time_period(cls, data: str | pd.Period) -> pd.Period:

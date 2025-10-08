@@ -100,7 +100,7 @@ def train_test_generator(
     else:
         masked_future_data = (dataset.remove_field("disease_cases") for dataset in future_data)
     train_set.metadata = dataset.metadata.copy()
-    train_set.metadata.name += '_train_set'
+    train_set.metadata.name += "_train_set"
     return train_set, zip(historic_data, masked_future_data, future_data)
 
 
@@ -114,9 +114,9 @@ def train_test_split_with_weather(
     future_weather = test_set.remove_field("disease_cases")
     train_periods = {str(period) for data in train_set.data() for period in data.data().time_period}
     future_periods = {str(period) for data in future_weather.data() for period in data.data().time_period}
-    assert (
-        train_periods & future_periods == set()
-    ), f"Train and future weather data overlap: {train_periods & future_periods}"
+    assert train_periods & future_periods == set(), (
+        f"Train and future weather data overlap: {train_periods & future_periods}"
+    )
     return train_set, test_set, future_weather
 
 

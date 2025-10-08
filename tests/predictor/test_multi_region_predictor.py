@@ -14,5 +14,5 @@ def test_naive_predictor(full_data):
     naive_predictor.train(train_data)
     predictions = naive_predictor.predict(test_data)
     for loc, data in predictions.items():
-        assert len(data.data()) == 1
+        assert len(data) == 1
     # assert predictions == test_data

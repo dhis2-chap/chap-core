@@ -1,3 +1,7 @@
+"""
+todo: comment this file, make it clear which classes are central and being used
+"""
+
 import datetime
 from typing import Optional, List, Dict
 
@@ -5,7 +9,7 @@ from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import PeriodID, DBModel
-from chap_core.database.dataset_tables import DataSet
+from chap_core.database.dataset_tables import DataSet, DataSetInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, ModelConfiguration
 
 
@@ -16,12 +20,10 @@ class BackTestBase(DBModel):
     created: Optional[datetime.datetime] = None
 
 
-class DataSetMeta(DBModel):
+class DataSetMeta(DataSetInfo):
     id: int
-    name: str
-    type: Optional[str]
-    created: datetime.datetime
-    covariates: List[str]
+    # created: datetime.datetime
+    # covariates: List[str]
 
 
 class _BackTestRead(BackTestBase):
@@ -46,6 +48,9 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
     model_template: ModelTemplateDB
 
 
+OldBackTestRead = _BackTestRead
+
+
 class BackTestRead(_BackTestRead):
     dataset: DataSetMeta
     aggregate_metrics: Dict[str, float]
@@ -55,10 +60,10 @@ class BackTestRead(_BackTestRead):
 class ForecastBase(DBModel):
     period: PeriodID
     org_unit: str
+    values: List[float] = Field(default_factory=list, sa_type=JSON)
 
 
-class ForecastRead(ForecastBase):
-    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
+class ForecastRead(ForecastBase): ...
 
 
 class PredictionBase(DBModel):
@@ -73,6 +78,7 @@ class PredictionBase(DBModel):
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     forecasts: List["PredictionSamplesEntry"] = Relationship(back_populates="prediction", cascade_delete=True)
+    dataset: DataSet = Relationship()
 
 
 PredictionInfo = PredictionBase.get_read_class()
@@ -86,7 +92,6 @@ class PredictionSamplesEntry(ForecastBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     prediction_id: int = Field(foreign_key="prediction.id")
     prediction: "Prediction" = Relationship(back_populates="forecasts")
-    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class BackTestForecast(ForecastBase, table=True):
@@ -95,15 +100,20 @@ class BackTestForecast(ForecastBase, table=True):
     last_train_period: PeriodID
     last_seen_period: PeriodID
     backtest: BackTest = Relationship(back_populates="forecasts")
-    values: List[float] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class BackTestMetric(DBModel, table=True):
+    """
+    This class has been used when computing metrics per location/time_point/split_point adhoc
+    in database.py. This id depcrecated and not used in the new metric system.
+    Can be removed when no references left to this class.
+    """
+
     id: Optional[int] = Field(primary_key=True, default=None)
     backtest_id: int = Field(foreign_key="backtest.id")
     metric_id: str
-    period: PeriodID
-    org_unit: str
+    period: PeriodID  # Should this be optional and be null for aggregate metrics?
+    org_unit: str  # Should this be optional and be null for aggregate metrics?
     last_train_period: PeriodID
     last_seen_period: PeriodID
     value: float

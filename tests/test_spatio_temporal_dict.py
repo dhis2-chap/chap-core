@@ -37,6 +37,7 @@ def test_climate_data_to_from_csv():
         future_weather.to_csv(f.name)
         future_weather2 = DataSet.from_csv(f.name, ClimateData)
 
+
 @pytest.mark.skip
 def test_restrict_on_time_period(train_data_new_period_range):
     period = slice(Month(2012, 1), Month(2012, 4))
@@ -56,9 +57,7 @@ def test_join_on_time(train_data_new_period_range):
 
     for location in joined.locations():
         period = joined.get_location(location).data().time_period
-        assert np.all(
-            period == PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7))
-        )
+        assert np.all(period == PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7)))
 
 
 def test_get_location(health_population_data):

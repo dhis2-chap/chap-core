@@ -1,5 +1,4 @@
 from unittest.mock import patch
-
 import pytest
 
 from chap_core.chap_cli import harmonize, evaluate, predict
@@ -43,14 +42,14 @@ def evaluate_input_path(data_path):
     return path
 
 
-def test_harmonize(harmonize_input_path, tmp_path, mocked_gee):
+def test_harmonize(harmonize_input_path, tmp_path):
     output_path = tmp_path / "output.csv"
     harmonize(harmonize_input_path, output_path)
     assert output_path.exists()
     DataSet.from_csv(output_path, FullData)
 
 
-def test_harmonize_with_points(harmonize_input_with_points_path, tmp_path, mocked_gee, point_buffer):
+def test_harmonize_with_points(harmonize_input_with_points_path, tmp_path, point_buffer):
     output_path = tmp_path / "output.csv"
     harmonize(harmonize_input_with_points_path, output_path, point_buffer)
     assert output_path.exists()
@@ -72,8 +71,9 @@ def test_predict(predict_input_path, tmp_path, do_summary):
     assert output_path.exists()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import pathlib
+
     file_path = "/mnt/c/Users/karimba/Downloads/chap_request_data_2025-03-31T12_11_15.087Z.json"
-    output_path = pathlib.Path(__file__).parent / 'test_outputs'
+    output_path = pathlib.Path(__file__).parent / "test_outputs"
     test_harmonize_with_points(file_path, output_path, None, 0.1)

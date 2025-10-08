@@ -1,13 +1,17 @@
 #THIS DOCKERFILE RUNS THE WEB API
 
 # Use the official Python base image
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
 
 # Copy from the cache instead of linking since it's a mounted volume
 ENV UV_LINK_MODE=copy
+
+# Create non-root user early
+RUN useradd -m -s /bin/bash chap && \
+    mkdir -p /app && chown -R chap:chap /app
 
 # Set the working directory in the container
 WORKDIR /app
@@ -38,5 +42,10 @@ COPY ./README.md .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --dev
 
-# Place executables in the environment at the front of the path
+# Switch to non-root user
+RUN mkdir /app/logs
+RUN chown -R chap:chap /app
+USER chap
+
+# Ensure virtual environment is first in PATH
 ENV PATH="/app/.venv/bin:$PATH"

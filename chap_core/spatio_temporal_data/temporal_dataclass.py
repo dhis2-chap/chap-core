@@ -1,4 +1,5 @@
 import logging
+from numbers import Number
 import pickle
 from pathlib import Path
 from typing import Generic, Iterable, Tuple, Type, Callable, Optional
@@ -22,6 +23,7 @@ from ..time_period.date_util_wrapper import TimeStamp, clean_timestring
 import dataclasses
 from typing import TypeVar
 from pydantic import BaseModel
+
 logger = logging.getLogger(__name__)
 
 FeaturesT = TypeVar("FeaturesT")
@@ -129,7 +131,7 @@ class Polygon:
 
 
 class DataSetMetaData(BaseModel):
-    name: str = 'dataset'
+    name: str = "dataset"
     filename: str | None = None
     db_id: int | None = None
 
@@ -159,7 +161,7 @@ class DataSet(Generic[FeaturesT]):
         }
 
     @classmethod
-    def from_dict(cls, data: dict, dataclass=type[TemporalDataclass]):
+    def from_dict(cls, data: dict, dataclass: type[TemporalDataclass]):
         data_dict = {loc: dataclass.from_dict(val) for loc, val in data["data_dict"].items()}
         return cls(data_dict, data["polygons"] and FeatureCollectionModel(**data["polygons"]))
 
@@ -307,7 +309,9 @@ class DataSet(Generic[FeaturesT]):
         return data_dict
 
     @classmethod
-    def from_pandas(cls, df: pd.DataFrame, dataclass: Type[FeaturesT], fill_missing=False) -> "DataSet[FeaturesT]":
+    def from_pandas(
+        cls, df: pd.DataFrame, dataclass: Type[FeaturesT] = None, fill_missing=False
+    ) -> "DataSet[FeaturesT]":
         """
         Create a SpatioTemporalDict from a pandas dataframe.
         The dataframe needs to have a 'location' column, and a 'time_period' column.
@@ -345,13 +349,22 @@ class DataSet(Generic[FeaturesT]):
         ... )
         >>> DataSet.from_pandas(df, HealthData)
         """
+        if dataclass is None:
+            dataclass = create_tsdataclass(
+                [col for col in df.columns.tolist() if col not in ("location", "time_period") and "Unnamed" not in col]
+            )
+
         data_dict = {}
         for location, data in df.groupby("location"):
             if not isinstance(location, str):
                 logging.warning(f"Location {location} is not a string, converting to string")
                 location = str(location)
 
-            data["time_period"] = data["time_period"].apply(clean_timestring)
+            time_element = data["time_period"].iloc[0]
+            if isinstance(time_element, str) or isinstance(time_element, Number):
+                # if time periods are string, clean them and convert to periods
+                data["time_period"] = data["time_period"].apply(clean_timestring)
+
             data_dict[location] = dataclass.from_pandas(data.sort_values(by="time_period"), fill_missing)
         data_dict = cls._fill_missing(data_dict)
 
@@ -444,7 +457,7 @@ class DataSet(Generic[FeaturesT]):
                     with open(path, "r") as f:
                         obj.set_polygons(polygons.feature_collection())
         if isinstance(file_name, (str, PurePath)):
-            meta_data=  DataSetMetaData(name= str(Path(file_name).stem), filename=str(file_name))
+            meta_data = DataSetMetaData(name=str(Path(file_name).stem), filename=str(file_name))
             obj.metadata = meta_data
         return obj
 

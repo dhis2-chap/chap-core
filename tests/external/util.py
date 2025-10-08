@@ -20,9 +20,7 @@ def check_model(full_train_data, model, random_key, test_data):
     model.train(train_data)
     model.diagnose()
     # results = model.sample(test_data)
-    predictions = model.forecast(
-        test_data, n_samples=100, forecast_delta=12 * delta_month
-    )
+    predictions = model.forecast(test_data, n_samples=100, forecast_delta=12 * delta_month)
     for location, prediction in predictions.items():
         fig = plot_forecast_from_summaries(
             prediction.data(),
