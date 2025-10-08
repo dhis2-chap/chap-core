@@ -35,7 +35,6 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
                 entry_point="train",
                 parameters=keys,
                 build_image=True,
-                env_manager="local", # This is added by me (lilu) 21.08
             )
         except ShellCommandException as e:
             logger.error(
