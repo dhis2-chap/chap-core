@@ -1,3 +1,8 @@
+"""
+This is simulation code that can useful for creating tests. Currently in use.
+
+todo: Can maybe be moved to tests/
+"""
 import abc
 
 import pydantic
