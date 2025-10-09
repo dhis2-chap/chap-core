@@ -277,8 +277,3 @@ class Polygons:
     def feature_collection(self):
         return self._polygons
 
-
-if __name__ == "__main__":
-    base_filename = "/home/knut/Data/ch_data/geometry"
-    for country, data in get_all_data():
-        json.dump(data.model_dump(), open(f"{base_filename}/{country}.json", "w"))
