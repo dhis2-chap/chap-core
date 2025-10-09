@@ -75,7 +75,13 @@ def test_data_plot(override_session, tmp_path):
     # with open(tmp_path/"chap_core_chart.html", "w") as f:
     #    f.write(html_template)
 
-def
+def test_backtest_plot(override_session, tmp_path):
+    response = client.get("/v1/plots/backtest/tmp/1")
+    assert response.status_code == 200, response.json()
+    vega_spec = response.json()
+    html_template = wrap_vega_spec(vega_spec)
+    # with open(tmp_path/"chap_core_chart.html", "w") as f:
+    #    f.write(html_template)
 
 def wrap_vega_spec(vega_spec) -> str:
     html_template = f"""

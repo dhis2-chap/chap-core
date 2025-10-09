@@ -94,8 +94,7 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
 
 @dataset_plot_router.get("/backtest/{visualization_name}/{backtest_id}")
 def generate_backtest_data_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
-    sw = SessionWrapper(session=session)
-    backtest = sw.get_backtest(backtest_id)
+    backtest = session.get(BackTest, backtest_id)
     if not backtest:
         return {"error": "Backtest not found"}
     plotter = BackTestPlot.from_backtest(backtest)
