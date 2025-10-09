@@ -23,7 +23,7 @@ def test_forecast(hydromet_dataset):
     predictions = forecast(model, dataset, 12 * delta_month)
     for location, prediction in predictions.items():
         fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data())
-        fig.show()
+
 
 
 @pytest.mark.skip(reason="slow")
@@ -34,7 +34,6 @@ def test_multi_forecast(hydromet_dataset):
     for location, true_data in dataset.items():
         local_predictions = [pred.get_location(location).data() for pred in predictions_list]
         fig = plot_forecast_from_summaries(local_predictions, true_data.data())
-        fig.show()
 
 
 def test_forecast_ahead():
