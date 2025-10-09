@@ -20,7 +20,6 @@ from chap_core.rest_api.data_models import FullPredictionResponse
 from chap_core.rest_api.v1.routers import analytics, crud, visualization
 from chap_core.worker.interface import SeededJob
 
-from ...database.database import create_db_and_tables
 from . import debug, jobs
 from .routers.dependencies import get_settings
 
@@ -314,16 +313,6 @@ async def system_info() -> SystemInfoResponse:
     )
 
 
-@app.on_event("startup")
-def on_startup():
-    print("DEBUG: Starting ChAP REST API")
-    logger.info("Starting ChAP REST API")
-    logger.info("Starting up.")
-    print("DEBUG: About to call create_db_and_tables()")
-    create_db_and_tables()
-    print("DEBUG: Finished create_db_and_tables()")
-
-
 def seed(data):
     internal_state.current_job = SeededJob(result=data)
 
@@ -334,9 +323,13 @@ def get_openapi_schema():
 
 def main_backend(seed_data=None, auto_reload=False):
     import uvicorn
+    from chap_core.database.database import create_db_and_tables
+
+    create_db_and_tables()
 
     if seed_data is not None:
         seed(seed_data)
+
     if auto_reload:
         app_path = "chap_core.rest_api.v1.rest_api:app"
         uvicorn.run(app_path, host="0.0.0.0", port=8000, reload=auto_reload)

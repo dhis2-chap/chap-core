@@ -25,7 +25,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.12"]
+        python-version: ["3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -39,7 +39,7 @@ jobs:
       - name: Install pyenv
         uses: gabrielfalcao/pyenv-action@v18
         with:
-          default: "3.12"
+          default: "3.13"
           command: ""
       - name: Run
         run: |
