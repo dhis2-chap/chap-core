@@ -15,8 +15,8 @@ from chap_core.database.tables import BackTest, BackTestForecast
 
 
 class SimulationParams(pydantic.BaseModel):
-    loc: float = 10
-    scale: float = 5
+    loc: float = 5
+    scale: float = 2
 
 
 class DatasetDimensions(pydantic.BaseModel):
