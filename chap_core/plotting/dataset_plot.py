@@ -26,20 +26,23 @@ def temperature_transform(x):
 
 
 class DatasetPlot(ABC):
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self, df: pd.DataFrame, geojson=None):
         # df['ideal_temperature'] = temperature_transform(df['mean_temperature'])
         self._df = df
+        self._geojson = geojson
 
     @classmethod
     def from_dataset_model(cls, dataset_model):
-        df = dataset_model_to_dataset(dataset_model).to_pandas()
-        return cls.from_pandas(df)
+        ds = dataset_model_to_dataset(dataset_model)
+        df = ds.to_pandas()
+        geojson =  ds.polygons
+        return cls.from_pandas(df, geojson=geojson)
 
     @classmethod
-    def from_pandas(cls, df: pd.DataFrame):
+    def from_pandas(cls, df: pd.DataFrame, geojson=None):
         df = df.copy()
         df['time_period'] = df['time_period'].astype(str)
-        return cls(df)
+        return cls(df, geojson=geojson)
 
     def _get_feature_names(self) -> list:
         return [name for name in self._get_colnames() if name not in ('log1p', 'log1p', 'population')]
@@ -73,10 +76,6 @@ class StandardizedFeaturePlot(DatasetPlot):
     It includes a log1p transformation of the disease incidence rate (disease_cases/population)
     This shows how different features correlate over time and location.
     '''
-
-    def __init__(self, df: pd.DataFrame):
-        super().__init__(df)
-
 
     def _standardize(self, col: np.array) -> np.array:
         # Handle NaN values properly
