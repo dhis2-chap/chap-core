@@ -32,7 +32,6 @@ from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
 from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.predictor import ModelType
-from chap_core.predictor.model_registry import registry
 from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
@@ -407,55 +406,6 @@ def test(**base_kwargs):
 @dataclasses.dataclass
 class AreaPolygons: ...
 
-
-@app.command()
-def backtest(
-    data_filename: Path,
-    model_name: registry.model_type | str,
-    out_folder: Path,
-    prediction_length: int = 12,
-    n_test_sets: int = 20,
-    stride: int = 2,
-):
-    """
-    Run a backtest on a dataset using the specified model
-
-    Parameters:
-        data_filename: Path: Path to the data file
-        model_name: str: Name of the model to use
-        out_folder: Path: Path to the output folder
-    """
-    dataset = DataSet.from_csv(data_filename, FullData)
-    logger.info(f"Running backtest on {data_filename} with model {model_name}")
-    logger.info(f"Dataset period range: {dataset.period_range}, locations: {list(dataset.locations())}")
-
-    if "/" in model_name:
-        estimator = get_model_from_directory_or_github_url(model_name)
-        model_name = "development_model"
-    else:
-        estimator = registry.get_model(model_name)
-
-    predictions_list = _backtest(
-        estimator,
-        dataset,
-        prediction_length=prediction_length,
-        n_test_sets=n_test_sets,
-        stride=stride,
-        weather_provider=QuickForecastFetcher,
-    )
-
-    response = samples_to_evaluation_response(
-        predictions_list, quantiles=[0.05, 0.25, 0.5, 0.75, 0.95], real_data=dataset_to_datalist(dataset, "dengue")
-    )
-
-    dataframe = pd.DataFrame([entry.model_dump() for entry in response.predictions])
-    data_name = data_filename.stem
-    dataframe.to_csv(out_folder / f"{data_name}_evaluation_{model_name}.csv")
-    serialized_response = response.json()
-    out_filename = out_folder / f"{data_name}_evaluation_response_{model_name}.json"
-
-    with open(out_filename, "w") as out_file:
-        out_file.write(serialized_response)
 
 
 @app.command()

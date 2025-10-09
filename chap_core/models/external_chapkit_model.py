@@ -38,15 +38,29 @@ class ExternalChapkitModel(ExternalModelBase):
         self._location_mapping = None
         self._adapters = None
         self.client = CHAPKitRestAPIWrapper(rest_api_url)
+        self._train_id = None
 
     def train(self, train_data: DataSet, extra_args=None):
         frequency = self._get_frequency(train_data)
         pd = train_data.to_pandas()
-        pd["time_period"] = pd["time_period"].astype(str)
         new_pd = self._adapt_data(pd, frequency=frequency)
         geo = train_data.polygons
-        job_id = self.client.train_and_wait(self.configuration_id, new_pd, geo)
-        return job_id
+        response = self.client.train_and_wait(self.configuration_id, new_pd, geo)
+        artifact_id = response["artifact_id"]
+        assert artifact_id is not None, response
+        self._train_id = artifact_id
+        return artifact_id
 
-    def predict(self, historic_data, future_data):
-        pass
+    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+        assert self._train_id is not None, "Model must be trained before prediction"
+        geo = historic_data.polygons
+        historic_data = self._adapt_data(historic_data.to_pandas())
+        future_data = self._adapt_data(future_data.to_pandas())
+        response = self.client.predict_and_wait(self._train_id, historic_data, future_data, geo)
+        artifact_id = response["artifact_id"]
+        print(response["error"])
+        assert artifact_id is not None, response["error"]
+
+        # get artifact from the client
+        prediction = self.client.get_artifact(artifact_id)
+        return prediction

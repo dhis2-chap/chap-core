@@ -13,8 +13,7 @@ from chap_core.api_types import EvaluationResponse, PredictionRequest
 from chap_core.internal_state import Control, InternalState
 from chap_core.log_config import initialize_logging
 from chap_core.model_spec import ModelSpec
-from chap_core.predictor.feature_spec import Feature, all_features
-from chap_core.predictor.model_registry import registry
+from chap_core.predictor.feature_spec import Feature 
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.rest_api.data_models import FullPredictionResponse
 from chap_core.rest_api.v1.routers import analytics, crud, visualization
@@ -86,28 +85,6 @@ async def favicon() -> FileResponse:
     return FileResponse("chap_icon.jpeg")
 
 
-@app.post("/predict")
-async def predict(data: PredictionRequest, worker_settings=Depends(get_settings)) -> dict:
-    """
-    Start a prediction task using the given data as training data.
-    Results can be retrieved using the get-results endpoint.
-    """
-    try:
-        health_data = wf.get_health_dataset(data)
-        target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
-
-        func = wf.predict_pipeline_from_health_data if not data.include_data else wf.predict_pipeline_from_full_data
-        job = worker.queue(
-            func, health_data.model_dump(), data.estimator_id, data.n_periods, target_id, worker_config=worker_settings
-        )
-        internal_state.current_job = job
-    except Exception as e:
-        logger.error("Failed to run predic. Exception: %s", e)
-        return "{status: 'failed', exception: %s}" % e
-
-    return {"status": "success"}
-
-
 # TODO: include data flag etc
 @app.post("/evaluate")
 async def evaluate(
@@ -124,12 +101,12 @@ async def evaluate(
     return {"status": "success", "task_id": job.id}
 
 
-@app.get("/list-models")
+@app.get("/list-models", deprecated=True)
 async def list_models() -> list[ModelSpec]:
     """
     List all available models. These are not validated. Should set up test suite to validate them
     """
-    return registry.list_specifications()
+    return []
 
 
 # @app.get("/jobs/{job_id}/logs")
@@ -141,12 +118,13 @@ async def list_models() -> list[ModelSpec]:
 #     return job.get_logs(n_lines)
 
 
-@app.get("/list-features")
+@app.get("/list-features", deprecated=True)
 async def list_features() -> list[Feature]:
     """
     List all available features
     """
-    return all_features
+    return []
+    #return all_features
 
 
 @app.get("/get-results")

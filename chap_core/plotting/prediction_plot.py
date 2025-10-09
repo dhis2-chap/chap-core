@@ -1,3 +1,8 @@
+"""
+Note: Some of this might be outdated, but plot_forecast_from_summaries is
+used in several places. is being used to create forecast plots.
+"""
+
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -21,18 +26,6 @@ def prediction_plot(
     plt.legend()
     plt.title("Prdicted path using estimated parameters vs real path")
     return plt.gcf()
-
-
-def forecast_plot(
-    true_data: HealthData,
-    predicition_sampler: IsSampler,
-    climate_data: ClimateData,
-    n_samples,
-) -> Figure:
-    samples = np.array([predicition_sampler.sample(climate_data) for _ in range(n_samples)])
-    quantiles = np.quantile(samples, [0.1, 0.5, 0.9], axis=0)
-
-    return plot_forecast(quantiles, true_data)
 
 
 def plot_forecast_from_summaries(
