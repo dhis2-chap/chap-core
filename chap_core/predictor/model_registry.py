@@ -1,7 +1,3 @@
-from pathlib import Path
-from typing import Literal
-import yaml
-
 from ..model_spec import PeriodType, ModelSpec
 import logging
 
@@ -15,4 +11,3 @@ naive_spec = ModelSpec(
     description="Naive model used for testing",
     author="CHAP",
 )
-

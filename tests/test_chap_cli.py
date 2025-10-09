@@ -39,4 +39,3 @@ def evaluate_input_path(data_path):
     if not path.exists():
         pytest.skip(f"{path} does not exist")
     return path
-

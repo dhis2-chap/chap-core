@@ -5,7 +5,7 @@ import pytest
 
 from chap_core.api_types import PredictionRequest
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, add_numbers, celery_run
-from chap_core.rest_api.worker_functions import get_health_dataset 
+from chap_core.rest_api.worker_functions import get_health_dataset
 from chap_core.util import redis_available
 
 

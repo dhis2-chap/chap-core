@@ -124,6 +124,7 @@ def local_data_path():
 def tests_path():
     return Path(__file__).parent
 
+
 @pytest.fixture()
 def health_population_data(data_path):
     file_name = (data_path / "health_population_data").with_suffix(".csv")

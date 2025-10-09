@@ -2,7 +2,7 @@ import dataclasses
 import json
 import logging
 import os
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -17,10 +17,8 @@ from chap_core.api_types import (
     PredictionRequest,
     RequestV1,
 )
-from chap_core.assessment.forecast import forecast_ahead, forecast_with_predicted_weather
-from chap_core.assessment.prediction_evaluator import backtest
+from chap_core.assessment.forecast import forecast_with_predicted_weather
 from chap_core.climate_data.seasonal_forecasts import SeasonalForecast
-from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.datatypes import FullData, HealthData, HealthPopulationData, Samples, TimeSeriesArray, create_tsdataclass
 from chap_core.rest_api.data_models import FetchRequest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -61,26 +59,6 @@ def dataset_to_datalist(dataset: DataSet[HealthData], target_id: str) -> DataLis
         for row in data
     ]
     return DataList(dhis2Id=target_id, featureId="disease_cases", data=element_list)
-
-
-def evaluate(
-    json_data: PredictionRequest,
-    n_splits: Optional[int] = None,
-    stride: int = 1,
-    quantiles: Tuple[float] = (0.25, 0.5, 0.75, 0.1, 0.9),
-    worker_config: WorkerConfig = WorkerConfig(),
-) -> EvaluationResponse:
-    estimator, json_data, target_id, train_data = _convert_prediction_request(json_data, worker_config=worker_config)
-    real_data = next(data_list for data_list in json_data.features if data_list.dhis2Id == target_id)
-    predictions_list = backtest(
-        estimator,
-        train_data,
-        prediction_length=json_data.n_periods,
-        n_test_sets=n_splits,
-        stride=stride,
-        weather_provider=QuickForecastFetcher,
-    )
-    return samples_to_evaluation_response(predictions_list, quantiles, real_data)
 
 
 def __clean_actual_cases(real_data: DataList) -> DataList:

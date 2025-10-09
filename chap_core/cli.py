@@ -14,9 +14,7 @@ from cyclopts import App
 from chap_core import api
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
-from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
@@ -32,7 +30,6 @@ from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
 from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.predictor import ModelType
-from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
@@ -405,7 +402,6 @@ def test(**base_kwargs):
 
 @dataclasses.dataclass
 class AreaPolygons: ...
-
 
 
 @app.command()

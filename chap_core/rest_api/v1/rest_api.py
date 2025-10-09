@@ -1,6 +1,4 @@
-import json
 import logging
-from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,12 +6,11 @@ from fastapi.responses import FileResponse, ORJSONResponse
 from packaging.version import Version
 from pydantic import BaseModel
 
-import chap_core.rest_api.worker_functions as wf
-from chap_core.api_types import EvaluationResponse, PredictionRequest
+from chap_core.api_types import EvaluationResponse
 from chap_core.internal_state import Control, InternalState
 from chap_core.log_config import initialize_logging
 from chap_core.model_spec import ModelSpec
-from chap_core.predictor.feature_spec import Feature 
+from chap_core.predictor.feature_spec import Feature
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.rest_api.data_models import FullPredictionResponse
 from chap_core.rest_api.v1.routers import analytics, crud, visualization
@@ -85,7 +82,6 @@ async def favicon() -> FileResponse:
     return FileResponse("chap_icon.jpeg")
 
 
-
 @app.get("/list-models", deprecated=True)
 async def list_models() -> list[ModelSpec]:
     """
@@ -109,7 +105,7 @@ async def list_features() -> list[Feature]:
     List all available features
     """
     return []
-    #return all_features
+    # return all_features
 
 
 @app.get("/get-results")

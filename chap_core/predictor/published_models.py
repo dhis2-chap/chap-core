@@ -1,4 +1,4 @@
-from chap_core.model_spec import ModelSpec, PeriodType
+from chap_core.model_spec import ModelSpec
 import chap_core.predictor.feature_spec as fs
 
 
