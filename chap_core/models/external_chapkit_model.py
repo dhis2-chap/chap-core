@@ -1,4 +1,3 @@
-
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -9,7 +8,7 @@ class ExternalChapkitModelTemplate:
 
     Note that get_model assumes you have already created a configuration with that specific chapkitmodel.
 
-    This method is meant to be backwards compatible with ExternalModelTemplate 
+    This method is meant to be backwards compatible with ExternalModelTemplate
     """
 
     def __init__(self, model_name: str, rest_api_url: str):
@@ -17,8 +16,7 @@ class ExternalChapkitModelTemplate:
         self.rest_api_url = rest_api_url
         self.client = CHAPKitRestAPIWrapper(rest_api_url)
 
-
-    def get_model(self, model_configuration) -> 'ExternalChapkitModel':
+    def get_model(self, model_configuration) -> "ExternalChapkitModel":
         """
         Sends the model configuration for storing in the model (by sending to the model rest api).
         This returns a configuration id back that we can use to identify the model.
@@ -52,4 +50,3 @@ class ExternalChapkitModel(ExternalModelBase):
 
     def predict(self, historic_data, future_data):
         pass
-
