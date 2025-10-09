@@ -1,8 +1,6 @@
-import dataclasses
 import inspect
 from enum import Enum
 
-import yaml
 from pydantic import BaseModel, PositiveInt
 
 import chap_core.predictor.feature_spec as fs
@@ -46,7 +44,6 @@ class ModelSpec(BaseModel):
     description: str = "No Description yet"
     author: str = "Unknown Author"
     targets: str = "disease_cases"
-
 
 
 def get_dataclass(model_class) -> type[TimeSeriesData]:
