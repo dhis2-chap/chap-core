@@ -489,6 +489,7 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     assert len(backtest_info.dataset.data_sources) > 0, backtest_info.dataset
     assert len(backtest_info.dataset.org_units) > 0, backtest_info.dataset
     assert backtest_info.dataset.last_period is not None, backtest_info.dataset
+    assert backtest_info.dataset.period_type == "month", backtest_info.dataset
     # assert len(backtest_info.metrics) > 0
     created_dataset_id = backtest_info.dataset_id
     dataset_response = client.get(f"/v1/crud/datasets/{created_dataset_id}")

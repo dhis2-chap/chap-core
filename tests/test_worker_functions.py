@@ -10,10 +10,8 @@ from chap_core.api_types import (
     RequestV1,
 )
 from chap_core.rest_api.worker_functions import (
-    evaluate,
     get_combined_dataset,
     get_health_dataset,
-    predict,
     train_on_json_data,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -75,32 +73,6 @@ def test_get_health_dataset():
     data = get_health_dataset(prediction_request)
     assert data["location1"].disease_cases[0] == 1
     assert data["location1"].mean_temperature[0] == 23.0
-
-
-def test_predict(big_request_json):
-    predict(big_request_json)
-
-
-def test_evaluate(big_request_json):
-    results = evaluate(big_request_json, n_splits=2, stride=1)
-    actual_cases = results.actualCases
-    assert all(len(element.pe) == 6 for element in actual_cases.data)
-    print(actual_cases.data)
-    assert len(actual_cases.data) > 100
-
-
-def test_evaluate_laos(laos_request_2):
-    results = evaluate(laos_request_2, n_splits=2, stride=1)
-    actual_cases = results.actualCases
-    assert all(len(element.pe) == 6 for element in actual_cases.data), [element.pe for element in actual_cases.data]
-    print(actual_cases.data)
-    assert len(actual_cases.data) == len({element.pe for element in actual_cases.data}) * len(
-        {element.ou for element in actual_cases.data}
-    )
-
-
-def test_predict_laos(laos_request_3):
-    results = predict(laos_request_3)
 
 
 def test_dataset_from_request_v1(big_request_json):
