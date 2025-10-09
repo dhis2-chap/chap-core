@@ -154,7 +154,7 @@ def predict_pipeline_from_composite_dataset(
     return run_prediction(model_id, dataset_id, None, name, session)
 
 
-def run_backtest_from_composite_dataset(
+def run_backtest_from_dataset(
     feature_names: list[str],
     provided_data_model_dump: dict,
     backtest_name: str,

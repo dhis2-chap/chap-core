@@ -60,6 +60,8 @@ class ExternalChapkitModel(ExternalModelBase):
         future_data = self._adapt_data(future_data.to_pandas())
         response = self.client.predict_and_wait(self._train_id, historic_data, future_data, geo)
         artifact_id = response["artifact_id"]
+        print(response['error'])
+        assert artifact_id is not None, response['error']
 
         # get artifact from the client
         prediction = self.client.get_artifact(artifact_id)

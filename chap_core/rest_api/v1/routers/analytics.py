@@ -482,7 +482,7 @@ async def create_backtest_with_data(
     dataset_create_info = DataSetCreateInfo(**request.model_dump()).model_dump()
     dataset_create_info["type"] = "evaluation"
     job = worker.queue_db(
-        wf.run_backtest_from_composite_dataset,
+        wf.run_backtest_from_dataset,
         feature_names=feature_names,
         provided_data_model_dump=provided_data_processed.model_dump(),
         dataset_create_dump=dataset_create_info,
