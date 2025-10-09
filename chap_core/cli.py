@@ -423,8 +423,7 @@ def backtest(
         model_name: str: Name of the model to use
         out_folder: Path: Path to the output folder
     """
-    dataset = DataSet.from_csv(data_filename,
-                               FullData)
+    dataset = DataSet.from_csv(data_filename, FullData)
     logger.info(f"Running backtest on {data_filename} with model {model_name}")
     logger.info(f"Dataset period range: {dataset.period_range}, locations: {list(dataset.locations())}")
 
@@ -456,11 +455,12 @@ def backtest(
     with open(out_filename, "w") as out_file:
         out_file.write(serialized_response)
 
+
 @app.command()
-def plot_dataset(data_filename: Path, plot_name: str ='standardized_feature_plot'):
+def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plot"):
     dataset_plot_registry = {
-        'standardized_feature_plot': StandardizedFeaturePlot,
-        'season_plot': SeasonCorrelationBarPlot
+        "standardized_feature_plot": StandardizedFeaturePlot,
+        "season_plot": SeasonCorrelationBarPlot,
     }
     plot_cls = dataset_plot_registry.get(plot_name, StandardizedFeaturePlot)
     df = pd.read_csv(data_filename)

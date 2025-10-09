@@ -8,7 +8,6 @@ from starlette.responses import JSONResponse
 
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
-from chap_core.database.dataset_tables import DataSet
 from chap_core.database.tables import BackTest
 from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.evaluation_plot import (
@@ -61,7 +60,7 @@ def get_available_metrics(backtest_id: int):
     ]
 
 
-#TODO: this should be renamed to /metric-visualization/
+# TODO: this should be renamed to /metric-visualization/
 @router.get("/{visualization_name}/{backtest_id}/{metric_id}")
 def generate_visualization(
     visualization_name: str, backtest_id: int, metric_id: str, session: Session = Depends(get_session)
@@ -82,7 +81,8 @@ def generate_visualization(
     plot_spec = make_plot_from_backtest_object(backtest, plot_class, suitable_metrics[metric_id](), geojson)
     return JSONResponse(plot_spec)
 
-@dataset_plot_router.get('/{visualization_name}/{dataset_id}')
+
+@dataset_plot_router.get("/{visualization_name}/{dataset_id}")
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
     sw = SessionWrapper(session=session)
     dataset = sw.get_dataset(dataset_id)
@@ -90,4 +90,3 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
     plotter = StandardizedFeaturePlot.from_pandas(df)
     chart = plotter.plot_spec()
     return JSONResponse(chart)
-

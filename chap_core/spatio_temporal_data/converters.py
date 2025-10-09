@@ -8,9 +8,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet as _DataSe
 
 def observations_to_dataset(dataclass, observations, fill_missing=False):
     obs_dicts = [obs.model_dump() for obs in observations]
-    dataframe = pd.DataFrame(obs_dicts).rename(
-        columns={"org_unit": "location", "period": "time_period"}
-    )
+    dataframe = pd.DataFrame(obs_dicts).rename(columns={"org_unit": "location", "period": "time_period"})
     dataframe = dataframe.set_index(["location", "time_period"])
     pivoted = dataframe.pivot(columns="feature_name", values="value").reset_index()
     new_dataset = _DataSet.from_pandas(pivoted, dataclass, fill_missing=fill_missing)

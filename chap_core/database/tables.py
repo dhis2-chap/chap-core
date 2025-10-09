@@ -43,7 +43,6 @@ class BackTest(_BackTestRead, table=True):
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
 
 
-
 class ConfiguredModelRead(ModelConfiguration, DBModel):
     name: str
     id: int
@@ -66,6 +65,7 @@ class ForecastBase(DBModel):
 
     def get_quantiles(self, quantiles: List[float]) -> np.ndarray:
         return np.quantile(self.values, quantiles).astype(float)
+
 
 class ForecastRead(ForecastBase): ...
 

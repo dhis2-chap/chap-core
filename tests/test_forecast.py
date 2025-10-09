@@ -25,7 +25,6 @@ def test_forecast(hydromet_dataset):
         fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data())
 
 
-
 @pytest.mark.skip(reason="slow")
 def test_multi_forecast(hydromet_dataset):
     model = get_model("HierarchicalStateModelD2")(num_warmup=20, num_samples=20)

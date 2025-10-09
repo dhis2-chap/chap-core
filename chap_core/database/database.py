@@ -35,7 +35,8 @@ from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEnt
 logger = logging.getLogger(__name__)
 
 # Global engine variable
-#engine = None
+# engine = None
+
 
 def set_up_engine():
     engine = None
@@ -61,7 +62,9 @@ def set_up_engine():
         logger.warning("Database url not set. Database operations will not work")
     return engine
 
+
 engine = set_up_engine()
+
 
 class SessionWrapper:
     """
