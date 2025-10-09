@@ -359,10 +359,12 @@ def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool
     from .rest_api.v1.rest_api import main_backend
 
     logger.info("Running chap serve")
+
     if seedfile is not None:
         data = json.load(open(seedfile))
     else:
         data = None
+
     main_backend(data, auto_reload=auto_reload)
 
 
