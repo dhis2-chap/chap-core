@@ -5,6 +5,7 @@ todo: Can maybe be moved to tests/
 """
 
 import abc
+from typing import Any
 
 import pydantic
 import numpy as np
@@ -67,24 +68,34 @@ class AdditiveSimulator(Simulator):
 class ForecastParams(pydantic.BaseModel):
     prediction_length: int = 3
     n_samples: int = 100
+    n_splits: int = 2
 
 
 class BacktestSimulator:
     def __init__(self, params: ForecastParams = ForecastParams()):
         self._params = params
 
+
     def simulate(self, dataset: DataSet, dataset_dims: DatasetDimensions) -> BackTest:
-        periods = dataset_dims.time_periods[-self._params.prediction_length :]
-        split_period = periods[0]
+        periods = dataset_dims.time_periods[-(self._params.prediction_length+self._params.n_splits-1) :]
+        split_periods = periods[:self._params.n_splits]
         backtest = BackTest(
-            dataset=dataset, model_id="Naive Forecast", org_units=dataset_dims.locations, split_periods=[split_period]
+            dataset=dataset, model_id="Naive Forecast", org_units=dataset_dims.locations, split_periods=split_periods
         )
         forecasts = []
+        for i in range(self._params.n_splits):
+            forecasts.extend(self.simulate_split(dataset, periods[i: i + self._params.prediction_length]))
+        backtest.forecasts = forecasts
+        return backtest
+
+    def simulate_split(self, dataset: DataSet, periods: list[str]) -> list[Any]:
+        forecasts = []
+        split_period = periods[0]
         for observation in dataset.observations:
             if observation.period not in periods:
                 continue
 
-            rate = normal(observation.value, observation.value / 2, size=self._params.n_samples)
+            rate = normal(observation.value, observation.value, size=self._params.n_samples)
             rate = np.maximum(rate, 0)
             samples = poisson(rate).astype(float)
             forecasts.append(
@@ -95,5 +106,4 @@ class BacktestSimulator:
                     **observation.model_dump(),
                 )
             )
-        backtest.forecasts = forecasts
-        return backtest
+        return forecasts

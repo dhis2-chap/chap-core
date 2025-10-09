@@ -70,32 +70,32 @@ class BackTestPlot:
             alt.datum.data_type == "forecast"
         ).mark_line().encode(
             x="time_period:T",
-            y="q_50:Q",
+            y=alt.Y("q_50:Q", scale=alt.Scale(zero=False)),
         )
 
         # Error bands
         error1 = base.transform_filter(
             alt.datum.data_type == "forecast"
-        ).mark_errorband().encode(
+        ).mark_errorband(color="blue", opacity=0.3).encode(
             x="time_period:T",
-            y="q_10:Q",
+            y=alt.Y("q_10:Q", scale=alt.Scale(zero=False)),
             y2="q_90:Q",
         )
 
         error2 = base.transform_filter(
             alt.datum.data_type == "forecast"
-        ).mark_errorband().encode(
+        ).mark_errorband(color="blue", opacity=0.5).encode(
             x="time_period:T",
-            y="q_25:Q",
+            y=alt.Y("q_25:Q", scale=alt.Scale(zero=False)),
             y2="q_75:Q",
         )
 
         # Observations
         observations = base.transform_filter(
             alt.datum.data_type == "observed"
-        ).mark_line(color="black").encode(
+        ).mark_line(color="orange").encode(
             x="time_period:T",
-            y="disease_cases:Q",
+            y=alt.Y("disease_cases:Q", scale=alt.Scale(zero=False)),
         )
 
         # Layer all components
@@ -105,6 +105,8 @@ class BackTestPlot:
         return full_layer.facet(
             column="split_period:O",
             row="location:N"
+        ).resolve_scale(
+            y="independent"
         ).properties(
             title="BackTest Forecasts with Observations"
         )
