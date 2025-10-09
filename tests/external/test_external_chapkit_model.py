@@ -37,9 +37,9 @@ def test_external_chapkit_model_basic(service_available, dataset):
 
     template = ExternalChapkitModelTemplate("example_model", service_available)
     model = template.get_model({"max_epochs": 2})
-    #print(dataset)
+    # print(dataset)
     id = model.train(historic)
-    print("__________") 
+    print("__________")
     print(id)
     prediction = model.predict(historic, future)
 

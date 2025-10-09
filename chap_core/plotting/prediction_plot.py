@@ -1,8 +1,7 @@
 """
-Note: Some of this might be outdated, but plot_forecast_from_summaries is 
+Note: Some of this might be outdated, but plot_forecast_from_summaries is
 used in several places. is being used to create forecast plots.
 """
-
 
 import numpy as np
 import pandas as pd

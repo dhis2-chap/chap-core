@@ -276,4 +276,3 @@ class Polygons:
 
     def feature_collection(self):
         return self._polygons
-
