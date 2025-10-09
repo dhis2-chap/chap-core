@@ -59,6 +59,7 @@ app.include_router(analytics.router)
 app.include_router(debug.router)
 app.include_router(jobs.router)
 app.include_router(visualization.router)
+app.include_router(visualization.dataset_plot_router)
 
 
 class State(BaseModel):

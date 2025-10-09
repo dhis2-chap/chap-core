@@ -28,7 +28,9 @@ from chap_core.models.utils import (
     get_model_from_directory_or_github_url,
     get_model_template_from_directory_or_github_url,
 )
+from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
+from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.predictor import ModelType
 from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
 from chap_core.spatio_temporal_data.multi_country_dataset import (
@@ -404,6 +406,19 @@ def test(**base_kwargs):
 @dataclasses.dataclass
 class AreaPolygons: ...
 
+
+
+@app.command()
+def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plot"):
+    dataset_plot_registry = {
+        "standardized_feature_plot": StandardizedFeaturePlot,
+        "season_plot": SeasonCorrelationBarPlot,
+    }
+    plot_cls = dataset_plot_registry.get(plot_name, StandardizedFeaturePlot)
+    df = pd.read_csv(data_filename)
+    plotter = plot_cls(df)
+    fig = plotter.plot()
+    fig.show()
 
 
 def main_function():
