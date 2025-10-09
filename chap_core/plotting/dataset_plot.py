@@ -7,8 +7,8 @@ from altair import HConcatChart
 
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
 
-alt.data_transformers.enable("default")
-alt.renderers.enable("browser")
+alt.data_transformers.enable("vegafusion")
+# alt.renderers.enable("browser")
 
 
 # alt.renderers.enable('notebook')

@@ -5,6 +5,14 @@ from chap_core.assessment.flat_representations import convert_backtest_observati
 from chap_core.database.tables import BackTest
 import altair as alt
 
+alt.data_transformers.enable("vegafusion")
+
+
+def clean_time(period):
+    if len(period) == 6:
+        return f"{period[:4]}-{period[4:]}"
+    else:
+        return period
 
 class BackTestPlot:
     def __init__(self, forecast_df: pd.DataFrame, observed_df: pd.DataFrame):
@@ -20,14 +28,15 @@ class BackTestPlot:
         for bt_forecast in backtest.forecasts:
             rows.append(
                 {
-                    "time_period": bt_forecast.period,
+                    "time_period": clean_time(bt_forecast.period),
                     "location": bt_forecast.org_unit,
-                    "split_period": bt_forecast.last_seen_period,
+                    "split_period": clean_time(bt_forecast.last_seen_period),
                 }
                 | {f"q_{int(q * 100)}": v for q, v in zip(quantiles, bt_forecast.get_quantiles(quantiles))}
             )
         df = pd.DataFrame(rows)
         flat_observations = convert_backtest_observations_to_flat_observations(backtest.dataset.observations)
+        flat_observations["time_period"] = flat_observations["time_period"].apply(clean_time)
         return cls(df, flat_observations)
 
     def plot(self) -> FacetChart:

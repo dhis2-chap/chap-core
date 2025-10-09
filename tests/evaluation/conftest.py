@@ -116,7 +116,7 @@ def backtest_metrics(forecasts):
 def data_dims():
     dims = DatasetDimensions(
         locations=["loc1", "loc2", "loc3"],
-        time_periods=[f"{year}-{month:02d}" for year in ("2020", "2021", "2022") for month in range(1, 13)],
+        time_periods=[f"{year}{month:02d}" for year in ("2020", "2021", "2022") for month in range(1, 13)],
         target="disease_cases",
         features=[],
     )

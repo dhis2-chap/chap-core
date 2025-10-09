@@ -98,5 +98,5 @@ def generate_backtest_data_plots(visualization_name: str, backtest_id: int, sess
     if not backtest:
         return {"error": "Backtest not found"}
     plotter = BackTestPlot.from_backtest(backtest)
-    chart = plotter.plot().to_dict()
+    chart = plotter.plot().to_dict(format="vega")
     return JSONResponse(chart)
