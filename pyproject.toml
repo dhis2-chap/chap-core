@@ -14,7 +14,6 @@ dependencies = [
     "cyclopts>=3.24.0",
     "diskcache>=5.6.3",
     "docker>=7.1.0",
-    "earthengine-api>=1.6.10",
     "fastapi>=0.118.0",
     "sqlmodel>=0.0.25",
     "psycopg2-binary>=2.9.10",
@@ -40,7 +39,7 @@ dependencies = [
     "topojson>=1.10",
     "unidecode>=1.4.0",
     "uvicorn>=0.37.0",
-    "xarray>=2024.1.1",
+    "xarray>=2025.10.0",
     "orjson>=3.11.3",
     "celery[pytest]>=5.5.3",
     "packaging>=25.0",
@@ -50,6 +49,7 @@ dependencies = [
     "pydantic-geojson>=0.2.0",
     "pandera>=0.26.1",
     "numpy>=2.1.3",                 # held back because of gluonts
+    "gunicorn>=23.0.0",
 ]
 
 [dependency-groups]
