@@ -85,21 +85,6 @@ async def favicon() -> FileResponse:
     return FileResponse("chap_icon.jpeg")
 
 
-# TODO: include data flag etc
-@app.post("/evaluate")
-async def evaluate(
-    data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1, worker_settings=Depends(get_settings)
-) -> dict:
-    """
-    Start an evaluation task using the given data as training data.
-    Results can be retrieved using the get-results endpoint.
-    """
-    json_data = data.model_dump()
-    str_data = json.dumps(json_data)
-    job = worker.queue(wf.evaluate, str_data, n_splits, stride, worker_config=worker_settings)
-    internal_state.current_job = job
-    return {"status": "success", "task_id": job.id}
-
 
 @app.get("/list-models", deprecated=True)
 async def list_models() -> list[ModelSpec]:
