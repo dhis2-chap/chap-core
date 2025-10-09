@@ -5,7 +5,9 @@ import pandas as pd
 
 from altair import  HConcatChart
 
-alt.data_transformers.enable('vegafusion')
+from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
+
+alt.data_transformers.enable('default')
 alt.renderers.enable('browser')
 
 
@@ -29,10 +31,15 @@ class DatasetPlot(ABC):
         self._df = df
 
     @classmethod
-    def from_pandas(cls, df: pd.DataFrame, selected_features=None):
+    def from_dataset_model(cls, dataset_model):
+        df = dataset_model_to_dataset(dataset_model).to_pandas()
+        return cls.from_pandas(df)
+
+    @classmethod
+    def from_pandas(cls, df: pd.DataFrame):
         df = df.copy()
         df['time_period'] = df['time_period'].astype(str)
-        return cls(df, selected_features=selected_features)
+        return cls(df)
 
     def _get_feature_names(self) -> list:
         return [name for name in self._get_colnames() if name not in ('log1p', 'log1p', 'population')]
@@ -67,9 +74,8 @@ class StandardizedFeaturePlot(DatasetPlot):
     This shows how different features correlate over time and location.
     '''
 
-    def __init__(self, df: pd.DataFrame, selected_features=None):
+    def __init__(self, df: pd.DataFrame):
         super().__init__(df)
-        self.selected_features = selected_features
 
 
     def _standardize(self, col: np.array) -> np.array:
@@ -112,9 +118,6 @@ class StandardizedFeaturePlot(DatasetPlot):
         data = self.data()
 
         # Filter data based on selected features if specified
-        if self.selected_features is not None:
-            data = data[data['feature'].isin(self.selected_features)]
-
         # Convert time_period to proper datetime format
         data['date'] = pd.to_datetime(data['time_period'] + '-01')
 

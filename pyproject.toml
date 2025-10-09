@@ -71,7 +71,7 @@ dev = [
     "wheel>=0.45.1",
     "typer>=0.19.2",
     "httpx>=0.28.1",
-
+    "ipython>=9.6.0",
 ]
 
 [project.urls]

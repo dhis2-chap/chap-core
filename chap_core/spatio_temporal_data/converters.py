@@ -1,6 +1,8 @@
 import pandas as pd
 
 from chap_core.api_types import FeatureCollectionModel
+from chap_core.database.dataset_tables import DataSet
+from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 
 
@@ -15,8 +17,10 @@ def observations_to_dataset(dataclass, observations, fill_missing=False):
     return new_dataset
 
 
-def dataset_model_to_dataset(dataclass, dataset, fill_missing=False):
-    ds = observations_to_dataset(dataclass, dataset.observations, fill_missing=fill_missing)
-    polygons = FeatureCollectionModel.model_validate(dataset.geojson)
-    ds.set_polygons(polygons)
+def dataset_model_to_dataset(dataset: DataSet):
+    dataclass = create_tsdataclass(dataset.covariates)
+    ds = observations_to_dataset(dataclass, dataset.observations)
+    if dataset.geojson is not None:
+        polygons = FeatureCollectionModel.model_validate(dataset.geojson)
+        ds.set_polygons(polygons)
     return ds
