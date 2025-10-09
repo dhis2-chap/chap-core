@@ -68,17 +68,14 @@ def test_get_backtest(override_session):
 
 
 def test_data_plot(override_session, tmp_path):
-    import json
-
-    response = client.get("/v1/dataset-plots/standardized-feature/2")
+    response = client.get("/v1/plots/dataset/standardized-feature/2")
     assert response.status_code == 200, response.json()
     vega_spec = response.json()
-    # Verify it's a valid Vega spec with required fields
-    # Save as HTML using a simple Vega embed template
     html_template = wrap_vega_spec(vega_spec)
     # with open(tmp_path/"chap_core_chart.html", "w") as f:
     #    f.write(html_template)
 
+def
 
 def wrap_vega_spec(vega_spec) -> str:
     html_template = f"""
