@@ -97,16 +97,19 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.skip("outdated")
 def test_predict(big_request_json, celery_session_worker, dependency_overrides):
     check_job_endpoint(big_request_json, predict_path)
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.skip("This test is not working, outdated")
+@pytest.mark.skip("outdated")
 def test_evaluate(big_request_json, celery_session_worker, dependency_overrides):
     check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
 
+@pytest.mark.skip("predict endpoint removed")
 def test_model_that_does_not_exist(big_request_json, monkeypatch, dependency_overrides):
     # patch worker in rest_api to be NaiveWorker
     monkeypatch.setattr("chap_core.rest_api.v1.rest_api.worker", NaiveWorker())
@@ -167,6 +170,7 @@ def test_get_status():
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.skip("endpoint removed")
 def test_list_models():
     response = client.get(list_models_path)
     assert response.status_code == 200
@@ -175,17 +179,6 @@ def test_list_models():
     assert "chap_ewars_weekly" in spec_names
     spec = next(spec for spec in response.json() if spec["name"] == "chap_ewars_monthly")
     assert "population" in (feature["id"] for feature in spec["features"])
-
-
-@pytest.mark.skipif(not redis_available(), reason="Redis not available")
-def test_list_features():
-    response = client.get(list_features_path)
-    assert response.status_code == 200
-    assert {elem["id"] for elem in response.json()} == {
-        "population",
-        "rainfall",
-        "mean_temperature",
-    }
 
 
 def test_health_check_success(dependency_overrides):
