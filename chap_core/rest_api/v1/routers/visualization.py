@@ -17,6 +17,7 @@ from chap_core.plotting.evaluation_plot import (
     VisualizationInfo,
     make_plot_from_backtest_object,
 )
+from chap_core.plotting.season_plot import SeasonCorrelationPlot
 from chap_core.rest_api.v1.routers.dependencies import get_session
 from chap_core.assessment.metrics import available_metrics  # Import from __init__.py
 
@@ -85,15 +86,21 @@ def generate_visualization(
 
 @dataset_plot_router.get("/dataset/{visualization_name}/{dataset_id}")
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
+    plots = {
+        "standardized-feature-plot": StandardizedFeaturePlot,
+        "seasonal-correlation-plot": SeasonCorrelationPlot,
+    }
+
     sw = SessionWrapper(session=session)
     dataset = sw.get_dataset(dataset_id)
     df = dataset.to_pandas()
-    plotter = StandardizedFeaturePlot.from_pandas(df)
+    plotter_cls = plots.get(visualization_name, StandardizedFeaturePlot)
+    plotter = plotter_cls.from_pandas(df)
     chart = plotter.plot_spec()
     return JSONResponse(chart)
 
 @dataset_plot_router.get("/backtest/{visualization_name}/{backtest_id}")
-def generate_backtest_data_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
+def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if not backtest:
         return {"error": "Backtest not found"}

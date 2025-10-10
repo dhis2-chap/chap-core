@@ -66,9 +66,9 @@ def test_get_backtest(override_session):
     assert dataset.first_period
     assert dataset.last_period
 
-
-def test_data_plot(override_session, tmp_path):
-    response = client.get("/v1/plots/dataset/standardized-feature/2")
+@pytest.mark.parametrize("plot_name", ["standardized-feature"])#, "seasonal-correlation-plot"])
+def test_data_plot(override_session, tmp_path, plot_name):
+    response = client.get("/v1/plots/dataset/%s/2" % plot_name)
     assert response.status_code == 200, response.json()
     vega_spec = response.json()
     html_template = wrap_vega_spec(vega_spec)

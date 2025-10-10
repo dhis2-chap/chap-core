@@ -28,7 +28,6 @@ def temperature_transform(x):
 
 class DatasetPlot(ABC):
     def __init__(self, df: pd.DataFrame, geojson=None):
-        # df['ideal_temperature'] = temperature_transform(df['mean_temperature'])
         self._df = df
         self._geojson = geojson
 

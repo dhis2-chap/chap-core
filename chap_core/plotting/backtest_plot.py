@@ -9,8 +9,13 @@ alt.data_transformers.enable("vegafusion")
 
 
 def clean_time(period):
+    """Convert period to ISO date format for Altair/vegafusion compatibility."""
     if len(period) == 6:
-        return f"{period[:4]}-{period[4:]}"
+        # YYYYMM format -> YYYY-MM-01 (add day for full date)
+        return f"{period[:4]}-{period[4:]}-01"
+    elif len(period) == 7 and period[4] == '-':
+        # YYYY-MM format -> YYYY-MM-01 (add day for full date)
+        return f"{period}-01"
     else:
         return period
 
@@ -50,7 +55,7 @@ class BackTestPlot:
             tmp["split_period"] = split_period
             observed_replicated.append(tmp)
 
-        observed_with_split = pd.concat(observed_replicated, ignore_index=True)
+        observed_with_split = pd.concat(observed_replicated, ignore_index=True )
 
         # Combine all data into a single dataset for faceting
         # Add a column to distinguish data types

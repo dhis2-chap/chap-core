@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 import pytest
 from pydantic_geojson import PointModel
+from sqlmodel import select
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.dataset_tables import DataSet, Observation, DataSource
@@ -73,11 +74,22 @@ def dataset(org_units, feature_names, seen_periods, dataset_observations, geojso
 
 
 @pytest.fixture
-def dataset_wo_meta(org_units, feature_names, seen_periods, dataset_observations, geojson):
+def dataset_wo_meta_observations(feature_names: list[str], org_units: list[str], seen_periods: list[str]) -> list[Observation]:
+    observations = [
+        Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2))
+        for ou_id, ou in enumerate(org_units)
+        for fn in (feature_names + ["disease_cases"])
+        for t, tp in enumerate(seen_periods)
+    ]
+    return observations
+
+
+@pytest.fixture
+def dataset_wo_meta(org_units, feature_names, seen_periods, dataset_wo_meta_observations, geojson):
     return DataSet(
         name="incomplete_dataset",
         geojson=geojson.model_dump_json(),
-        observations=dataset_observations,
+        observations=dataset_wo_meta_observations,
         covariates=feature_names + ["disease_cases"],
         created=datetime.datetime.now(),
         first_period=seen_periods[0],
@@ -132,7 +144,11 @@ def forecasts(seen_periods, org_units, backtest_params):
 @pytest.fixture
 def backtest(dataset, forecasts):
     return BackTest(
-        dataset=dataset, forecasts=forecasts, model_id="naive_model", aggregate_metrics={"MAE": 1.5}, model_db_id=1
+        name='test backtest',
+        dataset=dataset,
+        forecasts=forecasts,
+        model_id="naive_model",
+        aggregate_metrics={"MAE": 1.5}, model_db_id=1
     )
 
 
@@ -160,15 +176,25 @@ def base_engine(seeded_database_url):
 
 
 @pytest.fixture
-def p_seeded_engine(base_engine, prediction, backtest, dataset_wo_meta):
+def p_seeded_engine(base_engine, prediction, backtest, dataset_wo_meta, dataset, dataset_observations):
     from sqlmodel import Session
 
     with Session(base_engine) as session:
+        # Don't add observations separately - they will be added via the datasets
         session.add(prediction)
         session.add(backtest)
+        session.add(dataset)
         session.add(dataset_wo_meta)
         session.commit()
         session.refresh(prediction)
+        all_observations = session.exec(select(Observation)).all()
+        for obs in all_observations:
+            print(obs)
+        d_observations = list(session.exec(select(DataSet).where(DataSet.name == "testing dataset")).one().observations)
+        assert d_observations, d_observations
+        observations = list(session.exec(select(BackTest).where(BackTest.name == "test backtest")).one().dataset.observations)
+        assert observations, observations
+
     return base_engine
 
 
