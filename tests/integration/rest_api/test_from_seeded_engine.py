@@ -66,7 +66,7 @@ def test_get_backtest(override_session):
     assert dataset.first_period
     assert dataset.last_period
 
-@pytest.mark.parametrize("plot_name", ["standardized-feature"])#, "seasonal-correlation-plot"])
+@pytest.mark.parametrize("plot_name", ["standardized-feature", "seasonal-correlation-plot"])
 def test_data_plot(override_session, tmp_path, plot_name):
     response = client.get("/v1/plots/dataset/%s/2" % plot_name)
     assert response.status_code == 200, response.json()

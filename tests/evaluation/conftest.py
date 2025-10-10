@@ -118,7 +118,7 @@ def data_dims():
         locations=["loc1", "loc2", "loc3"],
         time_periods=[f"{year}{month:02d}" for year in ("2020", "2021", "2022") for month in range(1, 13)],
         target="disease_cases",
-        features=[],
+        features=['mean_temperature']
     )
     return dims
 

@@ -276,6 +276,15 @@ async def create_dataset_csv(
     dataset_id = SessionWrapper(session=session).add_dataset("csv_file", dataset, features.model_dump_json())
     return DataBaseResponse(id=dataset_id)
 
+@router.get('/datasets/{datasetId}/df')
+async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    #dataset = session.get(DataSet, dataset_id)
+    #if dataset is None:
+    #    raise HTTPException(status_code=404, detail="Dataset not found")
+    sw = SessionWrapper(session=session)
+    in_memory_dataset = sw.get_dataset(dataset_id)
+    df = in_memory_dataset.to_pandas()
+    return df.to_dict(orient='records')
 
 @router.delete("/datasets/{datasetId}")
 async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):

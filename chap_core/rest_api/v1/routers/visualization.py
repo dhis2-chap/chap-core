@@ -90,6 +90,8 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
         "standardized-feature-plot": StandardizedFeaturePlot,
         "seasonal-correlation-plot": SeasonCorrelationPlot,
     }
+    if not visualization_name in plots:
+        return {"error": f"Visualization {visualization_name} not found"}
 
     sw = SessionWrapper(session=session)
     dataset = sw.get_dataset(dataset_id)
