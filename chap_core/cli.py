@@ -2,7 +2,6 @@
 
 import dataclasses
 import json
-import logging
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -11,31 +10,28 @@ import pandas as pd
 import yaml
 from cyclopts import App
 
-from chap_core import api
 from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
-from chap_core.assessment.prediction_evaluator import backtest as _backtest
-from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
-from chap_core.file_io.example_data_set import DataSetType, datasets
-from chap_core.geometry import Polygons
-from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import (
     get_model_from_directory_or_github_url,
     get_model_template_from_directory_or_github_url,
 )
-from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
-from chap_core.predictor import ModelType
+from chap_core.geometry import Polygons
+from chap_core.log_config import initialize_logging
 from chap_core.predictor.model_registry import registry
-from chap_core.rest_api.worker_functions import dataset_to_datalist, samples_to_evaluation_response
+
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core import api
+from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
+from chap_core.predictor import ModelType
+from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
 from chap_core.assessment.prediction_evaluator import evaluate_model, backtest as _backtest
 from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
@@ -155,7 +151,7 @@ def evaluate_hpo(
             
             print("Creating HpoModel")
             objective = Objective(name, metric, prediction_length, n_splits)
-            model = HpoModel(GridSearcher(), objective, direction, base_configs)
+            model = HpoModel(RandomSearcher(2), objective, direction, base_configs)
         try:
             results = evaluate_model(
                 estimator=model,
@@ -230,9 +226,9 @@ def evaluate(
 
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
-            assert dataset_country in dataset.countries, (
-                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
-            )
+            assert (
+                dataset_country in dataset.countries
+            ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
             dataset = dataset[dataset_country]
 
     if "," in model_name:
@@ -241,9 +237,9 @@ def evaluate(
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
             model_configuration_yaml_list = model_configuration_yaml.split(",")
-            assert len(model_list) == len(model_configuration_yaml_list), (
-                "Number of model configurations does not match number of models"
-            )
+            assert len(model_list) == len(
+                model_configuration_yaml_list
+            ), "Number of model configurations does not match number of models"
     else:
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
@@ -348,9 +344,9 @@ def sanity_check_model(
         logger.error(f"Error while forecasting: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(prediction.samples).any(), (
-            f"NaNs in predictions for location {location}, {prediction.samples}"
-        )
+        assert not np.isnan(
+            prediction.samples
+        ).any(), f"NaNs in predictions for location {location}, {prediction.samples}"
     context, future, truth = next(tests)
     try:
         predictions = predictor.predict(context, future)
@@ -358,9 +354,9 @@ def sanity_check_model(
         logger.error(f"Error while forecasting from a future time point: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(prediction.samples).any(), (
-            f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
-        )
+        assert not np.isnan(
+            prediction.samples
+        ).any(), f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
 
 
 @app.command()
@@ -427,7 +423,7 @@ def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool
     """
     Start CHAP as a backend server
     """
-    from .rest_api.v1.rest_api import main_backend
+    from .rest_api_src.v1.rest_api import main_backend
 
     logger.info("Running chap serve")
     if seedfile is not None:
@@ -442,7 +438,7 @@ def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
     """
-    from chap_core.rest_api.v1.rest_api import get_openapi_schema
+    from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
 
     schema = get_openapi_schema()
     with open(out_path, "w") as f:
