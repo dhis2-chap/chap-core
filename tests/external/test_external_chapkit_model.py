@@ -30,7 +30,7 @@ def service_available():
     return model_url
 
 
-#@pytest.mark.skip(reason="Needs a running chapkit model service")
+@pytest.mark.skip(reason="Needs a running chapkit model service")
 def test_external_chapkit_model_basic(service_available, dataset):
     train, test = train_test_generator(dataset, 3, 2)
     historic, future, truth = next(test)
