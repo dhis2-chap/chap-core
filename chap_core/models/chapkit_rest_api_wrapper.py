@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class CHAPKitRestAPIWrapper:
     """Synchronous client for interacting with the CHAP REST API"""
 
-    def __init__(self, base_url: str = "http://localhost:8000", timeout: int = 7200):
+    def __init__(self, base_url: str = "http://localhost:8001", timeout: int = 7200):
         """
         Initialize the API client
 
@@ -62,19 +62,19 @@ class CHAPKitRestAPIWrapper:
         Check service health status
 
         Returns:
-            Dict with status field ('up' or 'down')
+            Dict with status field ('healthy')
         """
-        response = self._request("GET", "/api/v1/health")
+        response = self._request("GET", "/health")
         return response.json()
 
     def info(self) -> Dict[str, Any]:
         """
-        Get service information
+        Get system information
 
         Returns:
-            Service info including display_name, author, description, etc.
+            System info including name, version, description, etc.
         """
-        response = self._request("GET", "/api/v1/info")
+        response = self._request("GET", "/system")
         return response.json()
 
     # Configuration management endpoints
@@ -148,6 +148,47 @@ class CHAPKitRestAPIWrapper:
         """
         self._request("DELETE", f"/api/v1/configs/{config_id}")
 
+    def link_artifact_to_config(self, config_id: str, artifact_id: str) -> Dict[str, Any]:
+        """
+        Link an artifact to a configuration
+
+        Args:
+            config_id: Configuration ID
+            artifact_id: Artifact ID to link
+
+        Returns:
+            Updated configuration or confirmation
+        """
+        response = self._request("POST", f"/api/v1/configs/{config_id}/$link-artifact", json={"artifact_id": artifact_id})
+        return response.json()
+
+    def unlink_artifact_from_config(self, config_id: str, artifact_id: str) -> Dict[str, Any]:
+        """
+        Unlink an artifact from a configuration
+
+        Args:
+            config_id: Configuration ID
+            artifact_id: Artifact ID to unlink
+
+        Returns:
+            Updated configuration or confirmation
+        """
+        response = self._request("POST", f"/api/v1/configs/{config_id}/$unlink-artifact", json={"artifact_id": artifact_id})
+        return response.json()
+
+    def get_config_artifacts(self, config_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all artifacts linked to a configuration
+
+        Args:
+            config_id: Configuration ID
+
+        Returns:
+            List of artifact objects linked to the configuration
+        """
+        response = self._request("GET", f"/api/v1/configs/{config_id}/$artifacts")
+        return response.json()
+
     # Job management endpoints
 
     def get_jobs(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -201,19 +242,6 @@ class CHAPKitRestAPIWrapper:
         response = self._request("GET", f"/api/v1/artifacts/config/{config_id}")
         return response.json()
 
-    def get_artifact_tree(self, config_id: str) -> List[Dict[str, Any]]:
-        """
-        Get artifacts for a configuration as a tree structure
-
-        Args:
-            config_id: Configuration ID
-
-        Returns:
-            Artifact tree with nested children
-        """
-        params = {"config_id": config_id}
-        response = self._request("GET", "/api/v1/artifacts/tree", params=params)
-        return response.json()
 
     def get_artifact(self, artifact_id: str) -> Dict[str, Any]:
         """
@@ -237,9 +265,48 @@ class CHAPKitRestAPIWrapper:
         """
         self._request("DELETE", f"/api/v1/artifacts/{artifact_id}")
 
+    def get_artifact_expand(self, artifact_id: str) -> Dict[str, Any]:
+        """
+        Get artifact with expanded data
+
+        Args:
+            artifact_id: Artifact ID
+
+        Returns:
+            Expanded artifact object
+        """
+        response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$expand")
+        return response.json()
+
+    def get_artifact_tree_by_id(self, artifact_id: str) -> Dict[str, Any]:
+        """
+        Get artifact tree starting from a specific artifact
+
+        Args:
+            artifact_id: Artifact ID
+
+        Returns:
+            Artifact tree with nested children
+        """
+        response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$tree")
+        return response.json()
+
+    def get_artifact_config(self, artifact_id: str) -> Dict[str, Any]:
+        """
+        Get the configuration associated with an artifact
+
+        Args:
+            artifact_id: Artifact ID
+
+        Returns:
+            Configuration object linked to the artifact
+        """
+        response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$config")
+        return response.json()
+
     # CHAP operation endpoints
 
-    def train(self, config_id: str, data: pd.DataFrame, geo_features: Optional[Dict[str, Any]] = None) -> str:
+    def train(self, config_id: str, data: pd.DataFrame, geo_features: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
         """
         Train a model with data
 
@@ -249,61 +316,75 @@ class CHAPKitRestAPIWrapper:
             geo_features: Optional GeoJSON FeatureCollection
 
         Returns:
-            Job ID for the training task
+            Dict with job_id and model_artifact_id
         """
         # Convert DataFrame to split format
-        # data = data.fillna(None)  # so that it can be encoded to json
-        data["time_period"] = data["time_period"].astype(str)
+        if "time_period" in data.columns:
+            data["time_period"] = data["time_period"].astype(str)
         data = data.replace({np.nan: None})
+        
+        # Convert DataFrame to columns/data format
         train_body = {
-            "data": data.to_dict(orient="split")
-            # "columns": data.columns.tolist(),
-            # "index": data.index.tolist() if not data.index.equals(pd.RangeIndex(len(data))) else None,
-            # "data": data.values.tolist()
+            "config_id": config_id,
+            "data": {
+                "columns": data.columns.tolist(),
+                "data": data.values.tolist()
+            }
         }
 
         if geo_features:
             train_body["geo"] = geo_features
 
-        params = {"config": config_id}
-        response = self._request("POST", "/api/v1/train", params=params, json=train_body)
-        return response.json()["id"]
+        response = self._request("POST", "/api/v1/ml/$train", json=train_body)
+        result = response.json()
+        return {"job_id": result["job_id"], "model_artifact_id": result["model_artifact_id"]}
 
     def predict(
         self,
-        artifact_id: str,
-        historic_data: pd.DataFrame,
+        model_artifact_id: str,
         future_data: pd.DataFrame,
+        historic_data: Optional[pd.DataFrame] = None,
         geo_features: Optional[Dict[str, Any]] = None,
-    ) -> str:
+    ) -> Dict[str, str]:
         """
         Make predictions with a trained model
 
         Args:
-            artifact_id: Trained artifact ID
-            historic_data: Historical data as pandas DataFrame
+            model_artifact_id: Trained model artifact ID
             future_data: Future covariates as pandas DataFrame
+            historic_data: Optional historical data as pandas DataFrame
             geo_features: Optional GeoJSON FeatureCollection
 
         Returns:
-            Job ID for the prediction task
+            Dict with job_id and prediction_artifact_id
         """
-        historic_data["time_period"] = historic_data["time_period"].astype(str)
-        historic_data = historic_data.replace({np.nan: None})
-        future_data["time_period"] = future_data["time_period"].astype(str)
+        if "time_period" in future_data.columns:
+            future_data["time_period"] = future_data["time_period"].astype(str)
         future_data = future_data.replace({np.nan: None})
 
         predict_body = {
-            "historic": historic_data.to_dict(orient="split"),
-            "future": future_data.to_dict(orient="split"),
+            "model_artifact_id": model_artifact_id,
+            "future": {
+                "columns": future_data.columns.tolist(),
+                "data": future_data.values.tolist()
+            }
         }
+        
+        if historic_data is not None:
+            if "time_period" in historic_data.columns:
+                historic_data["time_period"] = historic_data["time_period"].astype(str)
+            historic_data = historic_data.replace({np.nan: None})
+            predict_body["historic"] = {
+                "columns": historic_data.columns.tolist(),
+                "data": historic_data.values.tolist()
+            }
 
         if geo_features:
             predict_body["geo"] = geo_features
 
-        params = {"artifact": artifact_id}
-        response = self._request("POST", "/api/v1/predict", params=params, json=predict_body)
-        return response.json()["id"]
+        response = self._request("POST", "/api/v1/ml/$predict", json=predict_body)
+        result = response.json()
+        return {"job_id": result["job_id"], "prediction_artifact_id": result["prediction_artifact_id"]}
 
     # Helper methods
 
@@ -353,16 +434,19 @@ class CHAPKitRestAPIWrapper:
             timeout: Maximum seconds to wait
 
         Returns:
-            Completed job record with artifact_id
+            Dict with job record and model_artifact_id
         """
-        job_id = self.train(config_id, data, geo_features)
-        return self.wait_for_job(job_id, timeout=timeout)
+        result = self.train(config_id, data, geo_features)
+        job_id = result["job_id"]
+        job = self.wait_for_job(job_id, timeout=timeout)
+        job["model_artifact_id"] = result["model_artifact_id"]
+        return job
 
     def predict_and_wait(
         self,
-        artifact_id: str,
-        historic_data: pd.DataFrame,
+        model_artifact_id: str,
         future_data: pd.DataFrame,
+        historic_data: Optional[pd.DataFrame] = None,
         geo_features: Optional[Dict[str, Any]] = None,
         timeout: Optional[int] = 7200,
     ) -> Dict[str, Any]:
@@ -370,17 +454,20 @@ class CHAPKitRestAPIWrapper:
         Make predictions and wait for completion
 
         Args:
-            artifact_id: Trained artifact ID
-            historic_data: Historical data
+            model_artifact_id: Trained model artifact ID
             future_data: Future covariates
+            historic_data: Optional historical data
             geo_features: Optional GeoJSON features
             timeout: Maximum seconds to wait
 
         Returns:
-            Completed job record with results
+            Dict with job record and prediction_artifact_id
         """
-        job_id = self.predict(artifact_id, historic_data, future_data, geo_features)
-        return self.wait_for_job(job_id, timeout=timeout)
+        result = self.predict(model_artifact_id, future_data, historic_data, geo_features)
+        job_id = result["job_id"]
+        job = self.wait_for_job(job_id, timeout=timeout)
+        job["prediction_artifact_id"] = result["prediction_artifact_id"]
+        return job
 
     def poll_job(self, job_id: str, timeout: Optional[int] = None) -> Dict[str, Any]:
         """

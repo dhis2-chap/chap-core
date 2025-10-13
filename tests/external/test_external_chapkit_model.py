@@ -21,11 +21,11 @@ def dataset():
 @pytest.fixture
 def service_available():
     try:
-        response = httpx.get(model_url + "/api/v1/health", timeout=2)
+        response = httpx.get(model_url + "/health", timeout=2)
         if response.status_code != 200:
-            pytest.skip("Service not available at", model_url)
+            pytest.skip(f"Service not available at {model_url}")
     except:
-        pytest.skip("Service not available at", model_url)
+        pytest.skip(f"Service not available at {model_url}")
 
     return model_url
 
