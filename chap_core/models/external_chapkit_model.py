@@ -1,3 +1,4 @@
+import pandas as pd
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -63,4 +64,10 @@ class ExternalChapkitModel(ExternalModelBase):
 
         # get artifact from the client
         prediction = self.client.get_artifact(artifact_id)
-        return prediction
+        data = prediction['data']
+        return DataSet.from_pandas(pd.DataFrame(data=data['data'], columns=data['columns']))
+
+        return pd.DataFrame.from_dict(prediction['data'])
+        #return DataFrameSplit.model_validate(prediction['data'])
+        assert prediction is not None
+        return prediction['data']
