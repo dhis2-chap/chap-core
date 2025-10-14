@@ -53,6 +53,7 @@ dependencies = [
     "pyarrow>=21.0.0",# held back because of gluonts
     "numpy>=2.1.3",                 # held back because of gluonts
     "gunicorn>=23.0.0",
+    "optuna"
 ]
 
 [dependency-groups]
