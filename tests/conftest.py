@@ -23,7 +23,6 @@ from chap_core.geometry import Polygons
 from chap_core.rest_api.data_models import FetchRequest
 from chap_core.rest_api.v1.routers.crud import DatasetCreate, PredictionCreate
 from chap_core.rest_api.worker_functions import WorkerConfig
-from chap_core.services.cache_manager import get_cache
 
 from .data_fixtures import *
 
@@ -124,16 +123,6 @@ def local_data_path():
 @pytest.fixture
 def tests_path():
     return Path(__file__).parent
-
-
-@pytest.fixture(scope="session", autouse=True)
-def use_test_cache():
-    os.environ["TEST_ENV"] = "true"
-    yield
-    del os.environ["TEST_ENV"]
-    cache = get_cache()
-    cache.close()
-    shutil.rmtree(cache.directory, ignore_errors=True)
 
 
 @pytest.fixture()

@@ -277,6 +277,19 @@ async def create_dataset_csv(
     return DataBaseResponse(id=dataset_id)
 
 
+@router.get("/datasets/{datasetId}/df")
+async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    # dataset = session.get(DataSet, dataset_id)
+    # if dataset is None:
+    #    raise HTTPException(status_code=404, detail="Dataset not found")
+    sw = SessionWrapper(session=session)
+    in_memory_dataset = sw.get_dataset(dataset_id)
+    df = in_memory_dataset.to_pandas()
+    # Convert time_period column to strings for proper serialization
+    df["time_period"] = df["time_period"].astype(str)
+    return df.to_dict(orient="records")
+
+
 @router.delete("/datasets/{datasetId}")
 async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()

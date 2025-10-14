@@ -17,6 +17,7 @@ import logging
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
+
 plt.set_loglevel(level="warning")
 logger = logging.getLogger(__name__)
 
@@ -200,7 +201,7 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
 
             for forecast in forecasts:
                 logging.info("Forecasts: ")
-                logging.info(forecasts)
+                # logging.info(forecasts)
                 if np.any(np.isnan(forecast.samples)):
                     logger.warning(f"Forecast {forecast} has NaN values: {forecast.samples}")
 

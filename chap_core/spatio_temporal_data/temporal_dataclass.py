@@ -537,7 +537,7 @@ class DataSet(Generic[FeaturesT]):
             df = value.topandas()
             df.plot(x="time_period", y="disease_cases")
             plt.title(location)
-            plt.show()
+        return plt
 
     def plot_aggregate(self):
         import plotly.express as px
@@ -545,7 +545,7 @@ class DataSet(Generic[FeaturesT]):
         total = np.zeros(len(self.period_range))
         for location, value in self.items():
             total += np.where(np.isnan(value.disease_cases), 0, value.disease_cases)
-        px.line(x=self.period_range.tolist(), y=total).show()
+        return px.line(x=self.period_range.tolist(), y=total)
 
     def to_report(self, pdf_filename: str):
         from matplotlib.backends.backend_pdf import PdfPages

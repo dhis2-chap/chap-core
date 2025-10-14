@@ -1,3 +1,7 @@
+import json
+
+import altair
+import pandas as pd
 import pytest
 from sqlmodel import Session
 from starlette.testclient import TestClient
@@ -37,8 +41,10 @@ def override_session(p_seeded_engine):
 def test_dataset(seeded_session: Session):
     dataset = seeded_session.query(DataSet)
     assert dataset[0].data_sources[0].covariate == "mean_temperature"
+    assert dataset[0].period_type == "month"
     assert dataset.count() == 2
     assert not dataset[1].data_sources
+    assert len(dataset[1].observations) > 0
 
 
 def test_get_evaluation_entries(override_session):
@@ -60,3 +66,50 @@ def test_get_backtest(override_session):
     assert len(dataset.org_units) == 3, dataset.org_units
     assert dataset.first_period
     assert dataset.last_period
+
+
+@pytest.mark.parametrize("plot_name", ["standardized-feature", "seasonal-correlation-plot"])
+def test_data_plot(override_session, tmp_path, plot_name):
+    response = client.get("/v1/plots/dataset/%s/2" % plot_name)
+    assert response.status_code == 200, response.json()
+    vega_spec = response.json()
+    html_template = wrap_vega_spec(vega_spec)
+    # with open(tmp_path/"chap_core_chart.html", "w") as f:
+    #    f.write(html_template)
+
+
+def test_dataset_df(override_session):
+    dict_json = client.get_json("/v1/crud/datasets/1/df")
+    df = pd.DataFrame(dict_json)
+    assert "2022-01" in set(df["time_period"])
+    assert len(df) > 10
+    # assert "mean_temperature" in df[0], df[0].keys()
+    # assert "cases" in df[0], df[0].keys()
+
+
+def test_backtest_plot(override_session, tmp_path):
+    response = client.get("/v1/plots/backtest/tmp/1")
+    assert response.status_code == 200, response.json()
+    vega_spec = response.json()
+    html_template = wrap_vega_spec(vega_spec)
+    # with open(tmp_path/"chap_core_chart.html", "w") as f:
+    #    f.write(html_template)
+
+
+def wrap_vega_spec(vega_spec) -> str:
+    html_template = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    </head>
+    <body>
+        <div id="vis"></div>
+        <script type="text/javascript">
+            vegaEmbed('#vis', {json.dumps(vega_spec)});
+        </script>
+    </body>
+    </html>
+    """
+    return html_template

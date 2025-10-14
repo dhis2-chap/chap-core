@@ -1,0 +1,24 @@
+weight_decay: 
+  type: float
+  low: 1e-6
+  high: 1e-5
+  log: True
+max_epochs:
+  type: int
+  low: 1
+  high: 3
+  log: False
+  step: 1
+learning_rate: 
+  values: [1e-3] # check if this is converted to int or str
+batch_size: 
+  values: [64]
+augmentations: 
+  values: [[]]
+context_length: 
+  values: [12]
+past_ratio: 
+  type: float
+  low: 0.2
+  high: 0.4
+  step: 0.1

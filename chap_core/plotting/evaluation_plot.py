@@ -32,7 +32,7 @@ class MetricPlotV2(abc.ABC):
 
     def plot_spec(self) -> dict:
         chart = self.plot()
-        return chart.to_dict()
+        return chart.to_dict(format="vega")
 
 
 class VisualizationInfo(DBModel):
