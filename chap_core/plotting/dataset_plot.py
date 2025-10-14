@@ -4,11 +4,12 @@ import numpy as np
 import pandas as pd
 
 from altair import HConcatChart
+from pydantic import BaseModel
 
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
 
-alt.data_transformers.enable("default")
-alt.renderers.enable("browser")
+alt.data_transformers.enable("vegafusion")
+# alt.renderers.enable("browser")
 
 
 # alt.renderers.enable('notebook')
@@ -28,7 +29,6 @@ def temperature_transform(x):
 
 class DatasetPlot(ABC):
     def __init__(self, df: pd.DataFrame, geojson=None):
-        # df['ideal_temperature'] = temperature_transform(df['mean_temperature'])
         self._df = df
         self._geojson = geojson
 
@@ -37,6 +37,8 @@ class DatasetPlot(ABC):
         ds = dataset_model_to_dataset(dataset_model)
         df = ds.to_pandas()
         geojson = ds.polygons
+        if isinstance(geojson, BaseModel):
+            geojson = geojson.model_dump()
         return cls.from_pandas(df, geojson=geojson)
 
     @classmethod
@@ -69,6 +71,59 @@ class DatasetPlot(ABC):
 
     @abstractmethod
     def data(self): ...
+
+
+class DiseaseCasesMap(DatasetPlot):
+    plot_variable: str = "disease_cases"
+
+    def data(self):
+        df = self._df.copy()
+        if "population" in df.columns:
+            df["incidence_rate"] = df["disease_cases"] / df["population"]
+            self.plot_variable = "incidence_rate"
+        agg = df.groupby("location").agg({self.plot_variable: "mean"}).reset_index()
+        return agg
+
+    def plot(self):
+        data = self.data()
+
+        if self._geojson is None:
+            raise ValueError("GeoJSON data is required for DiseaseCasesMap")
+
+        # Prepare the GeoJSON data
+        geojson_data = alt.Data(values=self._geojson["features"])
+
+        # Create the choropleth map
+        chart = (
+            alt.Chart(geojson_data)
+            .mark_geoshape(stroke="white", strokeWidth=0.5)
+            .transform_lookup(lookup="id", from_=alt.LookupData(data, "location", [self.plot_variable]))
+            .encode(
+                color=alt.Color(
+                    f"{self.plot_variable}:Q",
+                    scale=alt.Scale(scheme="oranges"),
+                    legend=alt.Legend(
+                        title="Mean Disease Cases" if self.plot_variable == "disease_cases" else "Mean Incidence Rate"
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip("id:N", title="Location"),
+                    alt.Tooltip(
+                        f"{self.plot_variable}:Q",
+                        title="Mean Disease Cases" if self.plot_variable == "disease_cases" else "Mean Incidence Rate",
+                        format=".2f",
+                    ),
+                ],
+            )
+            .project(type="equirectangular")
+            .properties(
+                width=600,
+                height=400,
+                title="Disease Cases Map" if self.plot_variable == "disease_cases" else "Disease Incidence Rate Map",
+            )
+        )
+
+        return chart
 
 
 class StandardizedFeaturePlot(DatasetPlot):

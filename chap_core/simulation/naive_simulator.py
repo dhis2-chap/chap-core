@@ -5,6 +5,7 @@ todo: Can maybe be moved to tests/
 """
 
 import abc
+from typing import Any
 
 import pydantic
 import numpy as np
@@ -15,8 +16,8 @@ from chap_core.database.tables import BackTest, BackTestForecast
 
 
 class SimulationParams(pydantic.BaseModel):
-    loc: float = 10
-    scale: float = 5
+    loc: float = 5
+    scale: float = 2
 
 
 class DatasetDimensions(pydantic.BaseModel):
@@ -47,26 +48,34 @@ class AdditiveSimulator(Simulator):
         return values
 
     def simulate(self, data_dims: DatasetDimensions) -> DataSet:
+        feature_names = data_dims.features + [data_dims.target]
+        observations = []
+        for feature_name in feature_names:
+            observations.extend(self.simulate_observations(data_dims, feature_name))
+        return DataSet(
+            name="Simulated DataSet", covariates=data_dims.features + [data_dims.target], observations=observations
+        )
+
+    def simulate_observations(self, data_dims: DatasetDimensions, feature_name) -> list[Observation]:
         values = self.generate_raw(data_dims)
         values = np.exp(values).astype(int)
         observations = [
             Observation(
                 period=data_dims.time_periods[time_idx],
                 org_unit=data_dims.locations[loc_idx],
-                feature_name=data_dims.target,
+                feature_name=feature_name,
                 value=int(values[loc_idx, time_idx]),
             )
             for loc_idx in range(len(data_dims.locations))
             for time_idx in range(len(data_dims.time_periods))
         ]
-        return DataSet(
-            name="Simulated DataSet", covariates=data_dims.features + [data_dims.target], observations=observations
-        )
+        return observations
 
 
 class ForecastParams(pydantic.BaseModel):
     prediction_length: int = 3
     n_samples: int = 100
+    n_splits: int = 2
 
 
 class BacktestSimulator:
@@ -74,17 +83,25 @@ class BacktestSimulator:
         self._params = params
 
     def simulate(self, dataset: DataSet, dataset_dims: DatasetDimensions) -> BackTest:
-        periods = dataset_dims.time_periods[-self._params.prediction_length :]
-        split_period = periods[0]
+        periods = dataset_dims.time_periods[-(self._params.prediction_length + self._params.n_splits - 1) :]
+        split_periods = periods[: self._params.n_splits]
         backtest = BackTest(
-            dataset=dataset, model_id="Naive Forecast", org_units=dataset_dims.locations, split_periods=[split_period]
+            dataset=dataset, model_id="Naive Forecast", org_units=dataset_dims.locations, split_periods=split_periods
         )
         forecasts = []
+        for i in range(self._params.n_splits):
+            forecasts.extend(self.simulate_split(dataset, periods[i : i + self._params.prediction_length]))
+        backtest.forecasts = forecasts
+        return backtest
+
+    def simulate_split(self, dataset: DataSet, periods: list[str]) -> list[Any]:
+        forecasts = []
+        split_period = periods[0]
         for observation in dataset.observations:
             if observation.period not in periods:
                 continue
 
-            rate = normal(observation.value, observation.value / 2, size=self._params.n_samples)
+            rate = normal(observation.value, observation.value, size=self._params.n_samples)
             rate = np.maximum(rate, 0)
             samples = poisson(rate).astype(float)
             forecasts.append(
@@ -95,5 +112,4 @@ class BacktestSimulator:
                     **observation.model_dump(),
                 )
             )
-        backtest.forecasts = forecasts
-        return backtest
+        return forecasts

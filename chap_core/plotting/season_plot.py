@@ -38,9 +38,9 @@ class SeasonPlot(DatasetPlot):
 
 
 class SeasonCorrelationPlot(DatasetPlot):
-    def __init__(self, df: pd.DataFrame):
-        super().__init__(df)
-        self._season_plot = SeasonPlot(df)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._season_plot = SeasonPlot(*args, **kwargs)
 
     def data(self) -> pd.DataFrame:
         df = self._season_plot.data()
