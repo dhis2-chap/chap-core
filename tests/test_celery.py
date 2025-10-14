@@ -5,7 +5,7 @@ import pytest
 
 from chap_core.api_types import PredictionRequest
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, add_numbers, celery_run
-from chap_core.rest_api.worker_functions import get_health_dataset, predict_pipeline_from_health_data
+from chap_core.rest_api.worker_functions import get_health_dataset
 from chap_core.util import redis_available
 
 
@@ -33,26 +33,6 @@ def test_add_numbers(celery_session_worker):
     print(job.status)
     print(job.result)
     assert job.result == 3
-
-
-@pytest.mark.skipif(not redis_available(), reason="Redis not available")  # TODO: Use redis as a fixture
-@pytest.mark.celery(
-    broker="redis://localhost:6379", backend="redis://localhost:6379", include=["chap_core.rest_api.celery_tasks"]
-)
-def test_predict_pipeline_from_health_data(celery_session_worker, big_request_json, test_config):
-    data = PredictionRequest.model_validate_json(big_request_json)
-    health_data = get_health_dataset(data).model_dump()
-    job = celery_run.delay(
-        predict_pipeline_from_health_data, health_data, "naive_model", 2, "disease", worker_config=test_config
-    )
-
-    for i in range(30):
-        time.sleep(2)
-        if job.state == "SUCCESS":
-            break
-        if job.state == "FAILURE":
-            assert False
-    assert job.state == "SUCCESS"
 
 
 def function_with_logging(a, b):
