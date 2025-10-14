@@ -1,5 +1,7 @@
 # BASE IMAGE: Preconfigured R and INLA setup
 FROM ghcr.io/dhis2-chap/docker_r_inla:master
+#FROM ghcr.io/dhis2-chap/docker_r_inla:sha256-adfc916416f7cd56d6d0368cfdf22d5a24844cafe626259ca9dc48a695142feb
+#FROM ghcr.io/dhis2-chap/docker_r_inla:sha256-8cf6dc340a74b1bac3a77948aba6a2ac77112337a65c24f3f39c5340c0d1928b
 
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1

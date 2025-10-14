@@ -1,5 +1,6 @@
 """Console script for chap_core."""
 
+import logging
 import dataclasses
 import json
 from pathlib import Path
@@ -11,10 +12,12 @@ import yaml
 from cyclopts import App
 
 from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.climate_predictor import QuickForecastFetcher
+from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
+from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
+from chap_core.hpo.searcher import RandomSearcher
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import (
     get_model_from_directory_or_github_url,
@@ -22,26 +25,22 @@ from chap_core.models.utils import (
 )
 from chap_core.geometry import Polygons
 from chap_core.log_config import initialize_logging
-from chap_core.predictor.model_registry import registry
-
+from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
+from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
+from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
+from chap_core.predictor import ModelType
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core import api
-from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
-from chap_core.predictor import ModelType
 from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
-from chap_core.assessment.prediction_evaluator import evaluate_model, backtest as _backtest
-from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
 
 from chap_core.hpo.hpoModel import HpoModel, Direction
 from chap_core.hpo.objective import Objective 
-from chap_core.hpo.searcher import GridSearcher, RandomSearcher, TPESearcher
 from chap_core.hpo.base import load_search_space_from_yaml
 
-import logging
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -243,7 +242,7 @@ def evaluate(
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
 
-    logging.info(f"Model configuration: {model_configuration_yaml_list}")
+    logger.info(f"Model configuration: {model_configuration_yaml_list}")
 
     results_dict = {}
     for name, configuration in zip(model_list, model_configuration_yaml_list):
@@ -253,7 +252,7 @@ def evaluate(
             ignore_env=ignore_environment,
             run_dir_type=run_directory_type,
         )
-        logging.info(f"Model template loaded: {template}")
+        logger.info(f"Model template loaded: {template}")
         if configuration is not None:
             logger.info(f"Loading model configuration from yaml file {configuration}")
             configuration = ModelConfiguration.model_validate(
@@ -425,10 +424,12 @@ def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool
     from .rest_api_src.v1.rest_api import main_backend
 
     logger.info("Running chap serve")
+
     if seedfile is not None:
         data = json.load(open(seedfile))
     else:
         data = None
+
     main_backend(data, auto_reload=auto_reload)
 
 
@@ -473,50 +474,16 @@ class AreaPolygons: ...
 
 
 @app.command()
-def backtest(
-    data_filename: Path,
-    model_name: registry.model_type | str,
-    out_folder: Path,
-    prediction_length: int = 12,
-    n_test_sets: int = 20,
-    stride: int = 2,
-):
-    """
-    Run a backtest on a dataset using the specified model
-
-    Parameters:
-        data_filename: Path: Path to the data file
-        model_name: str: Name of the model to use
-        out_folder: Path: Path to the output folder
-    """
-    dataset = DataSet.from_csv(data_filename, FullData)
-    logger.info(f"Running backtest on {data_filename} with model {model_name}")
-    logger.info(f"Dataset period range: {dataset.period_range}, locations: {list(dataset.locations())}")
-
-    if "/" in model_name:
-        estimator = get_model_from_directory_or_github_url(model_name)
-        model_name = "development_model"
-    else:
-        estimator = registry.get_model(model_name)
-    predictions_list = _backtest(
-        estimator,
-        dataset,
-        prediction_length=prediction_length,
-        n_test_sets=n_test_sets,
-        stride=stride,
-        weather_provider=QuickForecastFetcher,
-    )
-    response = samples_to_evaluation_response(
-        predictions_list, quantiles=[0.05, 0.25, 0.5, 0.75, 0.95], real_data=dataset_to_datalist(dataset, "dengue")
-    )
-    dataframe = pd.DataFrame([entry.model_dump() for entry in response.predictions])
-    data_name = data_filename.stem
-    dataframe.to_csv(out_folder / f"{data_name}_evaluation_{model_name}.csv")
-    serialized_response = response.json()
-    out_filename = out_folder / f"{data_name}_evaluation_response_{model_name}.json"
-
-    with open(out_filename, "w") as out_file:
-        out_file.write(serialized_response)
+def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plot"):
+    dataset_plot_registry = {
+        "standardized_feature_plot": StandardizedFeaturePlot,
+        "season_plot": SeasonCorrelationBarPlot,
+    }
+    plot_cls = dataset_plot_registry.get(plot_name, StandardizedFeaturePlot)
+    df = pd.read_csv(data_filename)
+    plotter = plot_cls(df)
+    fig = plotter.plot()
+    fig.show()
 
 
 def main_function():

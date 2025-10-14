@@ -11,7 +11,6 @@ from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
-from chap_core.predictor.model_registry import registry
 from chap_core.rest_api.data_models import BackTestCreate, FetchRequest
 
 # from chap_core.rest_api.v1.routers.crud import BackTestCreate
@@ -142,7 +141,7 @@ def predict_pipeline_from_composite_dataset(
     provided_field_names: list[str],
     health_dataset: dict,
     name: str,
-    model_id: registry.model_type,
+    model_id: str,
     dataset_create_info: dict,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
@@ -158,7 +157,7 @@ def run_backtest_from_dataset(
     feature_names: list[str],
     provided_data_model_dump: dict,
     backtest_name: str,
-    model_id: registry.model_type,
+    model_id: str,
     dataset_create_dump: dict,
     backtest_params_dump: dict,
     session: SessionWrapper,

@@ -43,5 +43,8 @@ def test_plot_from_df(rwanda_geojson, rwanda_metrics):
     # assert False
 
 
-def test_evaluation_plot_from_backtest_object(backtest):
-    plot = make_plot_from_backtest_object(backtest, MetricByHorizonV2, DetailedRMSE())
+@pytest.mark.parametrize("plot_class", [MetricByHorizonV2, MetricMapV2])
+def test_evaluation_plot_from_backtest_object(simulated_backtest, plot_class):
+    make_plot_from_backtest_object(
+        simulated_backtest, plot_class, DetailedRMSE(), geojson=simulated_backtest.dataset.geojson
+    )

@@ -1,5 +1,4 @@
 from pathlib import Path
-import docker
 
 from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
 from ..docker_helper_functions import (
@@ -25,8 +24,9 @@ class DockerRunner(Runner):
 
     def teardown(self):
         # remove the docker image
-        client = docker.from_env()
-        client.images.remove(self._docker_name, force=True)
+        #client = docker.from_env()
+        #client.images.remove(self._docker_name, force=True)
+        pass
 
 
 class DockerTrainPredictRunner(CommandLineTrainPredictRunner):

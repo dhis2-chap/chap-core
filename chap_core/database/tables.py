@@ -5,6 +5,7 @@ todo: comment this file, make it clear which classes are central and being used
 import datetime
 from typing import Optional, List, Dict
 
+import numpy as np
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship
 
@@ -61,6 +62,9 @@ class ForecastBase(DBModel):
     period: PeriodID
     org_unit: str
     values: List[float] = Field(default_factory=list, sa_type=JSON)
+
+    def get_quantiles(self, quantiles: List[float]) -> np.ndarray:
+        return np.quantile(self.values, quantiles).astype(float)
 
 
 class ForecastRead(ForecastBase): ...

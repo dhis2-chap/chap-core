@@ -86,7 +86,6 @@ class DataSetBase(DataSetInfo):
 
 
 class DataSet(DataSetBase, table=True):
-
     observations: List[Observation] = Relationship(back_populates="dataset", cascade_delete=True)
 
 

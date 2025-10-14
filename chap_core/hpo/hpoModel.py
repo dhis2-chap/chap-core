@@ -1,17 +1,18 @@
-from idlelib.debugobj import ObjectTreeItem
-from typing import Literal, Optional, Any, Tuple, Callable
-import yaml
+import logging
+from typing import Literal, Optional, Any, Tuple
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.file_io.example_data_set import DataSetType
 
 from .hpoModelInterface import HpoModelInterface
-from .searcher import Searcher
-from .base import dedup, write_yaml
 from .objective import Objective
+from .searcher import Searcher
+from .base import write_yaml
 Direction = Literal["maximize", "minimize"]
-import logging
+
+Direction = Literal["maximize", "minimize"]
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
