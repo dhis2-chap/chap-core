@@ -67,6 +67,7 @@ def test_get_backtest(override_session):
     assert dataset.first_period
     assert dataset.last_period
 
+
 @pytest.mark.parametrize("plot_name", ["standardized-feature", "seasonal-correlation-plot"])
 def test_data_plot(override_session, tmp_path, plot_name):
     response = client.get("/v1/plots/dataset/%s/2" % plot_name)
@@ -75,13 +76,15 @@ def test_data_plot(override_session, tmp_path, plot_name):
     html_template = wrap_vega_spec(vega_spec)
     # with open(tmp_path/"chap_core_chart.html", "w") as f:
     #    f.write(html_template)
+
+
 def test_dataset_df(override_session):
     dict_json = client.get_json("/v1/crud/datasets/1/df")
     df = pd.DataFrame(dict_json)
-    assert '2022-01' in set(df['time_period'])
+    assert "2022-01" in set(df["time_period"])
     assert len(df) > 10
-    #assert "mean_temperature" in df[0], df[0].keys()
-    #assert "cases" in df[0], df[0].keys()
+    # assert "mean_temperature" in df[0], df[0].keys()
+    # assert "cases" in df[0], df[0].keys()
 
 
 def test_backtest_plot(override_session, tmp_path):
@@ -91,6 +94,7 @@ def test_backtest_plot(override_session, tmp_path):
     html_template = wrap_vega_spec(vega_spec)
     # with open(tmp_path/"chap_core_chart.html", "w") as f:
     #    f.write(html_template)
+
 
 def wrap_vega_spec(vega_spec) -> str:
     html_template = f"""

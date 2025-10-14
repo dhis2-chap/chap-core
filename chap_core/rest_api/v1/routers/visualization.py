@@ -17,7 +17,7 @@ from chap_core.plotting.evaluation_plot import (
     VisualizationInfo,
     make_plot_from_backtest_object,
 )
-from chap_core.plotting.season_plot import SeasonCorrelationPlot, SeasonCorrelationBarPlot
+from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.rest_api.v1.routers.dependencies import get_session
 from chap_core.assessment.metrics import available_metrics  # Import from __init__.py
 
@@ -90,7 +90,7 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
         "standardized-feature-plot": StandardizedFeaturePlot,
         "seasonal-correlation-plot": SeasonCorrelationBarPlot,
     }
-    if not visualization_name in plots:
+    if visualization_name not in plots:
         return {"error": f"Visualization {visualization_name} not found"}
 
     sw = SessionWrapper(session=session)
@@ -100,6 +100,7 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
     plotter = plotter_cls.from_pandas(df)
     chart = plotter.plot_spec()
     return JSONResponse(chart)
+
 
 @dataset_plot_router.get("/backtest/{visualization_name}/{backtest_id}")
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):

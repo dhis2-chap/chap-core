@@ -118,7 +118,7 @@ def data_dims():
         locations=["loc1", "loc2", "loc3"],
         time_periods=[f"{year}{month:02d}" for year in ("2020", "2021", "2022") for month in range(1, 13)],
         target="disease_cases",
-        features=['mean_temperature']
+        features=["mean_temperature"],
     )
     return dims
 
@@ -165,10 +165,10 @@ def dummy_geojson():
                             [29.6, 0.3],
                             [29.5, 0.1],
                             [29.3, -0.1],
-                            [29.0, 0.0]
+                            [29.0, 0.0],
                         ]
-                    ]
-                }
+                    ],
+                },
             },
             {
                 "type": "Feature",
@@ -185,10 +185,10 @@ def dummy_geojson():
                             [31.0, -0.5],
                             [30.7, -0.6],
                             [30.5, -0.5],
-                            [30.5, 0.0]
+                            [30.5, 0.0],
                         ]
-                    ]
-                }
+                    ],
+                },
             },
             {
                 "type": "Feature",
@@ -206,10 +206,10 @@ def dummy_geojson():
                             [29.9, -2.0],
                             [29.6, -2.1],
                             [29.5, -2.0],
-                            [29.5, -1.5]
+                            [29.5, -1.5],
                         ]
-                    ]
-                }
-            }
-        ]
+                    ],
+                },
+            },
+        ],
     }

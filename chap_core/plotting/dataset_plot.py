@@ -72,6 +72,7 @@ class DatasetPlot(ABC):
     @abstractmethod
     def data(self): ...
 
+
 class DiseaseCasesMap(DatasetPlot):
     plot_variable: str = "disease_cases"
 
@@ -90,37 +91,39 @@ class DiseaseCasesMap(DatasetPlot):
             raise ValueError("GeoJSON data is required for DiseaseCasesMap")
 
         # Prepare the GeoJSON data
-        geojson_data = alt.Data(values=self._geojson['features'])
+        geojson_data = alt.Data(values=self._geojson["features"])
 
         # Create the choropleth map
         chart = (
             alt.Chart(geojson_data)
-            .mark_geoshape(stroke='white', strokeWidth=0.5)
-            .transform_lookup(
-                lookup='id',
-                from_=alt.LookupData(data, 'location', [self.plot_variable])
-            )
+            .mark_geoshape(stroke="white", strokeWidth=0.5)
+            .transform_lookup(lookup="id", from_=alt.LookupData(data, "location", [self.plot_variable]))
             .encode(
                 color=alt.Color(
-                    f'{self.plot_variable}:Q',
-                    scale=alt.Scale(scheme='oranges'),
-                    legend=alt.Legend(title='Mean Disease Cases' if self.plot_variable == 'disease_cases' else 'Mean Incidence Rate')
+                    f"{self.plot_variable}:Q",
+                    scale=alt.Scale(scheme="oranges"),
+                    legend=alt.Legend(
+                        title="Mean Disease Cases" if self.plot_variable == "disease_cases" else "Mean Incidence Rate"
+                    ),
                 ),
                 tooltip=[
-                    alt.Tooltip('id:N', title='Location'),
-                    alt.Tooltip(f'{self.plot_variable}:Q', title='Mean Disease Cases' if self.plot_variable == 'disease_cases' else 'Mean Incidence Rate', format='.2f')
-                ]
+                    alt.Tooltip("id:N", title="Location"),
+                    alt.Tooltip(
+                        f"{self.plot_variable}:Q",
+                        title="Mean Disease Cases" if self.plot_variable == "disease_cases" else "Mean Incidence Rate",
+                        format=".2f",
+                    ),
+                ],
             )
-            .project(type='equirectangular')
+            .project(type="equirectangular")
             .properties(
                 width=600,
                 height=400,
-                title='Disease Cases Map' if self.plot_variable == 'disease_cases' else 'Disease Incidence Rate Map'
+                title="Disease Cases Map" if self.plot_variable == "disease_cases" else "Disease Incidence Rate Map",
             )
         )
 
         return chart
-
 
 
 class StandardizedFeaturePlot(DatasetPlot):

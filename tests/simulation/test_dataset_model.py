@@ -22,4 +22,4 @@ def test_additive_simulator(dims):
 def test_forecast_simulator(dims):
     dataset = AdditiveSimulator().simulate(dims)
     backtest = BacktestSimulator().simulate(dataset, dims)
-    assert len(backtest.forecasts) == len(dims.locations) * 3*2
+    assert len(backtest.forecasts) == len(dims.locations) * 3 * 2

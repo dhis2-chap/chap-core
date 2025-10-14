@@ -74,7 +74,9 @@ def dataset(org_units, feature_names, seen_periods, dataset_observations, geojso
 
 
 @pytest.fixture
-def dataset_wo_meta_observations(feature_names: list[str], org_units: list[str], seen_periods: list[str]) -> list[Observation]:
+def dataset_wo_meta_observations(
+    feature_names: list[str], org_units: list[str], seen_periods: list[str]
+) -> list[Observation]:
     observations = [
         Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2))
         for ou_id, ou in enumerate(org_units)
@@ -144,11 +146,12 @@ def forecasts(seen_periods, org_units, backtest_params):
 @pytest.fixture
 def backtest(dataset, forecasts):
     return BackTest(
-        name='test backtest',
+        name="test backtest",
         dataset=dataset,
         forecasts=forecasts,
         model_id="naive_model",
-        aggregate_metrics={"MAE": 1.5}, model_db_id=1
+        aggregate_metrics={"MAE": 1.5},
+        model_db_id=1,
     )
 
 
@@ -192,7 +195,9 @@ def p_seeded_engine(base_engine, prediction, backtest, dataset_wo_meta, dataset,
             print(obs)
         d_observations = list(session.exec(select(DataSet).where(DataSet.name == "testing dataset")).one().observations)
         assert d_observations, d_observations
-        observations = list(session.exec(select(BackTest).where(BackTest.name == "test backtest")).one().dataset.observations)
+        observations = list(
+            session.exec(select(BackTest).where(BackTest.name == "test backtest")).one().dataset.observations
+        )
         assert observations, observations
 
     return base_engine

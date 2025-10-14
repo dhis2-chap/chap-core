@@ -13,18 +13,17 @@ def clean_time(period):
     if len(period) == 6:
         # YYYYMM format -> YYYY-MM-01 (add day for full date)
         return f"{period[:4]}-{period[4:]}-01"
-    elif len(period) == 7 and period[4] == '-':
+    elif len(period) == 7 and period[4] == "-":
         # YYYY-MM format -> YYYY-MM-01 (add day for full date)
         return f"{period}-01"
     else:
         return period
 
+
 class BackTestPlot:
     def __init__(self, forecast_df: pd.DataFrame, observed_df: pd.DataFrame):
         self._forecast = forecast_df
         self._observed = observed_df
-
-
 
     @classmethod
     def from_backtest(cls, backtest: BackTest) -> "BackTestPlot":
@@ -55,7 +54,7 @@ class BackTestPlot:
             tmp["split_period"] = split_period
             observed_replicated.append(tmp)
 
-        observed_with_split = pd.concat(observed_replicated, ignore_index=True )
+        observed_with_split = pd.concat(observed_replicated, ignore_index=True)
 
         # Combine all data into a single dataset for faceting
         # Add a column to distinguish data types
@@ -80,47 +79,52 @@ class BackTestPlot:
         base = alt.Chart(combined_data)
 
         # Forecast line (median)
-        line = base.transform_filter(
-            alt.datum.data_type == "forecast"
-        ).mark_line().encode(
-            x="time_period:T",
-            y=alt.Y("q_50:Q", scale=alt.Scale(zero=False)),
+        line = (
+            base.transform_filter(alt.datum.data_type == "forecast")
+            .mark_line()
+            .encode(
+                x="time_period:T",
+                y=alt.Y("q_50:Q", scale=alt.Scale(zero=False)),
+            )
         )
 
         # Error bands
-        error1 = base.transform_filter(
-            alt.datum.data_type == "forecast"
-        ).mark_errorband(color="blue", opacity=0.3).encode(
-            x="time_period:T",
-            y=alt.Y("q_10:Q", scale=alt.Scale(zero=False)),
-            y2="q_90:Q",
+        error1 = (
+            base.transform_filter(alt.datum.data_type == "forecast")
+            .mark_errorband(color="blue", opacity=0.3)
+            .encode(
+                x="time_period:T",
+                y=alt.Y("q_10:Q", scale=alt.Scale(zero=False)),
+                y2="q_90:Q",
+            )
         )
 
-        error2 = base.transform_filter(
-            alt.datum.data_type == "forecast"
-        ).mark_errorband(color="blue", opacity=0.5).encode(
-            x="time_period:T",
-            y=alt.Y("q_25:Q", scale=alt.Scale(zero=False)),
-            y2="q_75:Q",
+        error2 = (
+            base.transform_filter(alt.datum.data_type == "forecast")
+            .mark_errorband(color="blue", opacity=0.5)
+            .encode(
+                x="time_period:T",
+                y=alt.Y("q_25:Q", scale=alt.Scale(zero=False)),
+                y2="q_75:Q",
+            )
         )
 
         # Observations
-        observations = base.transform_filter(
-            alt.datum.data_type == "observed"
-        ).mark_line(color="orange").encode(
-            x="time_period:T",
-            y=alt.Y("disease_cases:Q", scale=alt.Scale(zero=False)),
+        observations = (
+            base.transform_filter(alt.datum.data_type == "observed")
+            .mark_line(color="orange")
+            .encode(
+                x="time_period:T",
+                y=alt.Y("disease_cases:Q", scale=alt.Scale(zero=False)),
+            )
         )
 
         # Layer all components
         full_layer = error1 + error2 + line + observations
 
         # Facet the combined layer
-        return full_layer.facet(
-            column="split_period:O",
-            row="location:N"
-        ).resolve_scale(
-            y="independent"
-        ).properties(
-            title="BackTest Forecasts with Observations"
+        return (
+            full_layer.facet(column="split_period:O", row="location:N")
+            .resolve_scale(y="independent")
+            .properties(title="BackTest Forecasts with Observations")
         )

@@ -82,16 +82,15 @@ class BacktestSimulator:
     def __init__(self, params: ForecastParams = ForecastParams()):
         self._params = params
 
-
     def simulate(self, dataset: DataSet, dataset_dims: DatasetDimensions) -> BackTest:
-        periods = dataset_dims.time_periods[-(self._params.prediction_length+self._params.n_splits-1) :]
-        split_periods = periods[:self._params.n_splits]
+        periods = dataset_dims.time_periods[-(self._params.prediction_length + self._params.n_splits - 1) :]
+        split_periods = periods[: self._params.n_splits]
         backtest = BackTest(
             dataset=dataset, model_id="Naive Forecast", org_units=dataset_dims.locations, split_periods=split_periods
         )
         forecasts = []
         for i in range(self._params.n_splits):
-            forecasts.extend(self.simulate_split(dataset, periods[i: i + self._params.prediction_length]))
+            forecasts.extend(self.simulate_split(dataset, periods[i : i + self._params.prediction_length]))
         backtest.forecasts = forecasts
         return backtest
 
