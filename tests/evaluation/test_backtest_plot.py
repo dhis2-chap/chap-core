@@ -13,4 +13,4 @@ def default_transformer():
 
 def test_backtest_plot(simulated_backtest: BackTest, default_transformer):
     plotter = BackTestPlot.from_backtest(simulated_backtest)
-    chart = plotter.plot().show()
+    chart = plotter.plot()
