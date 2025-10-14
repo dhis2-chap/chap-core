@@ -126,7 +126,7 @@ def get_model_template_from_directory_or_github_url(
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
 
-    if model_template_path.startswith("http://localhost"):
+    if isinstance(model_template_path, str) and model_template_path.startswith("http://localhost"):
         logger.info(f"Assuming {model_template_path} is a chapkit model")
         # For now, we assume that if a model template has a url on localhost it is 
         # a chapkit model

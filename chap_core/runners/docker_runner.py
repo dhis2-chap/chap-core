@@ -26,7 +26,7 @@ class DockerRunner(Runner):
     def teardown(self):
         # remove the docker image
         client = docker.from_env()
-        client.images.remove(self._docker_name, force=True)
+        #client.images.remove(self._docker_name, force=True)
 
 
 class DockerTrainPredictRunner(CommandLineTrainPredictRunner):

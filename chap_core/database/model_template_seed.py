@@ -63,6 +63,9 @@ def seed_configured_models_from_config_dir(session, dir=get_config_path() / "con
     wrapper = SessionWrapper(session=session)
     configured_models = parse_local_model_config_from_directory(dir)
     for config in configured_models:
+        # todo: if url is chapkit model, handle differently        
+
+
         # for every version, add one for each configured model configuration
         for version, version_commit_or_branch in config.versions.items():
             version_commit_or_branch = version_commit_or_branch.strip("@")
