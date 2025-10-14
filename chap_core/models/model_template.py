@@ -134,6 +134,7 @@ class ModelTemplate:
 
         # if model is web based, no runner and model should be ExternalWebModel
         if self._model_template_config.rest_api_url is not None:
+            # todo: this is outdatc, can be removed
             return ExternalWebModel(
                 self._model_template_config.rest_api_url,
                 self._model_template_config.name,

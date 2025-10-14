@@ -74,7 +74,7 @@ class CHAPKitRestAPIWrapper:
         Returns:
             System info including name, version, description, etc.
         """
-        response = self._request("GET", "/system")
+        response = self._request("GET", "/api/v1/info")
         return response.json()
 
     # Configuration management endpoints

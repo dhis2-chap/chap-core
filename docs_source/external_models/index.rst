@@ -27,3 +27,4 @@ We provide more detailed documentation depending on who you are:
    side_by_side_comparison
    supporting_functionality
    train_and_predict
+   chapkit

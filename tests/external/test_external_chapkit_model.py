@@ -35,7 +35,7 @@ def test_external_chapkit_model_basic(service_available, dataset):
     train, test = train_test_generator(dataset, 3, 2)
     historic, future, truth = next(test)
 
-    template = ExternalChapkitModelTemplate("example_model", service_available)
+    template = ExternalChapkitModelTemplate(service_available)
     model = template.get_model({"max_epochs": 2})
     # print(dataset)
     id = model.train(historic)

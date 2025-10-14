@@ -72,7 +72,7 @@
 
 - url: https://github.com/dhis2-chap/rwanda_random_forest
   versions:
-    v1: "@chap"
+    v1: "@chapl
 
 
 - url: https://github.com/dhis2-chap/INLA_baseline_model
