@@ -46,9 +46,8 @@ class Objective:
         runs model evaluation, and returns a scalar score of the selected metric.  
         """
         logger.info("Validating model configuration")
-        model_config = ModelConfiguration.model_validate(config) 
-        print(f"CONFIG: {config}")
-        print(f"MODEL_CONFIG: {model_config}")
+        model_configs = {"user_option_values": config} # TODO: should prob be removed 
+        model_config = ModelConfiguration.model_validate(model_configs) 
         logger.info("Validated model configuration")
 
         model = self.template.get_model(model_config)

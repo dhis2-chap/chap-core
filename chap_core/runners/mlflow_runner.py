@@ -64,5 +64,4 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             str(self.model_path),
             entry_point="predict",
             parameters=params,
-            env_manager="local", # This is added by me (lilu) 23.08
         )

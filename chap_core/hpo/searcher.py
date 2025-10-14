@@ -103,8 +103,6 @@ class RandomSearcher(Searcher):
         if self.emitted >= self.max_trials:
             return None 
         params = {k: self._sample_one(self.search_space[k]) for k in self.keys}
-        print(f"spec for weight_decay: {self.search_space["weight_decay"]}")
-        print(f"one sample of weight_decay: {self._sample_one(self.search_space["weight_decay"])}")
         # config = {k: self.rng.choice(self.search_space[k]) for k in self.keys}
         self.emitted += 1
         return params

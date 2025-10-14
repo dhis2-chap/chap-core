@@ -142,16 +142,15 @@ def evaluate_hpo(
                 # with open(configuration, "r", encoding="utf-8") as f:
                 #     base_configs = yaml.safe_load(f) or {} # check if this returns a dict
                 configs = load_search_space_from_yaml(configuration)
-                base_configs = {"user_option_values": configs}
-                print(f"base configs in cli: {base_configs}")
-                logger.info(f"Loaded model base configurations from yaml file: {base_configs}")
+                # base_configs = {"user_option_values": configs}
+                logger.info(f"Loaded model base configurations from yaml file: {configs}")
 
-            if "user_option_values" not in base_configs or not isinstance(base_configs["user_option_values"], dict):
-                raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
+            # if "user_option_values" not in base_configs or not isinstance(base_configs["user_option_values"], dict):
+            #     raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
             
             print("Creating HpoModel")
             objective = Objective(name, metric, prediction_length, n_splits)
-            model = HpoModel(RandomSearcher(2), objective, direction, base_configs)
+            model = HpoModel(RandomSearcher(2), objective, direction, configs)
         try:
             results = evaluate_model(
                 estimator=model,
