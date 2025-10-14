@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Protocol, TypeVar, Iterable, Dict, Optional
+from typing import Protocol, TypeVar, Iterable, Dict
 from gluonts.model import SampleForecast
 from gluonts.evaluation import Evaluator
 from gluonts.model import Forecast
