@@ -124,9 +124,10 @@ def data_dims():
 
 
 @pytest.fixture
-def simulated_dataset(data_dims):
+def simulated_dataset(data_dims, dummy_geojson):
     simulator = AdditiveSimulator()
     dataset = simulator.simulate(data_dims)
+    dataset.geojson = dummy_geojson
     return dataset
 
 
@@ -134,3 +135,81 @@ def simulated_dataset(data_dims):
 def simulated_backtest(simulated_dataset, data_dims):
     backtest = BacktestSimulator().simulate(simulated_dataset, data_dims)
     return backtest
+
+
+@pytest.fixture
+def dummy_geojson():
+    """Dummy GeoJSON with three disjoint polygons for testing.
+
+    Polygons represent fictional administrative regions with:
+    - Clear separation between regions for visibility
+    - Irregular boundaries resembling real districts
+    - Realistic lat/lon coordinates (around East Africa region)
+    - Counter-clockwise winding order (GeoJSON standard)
+    """
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "id": "loc1",
+                "properties": {"id": "loc1", "name": "Northern District"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [29.0, 0.0],
+                            [29.0, 0.2],
+                            [29.2, 0.4],
+                            [29.4, 0.5],
+                            [29.6, 0.3],
+                            [29.5, 0.1],
+                            [29.3, -0.1],
+                            [29.0, 0.0]
+                        ]
+                    ]
+                }
+            },
+            {
+                "type": "Feature",
+                "id": "loc2",
+                "properties": {"id": "loc2", "name": "Central District"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [30.5, 0.0],
+                            [30.8, -0.1],
+                            [31.0, -0.1],
+                            [31.1, -0.3],
+                            [31.0, -0.5],
+                            [30.7, -0.6],
+                            [30.5, -0.5],
+                            [30.5, 0.0]
+                        ]
+                    ]
+                }
+            },
+            {
+                "type": "Feature",
+                "id": "loc3",
+                "properties": {"id": "loc3", "name": "Southern District"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [29.5, -1.5],
+                            [29.7, -1.6],
+                            [30.0, -1.5],
+                            [30.1, -1.5],
+                            [30.1, -1.8],
+                            [29.9, -2.0],
+                            [29.6, -2.1],
+                            [29.5, -2.0],
+                            [29.5, -1.5]
+                        ]
+                    ]
+                }
+            }
+        ]
+    }

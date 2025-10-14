@@ -284,6 +284,8 @@ async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], se
     sw = SessionWrapper(session=session)
     in_memory_dataset = sw.get_dataset(dataset_id)
     df = in_memory_dataset.to_pandas()
+    # Convert time_period column to strings for proper serialization
+    df['time_period'] = df['time_period'].astype(str)
     return df.to_dict(orient='records')
 
 @router.delete("/datasets/{datasetId}")
