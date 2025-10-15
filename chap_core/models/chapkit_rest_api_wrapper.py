@@ -109,7 +109,7 @@ class CHAPKitRestAPIWrapper:
         Returns:
             JSON Schema for configuration model
         """
-        response = self._request("GET", "/api/v1/configs/schema")
+        response = self._request("GET", "/api/v1/configs/$schema")
         return response.json()
 
     def get_config(self, config_id: str) -> Dict[str, Any]:

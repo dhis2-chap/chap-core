@@ -1,4 +1,4 @@
-.PHONY: clean clean-build clean-pyc clean-test coverage dist docs help install lint lint/flake8
+.PHONY: clean clean-build clean-pyc clean-test coverage dist docs help install lint lint/flake8 test-chapkit-compose
 .DEFAULT_GOAL := help
 
 define BROWSER_PYSCRIPT
@@ -60,7 +60,14 @@ test: ## run tests quickly with the default Python
 	@rm model_config.yaml
 	@rm example_data/debug_model/model_configuration_for_run.yaml
 
+test-chapkit-compose: ## test docker compose with chapkit models
+	./tests/test-chapkit-compose.sh
+
 test-all: ## run pytest, doctests, examples
+
+	# Test that chapkit models start correctly with docker compose
+	#./tests/test-chapkit-compose.sh
+
 	uv run chap evaluate --model-name https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --prediction-length 3
 	uv run chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
 
@@ -70,7 +77,6 @@ test-all: ## run pytest, doctests, examples
 	uv run pytest --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
 	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/
 	#cd docs_source && make doctest
-
 	@rm report.csv
 	@rm predictions.csv
 	@rm model_config.yaml

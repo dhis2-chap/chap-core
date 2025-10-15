@@ -1,0 +1,20 @@
+# This file contains models that can be run as services using Docker Compose.
+# this file can be added to docker compose up to also get the models:
+# docker compose -f compose.yml -f compose-models.yaml up
+
+version: '3.8'
+
+services:
+  chtorch:
+    image: ghcr.io/dhis2-chap/chtorch:chapkit2-bfdf2eb
+    ports:
+      - "5001:8000"  # Maps external port 5001 to internal port 8000
+    volumes:
+      - chtorch-data:/app/target  # Persist the database
+    restart: unless-stopped
+    networks:
+      - chap-network
+
+
+volumes:
+  chtorch-data:

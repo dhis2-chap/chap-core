@@ -1,5 +1,6 @@
 import logging
 import pandas as pd
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -20,7 +21,17 @@ class ExternalChapkitModelTemplate:
     def __init__(self, rest_api_url: str):
         self.rest_api_url = rest_api_url
         self.client = CHAPKitRestAPIWrapper(rest_api_url)
-        assert self.is_healthy(), f"Service at {rest_api_url} is not healthy. Is model running? Check {self.rest_api_url}/health"
+        #assert self.is_healthy(), f"Service at {rest_api_url} is not healthy. Is model running? Check {self.rest_api_url}/health"
+
+    def wait_for_healthy(self, timeout=60):
+        import time
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if self.is_healthy():
+                return True
+            time.sleep(2)
+        raise TimeoutError(f"Model service at {self.rest_api_url} did not become healthy within {timeout} seconds. Check {self.rest_api_url}/health")
 
     def is_healthy(self) -> bool:
         try:
@@ -62,6 +73,62 @@ class ExternalChapkitModelTemplate:
     @property
     def name(self):
         return self.client.info().get("name", "unknown_model")
+
+    def get_model_template_config(self) -> ModelTemplateConfigV2:
+        """
+        This method is meant to make things backwards compatible with old system. An object of type
+        ModelTemplateConfigV2 is needed to store info about a ModelTemplate in the database.
+        """
+        model_info = self.client.info()
+
+        # Get user options from config schema
+        config_schema = self.client.get_config_schema()
+        print(config_schema)
+        user_options = {}
+        if "$defs" in config_schema and "ModelConfiguration" in config_schema["$defs"]:
+            user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
+
+
+        # Build metadata dict from info endpoint
+        meta_data_dict = {
+            "display_name": model_info.get("display_name", "No Display Name"),
+            "description": model_info.get("description") or model_info.get("summary", "No Description"),
+            "author_note": model_info.get("author_note", ""),
+            "author_assessed_status": model_info.get("author_assessed_status", "red"),
+            "author": model_info.get("author", "Unknown Author"),
+            "organization": model_info.get("organization"),
+            "organization_logo_url": model_info.get("organization_logo_url"),
+            "contact_email": model_info.get("contact_email"),
+            "citation_info": model_info.get("citation_info"),
+        }
+
+        # Build complete config dict
+        config_dict = {
+            "name": self.name,
+            "source_url": model_info.get("source_url"),
+            "rest_api_url": self.rest_api_url,
+            "meta_data": meta_data_dict,
+            
+            # ModelTemplateInformation fields will use defaults if not provided:
+            # - supported_period_type defaults to PeriodType.any
+            # - user_options defaults to empty dict
+            # - required_covariates defaults to empty list
+            # - target defaults to "disease_cases"
+            # - allow_free_additional_continuous_covariates defaults to False
+            # RunnerConfig fields not needed for REST API models:
+            "entry_points": None,
+            "docker_env": None,
+            "python_env": None,
+        }
+
+        # we need to set user_options to the fields that the model supports
+        # this is not accessible in /info, but from the config schema
+        config_dict["user_options"] = user_options
+
+        return ModelTemplateConfigV2.model_validate(config_dict)
+
+
+
 
 
 class ExternalChapkitModel(ExternalModelBase):

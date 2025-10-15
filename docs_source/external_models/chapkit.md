@@ -48,11 +48,9 @@ chap evaluate --model-name http://localhost:5001 --dataset-name ISIMIP_dengue_ha
 
 ## How to use chapkit models in chap with the modeling app
 
-Step 1: Make sure your model REST API is running on localhost. Here we assume you have a model running at http://localhost:5001. Check that the health endpoint works by going to http://localhost:5001/api/v1/health in a web browser.
+NOTE: This is experimental, and the way this is done is likely to change in the future.fjo
 
-In the model template configuration in your chap installation (chap-core/config/configured_models/local_config.yaml), simply add the REST api url like this:
-
-```yaml
-- url: http://localhost:5001
-```
+1) Add your model to compose-models.yml, pick a port for your model that is not used by other models
+2) Add your model to config/configured_models/local_config.yaml, with the url pointing to your model, using the container name you specified in compose-models, e.g. http://chtorch:5001
+3) Start both chap and your model by running `docker compose -f compose.yml -f compose-models.yml up --build --force-recreate`
 
