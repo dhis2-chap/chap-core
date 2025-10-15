@@ -4,6 +4,7 @@ from typing import Annotated, List
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, confloat
+from sqlalchemy.orm import selectinload, defer
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
@@ -16,7 +17,8 @@ from chap_core.api_types import (
     BackTestParams,
 )
 from chap_core.database.base_tables import DBModel
-from chap_core.database.dataset_tables import Observation, DataSetCreateInfo
+from chap_core.database.dataset_tables import Observation, DataSetCreateInfo, DataSet as DataSetTable
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import BackTest, BackTestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -151,7 +153,14 @@ def get_compatible_backtests(
         select(BackTest.id, BackTest.org_units, BackTest.split_periods).where(BackTest.id != backtest_id)
     ).all()
     ids = [id for id, o, s in res if set(o) & org_units and set(s) & split_periods]
-    backtests = session.exec(select(BackTest).where(BackTest.id.in_(ids))).all()
+    backtests = session.exec(
+        select(BackTest)
+        .where(BackTest.id.in_(ids))
+        .options(
+            selectinload(BackTest.dataset).defer(DataSetTable.geojson),
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+        )
+    ).all()
     return backtests
 
 

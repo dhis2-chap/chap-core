@@ -22,6 +22,7 @@ from typing import Annotated, List, Optional
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from sqlalchemy.orm import selectinload, defer
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
@@ -71,7 +72,12 @@ async def get_backtests(session: Session = Depends(get_session)):
     """
     Returns a list of backtests/evaluations with only the id and name
     """
-    backtests = session.exec(select(BackTest)).all()
+    backtests = session.exec(
+        select(BackTest).options(
+            selectinload(BackTest.dataset).defer(DataSet.geojson),
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+        )
+    ).all()
     return backtests
 
 
@@ -85,7 +91,14 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], se
 
 @router_get("/backtests/{backtestId}/info", response_model=BackTestRead)
 def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.exec(
+        select(BackTest)
+        .where(BackTest.id == backtest_id)
+        .options(
+            selectinload(BackTest.dataset).defer(DataSet.geojson),
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+        )
+    ).first()
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     return backtest
@@ -130,7 +143,16 @@ async def update_backtest(
 
     session.add(db_backtest)
     session.commit()
-    session.refresh(db_backtest)
+
+    # Reload with eager loading to avoid lazy-load issues
+    db_backtest = session.exec(
+        select(BackTest)
+        .where(BackTest.id == backtest_id)
+        .options(
+            selectinload(BackTest.dataset).defer(DataSet.geojson),
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+        )
+    ).first()
     return db_backtest
 
 
