@@ -1,15 +1,16 @@
 import logging
+
 from chap_core.model_spec import PeriodType
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.local_configuration import parse_local_model_config_from_directory
 
 from .database import SessionWrapper
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 from .model_templates_and_config_tables import ModelTemplateDB, ModelConfiguration
 from ..file_io.file_paths import get_config_path
 from ..models.model_template import ExternalModelTemplate
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def add_model_template(model_template: ModelTemplateDB, session_wrapper: SessionWrapper) -> int:
@@ -68,8 +69,8 @@ def seed_configured_models_from_config_dir(session, dir=get_config_path() / "con
     wrapper = SessionWrapper(session=session)
     configured_models = parse_local_model_config_from_directory(dir)
     for config in configured_models:
-        # todo: if url is chapkit model, handle differently        
-        if not "github" in config.url:
+        # todo: if url is chapkit model, handle differently
+        if "github" not in config.url:
             # local model via rest api (chapkit)
             # todo: ignoring versions for now, find out if we want to support or care about versions for chapkit models
             template = ExternalChapkitModelTemplate(config.url)
@@ -82,7 +83,6 @@ def seed_configured_models_from_config_dir(session, dir=get_config_path() / "con
                 logger.info(f"Adding configured model {config_name} for chapkit model {config.url}")
                 add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
         else:
-
             # for every version, add one for each configured model configuration
             for version, version_commit_or_branch in config.versions.items():
                 version_commit_or_branch = version_commit_or_branch.strip("@")

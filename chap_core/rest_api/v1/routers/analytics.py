@@ -4,7 +4,7 @@ from typing import Annotated, List
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, confloat
-from sqlalchemy.orm import selectinload, defer
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf

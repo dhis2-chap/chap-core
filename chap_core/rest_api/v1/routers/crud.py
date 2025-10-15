@@ -22,7 +22,7 @@ from typing import Annotated, List, Optional
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
-from sqlalchemy.orm import selectinload, defer
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf

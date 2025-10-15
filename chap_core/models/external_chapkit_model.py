@@ -7,6 +7,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 from chap_core.datatypes import Samples
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +22,7 @@ class ExternalChapkitModelTemplate:
     def __init__(self, rest_api_url: str):
         self.rest_api_url = rest_api_url
         self.client = CHAPKitRestAPIWrapper(rest_api_url)
-        #assert self.is_healthy(), f"Service at {rest_api_url} is not healthy. Is model running? Check {self.rest_api_url}/health"
+        # assert self.is_healthy(), f"Service at {rest_api_url} is not healthy. Is model running? Check {self.rest_api_url}/health"
 
     def wait_for_healthy(self, timeout=60):
         import time
@@ -31,14 +32,18 @@ class ExternalChapkitModelTemplate:
             if self.is_healthy():
                 return True
             time.sleep(2)
-        raise TimeoutError(f"Model service at {self.rest_api_url} did not become healthy within {timeout} seconds. Check {self.rest_api_url}/health")
+        raise TimeoutError(
+            f"Model service at {self.rest_api_url} did not become healthy within {timeout} seconds. Check {self.rest_api_url}/health"
+        )
 
     def is_healthy(self) -> bool:
         try:
             response = self.client.health()
             return response["status"] == "healthy"
         except Exception as e:
-            logger.error(f"Health check for model {self.rest_api_url} failed: {e}. Check health at {self.rest_api_url}/health")
+            logger.error(
+                f"Health check for model {self.rest_api_url} failed: {e}. Check health at {self.rest_api_url}/health"
+            )
             return False
 
     def get_model(self, model_configuration) -> "ExternalChapkitModel":
@@ -47,6 +52,7 @@ class ExternalChapkitModelTemplate:
         This returns a configuration id back that we can use to identify the model.
         """
         import time
+
         if model_configuration is None:
             model_configuration = {}
         else:
@@ -61,10 +67,10 @@ class ExternalChapkitModelTemplate:
 
         # Create config with proper structure for new API
         # Use timestamp to make name unique
-        #config_data = {
+        # config_data = {
         #    "name": model_configuration.get("name", f"{self.name}_config_{timestamp}"),
         #    "data": model_configuration
-        #}
+        # }
 
         config_response = self.client.create_config(config_data)
         configuration_id = config_response["id"]
@@ -88,7 +94,6 @@ class ExternalChapkitModelTemplate:
         if "$defs" in config_schema and "ModelConfiguration" in config_schema["$defs"]:
             user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
 
-
         # Build metadata dict from info endpoint
         meta_data_dict = {
             "display_name": model_info.get("display_name", "No Display Name"),
@@ -108,7 +113,6 @@ class ExternalChapkitModelTemplate:
             "source_url": model_info.get("source_url"),
             "rest_api_url": self.rest_api_url,
             "meta_data": meta_data_dict,
-            
             # ModelTemplateInformation fields will use defaults if not provided:
             # - supported_period_type defaults to PeriodType.any
             # - user_options defaults to empty dict
@@ -128,9 +132,6 @@ class ExternalChapkitModelTemplate:
         return ModelTemplateConfigV2.model_validate(config_dict)
 
 
-
-
-
 class ExternalChapkitModel(ExternalModelBase):
     def __init__(self, model_name: str, rest_api_url: str, configuration_id: str):
         self.model_name = model_name
@@ -147,10 +148,10 @@ class ExternalChapkitModel(ExternalModelBase):
         new_pd = self._adapt_data(pd, frequency=frequency)
         geo = train_data.polygons
         response = self.client.train_and_wait(self.configuration_id, new_pd, geo)
-        
+
         if response["status"] == "failed":
             raise RuntimeError(f"Training failed: {response.get('error', 'Unknown error')}")
-            
+
         artifact_id = response["model_artifact_id"]
         assert artifact_id is not None, response
         self._train_id = artifact_id
@@ -162,19 +163,19 @@ class ExternalChapkitModel(ExternalModelBase):
         historic_data_pd = self._adapt_data(historic_data.to_pandas())
         future_data_pd = self._adapt_data(future_data.to_pandas())
         response = self.client.predict_and_wait(
-            model_artifact_id=self._train_id, 
+            model_artifact_id=self._train_id,
             future_data=future_data_pd,
-            historic_data=historic_data_pd, 
-            geo_features=geo
+            historic_data=historic_data_pd,
+            geo_features=geo,
         )
-        
+
         if response["status"] == "failed":
             raise RuntimeError(f"Prediction failed: {response.get('error', 'Unknown error')}")
-            
+
         artifact_id = response["prediction_artifact_id"]
         assert artifact_id is not None, response.get("error", "No prediction artifact")
 
         # get artifact from the client
         prediction = self.client.get_artifact(artifact_id)
-        data = prediction['data']['predictions']
-        return DataSet.from_pandas(pd.DataFrame(data=data['data'], columns=data['columns']), Samples)
+        data = prediction["data"]["predictions"]
+        return DataSet.from_pandas(pd.DataFrame(data=data["data"], columns=data["columns"]), Samples)
