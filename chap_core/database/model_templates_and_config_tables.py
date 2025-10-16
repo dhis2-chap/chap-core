@@ -67,6 +67,7 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
 
     @classmethod
     def _validate_model_configuration(cls, user_options, user_option_values):
+        logger.info("Validating model configuration")
         logger.info(user_options)
         logger.info(user_option_values)
         schema = {

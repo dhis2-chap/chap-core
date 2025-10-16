@@ -74,7 +74,7 @@ class CHAPKitRestAPIWrapper:
         Returns:
             System info including name, version, description, etc.
         """
-        response = self._request("GET", "/system")
+        response = self._request("GET", "/api/v1/info")
         return response.json()
 
     # Configuration management endpoints
@@ -109,7 +109,7 @@ class CHAPKitRestAPIWrapper:
         Returns:
             JSON Schema for configuration model
         """
-        response = self._request("GET", "/api/v1/configs/schema")
+        response = self._request("GET", "/api/v1/configs/$schema")
         return response.json()
 
     def get_config(self, config_id: str) -> Dict[str, Any]:

@@ -1,10 +1,16 @@
+import logging
+
 from chap_core.model_spec import PeriodType
+from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.local_configuration import parse_local_model_config_from_directory
 
 from .database import SessionWrapper
 from .model_templates_and_config_tables import ModelTemplateDB, ModelConfiguration
 from ..file_io.file_paths import get_config_path
 from ..models.model_template import ExternalModelTemplate
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def add_model_template(model_template: ModelTemplateDB, session_wrapper: SessionWrapper) -> int:
@@ -63,13 +69,27 @@ def seed_configured_models_from_config_dir(session, dir=get_config_path() / "con
     wrapper = SessionWrapper(session=session)
     configured_models = parse_local_model_config_from_directory(dir)
     for config in configured_models:
-        # for every version, add one for each configured model configuration
-        for version, version_commit_or_branch in config.versions.items():
-            version_commit_or_branch = version_commit_or_branch.strip("@")
-            version_url = f"{config.url}@{version_commit_or_branch}"
-            template_id = add_model_template_from_url(version_url, wrapper)
+        # todo: if url is chapkit model, handle differently
+        if "github" not in config.url:
+            # local model via rest api (chapkit)
+            # todo: ignoring versions for now, find out if we want to support or care about versions for chapkit models
+            template = ExternalChapkitModelTemplate(config.url)
+            template.wait_for_healthy(timeout=60)
+            model_template_config = template.get_model_template_config()
+            logger.info(f"Model template config from chapkit model at {config.url}: {model_template_config}")
+            template_id = wrapper.add_model_template_from_yaml_config(model_template_config)
+
             for config_name, configured_model_configuration in config.configurations.items():
+                logger.info(f"Adding configured model {config_name} for chapkit model {config.url}")
                 add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
+        else:
+            # for every version, add one for each configured model configuration
+            for version, version_commit_or_branch in config.versions.items():
+                version_commit_or_branch = version_commit_or_branch.strip("@")
+                version_url = f"{config.url}@{version_commit_or_branch}"
+                template_id = add_model_template_from_url(version_url, wrapper)
+                for config_name, configured_model_configuration in config.configurations.items():
+                    add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
 
     # add naive model template
     naive_template = get_naive_model_template()

@@ -1,7 +1,14 @@
+import logging
 import pandas as pd
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
+
+from chap_core.datatypes import Samples
+
+logger = logging.getLogger(__name__)
 
 
 class ExternalChapkitModelTemplate:
@@ -12,10 +19,32 @@ class ExternalChapkitModelTemplate:
     This method is meant to be backwards compatible with ExternalModelTemplate
     """
 
-    def __init__(self, model_name: str, rest_api_url: str):
-        self.model_name = model_name
+    def __init__(self, rest_api_url: str):
         self.rest_api_url = rest_api_url
         self.client = CHAPKitRestAPIWrapper(rest_api_url)
+        # assert self.is_healthy(), f"Service at {rest_api_url} is not healthy. Is model running? Check {self.rest_api_url}/health"
+
+    def wait_for_healthy(self, timeout=60):
+        import time
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if self.is_healthy():
+                return True
+            time.sleep(2)
+        raise TimeoutError(
+            f"Model service at {self.rest_api_url} did not become healthy within {timeout} seconds. Check {self.rest_api_url}/health"
+        )
+
+    def is_healthy(self) -> bool:
+        try:
+            response = self.client.health()
+            return response["status"] == "healthy"
+        except Exception as e:
+            logger.error(
+                f"Health check for model {self.rest_api_url} failed: {e}. Check health at {self.rest_api_url}/health"
+            )
+            return False
 
     def get_model(self, model_configuration) -> "ExternalChapkitModel":
         """
@@ -24,17 +53,83 @@ class ExternalChapkitModelTemplate:
         """
         import time
 
+        if model_configuration is None:
+            model_configuration = {}
+        else:
+            model_configuration = dict(model_configuration)
+
+        if "name" not in model_configuration:
+            timestamp = int(time.time() * 1000000)
+            name = f"{self.name}_config_{timestamp}"
+
+        config_data = {"name": name, "data": model_configuration}
+        logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
+
         # Create config with proper structure for new API
         # Use timestamp to make name unique
-        timestamp = int(time.time() * 1000000)
-        config_data = {
-            "name": model_configuration.get("name", f"{self.model_name}_config_{timestamp}"),
-            "data": model_configuration,
-        }
+        # config_data = {
+        #    "name": model_configuration.get("name", f"{self.name}_config_{timestamp}"),
+        #    "data": model_configuration
+        # }
 
         config_response = self.client.create_config(config_data)
         configuration_id = config_response["id"]
-        return ExternalChapkitModel(self.model_name, self.rest_api_url, configuration_id=configuration_id)
+        return ExternalChapkitModel(self.name, self.rest_api_url, configuration_id=configuration_id)
+
+    @property
+    def name(self):
+        return self.client.info().get("name", "unknown_model")
+
+    def get_model_template_config(self) -> ModelTemplateConfigV2:
+        """
+        This method is meant to make things backwards compatible with old system. An object of type
+        ModelTemplateConfigV2 is needed to store info about a ModelTemplate in the database.
+        """
+        model_info = self.client.info()
+
+        # Get user options from config schema
+        config_schema = self.client.get_config_schema()
+        print(config_schema)
+        user_options = {}
+        if "$defs" in config_schema and "ModelConfiguration" in config_schema["$defs"]:
+            user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
+
+        # Build metadata dict from info endpoint
+        meta_data_dict = {
+            "display_name": model_info.get("display_name", "No Display Name"),
+            "description": model_info.get("description") or model_info.get("summary", "No Description"),
+            "author_note": model_info.get("author_note", ""),
+            "author_assessed_status": model_info.get("author_assessed_status", "red"),
+            "author": model_info.get("author", "Unknown Author"),
+            "organization": model_info.get("organization"),
+            "organization_logo_url": model_info.get("organization_logo_url"),
+            "contact_email": model_info.get("contact_email"),
+            "citation_info": model_info.get("citation_info"),
+        }
+
+        # Build complete config dict
+        config_dict = {
+            "name": self.name,
+            "source_url": model_info.get("source_url"),
+            "rest_api_url": self.rest_api_url,
+            "meta_data": meta_data_dict,
+            # ModelTemplateInformation fields will use defaults if not provided:
+            # - supported_period_type defaults to PeriodType.any
+            # - user_options defaults to empty dict
+            # - required_covariates defaults to empty list
+            # - target defaults to "disease_cases"
+            # - allow_free_additional_continuous_covariates defaults to False
+            # RunnerConfig fields not needed for REST API models:
+            "entry_points": None,
+            "docker_env": None,
+            "python_env": None,
+        }
+
+        # we need to set user_options to the fields that the model supports
+        # this is not accessible in /info, but from the config schema
+        config_dict["user_options"] = user_options
+
+        return ModelTemplateConfigV2.model_validate(config_dict)
 
 
 class ExternalChapkitModel(ExternalModelBase):
@@ -60,7 +155,7 @@ class ExternalChapkitModel(ExternalModelBase):
         artifact_id = response["model_artifact_id"]
         assert artifact_id is not None, response
         self._train_id = artifact_id
-        return artifact_id
+        return self
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         assert self._train_id is not None, "Model must be trained before prediction"
@@ -83,4 +178,4 @@ class ExternalChapkitModel(ExternalModelBase):
         # get artifact from the client
         prediction = self.client.get_artifact(artifact_id)
         data = prediction["data"]["predictions"]
-        return DataSet.from_pandas(pd.DataFrame(data=data["data"], columns=data["columns"]))
+        return DataSet.from_pandas(pd.DataFrame(data=data["data"], columns=data["columns"]), Samples)
