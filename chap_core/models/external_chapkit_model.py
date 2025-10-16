@@ -23,12 +23,13 @@ class ExternalChapkitModelTemplate:
         This returns a configuration id back that we can use to identify the model.
         """
         import time
+
         # Create config with proper structure for new API
         # Use timestamp to make name unique
         timestamp = int(time.time() * 1000000)
         config_data = {
             "name": model_configuration.get("name", f"{self.model_name}_config_{timestamp}"),
-            "data": model_configuration
+            "data": model_configuration,
         }
 
         config_response = self.client.create_config(config_data)
@@ -52,10 +53,10 @@ class ExternalChapkitModel(ExternalModelBase):
         new_pd = self._adapt_data(pd, frequency=frequency)
         geo = train_data.polygons
         response = self.client.train_and_wait(self.configuration_id, new_pd, geo)
-        
+
         if response["status"] == "failed":
             raise RuntimeError(f"Training failed: {response.get('error', 'Unknown error')}")
-            
+
         artifact_id = response["model_artifact_id"]
         assert artifact_id is not None, response
         self._train_id = artifact_id
@@ -67,19 +68,19 @@ class ExternalChapkitModel(ExternalModelBase):
         historic_data_pd = self._adapt_data(historic_data.to_pandas())
         future_data_pd = self._adapt_data(future_data.to_pandas())
         response = self.client.predict_and_wait(
-            model_artifact_id=self._train_id, 
+            model_artifact_id=self._train_id,
             future_data=future_data_pd,
-            historic_data=historic_data_pd, 
-            geo_features=geo
+            historic_data=historic_data_pd,
+            geo_features=geo,
         )
-        
+
         if response["status"] == "failed":
             raise RuntimeError(f"Prediction failed: {response.get('error', 'Unknown error')}")
-            
+
         artifact_id = response["prediction_artifact_id"]
         assert artifact_id is not None, response.get("error", "No prediction artifact")
 
         # get artifact from the client
         prediction = self.client.get_artifact(artifact_id)
-        data = prediction['data']['predictions']
-        return DataSet.from_pandas(pd.DataFrame(data=data['data'], columns=data['columns']))
+        data = prediction["data"]["predictions"]
+        return DataSet.from_pandas(pd.DataFrame(data=data["data"], columns=data["columns"]))

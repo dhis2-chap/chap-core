@@ -37,7 +37,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import delta_month
 
 from chap_core.hpo.hpoModel import HpoModel, Direction
-from chap_core.hpo.objective import Objective 
+from chap_core.hpo.objective import Objective
 from chap_core.hpo.searcher import GridSearcher
 from chap_core.hpo.base import load_search_space_from_yaml
 
@@ -73,7 +73,7 @@ def evaluate_hpo(
     evaluate_hpo: Optional[bool] = True,
 ):
     """
-    Same as evaluate, but has three added arguments and a if check on argument evaluate_hpo. 
+    Same as evaluate, but has three added arguments and a if check on argument evaluate_hpo.
     """
     initialize_logging(debug, log_file)
     if dataset_name is None:
@@ -93,9 +93,9 @@ def evaluate_hpo(
 
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
-            assert (
-                dataset_country in dataset.countries
-            ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            assert dataset_country in dataset.countries, (
+                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            )
             dataset = dataset[dataset_country]
 
     if "," in model_name:
@@ -104,9 +104,9 @@ def evaluate_hpo(
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
             model_configuration_yaml_list = model_configuration_yaml.split(",")
-            assert len(model_list) == len(
-                model_configuration_yaml_list
-            ), "Number of model configurations does not match number of models"
+            assert len(model_list) == len(model_configuration_yaml_list), (
+                "Number of model configurations does not match number of models"
+            )
     else:
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
@@ -147,7 +147,7 @@ def evaluate_hpo(
 
             if "user_option_values" not in base_configs or not isinstance(base_configs["user_option_values"], dict):
                 raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
-            
+
             print("Creating HpoModel")
             objective = Objective(name, metric, prediction_length, n_splits)
             model = HpoModel(GridSearcher(), objective, direction, base_configs)
@@ -475,7 +475,7 @@ class AreaPolygons: ...
 
 
 @app.command()
-def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plot"):
+def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plot", out_file: Optional[Path] = None):
     dataset_plot_registry = {
         "standardized_feature_plot": StandardizedFeaturePlot,
         "season_plot": SeasonCorrelationBarPlot,
@@ -485,6 +485,9 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plo
     plotter = plot_cls(df)
     fig = plotter.plot()
     fig.show()
+    if out_file is not None:
+        fig.save(out_file)
+        logger.info(f"Plot saved to {out_file}")
 
 
 def main_function():
