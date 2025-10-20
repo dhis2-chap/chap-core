@@ -287,7 +287,6 @@ def evaluate(
     first_model = True
     for key, value in results_dict.items():
         aggregate_metric_dist = value[0]
-        full_data[key] = value[1]
         row = [key]
         for k, v in aggregate_metric_dist.items():
             row.append(v)
@@ -295,13 +294,14 @@ def evaluate(
             data.append(["Model"] + list(aggregate_metric_dist.keys()))
             first_model = False
         data.append(row)
+        # make a dataframe with column names forst and then the full value[1]
+        full_data[key] = pd.DataFrame(value[1])
 
     dataframe = pd.DataFrame(data)
     csvname = Path(report_filename).with_suffix(".csv")
     for i, (model_name, results) in enumerate(full_data.items()):
         csvname_full = Path(report_filename).with_suffix(f".{i}.csv")
-        results_df = pd.DataFrame(results)
-        results_df.to_csv(csvname_full, index=False, header=False)
+        results.to_csv(csvname_full, index=False)
         logger.info(f"Wrote detailed results for {model_name} to {csvname_full}")
 
     # write dataframe to csvname
