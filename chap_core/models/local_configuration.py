@@ -14,6 +14,7 @@ class LocalModelTemplateWithConfigurations(BaseModel):
     """Class only used for parsing ModelTemplate from config/models/*.yaml files."""
 
     url: str
+    uses_chapkit: bool = False
     versions: dict[str, str]
     configurations: dict[str, ModelConfiguration] = {"default": ModelConfiguration()}
 

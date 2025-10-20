@@ -65,6 +65,7 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     model_template_id: int = Field(foreign_key="modeltemplatedb.id", ondelete="CASCADE")
     model_template: ModelTemplateDB = Relationship(back_populates="configured_models")
     archived: bool = Field(default=False)
+    uses_chapkit: bool = Field(default=False)
 
     @classmethod
     def _validate_model_configuration(cls, user_options, user_option_values):

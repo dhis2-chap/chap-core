@@ -41,7 +41,7 @@ class ExternalChapkitModelTemplate:
             response = self.client.health()
             return response["status"] == "healthy"
         except Exception as e:
-            logger.error(
+            logger.info(
                 f"Health check for model {self.rest_api_url} failed: {e}. Check health at {self.rest_api_url}/health"
             )
             return False
@@ -58,11 +58,13 @@ class ExternalChapkitModelTemplate:
         else:
             model_configuration = dict(model_configuration)
 
+        timestamp = int(time.time() * 1000000)
         if "name" not in model_configuration:
-            timestamp = int(time.time() * 1000000)
             name = f"{self.name}_config_{timestamp}"
         else:
-            name = model_configuration["name"]
+            # always make sure config has unique name for now. Chapkit uses name as identifier,
+            # but we don't necesserarily do that on the chap side
+            name = model_configuration["name"] + "_" + str(timestamp)
 
         if "model_template" in model_configuration:
             # remove model_template key

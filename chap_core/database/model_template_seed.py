@@ -25,7 +25,8 @@ def add_model_template_from_url(url: str, session_wrapper: SessionWrapper) -> in
 
 
 def add_configured_model(
-    model_template_id, configuration: ModelConfiguration, configuration_name: str, session_wrapper: SessionWrapper
+    model_template_id, configuration: ModelConfiguration, configuration_name: str, session_wrapper: SessionWrapper,
+        uses_chapkit: bool = False,
 ) -> int:
     """
     Add a configured model to the database.
@@ -44,7 +45,7 @@ def add_configured_model(
     int
         The ID of the added model.
     """
-    return session_wrapper.add_configured_model(model_template_id, configuration, configuration_name)
+    return session_wrapper.add_configured_model(model_template_id, configuration, configuration_name, uses_chapkit=uses_chapkit)
 
 
 def get_naive_model_template():
@@ -69,19 +70,22 @@ def seed_configured_models_from_config_dir(session, dir=get_config_path() / "con
     wrapper = SessionWrapper(session=session)
     configured_models = parse_local_model_config_from_directory(dir)
     for config in configured_models:
-        # todo: if url is chapkit model, handle differently
-        if "github" not in config.url:
+        if config.uses_chapkit:
             # local model via rest api (chapkit)
             # todo: ignoring versions for now, find out if we want to support or care about versions for chapkit models
             template = ExternalChapkitModelTemplate(config.url)
-            template.wait_for_healthy(timeout=60)
-            model_template_config = template.get_model_template_config()
-            logger.info(f"Model template config from chapkit model at {config.url}: {model_template_config}")
-            template_id = wrapper.add_model_template_from_yaml_config(model_template_config)
+            try:
+                template.wait_for_healthy(timeout=60)
+                model_template_config = template.get_model_template_config()
+                logger.info(f"Model template config from chapkit model at {config.url}: {model_template_config}")
+                template_id = wrapper.add_model_template_from_yaml_config(model_template_config)
 
-            for config_name, configured_model_configuration in config.configurations.items():
-                logger.info(f"Adding configured model {config_name} for chapkit model {config.url}")
-                add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
+                for config_name, configured_model_configuration in config.configurations.items():
+                    logger.info(f"Adding configured model {config_name} for chapkit model {config.url}")
+                    add_configured_model(template_id, configured_model_configuration, config_name, wrapper, uses_chapkit=True)
+            except TimeoutError:
+                logger.error(f"Chapkit model at {config.url} did not respond as healthy. Skipping this model when seeding the database.")
+                continue
         else:
             # for every version, add one for each configured model configuration
             for version, version_commit_or_branch in config.versions.items():

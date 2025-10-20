@@ -129,7 +129,7 @@ class SessionWrapper:
         return db_object.id
 
     def add_configured_model(
-        self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default"
+        self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default", uses_chapkit=False
     ) -> int:
         # get model template name
         model_template = self.session.exec(
@@ -153,7 +153,8 @@ class SessionWrapper:
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
-            name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template
+            name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template,
+            uses_chapkit=uses_chapkit
         )
         configured_model.validate_user_options(configured_model)
         # configured_model.validate_user_options(model_template)
@@ -232,6 +233,7 @@ class SessionWrapper:
                 if cov not in model["covariates"]
             ]
             model["archived"] = model["archived"]
+            model["uses_chapkit"] = model["uses_chapkit"]
         # for m in configured_models_data:
         #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
         configured_models_read = [ModelSpecRead.model_validate(m) for m in configured_models_data]
@@ -264,8 +266,8 @@ class SessionWrapper:
         ignore_env = (
             template_name.startswith("chap_ewars") or template_name == "ewars_template"
         )  # TODO: seems hacky, how to fix?
-        # hacky way to test chapkit model for now, todo: improve later
-        if "github" not in configured_model.model_template.source_url:
+
+        if configured_model.uses_chapkit:
             logger.info(f"Assuming chapkit model at {configured_model.model_template.source_url}")
             template = ExternalChapkitModelTemplate(configured_model.model_template.source_url)
             logger.info(f"template: {template}")

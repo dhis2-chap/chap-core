@@ -6,7 +6,8 @@ version: '3.8'
 
 services:
   chtorch:
-    image: ghcr.io/dhis2-chap/chtorch:chapkit2-bfdf2eb
+    image: ghcr.io/dhis2-chap/chtorch:chapkit2-d3fc2dd
+    #image: chtorch:latest
     ports:
       - "5001:8000"  # Maps external port 5001 to internal port 8000
     volumes:
