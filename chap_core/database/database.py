@@ -23,6 +23,7 @@ from .. import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
+from ..models.external_chapkit_model import ExternalChapkitModelTemplate
 from ..rest_api.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
@@ -253,17 +254,28 @@ class SessionWrapper:
         return configured_model
 
     def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
+        logger.info(f"Getting configured model with id {configured_model_id}")
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model.name == "naive_model":
             return NaiveEstimator()
         template_name = configured_model.model_template.name
+        logger.info(f"Configured model: {configured_model}, template: {configured_model.model_template}")
         ignore_env = (
             template_name.startswith("chap_ewars") or template_name == "ewars_template"
         )  # TODO: seems hacky, how to fix?
-        return ModelTemplate.from_directory_or_github_url(
-            configured_model.model_template.source_url,
-            ignore_env=ignore_env,
-        ).get_model(configured_model)
+        # hacky way to test chapkit model for now, todo: improve later
+        if not "github" in configured_model.model_template.source_url:
+            logger.info(f"Assuming chapkit model at {configured_model.model_template.source_url}")
+            template = ExternalChapkitModelTemplate(configured_model.model_template.source_url)
+            logger.info(f"template: {template}")
+            logger.info(f"configured_model: {configured_model}")
+            return template.get_model(configured_model)
+        else:
+            logger.info(f"Assuming github model at {configured_model.model_template.source_url}")
+            return ModelTemplate.from_directory_or_github_url(
+                configured_model.model_template.source_url,
+                ignore_env=ignore_env,
+            ).get_model(configured_model)
 
     def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
         model_template = self.session.get(ModelTemplateDB, model_template_id)

@@ -46,7 +46,7 @@ class ExternalChapkitModelTemplate:
             )
             return False
 
-    def get_model(self, model_configuration) -> "ExternalChapkitModel":
+    def get_model(self, model_configuration: dict) -> "ExternalChapkitModel":
         """
         Sends the model configuration for storing in the model (by sending to the model rest api).
         This returns a configuration id back that we can use to identify the model.
@@ -61,8 +61,14 @@ class ExternalChapkitModelTemplate:
         if "name" not in model_configuration:
             timestamp = int(time.time() * 1000000)
             name = f"{self.name}_config_{timestamp}"
+        else:
+            name = model_configuration["name"]
 
-        config_data = {"name": name, "data": model_configuration}
+        if "model_template" in model_configuration:
+            # remove model_template key
+            model_configuration.pop("model_template")
+
+        config_data = {"name": name, "data": model_configuration }
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
 
         # Create config with proper structure for new API
@@ -110,24 +116,20 @@ class ExternalChapkitModelTemplate:
         # Build complete config dict
         config_dict = {
             "name": self.name,
-            "source_url": model_info.get("source_url"),
             "rest_api_url": self.rest_api_url,
             "meta_data": meta_data_dict,
+            "required_covariates": model_info.get("required_covariates", []),
+            "allow_free_additional_continuous_covariates": model_info.get("allow_free_additional_continuous_covariates", False),
+            "user_options": user_options,
             # ModelTemplateInformation fields will use defaults if not provided:
             # - supported_period_type defaults to PeriodType.any
-            # - user_options defaults to empty dict
-            # - required_covariates defaults to empty list
             # - target defaults to "disease_cases"
-            # - allow_free_additional_continuous_covariates defaults to False
             # RunnerConfig fields not needed for REST API models:
             "entry_points": None,
             "docker_env": None,
             "python_env": None,
+            "source_url": self.rest_api_url,
         }
-
-        # we need to set user_options to the fields that the model supports
-        # this is not accessible in /info, but from the config schema
-        config_dict["user_options"] = user_options
 
         return ModelTemplateConfigV2.model_validate(config_dict)
 

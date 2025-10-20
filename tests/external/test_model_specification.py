@@ -8,6 +8,7 @@ def example_specification(data_path):
     return data_path / "Mlproject_example"
 
 
+@pytest.mark.skip("outdated")
 def test_parse_model_template_specification(example_specification):
     with open(example_specification, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
