@@ -142,9 +142,9 @@ def test_seed_configured_models(engine):
         configured_models = session.exec(select(ConfiguredModelDB)).all()
         assert not configured_models
         # seed with models
-        seed_configured_models_from_config_dir(session)
+        seed_configured_models_from_config_dir(session, skip_chapkit_models=True)
         # seed again to check that repeated inserts are handled nicely
-        seed_configured_models_from_config_dir(session)
+        seed_configured_models_from_config_dir(session, skip_chapkit_models=True)
     # test that models have been added
     with Session(engine) as session:
         configured_models = session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()
