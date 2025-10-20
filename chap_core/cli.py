@@ -275,6 +275,7 @@ def evaluate(
             return
         print("!!RESULTS:")
         print(results)
+        print("...")
         results_dict[name] = results
 
     # need to iterate through the dict, like key and value or something and then extract the relevant metrics
@@ -282,9 +283,11 @@ def evaluate(
     # it seems like results contain two dictionairies, one for aggregate metrics and one with seperate ones for each ts
 
     data = []
+    full_data = {}
     first_model = True
     for key, value in results_dict.items():
         aggregate_metric_dist = value[0]
+        full_data[key] = value[1]
         row = [key]
         for k, v in aggregate_metric_dist.items():
             row.append(v)
@@ -292,8 +295,14 @@ def evaluate(
             data.append(["Model"] + list(aggregate_metric_dist.keys()))
             first_model = False
         data.append(row)
+
     dataframe = pd.DataFrame(data)
     csvname = Path(report_filename).with_suffix(".csv")
+    for i, (model_name, results) in enumerate(full_data.items()):
+        csvname_full = Path(report_filename).with_suffix(f".{i}.csv")
+        results_df = pd.DataFrame(results)
+        results_df.to_csv(csvname_full, index=False, header=False)
+        logger.info(f"Wrote detailed results for {model_name} to {csvname_full}")
 
     # write dataframe to csvname
     dataframe.to_csv(csvname, index=False, header=False)
