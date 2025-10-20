@@ -36,7 +36,7 @@ user_option_values:
 Then start the chtorch command on port 5001:
 
 ```bash
-docker run -p 5001:8000 ghcr.io/dhis2-chap/chtorch:chapkit2-eda20a1
+docker run -p 5001:8000 ghcr.io/dhis2-chap/chtorch:chapkit2-d3fc2dd
 ```
 
 Then we can run the following command to evaluate the model. Note the http://localhost:5001 url, which tells chap to look for the model at that url.

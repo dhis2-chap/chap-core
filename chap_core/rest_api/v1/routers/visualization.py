@@ -102,6 +102,9 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
     return JSONResponse(chart)
 
 
+# todo: add endpoint to get backtest plot names that are available
+
+
 @dataset_plot_router.get("/backtest/{visualization_name}/{backtest_id}")
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)

@@ -128,7 +128,7 @@ def get_model_template_from_directory_or_github_url(
     """
 
     if is_chapkit_model:
-        logger.info(f"Model is chapkit model")
+        logger.info("Model is chapkit model")
         # For now, we assume that if a model template has a url on localhost it is
         # a chapkit model
         template = ExternalChapkitModelTemplate(model_template_path)
