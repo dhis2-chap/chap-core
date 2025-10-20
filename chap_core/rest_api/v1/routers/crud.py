@@ -349,18 +349,6 @@ async def list_model_templates(session: Session = Depends(get_session)):
     return model_templates
 
 
-@router.delete("/model-templates/{modelTemplateId}")
-async def delete_model_template(
-    model_template_id: Annotated[int, Path(alias="modelTemplateId")], session: Session = Depends(get_session)
-):
-    model_template = session.get(ModelTemplateDB, model_template_id)
-    if model_template is None:
-        raise HTTPException(status_code=404, detail="Model Template not found")
-    session.delete(model_template)
-    session.commit()
-    return {"message": "deleted"}
-
-
 ###########
 # configured models
 
@@ -394,6 +382,20 @@ def add_configured_model(
         model_template_id, ModelConfiguration(**model_configuration.dict()), configuration_name
     )
     return session.get(ConfiguredModelDB, db_id)
+
+
+@router.delete("/configured-models/{configuredModelId}")
+async def delete_configured_model(
+    configured_model_id: Annotated[int, Path(alias="configuredModelId")], session: Session = Depends(get_session)
+):
+    """Soft delete a configured model by setting archived to True"""
+    configured_model = session.get(ConfiguredModelDB, configured_model_id)
+    if configured_model is None:
+        raise HTTPException(status_code=404, detail="Configured model not found")
+    configured_model.archived = True
+    session.add(configured_model)
+    session.commit()
+    return {"message": "deleted"}
 
 
 ###########

@@ -231,6 +231,7 @@ class SessionWrapper:
                 for cov in model["additional_continuous_covariates"]
                 if cov not in model["covariates"]
             ]
+            model["archived"] = model["archived"]
         # for m in configured_models_data:
         #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
         configured_models_read = [ModelSpecRead.model_validate(m) for m in configured_models_data]
