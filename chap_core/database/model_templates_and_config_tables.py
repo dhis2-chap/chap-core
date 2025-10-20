@@ -2,7 +2,7 @@ from typing import Optional, List
 from enum import Enum
 
 import jsonschema
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, JSON, Integer
 from sqlmodel import SQLModel, Field, Relationship
 
 
