@@ -265,7 +265,7 @@ class SessionWrapper:
             template_name.startswith("chap_ewars") or template_name == "ewars_template"
         )  # TODO: seems hacky, how to fix?
         # hacky way to test chapkit model for now, todo: improve later
-        if not "github" in configured_model.model_template.source_url:
+        if "github" not in configured_model.model_template.source_url:
             logger.info(f"Assuming chapkit model at {configured_model.model_template.source_url}")
             template = ExternalChapkitModelTemplate(configured_model.model_template.source_url)
             logger.info(f"template: {template}")

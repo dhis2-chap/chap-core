@@ -1,12 +1,11 @@
 import io
-import os 
-import yaml 
-import json 
-from pathlib import Path 
+import os
+import yaml
+import json
+from pathlib import Path
 
-from chap_core.hpo.base import (
-    Int, Float, dedup, write_yaml, load_search_space_from_yaml
-)
+from chap_core.hpo.base import Int, Float, dedup, write_yaml, load_search_space_from_yaml
+
 
 def test_dedup_handles_scalars_lists_and_dicts():
     assert dedup(3) == [3]
@@ -61,7 +60,7 @@ past_ratio:
     space = load_search_space_from_yaml(str(yml))
     # categorical
     assert isinstance(space["batch_size"], list) and space["batch_size"] == [64, 32]
-    # Floats 
+    # Floats
     assert isinstance(space["weight_decay"], Float)
     assert isinstance(space["past_ratio"], Float) and space["past_ratio"].log is False
     # Ints
@@ -71,4 +70,5 @@ past_ratio:
 
 if __name__ == "__main__":
     import sys, pytest
+
     sys.exit(pytest.main([__file__]))

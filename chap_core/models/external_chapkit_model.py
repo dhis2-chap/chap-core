@@ -68,7 +68,7 @@ class ExternalChapkitModelTemplate:
             # remove model_template key
             model_configuration.pop("model_template")
 
-        config_data = {"name": name, "data": model_configuration }
+        config_data = {"name": name, "data": model_configuration}
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
 
         # Create config with proper structure for new API
@@ -119,7 +119,9 @@ class ExternalChapkitModelTemplate:
             "rest_api_url": self.rest_api_url,
             "meta_data": meta_data_dict,
             "required_covariates": model_info.get("required_covariates", []),
-            "allow_free_additional_continuous_covariates": model_info.get("allow_free_additional_continuous_covariates", False),
+            "allow_free_additional_continuous_covariates": model_info.get(
+                "allow_free_additional_continuous_covariates", False
+            ),
             "user_options": user_options,
             # ModelTemplateInformation fields will use defaults if not provided:
             # - supported_period_type defaults to PeriodType.any

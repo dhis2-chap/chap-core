@@ -1,13 +1,15 @@
-from chap_core.hpo.objective import Objective 
+from chap_core.hpo.objective import Objective
 import chap_core.hpo.objective as obj_module
+
 
 def test_objective_calls_evaluate_model_and_returns_metric(monkeypatch):
     class FakeTemplate:
         def __init__(self, name):
-            self._name = name 
+            self._name = name
+
         def get_model(self, config):
             return lambda: object()
-        
+
     # Patch the template constructor used in Objective.__init__
     monkeypatch.setattr(
         obj_module.ModelTemplate,
@@ -19,6 +21,7 @@ def test_objective_calls_evaluate_model_and_returns_metric(monkeypatch):
     # Patch evaluate_model to return a dict with the expected metric
     def fake_eval(model, data, prediction_length, n_test_sets):
         return [{"MSE": 0.42, "MAE": 0.2}, {"something_else": {}}]
+
     monkeypatch.setattr(obj_module, "evaluate_model", fake_eval, raising=True)
 
     o = Objective(model_name="fake-model", metric="MSE", prediction_length=3, n_splits=2)
@@ -28,4 +31,5 @@ def test_objective_calls_evaluate_model_and_returns_metric(monkeypatch):
 
 if __name__ == "__main__":
     import sys, pytest
+
     sys.exit(pytest.main([__file__]))

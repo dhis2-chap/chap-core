@@ -16,17 +16,17 @@ logger.setLevel(logging.INFO)
 
 class Objective:
     def __init__(
-        self, 
-        model_name: ModelType | str, 
-        metric: str = "MSE", 
-        prediction_length: int = 3, # 6,
+        self,
+        model_name: ModelType | str,
+        metric: str = "MSE",
+        prediction_length: int = 3,  # 6,
         n_splits: int = 4,
         ignore_environment: bool = False,
         debug: bool = False,
         log_file: Optional[str] = None,
         run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
     ):
-        self.model_name = model_name 
+        self.model_name = model_name
         self.metric = metric
         self.prediction_length = prediction_length
         self.n_splits = n_splits
@@ -43,11 +43,11 @@ class Objective:
     def __call__(self, config, dataset: Optional[DataSetType] = None) -> float:
         """
         This method takes a concrete configuration produced by a Searcher,
-        runs model evaluation, and returns a scalar score of the selected metric.  
+        runs model evaluation, and returns a scalar score of the selected metric.
         """
         logger.info("Validating model configuration")
-        model_configs = {"user_option_values": config} # TODO: should prob be removed 
-        model_config = ModelConfiguration.model_validate(model_configs) 
+        model_configs = {"user_option_values": config}  # TODO: should prob be removed
+        model_config = ModelConfiguration.model_validate(model_configs)
         logger.info("Validated model configuration")
 
         model = self.template.get_model(model_config)
