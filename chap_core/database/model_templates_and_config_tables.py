@@ -37,8 +37,8 @@ class ModelTemplateInformation(SQLModel):
     supported_period_type: PeriodType = PeriodType.any
     user_options: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     required_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
-    min_prediction_length: Optional[int] = None
-    max_prediction_length: Optional[int] = None
+    min_prediction_length: Optional[int] = Field(default=None, sa_column=Column(Integer))
+    max_prediction_length: Optional[int] = Field(default=None, sa_column=Column(Integer))
     target: str = "disease_cases"
     allow_free_additional_continuous_covariates: bool = False
 
