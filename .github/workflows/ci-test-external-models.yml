@@ -40,7 +40,7 @@ jobs:
           android: true
           dotnet: true
           haskell: true
-          large-packages: true
+          large-packages: false
           swap-storage: true
       - name: Install uv
         uses: astral-sh/setup-uv@v3
