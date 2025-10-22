@@ -6,7 +6,7 @@ import httpx
 # from chap_core.models.external_chapkit_model import ExternalChapkitModel, ExternalChapkitModelTemplate
 from chap_core.file_io.example_data_set import datasets
 
-model_url = "http://localhost:5001"
+model_url = "http://localhost:5004"
 
 
 @pytest.fixture
@@ -30,13 +30,14 @@ def service_available():
     return model_url
 
 
-@pytest.mark.skip(reason="Needs a running chapkit model service")
+#@pytest.mark.skip(reason="Needs a running chapkit model service")
 def test_external_chapkit_model_basic(service_available, dataset):
     train, test = train_test_generator(dataset, 3, 2)
     historic, future, truth = next(test)
 
     template = ExternalChapkitModelTemplate(service_available)
-    model = template.get_model({"user_option_values": {"max_epochs": 2}})
+    #model = template.get_model({"user_option_values": {"max_epochs": 2}})
+    model = template.get_model({})
     id = model.train(historic)
     prediction = model.predict(historic, future)
     print("PREDICTION")

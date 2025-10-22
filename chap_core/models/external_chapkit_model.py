@@ -82,11 +82,27 @@ class ExternalChapkitModelTemplate:
 
         config_response = self.client.create_config(config_data)
         configuration_id = config_response["id"]
+
+        # get all configs and assert that configuration_id is there
+        all_configs = self.client.list_configs()
+        assert any(cfg["id"] == configuration_id for cfg in all_configs), f"Created configuration {configuration_id} not found in list of configs"
+
+        logger.info(f"Created model configuration with id {configuration_id} at {self.rest_api_url}")
         return ExternalChapkitModel(self.name, self.rest_api_url, configuration_id=configuration_id)
 
     @property
     def name(self):
-        return self.client.info().get("name", "unknown_model")
+        """
+        This returns a unique name for the model. In the future, this might be some sort of id given by the model
+        """
+        info = self.client.info()
+        if "name" in info:
+            # name not supported in current chapkit version, might be supported in the future
+            name = info["name"]
+        else:
+            name = info["display_name"].lower().replace(" ", "_")
+        version = info.get("version")
+        return f"{name}_v{version}"
 
     def get_model_template_config(self) -> ModelTemplateConfigV2:
         """
