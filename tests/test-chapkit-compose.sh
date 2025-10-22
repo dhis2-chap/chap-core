@@ -5,11 +5,11 @@ echo "Testing docker compose with chapkit models..."
 
 # Clean up any existing containers
 echo "Cleaning up existing containers..."
-docker compose -f compose.yml -f compose-models.yml down --volumes || true
+docker compose down --volumes || true
 
 # Start services in detached mode
 echo "Starting services..."
-docker compose -f compose.yml -f compose-models.yml up -d --build --force-recreate
+docker compose up -d --build --force-recreate
 
 # Function to check if any container has exited
 check_for_exits() {

@@ -452,6 +452,15 @@ def test_backtest_with_data_flow(
     _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run)
 
 
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_backtest_with_weekly_data_flow(
+    celery_session_worker, dependency_overrides, example_polygons, create_backtest_with_weekly_data_request, dry_run
+):
+    request_payload = create_backtest_with_weekly_data_request.model_dump()
+    print(request_payload)
+    _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run, expected_period_type="week")
+
+
 @pytest.fixture()
 def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / "create-backtest-from-data.json", "r"))
@@ -470,7 +479,7 @@ def test_local_backtest_with_data(
     assert len(detail["rejected"]) == 1
 
 
-def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False):
+def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False, expected_period_type="month"):
     url = "/v1/analytics/create-backtest-with-data"
     if dry_run:
         url += "?dryRun=true"
@@ -489,7 +498,7 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     assert len(backtest_info.dataset.data_sources) > 0, backtest_info.dataset
     assert len(backtest_info.dataset.org_units) > 0, backtest_info.dataset
     assert backtest_info.dataset.last_period is not None, backtest_info.dataset
-    assert backtest_info.dataset.period_type == "month", backtest_info.dataset
+    assert backtest_info.dataset.period_type == expected_period_type, backtest_info.dataset
     # assert len(backtest_info.metrics) > 0
     created_dataset_id = backtest_info.dataset_id
     dataset_response = client.get(f"/v1/crud/datasets/{created_dataset_id}")
