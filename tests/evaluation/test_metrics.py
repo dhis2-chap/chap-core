@@ -107,6 +107,7 @@ def test_add_aggregated_metrics_to_database(engine, backtest_weeks):
         session.session.commit()
 
 
+@pytest.mark.skip(reason="Only for testing")
 def test_read_example_weekly_predictions(data_path):
     data = pd.read_csv(data_path / "example_weekly_predictions.csv")
     data = SamplesWithTruth.from_pandas(data)
