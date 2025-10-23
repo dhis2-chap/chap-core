@@ -3,6 +3,7 @@ import json
 import dataclasses
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.datatypes import Samples
+import tempfile
 
 
 @dataclasses.dataclass
@@ -10,6 +11,10 @@ class NaivePredictor:
     mean_dict: dict
 
     def predict(self, historic_data: DataSet, future_data: DataSet, num_samples: int = 100) -> DataSet:
+        # write future_data to from a tmp csv file (to mimic what is happening in chap)
+        future_data.to_csv("test.csv")
+        future_data = DataSet.from_csv("test.csv")
+
         samples = DataSet(
             {
                 location: Samples(

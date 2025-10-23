@@ -82,6 +82,9 @@ def seed_configured_models_from_config_dir(session, dir=get_config_path() / "con
                 logger.info(f"Model template config from chapkit model at {config.url}: {model_template_config}")
                 template_id = wrapper.add_model_template_from_yaml_config(model_template_config)
 
+                logger.info(f"Model has {len(config.configurations)} configured models")
+                assert len(config.configurations) > 0, "No configured models found for chapkit model"
+
                 for config_name, configured_model_configuration in config.configurations.items():
                     logger.info(f"Adding configured model {config_name} for chapkit model {config.url}")
                     add_configured_model(template_id, configured_model_configuration, config_name, wrapper, uses_chapkit=True)
