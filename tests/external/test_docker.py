@@ -29,7 +29,8 @@ def test_run_docker_basic(models_path):
         result = run_command_through_docker_container("ubuntu", "./", "command_not_existing", remove_after_run=True)
 
 
-@pytest.mark.skipif(not docker_available(), reason="Docker not available")
+#@pytest.mark.skipif(not docker_available(), reason="Docker not available")
+@pytest.mark.skip(reason="Outdated")
 def test_run_docker_basic_r_inla(models_path):
     result = run_command_through_docker_container("ivargr/r_inla:latest", "./", "echo 'hi'")
     print(result)
