@@ -64,15 +64,11 @@ test-chapkit-compose: ## test docker compose with chapkit models
 	./tests/test-chapkit-compose.sh
 
 test-all: ## run pytest, doctests, examples
-
-	# Test that chapkit models start correctly with docker compose
-	#./tests/test-chapkit-compose.sh
-
-	uv run chap evaluate --model-name https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --prediction-length 3
+	./tests/test_docker_compose_integration_flow.sh
+	uv run chap evaluate --model-name https://github.com/dhis2-chap/inla_baseline_model@chap --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --prediction-length 3
 	uv run chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
 
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
-	./tests/test_docker_compose_integration_flow.sh
 	uv run pytest --durations=0 --cov=climate_health --cov-report html --run-slow
 	uv run pytest --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
 	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/

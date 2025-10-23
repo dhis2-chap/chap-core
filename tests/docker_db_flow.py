@@ -71,7 +71,7 @@ class IntegrationTest:
                 response = requests.get(self._chap_url + "/v1/health")
                 break
             except requests.exceptions.ConnectionError as e:
-                logger.error("Failed to connect to %s" % self._chap_url)
+                logger.error("Failed to connect to %s. Will sleep and try again." % self._chap_url)
                 logger.error(e)
                 errors.append(e)
                 time.sleep(5)
