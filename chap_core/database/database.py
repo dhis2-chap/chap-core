@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 import time
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Any
 
 import psycopg2
 import sqlalchemy
@@ -165,79 +165,66 @@ class SessionWrapper:
 
     def get_configured_models(self) -> List[ModelSpecRead]:
         # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
+        configured_models = self.session.exec(select(ConfiguredModelDB)).all()
 
-        # get configured models from db
-        # configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
-        configured_models = self.session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()
+        return [
+            ModelSpecRead.model_validate(
+                self.__add_display_name(
+                    self.__extract_configured_model_data(model)
+                ))
+            for model in configured_models]
 
-        # serialize to json and combine configured model with model template
-        configured_models_data = []
-        for configured_model in configured_models:
-            # get configured model and model template json data
-            configured_data = configured_model.model_dump(mode="json")
-            template_data = configured_model.model_template.model_dump(mode="json")
-
-            # add display name for configuration (not stored in db)
-            # stitch together template displayName with configured name stub
-            template_display_name = configured_model.model_template.display_name
-            if ":" in configured_model.name:
-                # configured model name is already stitched together as template_name:configuration_name
-                configuration_stub = configured_model.name.split(":")[-1]
-                # combine model template with configuration name to make the name unique
-                configuration_display_name = configuration_stub.replace("_", " ").capitalize()
-                display_name = f"{template_display_name} [{configuration_display_name}]"
-            else:
-                # default configurations just use the display name of their model template
-                display_name = template_display_name
-            configured_data["display_name"] = display_name
-
-            # merge json data and add to results
-            # NOTE: the sequence is important, starting with template data and add/overwrite with configured model data
-            # ...in case of conflicting attrs, eg id and name
-            merged_data = {**template_data, **configured_data}
-            configured_models_data.append(merged_data)
-
-        # debug
-        # import json
-        # for m in configured_models_data:
-        #    logger.info('list model data: ' + json.dumps(m, indent=4))
-
-        # temp: convert to ModelSpecRead to preserve existing results
-        # TODO: remove ModelSpecRead and return directly as ConfiguredModelDB
-        for model in configured_models_data:
-            # convert single target value to target dict
-            model["target"] = {
-                "name": model["target"],
-                "displayName": model["target"].replace("_", " ").capitalize(),
-                "description": model["target"].replace("_", " ").capitalize(),
+    def __add_display_name(self, model):
+        model["target"] = {
+            "name": model["target"],
+            "displayName": model["target"].replace("_", " ").capitalize(),
+            "description": model["target"].replace("_", " ").capitalize(),
+        }
+        # convert list of required covarate strings to list of covariate dicts
+        model["covariates"] = [
+            {
+                "name": cov,
+                "displayName": cov.replace("_", " ").capitalize(),
+                "description": cov.replace("_", " ").capitalize(),
             }
-            # convert list of required covarate strings to list of covariate dicts
-            model["covariates"] = [
-                {
-                    "name": cov,
-                    "displayName": cov.replace("_", " ").capitalize(),
-                    "description": cov.replace("_", " ").capitalize(),
-                }
-                for cov in model["required_covariates"]
-            ]
-            # add list of additional covariate strings to list of covariate dicts
-            model["covariates"] += [
-                {
-                    "name": cov,
-                    "displayName": cov.replace("_", " ").capitalize(),
-                    "description": cov.replace("_", " ").capitalize(),
-                }
-                for cov in model["additional_continuous_covariates"]
-                if cov not in model["covariates"]
-            ]
-        # for m in configured_models_data:
-        #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
-        configured_models_read = [ModelSpecRead.model_validate(m) for m in configured_models_data]
-        # for m in configured_models_read:
-        #    logger.info('read list model data: ' + json.dumps(m.model_dump(mode='json'), indent=4))
+            for cov in model["required_covariates"]
+        ]
+        # add list of additional covariate strings to list of covariate dicts
+        model["covariates"] += [
+            {
+                "name": cov,
+                "displayName": cov.replace("_", " ").capitalize(),
+                "description": cov.replace("_", " ").capitalize(),
+            }
+            for cov in model["additional_continuous_covariates"]
+            if cov not in model["covariates"]
+        ]
+        return model
 
-        # return
-        return configured_models_read
+    def __extract_configured_model_data(self, configured_model: ConfiguredModelDB) -> dict[Any, Any]:
+        # get configured model and model template json data
+        configured_data = configured_model.model_dump(mode="json")
+        template_data = configured_model.model_template.model_dump(mode="json")
+
+        # add display name for configuration (not stored in db)
+        # stitch together template displayName with configured name stub
+        template_display_name = configured_model.model_template.display_name
+        if ":" in configured_model.name:
+            # configured model name is already stitched together as template_name:configuration_name
+            configuration_stub = configured_model.name.split(":")[-1]
+            # combine model template with configuration name to make the name unique
+            configuration_display_name = configuration_stub.replace("_", " ").capitalize()
+            display_name = f"{template_display_name} [{configuration_display_name}]"
+        else:
+            # default configurations just use the display name of their model template
+            display_name = template_display_name
+        configured_data["display_name"] = display_name
+
+        # merge json data and add to results
+        # NOTE: the sequence is important, starting with template data and add/overwrite with configured model data
+        # ...in case of conflicting attrs, eg id and name
+        merged_data = {**template_data, **configured_data}
+        return merged_data
 
     def get_configured_model_by_name(self, configured_model_name: str) -> ConfiguredModelDB:
         try:
@@ -252,7 +239,7 @@ class SessionWrapper:
 
         return configured_model
 
-    def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
+    def get_configured_model_with_code(self, configured_model_id: int, force_virutal_env=False) -> ConfiguredModel:
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model.name == "naive_model":
             return NaiveEstimator()
@@ -260,6 +247,7 @@ class SessionWrapper:
         ignore_env = (
             template_name.startswith("chap_ewars") or template_name == "ewars_template"
         )  # TODO: seems hacky, how to fix?
+        ignore_env = ignore_env and not force_virutal_env
         return ModelTemplate.from_directory_or_github_url(
             configured_model.model_template.source_url,
             ignore_env=ignore_env,
