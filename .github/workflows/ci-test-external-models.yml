@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   build:
@@ -28,6 +29,21 @@ jobs:
         python-version: ["3.13"]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull worker image from cache
+        run: |
+          docker pull ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
+
       # - name: Free Disk Space (Ubuntu)
       #   uses: jlumbroso/free-disk-space@main
       #   with:

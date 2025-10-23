@@ -32,9 +32,8 @@ services:
     container_name: worker
     depends_on:
       - postgres
-    build:
-      context: .
-      dockerfile: Dockerfile.inla
+    # NOTE: We point to specific prebuilt image, which is built from Dockerfile.inla
+    image: ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
@@ -48,7 +47,7 @@ services:
       - chap-network
 
   postgres:
-    image: postgres
+    image: postgres:17
     restart: always
     environment:
       POSTGRES_USER: root
