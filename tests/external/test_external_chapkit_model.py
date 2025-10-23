@@ -36,7 +36,7 @@ def test_external_chapkit_model_basic(service_available, dataset):
     historic, future, truth = next(test)
 
     template = ExternalChapkitModelTemplate(service_available)
-    #model = template.get_model({"user_option_values": {"max_epochs": 2}})
+    # model = template.get_model({"user_option_values": {"max_epochs": 2}})
     model = template.get_model({})
     id = model.train(historic)
     prediction = model.predict(historic, future)

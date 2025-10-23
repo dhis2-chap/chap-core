@@ -112,4 +112,3 @@ def test_read_example_weekly_predictions(data_path):
     data = pd.read_csv(data_path / "example_weekly_predictions.csv")
     data = SamplesWithTruth.from_pandas(data)
     print(type(data.time_period))
-

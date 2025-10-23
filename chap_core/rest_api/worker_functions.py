@@ -41,6 +41,7 @@ class WorkerConfig(BaseModel):
 
     is_test: bool = False
     failing_services: Tuple[str] = ()
+    force_virtual_env: bool = False
 
 
 def sample_dataset_to_prediction_response(predictions: DataSet[Samples], target_id: str) -> dict:

@@ -50,6 +50,7 @@ def geojson(org_units) -> FeatureCollectionModel:
 def seen_periods_weekly():
     # 2020 has 53 weeks (leap year starting on Wednesday), 2021 and 2022 have 52 weeks
     import datetime
+
     periods = []
     for year in range(2020, 2023):
         # Check how many weeks the year has using ISO calendar
@@ -74,7 +75,9 @@ def dataset_observations(feature_names: list[str], org_units: list[str], seen_pe
 
 
 @pytest.fixture
-def dataset_observations_weekly(feature_names: list[str], org_units: list[str], seen_periods_weekly: list[str]) -> list[Observation]:
+def dataset_observations_weekly(
+    feature_names: list[str], org_units: list[str], seen_periods_weekly: list[str]
+) -> list[Observation]:
     observations = [
         Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 52) / 2))
         for ou_id, ou in enumerate(org_units)

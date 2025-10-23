@@ -34,7 +34,12 @@ class ModelTemplate:
 
     @classmethod
     def from_directory_or_github_url(
-        cls, model_template_path, base_working_dir=Path("runs/"), ignore_env=False, run_dir_type="timestamp", is_chapkit_model: bool = False
+        cls,
+        model_template_path,
+        base_working_dir=Path("runs/"),
+        ignore_env=False,
+        run_dir_type="timestamp",
+        is_chapkit_model: bool = False,
     ) -> "ModelTemplate":
         """
         Gets the model template and initializes a working directory with the code for the model.
@@ -56,8 +61,11 @@ class ModelTemplate:
         from .utils import get_model_template_from_directory_or_github_url
 
         return get_model_template_from_directory_or_github_url(
-            model_template_path, base_working_dir=base_working_dir, ignore_env=ignore_env, run_dir_type=run_dir_type,
-            is_chapkit_model=is_chapkit_model
+            model_template_path,
+            base_working_dir=base_working_dir,
+            ignore_env=ignore_env,
+            run_dir_type=run_dir_type,
+            is_chapkit_model=is_chapkit_model,
         )
 
     @property
