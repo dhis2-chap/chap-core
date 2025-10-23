@@ -39,7 +39,30 @@ def dataset_make_request(feature_names, seen_periods, backtest_params, org_units
 
 
 @pytest.fixture
+def dataset_make_request_weekly(feature_names, seen_periods_weekly, backtest_params, org_units, geojson, dataset_observations_weekly):
+    observations = dataset_observations_weekly  # (feature_names, org_units, seen_periods_weekly)
+
+    return DatasetMakeRequest(
+        name="testing dataset weekly",
+        geojson=geojson,
+        provided_data=observations,
+        data_to_be_fetched=[],
+        data_sources=[
+            DataSource(covariate=fn, data_element_id=f"de_{i}")
+            for i, fn in enumerate(feature_names + ["disease_cases"])
+        ],
+    )
+
+
+@pytest.fixture
 def create_backtest_with_data_request(dataset_make_request, backtest_params) -> MakeBacktestWithDataRequest:
     return MakeBacktestWithDataRequest(
         model_id="naive_model", **(dataset_make_request.model_dump() | backtest_params.model_dump())
+    )
+
+
+@pytest.fixture
+def create_backtest_with_weekly_data_request(dataset_make_request_weekly, backtest_params) -> MakeBacktestWithDataRequest:
+    return MakeBacktestWithDataRequest(
+        model_id="naive_model", **(dataset_make_request_weekly.model_dump() | backtest_params.model_dump())
     )

@@ -38,7 +38,7 @@ from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
 
 from chap_core.hpo.hpoModel import HpoModel, Direction
-from chap_core.hpo.objective import Objective 
+from chap_core.hpo.objective import Objective
 from chap_core.hpo.base import load_search_space_from_yaml
 
 
@@ -73,7 +73,7 @@ def evaluate_hpo(
     evaluate_hpo: Optional[bool] = True,
 ):
     """
-    Same as evaluate, but has three added arguments and a if check on argument evaluate_hpo. 
+    Same as evaluate, but has three added arguments and a if check on argument evaluate_hpo.
     """
     initialize_logging(debug, log_file)
     if dataset_name is None:
@@ -93,9 +93,9 @@ def evaluate_hpo(
 
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
-            assert (
-                dataset_country in dataset.countries
-            ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            assert dataset_country in dataset.countries, (
+                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            )
             dataset = dataset[dataset_country]
 
     if "," in model_name:
@@ -104,9 +104,9 @@ def evaluate_hpo(
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
             model_configuration_yaml_list = model_configuration_yaml.split(",")
-            assert len(model_list) == len(
-                model_configuration_yaml_list
-            ), "Number of model configurations does not match number of models"
+            assert len(model_list) == len(model_configuration_yaml_list), (
+                "Number of model configurations does not match number of models"
+            )
     else:
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
@@ -146,7 +146,7 @@ def evaluate_hpo(
 
             # if "user_option_values" not in base_configs or not isinstance(base_configs["user_option_values"], dict):
             #     raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
-            
+
             print("Creating HpoModel")
             objective = Objective(name, metric, prediction_length, n_splits)
             model = HpoModel(RandomSearcher(2), objective, direction, configs)
@@ -205,6 +205,7 @@ def evaluate(
     log_file: Optional[str] = None,
     run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
     model_configuration_yaml: Optional[str] = None,
+    is_chapkit_model: bool = False,
 ):
     initialize_logging(debug, log_file)
     if dataset_name is None:
@@ -224,9 +225,9 @@ def evaluate(
 
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
-            assert (
-                dataset_country in dataset.countries
-            ), f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            assert dataset_country in dataset.countries, (
+                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            )
             dataset = dataset[dataset_country]
 
     if "," in model_name:
@@ -235,9 +236,9 @@ def evaluate(
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
             model_configuration_yaml_list = model_configuration_yaml.split(",")
-            assert len(model_list) == len(
-                model_configuration_yaml_list
-            ), "Number of model configurations does not match number of models"
+            assert len(model_list) == len(model_configuration_yaml_list), (
+                "Number of model configurations does not match number of models"
+            )
     else:
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
@@ -251,6 +252,7 @@ def evaluate(
             base_working_dir=Path("./runs/"),
             ignore_env=ignore_environment,
             run_dir_type=run_directory_type,
+            is_chapkit_model=is_chapkit_model,
         )
         logger.info(f"Model template loaded: {template}")
         if configuration is not None:
@@ -275,6 +277,7 @@ def evaluate(
             return
         print("!!RESULTS:")
         print(results)
+        print("...")
         results_dict[name] = results
 
     # need to iterate through the dict, like key and value or something and then extract the relevant metrics
@@ -282,6 +285,7 @@ def evaluate(
     # it seems like results contain two dictionairies, one for aggregate metrics and one with seperate ones for each ts
 
     data = []
+    full_data = {}
     first_model = True
     for key, value in results_dict.items():
         aggregate_metric_dist = value[0]
@@ -292,8 +296,15 @@ def evaluate(
             data.append(["Model"] + list(aggregate_metric_dist.keys()))
             first_model = False
         data.append(row)
+        # make a dataframe with column names forst and then the full value[1]
+        full_data[key] = pd.DataFrame(value[1])
+
     dataframe = pd.DataFrame(data)
     csvname = Path(report_filename).with_suffix(".csv")
+    for i, (model_name, results) in enumerate(full_data.items()):
+        csvname_full = Path(report_filename).with_suffix(f".{i}.csv")
+        results.to_csv(csvname_full, index=False)
+        logger.info(f"Wrote detailed results for {model_name} to {csvname_full}")
 
     # write dataframe to csvname
     dataframe.to_csv(csvname, index=False, header=False)
@@ -342,9 +353,9 @@ def sanity_check_model(
         logger.error(f"Error while forecasting: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(
-            prediction.samples
-        ).any(), f"NaNs in predictions for location {location}, {prediction.samples}"
+        assert not np.isnan(prediction.samples).any(), (
+            f"NaNs in predictions for location {location}, {prediction.samples}"
+        )
     context, future, truth = next(tests)
     try:
         predictions = predictor.predict(context, future)
@@ -352,9 +363,9 @@ def sanity_check_model(
         logger.error(f"Error while forecasting from a future time point: {e}")
         raise e
     for location, prediction in predictions.items():
-        assert not np.isnan(
-            prediction.samples
-        ).any(), f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
+        assert not np.isnan(prediction.samples).any(), (
+            f"NaNs in futuresplit predictions for location {location}, {prediction.samples}"
+        )
 
 
 @app.command()

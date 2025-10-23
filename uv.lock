@@ -290,6 +290,7 @@ name = "chap-core"
 version = "1.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "alembic" },
     { name = "altair" },
     { name = "bionumpy" },
     { name = "celery", extra = ["pytest"] },
@@ -358,6 +359,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "alembic", specifier = ">=1.14.0" },
     { name = "altair", specifier = ">=5.5.0" },
     { name = "bionumpy", specifier = ">=1.0.14" },
     { name = "celery", extras = ["pytest"], specifier = ">=5.5.3" },

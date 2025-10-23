@@ -5,15 +5,18 @@
 version: '3.8'
 
 services:
-  chtorch:
-    image: ghcr.io/dhis2-chap/chtorch:chapkit2-bfdf2eb
+  inla_baseline:
+    image: inla_baseline
     ports:
-      - "5001:8000"  # Maps external port 5001 to internal port 8000
-    volumes:
-      - chtorch-data:/app/target  # Persist the database
+      - "5003:8000"
     restart: unless-stopped
     networks:
       - chap-network
+
+
+networks:
+  chap-network:
+    driver: bridge
 
 
 volumes:

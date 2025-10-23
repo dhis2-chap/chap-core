@@ -24,7 +24,6 @@ from chap_core.assessment.metrics import available_metrics  # Import from __init
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/visualization", tags=["Visualization"])
-dataset_plot_router = APIRouter(prefix="/plots", tags=["Dataset Plots"])
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 
@@ -32,8 +31,8 @@ plot_registry_v2 = {cls.visualization_info.id: cls for cls in [MetricByHorizonV2
 
 
 # List visualizations
-@router.get("/{backtest_id}", response_model=list[VisualizationInfo])
-def list_visualizations(backtest_id: int):
+@router.get("/metric-plots/{backtest_id}", response_model=list[VisualizationInfo])
+def get_avilable_metric_plots(backtest_id: int):
     """
     List available visualizations
     """
@@ -63,7 +62,7 @@ def get_available_metrics(backtest_id: int):
 
 
 # TODO: this should be renamed to /metric-visualization/
-@router.get("/{visualization_name}/{backtest_id}/{metric_id}")
+@router.get("/metric-plots/{visualization_name}/{backtest_id}/{metric_id}")
 def generate_visualization(
     visualization_name: str, backtest_id: int, metric_id: str, session: Session = Depends(get_session)
 ):
@@ -84,7 +83,7 @@ def generate_visualization(
     return JSONResponse(plot_spec)
 
 
-@dataset_plot_router.get("/dataset/{visualization_name}/{dataset_id}")
+@router.get("/dataset-plots/{visualization_name}/{dataset_id}")
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
     plots = {
         "standardized-feature-plot": StandardizedFeaturePlot,
@@ -102,7 +101,12 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
     return JSONResponse(chart)
 
 
-@dataset_plot_router.get("/backtest/{visualization_name}/{backtest_id}")
+@router.get("/backtest-plots/")
+def list_backtest_plot_types(session: Session = Depends(get_session)):
+    return ["plot1", "plot2"]
+
+
+@router.get("/backtest-plots/{visualization_name}/{backtest_id}")
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if not backtest:

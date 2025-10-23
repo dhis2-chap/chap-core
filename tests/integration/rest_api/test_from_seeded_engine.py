@@ -70,7 +70,7 @@ def test_get_backtest(override_session):
 
 @pytest.mark.parametrize("plot_name", ["standardized-feature", "seasonal-correlation-plot"])
 def test_data_plot(override_session, tmp_path, plot_name):
-    response = client.get("/v1/plots/dataset/%s/2" % plot_name)
+    response = client.get("/v1/visualization/dataset-plots/%s/2" % plot_name)
     assert response.status_code == 200, response.json()
     vega_spec = response.json()
     html_template = wrap_vega_spec(vega_spec)
@@ -88,7 +88,7 @@ def test_dataset_df(override_session):
 
 
 def test_backtest_plot(override_session, tmp_path):
-    response = client.get("/v1/plots/backtest/tmp/1")
+    response = client.get("/v1/visualization/backtest-plots/tmp/1")
     assert response.status_code == 200, response.json()
     vega_spec = response.json()
     html_template = wrap_vega_spec(vega_spec)

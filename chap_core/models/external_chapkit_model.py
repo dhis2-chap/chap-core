@@ -41,12 +41,12 @@ class ExternalChapkitModelTemplate:
             response = self.client.health()
             return response["status"] == "healthy"
         except Exception as e:
-            logger.error(
+            logger.info(
                 f"Health check for model {self.rest_api_url} failed: {e}. Check health at {self.rest_api_url}/health"
             )
             return False
 
-    def get_model(self, model_configuration) -> "ExternalChapkitModel":
+    def get_model(self, model_configuration: dict) -> "ExternalChapkitModel":
         """
         Sends the model configuration for storing in the model (by sending to the model rest api).
         This returns a configuration id back that we can use to identify the model.
@@ -58,9 +58,17 @@ class ExternalChapkitModelTemplate:
         else:
             model_configuration = dict(model_configuration)
 
+        timestamp = int(time.time() * 1000000)
         if "name" not in model_configuration:
-            timestamp = int(time.time() * 1000000)
             name = f"{self.name}_config_{timestamp}"
+        else:
+            # always make sure config has unique name for now. Chapkit uses name as identifier,
+            # but we don't necesserarily do that on the chap side
+            name = model_configuration["name"] + "_" + str(timestamp)
+
+        if "model_template" in model_configuration:
+            # remove model_template key
+            model_configuration.pop("model_template")
 
         config_data = {"name": name, "data": model_configuration}
         logger.info(f"Creating model configuration with name {name} at {self.rest_api_url}. Data: {config_data}")
@@ -74,11 +82,27 @@ class ExternalChapkitModelTemplate:
 
         config_response = self.client.create_config(config_data)
         configuration_id = config_response["id"]
+
+        # get all configs and assert that configuration_id is there
+        all_configs = self.client.list_configs()
+        assert any(cfg["id"] == configuration_id for cfg in all_configs), f"Created configuration {configuration_id} not found in list of configs"
+
+        logger.info(f"Created model configuration with id {configuration_id} at {self.rest_api_url}")
         return ExternalChapkitModel(self.name, self.rest_api_url, configuration_id=configuration_id)
 
     @property
     def name(self):
-        return self.client.info().get("name", "unknown_model")
+        """
+        This returns a unique name for the model. In the future, this might be some sort of id given by the model
+        """
+        info = self.client.info()
+        if "name" in info:
+            # name not supported in current chapkit version, might be supported in the future
+            name = info["name"]
+        else:
+            name = info["display_name"].lower().replace(" ", "_")
+        version = info.get("version")
+        return f"{name}_v{version}"
 
     def get_model_template_config(self) -> ModelTemplateConfigV2:
         """
@@ -110,24 +134,22 @@ class ExternalChapkitModelTemplate:
         # Build complete config dict
         config_dict = {
             "name": self.name,
-            "source_url": model_info.get("source_url"),
             "rest_api_url": self.rest_api_url,
             "meta_data": meta_data_dict,
+            "required_covariates": model_info.get("required_covariates", []),
+            "allow_free_additional_continuous_covariates": model_info.get(
+                "allow_free_additional_continuous_covariates", False
+            ),
+            "user_options": user_options,
             # ModelTemplateInformation fields will use defaults if not provided:
             # - supported_period_type defaults to PeriodType.any
-            # - user_options defaults to empty dict
-            # - required_covariates defaults to empty list
             # - target defaults to "disease_cases"
-            # - allow_free_additional_continuous_covariates defaults to False
             # RunnerConfig fields not needed for REST API models:
             "entry_points": None,
             "docker_env": None,
             "python_env": None,
+            "source_url": self.rest_api_url,
         }
-
-        # we need to set user_options to the fields that the model supports
-        # this is not accessible in /info, but from the config schema
-        config_dict["user_options"] = user_options
 
         return ModelTemplateConfigV2.model_validate(config_dict)
 
