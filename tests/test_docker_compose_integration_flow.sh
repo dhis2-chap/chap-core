@@ -29,13 +29,12 @@ echo "=== Worker container logs ==="
 docker compose logs --tail=50 worker
 
 echo "=== Waiting for test container to complete ==="
-docker wait chap_frontend_emulator
+exit_code=$(docker wait chap_frontend_emulator)
 
 echo "=== Test container logs ==="
-docker compose logs chap_frontend_emulator
+docker compose -f compose.yml -f compose.integration.test.yml logs chap_frontend_emulator
 
-echo "=== Getting test exit code ==="
-exit_code=$(docker inspect chap_frontend_emulator --format='{{.State.ExitCode}}')
+echo "=== Test exit code: $exit_code ==="
 
 echo "=== Final container status ==="
 docker compose ps
