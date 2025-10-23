@@ -47,12 +47,39 @@ def geojson(org_units) -> FeatureCollectionModel:
 
 
 @pytest.fixture
+def seen_periods_weekly():
+    # 2020 has 53 weeks (leap year starting on Wednesday), 2021 and 2022 have 52 weeks
+    import datetime
+    periods = []
+    for year in range(2020, 2023):
+        # Check how many weeks the year has using ISO calendar
+        last_day = datetime.date(year, 12, 31)
+        max_week = last_day.isocalendar()[1]
+        # If Dec 31 is in week 1 of next year, then max_week should be obtained from Dec 28
+        if max_week == 1:
+            max_week = datetime.date(year, 12, 28).isocalendar()[1]
+        periods.extend([f"{year}W{week:02d}" for week in range(1, max_week + 1)])
+    return periods
+
+
+@pytest.fixture
 def dataset_observations(feature_names: list[str], org_units: list[str], seen_periods: list[str]) -> list[Observation]:
     observations = [
         Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2))
         for ou_id, ou in enumerate(org_units)
         for fn in (feature_names + ["disease_cases"])
         for t, tp in enumerate(seen_periods)
+    ]
+    return observations
+
+
+@pytest.fixture
+def dataset_observations_weekly(feature_names: list[str], org_units: list[str], seen_periods_weekly: list[str]) -> list[Observation]:
+    observations = [
+        Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 52) / 2))
+        for ou_id, ou in enumerate(org_units)
+        for fn in (feature_names + ["disease_cases"])
+        for t, tp in enumerate(seen_periods_weekly)
     ]
     return observations
 
@@ -174,7 +201,7 @@ def base_engine(seeded_database_url):
     from chap_core.database.model_template_seed import seed_configured_models_from_config_dir
 
     with Session(engine) as session:
-        seed_configured_models_from_config_dir(session)
+        seed_configured_models_from_config_dir(session, skip_chapkit_models=True)
     return engine
 
 

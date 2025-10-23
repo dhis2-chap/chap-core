@@ -103,7 +103,8 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> 
 
 
 def get_model_template_from_directory_or_github_url(
-    model_template_path, base_working_dir=Path("runs/"), ignore_env=False, run_dir_type="timestamp"
+    model_template_path, base_working_dir=Path("runs/"), ignore_env=False, run_dir_type="timestamp",
+        is_chapkit_model: bool = False
 ) -> ModelTemplate:
     """
     Note: Preferably use ModelTemplate.from_directory_or_github_url instead of
@@ -126,8 +127,8 @@ def get_model_template_from_directory_or_github_url(
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
 
-    if isinstance(model_template_path, str) and model_template_path.startswith("http://localhost"):
-        logger.info(f"Assuming {model_template_path} is a chapkit model")
+    if is_chapkit_model:
+        logger.info("Model is chapkit model")
         # For now, we assume that if a model template has a url on localhost it is
         # a chapkit model
         template = ExternalChapkitModelTemplate(model_template_path)

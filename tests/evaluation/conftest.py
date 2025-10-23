@@ -34,7 +34,9 @@ def dataset_read(data_folder):
 
 org_units = ["OrgUnit1", "OrgUnit2"]
 periods = ["2022-01", "2022-02"]
+periods_weeks = ["2022W01", "2022W02"]
 last_seen_periods = ["2021-11", "2021-12"]
+last_seen_periods_weeks = ["2021W51", "2021W52"]
 
 
 @pytest.fixture
@@ -62,6 +64,34 @@ def dataset():
     )
 
 
+
+
+@pytest.fixture
+def dataset_weeks():
+    observations = [
+        Observation(
+            feature_name="disease_cases",
+            id=t * 2 + loc,
+            dataset_id=1,
+            period=periods_weeks[t],
+            org_unit=org_units[loc],
+            value=float(t + loc),
+        )
+        for t in range(2)
+        for loc in range(2)
+    ]
+    return DataSet(
+        id=1,
+        name="Test Dataset",
+        type="Test Type",
+        geojson=None,
+        covariates=[],
+        observations=observations,
+        created=None,
+    )
+
+
+
 @pytest.fixture
 def forecasts():
     return [
@@ -72,6 +102,23 @@ def forecasts():
             org_unit=f"OrgUnit{loc + 1}",
             last_train_period=last_seen_periods[ls],
             last_seen_period=last_seen_periods[ls],
+            values=[float(t + loc + 1), float(t + loc + 2), float(t + loc + 3)],
+        )
+        for t in range(2)
+        for loc in range(2)
+        for ls in range(2)
+    ]
+
+@pytest.fixture
+def forecasts_weeks():
+    return [
+        BackTestForecast(
+            id=t * 2 * 2 + loc * 2 + ls,
+            backtest_id=1,
+            period=f"2022W0{t + 1}",
+            org_unit=f"OrgUnit{loc + 1}",
+            last_train_period=last_seen_periods_weeks[ls],
+            last_seen_period=last_seen_periods_weeks[ls],
             values=[float(t + loc + 1), float(t + loc + 2), float(t + loc + 3)],
         )
         for t in range(2)
@@ -91,6 +138,21 @@ def backtest(dataset, forecasts):
         created=None,
         meta_data={},
         forecasts=forecasts,
+        metrics=[],
+    )
+
+
+@pytest.fixture
+def backtest_weeks(dataset_weeks, forecasts_weeks):
+    return BackTest(
+        id=1,
+        dataset_id=dataset_weeks.id,
+        dataset=dataset_weeks,
+        model_id="Test Model",
+        name="Test BackTest",
+        created=None,
+        meta_data={},
+        forecasts=forecasts_weeks,
         metrics=[],
     )
 

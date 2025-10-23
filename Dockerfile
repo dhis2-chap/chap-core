@@ -26,6 +26,8 @@ COPY --chown=chap:chap ./pyproject.toml ./uv.lock ./.python-version ./README.md 
 COPY --chown=chap:chap ./chap_core ./chap_core
 COPY --chown=chap:chap ./config ./config
 COPY --chown=chap:chap ./gunicorn.conf.py ./gunicorn.conf.py
+COPY --chown=chap:chap ./alembic.ini ./alembic.ini
+COPY --chown=chap:chap ./alembic ./alembic
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev

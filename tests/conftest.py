@@ -281,7 +281,7 @@ def clean_engine(database_url):
     from chap_core.database.model_template_seed import seed_configured_models_from_config_dir
 
     with Session(engine) as session:
-        seed_configured_models_from_config_dir(session)
+        seed_configured_models_from_config_dir(session, skip_chapkit_models=True)
     return engine
 
 

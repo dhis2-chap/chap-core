@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -17,7 +18,7 @@ from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import BackTest, PredictionInfo, PredictionRead, BackTestRead
 from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, FetchRequest
 from chap_core.rest_api.v1.rest_api import app
-from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
+from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest, MakeBacktestWithDataRequest
 from chap_core.rest_api.v1.routers.crud import DatasetCreate, ModelConfigurationCreate, ModelTemplateRead
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
 
 
 def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
-    response = client.get("/v1/visualization/1")
+    response = client.get("/v1/visualization/metric-plots/1")
     assert response.status_code == 200
     assert any(plot["id"] == "metric_by_horizon" for plot in response.json())
 
@@ -267,6 +268,36 @@ def anonymous_make_dataset_request(data_path):
         request.data_to_be_fetched = []
         return request
 
+@pytest.fixture()
+def knut_local_path():
+    p = Path('/Users/knutdr/Data/ch_data')
+    if not p.is_dir():
+        pytest.skip("Local data not found")
+    return p
+
+
+@pytest.fixture()
+def lao_make_dataset_request(knut_local_path):
+    fn = knut_local_path / 'laos_wo_population.json'
+    with open(fn, "r") as f:
+        request = DatasetMakeRequest.model_validate_json(f.read())
+        return request
+
+@pytest.fixture()
+def lao_weekly_backtest_request(knut_local_path):
+    fn = knut_local_path / 'laos_weekly_ar.json'
+    with open(fn, "r") as f:
+        request = json.load(f)
+        return MakeBacktestWithDataRequest.model_validate(request)
+
+@pytest.mark.skip()
+def test_weekly_laos_backtest(
+    celery_session_worker, dependency_overrides, lao_weekly_backtest_request):
+    _check_backtest_with_data(lao_weekly_backtest_request.model_dump(), expected_rejections=['W6sNfkJcXGC'])
+
+@pytest.mark.skip
+def test_local_laos(celery_session_worker, dependency_overrides, lao_make_dataset_request):
+    _make_dataset(lao_make_dataset_request, wanted_field_names=["rainfall", "disease_cases", "mean_temperature"])
 
 def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_request):
     _make_dataset(make_dataset_request)
@@ -452,6 +483,15 @@ def test_backtest_with_data_flow(
     _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run)
 
 
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_backtest_with_weekly_data_flow(
+    celery_session_worker, dependency_overrides, example_polygons, create_backtest_with_weekly_data_request, dry_run
+):
+    request_payload = create_backtest_with_weekly_data_request.model_dump()
+    print(request_payload)
+    _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run, expected_period_type="week")
+
+
 @pytest.fixture()
 def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / "create-backtest-from-data.json", "r"))
@@ -470,7 +510,7 @@ def test_local_backtest_with_data(
     assert len(detail["rejected"]) == 1
 
 
-def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False):
+def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False, expected_period_type="month"):
     url = "/v1/analytics/create-backtest-with-data"
     if dry_run:
         url += "?dryRun=true"
@@ -489,7 +529,7 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     assert len(backtest_info.dataset.data_sources) > 0, backtest_info.dataset
     assert len(backtest_info.dataset.org_units) > 0, backtest_info.dataset
     assert backtest_info.dataset.last_period is not None, backtest_info.dataset
-    assert backtest_info.dataset.period_type == "month", backtest_info.dataset
+    assert backtest_info.dataset.period_type == expected_period_type, backtest_info.dataset
     # assert len(backtest_info.metrics) > 0
     created_dataset_id = backtest_info.dataset_id
     dataset_response = client.get(f"/v1/crud/datasets/{created_dataset_id}")
@@ -501,7 +541,7 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     assert len(evaluation_entries) > 0
     EvaluationEntry.model_validate(evaluation_entries[0])
     for plot_name in ["metric_by_horizon", "metric_map"]:
-        response = client.get(f"/v1/visualization/{plot_name}/{db_id}/crps")
+        response = client.get(f"/v1/visualization/metric-plots/{plot_name}/{db_id}/crps")
         assert response.status_code == 200, response.json()
 
 

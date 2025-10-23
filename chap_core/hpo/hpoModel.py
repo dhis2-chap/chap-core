@@ -9,6 +9,7 @@ from .hpoModelInterface import HpoModelInterface
 from .objective import Objective
 from .searcher import Searcher
 from .base import write_yaml
+
 Direction = Literal["maximize", "minimize"]
 
 Direction = Literal["maximize", "minimize"]
@@ -20,12 +21,12 @@ logger.setLevel(logging.INFO)
 
 class HpoModel(HpoModelInterface):
     def __init__(
-            self, 
-            searcher: Searcher, 
-            objective: Objective,
-            direction: Direction = "minimize", 
-            # model_configuration_yaml: Optional[str] = None,
-            model_configuration: Optional[dict[str, list]] = None,
+        self,
+        searcher: Searcher,
+        objective: Objective,
+        direction: Direction = "minimize",
+        # model_configuration_yaml: Optional[str] = None,
+        model_configuration: Optional[dict[str, list]] = None,
     ):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
@@ -35,8 +36,11 @@ class HpoModel(HpoModelInterface):
         self._direction = direction
         # self._model_configuration_yaml = model_configuration_yaml #TODO: this should a parsed dict
         self.base_configs = model_configuration
-    
-    def train(self, dataset: Optional[DataSetType],) -> Tuple[str, dict[str, Any]]:
+
+    def train(
+        self,
+        dataset: Optional[DataSetType],
+    ) -> Tuple[str, dict[str, Any]]:
         """
         Runs hyperparameter optimization over a discrete search space.
         Returns the optimized and trained (trained on the whole dataset argument) predictor.
@@ -49,7 +53,7 @@ class HpoModel(HpoModelInterface):
         #     hpo_configs[key] = deduped
         # self.base_configs.pop("user_option_values")
 
-        best_score = float("inf") if self._direction=="minimize" else float("-inf")
+        best_score = float("inf") if self._direction == "minimize" else float("-inf")
         best_params: dict[str, Any] = {}
         # best_config = None
 
@@ -58,12 +62,12 @@ class HpoModel(HpoModelInterface):
             params = self._searcher.ask()
             print(f"params from searcher: {params}")
             if params is None:
-                break 
-            
+                break
+
             trial_number = None
-            if params.get("_trial_id") is not None: # for TPESearcher
+            if params.get("_trial_id") is not None:  # for TPESearcher
                 trial_number = params.pop("_trial_id")
-            
+
             # config = self.base_configs.copy()
             # config["user_option_values"] = params
 
@@ -73,7 +77,7 @@ class HpoModel(HpoModelInterface):
                 params["_trial_id"] = trial_number
                 self._searcher.tell(params, score)
                 params.pop("_trial_id")
-            else: 
+            else:
                 self._searcher.tell(params, score)
 
             is_better = (score < best_score) if self._direction == "minimize" else (score > best_score)
@@ -87,24 +91,24 @@ class HpoModel(HpoModelInterface):
         best_config = {"user_option_values": best_params}
         self._best_config = best_config
         print(f"\nBest params: {best_params} | best score: {best_score}")
-        
+
         template = self._objective.template
         # TODO: validate config without "user_option_values"
         if best_config is not None:
             logger.info(f"Validating best model configuration: {best_config}")
-            config = ModelConfiguration.model_validate(best_config)  
+            config = ModelConfiguration.model_validate(best_config)
             logger.info(f"Validated best model configuration: {config}")
         estimator = template.get_model(best_config)
         self._predictor = estimator.train(dataset)
         return self._predictor
-    
+
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         self._predictor.predict(historic_data, future_data)
 
     @property
     def get_best_config(self):
         return self._best_config
-    
+
     @property
     def write_best_config(self, output_yaml):
         if self._best_config is not None:
