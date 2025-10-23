@@ -11,6 +11,7 @@ from typing import Iterable, List, Optional
 
 import psycopg2
 import sqlalchemy
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
@@ -170,14 +171,28 @@ class SessionWrapper:
 
         # get configured models from db
         # configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
-        configured_models = self.session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()
+        configured_models = self.session.exec(
+            select(ConfiguredModelDB).options(selectinload(ConfiguredModelDB.model_template))
+        ).all()
 
         # serialize to json and combine configured model with model template
         configured_models_data = []
         for configured_model in configured_models:
             # get configured model and model template json data
-            configured_data = configured_model.model_dump(mode="json")
-            template_data = configured_model.model_template.model_dump(mode="json")
+            try:
+                configured_data = configured_model.model_dump(mode="json")
+                template_data = configured_model.model_template.model_dump(mode="json")
+
+                # Debug logging for enum handling
+                logger.debug(f"Processing configured model {configured_model.id}: {configured_model.name}")
+                logger.debug(f"Template supported_period_type: {configured_model.model_template.supported_period_type}")
+
+            except Exception as e:
+                logger.error(f"Error dumping model data for configured_model id={configured_model.id}, name={configured_model.name}")
+                logger.error(f"Template id={configured_model.model_template.id if configured_model.model_template else 'None'}")
+                logger.error(f"Exception: {type(e).__name__}: {str(e)}")
+                logger.error(f"Full traceback:", exc_info=True)
+                raise
 
             # add display name for configuration (not stored in db)
             # stitch together template displayName with configured name stub
@@ -224,6 +239,8 @@ class SessionWrapper:
             ]
             # add list of additional covariate strings to list of covariate dicts
             # Use .get() with default empty list for backwards compatibility with v1.0.17
+            # Extract existing covariate names to avoid dict comparison issues
+            existing_cov_names = [c["name"] for c in model["covariates"]]
             model["covariates"] += [
                 {
                     "name": cov,
@@ -231,7 +248,7 @@ class SessionWrapper:
                     "description": cov.replace("_", " ").capitalize(),
                 }
                 for cov in model.get("additional_continuous_covariates", [])
-                if cov not in model["covariates"]
+                if cov not in existing_cov_names
             ]
             model["archived"] = model.get("archived", False)
             model["uses_chapkit"] = model.get("uses_chapkit", False)
@@ -342,11 +359,12 @@ class SessionWrapper:
         self.session.commit()
 
         # read full backtest object so that we can compute aggregate metrics using this object
-        backtest = self.session.get(BackTest, backtest.id)
-        aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
-        logger.info(f"aggregate metrics {aggregate_metrics}")
-        backtest.aggregate_metrics = aggregate_metrics
-        self.session.commit()
+        # note: we don't do this anymore
+        # backtest = self.session.get(BackTest, backtest.id)
+        # aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
+        # logger.info(f"aggregate metrics {aggregate_metrics}")
+        # backtest.aggregate_metrics = aggregate_metrics
+        # self.session.commit()
         # add more
         return backtest.id
 
