@@ -36,6 +36,8 @@ COPY ./scripts/seed.py ./scripts/seed.py
 COPY ./pyproject.toml .
 COPY ./uv.lock .
 COPY ./README.md .
+COPY ./alembic.ini .
+COPY ./alembic ./alembic
 
 # Then, add the rest of the project source code and install it
 # Installing separately from its dependencies allows optimal layer caching

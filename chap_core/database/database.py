@@ -453,6 +453,41 @@ class SessionWrapper:
         return debug_entry.id
 
 
+def _run_alembic_migrations(engine):
+    """
+    Run Alembic migrations programmatically.
+    This is called after the custom migration system to apply any Alembic-managed schema changes.
+    """
+    from alembic import command
+    from alembic.config import Config
+
+    logger.info("Running Alembic migrations")
+
+    try:
+        # Get the path to alembic.ini relative to the project root
+        project_root = Path(__file__).parent.parent.parent
+        alembic_ini_path = project_root / "alembic.ini"
+
+        if not alembic_ini_path.exists():
+            logger.warning(f"Alembic config not found at {alembic_ini_path}. Skipping Alembic migrations.")
+            return
+
+        # Create Alembic config
+        alembic_cfg = Config(str(alembic_ini_path))
+
+        # Pass the engine connection to Alembic for programmatic usage
+        with engine.connect() as connection:
+            alembic_cfg.attributes["connection"] = connection
+            command.upgrade(alembic_cfg, "head")
+
+        logger.info("Completed Alembic migrations successfully")
+
+    except Exception as e:
+        logger.error(f"Error during Alembic migrations: {e}")
+        # Don't raise - allow system to continue if Alembic fails
+        # This ensures backward compatibility
+
+
 def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
     if engine is not None:
@@ -464,11 +499,16 @@ def create_db_and_tables():
                 for table_name, table in SQLModel.metadata.tables.items():
                     print(f"DEBUG: Table {table_name} - Columns: {[col.name for col in table.columns]}")
 
-                # Run generic migration before creating tables
+                # Step 1: Run custom migrations for backward compatibility (v1.0.17, etc.)
                 _run_generic_migration(engine)
 
+                # Step 2: Create any new tables that don't exist yet
                 SQLModel.metadata.create_all(engine)
-                logger.info("Table created")
+
+                # Step 3: Run Alembic migrations for future schema changes
+                _run_alembic_migrations(engine)
+
+                logger.info("Table created and migrations completed")
                 break
             except sqlalchemy.exc.OperationalError as e:
                 logger.error(f"Failed to create tables: {e}. Trying again")
