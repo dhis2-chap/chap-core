@@ -129,7 +129,11 @@ class SessionWrapper:
         return db_object.id
 
     def add_configured_model(
-        self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default", uses_chapkit=False
+        self,
+        model_template_id: int,
+        configuration: ModelConfiguration,
+        configuration_name="default",
+        uses_chapkit=False,
     ) -> int:
         # get model template name
         model_template = self.session.exec(
@@ -153,8 +157,11 @@ class SessionWrapper:
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
-            name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template,
-            uses_chapkit=uses_chapkit
+            name=name,
+            model_template_id=model_template_id,
+            **configuration.dict(),
+            model_template=model_template,
+            uses_chapkit=uses_chapkit,
         )
         configured_model.validate_user_options(configured_model)
         # configured_model.validate_user_options(model_template)
@@ -170,11 +177,9 @@ class SessionWrapper:
         configured_models = self.session.exec(select(ConfiguredModelDB)).all()
 
         return [
-            ModelSpecRead.model_validate(
-                self.__add_display_name(
-                    self.__extract_configured_model_data(model)
-                ))
-            for model in configured_models]
+            ModelSpecRead.model_validate(self.__add_display_name(self.__extract_configured_model_data(model)))
+            for model in configured_models
+        ]
 
     def __add_display_name(self, model):
         model["target"] = {
@@ -266,7 +271,6 @@ class SessionWrapper:
                 configured_model.model_template.source_url,
                 ignore_env=ignore_env,
             ).get_model(configured_model)
-
 
     def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
         model_template = self.session.get(ModelTemplateDB, model_template_id)

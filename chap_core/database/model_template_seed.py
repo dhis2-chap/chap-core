@@ -25,8 +25,11 @@ def add_model_template_from_url(url: str, session_wrapper: SessionWrapper) -> in
 
 
 def add_configured_model(
-    model_template_id, configuration: ModelConfiguration, configuration_name: str, session_wrapper: SessionWrapper,
-        uses_chapkit: bool = False,
+    model_template_id,
+    configuration: ModelConfiguration,
+    configuration_name: str,
+    session_wrapper: SessionWrapper,
+    uses_chapkit: bool = False,
 ) -> int:
     """
     Add a configured model to the database.
@@ -45,7 +48,9 @@ def add_configured_model(
     int
         The ID of the added model.
     """
-    return session_wrapper.add_configured_model(model_template_id, configuration, configuration_name, uses_chapkit=uses_chapkit)
+    return session_wrapper.add_configured_model(
+        model_template_id, configuration, configuration_name, uses_chapkit=uses_chapkit
+    )
 
 
 def get_naive_model_template():
@@ -66,7 +71,9 @@ def get_naive_model_template():
     return model_template
 
 
-def seed_configured_models_from_config_dir(session, dir=get_config_path() / "configured_models", skip_chapkit_models=False):
+def seed_configured_models_from_config_dir(
+    session, dir=get_config_path() / "configured_models", skip_chapkit_models=False
+):
     wrapper = SessionWrapper(session=session)
     configured_models = parse_local_model_config_from_directory(dir)
     for config in configured_models:
@@ -87,9 +94,13 @@ def seed_configured_models_from_config_dir(session, dir=get_config_path() / "con
 
                 for config_name, configured_model_configuration in config.configurations.items():
                     logger.info(f"Adding configured model {config_name} for chapkit model {config.url}")
-                    add_configured_model(template_id, configured_model_configuration, config_name, wrapper, uses_chapkit=True)
+                    add_configured_model(
+                        template_id, configured_model_configuration, config_name, wrapper, uses_chapkit=True
+                    )
             except TimeoutError:
-                logger.error(f"Chapkit model at {config.url} did not respond as healthy. Skipping this model when seeding the database.")
+                logger.error(
+                    f"Chapkit model at {config.url} did not respond as healthy. Skipping this model when seeding the database."
+                )
                 continue
         else:
             # for every version, add one for each configured model configuration

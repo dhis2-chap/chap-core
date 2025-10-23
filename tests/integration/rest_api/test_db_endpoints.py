@@ -268,9 +268,10 @@ def anonymous_make_dataset_request(data_path):
         request.data_to_be_fetched = []
         return request
 
+
 @pytest.fixture()
 def knut_local_path():
-    p = Path('/Users/knutdr/Data/ch_data')
+    p = Path("/Users/knutdr/Data/ch_data")
     if not p.is_dir():
         pytest.skip("Local data not found")
     return p
@@ -278,26 +279,29 @@ def knut_local_path():
 
 @pytest.fixture()
 def lao_make_dataset_request(knut_local_path):
-    fn = knut_local_path / 'laos_wo_population.json'
+    fn = knut_local_path / "laos_wo_population.json"
     with open(fn, "r") as f:
         request = DatasetMakeRequest.model_validate_json(f.read())
         return request
 
+
 @pytest.fixture()
 def lao_weekly_backtest_request(knut_local_path):
-    fn = knut_local_path / 'laos_weekly_ar.json'
+    fn = knut_local_path / "laos_weekly_ar.json"
     with open(fn, "r") as f:
         request = json.load(f)
         return MakeBacktestWithDataRequest.model_validate(request)
 
+
 @pytest.mark.skip()
-def test_weekly_laos_backtest(
-    celery_session_worker, dependency_overrides, lao_weekly_backtest_request):
-    _check_backtest_with_data(lao_weekly_backtest_request.model_dump(), expected_rejections=['W6sNfkJcXGC'])
+def test_weekly_laos_backtest(celery_session_worker, dependency_overrides, lao_weekly_backtest_request):
+    _check_backtest_with_data(lao_weekly_backtest_request.model_dump(), expected_rejections=["W6sNfkJcXGC"])
+
 
 @pytest.mark.skip
 def test_local_laos(celery_session_worker, dependency_overrides, lao_make_dataset_request):
     _make_dataset(lao_make_dataset_request, wanted_field_names=["rainfall", "disease_cases", "mean_temperature"])
+
 
 def test_make_dataset(celery_session_worker, dependency_overrides, make_dataset_request):
     _make_dataset(make_dataset_request)

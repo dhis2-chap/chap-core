@@ -79,7 +79,7 @@ def evaluate_hpo(
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
         logging.info(f"Loading dataset from {dataset_csv}")
-        dataset = DataSet.from_csv(dataset_csv)# , FullData)
+        dataset = DataSet.from_csv(dataset_csv)  # , FullData)
         if polygons_json is not None:
             logging.info(f"Loading polygons from {polygons_json}")
             polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)

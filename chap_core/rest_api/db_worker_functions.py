@@ -61,7 +61,9 @@ def run_backtest(
         stride=stride,
     )
     configured_model = session.get_configured_model_by_name(info.model_id)
-    estimator = session.get_configured_model_with_code(configured_model.id, force_virutal_env=worker_config.force_virtual_env)
+    estimator = session.get_configured_model_with_code(
+        configured_model.id, force_virutal_env=worker_config.force_virtual_env
+    )
     predictions_list = _backtest(
         estimator,
         dataset,
@@ -178,5 +180,5 @@ def run_backtest_from_dataset(
         n_splits=bp.n_splits,
         stride=bp.stride,
         session=session,
-        worker_config=worker_config
+        worker_config=worker_config,
     )

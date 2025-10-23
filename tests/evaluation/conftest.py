@@ -64,8 +64,6 @@ def dataset():
     )
 
 
-
-
 @pytest.fixture
 def dataset_weeks():
     observations = [
@@ -91,7 +89,6 @@ def dataset_weeks():
     )
 
 
-
 @pytest.fixture
 def forecasts():
     return [
@@ -108,6 +105,7 @@ def forecasts():
         for loc in range(2)
         for ls in range(2)
     ]
+
 
 @pytest.fixture
 def forecasts_weeks():
