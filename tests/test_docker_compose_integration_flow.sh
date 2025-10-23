@@ -28,8 +28,11 @@ docker compose logs --tail=100 chap
 echo "=== Worker container logs ==="
 docker compose logs --tail=50 worker
 
-echo "=== Attaching to test container ==="
-docker attach chap_frontend_emulator
+echo "=== Waiting for test container to complete ==="
+docker wait chap_frontend_emulator
+
+echo "=== Test container logs ==="
+docker compose logs chap_frontend_emulator
 
 echo "=== Getting test exit code ==="
 exit_code=$(docker inspect chap_frontend_emulator --format='{{.State.ExitCode}}')
