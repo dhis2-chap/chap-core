@@ -540,17 +540,25 @@ def _get_column_default_value(column):
     # Check if column has a default value defined
     if column.default is not None:
         if hasattr(column.default, "arg") and column.default.arg is not None:
+            # Check if it's a factory function (like list or dict)
+            if callable(column.default.arg):
+                try:
+                    result = column.default.arg()
+                    if isinstance(result, list):
+                        return "[]"
+                    elif isinstance(result, dict):
+                        return "{}"
+                except Exception:
+                    pass
             return column.default.arg
 
     # Check column type and provide appropriate defaults
     column_type = str(column.type).lower()
 
-    if "json" in column_type:
-        # For JSON columns, return empty array or object
-        if "list" in str(column.type) or "array" in column_type:
-            return "[]"  # Empty array for lists
-        else:
-            return "{}"  # Empty object for general JSON
+    if "json" in column_type or "pydanticlisttype" in column_type:
+        # Default to empty array for JSON columns (safer default)
+        # Most JSON columns in this codebase are lists (org_units, data_sources, covariates, etc.)
+        return "[]"
     elif "varchar" in column_type or "text" in column_type:
         return ""  # Empty string for text columns
     elif "integer" in column_type or "numeric" in column_type:
