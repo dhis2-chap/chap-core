@@ -14,7 +14,6 @@ import sqlalchemy
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.datatypes import FullData, SamplesWithTruth, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.predictor.naive_estimator import NaiveEstimator
@@ -191,7 +190,7 @@ class SessionWrapper:
                 logger.error(f"Error dumping model data for configured_model id={configured_model.id}, name={configured_model.name}")
                 logger.error(f"Template id={configured_model.model_template.id if configured_model.model_template else 'None'}")
                 logger.error(f"Exception: {type(e).__name__}: {str(e)}")
-                logger.error(f"Full traceback:", exc_info=True)
+                logger.error("Full traceback:", exc_info=True)
                 raise
 
             # add display name for configuration (not stored in db)
