@@ -28,10 +28,9 @@ from chap_core.database.tables import BackTest, BackTestForecast, BackTestMetric
 # for 'autogenerate' support
 target_metadata = SQLModel.metadata
 
-# Get database URL from environment variable
-database_url = os.getenv("CHAP_DATABASE_URL")
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+# Get database URL from environment variable, with default for local development
+database_url = os.getenv("CHAP_DATABASE_URL", "postgresql://root:thisisnotgoingtobeexposed@localhost:5432/chap_core")
+config.set_main_option("sqlalchemy.url", database_url)
 
 
 def run_migrations_offline() -> None:
