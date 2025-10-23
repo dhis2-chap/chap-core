@@ -55,6 +55,7 @@ dependencies = [
     "gunicorn>=23.0.0",
     "optuna>=4.5.0",
     "httpx>=0.28.1",
+    "alembic>=1.14.0",
 ]
 
 [dependency-groups]
