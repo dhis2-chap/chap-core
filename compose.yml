@@ -51,7 +51,7 @@ services:
       - chap-network
 
   postgres:
-    image: postgres
+    image: postgres@sha256:87ec5e0a167dc7d4831729f9e1d2ee7b8597dcc49ccd9e43cc5f89e808d2adae
     restart: always
     environment:
       POSTGRES_USER: root
@@ -59,9 +59,10 @@ services:
       POSTGRES_DB: chap_core
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U root -d chap_core"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
     volumes:
       - chap-db:/var/lib/postgresql/data
     expose:

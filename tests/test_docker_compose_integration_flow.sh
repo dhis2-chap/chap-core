@@ -10,20 +10,23 @@ docker compose down
 echo "=== Starting Docker Compose stack ==="
 docker compose -f compose.yml -f compose.integration.test.yml up --build --detach --force-recreate
 
+echo "=== Postgres initialization logs (immediate) ==="
+docker compose logs postgres
+
 echo "=== Waiting for containers to initialize ==="
 sleep 10
 
 echo "=== Container status ==="
 docker compose ps
 
+echo "=== Postgres logs after waiting ==="
+docker compose logs postgres
+
 echo "=== Chap container logs ==="
 docker compose logs --tail=100 chap
 
 echo "=== Worker container logs ==="
 docker compose logs --tail=50 worker
-
-echo "=== Postgres container logs ==="
-docker compose logs --tail=50 postgres
 
 echo "=== Attaching to test container ==="
 docker attach chap_frontend_emulator
