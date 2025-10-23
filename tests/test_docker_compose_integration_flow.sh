@@ -8,6 +8,9 @@ docker compose down  # delete the db
 docker compose -f compose.yml -f compose.integration.test.yml up --build --detach --force-recreate
 docker attach chap_frontend_emulator
 
+sleep 5
+docker compose logs chap
+
 exit_code=$(docker inspect chap_frontend_emulator --format='{{.State.ExitCode}}')
 docker compose down
 [ "$exit_code" -eq "0" ] || { echo "Variable is not zero."; exit 1; }
