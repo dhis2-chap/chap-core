@@ -92,9 +92,9 @@
           max_epochs: 2
 
 
-- url: http://193.157.236.38:5003  # for testing locally, replace with local ip
-  uses_chapkit: true
-  versions:
-    v1: "/v1"
-  configurations:
-    chapkit: {}
+#- url: http://193.157.236.38:5003  # for testing locally, replace with local ip
+#  uses_chapkit: true
+#  versions:
+#    v1: "/v1"
+#  configurations:
+#    chapkit: {}

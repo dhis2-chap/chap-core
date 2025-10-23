@@ -223,17 +223,18 @@ class SessionWrapper:
                 for cov in model["required_covariates"]
             ]
             # add list of additional covariate strings to list of covariate dicts
+            # Use .get() with default empty list for backwards compatibility with v1.0.17
             model["covariates"] += [
                 {
                     "name": cov,
                     "displayName": cov.replace("_", " ").capitalize(),
                     "description": cov.replace("_", " ").capitalize(),
                 }
-                for cov in model["additional_continuous_covariates"]
+                for cov in model.get("additional_continuous_covariates", [])
                 if cov not in model["covariates"]
             ]
-            model["archived"] = model["archived"]
-            model["uses_chapkit"] = model["uses_chapkit"]
+            model["archived"] = model.get("archived", False)
+            model["uses_chapkit"] = model.get("uses_chapkit", False)
         # for m in configured_models_data:
         #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
         configured_models_read = [ModelSpecRead.model_validate(m) for m in configured_models_data]
@@ -484,6 +485,137 @@ def create_db_and_tables():
         logger.warning("Engine not set. Tables not created")
 
 
+def _run_v1_0_17_migrations(conn, engine):
+    """
+    Specific migrations needed when upgrading from v1.0.17 to current version.
+    This handles data type conversions and corrections that the generic migration cannot handle.
+    """
+    logger.info("Running v1.0.17 specific migrations")
+
+    inspector = sqlalchemy.inspect(engine)
+    existing_tables = inspector.get_table_names()
+
+    try:
+        # Fix: Check if modeltemplatedb table exists and has corrupted data
+        if "modeltemplatedb" in existing_tables:
+            logger.info("Checking for corrupted PeriodType enum values in modeltemplatedb")
+
+            # Check if there are any rows with invalid enum values (like '1' instead of 'week', 'month', etc.)
+            check_sql = """
+                SELECT COUNT(*) as count
+                FROM modeltemplatedb
+                WHERE supported_period_type NOT IN ('week', 'month', 'any', 'year')
+            """
+            result = conn.execute(sqlalchemy.text(check_sql)).fetchone()
+
+            if result and result[0] > 0:
+                logger.warning(f"Found {result[0]} rows with corrupted PeriodType enum values, fixing...")
+
+                # Map common corrupted values to correct enum values
+                # If the value is '1', we'll default to 'any' as it's the most permissive
+                fix_sql = """
+                    UPDATE modeltemplatedb
+                    SET supported_period_type = 'any'::periodtype
+                    WHERE supported_period_type NOT IN ('week', 'month', 'any', 'year')
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+                logger.info("Fixed corrupted PeriodType enum values")
+
+        # Fix: Ensure JSON columns that should be arrays are arrays, not objects
+        if "dataset" in existing_tables:
+            columns = {col["name"] for col in inspector.get_columns("dataset")}
+
+            # Fix data_sources if it exists and contains objects instead of arrays
+            if "data_sources" in columns:
+                logger.info("Fixing data_sources column in dataset table")
+                fix_sql = """
+                    UPDATE dataset
+                    SET data_sources = '[]'::json
+                    WHERE data_sources IS NULL OR data_sources::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+            # Fix org_units if it exists and contains objects instead of arrays
+            if "org_units" in columns:
+                logger.info("Fixing org_units column in dataset table")
+                fix_sql = """
+                    UPDATE dataset
+                    SET org_units = '[]'::json
+                    WHERE org_units IS NULL OR org_units::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+            # Fix covariates if it contains objects instead of arrays
+            if "covariates" in columns:
+                logger.info("Fixing covariates column in dataset table")
+                fix_sql = """
+                    UPDATE dataset
+                    SET covariates = '[]'::json
+                    WHERE covariates IS NULL OR covariates::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+        # Fix backtest table JSON columns
+        if "backtest" in existing_tables:
+            columns = {col["name"] for col in inspector.get_columns("backtest")}
+
+            if "org_units" in columns:
+                logger.info("Fixing org_units column in backtest table")
+                fix_sql = """
+                    UPDATE backtest
+                    SET org_units = '[]'::json
+                    WHERE org_units IS NULL OR org_units::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+            if "split_periods" in columns:
+                logger.info("Fixing split_periods column in backtest table")
+                fix_sql = """
+                    UPDATE backtest
+                    SET split_periods = '[]'::json
+                    WHERE split_periods IS NULL OR split_periods::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+        # Fix configuredmodeldb table JSON columns
+        if "configuredmodeldb" in existing_tables:
+            columns = {col["name"] for col in inspector.get_columns("configuredmodeldb")}
+
+            if "user_option_values" in columns:
+                logger.info("Fixing user_option_values column in configuredmodeldb table")
+                # This one should actually be an object {}, not an array
+                fix_sql = """
+                    UPDATE configuredmodeldb
+                    SET user_option_values = '{}'::json
+                    WHERE user_option_values IS NULL
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+            if "additional_continuous_covariates" in columns:
+                logger.info("Fixing additional_continuous_covariates column in configuredmodeldb table")
+                fix_sql = """
+                    UPDATE configuredmodeldb
+                    SET additional_continuous_covariates = '[]'::json
+                    WHERE additional_continuous_covariates IS NULL OR additional_continuous_covariates::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+        logger.info("Completed v1.0.17 specific migrations successfully")
+
+    except Exception as e:
+        logger.error(f"Error during v1.0.17 migrations: {e}")
+        conn.rollback()
+        raise
+
+
 def _run_generic_migration(engine):
     """
     Generic migration function that adds missing columns to existing tables
@@ -492,6 +624,9 @@ def _run_generic_migration(engine):
     logger.info("Running generic migration for missing columns")
 
     with engine.connect() as conn:
+        # Run v1.0.17 specific migrations first
+        _run_v1_0_17_migrations(conn, engine)
+
         # Get current database schema
         inspector = sqlalchemy.inspect(engine)
         existing_tables = inspector.get_table_names()
