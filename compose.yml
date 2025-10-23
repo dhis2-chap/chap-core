@@ -7,9 +7,12 @@ services:
 
   chap:
     depends_on:
-      - redis
-      - worker
-      - postgres
+      redis:
+        condition: service_started
+      worker:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     container_name: chap
     build: .
     environment:
@@ -31,7 +34,8 @@ services:
   worker:
     container_name: worker
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     # NOTE: We point to specific prebuilt image, which is built from Dockerfile.inla
     image: ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
     environment:
@@ -47,12 +51,17 @@ services:
       - chap-network
 
   postgres:
-    image: postgres:17
+    image: postgres
     restart: always
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: thisisnotgoingtobeexposed
       POSTGRES_DB: chap_core
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d chap_core"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
       - chap-db:/var/lib/postgresql/data
     expose:
@@ -61,13 +70,13 @@ services:
       - chap-network
 
   # chtorch model (which uses chapkit)
-  chtorch:
-    image: ghcr.io/dhis2-chap/chtorch:chapkit2-1aa43a0
-    ports:
-      - "5001:8000"
-    restart: unless-stopped
-    networks:
-      - chap-network
+#  chtorch:
+#    image: ghcr.io/dhis2-chap/chtorch:chapkit2-1aa43a0
+#    ports:
+#      - "5001:8000"
+#    restart: unless-stopped
+#    networks:
+#      - chap-network
 
 
 networks:
