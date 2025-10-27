@@ -51,7 +51,7 @@
     },
     {
       "data": {
-        "name": "data-e9c6a48168ac1fe7af9aef3a0dba9175"
+        "name": "data-109996430d521fa7c6a21ff381e80889"
       },
       "mark": {
         "type": "bar",
@@ -96,7 +96,7 @@
     },
     {
       "data": {
-        "name": "data-567620ccecadac81eeedba26c60f11d9"
+        "name": "data-1e3bbdd2e359575f6a3fe73de4087295"
       },
       "mark": {
         "type": "bar",
@@ -141,7 +141,7 @@
     },
     {
       "data": {
-        "name": "data-88fd129cd65dc40ca3086ce1a90fab8f"
+        "name": "data-73ad8ed4d5cab1f01398c7bf7695901d"
       },
       "mark": {
         "type": "bar",
@@ -186,6 +186,49 @@
     },
     {
       "data": {
+        "name": "data-b5a5221192b8db6aef1167d7fc68a830"
+      },
+      "mark": {
+        "type": "bar"
+      },
+      "encoding": {
+        "tooltip": [
+          {
+            "field": "horizon_distance",
+            "title": "Horizon",
+            "type": "ordinal"
+          },
+          {
+            "aggregate": "sum",
+            "field": "metric",
+            "title": "Count",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "horizon_distance",
+          "title": "Horizon (periods ahead)",
+          "type": "ordinal"
+        },
+        "y": {
+          "aggregate": "sum",
+          "field": "metric",
+          "title": "Samples above truth (count)",
+          "type": "quantitative"
+        }
+      },
+      "height": 400,
+      "title": {
+        "text": "Samples above truth by horizon",
+        "subtitle": "Count of samples where forecast > truth. x-axis: forecast horizon distance",
+        "anchor": "start",
+        "fontSize": 16,
+        "subtitleFontSize": 12
+      },
+      "width": 600
+    },
+    {
+      "data": {
         "name": "empty"
       },
       "mark": {
@@ -203,7 +246,7 @@
     },
     {
       "data": {
-        "name": "data-5b4c7d151dd7d2425fa84c3b588d9724"
+        "name": "data-db8e7e4abbbcc0ab87db7315694e6964"
       },
       "mark": {
         "type": "line",
@@ -253,7 +296,7 @@
     },
     {
       "data": {
-        "name": "data-9247e8facb3160531e47797dd5dbf00a"
+        "name": "data-00943b9794bb0535ced5b4a2a9525f2d"
       },
       "mark": {
         "type": "line",
@@ -303,7 +346,7 @@
     },
     {
       "data": {
-        "name": "data-fc4eee5c07462bbace03cfab78837215"
+        "name": "data-7e063850608a7e7a83105f33e489f488"
       },
       "mark": {
         "type": "line",
@@ -345,6 +388,54 @@
       "title": {
         "text": "Peak week lag (weeks) by time period",
         "subtitle": "Negative = earlier peak (model before truth); Positive = later peak (model after truth). x-axis: peak observation week",
+        "anchor": "start",
+        "fontSize": 16,
+        "subtitleFontSize": 12
+      },
+      "width": 600
+    },
+    {
+      "data": {
+        "name": "data-b5a5221192b8db6aef1167d7fc68a830"
+      },
+      "mark": {
+        "type": "line"
+      },
+      "encoding": {
+        "color": {
+          "field": "location",
+          "title": "Location",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "time_period",
+            "title": "Time Period",
+            "type": "ordinal"
+          },
+          {
+            "aggregate": "sum",
+            "field": "metric",
+            "title": "Count",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "time_period",
+          "title": "Time Period",
+          "type": "ordinal"
+        },
+        "y": {
+          "aggregate": "sum",
+          "field": "metric",
+          "title": "Samples above truth (count)",
+          "type": "quantitative"
+        }
+      },
+      "height": 400,
+      "title": {
+        "text": "Samples above truth by time period",
+        "subtitle": "Count of samples where forecast > truth. x-axis: time period of observation",
         "anchor": "start",
         "fontSize": 16,
         "subtitleFontSize": 12
@@ -443,7 +534,7 @@
     "empty": [
       {}
     ],
-    "data-e9c6a48168ac1fe7af9aef3a0dba9175": [
+    "data-109996430d521fa7c6a21ff381e80889": [
       {
         "horizon_distance": 1,
         "location": "loc1",
@@ -457,19 +548,19 @@
       {
         "horizon_distance": 2,
         "location": "loc1",
-        "metric": 1.0
+        "metric": 14.5
       },
       {
         "horizon_distance": 2,
         "location": "loc2",
-        "metric": 6.5
+        "metric": 14.0
       }
     ],
-    "data-567620ccecadac81eeedba26c60f11d9": [
+    "data-1e3bbdd2e359575f6a3fe73de4087295": [
       {
         "horizon_distance": 1,
         "location": "loc1",
-        "metric": 2.0
+        "metric": -1.0
       },
       {
         "horizon_distance": 1,
@@ -479,7 +570,7 @@
       {
         "horizon_distance": 2,
         "location": "loc1",
-        "metric": -1.0
+        "metric": -4.0
       },
       {
         "horizon_distance": 2,
@@ -487,11 +578,11 @@
         "metric": 2.0
       }
     ],
-    "data-88fd129cd65dc40ca3086ce1a90fab8f": [
+    "data-73ad8ed4d5cab1f01398c7bf7695901d": [
       {
         "horizon_distance": 1,
         "location": "loc1",
-        "metric": -1.0
+        "metric": 0.0
       },
       {
         "horizon_distance": 1,
@@ -501,7 +592,7 @@
       {
         "horizon_distance": 2,
         "location": "loc1",
-        "metric": 0.0
+        "metric": 1.0
       },
       {
         "horizon_distance": 2,
@@ -509,7 +600,57 @@
         "metric": -6.0
       }
     ],
-    "data-5b4c7d151dd7d2425fa84c3b588d9724": [
+    "data-b5a5221192b8db6aef1167d7fc68a830": [
+      {
+        "location": "loc1",
+        "time_period": "2023-W01",
+        "horizon_distance": 1,
+        "metric": 0.0
+      },
+      {
+        "location": "loc1",
+        "time_period": "2023-W02",
+        "horizon_distance": 2,
+        "metric": 1.0
+      },
+      {
+        "location": "loc1",
+        "time_period": "2023-W08",
+        "horizon_distance": 1,
+        "metric": 1.0
+      },
+      {
+        "location": "loc1",
+        "time_period": "2023-W09",
+        "horizon_distance": 2,
+        "metric": 1.0
+      },
+      {
+        "location": "loc2",
+        "time_period": "2023-W01",
+        "horizon_distance": 1,
+        "metric": 1.0
+      },
+      {
+        "location": "loc2",
+        "time_period": "2023-W02",
+        "horizon_distance": 2,
+        "metric": 1.0
+      },
+      {
+        "location": "loc2",
+        "time_period": "2023-W08",
+        "horizon_distance": 1,
+        "metric": 0.0
+      },
+      {
+        "location": "loc2",
+        "time_period": "2023-W09",
+        "horizon_distance": 2,
+        "metric": 1.0
+      }
+    ],
+    "data-db8e7e4abbbcc0ab87db7315694e6964": [
       {
         "time_period": "2023-W01",
         "location": "loc1",
@@ -523,12 +664,12 @@
       {
         "time_period": "2023-W02",
         "location": "loc1",
-        "metric": 1.0
+        "metric": 11.0
       },
       {
         "time_period": "2023-W02",
         "location": "loc2",
-        "metric": 2.0
+        "metric": 21.0
       },
       {
         "time_period": "2023-W08",
@@ -543,36 +684,36 @@
       {
         "time_period": "2023-W09",
         "location": "loc1",
-        "metric": 1.0
+        "metric": 18.0
       },
       {
         "time_period": "2023-W09",
         "location": "loc2",
-        "metric": 11.0
+        "metric": 7.0
       }
     ],
-    "data-9247e8facb3160531e47797dd5dbf00a": [
+    "data-00943b9794bb0535ced5b4a2a9525f2d": [
+      {
+        "time_period": "2023-W08",
+        "location": "loc1",
+        "metric": -2.5
+      },
       {
         "time_period": "2023-W08",
         "location": "loc2",
         "metric": 3.0
-      },
-      {
-        "time_period": "2023-W09",
-        "location": "loc1",
-        "metric": 0.5
       }
     ],
-    "data-fc4eee5c07462bbace03cfab78837215": [
+    "data-7e063850608a7e7a83105f33e489f488": [
+      {
+        "time_period": "2023-W08",
+        "location": "loc1",
+        "metric": 0.5
+      },
       {
         "time_period": "2023-W08",
         "location": "loc2",
         "metric": -6.5
-      },
-      {
-        "time_period": "2023-W09",
-        "location": "loc1",
-        "metric": -0.5
       }
     ]
   }
