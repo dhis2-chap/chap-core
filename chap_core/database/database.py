@@ -115,14 +115,22 @@ class SessionWrapper:
         existing_template = self.session.exec(
             select(ModelTemplateDB).where(ModelTemplateDB.name == model_template_config.name)
         ).first()
-        if existing_template:
-            logger.info(f"Model template with name {model_template_config.name} already exists. Returning existing id")
-            return existing_template.id
+
         d = model_template_config.dict()
         info = d.pop("meta_data")
         d = d | info
-        db_object = ModelTemplateDB(**d)
 
+        if existing_template:
+            logger.info(f"Model template with name {model_template_config.name} already exists. Updating it")
+            # Update the existing template with new data
+            for key, value in d.items():
+                if hasattr(existing_template, key):
+                    setattr(existing_template, key, value)
+            self.session.commit()
+            return existing_template.id
+
+        # Create new template
+        db_object = ModelTemplateDB(**d)
         logger.info(f"Adding model template: {db_object}")
         self.session.add(db_object)
         self.session.commit()
@@ -323,10 +331,10 @@ class SessionWrapper:
         info.created = datetime.datetime.now()
         # org_units = list({location for ds in evaluation_results for location in ds.locations()})
         # split_points = list({er.period_range[0] for er in evaluation_results})
-        model_db_id = (
-            self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
-        )
-        backtest = BackTest(**info.dict() | {"model_db_id": model_db_id})
+        model_db = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first()
+        model_db_id = model_db.id
+
+        backtest = BackTest(**info.dict() | {"model_db_id": model_db_id, "model_template_version": model_db.model_template.version})
         self.session.add(backtest)
         org_units = set([])
         split_points = set([])

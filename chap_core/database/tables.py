@@ -19,6 +19,7 @@ class BackTestBase(DBModel):
     model_id: str
     name: Optional[str] = None
     created: Optional[datetime.datetime] = None
+    model_template_version: Optional[str] = None  # This is the version of the model template in the moment the backtest was created (version at model template object can change later)
 
 
 class DataSetMeta(DataSetInfo):

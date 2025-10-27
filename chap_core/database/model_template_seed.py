@@ -18,8 +18,9 @@ def add_model_template(model_template: ModelTemplateDB, session_wrapper: Session
     return template_id
 
 
-def add_model_template_from_url(url: str, session_wrapper: SessionWrapper) -> int:
+def add_model_template_from_url(url: str, session_wrapper: SessionWrapper, version: str="") -> int:
     model_template_config = ExternalModelTemplate.fetch_config_from_github_url(url)
+    model_template_config.version = version
     template_id = session_wrapper.add_model_template_from_yaml_config(model_template_config)
     return template_id
 
@@ -93,12 +94,15 @@ def seed_configured_models_from_config_dir(session, dir=get_config_path() / "con
                 continue
         else:
             # for every version, add one for each configured model configuration
-            for version, version_commit_or_branch in config.versions.items():
-                version_commit_or_branch = version_commit_or_branch.strip("@")
-                version_url = f"{config.url}@{version_commit_or_branch}"
-                template_id = add_model_template_from_url(version_url, wrapper)
-                for config_name, configured_model_configuration in config.configurations.items():
-                    add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
+            # find latest version in yaml, add that as a model template before for loop
+            version, version_commit_or_branch = list(config.versions.items())[-1]
+            version_commit_or_branch = version_commit_or_branch.strip("@")
+            version_url = f"{config.url}@{version_commit_or_branch}"
+            template_id = add_model_template_from_url(version_url, wrapper, version)
+
+            for config_name, configured_model_configuration in config.configurations.items():
+                add_configured_model(template_id, configured_model_configuration, config_name, wrapper)
+
 
     # add naive model template
     naive_template = get_naive_model_template()

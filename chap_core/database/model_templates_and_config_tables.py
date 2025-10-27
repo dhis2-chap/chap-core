@@ -50,6 +50,7 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     id: Optional[int] = Field(primary_key=True, default=None)
     source_url: Optional[str] = None
     configured_models: List["ConfiguredModelDB"] = Relationship(back_populates="model_template", cascade_delete=True)
+    version: Optional[str] = None
 
 
 class ModelConfiguration(SQLModel):
