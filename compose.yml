@@ -51,7 +51,7 @@ services:
       - chap-network
 
   postgres:
-    image: postgres@sha256:87ec5e0a167dc7d4831729f9e1d2ee7b8597dcc49ccd9e43cc5f89e808d2adae
+    image: postgres:17
     restart: always
     environment:
       POSTGRES_USER: root
