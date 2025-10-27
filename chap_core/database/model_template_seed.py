@@ -18,7 +18,7 @@ def add_model_template(model_template: ModelTemplateDB, session_wrapper: Session
     return template_id
 
 
-def add_model_template_from_url(url: str, session_wrapper: SessionWrapper, version: str="") -> int:
+def add_model_template_from_url(url: str, session_wrapper: SessionWrapper, version: str) -> int:
     model_template_config = ExternalModelTemplate.fetch_config_from_github_url(url)
     model_template_config.version = version
     template_id = session_wrapper.add_model_template_from_yaml_config(model_template_config)

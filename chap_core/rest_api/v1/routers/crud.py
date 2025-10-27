@@ -338,6 +338,7 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     id: int
     user_options: Optional[dict] = None
     required_covariates: List[str] = []
+    version: Optional[str] = None
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead])
