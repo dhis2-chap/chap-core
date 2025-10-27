@@ -65,6 +65,30 @@ class MetricByHorizonV2(MetricPlotV2):
 
         return chart
 
+class MetricByTimePeriodV2(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_time_period",
+        display_name="Time Period Plot",
+        description="Shows the aggregated metric by time period (per location)",
+    )
+
+    def plot_from_df(self) -> alt.Chart:
+        df = self._metric_data
+        adf = df.groupby(["time_period", "location"]).agg({"metric": "mean"}).reset_index()
+        chart = (
+            alt.Chart(adf)
+            .mark_line(point=True)
+            .encode(
+                x=alt.X("time_period:O", title="Time period"),
+                y=alt.Y("metric:Q", title="Mean Metric Value"),
+                color=alt.Color("location:N", title="Location"),
+                tooltip=["time_period", "location", "metric"],
+            )
+            .properties(width=600, height=400, title="Mean Metric by Time Period")
+            .interactive()
+        )
+        
+        return chart
 
 class MetricMapV2(MetricPlotV2):
     visualization_info = VisualizationInfo(

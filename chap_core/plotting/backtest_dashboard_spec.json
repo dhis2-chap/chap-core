@@ -1,0 +1,579 @@
+{
+  "config": {
+    "view": {
+      "continuousWidth": 300,
+      "continuousHeight": 300,
+      "stroke": null
+    },
+    "axis": {
+      "labelFontSize": 11,
+      "titleFontSize": 12
+    },
+    "legend": {
+      "labelFontSize": 11,
+      "titleFontSize": 12
+    }
+  },
+  "vconcat": [
+    {
+      "data": {
+        "name": "empty"
+      },
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "fontSize": 20,
+        "fontWeight": "bold"
+      },
+      "encoding": {
+        "text": {
+          "value": "Backtest dashboard"
+        }
+      },
+      "height": 24
+    },
+    {
+      "data": {
+        "name": "empty"
+      },
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "fontSize": 16,
+        "fontWeight": "bold"
+      },
+      "encoding": {
+        "text": {
+          "value": "By horizon"
+        }
+      },
+      "height": 20
+    },
+    {
+      "data": {
+        "name": "data-e9c6a48168ac1fe7af9aef3a0dba9175"
+      },
+      "mark": {
+        "type": "bar",
+        "point": true
+      },
+      "encoding": {
+        "tooltip": [
+          {
+            "field": "horizon_distance",
+            "type": "quantitative"
+          },
+          {
+            "field": "location",
+            "type": "nominal"
+          },
+          {
+            "field": "metric",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "horizon_distance",
+          "title": "Horizon (periods ahead)",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "metric",
+          "title": "Mean Metric Value",
+          "type": "quantitative"
+        }
+      },
+      "height": 400,
+      "name": "view_1",
+      "title": {
+        "text": "RMSE by horizon distance",
+        "subtitle": "Lower is better; measures average forecast error magnitude across samples. x-axis: forecast horizon distance",
+        "anchor": "start",
+        "fontSize": 16,
+        "subtitleFontSize": 12
+      },
+      "width": 600
+    },
+    {
+      "data": {
+        "name": "data-567620ccecadac81eeedba26c60f11d9"
+      },
+      "mark": {
+        "type": "bar",
+        "point": true
+      },
+      "encoding": {
+        "tooltip": [
+          {
+            "field": "horizon_distance",
+            "type": "quantitative"
+          },
+          {
+            "field": "location",
+            "type": "nominal"
+          },
+          {
+            "field": "metric",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "horizon_distance",
+          "title": "Horizon (periods ahead)",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "metric",
+          "title": "Mean Metric Value",
+          "type": "quantitative"
+        }
+      },
+      "height": 400,
+      "name": "view_2",
+      "title": {
+        "text": "Peak value difference (truth - pred) by horizon",
+        "subtitle": "Negative = earlier peak (model before truth); Positive = later peak (model after truth). x-axis: forecast horizon distance",
+        "anchor": "start",
+        "fontSize": 16,
+        "subtitleFontSize": 12
+      },
+      "width": 600
+    },
+    {
+      "data": {
+        "name": "data-88fd129cd65dc40ca3086ce1a90fab8f"
+      },
+      "mark": {
+        "type": "bar",
+        "point": true
+      },
+      "encoding": {
+        "tooltip": [
+          {
+            "field": "horizon_distance",
+            "type": "quantitative"
+          },
+          {
+            "field": "location",
+            "type": "nominal"
+          },
+          {
+            "field": "metric",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "horizon_distance",
+          "title": "Horizon (periods ahead)",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "metric",
+          "title": "Mean Metric Value",
+          "type": "quantitative"
+        }
+      },
+      "height": 400,
+      "name": "view_3",
+      "title": {
+        "text": "Peak week lag (weeks) by horizon",
+        "subtitle": "Negative = overprediction (model peak > truth); Positive = underprediction (model peak < truth). x-axis: forecast horizon distance",
+        "anchor": "start",
+        "fontSize": 16,
+        "subtitleFontSize": 12
+      },
+      "width": 600
+    },
+    {
+      "data": {
+        "name": "empty"
+      },
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "fontSize": 16,
+        "fontWeight": "bold"
+      },
+      "encoding": {
+        "text": {
+          "value": "By time period"
+        }
+      },
+      "height": 20
+    },
+    {
+      "data": {
+        "name": "data-5b4c7d151dd7d2425fa84c3b588d9724"
+      },
+      "mark": {
+        "type": "line",
+        "point": true
+      },
+      "encoding": {
+        "color": {
+          "field": "location",
+          "title": "Location",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "time_period",
+            "type": "nominal"
+          },
+          {
+            "field": "location",
+            "type": "nominal"
+          },
+          {
+            "field": "metric",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "time_period",
+          "title": "Time period",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "metric",
+          "title": "Mean Metric Value",
+          "type": "quantitative"
+        }
+      },
+      "height": 400,
+      "name": "view_4",
+      "title": {
+        "text": "RMSE by time period",
+        "subtitle": "Lower is better; measures average forecast error magnitude across samples. x-axis: time period of observation",
+        "anchor": "start",
+        "fontSize": 16,
+        "subtitleFontSize": 12
+      },
+      "width": 600
+    },
+    {
+      "data": {
+        "name": "data-9247e8facb3160531e47797dd5dbf00a"
+      },
+      "mark": {
+        "type": "line",
+        "point": true
+      },
+      "encoding": {
+        "color": {
+          "field": "location",
+          "title": "Location",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "time_period",
+            "type": "nominal"
+          },
+          {
+            "field": "location",
+            "type": "nominal"
+          },
+          {
+            "field": "metric",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "time_period",
+          "title": "Time period",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "metric",
+          "title": "Mean Metric Value",
+          "type": "quantitative"
+        }
+      },
+      "height": 400,
+      "name": "view_5",
+      "title": {
+        "text": "Peak value difference (truth - pred) by time period",
+        "subtitle": "Negative = overprediction (model peak > truth); Positive = underprediction (model peak < truth). x-axis: true peak week",
+        "anchor": "start",
+        "fontSize": 16,
+        "subtitleFontSize": 12
+      },
+      "width": 600
+    },
+    {
+      "data": {
+        "name": "data-fc4eee5c07462bbace03cfab78837215"
+      },
+      "mark": {
+        "type": "line",
+        "point": true
+      },
+      "encoding": {
+        "color": {
+          "field": "location",
+          "title": "Location",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "time_period",
+            "type": "nominal"
+          },
+          {
+            "field": "location",
+            "type": "nominal"
+          },
+          {
+            "field": "metric",
+            "type": "quantitative"
+          }
+        ],
+        "x": {
+          "field": "time_period",
+          "title": "Time period",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "metric",
+          "title": "Mean Metric Value",
+          "type": "quantitative"
+        }
+      },
+      "height": 400,
+      "name": "view_6",
+      "title": {
+        "text": "Peak week lag (weeks) by time period",
+        "subtitle": "Negative = earlier peak (model before truth); Positive = later peak (model after truth). x-axis: peak observation week",
+        "anchor": "start",
+        "fontSize": 16,
+        "subtitleFontSize": 12
+      },
+      "width": 600
+    }
+  ],
+  "params": [
+    {
+      "name": "param_1",
+      "select": {
+        "type": "interval",
+        "encodings": [
+          "x",
+          "y"
+        ]
+      },
+      "bind": "scales",
+      "views": [
+        "view_1"
+      ]
+    },
+    {
+      "name": "param_2",
+      "select": {
+        "type": "interval",
+        "encodings": [
+          "x",
+          "y"
+        ]
+      },
+      "bind": "scales",
+      "views": [
+        "view_2"
+      ]
+    },
+    {
+      "name": "param_3",
+      "select": {
+        "type": "interval",
+        "encodings": [
+          "x",
+          "y"
+        ]
+      },
+      "bind": "scales",
+      "views": [
+        "view_3"
+      ]
+    },
+    {
+      "name": "param_4",
+      "select": {
+        "type": "interval",
+        "encodings": [
+          "x",
+          "y"
+        ]
+      },
+      "bind": "scales",
+      "views": [
+        "view_4"
+      ]
+    },
+    {
+      "name": "param_5",
+      "select": {
+        "type": "interval",
+        "encodings": [
+          "x",
+          "y"
+        ]
+      },
+      "bind": "scales",
+      "views": [
+        "view_5"
+      ]
+    },
+    {
+      "name": "param_6",
+      "select": {
+        "type": "interval",
+        "encodings": [
+          "x",
+          "y"
+        ]
+      },
+      "bind": "scales",
+      "views": [
+        "view_6"
+      ]
+    }
+  ],
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.20.1.json",
+  "datasets": {
+    "empty": [
+      {}
+    ],
+    "data-e9c6a48168ac1fe7af9aef3a0dba9175": [
+      {
+        "horizon_distance": 1,
+        "location": "loc1",
+        "metric": 1.0
+      },
+      {
+        "horizon_distance": 1,
+        "location": "loc2",
+        "metric": 10.5
+      },
+      {
+        "horizon_distance": 2,
+        "location": "loc1",
+        "metric": 1.0
+      },
+      {
+        "horizon_distance": 2,
+        "location": "loc2",
+        "metric": 6.5
+      }
+    ],
+    "data-567620ccecadac81eeedba26c60f11d9": [
+      {
+        "horizon_distance": 1,
+        "location": "loc1",
+        "metric": 2.0
+      },
+      {
+        "horizon_distance": 1,
+        "location": "loc2",
+        "metric": 4.0
+      },
+      {
+        "horizon_distance": 2,
+        "location": "loc1",
+        "metric": -1.0
+      },
+      {
+        "horizon_distance": 2,
+        "location": "loc2",
+        "metric": 2.0
+      }
+    ],
+    "data-88fd129cd65dc40ca3086ce1a90fab8f": [
+      {
+        "horizon_distance": 1,
+        "location": "loc1",
+        "metric": -1.0
+      },
+      {
+        "horizon_distance": 1,
+        "location": "loc2",
+        "metric": -7.0
+      },
+      {
+        "horizon_distance": 2,
+        "location": "loc1",
+        "metric": 0.0
+      },
+      {
+        "horizon_distance": 2,
+        "location": "loc2",
+        "metric": -6.0
+      }
+    ],
+    "data-5b4c7d151dd7d2425fa84c3b588d9724": [
+      {
+        "time_period": "2023-W01",
+        "location": "loc1",
+        "metric": 1.0
+      },
+      {
+        "time_period": "2023-W01",
+        "location": "loc2",
+        "metric": 2.0
+      },
+      {
+        "time_period": "2023-W02",
+        "location": "loc1",
+        "metric": 1.0
+      },
+      {
+        "time_period": "2023-W02",
+        "location": "loc2",
+        "metric": 2.0
+      },
+      {
+        "time_period": "2023-W08",
+        "location": "loc1",
+        "metric": 1.0
+      },
+      {
+        "time_period": "2023-W08",
+        "location": "loc2",
+        "metric": 19.0
+      },
+      {
+        "time_period": "2023-W09",
+        "location": "loc1",
+        "metric": 1.0
+      },
+      {
+        "time_period": "2023-W09",
+        "location": "loc2",
+        "metric": 11.0
+      }
+    ],
+    "data-9247e8facb3160531e47797dd5dbf00a": [
+      {
+        "time_period": "2023-W08",
+        "location": "loc2",
+        "metric": 3.0
+      },
+      {
+        "time_period": "2023-W09",
+        "location": "loc1",
+        "metric": 0.5
+      }
+    ],
+    "data-fc4eee5c07462bbace03cfab78837215": [
+      {
+        "time_period": "2023-W08",
+        "location": "loc2",
+        "metric": -6.5
+      },
+      {
+        "time_period": "2023-W09",
+        "location": "loc1",
+        "metric": -0.5
+      }
+    ]
+  }
+}

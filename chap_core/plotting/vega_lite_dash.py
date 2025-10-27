@@ -6,8 +6,6 @@ from typing import Dict, Any, Optional
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 import json
 from chap_core.assessment.flat_representations import (
-    convert_backtest_to_flat_forecasts,
-    convert_backtest_observations_to_flat_observations,
     FlatMetric,
 )
 from chap_core.assessment.metrics import (
@@ -15,7 +13,7 @@ from chap_core.assessment.metrics import (
     PeakValueDiffMetric,            
     PeakWeekLagMetric,              
     SamplesAboveTruthCountByTime,)  
-from evaluation_plot import MetricByHorizonV2, MetricMapV2
+from evaluation_plot import MetricByHorizonV2, MetricMapV2, MetricByTimePeriodV2
 from chap_core.database.tables import BackTest
 
 
@@ -24,8 +22,8 @@ def _compute_metric_df(metric_cls, flat_obs, flat_fc) -> pd.DataFrame:
     metric = metric_cls()
     return metric.compute(flat_obs, flat_fc)
 
-
-def make_backtest_dashboard_from_backtest(
+"""
+def horizon_dashboard_from_backtest(
     flat_obs: FlatObserved,
     flat_fc: FlatForecasts,
     title: str = "Backtest dashboard",
@@ -103,8 +101,121 @@ def make_backtest_dashboard_from_backtest(
     )
 
     return dashboard
-
 """
+
+def _horizon_section(flat_obs: FlatObserved, flat_fc: FlatForecasts, geojson: Optional[dict]):
+    rmse_df = _compute_metric_df(DetailedRMSE, flat_obs, flat_fc)
+    peak_diff_df = _compute_metric_df(PeakValueDiffMetric, flat_obs, flat_fc)
+    peak_lag_df = _compute_metric_df(PeakWeekLagMetric, flat_obs, flat_fc)
+
+    rmse_flat = FlatMetric(rmse_df)
+    peak_diff_flat = FlatMetric(peak_diff_df)
+    peak_lag_flat = FlatMetric(peak_lag_df)
+
+    charts = []
+    charts.append(MetricByHorizonV2(rmse_flat).plot().properties(
+            title={
+                "text": "RMSE by horizon distance",
+                "subtitle": "Lower is better; measures average forecast error magnitude across samples. x-axis: forecast horizon distance",
+                "anchor": "start",
+                "fontSize": 16,
+                "subtitleFontSize": 12
+            }))
+    charts.append(MetricByHorizonV2(peak_diff_flat).plot().properties(
+        title={
+            "text": "Peak value difference (truth - pred) by horizon",
+            "subtitle": "Negative = earlier peak (model before truth); Positive = later peak (model after truth). x-axis: forecast horizon distance",
+            "anchor": "start",
+            "fontSize": 16,
+            "subtitleFontSize": 12
+        }))
+    charts.append(MetricByHorizonV2(peak_lag_flat).plot().properties(
+        title={
+            "text": "Peak week lag (weeks) by horizon",
+            "subtitle": "Negative = overprediction (model peak > truth); Positive = underprediction (model peak < truth). x-axis: forecast horizon distance",
+            "anchor": "start",
+            "fontSize": 16,
+            "subtitleFontSize": 12
+        }))
+
+    if geojson is not None and len(peak_diff_df) > 0:
+        charts.append(MetricMapV2(peak_diff_flat, geojson=geojson).plot().properties(
+            title="Peak value difference map"))
+
+    section_title = (
+        alt.Chart().mark_text(align="left", fontSize=16, fontWeight="bold")
+        .encode(text=alt.value("By horizon")).properties(height=20)
+    )
+    return [section_title] + charts
+
+def _time_section(flat_obs: FlatObserved, flat_fc: FlatForecasts):
+    rmse_df = _compute_metric_df(DetailedRMSE, flat_obs, flat_fc)
+    peak_diff_df = _compute_metric_df(PeakValueDiffMetric, flat_obs, flat_fc)
+    peak_lag_df = _compute_metric_df(PeakWeekLagMetric, flat_obs, flat_fc)
+
+    # Ensure columns needed for grouping exist
+    rmse_flat = FlatMetric(rmse_df)
+    peak_diff_flat = FlatMetric(peak_diff_df)
+    peak_lag_flat = FlatMetric(peak_lag_df)
+
+    charts = []
+    charts.append(MetricByTimePeriodV2(rmse_flat).plot().properties(
+            title={
+                "text": "RMSE by time period",
+                "subtitle": "Lower is better; measures average forecast error magnitude across samples. x-axis: time period of observation",
+                "anchor": "start",
+                "fontSize": 16,
+                "subtitleFontSize": 12
+            }))
+    charts.append(MetricByTimePeriodV2(peak_diff_flat).plot().properties(
+            title={
+                "text": "Peak value difference (truth - pred) by time period",
+                "subtitle": "Negative = overprediction (model peak > truth); Positive = underprediction (model peak < truth). x-axis: true peak week",
+                "anchor": "start",
+                "fontSize": 16,
+                "subtitleFontSize": 12
+            }))
+    charts.append(MetricByTimePeriodV2(peak_lag_flat).plot().properties(
+            title={
+                "text": "Peak week lag (weeks) by time period",
+                "subtitle": "Negative = earlier peak (model before truth); Positive = later peak (model after truth). x-axis: peak observation week",
+                "anchor": "start",
+                "fontSize": 16,
+                "subtitleFontSize": 12
+            }))
+
+    section_title = (
+        alt.Chart().mark_text(align="left", fontSize=16, fontWeight="bold")
+        .encode(text=alt.value("By time period")).properties(height=20)
+    )
+    return [section_title] + charts
+
+# --- NEW: combined dashboard --------------------------------------------
+def combined_dashboard_from_backtest(
+    flat_obs: FlatObserved,
+    flat_fc: FlatForecasts,
+    title: str = "Backtest dashboard",
+    geojson: Optional[dict] = None,
+) -> alt.Chart:
+
+    charts = []
+    # title
+    charts.append(
+        alt.Chart().mark_text(align="left", fontSize=20, fontWeight="bold")
+        .encode(text=alt.value(title)).properties(height=24)
+    )
+
+    # sections
+    charts += _horizon_section(flat_obs, flat_fc, geojson)
+    charts += _time_section(flat_obs, flat_fc)
+
+    dashboard = alt.vconcat(*charts).configure(
+        axis={"labelFontSize": 11, "titleFontSize": 12},
+        legend={"labelFontSize": 11, "titleFontSize": 12},
+        view={"stroke": None},
+    )
+    return dashboard
+
 if __name__ == "__main__":
     import json
     import pandas as pd
@@ -123,21 +234,13 @@ if __name__ == "__main__":
     flat_fc  = FlatForecasts(fc_df)
 
     # build chart/spec
-    dashboard = make_backtest_dashboard_from_backtest(flat_obs, flat_fc)
+    dashboard = combined_dashboard_from_backtest(flat_obs, flat_fc, title="Backtest dashboard")
 
-    # if your function returns an Altair Chart, convert it to a dict first
-    if hasattr(dashboard, "to_dict"):
-        dashboard_spec = dashboard.to_dict(format="vega-lite")  # or "vega"
-    else:
-        dashboard_spec = dashboard  # already a dict
+    dashboard_spec = dashboard.to_dict(format="vega-lite")
 
-    # print full JSON
     print(json.dumps(dashboard_spec, indent=2, ensure_ascii=False))
-
-    # save to file
     with open("backtest_dashboard_spec.json", "w", encoding="utf-8") as f:
         json.dump(dashboard_spec, f, indent=2, ensure_ascii=False)
-    print("✅ wrote backtest_dashboard_spec.json")
-"""
+
 
 
