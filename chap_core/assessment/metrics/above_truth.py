@@ -46,9 +46,9 @@ class SamplesAboveTruthCountByLocation(MetricBase):
         merged = fc.merge(obs, on=["location", "time_period"], how="inner")
         merged["is_above"] = (merged["forecast_sample_mean"] > merged["disease_cases"]).astype(int)
         out = (
-            merged.groupby(["location"], as_index=False)["is_above"]
+            merged.groupby(["horizon_distance"], as_index=False)["is_above"]
             .sum()
             .rename(columns={"is_above": "metric"})
         )
 
-        return out[["location", "metric"]]
+        return out[["horizon_distance", "metric"]]

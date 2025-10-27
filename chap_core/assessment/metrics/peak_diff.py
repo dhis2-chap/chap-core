@@ -24,64 +24,85 @@ def _pick_peak(rows: pd.DataFrame, value_col: str) -> tuple[str, float]:
     return str(top['time_period']), float(top[value_col])
 
 class PeakValueDiffMetric(MetricBase):
-    spec = MetricSpec(output_dimensions=(DataDimension.location,), metric_name="Peak Value Difference")
-
-    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
-        fc_mean = (
-            forecasts
-            .groupby(['location', 'time_period'], as_index=False)['forecast']
-            .mean()
-            .rename(columns={'forecast': 'forecast_mean'})
-        )
-
-        obs = observations[['location', 'time_period', 'disease_cases']].copy()
-        out_rows = []
-        for loc, obs_loc in obs.groupby('location'):
-            fc_loc = fc_mean[fc_mean['location'] == loc]
-            if obs_loc.empty or fc_loc.empty:
-                continue
-            _, truth_val = _pick_peak(
-                obs_loc[['time_period', 'disease_cases']],
-                value_col='disease_cases'
-            )
-            _, pred_val = _pick_peak(
-                fc_loc[['time_period', 'forecast_mean']],
-                value_col='forecast_mean'
-            )
-
-            metric_val = float(truth_val - pred_val)
-            out_rows.append({'location': loc, 'metric': metric_val})
-
-        return pd.DataFrame(out_rows, columns=['location', 'metric'])
-
-
-class PeakWeekLagMetric(MetricBase):
+    # Now returns (location, time_period, horizon_distance, metric)
     spec = MetricSpec(
-        output_dimensions=(DataDimension.location,),
-        metric_name="Peak Week Lag",
-        metric_id="peak_week_lag",
-        description="Lag in weeks between true and predicted peak (pred - truth). Negative = model peaked earlier.",
+        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        metric_name="Peak Value Difference",
+        metric_id="peak_value_diff",
+        description="Truth peak value minus predicted peak value, per horizon.",
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         fc_mean = (
             forecasts
-            .groupby(['location', 'time_period'], as_index=False)['forecast']
+            .groupby(['location', 'time_period', 'horizon_distance'], as_index=False)['forecast']
+            .mean()
+            .rename(columns={'forecast': 'forecast_mean'})
+        )
+
+        obs = observations[['location', 'time_period', 'disease_cases']].copy()
+
+        out_rows = []
+        for loc, obs_loc in obs.groupby('location'):
+            truth_timepoint, truth_val = _pick_peak(obs_loc, 'disease_cases')
+
+            fc_loc = fc_mean[fc_mean['location'] == loc]
+            if fc_loc.empty:
+                continue
+
+            for h, fc_loc_h in fc_loc.groupby('horizon_distance'):
+                if fc_loc_h.empty:
+                    continue
+                _, pred_val = _pick_peak(fc_loc_h[['time_period', 'forecast_mean']], 'forecast_mean')
+
+                metric_val = float(truth_val - pred_val)
+                out_rows.append({
+                    'location': loc,
+                    'time_period': truth_timepoint,
+                    'horizon_distance': int(h),
+                    'metric': metric_val,
+                })
+
+        return pd.DataFrame(out_rows, columns=['location', 'time_period', 'horizon_distance', 'metric'])
+
+
+
+class PeakWeekLagMetric(MetricBase):
+    spec = MetricSpec(
+        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+        metric_name="Peak Week Lag",
+        metric_id="peak_week_lag",
+        description="Lag in weeks between true and predicted peak (pred - truth), per horizon.",
+    )
+
+    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        fc_mean = (
+            forecasts
+            .groupby(['location', 'time_period', 'horizon_distance'], as_index=False)['forecast']
             .mean()
             .rename(columns={'forecast': 'forecast_mean'})
         )
         obs = observations[['location', 'time_period', 'disease_cases']].copy()
 
-        out = []
+        out_rows = []
         for loc, obs_loc in obs.groupby('location'):
+            truth_timepoint, _ = _pick_peak(obs_loc, 'disease_cases')
+
             fc_loc = fc_mean[fc_mean['location'] == loc]
-            if obs_loc.empty or fc_loc.empty:
+            if fc_loc.empty:
                 continue
 
-            truth_timepoint, _ = _pick_peak(obs_loc, 'disease_cases')
-            pred_timepoint, _ = _pick_peak(fc_loc, 'forecast_mean')
+            for h, fc_loc_h in fc_loc.groupby('horizon_distance'):
+                if fc_loc_h.empty:
+                    continue
+                pred_timepoint, _ = _pick_peak(fc_loc_h[['time_period', 'forecast_mean']], 'forecast_mean')
 
-            lag_weeks = int(_week_diff(truth_timepoint, pred_timepoint))  # positive => predicted later
-            out.append({'location': loc, 'metric': float(lag_weeks)})
+                lag_weeks = int(_week_diff(truth_timepoint, pred_timepoint))
+                out_rows.append({
+                    'location': loc,
+                    'time_period': truth_timepoint, 
+                    'horizon_distance': int(h),
+                    'metric': float(lag_weeks),
+                })
 
-        return pd.DataFrame(out, columns=['location', 'metric'])
+        return pd.DataFrame(out_rows, columns=['location', 'time_period', 'horizon_distance', 'metric'])
