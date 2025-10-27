@@ -96,17 +96,6 @@ def engine():
     return engine
 
 
-def test_add_aggregated_metrics_to_database(engine, backtest_weeks):
-    with SessionWrapper(engine) as session:
-        backtest_weeks.model_db_id = 1
-        session.session.add(backtest_weeks)
-        backtest = session.session.get(BackTest, backtest_weeks.id)
-
-        metrics = compute_all_aggregated_metrics_from_backtest(backtest_weeks)
-        backtest.aggregate_metrics = metrics
-        session.session.commit()
-
-
 @pytest.mark.skip(reason="Only for testing")
 def test_read_example_weekly_predictions(data_path):
     data = pd.read_csv(data_path / "example_weekly_predictions.csv")
