@@ -682,7 +682,7 @@ def _run_generic_migration(engine):
 
     with engine.connect() as conn:
         # Run v1.0.17 specific migrations first
-        _run_v1_0_17_migrations(conn, engine)
+        #_run_v1_0_17_migrations(conn, engine)
 
         # Get current database schema
         inspector = sqlalchemy.inspect(engine)
