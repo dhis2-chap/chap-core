@@ -7,6 +7,7 @@ services:
       - ./gunicorn.conf.py:/app/gunicorn.conf.py
   worker:
     # Override to build locally for development instead of pulling from GHCR
+    image: chap-worker-local:latest
     build:
       context: .
       dockerfile: Dockerfile.inla
