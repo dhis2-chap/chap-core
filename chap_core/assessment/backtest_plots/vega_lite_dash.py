@@ -19,15 +19,15 @@ def _compute_metric_df(metric_cls, flat_obs, flat_fc) -> pd.DataFrame:
 
 
 def _horizon_section(flat_obs: FlatObserved, flat_fc: FlatForecasts, geojson: Optional[dict]):
-    #rmse_df = _compute_metric_df(DetailedRMSE, flat_obs, flat_fc)
-    #peak_diff_df = _compute_metric_df(PeakValueDiffMetric, flat_obs, flat_fc)
-    #peak_lag_df = _compute_metric_df(PeakWeekLagMetric, flat_obs, flat_fc)
+    # rmse_df = _compute_metric_df(DetailedRMSE, flat_obs, flat_fc)
+    # peak_diff_df = _compute_metric_df(PeakValueDiffMetric, flat_obs, flat_fc)
+    # peak_lag_df = _compute_metric_df(PeakWeekLagMetric, flat_obs, flat_fc)
     above_truth_df = _compute_metric_df(RatioOfSamplesAboveTruth, flat_obs, flat_fc)
     print("Above truth df:", above_truth_df)
 
-    #rmse_flat = FlatMetric(rmse_df)
-    #peak_diff_flat = FlatMetric(peak_diff_df)
-    #peak_lag_flat = FlatMetric(peak_lag_df)
+    # rmse_flat = FlatMetric(rmse_df)
+    # peak_diff_flat = FlatMetric(peak_diff_df)
+    # peak_lag_flat = FlatMetric(peak_lag_df)
     above_truth_flat = FlatMetric(above_truth_df)
 
     charts = []
@@ -55,14 +55,19 @@ def _horizon_section(flat_obs: FlatObserved, flat_fc: FlatForecasts, geojson: Op
     #         "fontSize": 16,
     #         "subtitleFontSize": 12
     #     }))
-    charts.append(MetricByHorizonV2Mean(above_truth_flat).plot().properties(
-        title={
-            "text": "Samples above truth by horizon",
-            "subtitle": "Count of samples where forecast > truth. x-axis: forecast horizon distance",
-            "anchor": "start",
-            "fontSize": 16,
-            "subtitleFontSize": 12
-        }))
+    charts.append(
+        MetricByHorizonV2Mean(above_truth_flat)
+        .plot()
+        .properties(
+            title={
+                "text": "Samples above truth by horizon",
+                "subtitle": "Count of samples where forecast > truth. x-axis: forecast horizon distance",
+                "anchor": "start",
+                "fontSize": 16,
+                "subtitleFontSize": 12,
+            }
+        )
+    )
 
     # if geojson is not None and len(peak_diff_df) > 0:
     #     charts.append(MetricMapV2(peak_diff_flat, geojson=geojson).plot().properties(
@@ -72,7 +77,7 @@ def _horizon_section(flat_obs: FlatObserved, flat_fc: FlatForecasts, geojson: Op
     #     alt.Chart().mark_text(align="left", fontSize=16, fontWeight="bold")
     #     .encode(text=alt.value("By horizon")).properties(height=20)
     # )
-    #return [section_title] + charts
+    # return [section_title] + charts
     return charts
 
 
@@ -113,14 +118,19 @@ def _time_section(flat_obs: FlatObserved, flat_fc: FlatForecasts):
     #             "fontSize": 16,
     #             "subtitleFontSize": 12
     #         }))
-    charts.append(MetricByTimePeriodAndLocationV2Mean(above_truth_flat).plot().properties(
+    charts.append(
+        MetricByTimePeriodAndLocationV2Mean(above_truth_flat)
+        .plot()
+        .properties(
             title={
                 "text": "Samples above truth by time period",
                 "subtitle": "Count of samples where forecast > truth. x-axis: time period of observation",
                 "anchor": "start",
                 "fontSize": 16,
-                "subtitleFontSize": 12
-            }))
+                "subtitleFontSize": 12,
+            }
+        )
+    )
 
     # section_title = (
     #     alt.Chart().mark_text(align="left", fontSize=16, fontWeight="bold")
@@ -129,6 +139,7 @@ def _time_section(flat_obs: FlatObserved, flat_fc: FlatForecasts):
     # return [section_title] + charts
     return charts
 
+
 # --- NEW: combined dashboard --------------------------------------------
 def combined_dashboard_from_backtest(
     flat_obs: FlatObserved,
@@ -136,17 +147,19 @@ def combined_dashboard_from_backtest(
     title: str = "Backtest dashboard",
     geojson: Optional[dict] = None,
 ) -> alt.Chart:
-
     charts = []
     # title
     charts.append(
-        alt.Chart().mark_text(align="left", fontSize=20, fontWeight="bold")
-        .encode(text=alt.value(title)).properties(height=24)
+        alt.Chart()
+        .mark_text(align="left", fontSize=20, fontWeight="bold")
+        .encode(text=alt.value(title))
+        .properties(height=24)
     )
 
     # Add some text
     charts.append(
-        alt.Chart().mark_text(align="left", fontSize=12)
+        alt.Chart()
+        .mark_text(align="left", fontSize=12)
         .encode(
             text=alt.value(
                 "These plots show biases in the samples returned by the model, "
@@ -168,10 +181,10 @@ def combined_dashboard_from_backtest(
     )
     return dashboard
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     obs_df = pd.read_csv("../../../../metrics/Assessment_example_chap_compatible/example_data/observations.csv")
-    fc_df  = pd.read_csv("../../../../metrics/Assessment_example_chap_compatible/example_data/forecasts.csv")
+    fc_df = pd.read_csv("../../../../metrics/Assessment_example_chap_compatible/example_data/forecasts.csv")
     if "value" in obs_df.columns and "disease_cases" not in obs_df.columns:
         obs_df = obs_df.rename(columns={"value": "disease_cases"})
     if "time" in fc_df.columns and "time_period" not in fc_df.columns:
@@ -181,7 +194,7 @@ if __name__ == "__main__":
     print("Fc  columns:", list(fc_df.columns))
 
     flat_obs = FlatObserved(obs_df)
-    flat_fc  = FlatForecasts(fc_df)
+    flat_fc = FlatForecasts(fc_df)
 
     # build chart/spec
     dashboard = combined_dashboard_from_backtest(flat_obs, flat_fc, title="Backtest dashboard")
@@ -191,6 +204,3 @@ if __name__ == "__main__":
     print(json.dumps(dashboard_spec, indent=2, ensure_ascii=False))
     with open("backtest_dashboard_spec.json", "w", encoding="utf-8") as f:
         json.dump(dashboard_spec, f, indent=2, ensure_ascii=False)
-
-
-

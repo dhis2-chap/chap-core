@@ -85,7 +85,9 @@ class ExternalChapkitModelTemplate:
 
         # get all configs and assert that configuration_id is there
         all_configs = self.client.list_configs()
-        assert any(cfg["id"] == configuration_id for cfg in all_configs), f"Created configuration {configuration_id} not found in list of configs"
+        assert any(cfg["id"] == configuration_id for cfg in all_configs), (
+            f"Created configuration {configuration_id} not found in list of configs"
+        )
 
         logger.info(f"Created model configuration with id {configuration_id} at {self.rest_api_url}")
         return ExternalChapkitModel(self.name, self.rest_api_url, configuration_id=configuration_id)

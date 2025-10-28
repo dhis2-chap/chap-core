@@ -137,7 +137,11 @@ class SessionWrapper:
         return db_object.id
 
     def add_configured_model(
-        self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default", uses_chapkit=False
+        self,
+        model_template_id: int,
+        configuration: ModelConfiguration,
+        configuration_name="default",
+        uses_chapkit=False,
     ) -> int:
         # get model template name
         model_template = self.session.exec(
@@ -161,8 +165,11 @@ class SessionWrapper:
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
-            name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template,
-            uses_chapkit=uses_chapkit
+            name=name,
+            model_template_id=model_template_id,
+            **configuration.dict(),
+            model_template=model_template,
+            uses_chapkit=uses_chapkit,
         )
         configured_model.validate_user_options(configured_model)
         # configured_model.validate_user_options(model_template)
@@ -195,8 +202,12 @@ class SessionWrapper:
                 logger.debug(f"Template supported_period_type: {configured_model.model_template.supported_period_type}")
 
             except Exception as e:
-                logger.error(f"Error dumping model data for configured_model id={configured_model.id}, name={configured_model.name}")
-                logger.error(f"Template id={configured_model.model_template.id if configured_model.model_template else 'None'}")
+                logger.error(
+                    f"Error dumping model data for configured_model id={configured_model.id}, name={configured_model.name}"
+                )
+                logger.error(
+                    f"Template id={configured_model.model_template.id if configured_model.model_template else 'None'}"
+                )
                 logger.error(f"Exception: {type(e).__name__}: {str(e)}")
                 logger.error("Full traceback:", exc_info=True)
                 raise
@@ -334,7 +345,9 @@ class SessionWrapper:
         model_db = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first()
         model_db_id = model_db.id
 
-        backtest = BackTest(**info.dict() | {"model_db_id": model_db_id, "model_template_version": model_db.model_template.version})
+        backtest = BackTest(
+            **info.dict() | {"model_db_id": model_db_id, "model_template_version": model_db.model_template.version}
+        )
         self.session.add(backtest)
         org_units = set([])
         split_points = set([])
@@ -377,8 +390,11 @@ class SessionWrapper:
 
     def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict = {}):
         n_periods = len(list(predictions.values())[0])
-        samples_ = [PredictionSamplesEntry(period=period.id, org_unit=location, values=value.tolist()) for
-                    location, data in predictions.items() for period, value in zip(data.time_period, data.samples)]
+        samples_ = [
+            PredictionSamplesEntry(period=period.id, org_unit=location, values=value.tolist())
+            for location, data in predictions.items()
+            for period, value in zip(data.time_period, data.samples)
+        ]
         org_units = list(predictions.keys())
         model_db_id = self.session.exec(select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == model_id)).first()
 
@@ -693,7 +709,7 @@ def _run_generic_migration(engine):
 
     with engine.connect() as conn:
         # Run v1.0.17 specific migrations first
-        #_run_v1_0_17_migrations(conn, engine)
+        # _run_v1_0_17_migrations(conn, engine)
 
         # Get current database schema
         inspector = sqlalchemy.inspect(engine)

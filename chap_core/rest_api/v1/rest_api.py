@@ -59,12 +59,7 @@ def create_api():
         logger.error(traceback.format_exc())
 
         return JSONResponse(
-            status_code=500,
-            content={
-                "detail": "Internal server error",
-                "error": str(exc),
-                "type": type(exc).__name__
-            }
+            status_code=500, content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__}
         )
 
     return app

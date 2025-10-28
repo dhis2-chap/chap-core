@@ -126,7 +126,9 @@ def _validate_full_dataset(
         else:
             new_data[location] = data
     if not new_data:
-        raise HTTPException(status_code=500, detail=f"All regions regjected due to missing values. Rejected: {str(rejected_list)}")
+        raise HTTPException(
+            status_code=500, detail=f"All regions regjected due to missing values. Rejected: {str(rejected_list)}"
+        )
     else:
         print(new_data.keys())
 
@@ -259,7 +261,6 @@ async def get_evaluation_entries(
                 summed_forecasts[key] = np.array([0.0] * len(forecast.values))
             summed_forecasts[key] += np.array(forecast.values)
 
-
         forecasts = [
             BackTestForecast(
                 period=key[0],
@@ -286,6 +287,7 @@ async def get_evaluation_entries(
 class PredictionParams(DBModel):
     model_id: str
     n_periods: int = 3
+
 
 class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
     meta_data: dict = {}
@@ -370,7 +372,7 @@ def get_prediction_entries(
 @router.get("/actualCases/{backtestId}", response_model=DataList)
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
-org_units: List[str] = Query(None, alias="orgUnits"),
+    org_units: List[str] = Query(None, alias="orgUnits"),
     session: Session = Depends(get_session),
 ):
     """
@@ -414,9 +416,7 @@ org_units: List[str] = Query(None, alias="orgUnits"),
                 summed_values[key] = 0.0
             if element.value is not None:
                 summed_values[key] += element.value
-        data_list = [
-            DataElement(pe=pe, ou=":adm0", value=value) for pe, value in summed_values.items()
-        ]
+        data_list = [DataElement(pe=pe, ou=":adm0", value=value) for pe, value in summed_values.items()]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(featureId="disease_cases", dhis2Id="disease_cases", data=data_list)
 

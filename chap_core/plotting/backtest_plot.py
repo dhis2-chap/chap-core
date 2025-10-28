@@ -11,11 +11,10 @@ import textwrap
 alt.data_transformers.enable("vegafusion")
 
 
-
 def title_chart(text: str, width: int = 600, font_size: int = 24, pad: int = 10):
     """Return an Altair chart that just displays a title."""
     return (
-        alt.Chart(pd.DataFrame({'x': [0], 'y': [0]}))
+        alt.Chart(pd.DataFrame({"x": [0], "y": [0]}))
         .mark_text(
             text=text,
             fontSize=font_size,
@@ -40,10 +39,7 @@ def text_chart(text, line_length=80, font_size=12, align="left", pad_bottom=50):
     chart = (
         alt.Chart(df)
         .mark_text(align=align, baseline="top", fontSize=font_size)
-        .encode(
-            text="line",
-            y=alt.Y("y:O", axis=None)
-        )
+        .encode(text="line", y=alt.Y("y:O", axis=None))
         .properties(height=total_height)
     )
     return chart
@@ -108,6 +104,7 @@ class EvaluationBackTestPlot(BackTestPlotBase):
     """
     Backtest-plot that shows truth vs predictions over time.
     """
+
     name: str = "Evaluation Plot"
 
     def __init__(self, forecast_df: pd.DataFrame, observed_df: pd.DataFrame):

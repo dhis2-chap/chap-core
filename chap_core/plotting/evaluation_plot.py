@@ -27,7 +27,7 @@ class MetricPlotV2(abc.ABC):
         return self.plot_from_df(title=title)
 
     @abc.abstractmethod
-    def plot_from_df(self, title: str="") -> alt.Chart:
+    def plot_from_df(self, title: str = "") -> alt.Chart:
         pass
 
     def plot_spec(self) -> dict:
@@ -60,7 +60,7 @@ class MetricByHorizonAndLocationMean(MetricPlotV2):
                 y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "location", "metric"],
             )
-            .properties(width='container', height='container', title="Mean Metric by Horizon")
+            .properties(width="container", height="container", title="Mean Metric by Horizon")
             .interactive()
         )
 
@@ -85,12 +85,13 @@ class MetricByHorizonV2Mean(MetricPlotV2):
                 y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "metric"],
             )
-            .properties(width='container', height='container', title=title)
+            .properties(width="container", height="container", title=title)
             .interactive()
         )
 
         return chart
-    
+
+
 class MetricByHorizonV2Sum(MetricPlotV2):
     visualization_info = VisualizationInfo(
         id="metric_by_horizon_sum",
@@ -106,15 +107,16 @@ class MetricByHorizonV2Sum(MetricPlotV2):
             .encode(
                 x=alt.X("horizon_distance:O", title="Horizon (periods ahead)"),
                 y=alt.Y("sum(metric):Q", title="Samples above truth (count)"),
-                tooltip=[alt.Tooltip(
-                    "horizon_distance:O", title="Horizon"),
+                tooltip=[
+                    alt.Tooltip("horizon_distance:O", title="Horizon"),
                     alt.Tooltip("sum(metric):Q", title="Count"),
                 ],
             )
-            .properties(width='container', height='container', title="Samples above truth by horizon")
+            .properties(width="container", height="container", title="Samples above truth by horizon")
         )
 
         return chart
+
 
 class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
     visualization_info = VisualizationInfo(
@@ -123,7 +125,7 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
         description="Shows the aggregated metric by time period (per location)",
     )
 
-    def plot_from_df(self, title='Mean metric by location and time period') -> alt.Chart:
+    def plot_from_df(self, title="Mean metric by location and time period") -> alt.Chart:
         df = self._metric_data
         adf = df.groupby(["time_period", "location"]).agg({"metric": "mean"}).reset_index()
         chart = (
@@ -135,11 +137,12 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
                 color=alt.Color("location:N", title="Location"),
                 tooltip=["time_period", "location", "metric"],
             )
-            .properties(width='container', height='container', title=title)
+            .properties(width="container", height="container", title=title)
             .interactive()
         )
 
         return chart
+
 
 class MetricByTimePeriodV2Sum(MetricPlotV2):
     visualization_info = VisualizationInfo(
@@ -157,14 +160,14 @@ class MetricByTimePeriodV2Sum(MetricPlotV2):
                 x=alt.X("time_period:O", title="Time Period"),
                 y=alt.Y("sum(metric):Q", title="Samples above truth (count)"),
                 color=alt.Color("location:N", title="Location"),
-                tooltip=[alt.Tooltip(
-                    "time_period:O", title="Time Period"),
+                tooltip=[
+                    alt.Tooltip("time_period:O", title="Time Period"),
                     alt.Tooltip("sum(metric):Q", title="Count"),
                 ],
             )
-            .properties(width='container', height='container', title="Samples above truth by time period")
+            .properties(width="container", height="container", title="Samples above truth by time period")
         )
-        
+
         return chart
 
 
@@ -175,7 +178,7 @@ class MetricByTimePeriodV2Mean(MetricPlotV2):
         description="Mean metric across locations and horizons per time period",
     )
 
-    def plot_from_df(self, title='Mean metric by time period'):
+    def plot_from_df(self, title="Mean metric by time period"):
         df = self._metric_data
         df = df.groupby(["time_period"]).agg({"metric": "mean"}).reset_index()
         chart = (
@@ -184,16 +187,17 @@ class MetricByTimePeriodV2Mean(MetricPlotV2):
             .encode(
                 x=alt.X("time_period:O", title="Time Period"),
                 y=alt.Y("mean(metric):Q", title="Mean Metric Value"),
-                tooltip=[alt.Tooltip(
-                    "time_period:O", title="Time Period"),
+                tooltip=[
+                    alt.Tooltip("time_period:O", title="Time Period"),
                     alt.Tooltip("mean(metric):Q", title="Count"),
                 ],
             )
-            .properties(width='container', height='container', title=title)
+            .properties(width="container", height="container", title=title)
         )
 
         return chart
-    
+
+
 class MetricMapV2(MetricPlotV2):
     visualization_info = VisualizationInfo(
         id="metric_map", display_name="Map", description="Shows a map of aggregated metrics per org unit"
@@ -203,7 +207,7 @@ class MetricMapV2(MetricPlotV2):
         super().__init__(metric_data, geojson)
         self._geojson = geojson
 
-    def plot_from_df(self, title='Metric Map by location') -> alt.Chart:
+    def plot_from_df(self, title="Metric Map by location") -> alt.Chart:
         # Get the metric data DataFrame
         df = self._metric_data
 
@@ -227,7 +231,7 @@ class MetricMapV2(MetricPlotV2):
                 from_=alt.LookupData(agg_df, "org_unit", ["value"]),
             )
             .project(type="equirectangular")  # Use equirectangular projection for proper proportions
-            .properties(width='container', height='container', title=title)
+            .properties(width="container", height="container", title=title)
         )
         return chart
 

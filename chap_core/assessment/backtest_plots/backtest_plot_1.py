@@ -96,7 +96,7 @@ class BackTestPlot1(BackTestPlotBase):
             text_chart(
                 "This is a collection of various metrics plotted by forecast horizon and time period. "
                 "Some of these might be useful for modelers or people trying to assess forecast quality over time or by horizon. ",
-                line_length=80
+                line_length=80,
             )
         )
 

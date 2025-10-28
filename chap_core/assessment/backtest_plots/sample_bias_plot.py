@@ -6,7 +6,6 @@ evaluation dashboards showing the ratio of forecast samples above truth
 by horizon distance and time period.
 """
 
-
 import altair as alt
 
 from chap_core.database.tables import BackTest
@@ -55,7 +54,9 @@ class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
         self._title = title
 
     @classmethod
-    def from_backtest(cls, backtest: BackTest, title: str = "Sample Bias Dashboard") -> "RatioOfSamplesAboveTruthBacktestPlot":
+    def from_backtest(
+        cls, backtest: BackTest, title: str = "Sample Bias Dashboard"
+    ) -> "RatioOfSamplesAboveTruthBacktestPlot":
         """
         Create a SampleBiasPlot from a BackTest object.
 
@@ -101,10 +102,14 @@ class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
             .properties(height=24)
         )
 
-        charts.append(text_chart(       "These plots show biases in the samples returned by the model, "
-                    "\nspecifically whether the samples generally are over or under the true observation.\n"
-                    "This can be used to assess model calibration and tendency to over- or under-predict.",
-                                        line_length=50))
+        charts.append(
+            text_chart(
+                "These plots show biases in the samples returned by the model, "
+                "\nspecifically whether the samples generally are over or under the true observation.\n"
+                "This can be used to assess model calibration and tendency to over- or under-predict.",
+                line_length=50,
+            )
+        )
         # # Explanatory text
         # charts.append(
         #     alt.Chart()

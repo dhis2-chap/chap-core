@@ -14,8 +14,7 @@ class SamplesAboveTruth(MetricBase):
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         # average within-sample (if duplicates)
         fc = (
-            forecasts
-            .groupby(["location", "time_period", "horizon_distance", "sample"], as_index=False)["forecast"]
+            forecasts.groupby(["location", "time_period", "horizon_distance", "sample"], as_index=False)["forecast"]
             .mean()
             .rename(columns={"forecast": "forecast_sample_mean"})
         )
@@ -43,8 +42,7 @@ class RatioOfSamplesAboveTruth(MetricBase):
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         # average within-sample (if duplicates)
         fc = (
-            forecasts
-            .groupby(["location", "time_period", "horizon_distance", "sample"], as_index=False)["forecast"]
+            forecasts.groupby(["location", "time_period", "horizon_distance", "sample"], as_index=False)["forecast"]
             .mean()
             .rename(columns={"forecast": "forecast_sample_mean"})
         )
@@ -53,9 +51,8 @@ class RatioOfSamplesAboveTruth(MetricBase):
         merged["is_above"] = (merged["forecast_sample_mean"] > merged["disease_cases"]).astype(int)
 
         # Calculate ratio: sum of samples above truth / total count of samples
-        agg = (
-            merged.groupby(["location", "time_period", "horizon_distance"], as_index=False)["is_above"]
-            .agg(['sum', 'count'])
+        agg = merged.groupby(["location", "time_period", "horizon_distance"], as_index=False)["is_above"].agg(
+            ["sum", "count"]
         )
         agg["metric"] = agg["sum"] / agg["count"]
 
@@ -64,5 +61,3 @@ class RatioOfSamplesAboveTruth(MetricBase):
         out["metric"] = out["metric"].astype("float64")
 
         return out[["location", "time_period", "horizon_distance", "metric"]]
-
-

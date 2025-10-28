@@ -4,7 +4,7 @@ from functools import wraps
 from typing import Optional, get_type_hints
 
 import numpy as np
-from pydantic import BaseModel, validate_call
+from pydantic import BaseModel
 
 from chap_core.api_types import BackTestParams
 from chap_core.assessment.forecast import forecast_ahead
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 def convert_dicts_to_models(func):
     """Convert dict arguments to Pydantic models based on type hints."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         sig = inspect.signature(func)
@@ -41,12 +42,11 @@ def convert_dicts_to_models(func):
             if param_name in type_hints:
                 expected_type = type_hints[param_name]
                 # Check if it's a BaseModel subclass and value is a dict
-                if (isinstance(value, dict) and
-                    isinstance(expected_type, type) and
-                    issubclass(expected_type, BaseModel)):
+                if isinstance(value, dict) and isinstance(expected_type, type) and issubclass(expected_type, BaseModel):
                     bound.arguments[param_name] = expected_type(**value)
 
         return func(*bound.args, **bound.kwargs)
+
     return wrapper
 
 
@@ -69,7 +69,8 @@ def validate_and_filter_dataset_for_evaluation(
 
     return DataSet(new_data, metadata=dataset.metadata, polygons=dataset.polygons)
 
-#@convert_dicts_to_models
+
+# @convert_dicts_to_models
 def run_backtest(
     info: BackTestCreate,
     n_periods: Optional[int] = None,
@@ -165,6 +166,7 @@ def _get_n_periods(health_dataset):
     n_periods = 3 if frequency == "M" else 12
     return n_periods
 
+
 @convert_dicts_to_models
 def predict_pipeline_from_composite_dataset(
     provided_field_names: list[str],
@@ -175,17 +177,18 @@ def predict_pipeline_from_composite_dataset(
     session: SessionWrapper,
     worker_config=WorkerConfig(),
 ) -> int:
-    '''
+    """
     This is the main pipeline function to run prediction from a dataset.
-    '''
+    """
     ds = InMemoryDataSet.from_dict(health_dataset, create_tsdataclass(provided_field_names))
-    #dataset_info = DataSetCreateInfo.model_validate(dataset_create_info)
+    # dataset_info = DataSetCreateInfo.model_validate(dataset_create_info)
 
-    dataset_id = session.add_dataset(dataset_info=dataset_create_info,
-                                     orig_dataset=ds,
-                                     polygons=ds.polygons.model_dump_json())
+    dataset_id = session.add_dataset(
+        dataset_info=dataset_create_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json()
+    )
 
     return run_prediction(prediction_params.model_id, dataset_id, prediction_params.n_periods, name, session)
+
 
 @convert_dicts_to_models
 def run_backtest_from_dataset(

@@ -19,7 +19,9 @@ class BackTestBase(DBModel):
     model_id: str
     name: Optional[str] = None
     created: Optional[datetime.datetime] = None
-    model_template_version: Optional[str] = None  # This is the version of the model template in the moment the backtest was created (version at model template object can change later)
+    model_template_version: Optional[str] = (
+        None  # This is the version of the model template in the moment the backtest was created (version at model template object can change later)
+    )
 
 
 class DataSetMeta(DataSetInfo):
@@ -94,7 +96,8 @@ class PredictionInfo(PredictionBase):
     configured_model: ConfiguredModelDB
     dataset: DataSetMeta
 
-#PredictionInfo = PredictionBase.get_read_class()
+
+# PredictionInfo = PredictionBase.get_read_class()
 
 
 class PredictionRead(PredictionInfo):

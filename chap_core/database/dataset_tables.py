@@ -65,8 +65,9 @@ class DataSetCreateInfo(DBModel):
     name: str = Field(description="Name of dataset")
 
     data_sources: Optional[List[DataSource]] = Field(
-        default_factory=list, sa_column=Column(PydanticListType(DataSource)),
-        description="A mapping of covariate names to data element IDs from which to source the data"
+        default_factory=list,
+        sa_column=Column(PydanticListType(DataSource)),
+        description="A mapping of covariate names to data element IDs from which to source the data",
     )
     type: Optional[str] = Field(None, description="Purpose of dataset, e.g., 'forecasting' or 'backtesting'")
 

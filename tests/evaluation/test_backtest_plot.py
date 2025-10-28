@@ -17,20 +17,19 @@ def default_transformer():
 def test_backtest_plot(simulated_backtest: BackTest, default_transformer):
     plotter = EvaluationBackTestPlot.from_backtest(simulated_backtest)
     chart = plotter.plot()
-    
-    
-def test_combined_dashboard_from_backtest(flat_observations, flat_forecasts, title='testplot'):
+
+
+def test_combined_dashboard_from_backtest(flat_observations, flat_forecasts, title="testplot"):
     plot = combined_dashboard_from_backtest(flat_observations, flat_forecasts, title)
-    #plot.show()
+    # plot.show()
 
 
 def test_sample_bias_plot(simulated_backtest):
     plotter = RatioOfSamplesAboveTruthBacktestPlot.from_backtest(simulated_backtest)
     chart = plotter.plot()
-    #chart.show()
+    # chart.show()
+
 
 def test_backtest_plot1(simulated_backtest):
-
     plotter = BackTestPlot1.from_backtest(simulated_backtest)
     chart = plotter.plot()
-

@@ -46,7 +46,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BackTest, Prediction, PredictionInfo, PredictionRead
+from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import CeleryPool
@@ -206,6 +206,7 @@ class PredictionCreate(DBModel):
 async def get_predictions(session: Session = Depends(get_session)):
     session_wrapper = SessionWrapper(session=session)
     return session_wrapper.list_all(Prediction)
+
 
 @router.get("/predictions/{predictionId}", response_model=PredictionInfo)
 async def get_prediction(
