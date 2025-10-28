@@ -33,5 +33,4 @@ def test_backtest_plot1(simulated_backtest):
 
     plotter = BackTestPlot1.from_backtest(simulated_backtest)
     chart = plotter.plot()
-    chart.show()
 
