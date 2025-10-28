@@ -426,7 +426,12 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     response = client.get("/v1/crud/predictions")
     assert response.status_code == 200, response.json()
     assert len(response.json()) > 0
-    print([PredictionInfo.model_validate(entry) for entry in response.json()])
+    p_infos = [PredictionInfo.model_validate(entry) for entry in response.json()]
+    for p_info in p_infos:
+        assert p_info.configured_model.name
+        assert p_info.dataset.data_sources is not None
+    print(p_infos)
+
     response = client.get(f"/v1/analytics/prediction-entry/{db_id}", params={"quantiles": [0.1, 0.5, 0.9]})
     assert response.status_code == 200, response.json()
     ds = [PredictionEntry.model_validate(entry) for entry in response.json()]

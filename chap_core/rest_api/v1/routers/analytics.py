@@ -342,7 +342,7 @@ def get_prediction_entries(
 @router.get("/actualCases/{backtestId}", response_model=DataList)
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
-    org_units: List[str] = Query(None, alias="orgUnits"),
+org_units: List[str] = Query(None, alias="orgUnits"),
     session: Session = Depends(get_session),
 ):
     """

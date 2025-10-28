@@ -80,13 +80,21 @@ class PredictionBase(DBModel):
     meta_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
     org_units: List[str] = Field(default_factory=list, sa_column=Column(JSON))
 
+
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     forecasts: List["PredictionSamplesEntry"] = Relationship(back_populates="prediction", cascade_delete=True)
     dataset: DataSet = Relationship()
+    model_db_id: int = Field(foreign_key="configuredmodeldb.id")
+    configured_model: Optional["ConfiguredModelDB"] = Relationship()
 
 
-PredictionInfo = PredictionBase.get_read_class()
+class PredictionInfo(PredictionBase):
+    id: int
+    configured_model: ConfiguredModelDB
+    dataset: DataSetMeta
+
+#PredictionInfo = PredictionBase.get_read_class()
 
 
 class PredictionRead(PredictionInfo):

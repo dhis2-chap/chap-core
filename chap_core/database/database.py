@@ -380,6 +380,8 @@ class SessionWrapper:
         samples_ = [PredictionSamplesEntry(period=period.id, org_unit=location, values=value.tolist()) for
                     location, data in predictions.items() for period, value in zip(data.time_period, data.samples)]
         org_units = list(predictions.keys())
+        model_db_id = self.session.exec(select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == model_id)).first()
+
         prediction = Prediction(
             dataset_id=dataset_id,
             model_id=model_id,
@@ -389,6 +391,7 @@ class SessionWrapper:
             meta_data=metadata,
             forecasts=samples_,
             org_units=org_units,
+            model_db_id=model_db_id,
         )
         self.session.add(prediction)
         self.session.commit()
