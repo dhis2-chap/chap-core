@@ -139,6 +139,7 @@ def predictions(future_periods, org_units):
 def prediction(dataset, predictions):
     return Prediction(
         model_id="naive_model",
+        model_db_id=1,
         n_periods=3,
         name="test prediction",
         created=datetime.datetime.now(),

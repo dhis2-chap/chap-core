@@ -207,8 +207,7 @@ async def get_predictions(session: Session = Depends(get_session)):
     session_wrapper = SessionWrapper(session=session)
     return session_wrapper.list_all(Prediction)
 
-
-@router.get("/predictions/{predictionId}", response_model=PredictionRead)
+@router.get("/predictions/{predictionId}", response_model=PredictionInfo)
 async def get_prediction(
     prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
