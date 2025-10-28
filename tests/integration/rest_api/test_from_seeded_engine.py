@@ -88,7 +88,7 @@ def test_dataset_df(override_session):
 
 
 def test_backtest_plot(override_session, tmp_path):
-    response = client.get("/v1/visualization/backtest-plots/tmp/1")
+    response = client.get("/v1/visualization/backtest-plots/evaluation_plot/1")
     assert response.status_code == 200, response.json()
     vega_spec = response.json()
     html_template = wrap_vega_spec(vega_spec)

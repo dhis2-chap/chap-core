@@ -41,7 +41,7 @@ class VisualizationInfo(DBModel):
     description: str
 
 
-class MetricByHorizonV2Mean(MetricPlotV2):
+class MetricByHorizonAndLocationMean(MetricPlotV2):
     visualization_info = VisualizationInfo(
         id="metric_by_horizon",
         display_name="Horizon Plot",
@@ -51,6 +51,7 @@ class MetricByHorizonV2Mean(MetricPlotV2):
     def plot_from_df(self):
         df = self._metric_data
         adf = df.groupby(["horizon_distance", "location"]).agg({"metric": "mean"}).reset_index()
+        print(adf)
         chart = (
             alt.Chart(adf)
             .mark_bar(point=True)
@@ -58,6 +59,32 @@ class MetricByHorizonV2Mean(MetricPlotV2):
                 x=alt.X("horizon_distance:O", title="Horizon (periods ahead)"),
                 y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "location", "metric"],
+            )
+            .properties(width=600, height=400, title="Mean Metric by Horizon")
+            .interactive()
+        )
+
+        return chart
+
+
+class MetricByHorizonV2Mean(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_horizon",
+        display_name="Horizon Plot",
+        description="Shows the aggregated metric by forecast horizon",
+    )
+
+    def plot_from_df(self):
+        df = self._metric_data
+        adf = df.groupby(["horizon_distance"]).agg({"metric": "mean"}).reset_index()
+        print(adf)
+        chart = (
+            alt.Chart(adf)
+            .mark_bar(point=True)
+            .encode(
+                x=alt.X("horizon_distance:O", title="Horizon (periods ahead)"),
+                y=alt.Y("metric:Q", title="Mean Metric Value"),
+                tooltip=["horizon_distance", "metric"],
             )
             .properties(width=600, height=400, title="Mean Metric by Horizon")
             .interactive()
@@ -90,7 +117,7 @@ class MetricByHorizonV2Sum(MetricPlotV2):
 
         return chart
 
-class MetricByTimePeriodV2Mean(MetricPlotV2):
+class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
     visualization_info = VisualizationInfo(
         id="metric_by_time_period",
         display_name="Time Period Plot",
