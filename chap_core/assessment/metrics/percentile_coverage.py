@@ -64,7 +64,7 @@ class IsWithin25th75thDetailed(MetricBase):
         output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
         metric_name="Within 25-75 Percentile",
         metric_id="is_within_25th_75th_detailed",
-        description="Binary indicator if observation is within 25th-75th percentile per location, time period and horizon",
+        description="Binary indicator if observation is within 25th-75th percentile",
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:

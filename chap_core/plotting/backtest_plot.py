@@ -14,6 +14,21 @@ import pandas as pd
 import textwrap
 
 
+def title_chart(text: str, width: int = 600, font_size: int = 24, pad: int = 10):
+    """Return an Altair chart that just displays a title."""
+    return (
+        alt.Chart(pd.DataFrame({'x': [0], 'y': [0]}))
+        .mark_text(
+            text=text,
+            fontSize=font_size,
+            fontWeight="bold",
+            align="center",
+            baseline="top",
+        )
+        .properties(width=width, height=font_size + pad)
+    )
+
+
 def text_chart(text, line_length=80, font_size=12, align="left", pad_bottom=50):
     import altair as alt, pandas as pd, textwrap
 

@@ -23,11 +23,11 @@ class MetricPlotV2(abc.ABC):
     def __init__(self, metric_data: FlatMetric, geojson: Optional[dict] = None):
         self._metric_data = metric_data
 
-    def plot(self) -> alt.Chart:
-        return self.plot_from_df()
+    def plot(self, title="Mean metric by horizon") -> alt.Chart:
+        return self.plot_from_df(title=title)
 
     @abc.abstractmethod
-    def plot_from_df(self) -> alt.Chart:
+    def plot_from_df(self, title: str="") -> alt.Chart:
         pass
 
     def plot_spec(self) -> dict:
@@ -74,10 +74,9 @@ class MetricByHorizonV2Mean(MetricPlotV2):
         description="Shows the aggregated metric by forecast horizon",
     )
 
-    def plot_from_df(self):
+    def plot_from_df(self, title="Mean metric by horizon"):
         df = self._metric_data
         adf = df.groupby(["horizon_distance"]).agg({"metric": "mean"}).reset_index()
-        print(adf)
         chart = (
             alt.Chart(adf)
             .mark_bar(point=True)
@@ -86,7 +85,7 @@ class MetricByHorizonV2Mean(MetricPlotV2):
                 y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "metric"],
             )
-            .properties(width=600, height=400, title="Mean Metric by Horizon")
+            .properties(width=600, height=400, title=title)
             .interactive()
         )
 
@@ -124,7 +123,7 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
         description="Shows the aggregated metric by time period (per location)",
     )
 
-    def plot_from_df(self) -> alt.Chart:
+    def plot_from_df(self, title='Mean metric by location and time period') -> alt.Chart:
         df = self._metric_data
         adf = df.groupby(["time_period", "location"]).agg({"metric": "mean"}).reset_index()
         chart = (
@@ -136,7 +135,7 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
                 color=alt.Color("location:N", title="Location"),
                 tooltip=["time_period", "location", "metric"],
             )
-            .properties(width=600, height=400, title="Mean Metric by Time Period")
+            .properties(width=600, height=400, title=title)
             .interactive()
         )
 
@@ -167,6 +166,33 @@ class MetricByTimePeriodV2Sum(MetricPlotV2):
         )
         
         return chart
+
+
+class MetricByTimePeriodV2Mean(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_time_mean",
+        display_name="Metric by time (mean)",
+        description="Mean metric across locations and horizons per time period",
+    )
+
+    def plot_from_df(self, title='Mean metric by time period'):
+        df = self._metric_data
+        df = df.groupby(["time_period"]).agg({"metric": "mean"}).reset_index()
+        chart = (
+            alt.Chart(df)
+            .mark_line()
+            .encode(
+                x=alt.X("time_period:O", title="Time Period"),
+                y=alt.Y("mean(metric):Q", title="Mean Metric Value"),
+                tooltip=[alt.Tooltip(
+                    "time_period:O", title="Time Period"),
+                    alt.Tooltip("mean(metric):Q", title="Count"),
+                ],
+            )
+            .properties(width=600, height=400, title=title)
+        )
+
+        return chart
     
 class MetricMapV2(MetricPlotV2):
     visualization_info = VisualizationInfo(
@@ -177,7 +203,7 @@ class MetricMapV2(MetricPlotV2):
         super().__init__(metric_data, geojson)
         self._geojson = geojson
 
-    def plot_from_df(self) -> alt.Chart:
+    def plot_from_df(self, title='Metric Map by location') -> alt.Chart:
         # Get the metric data DataFrame
         df = self._metric_data
 
@@ -201,7 +227,7 @@ class MetricMapV2(MetricPlotV2):
                 from_=alt.LookupData(agg_df, "org_unit", ["value"]),
             )
             .project(type="equirectangular")  # Use equirectangular projection for proper proportions
-            .properties(width=600, height=400, title="Metric Map by Location")
+            .properties(width=600, height=400, title=title)
         )
         return chart
 

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session
 from starlette.responses import JSONResponse
 
+from chap_core.assessment.backtest_plots.backtest_plot_1 import BackTestPlot1
 from chap_core.assessment.backtest_plots.sample_bias_plot import RatioOfSamplesAboveTruthBacktestPlot
 from chap_core.assessment.metrics.above_truth import RatioOfSamplesAboveTruth
 from chap_core.database.base_tables import DBModel
@@ -31,6 +32,7 @@ router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This m
 
 metric_plots_registry = {cls.visualization_info.id: cls for cls in [MetricByHorizonV2Mean, MetricMapV2]}
 backtest_plots_registry = {
+    "backtest_plot_1": BackTestPlot1,
     "ratio_of_samples_above_truth": RatioOfSamplesAboveTruthBacktestPlot,
 }
 
