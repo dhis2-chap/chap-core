@@ -41,7 +41,7 @@ class VisualizationInfo(DBModel):
     description: str
 
 
-class MetricByHorizonV2(MetricPlotV2):
+class MetricByHorizonV2Mean(MetricPlotV2):
     visualization_info = VisualizationInfo(
         id="metric_by_horizon",
         display_name="Horizon Plot",
@@ -64,8 +64,83 @@ class MetricByHorizonV2(MetricPlotV2):
         )
 
         return chart
+    
+class MetricByHorizonV2Sum(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_horizon_sum",
+        display_name="Horizon Plot (sum)",
+        description="Sums metric across locations per forecast horizon",
+    )
 
+    def plot_from_df(self):
+        df = self._metric_data
+        chart = (
+            alt.Chart(df)
+            .mark_bar()
+            .encode(
+                x=alt.X("horizon_distance:O", title="Horizon (periods ahead)"),
+                y=alt.Y("sum(metric):Q", title="Samples above truth (count)"),
+                tooltip=[alt.Tooltip(
+                    "horizon_distance:O", title="Horizon"),
+                    alt.Tooltip("sum(metric):Q", title="Count"),
+                ],
+            )
+            .properties(width=600, height=400, title="Samples above truth by horizon")
+        )
 
+        return chart
+
+class MetricByTimePeriodV2Mean(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_time_period",
+        display_name="Time Period Plot",
+        description="Shows the aggregated metric by time period (per location)",
+    )
+
+    def plot_from_df(self) -> alt.Chart:
+        df = self._metric_data
+        adf = df.groupby(["time_period", "location"]).agg({"metric": "mean"}).reset_index()
+        chart = (
+            alt.Chart(adf)
+            .mark_line(point=True)
+            .encode(
+                x=alt.X("time_period:O", title="Time period"),
+                y=alt.Y("metric:Q", title="Mean Metric Value"),
+                color=alt.Color("location:N", title="Location"),
+                tooltip=["time_period", "location", "metric"],
+            )
+            .properties(width=600, height=400, title="Mean Metric by Time Period")
+            .interactive()
+        )
+
+        return chart
+
+class MetricByTimePeriodV2Sum(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_time_sum",
+        display_name="Horizon Plot (sum)",
+        description="Sums metric across locations per forecast horizon",
+    )
+
+    def plot_from_df(self):
+        df = self._metric_data
+        chart = (
+            alt.Chart(df)
+            .mark_line()
+            .encode(
+                x=alt.X("time_period:O", title="Time Period"),
+                y=alt.Y("sum(metric):Q", title="Samples above truth (count)"),
+                color=alt.Color("location:N", title="Location"),
+                tooltip=[alt.Tooltip(
+                    "time_period:O", title="Time Period"),
+                    alt.Tooltip("sum(metric):Q", title="Count"),
+                ],
+            )
+            .properties(width=600, height=400, title="Samples above truth by time period")
+        )
+        
+        return chart
+    
 class MetricMapV2(MetricPlotV2):
     visualization_info = VisualizationInfo(
         id="metric_map", display_name="Map", description="Shows a map of aggregated metrics per org unit"
