@@ -114,6 +114,7 @@ class RandomSearcher(Searcher):
 
 class TPESearcher(Searcher):
     """
+    Tree Parzen Estimator.
     Parallel-safe TPE searcher using Optuna's ask/tell with native distributions.
     - ask() returns a params dict that includes a reserved '_trial_id'.
     - tell() extracts '_trial_id' from params to update the correct trial.

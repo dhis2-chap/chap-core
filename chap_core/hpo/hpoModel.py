@@ -24,7 +24,6 @@ class HpoModel(HpoModelInterface):
             searcher: Searcher, 
             objective: Objective,
             direction: Direction = "minimize", 
-            # model_configuration_yaml: Optional[str] = None,
             model_configuration: Optional[dict[str, list]] = None,
     ):
         if direction not in ("maximize", "minimize"):
