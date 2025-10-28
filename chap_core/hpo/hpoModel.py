@@ -51,6 +51,7 @@ class HpoModel(HpoModelInterface):
         best_score = float("inf") if self._direction=="minimize" else float("-inf")
         best_params: dict[str, Any] = {}
         # best_config = None
+        self.leaderboard = []
 
         self._searcher.reset(self.base_configs)
         while True:
@@ -68,12 +69,18 @@ class HpoModel(HpoModelInterface):
 
             # Maybe best to seperate hpo_config and other configs in two files ??
             score = self._objective(params, dataset)
-            if trial_number is not None:
+            if trial_number is not None: # for parallel TPE search
                 params["_trial_id"] = trial_number
                 self._searcher.tell(params, score)
                 params.pop("_trial_id")
             else: 
                 self._searcher.tell(params, score)
+            
+            self.leaderboard.append({
+                "config": params,
+                "score": score, 
+                # for now only the best is trained again on the whole dataset
+            })
 
             is_better = (score < best_score) if self._direction == "minimize" else (score > best_score)
             if is_better or best_params is None:
@@ -86,6 +93,7 @@ class HpoModel(HpoModelInterface):
         best_config = {"user_option_values": best_params}
         self._best_config = best_config
         print(f"\nBest params: {best_params} | best score: {best_score}")
+        self.leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction=="maximize")
         
         template = self._objective.template
         # TODO: validate config without "user_option_values"
