@@ -36,8 +36,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # NOTE: We point to specific prebuilt image, which is built from Dockerfile.inla
-    image: ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
+    # NOTE: Built from Dockerfile.worker which extends the INLA worker image with chap-core
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
