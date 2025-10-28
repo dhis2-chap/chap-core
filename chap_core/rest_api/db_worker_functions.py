@@ -1,7 +1,10 @@
 import logging
-from typing import Optional
+import inspect
+from functools import wraps
+from typing import Optional, get_type_hints
 
 import numpy as np
+from pydantic import BaseModel, validate_call
 
 from chap_core.api_types import BackTestParams
 from chap_core.assessment.forecast import forecast_ahead
@@ -19,6 +22,31 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 
 logger = logging.getLogger(__name__)
+
+
+def convert_dicts_to_models(func):
+    """Convert dict arguments to Pydantic models based on type hints."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        sig = inspect.signature(func)
+        type_hints = get_type_hints(func)
+
+        # Bind arguments to parameter names
+        bound = sig.bind(*args, **kwargs)
+        bound.apply_defaults()
+
+        # Convert dicts to models where type hints indicate BaseModel
+        for param_name, value in bound.arguments.items():
+            if param_name in type_hints:
+                expected_type = type_hints[param_name]
+                # Check if it's a BaseModel subclass and value is a dict
+                if (isinstance(value, dict) and
+                    isinstance(expected_type, type) and
+                    issubclass(expected_type, BaseModel)):
+                    bound.arguments[param_name] = expected_type(**value)
+
+        return func(*bound.args, **bound.kwargs)
+    return wrapper
 
 
 def trigger_exception(*args, **kwargs):
@@ -146,25 +174,28 @@ def predict_pipeline_from_composite_dataset(
     session: SessionWrapper,
     worker_config=WorkerConfig(),
 ) -> int:
+    '''
+    This is the main pipeline function to run prediction from a dataset.
+    '''
     ds = InMemoryDataSet.from_dict(health_dataset, create_tsdataclass(provided_field_names))
     dataset_info = DataSetCreateInfo.model_validate(dataset_create_info)
     dataset_id = session.add_dataset(dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json())
 
     return run_prediction(model_id, dataset_id, None, name, session)
 
-
+@convert_dicts_to_models
 def run_backtest_from_dataset(
     feature_names: list[str],
     provided_data_model_dump: dict,
     backtest_name: str,
     model_id: str,
-    dataset_create_dump: dict,
+    dataset_info: DataSetCreateInfo,
     backtest_params_dump: dict,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
-    dataset_info = DataSetCreateInfo.model_validate(dataset_create_dump)
+    #dataset_info = DataSetCreateInfo.model_validate(dataset_create_dump)
     # dataset_info = DataSetCreateInfo(name=backtest_name, type="evaluation")
     dataset_id = session.add_dataset(dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json())
 

@@ -255,7 +255,10 @@ async def get_evaluation_entries(
     ]
 
 
-class MakePredictionRequest(DatasetMakeRequest):
+class PredictionParams(DBModel):
+    n_periods: int = 3
+
+class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
     model_id: str
     meta_data: dict = {}
 
@@ -494,7 +497,7 @@ async def create_backtest_with_data(
         wf.run_backtest_from_dataset,
         feature_names=feature_names,
         provided_data_model_dump=provided_data_processed.model_dump(),
-        dataset_create_dump=dataset_create_info,
+        dataset_info=dataset_create_info,
         backtest_name=request.name,
         model_id=request.model_id,
         backtest_params_dump=bt_params,
