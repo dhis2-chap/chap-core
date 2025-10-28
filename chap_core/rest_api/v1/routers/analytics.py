@@ -31,6 +31,7 @@ from ...data_models import (
     DatasetMakeRequest,
     ImportSummaryResponse,
     JobResponse,
+    PredictionParams,
     ValidationError,
 )
 from .dependencies import get_database_url, get_session, get_settings
@@ -282,11 +283,6 @@ async def get_evaluation_entries(
         for forecast in forecasts
         for q in quantiles
     ]
-
-
-class PredictionParams(DBModel):
-    model_id: str
-    n_periods: int = 3
 
 
 class MakePredictionRequest(DatasetMakeRequest, PredictionParams):

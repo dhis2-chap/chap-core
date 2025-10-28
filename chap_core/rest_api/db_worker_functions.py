@@ -15,7 +15,7 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.rest_api.data_models import BackTestCreate, FetchRequest
-from chap_core.rest_api.v1.routers.analytics import PredictionParams
+from chap_core.rest_api.data_models import PredictionParams
 
 # from chap_core.rest_api.v1.routers.crud import BackTestCreate
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset

@@ -539,10 +539,6 @@ def create_db_and_tables():
         n = 0
         while n < 30:
             try:
-                print("DEBUG: About to create tables with metadata:")
-                for table_name, table in SQLModel.metadata.tables.items():
-                    print(f"DEBUG: Table {table_name} - Columns: {[col.name for col in table.columns]}")
-
                 # Step 1: Run custom migrations for backward compatibility (v1.0.17, etc.)
                 _run_generic_migration(engine)
 
