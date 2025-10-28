@@ -2,21 +2,14 @@
 
 import altair as alt
 import pandas as pd
-from typing import Dict, Any, Optional
+from typing import Optional
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 import json
 from chap_core.assessment.flat_representations import (
     FlatMetric,
 )
-from chap_core.assessment.metrics import (
-    DetailedRMSE,                   
-    PeakValueDiffMetric,            
-    PeakWeekLagMetric,              
-    SamplesAboveTruth)
 from chap_core.assessment.metrics.above_truth import RatioOfSamplesAboveTruth
-from chap_core.database.tables import BackTest
-from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricByHorizonV2Sum, MetricByTimePeriodAndLocationV2Mean, \
-    MetricByTimePeriodV2Sum
+from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricByTimePeriodAndLocationV2Mean
 
 
 def _compute_metric_df(metric_cls, flat_obs, flat_fc) -> pd.DataFrame:

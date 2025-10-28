@@ -8,7 +8,6 @@ from starlette.responses import JSONResponse
 
 from chap_core.assessment.backtest_plots.backtest_plot_1 import BackTestPlot1
 from chap_core.assessment.backtest_plots.sample_bias_plot import RatioOfSamplesAboveTruthBacktestPlot
-from chap_core.assessment.metrics.above_truth import RatioOfSamplesAboveTruth
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import BackTest

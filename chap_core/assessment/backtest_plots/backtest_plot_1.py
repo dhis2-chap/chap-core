@@ -9,7 +9,7 @@ from chap_core.assessment.flat_representations import (
     convert_backtest_to_flat_forecasts,
     convert_backtest_observations_to_flat_observations,
 )
-from chap_core.plotting.evaluation_plot import MetricByHorizonV2Sum, MetricByHorizonV2Mean, MetricByTimePeriodV2Mean
+from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricByTimePeriodV2Mean
 
 
 # Import your metrics here

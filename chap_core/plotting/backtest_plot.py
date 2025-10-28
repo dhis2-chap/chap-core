@@ -6,12 +6,10 @@ from altair import FacetChart
 from chap_core.assessment.flat_representations import convert_backtest_observations_to_flat_observations
 from chap_core.database.tables import BackTest
 import altair as alt
+import textwrap
 
 alt.data_transformers.enable("vegafusion")
 
-import altair as alt
-import pandas as pd
-import textwrap
 
 
 def title_chart(text: str, width: int = 600, font_size: int = 24, pad: int = 10):
@@ -30,7 +28,8 @@ def title_chart(text: str, width: int = 600, font_size: int = 24, pad: int = 10)
 
 
 def text_chart(text, line_length=80, font_size=12, align="left", pad_bottom=50):
-    import altair as alt, pandas as pd, textwrap
+    import altair as alt
+    import pandas as pd
 
     lines = textwrap.wrap(text, width=line_length)
     df = pd.DataFrame({"line": lines, "y": range(len(lines))})
@@ -116,7 +115,7 @@ class EvaluationBackTestPlot(BackTestPlotBase):
         self._observed = observed_df
 
     @classmethod
-    def from_backtest(cls, backtest: BackTest) -> "BackTestPlot":
+    def from_backtest(cls, backtest: BackTest) -> "EvaluationBackTestPlot":
         rows = []
         quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
         for bt_forecast in backtest.forecasts:

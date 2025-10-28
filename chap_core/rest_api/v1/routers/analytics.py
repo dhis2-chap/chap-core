@@ -1,5 +1,4 @@
 import logging
-from collections import defaultdict
 from typing import Annotated, List
 
 import numpy as np

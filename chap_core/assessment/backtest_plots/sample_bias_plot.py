@@ -6,7 +6,6 @@ evaluation dashboards showing the ratio of forecast samples above truth
 by horizon distance and time period.
 """
 
-from typing import Optional
 
 import altair as alt
 
