@@ -19,6 +19,7 @@ def test_standardized_feautre_plot(simulated_dataset, plt_cls, default_transform
     chart = plotter.plot()
 
 
+@pytest.mark.skip(reason="Gives a lot of plots")
 def test_dummy_geojson_boundaries(dummy_geojson, tmp_path):
     """Test to visualize the dummy GeoJSON boundaries using matplotlib."""
     import matplotlib.pyplot as plt

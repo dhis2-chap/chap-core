@@ -221,7 +221,14 @@ async def get_evaluation_entries(
 ):
     """
     Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
+
+    NOTE: If org_units is set to [":adm0"], the sum over all regions is returned.
     """
+    return_summed = False
+    if org_units is not None and len(org_units) == 1 and org_units[0] == ":adm0":
+        # returning sum of forecasts for all regions
+        return_summed = True
+
     logger.info(
         f"Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} "
     )
@@ -237,11 +244,32 @@ async def get_evaluation_entries(
     expr = select(cls).where(cls.backtest_id == backtest_id)
     if split_period:
         expr = expr.where(cls.last_seen_period == split_period)
-    if org_units:
+    if org_units and not return_summed:
         expr = expr.where(cls.org_unit.in_(org_units))
     forecasts = session.exec(expr)
 
     logger.info(forecasts)
+
+    if return_summed:
+        # sum forecasts over all regions
+        summed_forecasts = {}
+        for forecast in forecasts:
+            key = (forecast.period, forecast.last_seen_period)
+            if key not in summed_forecasts:
+                summed_forecasts[key] = np.array([0.0] * len(forecast.values))
+            summed_forecasts[key] += np.array(forecast.values)
+
+
+        forecasts = [
+            BackTestForecast(
+                period=key[0],
+                org_unit=":adm0",
+                last_seen_period=key[1],
+                values=values.tolist(),
+            )
+            for key, values in summed_forecasts.items()
+        ]
+
     return [
         EvaluationEntry(
             period=forecast.period,
@@ -347,7 +375,13 @@ org_units: List[str] = Query(None, alias="orgUnits"),
 ):
     """
     Return the actual disease cases corresponding to a backtest. Can optionally be filtered on org units.
+
+    Note: If org_units is set to [":adm0"], the sum over all regions is returned.
     """
+    return_summed = False
+    if org_units is not None and len(org_units) == 1 and org_units[0] == ":adm0":
+        # returning sum of forecasts for all regions
+        return_summed = True
 
     backtest = session.get(BackTest, backtest_id)
     logger.info(f"Backtest: {backtest}")
@@ -355,7 +389,7 @@ org_units: List[str] = Query(None, alias="orgUnits"),
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     expr = select(Observation).where(Observation.dataset_id == backtest.dataset_id)
-    if org_units is not None:
+    if org_units is not None and not return_summed:
         org_units = set(org_units)
         expr = expr.where(Observation.org_unit.in_(org_units))
     observations = session.exec(expr).all()
@@ -371,6 +405,18 @@ org_units: List[str] = Query(None, alias="orgUnits"),
         for observation in observations
         if observation.feature_name == "disease_cases"
     ]
+    if return_summed:
+        # sum over all regions
+        summed_values = {}
+        for element in data_list:
+            key = element.pe
+            if key not in summed_values:
+                summed_values[key] = 0.0
+            if element.value is not None:
+                summed_values[key] += element.value
+        data_list = [
+            DataElement(pe=pe, ou=":adm0", value=value) for pe, value in summed_values.items()
+        ]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(featureId="disease_cases", dhis2Id="disease_cases", data=data_list)
 

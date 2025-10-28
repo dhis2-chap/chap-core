@@ -1,11 +1,52 @@
+from abc import ABC, abstractmethod
+
 import pandas as pd
 from altair import FacetChart
 
 from chap_core.assessment.flat_representations import convert_backtest_observations_to_flat_observations
 from chap_core.database.tables import BackTest
 import altair as alt
+import textwrap
 
 alt.data_transformers.enable("vegafusion")
+
+
+
+def title_chart(text: str, width: int = 600, font_size: int = 24, pad: int = 10):
+    """Return an Altair chart that just displays a title."""
+    return (
+        alt.Chart(pd.DataFrame({'x': [0], 'y': [0]}))
+        .mark_text(
+            text=text,
+            fontSize=font_size,
+            fontWeight="bold",
+            align="center",
+            baseline="top",
+        )
+        .properties(width=width, height=font_size + pad)
+    )
+
+
+def text_chart(text, line_length=80, font_size=12, align="left", pad_bottom=50):
+    import altair as alt
+    import pandas as pd
+
+    lines = textwrap.wrap(text, width=line_length)
+    df = pd.DataFrame({"line": lines, "y": range(len(lines))})
+
+    line_spacing = font_size + 2
+    total_height = len(lines) * line_spacing + pad_bottom
+
+    chart = (
+        alt.Chart(df)
+        .mark_text(align=align, baseline="top", fontSize=font_size)
+        .encode(
+            text="line",
+            y=alt.Y("y:O", axis=None)
+        )
+        .properties(height=total_height)
+    )
+    return chart
 
 
 def clean_time(period):
@@ -20,13 +61,61 @@ def clean_time(period):
         return period
 
 
-class BackTestPlot:
+class BackTestPlotBase(ABC):
+    """
+    Abstract base class for backtest plotting.
+
+    Subclasses must implement:
+    - from_backtest: Class method to create plot instance from a BackTest object
+    - plot: Method to generate and return the visualization
+    - name: Class variable with the name of the plot type
+    """
+
+    name: str = ""
+
+    @classmethod
+    @abstractmethod
+    def from_backtest(cls, backtest: BackTest):
+        """
+        Create a plot instance from a BackTest object.
+
+        Parameters
+        ----------
+        backtest : BackTest
+            The backtest object containing forecast and observation data
+
+        Returns
+        -------
+        BackTestPlotBase
+            An instance of the concrete plot class
+        """
+        pass
+
+    @abstractmethod
+    def plot(self):
+        """
+        Generate and return the visualization.
+
+        Returns
+        -------
+        Chart object (implementation-specific)
+            The visualization object (e.g., FacetChart for Altair-based plots)
+        """
+        pass
+
+
+class EvaluationBackTestPlot(BackTestPlotBase):
+    """
+    Backtest-plot that shows truth vs predictions over time.
+    """
+    name: str = "Evaluation Plot"
+
     def __init__(self, forecast_df: pd.DataFrame, observed_df: pd.DataFrame):
         self._forecast = forecast_df
         self._observed = observed_df
 
     @classmethod
-    def from_backtest(cls, backtest: BackTest) -> "BackTestPlot":
+    def from_backtest(cls, backtest: BackTest) -> "EvaluationBackTestPlot":
         rows = []
         quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
         for bt_forecast in backtest.forecasts:

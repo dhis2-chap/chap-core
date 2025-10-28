@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
+from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 from chap_core.database.dataset_tables import DataSetWithObservations, Observation, DataSet
 from chap_core.database.tables import BackTestRead, OldBackTestRead, BackTestForecast, BackTest, BackTestMetric
 from chap_core.simulation.naive_simulator import DatasetDimensions, AdditiveSimulator, BacktestSimulator
@@ -275,3 +277,32 @@ def dummy_geojson():
             },
         ],
     }
+
+
+@pytest.fixture
+def flat_forecasts():
+    return FlatForecasts(
+        pd.DataFrame(
+            {
+                "location": ["loc1", "loc1", "loc2", "loc2"],
+                "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
+                "horizon_distance": [1, 2, 1, 2],
+                "sample": [1, 1, 1, 1],
+                "forecast": [10, 12, 21, 23],
+            }
+        )
+    )
+
+
+@pytest.fixture
+def flat_observations():
+    return FlatObserved(
+        pd.DataFrame(
+            {
+                "location": ["loc1", "loc1", "loc2", "loc2"],
+                "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
+                "disease_cases": [11.0, 13.0, 19.0, 21.0],
+            }
+        )
+    )
+
