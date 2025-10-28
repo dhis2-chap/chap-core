@@ -78,7 +78,7 @@ class PredictionBase(DBModel):
     name: str
     created: datetime.datetime
     meta_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
-
+    org_units: List[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)

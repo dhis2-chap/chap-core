@@ -15,6 +15,7 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.rest_api.data_models import BackTestCreate, FetchRequest
+from chap_core.rest_api.v1.routers.analytics import PredictionParams
 
 # from chap_core.rest_api.v1.routers.crud import BackTestCreate
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
@@ -68,7 +69,7 @@ def validate_and_filter_dataset_for_evaluation(
 
     return DataSet(new_data, metadata=dataset.metadata, polygons=dataset.polygons)
 
-
+#@convert_dicts_to_models
 def run_backtest(
     info: BackTestCreate,
     n_periods: Optional[int] = None,
@@ -164,13 +165,13 @@ def _get_n_periods(health_dataset):
     n_periods = 3 if frequency == "M" else 12
     return n_periods
 
-
+@convert_dicts_to_models
 def predict_pipeline_from_composite_dataset(
     provided_field_names: list[str],
     health_dataset: dict,
     name: str,
-    model_id: str,
-    dataset_create_info: dict,
+    dataset_create_info: DataSetCreateInfo,
+    prediction_params: PredictionParams,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
 ) -> int:
@@ -178,10 +179,13 @@ def predict_pipeline_from_composite_dataset(
     This is the main pipeline function to run prediction from a dataset.
     '''
     ds = InMemoryDataSet.from_dict(health_dataset, create_tsdataclass(provided_field_names))
-    dataset_info = DataSetCreateInfo.model_validate(dataset_create_info)
-    dataset_id = session.add_dataset(dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json())
+    #dataset_info = DataSetCreateInfo.model_validate(dataset_create_info)
 
-    return run_prediction(model_id, dataset_id, None, name, session)
+    dataset_id = session.add_dataset(dataset_info=dataset_create_info,
+                                     orig_dataset=ds,
+                                     polygons=ds.polygons.model_dump_json())
+
+    return run_prediction(prediction_params.model_id, dataset_id, prediction_params.n_periods, name, session)
 
 @convert_dicts_to_models
 def run_backtest_from_dataset(
@@ -190,22 +194,18 @@ def run_backtest_from_dataset(
     backtest_name: str,
     model_id: str,
     dataset_info: DataSetCreateInfo,
-    backtest_params_dump: dict,
+    backtest_params: BackTestParams,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
-    #dataset_info = DataSetCreateInfo.model_validate(dataset_create_dump)
-    # dataset_info = DataSetCreateInfo(name=backtest_name, type="evaluation")
     dataset_id = session.add_dataset(dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json())
-
-    bp = BackTestParams.model_validate(backtest_params_dump)
     backtest_create_info = BackTestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)
 
     return run_backtest(
         info=backtest_create_info,
-        n_periods=bp.n_periods,
-        n_splits=bp.n_splits,
-        stride=bp.stride,
+        n_periods=backtest_params.n_periods,
+        n_splits=backtest_params.n_splits,
+        stride=backtest_params.stride,
         session=session,
     )

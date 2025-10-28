@@ -256,10 +256,10 @@ async def get_evaluation_entries(
 
 
 class PredictionParams(DBModel):
+    model_id: str
     n_periods: int = 3
 
 class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
-    model_id: str
     meta_data: dict = {}
 
 
@@ -303,14 +303,16 @@ async def make_prediction(
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
-    dataset_info = DataSetCreateInfo.model_validate(request.model_dump()).model_dump()
+    dump = request.model_dump()
+    dataset_info = DataSetCreateInfo(**dump).model_dump()
+    prediction_params = PredictionParams(**dump)
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,
         provided_data.model_dump(),
         request.name,
-        request.model_id,
         dataset_create_info=dataset_info,
+        prediction_params=prediction_params,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_prediction", JOB_NAME_KW: request.name},
@@ -500,7 +502,7 @@ async def create_backtest_with_data(
         dataset_info=dataset_create_info,
         backtest_name=request.name,
         model_id=request.model_id,
-        backtest_params_dump=bt_params,
+        backtest_params=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},

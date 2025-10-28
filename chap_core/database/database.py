@@ -377,6 +377,9 @@ class SessionWrapper:
 
     def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict = {}):
         n_periods = len(list(predictions.values())[0])
+        samples_ = [PredictionSamplesEntry(period=period.id, org_unit=location, values=value.tolist()) for
+                    location, data in predictions.items() for period, value in zip(data.time_period, data.samples)]
+        org_units = list(predictions.keys())
         prediction = Prediction(
             dataset_id=dataset_id,
             model_id=model_id,
@@ -384,11 +387,8 @@ class SessionWrapper:
             created=datetime.datetime.now(),
             n_periods=n_periods,
             meta_data=metadata,
-            forecasts=[
-                PredictionSamplesEntry(period=period.id, org_unit=location, values=value.tolist())
-                for location, data in predictions.items()
-                for period, value in zip(data.time_period, data.samples)
-            ],
+            forecasts=samples_,
+            org_units=org_units,
         )
         self.session.add(prediction)
         self.session.commit()
