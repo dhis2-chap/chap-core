@@ -103,6 +103,10 @@ git checkout v1.0.18  # Replace with your desired version
 ### 3. Upgrade Chap Core
 
 ```bash
+# Stop all containers first
+docker compose down 
+
+# Spin the containers up with --build to get new changes
 docker compose up --build
 ```
 
