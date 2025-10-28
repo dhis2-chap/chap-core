@@ -6,3 +6,7 @@ class HpoModelInterface(ConfiguredModel):
     @abc.abstractmethod
     def get_best_config(self) -> dict:
         pass
+
+    @abc.abstractmethod
+    def get_leaderboard() -> dict:
+        pass

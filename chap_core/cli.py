@@ -71,6 +71,7 @@ def evaluate_hpo(
     metric: Optional[str] = "MSE",
     direction: Direction = "minimize",
     evaluate_hpo: Optional[bool] = True,
+    evaluate_ensemble: Optional[bool] = True,
 ):
     """
     Same as evaluate, but has three added arguments and a if check on argument evaluate_hpo. 

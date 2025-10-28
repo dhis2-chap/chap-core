@@ -35,10 +35,33 @@ class HpoModel(HpoModelInterface):
         # self._model_configuration_yaml = model_configuration_yaml #TODO: this should a parsed dict
         self.base_configs = model_configuration
     
-    def train(self, dataset: Optional[DataSetType],) -> Tuple[str, dict[str, Any]]:
+    def train(self, dataset: Optional[DataSetType]) -> Tuple[str, dict[str, Any]]:
         """
-        Runs hyperparameter optimization over a discrete search space.
-        Returns the optimized and trained (trained on the whole dataset argument) predictor.
+        Calls get_leaderboard to find the optimal configuration. 
+        Then trains the tuned model on the whole input dataset (train + validation).
+        """
+        self.get_leaderboard(dataset, ensemble=False) # calculates leaderboard, don't need the return value here bc best_config it stores best_config in self
+        template = self._objective.template
+        # TODO: validate config without "user_option_values"
+        if self._best_config is not None:
+            logger.info(f"Validating best model configuration: {self._best_config}")
+            config = ModelConfiguration.model_validate(self._best_config)  
+            logger.info(f"Validated best model configuration: {config}")
+        estimator = template.get_model(config)
+        self._predictor = estimator.train(dataset)
+        return self._predictor
+    
+    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+        self._predictor.predict(historic_data, future_data)
+
+    @property
+    def get_best_config(self):
+        return self._best_config
+
+    def get_leaderboard(self, dataset: Optional[DataSetType], ensemble: Optional[bool] = True):
+        """
+        Runs hyperparameter optimization over the search space.
+        Returns a sorted list of configurations together with their score.
         """
         # hpo_configs = self.base_configs["user_option_values"]
         # for key, vals in hpo_configs.items(): # wraps Float and Int in a list
@@ -51,7 +74,7 @@ class HpoModel(HpoModelInterface):
         best_score = float("inf") if self._direction=="minimize" else float("-inf")
         best_params: dict[str, Any] = {}
         # best_config = None
-        self.leaderboard = []
+        self._leaderboard = []
 
         self._searcher.reset(self.base_configs)
         while True:
@@ -76,7 +99,7 @@ class HpoModel(HpoModelInterface):
             else: 
                 self._searcher.tell(params, score)
             
-            self.leaderboard.append({
+            self._leaderboard.append({
                 "config": params,
                 "score": score, 
                 # for now only the best is trained again on the whole dataset
@@ -90,29 +113,22 @@ class HpoModel(HpoModelInterface):
 
             print(f"Tried {params} -> score={score}")
 
-        best_config = {"user_option_values": best_params}
-        self._best_config = best_config
+        self._best_config = {"user_option_values": best_params}
         print(f"\nBest params: {best_params} | best score: {best_score}")
-        self.leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction=="maximize")
-        
-        template = self._objective.template
-        # TODO: validate config without "user_option_values"
-        if best_config is not None:
-            logger.info(f"Validating best model configuration: {best_config}")
-            config = ModelConfiguration.model_validate(best_config)  
-            logger.info(f"Validated best model configuration: {config}")
-        estimator = template.get_model(best_config)
-        self._predictor = estimator.train(dataset)
-        return self._predictor
-    
-    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
-        self._predictor.predict(historic_data, future_data)
-
-    @property
-    def get_best_config(self):
-        return self._best_config
+        self._leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction=="maximize")
+        """
+        Could use the flag ensemble to determine. 
+        if True append to leaderboard, 
+        else only calculate score < best_score and append only the best to leaderboard.
+        Bc sorting leaderboard may be costly.  
+        Also the name is weird, maybe another method like calculate_leaders to do the work, 
+        bc hpoModel.train doesn't really need anything to be returned.
+        Then get_leaderboard just returns from self just like get_best_config.
+        """
+        return self._leaderboard
     
     @property
     def write_best_config(self, output_yaml):
         if self._best_config is not None:
             write_yaml(output_yaml, self._best_config)
+    
