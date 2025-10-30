@@ -30,7 +30,7 @@ class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
     """
 
     name = "Sample Bias Plot"
-
+    description = 'Backtest plot showing forecast bias relative to observations.'
     def __init__(
         self,
         flat_observations: FlatObserved,

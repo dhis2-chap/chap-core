@@ -115,7 +115,7 @@ class BackTestPlotType(DBModel):
 @router.get("/backtest-plots/", response_model=list[BackTestPlotType])
 def list_backtest_plot_types():
     return [
-        BackTestPlotType(id=plot_id, display_name=plot_class.name)
+        BackTestPlotType(id=plot_id, display_name=plot_class.name, description=plot_class.description)
         for plot_id, plot_class in backtest_plots_registry.items()
     ]
 
