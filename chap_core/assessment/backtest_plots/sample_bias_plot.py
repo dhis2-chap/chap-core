@@ -145,7 +145,6 @@ class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
                     "subtitleFontSize": 12,
                 },
             )
-            .interactive()
         )
         charts.append(horizon_chart)
 
@@ -171,7 +170,6 @@ class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
                     "subtitleFontSize": 12,
                 },
             )
-            .interactive()
         )
         charts.append(time_chart)
 
