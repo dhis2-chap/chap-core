@@ -61,7 +61,6 @@ class MetricByHorizonAndLocationMean(MetricPlotV2):
                 tooltip=["horizon_distance", "location", "metric"],
             )
             .properties(width="container", height="container", title="Mean Metric by Horizon")
-            .interactive()
         )
 
         return chart
@@ -86,7 +85,6 @@ class MetricByHorizonV2Mean(MetricPlotV2):
                 tooltip=["horizon_distance", "metric"],
             )
             .properties(width="container", height="container", title=title)
-            .interactive()
         )
 
         return chart
@@ -138,7 +136,6 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
                 tooltip=["time_period", "location", "metric"],
             )
             .properties(width="container", height="container", title=title)
-            .interactive()
         )
 
         return chart
