@@ -13,34 +13,6 @@ from chap_core.database.tables import BackTest
 from chap_core.datatypes import SamplesWithTruth
 
 
-@pytest.fixture
-def flat_forecasts():
-    return FlatForecasts(
-        pd.DataFrame(
-            {
-                "location": ["loc1", "loc1", "loc2", "loc2"],
-                "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
-                "horizon_distance": [1, 2, 1, 2],
-                "sample": [1, 1, 1, 1],
-                "forecast": [10, 12, 21, 23],
-            }
-        )
-    )
-
-
-@pytest.fixture
-def flat_observations():
-    return FlatObserved(
-        pd.DataFrame(
-            {
-                "location": ["loc1", "loc1", "loc2", "loc2"],
-                "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
-                "disease_cases": [11.0, 13.0, 19.0, 21.0],
-            }
-        )
-    )
-
-
 def test_flat_observed_with_nan():
     return FlatObserved(
         pd.DataFrame(
@@ -96,20 +68,8 @@ def engine():
     return engine
 
 
-def test_add_aggregated_metrics_to_database(engine, backtest_weeks):
-    with SessionWrapper(engine) as session:
-        backtest_weeks.model_db_id = 1
-        session.session.add(backtest_weeks)
-        backtest = session.session.get(BackTest, backtest_weeks.id)
-
-        metrics = compute_all_aggregated_metrics_from_backtest(backtest_weeks)
-        backtest.aggregate_metrics = metrics
-        session.session.commit()
-
-
 @pytest.mark.skip(reason="Only for testing")
 def test_read_example_weekly_predictions(data_path):
     data = pd.read_csv(data_path / "example_weekly_predictions.csv")
     data = SamplesWithTruth.from_pandas(data)
     print(type(data.time_period))
-

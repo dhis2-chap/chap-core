@@ -27,16 +27,6 @@ class DirectClient(TestClient):
 client = DirectClient(app)
 
 
-@pytest.fixture
-def override_session(p_seeded_engine):
-    def get_test_session():
-        with Session(p_seeded_engine) as session:
-            yield session
-
-    app.dependency_overrides[get_session] = get_test_session
-    yield
-    app.dependency_overrides.clear()
-
 
 def test_dataset(seeded_session: Session):
     dataset = seeded_session.query(DataSet)
@@ -88,7 +78,7 @@ def test_dataset_df(override_session):
 
 
 def test_backtest_plot(override_session, tmp_path):
-    response = client.get("/v1/visualization/backtest-plots/tmp/1")
+    response = client.get("/v1/visualization/backtest-plots/evaluation_plot/1")
     assert response.status_code == 200, response.json()
     vega_spec = response.json()
     html_template = wrap_vega_spec(vega_spec)

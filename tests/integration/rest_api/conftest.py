@@ -3,12 +3,14 @@ import datetime
 import numpy as np
 import pytest
 from pydantic_geojson import PointModel
-from sqlmodel import select
+from sqlmodel import select, Session
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.dataset_tables import DataSet, Observation, DataSource
 from chap_core.database.tables import Prediction, BackTest, BackTestForecast, BackTestMetric, PredictionSamplesEntry
+from chap_core.rest_api.v1.rest_api import app
 from chap_core.rest_api.v1.routers.analytics import BackTestParams
+from chap_core.rest_api.v1.routers.dependencies import get_session
 
 
 @pytest.fixture
@@ -50,6 +52,7 @@ def geojson(org_units) -> FeatureCollectionModel:
 def seen_periods_weekly():
     # 2020 has 53 weeks (leap year starting on Wednesday), 2021 and 2022 have 52 weeks
     import datetime
+
     periods = []
     for year in range(2020, 2023):
         # Check how many weeks the year has using ISO calendar
@@ -74,7 +77,9 @@ def dataset_observations(feature_names: list[str], org_units: list[str], seen_pe
 
 
 @pytest.fixture
-def dataset_observations_weekly(feature_names: list[str], org_units: list[str], seen_periods_weekly: list[str]) -> list[Observation]:
+def dataset_observations_weekly(
+    feature_names: list[str], org_units: list[str], seen_periods_weekly: list[str]
+) -> list[Observation]:
     observations = [
         Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 52) / 2))
         for ou_id, ou in enumerate(org_units)
@@ -139,6 +144,7 @@ def predictions(future_periods, org_units):
 def prediction(dataset, predictions):
     return Prediction(
         model_id="naive_model",
+        model_db_id=1,
         n_periods=3,
         name="test prediction",
         created=datetime.datetime.now(),
@@ -236,3 +242,14 @@ def seeded_session(p_seeded_engine):
 
     with Session(p_seeded_engine) as session:
         yield session
+
+
+@pytest.fixture
+def override_session(p_seeded_engine):
+    def get_test_session():
+        with Session(p_seeded_engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = get_test_session
+    yield
+    app.dependency_overrides.clear()

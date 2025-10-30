@@ -103,8 +103,11 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> 
 
 
 def get_model_template_from_directory_or_github_url(
-    model_template_path, base_working_dir=Path("runs/"), ignore_env=False, run_dir_type="timestamp",
-        is_chapkit_model: bool = False
+    model_template_path,
+    base_working_dir=Path("runs/"),
+    ignore_env=False,
+    run_dir_type="timestamp",
+    is_chapkit_model: bool = False,
 ) -> ModelTemplate:
     """
     Note: Preferably use ModelTemplate.from_directory_or_github_url instead of

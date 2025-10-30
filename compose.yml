@@ -1,6 +1,6 @@
 services:
   redis:
-    image: redis:7.4.0
+    image: redis:7
     container_name: redis
     networks:
       - chap-network
@@ -36,8 +36,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # NOTE: We point to specific prebuilt image, which is built from Dockerfile.inla
-    image: ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
+    # NOTE: Built from Dockerfile.worker which extends the INLA worker image with chap-core
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
@@ -51,7 +53,7 @@ services:
       - chap-network
 
   postgres:
-    image: postgres@sha256:87ec5e0a167dc7d4831729f9e1d2ee7b8597dcc49ccd9e43cc5f89e808d2adae
+    image: postgres:17
     restart: always
     environment:
       POSTGRES_USER: root

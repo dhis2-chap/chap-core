@@ -6,7 +6,7 @@ import pytest
 
 from chap_core.assessment.metrics.rmse import DetailedRMSE
 from chap_core.database.tables import BackTestMetric
-from chap_core.plotting.evaluation_plot import MetricByHorizonV2, MetricMapV2, make_plot_from_backtest_object
+from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricMapV2, make_plot_from_backtest_object
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def test_plot_from_df(rwanda_geojson, rwanda_metrics):
     # assert False
 
 
-@pytest.mark.parametrize("plot_class", [MetricByHorizonV2, MetricMapV2])
+@pytest.mark.parametrize("plot_class", [MetricByHorizonV2Mean, MetricMapV2])
 def test_evaluation_plot_from_backtest_object(simulated_backtest, plot_class):
     make_plot_from_backtest_object(
         simulated_backtest, plot_class, DetailedRMSE(), geojson=simulated_backtest.dataset.geojson
