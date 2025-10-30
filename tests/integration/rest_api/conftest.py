@@ -3,12 +3,14 @@ import datetime
 import numpy as np
 import pytest
 from pydantic_geojson import PointModel
-from sqlmodel import select
+from sqlmodel import select, Session
 
 from chap_core.api_types import FeatureCollectionModel
 from chap_core.database.dataset_tables import DataSet, Observation, DataSource
 from chap_core.database.tables import Prediction, BackTest, BackTestForecast, BackTestMetric, PredictionSamplesEntry
+from chap_core.rest_api.v1.rest_api import app
 from chap_core.rest_api.v1.routers.analytics import BackTestParams
+from chap_core.rest_api.v1.routers.dependencies import get_session
 
 
 @pytest.fixture
@@ -240,3 +242,14 @@ def seeded_session(p_seeded_engine):
 
     with Session(p_seeded_engine) as session:
         yield session
+
+
+@pytest.fixture
+def override_session(p_seeded_engine):
+    def get_test_session():
+        with Session(p_seeded_engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = get_test_session
+    yield
+    app.dependency_overrides.clear()

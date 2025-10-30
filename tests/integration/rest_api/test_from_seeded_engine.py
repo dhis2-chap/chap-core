@@ -27,16 +27,6 @@ class DirectClient(TestClient):
 client = DirectClient(app)
 
 
-@pytest.fixture
-def override_session(p_seeded_engine):
-    def get_test_session():
-        with Session(p_seeded_engine) as session:
-            yield session
-
-    app.dependency_overrides[get_session] = get_test_session
-    yield
-    app.dependency_overrides.clear()
-
 
 def test_dataset(seeded_session: Session):
     dataset = seeded_session.query(DataSet)

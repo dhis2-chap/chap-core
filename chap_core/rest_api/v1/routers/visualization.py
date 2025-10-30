@@ -110,10 +110,10 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
 class BackTestPlotType(DBModel):
     id: str
     display_name: str
-
+    description: str = ""
 
 @router.get("/backtest-plots/", response_model=list[BackTestPlotType])
-def list_backtest_plot_types(session: Session = Depends(get_session)):
+def list_backtest_plot_types():
     return [
         BackTestPlotType(id=plot_id, display_name=plot_class.name)
         for plot_id, plot_class in backtest_plots_registry.items()
