@@ -71,8 +71,9 @@ def dataset_observations(feature_names: list[str], org_units: list[str], seen_pe
     return _generate_observations(feature_names, org_units, seen_periods)
 
 
-def _generate_observations(feature_names: list[str], org_units: list[str], seen_periods: list[str]) -> list[
-    Observation]:
+def _generate_observations(
+    feature_names: list[str], org_units: list[str], seen_periods: list[str]
+) -> list[Observation]:
     observations = [
         Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2))
         for ou_id, ou in enumerate(org_units)
@@ -100,8 +101,14 @@ def dataset(org_units, feature_names, seen_periods, dataset_observations, geojso
     return _make_dataset(dataset_observations, feature_names, geojson, org_units, seen_periods)
 
 
-def _make_dataset(dataset_observations: list[Observation], feature_names: list[str], geojson: FeatureCollectionModel,
-                  org_units: list[str], seen_periods: list[str], name="testing dataset") -> DataSet:
+def _make_dataset(
+    dataset_observations: list[Observation],
+    feature_names: list[str],
+    geojson: FeatureCollectionModel,
+    org_units: list[str],
+    seen_periods: list[str],
+    name="testing dataset",
+) -> DataSet:
     return DataSet(
         name=name,
         geojson=geojson.model_dump_json(),
@@ -122,11 +129,14 @@ def dataset_with_nans(org_units, feature_names, seen_periods, geojson):
     dc = [obs for obs in dataset_observations if obs.feature_name == "disease_cases"]
     assert len(dc)
     for obs in dc[3:]:
-
-        obs.value=float(np.nan)
+        obs.value = float(np.nan)
 
     ds = _make_dataset(
-        dataset_observations, feature_names, geojson, org_units, seen_periods,
+        dataset_observations,
+        feature_names,
+        geojson,
+        org_units,
+        seen_periods,
         name="dataset_with_nans",
     )
     # Introduce some NaN values
@@ -186,13 +196,16 @@ def forecasts(seen_periods, org_units, backtest_params):
     forecasts = _generate_forecasts(backtest_params, org_units, seen_periods)
     return forecasts
 
+
 @pytest.fixture
 def forecasts_2(seen_periods, org_units, backtest_params):
     forecasts = _generate_forecasts(backtest_params, org_units, seen_periods)
     return forecasts
 
 
-def _generate_forecasts(backtest_params: BackTestParams, org_units: list[str], seen_periods: list[str]) -> list[typing.Any]:
+def _generate_forecasts(
+    backtest_params: BackTestParams, org_units: list[str], seen_periods: list[str]
+) -> list[typing.Any]:
     start_split = len(seen_periods) - backtest_params.n_splits - backtest_params.n_periods
     forecasts = []
     for start in range(start_split, start_split + backtest_params.n_splits):
@@ -225,6 +238,7 @@ def backtest(dataset, forecasts):
         model_db_id=1,
     )
 
+
 @pytest.fixture
 def backtest_with_nans(dataset_with_nans, forecasts_2):
     return BackTest(
@@ -235,6 +249,7 @@ def backtest_with_nans(dataset_with_nans, forecasts_2):
         aggregate_metrics={"MAE": 1.5},
         model_db_id=1,
     )
+
 
 # Database fixtures
 @pytest.fixture
@@ -260,8 +275,16 @@ def base_engine(seeded_database_url):
 
 
 @pytest.fixture
-def p_seeded_engine(base_engine, prediction, backtest, dataset_wo_meta,
-                    dataset, dataset_observations, dataset_with_nans, backtest_with_nans):
+def p_seeded_engine(
+    base_engine,
+    prediction,
+    backtest,
+    dataset_wo_meta,
+    dataset,
+    dataset_observations,
+    dataset_with_nans,
+    backtest_with_nans,
+):
     from sqlmodel import Session
 
     with Session(base_engine) as session:
