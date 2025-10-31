@@ -60,7 +60,7 @@ class MetricByHorizonAndLocationMean(MetricPlotV2):
                 y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "location", "metric"],
             )
-            .properties(width="container", height="container", title="Mean Metric by Horizon")
+            .properties(width=300, height=230, title="Mean Metric by Horizon")
         )
 
         return chart
@@ -84,7 +84,7 @@ class MetricByHorizonV2Mean(MetricPlotV2):
                 y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "metric"],
             )
-            .properties(width="container", height="container", title=title)
+            .properties(width=300, height=230, title=title)
         )
 
         return chart
@@ -110,7 +110,7 @@ class MetricByHorizonV2Sum(MetricPlotV2):
                     alt.Tooltip("sum(metric):Q", title="Count"),
                 ],
             )
-            .properties(width="container", height="container", title="Samples above truth by horizon")
+            .properties(width=300, height=230, title="Samples above truth by horizon")
         )
 
         return chart
@@ -135,7 +135,7 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
                 color=alt.Color("location:N", title="Location"),
                 tooltip=["time_period", "location", "metric"],
             )
-            .properties(width="container", height="container", title=title)
+            .properties(width=300, height=230, title=title)
         )
 
         return chart
@@ -162,7 +162,7 @@ class MetricByTimePeriodV2Sum(MetricPlotV2):
                     alt.Tooltip("sum(metric):Q", title="Count"),
                 ],
             )
-            .properties(width="container", height="container", title="Samples above truth by time period")
+            .properties(width=300, height=230, title="Samples above truth by time period")
         )
 
         return chart
@@ -189,7 +189,7 @@ class MetricByTimePeriodV2Mean(MetricPlotV2):
                     alt.Tooltip("mean(metric):Q", title="Count"),
                 ],
             )
-            .properties(width="container", height="container", title=title)
+            .properties(width=300, height=230, title=title)
         )
 
         return chart
@@ -228,7 +228,7 @@ class MetricMapV2(MetricPlotV2):
                 from_=alt.LookupData(agg_df, "org_unit", ["value"]),
             )
             .project(type="equirectangular")  # Use equirectangular projection for proper proportions
-            .properties(width="container", height="container", title=title)
+            .properties(width=300, height=230, title=title)
         )
         return chart
 
