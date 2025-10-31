@@ -225,10 +225,10 @@ async def get_evaluation_entries(
     """
     Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
 
-    NOTE: If org_units is set to [":adm0"], the sum over all regions is returned.
+    NOTE: If org_units is set to ["CHAP_ALL_REGIONS"], the sum over all regions is returned.
     """
     return_summed = False
-    if org_units is not None and len(org_units) == 1 and org_units[0] == ":adm0":
+    if org_units is not None and len(org_units) == 1 and org_units[0] == "CHAP_ALL_REGIONS":
         # returning sum of forecasts for all regions
         return_summed = True
 
@@ -265,7 +265,7 @@ async def get_evaluation_entries(
         forecasts = [
             BackTestForecast(
                 period=key[0],
-                org_unit=":adm0",
+                org_unit="CHAP_ALL_REGIONS",
                 last_seen_period=key[1],
                 values=values.tolist(),
             )
@@ -374,10 +374,10 @@ async def get_actual_cases(
     """
     Return the actual disease cases corresponding to a backtest. Can optionally be filtered on org units.
 
-    Note: If org_units is set to [":adm0"], the sum over all regions is returned.
+    Note: If org_units is set to ["CHAP_ALL_REGIONS"], the sum over all regions is returned.
     """
     return_summed = False
-    if org_units is not None and len(org_units) == 1 and org_units[0] == ":adm0":
+    if org_units is not None and len(org_units) == 1 and org_units[0] == "CHAP_ALL_REGIONS":
         # returning sum of forecasts for all regions
         return_summed = True
 
@@ -412,7 +412,7 @@ async def get_actual_cases(
                 summed_values[key] = 0.0
             if element.value is not None:
                 summed_values[key] += element.value
-        data_list = [DataElement(pe=pe, ou=":adm0", value=value) for pe, value in summed_values.items()]
+        data_list = [DataElement(pe=pe, ou="CHAP_ALL_REGIONS", value=value) for pe, value in summed_values.items()]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(featureId="disease_cases", dhis2Id="disease_cases", data=data_list)
 
