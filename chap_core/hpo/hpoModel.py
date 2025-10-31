@@ -54,26 +54,14 @@ class HpoModel(HpoModelInterface):
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         self._predictor.predict(historic_data, future_data)
 
-    @property
-    def get_best_config(self):
-        return self._best_config
-
     def get_leaderboard(self, dataset: Optional[DataSetType]):
         """
         Runs hyperparameter optimization over the search space.
         Returns a sorted list of configurations together with their score.
         """
-        # hpo_configs = self.base_configs["user_option_values"]
-        # for key, vals in hpo_configs.items(): # wraps Float and Int in a list
-        #     deduped = dedup(vals)
-        #     if not deduped:
-        #         raise ValueError(f"'user_option_values.{key}' has no values to try.")
-        #     hpo_configs[key] = deduped
-        # self.base_configs.pop("user_option_values")
 
         best_score = float("inf") if self._direction=="minimize" else float("-inf")
         best_params: dict[str, Any] = {}
-        # best_config = None
         self._leaderboard = []
 
         self._searcher.reset(self.base_configs)
@@ -116,6 +104,10 @@ class HpoModel(HpoModelInterface):
         print(f"\nBest params: {best_params} | best score: {best_score}")
         self._leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction=="maximize")
         return self._leaderboard
+
+    @property
+    def get_best_config(self):
+        return self._best_config
     
     @property
     def write_best_config(self, output_yaml):
