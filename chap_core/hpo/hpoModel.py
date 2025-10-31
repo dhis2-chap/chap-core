@@ -40,7 +40,7 @@ class HpoModel(HpoModelInterface):
         Calls get_leaderboard to find the optimal configuration. 
         Then trains the tuned model on the whole input dataset (train + validation).
         """
-        self.get_leaderboard(dataset, ensemble=False) # calculates leaderboard, don't need the return value here bc best_config it stores best_config in self
+        self.get_leaderboard(dataset) # calculates leaderboard, don't need the return value here bc best_config it stores best_config in self
         template = self._objective.template
         # TODO: validate config without "user_option_values"
         if self._best_config is not None:
@@ -58,7 +58,7 @@ class HpoModel(HpoModelInterface):
     def get_best_config(self):
         return self._best_config
 
-    def get_leaderboard(self, dataset: Optional[DataSetType], ensemble: Optional[bool] = True):
+    def get_leaderboard(self, dataset: Optional[DataSetType]):
         """
         Runs hyperparameter optimization over the search space.
         Returns a sorted list of configurations together with their score.
@@ -102,7 +102,6 @@ class HpoModel(HpoModelInterface):
             self._leaderboard.append({
                 "config": params,
                 "score": score, 
-                # for now only the best is trained again on the whole dataset
             })
 
             is_better = (score < best_score) if self._direction == "minimize" else (score > best_score)
@@ -116,15 +115,6 @@ class HpoModel(HpoModelInterface):
         self._best_config = {"user_option_values": best_params}
         print(f"\nBest params: {best_params} | best score: {best_score}")
         self._leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction=="maximize")
-        """
-        Could use the flag ensemble to determine. 
-        if True append to leaderboard, 
-        else only calculate score < best_score and append only the best to leaderboard.
-        Bc sorting leaderboard may be costly.  
-        Also the name is weird, maybe another method like calculate_leaders to do the work, 
-        bc hpoModel.train doesn't really need anything to be returned.
-        Then get_leaderboard just returns from self just like get_best_config.
-        """
         return self._leaderboard
     
     @property
