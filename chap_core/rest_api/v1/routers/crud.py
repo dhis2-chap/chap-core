@@ -81,7 +81,7 @@ async def get_backtests(session: Session = Depends(get_session)):
     return backtests
 
 
-@router_get("/backtests/{backtestId}", response_model=BackTestFull)
+@router_get("/backtests/{backtestId}/full", response_model=BackTest)
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
