@@ -162,8 +162,8 @@ def harmonize_and_add_dataset(
 
 
 def _get_n_periods(health_dataset):
-    frequency = "M" if isinstance(health_dataset.period_range[0], Month) else "W"
-    n_periods = 3 if frequency == "M" else 12
+    frequency = "ME" if isinstance(health_dataset.period_range[0], Month) else "W"
+    n_periods = 3 if frequency == "ME" else 12
     return n_periods
 
 
