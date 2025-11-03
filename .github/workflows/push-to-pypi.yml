@@ -1,0 +1,41 @@
+name: Upload to PyPI
+
+on:
+  # Allow manual triggering from GitHub UI or CLI
+  workflow_dispatch:
+  # run after completed bump version
+  workflow_run:
+    workflows: ["Bump version"]
+    branches: [master]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    # only run if bumpversion was successful (when triggered by workflow_run)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install the project
+        run: uv sync --dev
+      - name: Build package
+        run: |
+          source .venv/bin/activate
+          python -m build
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@release/v1
+      #  with:
+      #    password: ${{ secrets.PYPI_API_TOKEN }}
