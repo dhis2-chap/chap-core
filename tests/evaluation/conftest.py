@@ -40,6 +40,11 @@ periods_weeks = ["2022W01", "2022W02"]
 last_seen_periods = ["2021-11", "2021-12"]
 last_seen_periods_weeks = ["2021W51", "2021W52"]
 
+# Large dataset parameters for stress testing
+org_units_large = [f"OrgUnit{i+1}" for i in range(20)]
+periods_weeks_large = [f"{year}W{week:02d}" for year in range(2020, 2025) for week in range(1, 53)]
+last_seen_period_weeks_large = "2019W52"
+
 
 @pytest.fixture
 def dataset():
@@ -92,6 +97,32 @@ def dataset_weeks():
 
 
 @pytest.fixture
+def dataset_weeks_large():
+    """Large dataset with 5 years of weekly observations for 20 org units."""
+    observations = [
+        Observation(
+            feature_name="disease_cases",
+            id=t * 20 + loc,
+            dataset_id=1,
+            period=periods_weeks_large[t],
+            org_unit=org_units_large[loc],
+            value=float(t + loc),
+        )
+        for t in range(len(periods_weeks_large))
+        for loc in range(len(org_units_large))
+    ]
+    return DataSet(
+        id=1,
+        name="Large Test Dataset",
+        type="Test Type",
+        geojson=None,
+        covariates=[],
+        observations=observations,
+        created=None,
+    )
+
+
+@pytest.fixture
 def forecasts():
     return [
         BackTestForecast(
@@ -128,6 +159,28 @@ def forecasts_weeks():
 
 
 @pytest.fixture
+def forecasts_weeks_large():
+    """Large forecast fixture with 5 years of weekly data, 20 locations, 100 samples each.
+
+    Generates approximately 5,200 forecast objects (260 weeks × 20 locations)
+    with 100 samples per forecast for stress testing.
+    """
+    return [
+        BackTestForecast(
+            id=t * 20 + loc,
+            backtest_id=1,
+            period=periods_weeks_large[t],
+            org_unit=org_units_large[loc],
+            last_train_period=last_seen_period_weeks_large,
+            last_seen_period=last_seen_period_weeks_large,
+            values=[float(t + loc + sample) for sample in range(100)],
+        )
+        for t in range(len(periods_weeks_large))
+        for loc in range(len(org_units_large))
+    ]
+
+
+@pytest.fixture
 def backtest(dataset, forecasts):
     return BackTest(
         id=1,
@@ -153,6 +206,22 @@ def backtest_weeks(dataset_weeks, forecasts_weeks):
         created=None,
         meta_data={},
         forecasts=forecasts_weeks,
+        metrics=[],
+    )
+
+
+@pytest.fixture
+def backtest_weeks_large(dataset_weeks_large, forecasts_weeks_large):
+    """Large backtest with 5 years of weekly forecasts for 20 org units."""
+    return BackTest(
+        id=1,
+        dataset_id=dataset_weeks_large.id,
+        dataset=dataset_weeks_large,
+        model_id="Test Model Large",
+        name="Large Test BackTest",
+        created=None,
+        meta_data={},
+        forecasts=forecasts_weeks_large,
         metrics=[],
     )
 
@@ -286,7 +355,7 @@ def flat_forecasts():
                 "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
                 "horizon_distance": [1, 2, 1, 2],
                 "sample": [1, 1, 1, 1],
-                "forecast": [10, 12, 21, 23],
+                "forecast": [10., 12., 21., 23.],
             }
         )
     )
