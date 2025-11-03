@@ -94,30 +94,33 @@ def _convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecas
         """
 
     # Create DataFrame from rows
-    #df = pd.DataFrame(rows)
+    # df = pd.DataFrame(rows)
     df = pd.concat(dfs, ignore_index=True)
 
     assert len(df) > 0, "No forecast data found in backtest forecasts. Something wrong in model?"
 
     # Validate against schema
-    #FlatForecasts.validate(df)
+    # FlatForecasts.validate(df)
 
     return df
 
 
 def _create_df(forecast: BackTestForecast, horizon_distance: int):
-    df = pd.DataFrame({
-        "location": str(forecast.org_unit),
-        "time_period": str(forecast.period),
-        "horizon_distance": horizon_distance,
-        "sample": np.arange(len(forecast.values)),
-        "forecast": forecast.values
-    })
+    df = pd.DataFrame(
+        {
+            "location": str(forecast.org_unit),
+            "time_period": str(forecast.period),
+            "horizon_distance": horizon_distance,
+            "sample": np.arange(len(forecast.values)),
+            "forecast": forecast.values,
+        }
+    )
     return df
 
-def convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast],
-                                                *,
-                                                validate: bool = True) -> pd.DataFrame:
+
+def convert_backtest_to_flat_forecasts(
+    backtest_forecasts: List[BackTestForecast], *, validate: bool = True
+) -> pd.DataFrame:
     import numpy as np
     import pandas as pd
 
@@ -146,18 +149,21 @@ def convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast
 
         i += n
 
-    df = pd.DataFrame({
-        "location": loc_col,
-        "time_period": per_col,
-        "horizon_distance": hdist_col,
-        "sample": sample_col,
-        "forecast": forecast_col,
-    })
+    df = pd.DataFrame(
+        {
+            "location": loc_col,
+            "time_period": per_col,
+            "horizon_distance": hdist_col,
+            "sample": sample_col,
+            "forecast": forecast_col,
+        }
+    )
 
     # if validate:
     #     FlatForecasts.validate(df)
 
     return df
+
 
 def convert_backtest_observations_to_flat_observations(
     observations: List[ObservationBase],

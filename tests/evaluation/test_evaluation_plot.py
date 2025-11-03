@@ -44,7 +44,7 @@ def test_plot_from_df(rwanda_geojson, rwanda_metrics):
     # assert False
 
 
-#@pytest.mark.parametrize("plot_class", [MetricByHorizonV2Mean, MetricMapV2])
+# @pytest.mark.parametrize("plot_class", [MetricByHorizonV2Mean, MetricMapV2])
 @pytest.mark.parametrize("plot_class", [MetricByHorizonV2Mean])
 def test_evaluation_plot_from_backtest_object(backtest_weeks_large, plot_class):
     simulated_backtest = backtest_weeks_large

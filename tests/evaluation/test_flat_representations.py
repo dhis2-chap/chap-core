@@ -18,5 +18,3 @@ def test_convert_backtest_to_flat_forecast(backtest_weeks_large):
 
     print(flat_forecasts)
     print(flat_observations)
-
-
