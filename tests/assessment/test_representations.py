@@ -9,7 +9,7 @@ def test_forecast_schema_acceptance():
             "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
             "horizon_distance": [1, 2, 1, 2],
             "sample": [1, 1, 1, 1],
-            "forecast": [10., 12., 20., 22.],
+            "forecast": [10.0, 12.0, 20.0, 22.0],
         }
     )
 

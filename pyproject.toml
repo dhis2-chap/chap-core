@@ -113,8 +113,8 @@ docstring-code-format = true
 docstring-code-line-length = "dynamic"
 
 [tool.pytest.ini_options]
-log_cli = true
-log_level = "DEBUG"
+log_cli = false
+log_level = "WARNING"
 norecursedirs = [
     "tests/data_wrangling",
     "tests/spatio_temporal_data",

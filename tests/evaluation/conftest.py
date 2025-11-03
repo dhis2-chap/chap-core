@@ -41,7 +41,7 @@ last_seen_periods = ["2021-11", "2021-12"]
 last_seen_periods_weeks = ["2021W51", "2021W52"]
 
 # Large dataset parameters for stress testing
-org_units_large = [f"OrgUnit{i+1}" for i in range(20)]
+org_units_large = [f"OrgUnit{i + 1}" for i in range(20)]
 periods_weeks_large = [f"{year}W{week:02d}" for year in range(2020, 2025) for week in range(1, 53)]
 last_seen_period_weeks_large = "2019W52"
 
@@ -355,7 +355,7 @@ def flat_forecasts():
                 "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
                 "horizon_distance": [1, 2, 1, 2],
                 "sample": [1, 1, 1, 1],
-                "forecast": [10., 12., 21., 23.],
+                "forecast": [10.0, 12.0, 21.0, 23.0],
             }
         )
     )

@@ -32,19 +32,37 @@ lint:
 	uv run ruff format
 
 test: ## run tests quickly with the default Python
-	uv run pytest
+	uv run pytest -q
+	@rm test.csv
+	@rm model_config.yaml
+	@rm example_data/debug_model/model_configuration_for_run.yaml
+
+test-verbose: ## run tests with INFO level logging
+	uv run pytest --log-cli-level=INFO -o log_cli=true -v
+	@rm test.csv
+	@rm model_config.yaml
+	@rm example_data/debug_model/model_configuration_for_run.yaml
+
+test-debug: ## run tests with DEBUG logging and SQL echo
+	CHAP_DEBUG=true uv run pytest --log-cli-level=DEBUG -o log_cli=true -v -s -x
+	@rm test.csv
+	@rm model_config.yaml
+	@rm example_data/debug_model/model_configuration_for_run.yaml
+
+test-timed: ## run tests with timing information for slowest tests
+	uv run pytest -q --durations=20
 	@rm test.csv
 	@rm model_config.yaml
 	@rm example_data/debug_model/model_configuration_for_run.yaml
 
 test-all: ## run pytest, doctests, examples
 	./tests/test_docker_compose_integration_flow.sh
-	uv run chap evaluate --model-name https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --prediction-length 3
-	uv run chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
+	CHAP_DEBUG=true uv run chap evaluate --model-name https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --prediction-length 3
+	CHAP_DEBUG=true uv run chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
 
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
-	uv run pytest --durations=0 --cov=climate_health --cov-report html --run-slow
-	uv run pytest --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
+	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --run-slow
+	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
 	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/
 	#cd docs_source && make doctest
 	@rm test.csv
