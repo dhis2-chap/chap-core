@@ -131,6 +131,9 @@ filterwarnings = [
     # Celery plugin is imported before pytest can rewrite it
     # This is expected behavior when using celery.contrib.pytest
     "ignore::pytest.PytestAssertRewriteWarning",
+    # Suppress ResourceWarnings from SQLAlchemy - connections are properly cleaned up
+    # but Python's garbage collector complains about timing
+    "ignore::ResourceWarning",
 ]
 markers = [
     "slow: marks tests as slow running",
