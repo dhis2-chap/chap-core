@@ -49,6 +49,12 @@ test-debug: ## run tests with DEBUG logging and SQL echo
 	@rm model_config.yaml
 	@rm example_data/debug_model/model_configuration_for_run.yaml
 
+test-timed: ## run tests with timing information for slowest tests
+	uv run pytest -q --durations=10
+	@rm test.csv
+	@rm model_config.yaml
+	@rm example_data/debug_model/model_configuration_for_run.yaml
+
 test-all: ## run pytest, doctests, examples
 	./tests/test_docker_compose_integration_flow.sh
 	CHAP_DEBUG=true uv run chap evaluate --model-name https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --prediction-length 3
