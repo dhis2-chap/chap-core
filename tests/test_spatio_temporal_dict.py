@@ -56,7 +56,7 @@ def test_join_on_time(train_data_new_period_range):
     joined = data1.join_on_time(data2)
 
     for location in joined.locations():
-        period = joined.get_location(location).data().time_period
+        period = joined.get_location(location).time_period
         assert np.all(period == PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7)))
 
 

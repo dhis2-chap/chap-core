@@ -257,7 +257,7 @@ class DataSet(Generic[FeaturesT]):
     def restrict_time_period(self, period_range: TemporalIndexType) -> "DataSet[FeaturesT]":
         return self.__class__(
             {
-                loc: TemporalDataclass(data).restrict_time_period(period_range).data()
+                loc: TemporalDataclass(data).restrict_time_period(period_range)
                 for loc, data in self._data_dict.items()
             },
             self._polygons,
