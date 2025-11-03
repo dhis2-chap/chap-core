@@ -63,9 +63,9 @@ coverage: ## check code coverage quickly with the default Python
 	@echo "Coverage report: htmlcov/index.html"
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs_source/climate_health.rst
+	rm -f docs_source/chap_core.rst
 	rm -f docs_source/modules.rst
-	uv run sphinx-apidoc -o docs_source/ climate_health
+	uv run sphinx-apidoc -o docs_source/ chap_core
 	$(MAKE) -C docs_source clean
 	$(MAKE) -C docs_source html
 	@echo "Docs: docs_source/_build/html/index.html"
