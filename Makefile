@@ -57,9 +57,12 @@ test-all: ## run pytest, doctests, examples
 	@rm example_data/debug_model/model_configuration_for_run.yaml
 	@rm evaluation_report.pdf 
 
-coverage: ## check code coverage quickly with the default Python
-	uv run coverage report -m
-	uv run coverage html
+coverage: ## run tests with coverage reporting
+	@echo ">>> Running tests with coverage"
+	@uv run coverage run -m pytest -q
+	@uv run coverage report
+	@uv run coverage html
+	@uv run coverage xml
 	@echo "Coverage report: htmlcov/index.html"
 
 docs: ## generate Sphinx HTML documentation, including API docs
