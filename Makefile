@@ -70,9 +70,6 @@ docs: ## generate Sphinx HTML documentation, including API docs
 	$(MAKE) -C docs_source html
 	@echo "Docs: docs_source/_build/html/index.html"
 
-servedocs: docs ## compile the docs watching for changes
-	uv run watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs_source html' -R -D .
-
 dist: clean ## builds source and wheel package
 	uv build
 	ls -l dist
