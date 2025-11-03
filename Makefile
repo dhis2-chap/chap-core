@@ -1,14 +1,5 @@
-.PHONY: clean clean-build clean-pyc clean-test coverage dist docs help install lint lint/flake8 test-chapkit-compose
+.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose
 .DEFAULT_GOAL := help
-
-define BROWSER_PYSCRIPT
-import os, webbrowser, sys
-
-from urllib.request import pathname2url
-
-webbrowser.open("file://" + pathname2url(os.path.abspath(sys.argv[1])))
-endef
-export BROWSER_PYSCRIPT
 
 define PRINT_HELP_PYSCRIPT
 import re, sys
@@ -21,32 +12,18 @@ for line in sys.stdin:
 endef
 export PRINT_HELP_PYSCRIPT
 
-BROWSER := python -c "$$BROWSER_PYSCRIPT"
-
 help:
-	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
+	@uv run python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
-clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
-
-clean-build: ## remove build artifacts
-	rm -fr build/
-	rm -fr dist/
-	rm -fr .eggs/
-	find . -name '*.egg-info' -exec rm -fr {} +
-	find . -name '*.egg' -exec rm -fr {} +
-
-clean-pyc: ## remove Python file artifacts
-	find . -name '*.pyc' -exec rm -f {} +
-	find . -name '*.pyo' -exec rm -f {} +
-	find . -name '*~' -exec rm -f {} +
-	find . -name '__pycache__' -exec rm -fr {} +
-
-clean-test: ## remove test and coverage artifacts
-	rm -fr .tox/
-	rm -f .coverage
-	rm -fr htmlcov/
-	rm -fr .pytest_cache
-	rm -fr .ruff_cache
+clean: ## remove all build, test, coverage and Python artifacts
+	@echo ">>> Cleaning up"
+	@find . -type f -name "*.pyc" -delete
+	@find . -type d -name "__pycache__" -exec rm -rf {} +
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} +
+	@find . -type d -name ".ruff_cache" -exec rm -rf {} +
+	@rm -rf .coverage coverage.xml htmlcov/
+	@rm -rf .tox/
+	@rm -rf dist/ build/ *.egg-info .eggs/
 
 lint:
 	@echo "Linting code..."
@@ -55,13 +32,10 @@ lint:
 	uv run ruff format
 
 test: ## run tests quickly with the default Python
-	pytest
-
+	uv run pytest
+	@rm test.csv
 	@rm model_config.yaml
 	@rm example_data/debug_model/model_configuration_for_run.yaml
-
-test-chapkit-compose: ## test docker compose with chapkit models
-	./tests/test-chapkit-compose.sh
 
 test-all: ## run pytest, doctests, examples
 	./tests/test_docker_compose_integration_flow.sh
@@ -73,36 +47,35 @@ test-all: ## run pytest, doctests, examples
 	uv run pytest --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
 	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/
 	#cd docs_source && make doctest
+	@rm test.csv
 	@rm report.csv
 	@rm predictions.csv
 	@rm model_config.yaml
 	@rm model.pkl
 	@rm example_data/debug_model/model_configuration_for_run.yaml
-	@rm evaluation_report.pdf 
+	@rm evaluation_report.pdf
 
-coverage: ## check code coverage quickly with the default Python
-	coverage report -m
-	coverage html
-	$(BROWSER) htmlcov/index.html
+coverage: ## run tests with coverage reporting
+	@echo ">>> Running tests with coverage"
+	@uv run coverage run -m pytest -q
+	@uv run coverage report
+	@uv run coverage html
+	@uv run coverage xml
+	@rm test.csv
+	@rm example_data/debug_model/model_configuration_for_run.yaml
+	@echo "Coverage report: htmlcov/index.html"
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs_source/climate_health.rst
+	rm -f docs_source/chap_core.rst
 	rm -f docs_source/modules.rst
-	sphinx-apidoc -o docs_source/ climate_health
+	uv run sphinx-apidoc -o docs_source/ chap_core
 	$(MAKE) -C docs_source clean
 	$(MAKE) -C docs_source html
-	$(BROWSER) docs_source/_build/html/index.html
-
-servedocs: docs ## compile the docs watching for changes
-	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs_source html' -R -D .
-
-release: dist ## package and upload a release
-	twine upload dist/*
+	@echo "Docs: docs_source/_build/html/index.html"
 
 dist: clean ## builds source and wheel package
-	python setup.py sdist
-	python setup.py bdist_wheel
+	uv build
 	ls -l dist
 
 install: clean ## install the package to the active Python's site-packages
-	pip install -e .
+	uv sync
