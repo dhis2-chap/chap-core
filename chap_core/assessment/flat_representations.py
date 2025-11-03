@@ -66,7 +66,6 @@ def _convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecas
     Returns:
         pd.DataFrame with columns: location, time_period, horizon_distance, sample, forecast
     """
-    rows = []
     dfs = []
 
     for forecast in backtest_forecasts:
