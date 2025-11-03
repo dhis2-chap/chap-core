@@ -7,5 +7,6 @@ __minimum_modelling_app_version__ = "2.2.4"
 from . import fetch
 from . import data
 from .models.model_template_interface import ModelTemplateInterface
+from .log_config import is_debug_mode
 
-__all__ = ["fetch", "data", "ModelTemplateInterface"]
+__all__ = ["fetch", "data", "ModelTemplateInterface", "is_debug_mode"]

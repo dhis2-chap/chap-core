@@ -16,6 +16,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from chap_core.datatypes import FullData, SamplesWithTruth, create_tsdataclass
 from chap_core.geometry import Polygons
+from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.time_period import TimePeriod, Month, Week
 
@@ -41,8 +42,7 @@ if database_url is not None:
     n = 0
     while n < 30:
         try:
-            debug_mode = os.getenv("CHAP_DEBUG", "false").lower() in ("true", "1", "yes")
-            engine = create_engine(database_url, echo=debug_mode)
+            engine = create_engine(database_url, echo=is_debug_mode())
             break
         except sqlalchemy.exc.OperationalError as e:
             logger.error(f"Failed to connect to database: {e}. Trying again")
