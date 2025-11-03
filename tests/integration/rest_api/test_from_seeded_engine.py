@@ -27,7 +27,6 @@ class DirectClient(TestClient):
 client = DirectClient(app)
 
 
-
 def test_dataset(seeded_session: Session):
     dataset = seeded_session.query(DataSet)
     assert dataset[0].data_sources[0].covariate == "mean_temperature"
@@ -41,6 +40,16 @@ def test_get_evaluation_entries(override_session):
     params = {"backtestId": 1, "quantiles": [0.1, 0.5, 0.9]}
     evaluation_entries = client.get_json("/v1/analytics/evaluation-entry", params=params)
     assert len(evaluation_entries) > 3
+
+
+def test_actual_cases(override_session):
+    actual_cases = client.get_json("/v1/analytics/actualCases/1")
+    assert len(actual_cases) >= 3
+
+
+def test_actual_cases_dataset(override_session):
+    actual_cases = client.get_json("/v1/analytics/actualCases/1?isDatasetId=true")
+    assert len(actual_cases) >= 3
 
 
 def test_get_prediction_entries(override_session):

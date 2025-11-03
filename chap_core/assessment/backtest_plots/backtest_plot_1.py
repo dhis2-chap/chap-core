@@ -23,6 +23,7 @@ class BackTestPlot1(BackTestPlotBase):
 
     name = "Overview of various metrics by horizon/time"
     description = "A dashboard showing various metrics by forecast horizon and time period."
+
     def __init__(
         self,
         flat_observations: FlatObserved,

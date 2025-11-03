@@ -52,7 +52,7 @@ from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
-from ...data_models import BackTestCreate, BackTestFull, BackTestRead, JobResponse
+from ...data_models import BackTestCreate, BackTestRead, JobResponse
 from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ async def get_backtests(session: Session = Depends(get_session)):
     return backtests
 
 
-@router_get("/backtests/{backtestId}", response_model=BackTestFull)
+@router_get("/backtests/{backtestId}/full", response_model=BackTest)
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:

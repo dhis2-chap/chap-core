@@ -30,6 +30,9 @@ class MetricBase:
     spec: MetricSpec = MetricSpec()
 
     def get_metric(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        # Check taht obserations ar not nan
+        null_mask = observations.disease_cases.isnull()
+        observations = observations[~null_mask]
         out = self.compute(observations, forecasts)
 
         expected = [*(d for d in self.spec.output_dimensions), "metric"]
