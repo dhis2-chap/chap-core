@@ -1,15 +1,6 @@
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs help install lint lint/flake8 test-chapkit-compose
 .DEFAULT_GOAL := help
 
-define BROWSER_PYSCRIPT
-import os, webbrowser, sys
-
-from urllib.request import pathname2url
-
-webbrowser.open("file://" + pathname2url(os.path.abspath(sys.argv[1])))
-endef
-export BROWSER_PYSCRIPT
-
 define PRINT_HELP_PYSCRIPT
 import re, sys
 
@@ -21,10 +12,8 @@ for line in sys.stdin:
 endef
 export PRINT_HELP_PYSCRIPT
 
-BROWSER := python -c "$$BROWSER_PYSCRIPT"
-
 help:
-	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
+	@uv run python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
 clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
 
@@ -55,7 +44,7 @@ lint:
 	uv run ruff format
 
 test: ## run tests quickly with the default Python
-	pytest
+	uv run pytest
 
 	@rm model_config.yaml
 	@rm example_data/debug_model/model_configuration_for_run.yaml
@@ -81,28 +70,27 @@ test-all: ## run pytest, doctests, examples
 	@rm evaluation_report.pdf 
 
 coverage: ## check code coverage quickly with the default Python
-	coverage report -m
-	coverage html
-	$(BROWSER) htmlcov/index.html
+	uv run coverage report -m
+	uv run coverage html
+	@echo "Coverage report: htmlcov/index.html"
 
 docs: ## generate Sphinx HTML documentation, including API docs
 	rm -f docs_source/climate_health.rst
 	rm -f docs_source/modules.rst
-	sphinx-apidoc -o docs_source/ climate_health
+	uv run sphinx-apidoc -o docs_source/ climate_health
 	$(MAKE) -C docs_source clean
 	$(MAKE) -C docs_source html
-	$(BROWSER) docs_source/_build/html/index.html
+	@echo "Docs: docs_source/_build/html/index.html"
 
 servedocs: docs ## compile the docs watching for changes
-	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs_source html' -R -D .
+	uv run watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs_source html' -R -D .
 
 release: dist ## package and upload a release
-	twine upload dist/*
+	uv publish
 
 dist: clean ## builds source and wheel package
-	python setup.py sdist
-	python setup.py bdist_wheel
+	uv build
 	ls -l dist
 
 install: clean ## install the package to the active Python's site-packages
-	pip install -e .
+	uv sync
