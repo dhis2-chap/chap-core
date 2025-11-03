@@ -1,4 +1,5 @@
 import datetime
+import typing
 
 import numpy as np
 import pytest
@@ -67,6 +68,11 @@ def seen_periods_weekly():
 
 @pytest.fixture
 def dataset_observations(feature_names: list[str], org_units: list[str], seen_periods: list[str]) -> list[Observation]:
+    return _generate_observations(feature_names, org_units, seen_periods)
+
+
+def _generate_observations(feature_names: list[str], org_units: list[str], seen_periods: list[str]) -> list[
+    Observation]:
     observations = [
         Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2))
         for ou_id, ou in enumerate(org_units)
@@ -91,8 +97,13 @@ def dataset_observations_weekly(
 
 @pytest.fixture
 def dataset(org_units, feature_names, seen_periods, dataset_observations, geojson):
+    return _make_dataset(dataset_observations, feature_names, geojson, org_units, seen_periods)
+
+
+def _make_dataset(dataset_observations: list[Observation], feature_names: list[str], geojson: FeatureCollectionModel,
+                  org_units: list[str], seen_periods: list[str], name="testing dataset") -> DataSet:
     return DataSet(
-        name="testing dataset",
+        name=name,
         geojson=geojson.model_dump_json(),
         observations=dataset_observations,
         covariates=feature_names + ["disease_cases"],
@@ -103,6 +114,23 @@ def dataset(org_units, feature_names, seen_periods, dataset_observations, geojso
         org_units=org_units,
         period_type="month",
     )
+
+
+@pytest.fixture
+def dataset_with_nans(org_units, feature_names, seen_periods, geojson):
+    dataset_observations = _generate_observations(feature_names, org_units, seen_periods)
+    dc = [obs for obs in dataset_observations if obs.feature_name == "disease_cases"]
+    assert len(dc)
+    for obs in dc[3:]:
+
+        obs.value=float(np.nan)
+
+    ds = _make_dataset(
+        dataset_observations, feature_names, geojson, org_units, seen_periods,
+        name="dataset_with_nans",
+    )
+    # Introduce some NaN values
+    return ds
 
 
 @pytest.fixture
@@ -155,6 +183,16 @@ def prediction(dataset, predictions):
 
 @pytest.fixture
 def forecasts(seen_periods, org_units, backtest_params):
+    forecasts = _generate_forecasts(backtest_params, org_units, seen_periods)
+    return forecasts
+
+@pytest.fixture
+def forecasts_2(seen_periods, org_units, backtest_params):
+    forecasts = _generate_forecasts(backtest_params, org_units, seen_periods)
+    return forecasts
+
+
+def _generate_forecasts(backtest_params: BackTestParams, org_units: list[str], seen_periods: list[str]) -> list[typing.Any]:
     start_split = len(seen_periods) - backtest_params.n_splits - backtest_params.n_periods
     forecasts = []
     for start in range(start_split, start_split + backtest_params.n_splits):
@@ -187,6 +225,16 @@ def backtest(dataset, forecasts):
         model_db_id=1,
     )
 
+@pytest.fixture
+def backtest_with_nans(dataset_with_nans, forecasts_2):
+    return BackTest(
+        name="test_backtest_with_nans",
+        dataset=dataset_with_nans,
+        forecasts=forecasts_2,
+        model_id="naive_model",
+        aggregate_metrics={"MAE": 1.5},
+        model_db_id=1,
+    )
 
 # Database fixtures
 @pytest.fixture
@@ -212,7 +260,8 @@ def base_engine(seeded_database_url):
 
 
 @pytest.fixture
-def p_seeded_engine(base_engine, prediction, backtest, dataset_wo_meta, dataset, dataset_observations):
+def p_seeded_engine(base_engine, prediction, backtest, dataset_wo_meta,
+                    dataset, dataset_observations, dataset_with_nans, backtest_with_nans):
     from sqlmodel import Session
 
     with Session(base_engine) as session:
@@ -221,6 +270,8 @@ def p_seeded_engine(base_engine, prediction, backtest, dataset_wo_meta, dataset,
         session.add(backtest)
         session.add(dataset)
         session.add(dataset_wo_meta)
+        session.add(dataset_with_nans)
+        session.add(backtest_with_nans)
         session.commit()
         session.refresh(prediction)
         all_observations = session.exec(select(Observation)).all()
@@ -231,6 +282,10 @@ def p_seeded_engine(base_engine, prediction, backtest, dataset_wo_meta, dataset,
         observations = list(
             session.exec(select(BackTest).where(BackTest.name == "test backtest")).one().dataset.observations
         )
+        obs_with_nan = list(
+            session.exec(select(BackTest).where(BackTest.name == "test_backtest_with_nans")).one().dataset.observations
+        )
+        assert any(obs.value is None for obs in obs_with_nan), "No NaN observations found in dataset_with_nans"
         assert observations, observations
 
     return base_engine
