@@ -55,8 +55,18 @@ lint:
 	uv run ruff format
 
 test: ## run tests quickly with the default Python
-	pytest
+	pytest -q
 
+	@rm model_config.yaml
+	@rm example_data/debug_model/model_configuration_for_run.yaml
+
+test-verbose: ## run tests with INFO level logging
+	pytest --log-cli-level=INFO -o log_cli=true -v
+	@rm model_config.yaml
+	@rm example_data/debug_model/model_configuration_for_run.yaml
+
+test-debug: ## run tests with DEBUG logging and SQL echo
+	CHAP_DEBUG=true pytest --log-cli-level=DEBUG -o log_cli=true -v -s -x
 	@rm model_config.yaml
 	@rm example_data/debug_model/model_configuration_for_run.yaml
 
