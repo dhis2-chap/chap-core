@@ -65,6 +65,8 @@ instance/
 
 # Sphinx documentation
 docs_source/_build/
+docs_source/chap_core*.rst
+docs_source/modules.rst
 
 # PyBuilder
 target/
