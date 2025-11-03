@@ -1,8 +1,7 @@
 # Module for parsing local configuration of models, i.e. files that are put in config/models directory.
 import logging
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, TypeAdapter
 
-# from pydantic.type_adapter import validate_python
 import yaml
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -30,10 +29,7 @@ def parse_local_model_config_file(file_name) -> Configurations:
     # parse the yaml file using the pydantic model
     with open(file_name, "r") as file:
         content = yaml.safe_load(file)
-        configurations = parse_obj_as(
-            list[LocalModelTemplateWithConfigurations], content
-        )  # change to validate_python in future
-        # return
+        configurations = TypeAdapter(list[LocalModelTemplateWithConfigurations]).validate_python(content)
         return configurations
 
 

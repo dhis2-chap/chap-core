@@ -117,7 +117,7 @@ class SessionWrapper:
             select(ModelTemplateDB).where(ModelTemplateDB.name == model_template_config.name)
         ).first()
 
-        d = model_template_config.dict()
+        d = model_template_config.model_dump()
         info = d.pop("meta_data")
         d = d | info
 
@@ -168,7 +168,7 @@ class SessionWrapper:
         configured_model = ConfiguredModelDB(
             name=name,
             model_template_id=model_template_id,
-            **configuration.dict(),
+            **configuration.model_dump(),
             model_template=model_template,
             uses_chapkit=uses_chapkit,
         )

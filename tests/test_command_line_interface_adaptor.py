@@ -30,7 +30,8 @@ class DummyModel(ConfiguredModel):
 
     @classmethod
     def load_predictor(cls, filepath):
-        return cls(ModelConfiguration.parse_file(filepath))
+        with open(filepath, "r") as f:
+            return cls(ModelConfiguration.model_validate_json(f.read()))
 
     def train(self, train_data: DataSet):
         logger.info(f"Training with {self._config}")

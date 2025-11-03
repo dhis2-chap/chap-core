@@ -3,7 +3,7 @@ import json
 import altair
 import pandas as pd
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
 from chap_core.database.dataset_tables import DataSet
@@ -28,10 +28,10 @@ client = DirectClient(app)
 
 
 def test_dataset(seeded_session: Session):
-    dataset = seeded_session.query(DataSet)
+    dataset = seeded_session.exec(select(DataSet)).all()
     assert dataset[0].data_sources[0].covariate == "mean_temperature"
     assert dataset[0].period_type == "month"
-    assert dataset.count() == 3
+    assert len(dataset) == 3
     assert not dataset[1].data_sources
     assert len(dataset[1].observations) > 0
 
