@@ -25,13 +25,13 @@ clean: ## remove all build, test, coverage and Python artifacts
 	@rm -rf .tox/
 	@rm -rf dist/ build/ *.egg-info .eggs/
 
-lint:
+lint: ## check and fix code style with ruff
 	@echo "Linting code..."
 	uv run ruff check --fix
 	@echo "Formatting code..."
 	uv run ruff format
 
-test: ## run tests quickly with the default Python
+test: ## run tests quickly with minimal output
 	uv run pytest -q
 	@rm test.csv
 	@rm model_config.yaml
@@ -49,13 +49,13 @@ test-debug: ## run tests with DEBUG logging and SQL echo
 	@rm model_config.yaml
 	@rm example_data/debug_model/model_configuration_for_run.yaml
 
-test-timed: ## run tests with timing information for slowest tests
+test-timed: ## run tests showing timing for 20 slowest tests
 	uv run pytest -q --durations=20
 	@rm test.csv
 	@rm model_config.yaml
 	@rm example_data/debug_model/model_configuration_for_run.yaml
 
-test-all: ## run pytest, doctests, examples
+test-all: ## run comprehensive test suite with examples and coverage
 	./tests/test_docker_compose_integration_flow.sh
 	CHAP_DEBUG=true uv run chap evaluate --model-name https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --prediction-length 3
 	CHAP_DEBUG=true uv run chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
@@ -91,9 +91,9 @@ docs: ## generate Sphinx HTML documentation, including API docs
 	$(MAKE) -C docs_source html
 	@echo "Docs: docs_source/_build/html/index.html"
 
-dist: clean ## builds source and wheel package
+dist: clean ## build source and wheel package
 	uv build
 	ls -l dist
 
-install: clean ## install the package to the active Python's site-packages
+install: clean ## sync dependencies and install package in development mode
 	uv sync
