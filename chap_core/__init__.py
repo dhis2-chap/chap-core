@@ -11,10 +11,10 @@ try:
 except Exception:
     __version__ = "unknown"
 
-__minimum_modelling_app_version__ = "2.2.4"
-from . import fetch
-from . import data
-from .models.model_template_interface import ModelTemplateInterface
+__minimum_modelling_app_version__ = "3.0.0"
+
+from . import data, fetch
 from .log_config import is_debug_mode
+from .models.model_template_interface import ModelTemplateInterface
 
 __all__ = ["fetch", "data", "ModelTemplateInterface", "is_debug_mode"]
