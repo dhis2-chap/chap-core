@@ -44,7 +44,7 @@ class FlatForecasts(FlatDataWithHorizon):
 
 
 class FlatMetric(FlatDataWithHorizon):
-    metric: pa.typing.Series[float]
+    metric: pa.typing.Series[float] = pa.Field(nullable=True)
 
 
 def horizon_diff(period: str, period2: str) -> int:

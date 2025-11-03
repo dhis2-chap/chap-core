@@ -51,7 +51,7 @@ class MetricBase:
         for d in self.spec.output_dimensions:
             dtype, chk = DIM_REGISTRY[d]
             cols[d.value] = pa.Column(dtype, chk) if chk else pa.Column(dtype)
-        cols["metric"] = pa.Column(float)
+        cols["metric"] = pa.Column(float, nullable=True)
         return pa.DataFrameSchema(cols, strict=True, coerce=True)
 
     def get_name(self) -> str:
