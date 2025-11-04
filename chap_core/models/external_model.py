@@ -101,6 +101,7 @@ class ExternalModel(ExternalModelBase):
         self._adapters = adapters
         if working_dir is None:
             from chap_core import get_temp_dir
+
             working_dir = str(get_temp_dir() / "models")
         self._working_dir = working_dir
         self._location_mapping = None
