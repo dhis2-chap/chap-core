@@ -124,7 +124,7 @@ def test_add_model_template_from_yaml_config(model_template_yaml_config, engine)
 def test_add_model_template_from_url(engine, url):
     # url = 'https://github.com/sandvelab/monthly_ar_model@7c40890df749506c72748afda663e0e1cde4e36a'
     with SessionWrapper(engine) as session:
-        template_id = add_model_template_from_url(url, session)
+        template_id = add_model_template_from_url(url, session, version="test")
         configured_model_id = add_configured_model(
             template_id, ModelConfiguration(user_option_values={}), "default", session
         )
@@ -142,9 +142,9 @@ def test_seed_configured_models(engine):
         configured_models = session.exec(select(ConfiguredModelDB)).all()
         assert not configured_models
         # seed with models
-        seed_configured_models_from_config_dir(session)
+        seed_configured_models_from_config_dir(session, skip_chapkit_models=True)
         # seed again to check that repeated inserts are handled nicely
-        seed_configured_models_from_config_dir(session)
+        seed_configured_models_from_config_dir(session, skip_chapkit_models=True)
     # test that models have been added
     with Session(engine) as session:
         configured_models = session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()

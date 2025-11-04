@@ -1,19 +1,20 @@
 services:
   chap:
-    command: /app/.venv/bin/chap serve --auto-reload
+    volumes:
+      - ./chap_core:/app/chap_core
+      - ./alembic:/app/alembic
+      - ./config:/app/config
+      - ./gunicorn.conf.py:/app/gunicorn.conf.py
+  worker:
+    # Override to build locally for development instead of pulling from GHCR
+    image: chap-worker-local:latest
     build:
       context: .
-      dockerfile: Dockerfile.dev
-    volumes:
-      - ./logs:/app/logs
-      - ./chap_core:/app/chap_core
-      - ./tests:/app/tests
-      - ./config:/app/config
-      - ./example_data:/app/example_data
-      - ./external_models:/app/external_models
-      - ./scripts:/app/scripts
-      - ./Makefile:/app/Makefile
-  worker:
+      dockerfile: Dockerfile.inla
     volumes:
       # - ./logs:/app/logs
       - ./chap_core:/app/chap_core
+      - ./alembic:/app/alembic
+  postgres:
+    ports:
+      - "5432:5432"

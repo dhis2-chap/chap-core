@@ -1,0 +1,45 @@
+# Start from the existing worker image that has INLA and other dependencies
+FROM ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
+
+# OCI labels for container metadata
+LABEL org.opencontainers.image.title="Chap Worker with INLA"
+LABEL org.opencontainers.image.description="Celery worker for Chap with INLA support"
+LABEL org.opencontainers.image.vendor="DHIS2"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
+LABEL org.opencontainers.image.source="https://github.com/dhis2-chap/chap-core"
+
+# Install uv if not already present
+USER root
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Add uv to PATH
+ENV PATH="/root/.cargo/bin:$PATH"
+
+WORKDIR /app
+
+# Copy chap-core source files
+COPY --chown=chap:chap ./pyproject.toml ./uv.lock ./.python-version ./README.md ./
+COPY --chown=chap:chap ./chap_core ./chap_core
+COPY --chown=chap:chap ./config ./config
+COPY --chown=chap:chap ./alembic.ini ./alembic.ini
+COPY --chown=chap:chap ./alembic ./alembic
+
+# Set uv environment variables
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+
+# Install chap-core dependencies in the existing virtual environment
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+# Ensure virtual environment is first in PATH
+ENV PATH="/app/.venv/bin:$PATH"
+
+USER chap
+
+# Keep the same command from the original worker image
+CMD ["/app/.venv/bin/celery", "-A", "chap_core.rest_api.celery_tasks", "worker", "--loglevel=info"]

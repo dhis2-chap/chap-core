@@ -10,6 +10,10 @@ class NaivePredictor:
     mean_dict: dict
 
     def predict(self, historic_data: DataSet, future_data: DataSet, num_samples: int = 100) -> DataSet:
+        # write future_data to from a tmp csv file (to mimic what is happening in chap)
+        future_data.to_csv("test.csv")
+        future_data = DataSet.from_csv("test.csv")
+
         samples = DataSet(
             {
                 location: Samples(

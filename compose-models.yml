@@ -1,0 +1,23 @@
+# This file contains models that can be run as services using Docker Compose.
+# this file can be added to docker compose up to also get the models:
+# docker compose -f compose.yml -f compose-models.yaml up
+
+version: '3.8'
+
+services:
+  inla_baseline:
+    image: inla_baseline
+    ports:
+      - "5003:8000"
+    restart: unless-stopped
+    networks:
+      - chap-network
+
+
+networks:
+  chap-network:
+    driver: bridge
+
+
+volumes:
+  chtorch-data:

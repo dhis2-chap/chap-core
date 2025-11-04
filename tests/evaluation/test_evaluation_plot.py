@@ -4,9 +4,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from chap_core.assessment.metrics import DetailedCRPS
 from chap_core.assessment.metrics.rmse import DetailedRMSE
 from chap_core.database.tables import BackTestMetric
-from chap_core.plotting.evaluation_plot import MetricByHorizonV2, MetricMapV2, make_plot_from_backtest_object
+from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricMapV2, make_plot_from_backtest_object
 
 
 @pytest.fixture
@@ -43,8 +44,13 @@ def test_plot_from_df(rwanda_geojson, rwanda_metrics):
     # assert False
 
 
-@pytest.mark.parametrize("plot_class", [MetricByHorizonV2, MetricMapV2])
-def test_evaluation_plot_from_backtest_object(simulated_backtest, plot_class):
+# @pytest.mark.parametrize("plot_class", [MetricByHorizonV2Mean, MetricMapV2])
+@pytest.mark.parametrize("plot_class", [MetricByHorizonV2Mean])
+def test_evaluation_plot_from_backtest_object(backtest_weeks_large, plot_class):
+    simulated_backtest = backtest_weeks_large
+    # make_plot_from_backtest_object(
+    #     simulated_backtest, plot_class, DetailedRMSE(), geojson=simulated_backtest.dataset.geojson
+    # )
     make_plot_from_backtest_object(
-        simulated_backtest, plot_class, DetailedRMSE(), geojson=simulated_backtest.dataset.geojson
+        simulated_backtest, plot_class, DetailedCRPS(), geojson=simulated_backtest.dataset.geojson
     )

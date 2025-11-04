@@ -65,6 +65,8 @@ instance/
 
 # Sphinx documentation
 docs_source/_build/
+docs_source/chap_core*.rst
+docs_source/modules.rst
 
 # PyBuilder
 target/
@@ -160,3 +162,8 @@ config/model_templates/*
 
 #ignore
 /logs/*
+model_config.yaml
+CLAUDE.md
+*report*.pdf
+*report*.csv
+testconfig.yaml

@@ -33,12 +33,11 @@ class Objective:
     def __call__(self, config, dataset: Optional[DataSetType] = None) -> float:
         """
         This method takes a concrete configuration produced by a Searcher,
-        runs model evaluation, and returns a scalar score of the selected metric.  
+        runs model evaluation, and returns a scalar score of the selected metric.
         """
         logger.info("Validating model configuration")
-        model_configs = {"user_option_values": config} # TODO: should prob be removed 
-        model_config = ModelConfiguration.model_validate(model_configs) 
-        print("--------------from objective", model_config)
+        model_configs = {"user_option_values": config}  # TODO: should prob be removed
+        model_config = ModelConfiguration.model_validate(model_configs)
         logger.info("Validated model configuration")
 
         model = self.model_template.get_model(model_config)

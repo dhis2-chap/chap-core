@@ -22,6 +22,7 @@ from typing import Annotated, List, Optional
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
@@ -45,13 +46,13 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BackTest, Prediction, PredictionInfo, PredictionRead
+from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
-from ...data_models import BackTestCreate, BackTestFull, BackTestRead, JobResponse
+from ...data_models import BackTestCreate, BackTestRead, JobResponse
 from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
@@ -71,11 +72,16 @@ async def get_backtests(session: Session = Depends(get_session)):
     """
     Returns a list of backtests/evaluations with only the id and name
     """
-    backtests = session.exec(select(BackTest)).all()
+    backtests = session.exec(
+        select(BackTest).options(
+            selectinload(BackTest.dataset).defer(DataSet.geojson),
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+        )
+    ).all()
     return backtests
 
 
-@router_get("/backtests/{backtestId}", response_model=BackTestFull)
+@router_get("/backtests/{backtestId}/full", response_model=BackTest)
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
@@ -85,7 +91,14 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], se
 
 @router_get("/backtests/{backtestId}/info", response_model=BackTestRead)
 def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.exec(
+        select(BackTest)
+        .where(BackTest.id == backtest_id)
+        .options(
+            selectinload(BackTest.dataset).defer(DataSet.geojson),
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+        )
+    ).first()
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     return backtest
@@ -130,7 +143,16 @@ async def update_backtest(
 
     session.add(db_backtest)
     session.commit()
-    session.refresh(db_backtest)
+
+    # Reload with eager loading to avoid lazy-load issues
+    db_backtest = session.exec(
+        select(BackTest)
+        .where(BackTest.id == backtest_id)
+        .options(
+            selectinload(BackTest.dataset).defer(DataSet.geojson),
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+        )
+    ).first()
     return db_backtest
 
 
@@ -186,7 +208,7 @@ async def get_predictions(session: Session = Depends(get_session)):
     return session_wrapper.list_all(Prediction)
 
 
-@router.get("/predictions/{predictionId}", response_model=PredictionRead)
+@router.get("/predictions/{predictionId}", response_model=PredictionInfo)
 async def get_prediction(
     prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
@@ -316,6 +338,7 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     id: int
     user_options: Optional[dict] = None
     required_covariates: List[str] = []
+    version: Optional[str] = None
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead])
@@ -325,18 +348,6 @@ async def list_model_templates(session: Session = Depends(get_session)):
     """
     model_templates = session.exec(select(ModelTemplateDB)).all()
     return model_templates
-
-
-@router.delete("/model-templates/{modelTemplateId}")
-async def delete_model_template(
-    model_template_id: Annotated[int, Path(alias="modelTemplateId")], session: Session = Depends(get_session)
-):
-    model_template = session.get(ModelTemplateDB, model_template_id)
-    if model_template is None:
-        raise HTTPException(status_code=404, detail="Model Template not found")
-    session.delete(model_template)
-    session.commit()
-    return {"message": "deleted"}
 
 
 ###########
@@ -372,6 +383,20 @@ def add_configured_model(
         model_template_id, ModelConfiguration(**model_configuration.dict()), configuration_name
     )
     return session.get(ConfiguredModelDB, db_id)
+
+
+@router.delete("/configured-models/{configuredModelId}")
+async def delete_configured_model(
+    configured_model_id: Annotated[int, Path(alias="configuredModelId")], session: Session = Depends(get_session)
+):
+    """Soft delete a configured model by setting archived to True"""
+    configured_model = session.get(ConfiguredModelDB, configured_model_id)
+    if configured_model is None:
+        raise HTTPException(status_code=404, detail="Configured model not found")
+    configured_model.archived = True
+    session.add(configured_model)
+    session.commit()
+    return {"message": "deleted"}
 
 
 ###########

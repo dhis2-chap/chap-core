@@ -27,22 +27,11 @@ class DirectClient(TestClient):
 client = DirectClient(app)
 
 
-@pytest.fixture
-def override_session(p_seeded_engine):
-    def get_test_session():
-        with Session(p_seeded_engine) as session:
-            yield session
-
-    app.dependency_overrides[get_session] = get_test_session
-    yield
-    app.dependency_overrides.clear()
-
-
 def test_dataset(seeded_session: Session):
     dataset = seeded_session.query(DataSet)
     assert dataset[0].data_sources[0].covariate == "mean_temperature"
     assert dataset[0].period_type == "month"
-    assert dataset.count() == 2
+    assert dataset.count() == 3
     assert not dataset[1].data_sources
     assert len(dataset[1].observations) > 0
 
@@ -51,6 +40,16 @@ def test_get_evaluation_entries(override_session):
     params = {"backtestId": 1, "quantiles": [0.1, 0.5, 0.9]}
     evaluation_entries = client.get_json("/v1/analytics/evaluation-entry", params=params)
     assert len(evaluation_entries) > 3
+
+
+def test_actual_cases(override_session):
+    actual_cases = client.get_json("/v1/analytics/actualCases/1")
+    assert len(actual_cases) >= 3
+
+
+def test_actual_cases_dataset(override_session):
+    actual_cases = client.get_json("/v1/analytics/actualCases/1?isDatasetId=true")
+    assert len(actual_cases) >= 3
 
 
 def test_get_prediction_entries(override_session):
@@ -70,7 +69,7 @@ def test_get_backtest(override_session):
 
 @pytest.mark.parametrize("plot_name", ["standardized-feature", "seasonal-correlation-plot"])
 def test_data_plot(override_session, tmp_path, plot_name):
-    response = client.get("/v1/plots/dataset/%s/2" % plot_name)
+    response = client.get("/v1/visualization/dataset-plots/%s/2" % plot_name)
     assert response.status_code == 200, response.json()
     vega_spec = response.json()
     html_template = wrap_vega_spec(vega_spec)
@@ -88,7 +87,7 @@ def test_dataset_df(override_session):
 
 
 def test_backtest_plot(override_session, tmp_path):
-    response = client.get("/v1/plots/backtest/tmp/1")
+    response = client.get("/v1/visualization/backtest-plots/evaluation_plot/1")
     assert response.status_code == 200, response.json()
     vega_spec = response.json()
     html_template = wrap_vega_spec(vega_spec)

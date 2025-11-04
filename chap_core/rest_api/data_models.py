@@ -42,6 +42,11 @@ class JobResponse(BaseModel):
     id: str
 
 
+class PredictionParams(DBModel):
+    model_id: str
+    n_periods: int = 3
+
+
 class ValidationError(DBModel):
     reason: str
     org_unit: str

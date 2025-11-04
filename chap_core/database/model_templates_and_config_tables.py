@@ -51,6 +51,7 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     id: Optional[int] = Field(primary_key=True, default=None)
     source_url: Optional[str] = None
     configured_models: List["ConfiguredModelDB"] = Relationship(back_populates="model_template", cascade_delete=True)
+    version: Optional[str] = None
 
 
 class ModelConfiguration(SQLModel):
@@ -65,9 +66,12 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     model_template_id: int = Field(foreign_key="modeltemplatedb.id", ondelete="CASCADE")
     model_template: ModelTemplateDB = Relationship(back_populates="configured_models")
+    archived: bool = Field(default=False)
+    uses_chapkit: bool = Field(default=False)
 
     @classmethod
     def _validate_model_configuration(cls, user_options, user_option_values):
+        logger.info("Validating model configuration")
         logger.info(user_options)
         logger.info(user_option_values)
         schema = {

@@ -47,6 +47,7 @@ class DetailedRMSE(MetricBase):
     spec = MetricSpec(
         output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
         metric_name="RMSE",
+        description="Detailed RMSE",
     )
 
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:

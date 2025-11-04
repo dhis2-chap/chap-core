@@ -109,7 +109,7 @@ class CHAPKitRestAPIWrapper:
         Returns:
             JSON Schema for configuration model
         """
-        response = self._request("GET", "/api/v1/configs/schema")
+        response = self._request("GET", "/api/v1/configs/$schema")
         return response.json()
 
     def get_config(self, config_id: str) -> Dict[str, Any]:
@@ -159,7 +159,9 @@ class CHAPKitRestAPIWrapper:
         Returns:
             Updated configuration or confirmation
         """
-        response = self._request("POST", f"/api/v1/configs/{config_id}/$link-artifact", json={"artifact_id": artifact_id})
+        response = self._request(
+            "POST", f"/api/v1/configs/{config_id}/$link-artifact", json={"artifact_id": artifact_id}
+        )
         return response.json()
 
     def unlink_artifact_from_config(self, config_id: str, artifact_id: str) -> Dict[str, Any]:
@@ -173,7 +175,9 @@ class CHAPKitRestAPIWrapper:
         Returns:
             Updated configuration or confirmation
         """
-        response = self._request("POST", f"/api/v1/configs/{config_id}/$unlink-artifact", json={"artifact_id": artifact_id})
+        response = self._request(
+            "POST", f"/api/v1/configs/{config_id}/$unlink-artifact", json={"artifact_id": artifact_id}
+        )
         return response.json()
 
     def get_config_artifacts(self, config_id: str) -> List[Dict[str, Any]]:
@@ -242,7 +246,6 @@ class CHAPKitRestAPIWrapper:
         response = self._request("GET", f"/api/v1/artifacts/config/{config_id}")
         return response.json()
 
-
     def get_artifact(self, artifact_id: str) -> Dict[str, Any]:
         """
         Get a specific artifact by ID
@@ -306,7 +309,9 @@ class CHAPKitRestAPIWrapper:
 
     # CHAP operation endpoints
 
-    def train(self, config_id: str, data: pd.DataFrame, geo_features: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    def train(
+        self, config_id: str, data: pd.DataFrame, geo_features: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, str]:
         """
         Train a model with data
 
@@ -322,15 +327,9 @@ class CHAPKitRestAPIWrapper:
         if "time_period" in data.columns:
             data["time_period"] = data["time_period"].astype(str)
         data = data.replace({np.nan: None})
-        
+
         # Convert DataFrame to columns/data format
-        train_body = {
-            "config_id": config_id,
-            "data": {
-                "columns": data.columns.tolist(),
-                "data": data.values.tolist()
-            }
-        }
+        train_body = {"config_id": config_id, "data": {"columns": data.columns.tolist(), "data": data.values.tolist()}}
 
         if geo_features:
             train_body["geo"] = geo_features
@@ -364,19 +363,16 @@ class CHAPKitRestAPIWrapper:
 
         predict_body = {
             "model_artifact_id": model_artifact_id,
-            "future": {
-                "columns": future_data.columns.tolist(),
-                "data": future_data.values.tolist()
-            }
+            "future": {"columns": future_data.columns.tolist(), "data": future_data.values.tolist()},
         }
-        
+
         if historic_data is not None:
             if "time_period" in historic_data.columns:
                 historic_data["time_period"] = historic_data["time_period"].astype(str)
             historic_data = historic_data.replace({np.nan: None})
             predict_body["historic"] = {
                 "columns": historic_data.columns.tolist(),
-                "data": historic_data.values.tolist()
+                "data": historic_data.values.tolist(),
             }
 
         if geo_features:

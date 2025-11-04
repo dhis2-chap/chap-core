@@ -77,7 +77,7 @@ def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
 
 
 def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
-    response = client.get("/v1/visualization/1")
+    response = client.get("/v1/visualization/metric-plots/1")
     assert response.status_code == 200
     assert any(plot["id"] == "metric_by_horizon" for plot in response.json())
 
@@ -426,7 +426,12 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     response = client.get("/v1/crud/predictions")
     assert response.status_code == 200, response.json()
     assert len(response.json()) > 0
-    print([PredictionInfo.model_validate(entry) for entry in response.json()])
+    p_infos = [PredictionInfo.model_validate(entry) for entry in response.json()]
+    for p_info in p_infos:
+        assert p_info.configured_model.name
+        assert p_info.dataset.data_sources is not None
+    print(p_infos)
+
     response = client.get(f"/v1/analytics/prediction-entry/{db_id}", params={"quantiles": [0.1, 0.5, 0.9]})
     assert response.status_code == 200, response.json()
     ds = [PredictionEntry.model_validate(entry) for entry in response.json()]
@@ -452,6 +457,15 @@ def test_backtest_with_data_flow(
     _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run)
 
 
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_backtest_with_weekly_data_flow(
+    celery_session_worker, dependency_overrides, example_polygons, create_backtest_with_weekly_data_request, dry_run
+):
+    request_payload = create_backtest_with_weekly_data_request.model_dump()
+    print(request_payload)
+    _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run, expected_period_type="week")
+
+
 @pytest.fixture()
 def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / "create-backtest-from-data.json", "r"))
@@ -470,7 +484,7 @@ def test_local_backtest_with_data(
     assert len(detail["rejected"]) == 1
 
 
-def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False):
+def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run=False, expected_period_type="month"):
     url = "/v1/analytics/create-backtest-with-data"
     if dry_run:
         url += "?dryRun=true"
@@ -489,7 +503,7 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     assert len(backtest_info.dataset.data_sources) > 0, backtest_info.dataset
     assert len(backtest_info.dataset.org_units) > 0, backtest_info.dataset
     assert backtest_info.dataset.last_period is not None, backtest_info.dataset
-    assert backtest_info.dataset.period_type == "month", backtest_info.dataset
+    assert backtest_info.dataset.period_type == expected_period_type, backtest_info.dataset
     # assert len(backtest_info.metrics) > 0
     created_dataset_id = backtest_info.dataset_id
     dataset_response = client.get(f"/v1/crud/datasets/{created_dataset_id}")
@@ -501,7 +515,7 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     assert len(evaluation_entries) > 0
     EvaluationEntry.model_validate(evaluation_entries[0])
     for plot_name in ["metric_by_horizon", "metric_map"]:
-        response = client.get(f"/v1/visualization/{plot_name}/{db_id}/crps")
+        response = client.get(f"/v1/visualization/metric-plots/{plot_name}/{db_id}/crps")
         assert response.status_code == 200, response.json()
 
 

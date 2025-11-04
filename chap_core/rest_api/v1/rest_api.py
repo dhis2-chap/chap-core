@@ -1,8 +1,9 @@
 import logging
+import traceback
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, ORJSONResponse
+from fastapi.responses import FileResponse, JSONResponse, ORJSONResponse
 from packaging.version import Version
 from pydantic import BaseModel
 
@@ -47,6 +48,20 @@ def create_api():
         allow_headers=["*"],
     )
 
+    # Global exception handler to log full stack traces
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        """Catch all unhandled exceptions and log full traceback"""
+        logger.error(f"Unhandled exception on {request.method} {request.url.path}")
+        logger.error(f"Exception type: {type(exc).__name__}")
+        logger.error(f"Exception message: {str(exc)}")
+        logger.error("Full traceback:")
+        logger.error(traceback.format_exc())
+
+        return JSONResponse(
+            status_code=500, content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__}
+        )
+
     return app
 
 
@@ -56,7 +71,6 @@ app.include_router(analytics.router)
 app.include_router(debug.router)
 app.include_router(jobs.router)
 app.include_router(visualization.router)
-app.include_router(visualization.dataset_plot_router)
 
 
 class State(BaseModel):

@@ -4,6 +4,7 @@ from typing import Annotated, List
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, confloat
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
@@ -16,7 +17,8 @@ from chap_core.api_types import (
     BackTestParams,
 )
 from chap_core.database.base_tables import DBModel
-from chap_core.database.dataset_tables import Observation, DataSetCreateInfo
+from chap_core.database.dataset_tables import Observation, DataSetCreateInfo, DataSet as DataSetTable
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import BackTest, BackTestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -29,6 +31,7 @@ from ...data_models import (
     DatasetMakeRequest,
     ImportSummaryResponse,
     JobResponse,
+    PredictionParams,
     ValidationError,
 )
 from .dependencies import get_database_url, get_session, get_settings
@@ -124,7 +127,9 @@ def _validate_full_dataset(
         else:
             new_data[location] = data
     if not new_data:
-        raise HTTPException(status_code=500, detail="All regions regjected due to missing values.")
+        raise HTTPException(
+            status_code=500, detail=f"All regions regjected due to missing values. Rejected: {str(rejected_list)}"
+        )
     else:
         print(new_data.keys())
 
@@ -151,7 +156,14 @@ def get_compatible_backtests(
         select(BackTest.id, BackTest.org_units, BackTest.split_periods).where(BackTest.id != backtest_id)
     ).all()
     ids = [id for id, o, s in res if set(o) & org_units and set(s) & split_periods]
-    backtests = session.exec(select(BackTest).where(BackTest.id.in_(ids))).all()
+    backtests = session.exec(
+        select(BackTest)
+        .where(BackTest.id.in_(ids))
+        .options(
+            selectinload(BackTest.dataset).defer(DataSetTable.geojson),
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+        )
+    ).all()
     return backtests
 
 
@@ -212,7 +224,13 @@ async def get_evaluation_entries(
 ):
     """
     Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
+    NOTE: If org_units is set to ["adm0"], the sum over all regions is returned.
     """
+    return_summed = False
+    if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
+        # returning sum of forecasts for all regions
+        return_summed = True
+
     logger.info(
         f"Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} "
     )
@@ -228,11 +246,31 @@ async def get_evaluation_entries(
     expr = select(cls).where(cls.backtest_id == backtest_id)
     if split_period:
         expr = expr.where(cls.last_seen_period == split_period)
-    if org_units:
+    if org_units and not return_summed:
         expr = expr.where(cls.org_unit.in_(org_units))
     forecasts = session.exec(expr)
 
     logger.info(forecasts)
+
+    if return_summed:
+        # sum forecasts over all regions
+        summed_forecasts = {}
+        for forecast in forecasts:
+            key = (forecast.period, forecast.last_seen_period)
+            if key not in summed_forecasts:
+                summed_forecasts[key] = np.array([0.0] * len(forecast.values))
+            summed_forecasts[key] += np.array(forecast.values)
+
+        forecasts = [
+            BackTestForecast(
+                period=key[0],
+                org_unit="adm0",
+                last_seen_period=key[1],
+                values=values.tolist(),
+            )
+            for key, values in summed_forecasts.items()
+        ]
+
     return [
         EvaluationEntry(
             period=forecast.period,
@@ -246,8 +284,7 @@ async def get_evaluation_entries(
     ]
 
 
-class MakePredictionRequest(DatasetMakeRequest):
-    model_id: str
+class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
     meta_data: dict = {}
 
 
@@ -291,14 +328,16 @@ async def make_prediction(
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
-    dataset_info = DataSetCreateInfo.model_validate(request.model_dump()).model_dump()
+    dump = request.model_dump()
+    dataset_info = DataSetCreateInfo(**dump).model_dump()
+    prediction_params = PredictionParams(**dump)
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,
         feature_names,
         provided_data.model_dump(),
         request.name,
-        request.model_id,
         dataset_create_info=dataset_info,
+        prediction_params=prediction_params,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_prediction", JOB_NAME_KW: request.name},
@@ -329,19 +368,28 @@ def get_prediction_entries(
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     org_units: List[str] = Query(None, alias="orgUnits"),
+    is_dataset_id: bool = Query(False, alias="isDatasetId"),
     session: Session = Depends(get_session),
 ):
     """
     Return the actual disease cases corresponding to a backtest. Can optionally be filtered on org units.
-    """
 
-    backtest = session.get(BackTest, backtest_id)
-    logger.info(f"Backtest: {backtest}")
-    # data = session.get(DataSet, backtest.dataset_id)
-    if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
-    expr = select(Observation).where(Observation.dataset_id == backtest.dataset_id)
-    if org_units is not None:
+    Note: If org_units is set to ["adm0"], the sum over all regions is returned.
+    """
+    return_summed = False
+    if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
+        # returning sum of forecasts for all regions
+        return_summed = True
+    if not is_dataset_id:
+        backtest = session.get(BackTest, backtest_id)
+        logger.info(f"Backtest: {backtest}")
+        if backtest is None:
+            raise HTTPException(status_code=404, detail="BackTest not found")
+        dataset_id = backtest.dataset_id
+    else:
+        dataset_id = backtest_id
+    expr = select(Observation).where(Observation.dataset_id == dataset_id)
+    if org_units is not None and not return_summed:
         org_units = set(org_units)
         expr = expr.where(Observation.org_unit.in_(org_units))
     observations = session.exec(expr).all()
@@ -357,6 +405,16 @@ async def get_actual_cases(
         for observation in observations
         if observation.feature_name == "disease_cases"
     ]
+    if return_summed:
+        # sum over all regions
+        summed_values = {}
+        for element in data_list:
+            key = element.pe
+            if key not in summed_values:
+                summed_values[key] = 0.0
+            if element.value is not None:
+                summed_values[key] += element.value
+        data_list = [DataElement(pe=pe, ou="adm0", value=value) for pe, value in summed_values.items()]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(featureId="disease_cases", dhis2Id="disease_cases", data=data_list)
 
@@ -485,10 +543,10 @@ async def create_backtest_with_data(
         wf.run_backtest_from_dataset,
         feature_names=feature_names,
         provided_data_model_dump=provided_data_processed.model_dump(),
-        dataset_create_dump=dataset_create_info,
+        dataset_info=dataset_create_info,
         backtest_name=request.name,
         model_id=request.model_id,
-        backtest_params_dump=bt_params,
+        backtest_params=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},

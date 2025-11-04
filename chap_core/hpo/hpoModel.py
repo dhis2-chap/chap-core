@@ -9,6 +9,7 @@ from .hpoModelInterface import HpoModelInterface
 from .objective import Objective
 from .searcher import Searcher
 from .base import write_yaml
+
 Direction = Literal["maximize", "minimize"]
 
 Direction = Literal["maximize", "minimize"]
@@ -60,7 +61,7 @@ class HpoModel(HpoModelInterface):
         Returns a sorted list of configurations together with their score.
         """
 
-        best_score = float("inf") if self._direction=="minimize" else float("-inf")
+        best_score = float("inf") if self._direction == "minimize" else float("-inf")
         best_params: dict[str, Any] = {}
         self._leaderboard = []
 
@@ -69,12 +70,12 @@ class HpoModel(HpoModelInterface):
             params = self._searcher.ask()
             print(f"params from searcher: {params}")
             if params is None:
-                break 
-            
+                break
+
             trial_number = None
-            if params.get("_trial_id") is not None: # for TPESearcher
+            if params.get("_trial_id") is not None:  # for TPESearcher
                 trial_number = params.pop("_trial_id")
-            
+
             # config = self.base_configs.copy()
             # config["user_option_values"] = params
 
@@ -84,7 +85,7 @@ class HpoModel(HpoModelInterface):
                 params["_trial_id"] = trial_number
                 self._searcher.tell(params, score)
                 params.pop("_trial_id")
-            else: 
+            else:
                 self._searcher.tell(params, score)
             
             self._leaderboard.append({
@@ -109,9 +110,8 @@ class HpoModel(HpoModelInterface):
     @property
     def get_best_config(self):
         return self._best_config
-    
+
     @property
     def write_best_config(self, output_yaml):
         if self._best_config is not None:
             write_yaml(output_yaml, self._best_config)
-    
