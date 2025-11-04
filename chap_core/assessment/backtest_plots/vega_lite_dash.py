@@ -3,9 +3,10 @@
 import altair as alt
 import pandas as pd
 from typing import Optional
-from pathlib import Path
-from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 import json
+
+from chap_core import get_temp_dir
+from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 from chap_core.assessment.flat_representations import (
     FlatMetric,
 )
@@ -203,7 +204,7 @@ if __name__ == "__main__":
     dashboard_spec = dashboard.to_dict(format="vega-lite")
 
     print(json.dumps(dashboard_spec, indent=2, ensure_ascii=False))
-    output_path = Path("target/backtest_dashboard_spec.json")
+    output_path = get_temp_dir() / "backtest_dashboard_spec.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(dashboard_spec, f, indent=2, ensure_ascii=False)
