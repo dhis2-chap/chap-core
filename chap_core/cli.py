@@ -141,8 +141,8 @@ def evaluate_hpo(
                 if not isinstance(configs, dict) or not configs:
                     raise ValueError("YAML must define a non-empty mapping of parameters")
                 logger.info(f"Loaded model base configurations from yaml file: {configs}")
-            else: # uses hpo_configs defined in model's MLproject
-                configs = template.model_template_config.hpo_configs
+            else: # uses hpo_search_space defined in model's MLproject
+                configs = template.model_template_config.hpo_search_space
             
             configs = load_search_space_from_config(configs)
             objective = Objective(template, metric, prediction_length, n_splits)

@@ -32,6 +32,7 @@ class Float:
     step: Optional[float] = None
     log: bool = False
 
+# maybe dataclass to pydantic later
 
 def dedup(values):
     """Deduplicate while preserving order; works for scalars, lists, dicts, None."""
