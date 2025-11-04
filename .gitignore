@@ -38,7 +38,7 @@ docs_source/modules.rst
 # === Runtime Outputs and Logs ===
 *.log
 /logs/*
-/runs
+runs/
 mlruns/
 
 # === Project-Specific ===

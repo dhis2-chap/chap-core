@@ -22,8 +22,7 @@ clean: ## remove all build, test, coverage and Python artifacts
 	@find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	@find . -type d -name ".ruff_cache" -exec rm -rf {} +
 	@rm -rf .coverage coverage.xml htmlcov/
-	@rm -rf .tox/
-	@rm -rf dist/ build/ *.egg-info .eggs/
+	@rm -rf dist/
 	@rm -rf target/
 
 lint: ## check and fix code style with ruff
