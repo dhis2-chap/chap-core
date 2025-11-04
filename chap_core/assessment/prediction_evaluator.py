@@ -97,7 +97,7 @@ def evaluate_model(
 
     # transformed = create_multiloc_timeseries(truth_data)
     if report_filename is None:
-        report_filename = "evaluation_report.pdf"
+        report_filename = "target/evaluation_report.pdf"
 
     if report_filename is not None:
         logger.info(f"Plotting forecasts to {report_filename}")

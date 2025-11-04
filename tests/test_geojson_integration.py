@@ -39,8 +39,12 @@ def test(example_prediction_request):
     data = dataset_from_request_v1(example_prediction_request)
     print(type(data))
     polygons = Polygons(data.polygons)
-    polygons.to_file("polygons.geojson")
-    data.to_csv("data.csv")
+    from pathlib import Path
+
+    output_dir = Path("target")
+    output_dir.mkdir(exist_ok=True)
+    polygons.to_file(str(output_dir / "polygons.geojson"))
+    data.to_csv(str(output_dir / "data.csv"))
 
 
 def add_time_periods_to_data(data):
@@ -108,7 +112,11 @@ def test2(data_path):
     logger.error(data["time_period"])
     data = DataSet.from_pandas(data, FullData)
     logger.error(data.to_pandas()["time_period"])
-    data.to_csv("test.csv")
+    from pathlib import Path
+
+    output_dir = Path("target")
+    output_dir.mkdir(exist_ok=True)
+    data.to_csv(str(output_dir / "test.csv"))
     return
 
     polygons = Polygons.from_file(data_path / "small_laos_data_with_polygons.geojson", id_property="district").data

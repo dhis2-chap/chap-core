@@ -102,8 +102,8 @@ def data_path():
 
 @pytest.fixture
 def output_path():
-    path = Path(__file__).parent / "test_outputs"
-    path.mkdir(exist_ok=True)
+    path = Path(__file__).parent.parent / "target" / "test_outputs"
+    path.mkdir(parents=True, exist_ok=True)
     return path
 
 

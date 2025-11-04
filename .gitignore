@@ -68,7 +68,8 @@ docs_source/_build/
 docs_source/chap_core*.rst
 docs_source/modules.rst
 
-# PyBuilder
+# PyBuilder / Test artifacts
+# All test outputs, model artifacts, and build products go in target/
 target/
 
 # Jupyter Notebook
@@ -162,7 +163,6 @@ config/model_templates/*
 
 #ignore
 /logs/*
-model_config.yaml
 *report*.pdf
 *report*.csv
 testconfig.yaml

@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.models.utils import get_model_from_directory_or_github_url
@@ -28,6 +29,8 @@ if __name__ == '__main__':
                                  report_filename=f'{name}_{n_tests}_{prediction_length}_report.pdf')
         all_results[name] = results
 
-    report_file = 'evaluation_report.csv'
+    output_dir = Path('target')
+    output_dir.mkdir(exist_ok=True)
+    report_file = output_dir / 'evaluation_report.csv'
     df = pd.DataFrame([res[0] | {'model': name} for name, res in all_results.items()])
     df.to_csv(report_file, mode='w', header=True)

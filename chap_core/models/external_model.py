@@ -92,7 +92,7 @@ class ExternalModel(ExternalModelBase):
         runner,
         name: str = None,
         adapters=None,
-        working_dir="./",
+        working_dir="target/models/",
         data_type=HealthData,
         configuration: ModelConfiguration | None = None,
     ):

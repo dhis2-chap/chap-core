@@ -15,7 +15,11 @@ def train(csv_fn, model_fn):
     joblib.dump(model, model_fn)
 
 
-train('example_data/v0/training_data.csv', 'model.pkl')
+from pathlib import Path
+output_dir = Path('target')
+output_dir.mkdir(exist_ok=True)
+
+train('example_data/v0/training_data.csv', 'target/model.pkl')
 
 
 def predict(model_fn, historic_data_fn, future_climatedata_fn, predictions_fn):
@@ -47,4 +51,4 @@ def predict(model_fn, historic_data_fn, future_climatedata_fn, predictions_fn):
     df.to_csv(predictions_fn, index=False)
 
 
-predict('model.pkl', 'example_data/v0/historic_data.csv', 'example_data/v0/future_data.csv', 'predictions.csv')
+predict('target/model.pkl', 'example_data/v0/historic_data.csv', 'example_data/v0/future_data.csv', 'target/predictions.csv')
