@@ -66,7 +66,7 @@ docs: ## generate Sphinx HTML documentation, including API docs
 	uv run sphinx-apidoc -o docs/ chap_core
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
-	@echo "Docs: docs/_build/html/index.html"
+	@echo "Docs: site/html/index.html"
 
 dist: clean ## build source and wheel package
 	uv build

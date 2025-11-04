@@ -23,7 +23,6 @@ coverage.xml
 target/
 
 # === Documentation ===
-docs/_build/
 docs/chap_core*.rst
 docs/modules.rst
 site/
