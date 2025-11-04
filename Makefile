@@ -24,6 +24,8 @@ clean: ## remove all build, test, coverage and Python artifacts
 	@rm -rf .coverage coverage.xml htmlcov/
 	@rm -rf dist/
 	@rm -rf target/
+	@rm -rf site/
+	@rm -rf .cache
 
 lint: ## check and fix code style with ruff
 	@echo "Linting code..."
