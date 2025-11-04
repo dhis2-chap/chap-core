@@ -24,6 +24,7 @@ clean: ## remove all build, test, coverage and Python artifacts
 	@rm -rf .coverage coverage.xml htmlcov/
 	@rm -rf .tox/
 	@rm -rf dist/ build/ *.egg-info .eggs/
+	@rm -rf target/
 
 lint: ## check and fix code style with ruff
 	@echo "Linting code..."
@@ -33,23 +34,15 @@ lint: ## check and fix code style with ruff
 
 test: ## run tests quickly with minimal output
 	uv run pytest -q
-	@rm -rf target/
-	@rm -f example_data/debug_model/model_configuration_for_run.yaml
 
 test-verbose: ## run tests with INFO level logging
 	uv run pytest --log-cli-level=INFO -o log_cli=true -v
-	@rm -rf target/
-	@rm -f example_data/debug_model/model_configuration_for_run.yaml
 
 test-debug: ## run tests with DEBUG logging and SQL echo
 	CHAP_DEBUG=true uv run pytest --log-cli-level=DEBUG -o log_cli=true -v -s -x
-	@rm -rf target/
-	@rm -f example_data/debug_model/model_configuration_for_run.yaml
 
 test-timed: ## run tests showing timing for 20 slowest tests
 	uv run pytest -q --durations=20
-	@rm -rf target/
-	@rm -f example_data/debug_model/model_configuration_for_run.yaml
 
 test-all: ## run comprehensive test suite with examples and coverage
 	./tests/test_docker_compose_integration_flow.sh
@@ -61,8 +54,6 @@ test-all: ## run comprehensive test suite with examples and coverage
 	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
 	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/
 	#cd docs_source && make doctest
-	@rm -rf target/
-	@rm -f example_data/debug_model/model_configuration_for_run.yaml
 
 coverage: ## run tests with coverage reporting
 	@echo ">>> Running tests with coverage"
@@ -70,8 +61,6 @@ coverage: ## run tests with coverage reporting
 	@uv run coverage report
 	@uv run coverage html
 	@uv run coverage xml
-	@rm -rf target/
-	@rm -f example_data/debug_model/model_configuration_for_run.yaml
 	@echo "Coverage report: htmlcov/index.html"
 
 docs: ## generate Sphinx HTML documentation, including API docs
