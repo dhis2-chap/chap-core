@@ -146,7 +146,6 @@ tests/out.tmp
 mlruns/
 /results/
 
-example_data/era5_land_daily_data.csv
 tests/test.db
 
 # Ignore custom model templates and configured models
