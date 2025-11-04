@@ -6,11 +6,8 @@ __pycache__/
 # C extensions
 *.so
 
-# Distribution / packaging
-env/
-build/
+# Distribution / packaging (uv build)
 dist/
-*.egg-info/
 
 # Unit test / coverage reports
 htmlcov/
