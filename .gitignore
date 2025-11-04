@@ -34,7 +34,6 @@ docs_source/modules.rst
 # === IDE and Editors ===
 .vscode/
 .idea/
-.ipynb_checkpoints
 
 # === Runtime Outputs and Logs ===
 *.log
