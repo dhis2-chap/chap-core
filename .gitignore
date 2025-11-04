@@ -146,8 +146,6 @@ tests/out.tmp
 mlruns/
 /results/
 
-tests/test.db
-
 # Ignore custom model templates and configured models
 config/configured_models/*
 !config/configured_models/default.yaml

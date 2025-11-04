@@ -264,9 +264,11 @@ class GEEMock:
 
 @pytest.fixture(scope="session")
 def database_url():
-    # todo: fix tmp path
-    cur_dir = Path(__file__).parent
-    return f"sqlite:///{cur_dir}/test.db"
+    # Use target directory for test database
+    project_root = Path(__file__).parent.parent
+    db_dir = project_root / "target"
+    db_dir.mkdir(exist_ok=True)
+    return f"sqlite:///{db_dir}/test.db"
 
 
 @pytest.fixture(scope="session")
