@@ -3,12 +3,6 @@ name: Upload to PyPI
 on:
   # Allow manual triggering from GitHub UI or CLI
   workflow_dispatch:
-  # run after completed bump version
-  workflow_run:
-    workflows: ["Bump version"]
-    branches: [master]
-    types:
-      - completed
 
 jobs:
   deploy:
@@ -16,8 +10,6 @@ jobs:
     environment: release
     permissions:
       id-token: write
-    # only run if bumpversion was successful (when triggered by workflow_run)
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - uses: actions/checkout@v3

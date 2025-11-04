@@ -29,7 +29,7 @@ import chap_core
 import pandas as pd
 import numpy as np
 import os
-if os.getcwd().endswith("docs_source"):
+if os.getcwd().endswith("docs"):
     os.chdir("../")
 pd.options.display.max_columns = 5
 pd.options.display.width = 150

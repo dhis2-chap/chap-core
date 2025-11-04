@@ -91,8 +91,11 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
     return working_dir
 
 
-def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> ModelTemplate:
-    working_dir = Path(mlproject_file).parent
+def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False, working_dir=None) -> ModelTemplate:
+    if working_dir is None:
+        working_dir = Path(mlproject_file).parent
+    else:
+        working_dir = Path(working_dir)
 
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)

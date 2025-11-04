@@ -7,10 +7,11 @@ from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import pandas as pd
+
+from chap_core import get_temp_dir
 from chap_core.assessment.dataset_splitting import (
     train_test_generator,
 )
-
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
 from chap_core.datatypes import TimeSeriesData, Samples, SamplesWithTruth
 import logging
@@ -97,7 +98,7 @@ def evaluate_model(
 
     # transformed = create_multiloc_timeseries(truth_data)
     if report_filename is None:
-        report_filename = "evaluation_report.pdf"
+        report_filename = str(get_temp_dir() / "evaluation_report.pdf")
 
     if report_filename is not None:
         logger.info(f"Plotting forecasts to {report_filename}")

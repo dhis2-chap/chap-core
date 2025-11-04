@@ -92,13 +92,17 @@ class ExternalModel(ExternalModelBase):
         runner,
         name: str = None,
         adapters=None,
-        working_dir="./",
+        working_dir=None,
         data_type=HealthData,
         configuration: ModelConfiguration | None = None,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
         self._adapters = adapters
+        if working_dir is None:
+            from chap_core import get_temp_dir
+
+            working_dir = str(get_temp_dir() / "models")
         self._working_dir = working_dir
         self._location_mapping = None
         self._model_file_name = "model"

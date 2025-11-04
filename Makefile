@@ -22,8 +22,10 @@ clean: ## remove all build, test, coverage and Python artifacts
 	@find . -type d -name ".pytest_cache" -exec rm -rf {} +
 	@find . -type d -name ".ruff_cache" -exec rm -rf {} +
 	@rm -rf .coverage coverage.xml htmlcov/
-	@rm -rf .tox/
-	@rm -rf dist/ build/ *.egg-info .eggs/
+	@rm -rf dist/
+	@rm -rf target/
+	@rm -rf site/
+	@rm -rf .cache
 
 lint: ## check and fix code style with ruff
 	@echo "Linting code..."
@@ -33,27 +35,15 @@ lint: ## check and fix code style with ruff
 
 test: ## run tests quickly with minimal output
 	uv run pytest -q
-	@rm test.csv
-	@rm model_config.yaml
-	@rm example_data/debug_model/model_configuration_for_run.yaml
 
 test-verbose: ## run tests with INFO level logging
 	uv run pytest --log-cli-level=INFO -o log_cli=true -v
-	@rm test.csv
-	@rm model_config.yaml
-	@rm example_data/debug_model/model_configuration_for_run.yaml
 
 test-debug: ## run tests with DEBUG logging and SQL echo
 	CHAP_DEBUG=true uv run pytest --log-cli-level=DEBUG -o log_cli=true -v -s -x
-	@rm test.csv
-	@rm model_config.yaml
-	@rm example_data/debug_model/model_configuration_for_run.yaml
 
 test-timed: ## run tests showing timing for 20 slowest tests
 	uv run pytest -q --durations=20
-	@rm test.csv
-	@rm model_config.yaml
-	@rm example_data/debug_model/model_configuration_for_run.yaml
 
 test-all: ## run comprehensive test suite with examples and coverage
 	./tests/test_docker_compose_integration_flow.sh
@@ -63,15 +53,6 @@ test-all: ## run comprehensive test suite with examples and coverage
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
 	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --run-slow
 	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
-	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/
-	#cd docs_source && make doctest
-	@rm test.csv
-	@rm report.csv
-	@rm predictions.csv
-	@rm model_config.yaml
-	@rm model.pkl
-	@rm example_data/debug_model/model_configuration_for_run.yaml
-	@rm evaluation_report.pdf
 
 coverage: ## run tests with coverage reporting
 	@echo ">>> Running tests with coverage"
@@ -79,17 +60,15 @@ coverage: ## run tests with coverage reporting
 	@uv run coverage report
 	@uv run coverage html
 	@uv run coverage xml
-	@rm test.csv
-	@rm example_data/debug_model/model_configuration_for_run.yaml
 	@echo "Coverage report: htmlcov/index.html"
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs_source/chap_core.rst
-	rm -f docs_source/modules.rst
-	uv run sphinx-apidoc -o docs_source/ chap_core
-	$(MAKE) -C docs_source clean
-	$(MAKE) -C docs_source html
-	@echo "Docs: docs_source/_build/html/index.html"
+	rm -f docs/chap_core.rst
+	rm -f docs/modules.rst
+	uv run sphinx-apidoc -o docs/ chap_core
+	$(MAKE) -C docs clean
+	$(MAKE) -C docs html
+	@echo "Docs: site/html/index.html"
 
 dist: clean ## build source and wheel package
 	uv build

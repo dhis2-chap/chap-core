@@ -1,6 +1,8 @@
 import numpy as np
 import json
 import dataclasses
+
+from chap_core import get_temp_dir
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.datatypes import Samples
 
@@ -11,8 +13,10 @@ class NaivePredictor:
 
     def predict(self, historic_data: DataSet, future_data: DataSet, num_samples: int = 100) -> DataSet:
         # write future_data to from a tmp csv file (to mimic what is happening in chap)
-        future_data.to_csv("test.csv")
-        future_data = DataSet.from_csv("test.csv")
+        test_csv_path = get_temp_dir() / "test.csv"
+        test_csv_path.parent.mkdir(parents=True, exist_ok=True)
+        future_data.to_csv(str(test_csv_path))
+        future_data = DataSet.from_csv(str(test_csv_path))
 
         samples = DataSet(
             {

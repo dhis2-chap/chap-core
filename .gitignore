@@ -1,168 +1,49 @@
-# Byte-compiled / optimized / DLL files
+# === Python ===
+# Bytecode and cache
 __pycache__/
-*.py[cod]
-*$py.class
+*.py[cd]
 
 # C extensions
 *.so
 
-# Distribution / packaging
-.Python
-env/
-build/
-develop-eggs/
+# === Build and Distribution ===
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
+# === Testing and Coverage ===
 htmlcov/
-.tox/
 .coverage
 .coverage.*
 .cache
-nosetests.xml
 coverage.xml
 *.cover
-.hypothesis/
 .pytest_cache/
 .ruff_cache/
 
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs_source/_build/
-docs_source/chap_core*.rst
-docs_source/modules.rst
-
-# PyBuilder
+# Test artifacts
 target/
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# === Documentation ===
+docs/chap_core*.rst
+docs/modules.rst
+site/
 
-# pyenv
-# .python-version
-
-# celery beat schedule file
-celerybeat-schedule
-
-# SageMath parsed files
-*.sage.py
-
-# dotenv
+# === Environment and Secrets ===
 .env
-
-# virtualenv
 .venv
-venv/
-ENV/
 
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-
-# IDE settings
+# === IDE and Editors ===
 .vscode/
 .idea/
 
-# Ignore omnipy-generated tar.gz files (temporary due to hack in omnipy v0.14.7)
-example_data/**/*.tar.gz
-
-#web interface
-chap_core/web_interface/node_modules
-chap_core/web_interface/.pnp
-chap_core/web_interface/.pnp.js
-
-chap_core/web_interface/coverage
-
-chap_core/web_interface/build
-
-chap_core/web_interface/.DS_Store
-chap_core/web_interface/.env.local
-chap_core/web_interface/.env.development.local
-chap_core/web_interface/.env.test.local
-chap_core/web_interface/.env.production.local
-
-chap_core/web_interface/npm-debug.log*
-chap_core/web_interface/yarn-debug.log*
-chap_core/web_interface/yarn-error.log*
-
-chap_core/web_interface/node_modules/
-
-/scripts/runs/
-
-#ignore outputs from pytest
-/runs
-/cache
-
-report.pdf
-tests/future_data.csv
-
-tests/logs/
-tests/out.tmp
+# === Runtime Outputs and Logs ===
+*.log
+/logs/*
+runs/
 mlruns/
-/results/
 
-tests/test_outputs
-example_data/era5_land_daily_data.csv
-tests/test.db
-
-# Ignore custom model templates and configured models
+# === Project-Specific ===
 config/configured_models/*
 !config/configured_models/default.yaml
-config/model_templates/*
-!config/model_templates/default.yaml
 
-# ignore mac finder setting files
+# === OS-Specific ===
 .DS_Store
-
-
-#ignore
-/logs/*
-model_config.yaml
-*report*.pdf
-*report*.csv
-testconfig.yaml
