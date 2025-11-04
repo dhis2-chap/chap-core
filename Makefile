@@ -52,8 +52,6 @@ test-all: ## run comprehensive test suite with examples and coverage
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
 	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --run-slow
 	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --cov-append scripts/*_example.py
-	#pytest --cov-report html --cov=chap_core --cov-append --doctest-modules chap_core/
-	#cd docs_source && make doctest
 
 coverage: ## run tests with coverage reporting
 	@echo ">>> Running tests with coverage"
