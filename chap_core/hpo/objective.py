@@ -14,10 +14,10 @@ logger.setLevel(logging.INFO)
 
 class Objective:
     def __init__(
-        self, 
-        model_template: ModelTemplate, 
-        metric: str = "MSE", 
-        prediction_length: int = 3, # 6,
+        self,
+        model_template: ModelTemplate,
+        metric: str = "MSE",
+        prediction_length: int = 3,  # 6,
         n_splits: int = 4,
         ignore_environment: bool = False,
         debug: bool = False,

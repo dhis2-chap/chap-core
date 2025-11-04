@@ -34,7 +34,9 @@ class Float:
     step: Optional[float] = None
     log: bool = False
 
+
 # maybe dataclass to pydantic later
+
 
 def dedup(values):
     """Deduplicate while preserving order; works for scalars, lists, dicts, None."""
@@ -56,7 +58,7 @@ def write_yaml(path: str, data: dict) -> None:
         yaml.safe_dump(data, f, sort_keys=False)
 
 
-def load_search_space_from_config(config: dict) -> dict[str, Any]:    
+def load_search_space_from_config(config: dict) -> dict[str, Any]:
     space: dict[str, Any] = {}
 
     for name, spec in config.items():

@@ -38,7 +38,7 @@ from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
 
 from chap_core.hpo.hpoModel import HpoModel, Direction
-from chap_core.hpo.objective import Objective 
+from chap_core.hpo.objective import Objective
 from chap_core.hpo.base import load_search_space_from_config
 
 
@@ -141,9 +141,9 @@ def evaluate_hpo(
                 if not isinstance(configs, dict) or not configs:
                     raise ValueError("YAML must define a non-empty mapping of parameters")
                 logger.info(f"Loaded model base configurations from yaml file: {configs}")
-            else: # uses hpo_search_space defined in model's MLproject
+            else:  # uses hpo_search_space defined in model's MLproject
                 configs = template.model_template_config.hpo_search_space
-            
+
             configs = load_search_space_from_config(configs)
             objective = Objective(template, metric, prediction_length, n_splits)
             model = HpoModel(RandomSearcher(2), objective, direction, configs)

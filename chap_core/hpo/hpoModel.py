@@ -21,11 +21,11 @@ logger.setLevel(logging.INFO)
 
 class HpoModel(HpoModelInterface):
     def __init__(
-            self, 
-            searcher: Searcher, 
-            objective: Objective,
-            direction: Direction = "minimize", 
-            model_configuration: Optional[dict[str, list]] = None,
+        self,
+        searcher: Searcher,
+        objective: Objective,
+        direction: Direction = "minimize",
+        model_configuration: Optional[dict[str, list]] = None,
     ):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
@@ -35,23 +35,25 @@ class HpoModel(HpoModelInterface):
         self._direction = direction
         # self._model_configuration_yaml = model_configuration_yaml #TODO: this should a parsed dict
         self.base_configs = model_configuration
-    
+
     def train(self, dataset: Optional[DataSetType]) -> Tuple[str, dict[str, Any]]:
         """
-        Calls get_leaderboard to find the optimal configuration. 
+        Calls get_leaderboard to find the optimal configuration.
         Then trains the tuned model on the whole input dataset (train + validation).
         """
-        self.get_leaderboard(dataset) # calculates leaderboard, don't need the return value here bc best_config it stores best_config in self
-        template = self._objective.model_template # not sure if accessing template from objective is correct, maybe pass template to hpoModel and hpoModel calls get_model?
+        self.get_leaderboard(
+            dataset
+        )  # calculates leaderboard, don't need the return value here bc best_config it stores best_config in self
+        template = self._objective.model_template  # not sure if accessing template from objective is correct, maybe pass template to hpoModel and hpoModel calls get_model?
         # TODO: validate config without "user_option_values"
         if self._best_config is not None:
             logger.info(f"Validating best model configuration: {self._best_config}")
-            config = ModelConfiguration.model_validate(self._best_config)  
+            config = ModelConfiguration.model_validate(self._best_config)
             logger.info(f"Validated best model configuration: {config}")
         estimator = template.get_model(config)
         self._predictor = estimator.train(dataset)
         return self._predictor
-    
+
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         self._predictor.predict(historic_data, future_data)
 
@@ -81,17 +83,19 @@ class HpoModel(HpoModelInterface):
 
             # Maybe best to seperate hpo_config and other configs in two files ??
             score = self._objective(params, dataset)
-            if trial_number is not None: # for parallel TPE search
+            if trial_number is not None:  # for parallel TPE search
                 params["_trial_id"] = trial_number
                 self._searcher.tell(params, score)
                 params.pop("_trial_id")
             else:
                 self._searcher.tell(params, score)
-            
-            self._leaderboard.append({
-                "config": params,
-                "score": score, 
-            })
+
+            self._leaderboard.append(
+                {
+                    "config": params,
+                    "score": score,
+                }
+            )
 
             is_better = (score < best_score) if self._direction == "minimize" else (score > best_score)
             if is_better or best_params is None:
@@ -103,7 +107,7 @@ class HpoModel(HpoModelInterface):
 
         self._best_config = {"user_option_values": best_params}
         print(f"\nBest params: {best_params} | best score: {best_score}")
-        self._leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction=="maximize")
+        self._leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction == "maximize")
         assert best_params == self._leaderboard[0]["config"], "best params is not the first in leaderboard"
         return self._leaderboard
 

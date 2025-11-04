@@ -4,7 +4,7 @@ import yaml
 import json
 from pathlib import Path
 
-from chap_core.hpo.base import Int, Float, dedup, write_yaml, load_search_space_from_yaml
+from chap_core.hpo.base import Int, Float, dedup, write_yaml, load_search_space_from_config
 
 
 def test_dedup_handles_scalars_lists_and_dicts():
@@ -57,7 +57,10 @@ past_ratio:
         """.strip()
     )
 
-    space = load_search_space_from_yaml(str(yml))
+    with open(yml, "r", encoding="utf-8") as f:
+      configs = yaml.safe_load(f)
+
+    space = load_search_space_from_config(configs)
     # categorical
     assert isinstance(space["batch_size"], list) and space["batch_size"] == [64, 32]
     # Floats

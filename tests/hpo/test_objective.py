@@ -4,9 +4,6 @@ import chap_core.hpo.objective as obj_module
 
 def test_objective_calls_evaluate_model_and_returns_metric(monkeypatch):
     class FakeTemplate:
-        def __init__(self, name):
-            self._name = name
-
         def get_model(self, config):
             return lambda: object()
 
@@ -14,7 +11,7 @@ def test_objective_calls_evaluate_model_and_returns_metric(monkeypatch):
     monkeypatch.setattr(
         obj_module.ModelTemplate,
         "from_directory_or_github_url",
-        classmethod(lambda cls, *a, **k: FakeTemplate("fake")),
+        classmethod(lambda cls, *a, **k: FakeTemplate()),
         raising=True,
     )
 
@@ -24,7 +21,7 @@ def test_objective_calls_evaluate_model_and_returns_metric(monkeypatch):
 
     monkeypatch.setattr(obj_module, "evaluate_model", fake_eval, raising=True)
 
-    o = Objective(model_name="fake-model", metric="MSE", prediction_length=3, n_splits=2)
+    o = Objective(model_template=FakeTemplate(), metric="MSE", prediction_length=3, n_splits=2)
     score = o(config={"user_option_values": {"x": [1]}}, dataset="dummy")
     assert score == 0.42
 
