@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Literal, Optional
 
 from chap_core.models.model_template import ModelTemplate
