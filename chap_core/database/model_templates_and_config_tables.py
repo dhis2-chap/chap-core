@@ -36,6 +36,7 @@ class ModelTemplateMetaData(SQLModel):
 class ModelTemplateInformation(SQLModel):
     supported_period_type: PeriodType = PeriodType.any
     user_options: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
+    hpo_configs: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
     required_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     target: str = "disease_cases"
     allow_free_additional_continuous_covariates: bool = False

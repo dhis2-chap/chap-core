@@ -62,6 +62,10 @@ class ModelTemplate:
     @property
     def name(self):
         return self._model_template_config.name
+    
+    @property
+    def model_template_config(self):
+        return self._model_template_config
 
     def get_train_predict_runner(self) -> TrainPredictRunner:
         pass

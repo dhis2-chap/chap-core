@@ -41,7 +41,7 @@ class HpoModel(HpoModelInterface):
         Then trains the tuned model on the whole input dataset (train + validation).
         """
         self.get_leaderboard(dataset) # calculates leaderboard, don't need the return value here bc best_config it stores best_config in self
-        template = self._objective.template
+        template = self._objective.model_template # not sure if accessing template from objective is correct, maybe pass template to hpoModel and hpoModel calls get_model?
         # TODO: validate config without "user_option_values"
         if self._best_config is not None:
             logger.info(f"Validating best model configuration: {self._best_config}")
@@ -103,6 +103,7 @@ class HpoModel(HpoModelInterface):
         self._best_config = {"user_option_values": best_params}
         print(f"\nBest params: {best_params} | best score: {best_score}")
         self._leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction=="maximize")
+        assert best_params == self._leaderboard[0]["config"], "best params is not the first in leaderboard"
         return self._leaderboard
 
     @property
