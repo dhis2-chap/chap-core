@@ -163,7 +163,6 @@ config/model_templates/*
 #ignore
 /logs/*
 model_config.yaml
-CLAUDE.md
 *report*.pdf
 *report*.csv
 testconfig.yaml
