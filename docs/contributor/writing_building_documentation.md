@@ -7,7 +7,7 @@ The documentation is written mostly in [Markdown format](https://www.markdowngui
 
 ## How to edit the documentation
 
-All documentation is in the `docs_source` folder. The main file is `index.rst`, which includes all other files in the documentation. This file also generates the menu. 
+All documentation is in the `docs` folder. The main file is `index.rst`, which includes all other files in the documentation. This file also generates the menu.
 
 Edit or add files in this directory to edit the documentation.
 
@@ -20,7 +20,7 @@ First make sure you have activated your local development environment:
 $ source .venv/bin/activate
 ```
 
-Inside the `docs_source` folder, run:
+Inside the `docs` folder, run:
 
 ```bash
 $ make html

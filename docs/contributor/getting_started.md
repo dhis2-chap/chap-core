@@ -89,10 +89,10 @@ Ensure that function and class docstrings include appropriate sections such as '
 
 ### Documentation
 
-Changes to the CHAP Core documentation is done inside the `docs_source` folder, and can be built by writing:
+Changes to the CHAP Core documentation is done inside the `docs` folder, and can be built by writing:
 
 ```bash
-$ cd docs_source
+$ cd docs
 $ make html
 ```
 

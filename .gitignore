@@ -23,9 +23,10 @@ coverage.xml
 target/
 
 # === Documentation ===
-docs_source/_build/
-docs_source/chap_core*.rst
-docs_source/modules.rst
+docs/_build/
+docs/chap_core*.rst
+docs/modules.rst
+site/
 
 # === Environment and Secrets ===
 .env

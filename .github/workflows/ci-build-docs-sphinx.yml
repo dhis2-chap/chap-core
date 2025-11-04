@@ -31,10 +31,10 @@ jobs:
         run: uv sync --dev
       - name: make html & commit the changes
         run: |
-          uv run sphinx-build -b html ./docs_source ./docs
+          uv run sphinx-build -b html ./docs ./site
           git config --global user.email "github@action.com"
           git config user.name "pages"
-          git add -f ./docs
+          git add -f ./site
           git commit -m 'update docs'
 
       - name: push changes to gh-pages to show automatically
