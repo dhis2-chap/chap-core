@@ -139,7 +139,6 @@ chap_core/web_interface/node_modules/
 /runs
 /cache
 
-report.pdf
 tests/future_data.csv
 
 tests/logs/
@@ -147,7 +146,6 @@ tests/out.tmp
 mlruns/
 /results/
 
-tests/test_outputs
 example_data/era5_land_daily_data.csv
 tests/test.db
 
@@ -163,6 +161,4 @@ config/model_templates/*
 
 #ignore
 /logs/*
-*report*.pdf
-*report*.csv
 testconfig.yaml
