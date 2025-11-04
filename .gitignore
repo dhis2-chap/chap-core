@@ -1,14 +1,15 @@
-# Byte-compiled / DLL files
+# === Python ===
+# Bytecode and cache
 __pycache__/
 *.py[cd]
 
 # C extensions
 *.so
 
-# Distribution / packaging (uv build)
+# === Build and Distribution ===
 dist/
 
-# Unit test / coverage reports
+# === Testing and Coverage ===
 htmlcov/
 .coverage
 .coverage.*
@@ -18,44 +19,32 @@ coverage.xml
 .pytest_cache/
 .ruff_cache/
 
-# Logs
-*.log
+# Test artifacts
+target/
 
-# Sphinx documentation
+# === Documentation ===
 docs_source/_build/
 docs_source/chap_core*.rst
 docs_source/modules.rst
 
-# PyBuilder / Test artifacts
-# All test outputs, model artifacts, and build products go in target/
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
-# .python-version
-
-# dotenv
+# === Environment and Secrets ===
 .env
-
-# virtualenv
 .venv
 
-# IDE settings
+# === IDE and Editors ===
 .vscode/
 .idea/
+.ipynb_checkpoints
 
-#ignore outputs from pytest
+# === Runtime Outputs and Logs ===
+*.log
+/logs/*
 /runs
 mlruns/
 
-# Ignore custom model templates and configured models
+# === Project-Specific ===
 config/configured_models/*
 !config/configured_models/default.yaml
 
-# ignore mac finder setting files
+# === OS-Specific ===
 .DS_Store
-
-#ignore
-/logs/*
