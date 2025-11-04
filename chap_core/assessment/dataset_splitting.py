@@ -99,7 +99,7 @@ def train_test_generator(
         ]
     else:
         masked_future_data = (dataset.remove_field("disease_cases") for dataset in future_data)
-    train_set.metadata = dataset.metadata.copy()
+    train_set.metadata = dataset.metadata.model_copy()
     train_set.metadata.name += "_train_set"
     return train_set, zip(historic_data, masked_future_data, future_data)
 

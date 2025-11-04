@@ -83,7 +83,9 @@ class SeasonCorrelationBarPlot(SeasonCorrelationPlot):
         for (location, seasonal_month), group in df.groupby(["location", "seasonal_month"]):
             for feature_name in self._get_feature_names():
                 for outcome in ["max", "mean", "std"]:
-                    corr = group[f"season_{outcome}"].corr(group[feature_name])
+                    # Suppress RuntimeWarning for invalid values (e.g., when std is 0)
+                    with np.errstate(invalid="ignore"):
+                        corr = group[f"season_{outcome}"].corr(group[feature_name])
                     correlations.append(
                         {
                             "location": location,

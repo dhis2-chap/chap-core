@@ -13,6 +13,7 @@ from chap_core.database.tables import BackTest
 from chap_core.datatypes import SamplesWithTruth
 
 
+@pytest.fixture
 def test_flat_observed_with_nan():
     return FlatObserved(
         pd.DataFrame(

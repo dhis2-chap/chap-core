@@ -158,6 +158,10 @@ class EvaluationBackTestPlot(BackTestPlotBase):
         if "disease_cases" not in forecast_data.columns:
             forecast_data["disease_cases"] = None
 
+        # Drop all-NA columns before concatenation to avoid FutureWarning
+        forecast_data = forecast_data.dropna(axis=1, how="all")
+        observed_data = observed_data.dropna(axis=1, how="all")
+
         # Combine datasets
         combined_data = pd.concat([forecast_data, observed_data], ignore_index=True)
 

@@ -157,6 +157,5 @@ def test_seed_configured_models(engine):
 
 
 def test_seed_datasets_to_db(engine):
-    with Session(engine) as session:
-        wrapper = SessionWrapper(session=session)
-        seed_example_datasets(wrapper)
+    with SessionWrapper(engine) as session:
+        seed_example_datasets(session)
