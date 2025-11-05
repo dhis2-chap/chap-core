@@ -3,7 +3,7 @@
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
-SPHINXBUILD   = python -msphinx
+SPHINXBUILD   = uv run python -msphinx
 SPHINXPROJ    = climate_health
 SOURCEDIR     = .
 BUILDDIR      = ../site
