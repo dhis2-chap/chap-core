@@ -31,7 +31,7 @@ def test_hpo_model_train_selects_best_and_returns_trained(monkeypatch):
 
     class FakeObjective:
         def __init__(self):
-            self.template = FakeTemplate()
+            self.model_template = FakeTemplate()
 
         def __call__(self, config, dataset):
             return 1

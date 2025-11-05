@@ -35,6 +35,9 @@ class Float:
     log: bool = False
 
 
+# maybe dataclass to pydantic later
+
+
 def dedup(values):
     """Deduplicate while preserving order; works for scalars, lists, dicts, None."""
     seen = set()
@@ -55,16 +58,10 @@ def write_yaml(path: str, data: dict) -> None:
         yaml.safe_dump(data, f, sort_keys=False)
 
 
-def load_search_space_from_yaml(path: str) -> dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f)
-
-    if not isinstance(raw, dict) or not raw:
-        raise ValueError("YAML must define a non-empty mapping of parameters")
-
+def load_search_space_from_config(config: dict) -> dict[str, Any]:
     space: dict[str, Any] = {}
 
-    for name, spec in raw.items():
+    for name, spec in config.items():
         if not isinstance(spec, dict):
             raise ValueError(f"'{name}': each spec must be a mapping")
 

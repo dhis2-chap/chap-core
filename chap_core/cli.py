@@ -39,7 +39,7 @@ from chap_core.time_period.date_util_wrapper import delta_month
 
 from chap_core.hpo.hpoModel import HpoModel, Direction
 from chap_core.hpo.objective import Objective
-from chap_core.hpo.base import load_search_space_from_yaml
+from chap_core.hpo.base import load_search_space_from_config
 
 
 logger = logging.getLogger()
@@ -71,6 +71,7 @@ def evaluate_hpo(
     metric: Optional[str] = "MSE",
     direction: Direction = "minimize",
     evaluate_hpo: Optional[bool] = True,
+    evaluate_ensemble: Optional[bool] = True,
 ):
     """
     Same as evaluate, but has three added arguments and a if check on argument evaluate_hpo.
@@ -115,14 +116,14 @@ def evaluate_hpo(
 
     results_dict = {}
     for name, configuration in zip(model_list, model_configuration_yaml_list):
+        template = ModelTemplate.from_directory_or_github_url(
+            name,
+            base_working_dir=Path("./runs/"),
+            ignore_env=ignore_environment,
+            run_dir_type=run_directory_type,
+        )
+        logging.info(f"Model template loaded: {template}")
         if not evaluate_hpo:
-            template = ModelTemplate.from_directory_or_github_url(
-                name,
-                base_working_dir=Path("./runs/"),
-                ignore_env=ignore_environment,
-                run_dir_type=run_directory_type,
-            )
-            logging.info(f"Model template loaded: {template}")
             if configuration is not None:
                 logger.info(f"Loading model configuration from yaml file {configuration}")
                 configuration = ModelConfiguration.model_validate(
@@ -135,20 +136,16 @@ def evaluate_hpo(
         else:
             if configuration is not None:
                 logger.info(f"Loading model configuration from yaml file {configuration}")
-                # base_configs = ModelConfiguration.model_validate(
-                #     yaml.safe_load(open(configuration))
-                # )
-                # with open(configuration, "r", encoding="utf-8") as f:
-                #     base_configs = yaml.safe_load(f) or {} # check if this returns a dict
-                configs = load_search_space_from_yaml(configuration)
-                # base_configs = {"user_option_values": configs}
+                with open(configuration, "r", encoding="utf-8") as f:
+                    configs = yaml.safe_load(f)
+                if not isinstance(configs, dict) or not configs:
+                    raise ValueError("YAML must define a non-empty mapping of parameters")
                 logger.info(f"Loaded model base configurations from yaml file: {configs}")
+            else:  # uses hpo_search_space defined in model's MLproject
+                configs = template.model_template_config.hpo_search_space
 
-            # if "user_option_values" not in base_configs or not isinstance(base_configs["user_option_values"], dict):
-            #     raise ValueError("Expected top-level key 'user_option_values' mapping to a dict of lists.")
-
-            print("Creating HpoModel")
-            objective = Objective(name, metric, prediction_length, n_splits)
+            configs = load_search_space_from_config(configs)
+            objective = Objective(template, metric, prediction_length, n_splits)
             model = HpoModel(RandomSearcher(2), objective, direction, configs)
         try:
             results = evaluate_model(

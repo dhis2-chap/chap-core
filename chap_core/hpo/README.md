@@ -1,0 +1,7 @@
+HpoModel implements HpoModelInterface and has a train and a predict method just like an externalModel with the same return type. Inside train the method get_leaderboard is called to get a sorted list of configurations together with their score where the top performing config can be found at index 0. get_leaderboard runs the hpo loop over the configurations and is responsible of calling searcher and objective methods. After the loop a optimial tuned model is trained on the whole dataset (train + validation) and returned. 
+
+Inside the hpo loop a Searcher object is given the whole search space through reset and is responsible of returning a configuration when asked. Through it's tell method it can learn from past trials and suggest promising configurations in consecutive asks. 
+
+Also inside the hpo loop an Objective object is reponsible of returning a score for each configuration. Objective is initialized with the base model specified by the user and when it's called with a configuration it calls evaluate_model (the same method evaluate calls) with the base model tuned with the given configuration.
+
+Hyperparameter optimization configurations can be passed by user through model_configuration_yaml. If no such file is given by user, data under the field hpo_configs in model's MLproject will be used. At least one of these must exist to run evaluate_hpo. 

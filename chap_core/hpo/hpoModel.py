@@ -25,7 +25,6 @@ class HpoModel(HpoModelInterface):
         searcher: Searcher,
         objective: Objective,
         direction: Direction = "minimize",
-        # model_configuration_yaml: Optional[str] = None,
         model_configuration: Optional[dict[str, list]] = None,
     ):
         if direction not in ("maximize", "minimize"):
@@ -37,25 +36,36 @@ class HpoModel(HpoModelInterface):
         # self._model_configuration_yaml = model_configuration_yaml #TODO: this should a parsed dict
         self.base_configs = model_configuration
 
-    def train(
-        self,
-        dataset: Optional[DataSetType],
-    ) -> Tuple[str, dict[str, Any]]:
+    def train(self, dataset: Optional[DataSetType]) -> Tuple[str, dict[str, Any]]:
         """
-        Runs hyperparameter optimization over a discrete search space.
-        Returns the optimized and trained (trained on the whole dataset argument) predictor.
+        Calls get_leaderboard to find the optimal configuration.
+        Then trains the tuned model on the whole input dataset (train + validation).
         """
-        # hpo_configs = self.base_configs["user_option_values"]
-        # for key, vals in hpo_configs.items(): # wraps Float and Int in a list
-        #     deduped = dedup(vals)
-        #     if not deduped:
-        #         raise ValueError(f"'user_option_values.{key}' has no values to try.")
-        #     hpo_configs[key] = deduped
-        # self.base_configs.pop("user_option_values")
+        self.get_leaderboard(
+            dataset
+        )  # calculates leaderboard, don't need the return value here bc best_config it stores best_config in self
+        template = self._objective.model_template  # not sure if accessing template from objective is correct, maybe pass template to hpoModel and hpoModel calls get_model?
+        # TODO: validate config without "user_option_values"
+        if self._best_config is not None:
+            logger.info(f"Validating best model configuration: {self._best_config}")
+            config = ModelConfiguration.model_validate(self._best_config)
+            logger.info(f"Validated best model configuration: {config}")
+        estimator = template.get_model(config)
+        self._predictor = estimator.train(dataset)
+        return self._predictor
+
+    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+        self._predictor.predict(historic_data, future_data)
+
+    def get_leaderboard(self, dataset: Optional[DataSetType]):
+        """
+        Runs hyperparameter optimization over the search space.
+        Returns a sorted list of configurations together with their score.
+        """
 
         best_score = float("inf") if self._direction == "minimize" else float("-inf")
         best_params: dict[str, Any] = {}
-        # best_config = None
+        self._leaderboard = []
 
         self._searcher.reset(self.base_configs)
         while True:
@@ -73,12 +83,19 @@ class HpoModel(HpoModelInterface):
 
             # Maybe best to seperate hpo_config and other configs in two files ??
             score = self._objective(params, dataset)
-            if trial_number is not None:
+            if trial_number is not None:  # for parallel TPE search
                 params["_trial_id"] = trial_number
                 self._searcher.tell(params, score)
                 params.pop("_trial_id")
             else:
                 self._searcher.tell(params, score)
+
+            self._leaderboard.append(
+                {
+                    "config": params,
+                    "score": score,
+                }
+            )
 
             is_better = (score < best_score) if self._direction == "minimize" else (score > best_score)
             if is_better or best_params is None:
@@ -88,22 +105,11 @@ class HpoModel(HpoModelInterface):
 
             print(f"Tried {params} -> score={score}")
 
-        best_config = {"user_option_values": best_params}
-        self._best_config = best_config
+        self._best_config = {"user_option_values": best_params}
         print(f"\nBest params: {best_params} | best score: {best_score}")
-
-        template = self._objective.template
-        # TODO: validate config without "user_option_values"
-        if best_config is not None:
-            logger.info(f"Validating best model configuration: {best_config}")
-            config = ModelConfiguration.model_validate(best_config)
-            logger.info(f"Validated best model configuration: {config}")
-        estimator = template.get_model(best_config)
-        self._predictor = estimator.train(dataset)
-        return self._predictor
-
-    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
-        self._predictor.predict(historic_data, future_data)
+        self._leaderboard.sort(key=lambda conf: conf["score"], reverse=self._direction == "maximize")
+        assert best_params == self._leaderboard[0]["config"], "best params is not the first in leaderboard"
+        return self._leaderboard
 
     @property
     def get_best_config(self):
