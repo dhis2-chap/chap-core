@@ -58,7 +58,7 @@ past_ratio:
     )
 
     with open(yml, "r", encoding="utf-8") as f:
-      configs = yaml.safe_load(f)
+        configs = yaml.safe_load(f)
 
     space = load_search_space_from_config(configs)
     # categorical
