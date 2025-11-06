@@ -52,5 +52,5 @@ class Objective:
             )
         except NoPredictionsError as e:
             logger.error(f"No predictions were made: {e}")
-            return
+            return # maybe return float("inf") here?
         return results[0][self.metric]
