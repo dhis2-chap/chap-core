@@ -107,10 +107,17 @@ git checkout v1.0.18  # Replace with your desired version
 docker compose down 
 
 # Spin the containers up with --build to get new changes
-docker compose up --build
+docker compose up --build -d
 ```
 
-This will:
+NOTE: There might be issues with cached images. If you encounter problems, try forcing a fresh pull of all images:
+
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+Docke compose up will:
 - Pull any updated Docker images
 - **Automatically migrate your database** to the new schema
 - Start all services with the new version
