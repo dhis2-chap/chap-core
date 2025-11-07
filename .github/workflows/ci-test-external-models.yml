@@ -40,9 +40,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull worker image from cache
-        run: |
-          docker pull ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
+      #- name: Pull worker image from cache
+      #  run: |
+      #    docker pull ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
 
       # - name: Free Disk Space (Ubuntu)
       #   uses: jlumbroso/free-disk-space@main
