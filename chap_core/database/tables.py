@@ -58,7 +58,7 @@ OldBackTestRead = _BackTestRead
 class BackTestRead(_BackTestRead):
     dataset: DataSetMeta
     aggregate_metrics: Dict[str, float]
-    configured_model: ConfiguredModelRead
+    configured_model: Optional[ConfiguredModelRead]
 
 
 class ForecastBase(DBModel):
@@ -93,7 +93,7 @@ class Prediction(PredictionBase, table=True):
 
 class PredictionInfo(PredictionBase):
     id: int
-    configured_model: ConfiguredModelDB
+    configured_model: Optional[ConfiguredModelDB]
     dataset: DataSetMeta
 
 
