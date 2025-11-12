@@ -189,9 +189,9 @@ def test_health_check_success(dependency_overrides):
 
 def test_common_api_get_endpoints_do_not_fail(dependency_overrides):
     endpoints = [
-        'v1/crud/model-templates',
-        'v1/crud/configured-models',
-        'v1/crud/backtests',
+        "v1/crud/model-templates",
+        "v1/crud/configured-models",
+        "v1/crud/backtests",
     ]
     for endpoint in endpoints:
         response = client.get(f"/{endpoint}")
