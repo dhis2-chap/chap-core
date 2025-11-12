@@ -219,6 +219,26 @@ This is the in-memory format returned by `_backtest()` and then persisted to dat
 
 ## Proposed Design
 
+### Core Concept: FlatEvaluationData
+
+First, we define a simple dataclass that combines forecasts and observations together:
+
+```python
+from dataclasses import dataclass
+from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
+
+@dataclass
+class FlatEvaluationData:
+    """
+    Container for flat representations of evaluation data.
+
+    Combines forecasts and observations which are always used together
+    for metric computation and visualization.
+    """
+    forecasts: FlatForecasts
+    observations: FlatObserved
+```
+
 ### Core Concept: EvaluationBase ABC
 
 Create an abstract base class that defines the interface for all evaluation representations, decoupled from database implementation:
@@ -226,7 +246,6 @@ Create an abstract base class that defines the interface for all evaluation repr
 ```python
 from abc import ABC, abstractmethod
 from typing import List
-import pandas as pd
 
 class EvaluationBase(ABC):
     """
@@ -242,23 +261,12 @@ class EvaluationBase(ABC):
     """
 
     @abstractmethod
-    def to_flat_forecasts(self) -> pd.DataFrame:
+    def to_flat(self) -> FlatEvaluationData:
         """
-        Export forecasts in FlatForecasts format.
+        Export evaluation data as flat representations.
 
         Returns:
-            DataFrame with columns: location, time_period,
-                                   horizon_distance, sample, forecast
-        """
-        pass
-
-    @abstractmethod
-    def to_flat_observations(self) -> pd.DataFrame:
-        """
-        Export observations in FlatObserved format.
-
-        Returns:
-            DataFrame with columns: location, time_period, disease_cases
+            FlatEvaluationData containing FlatForecasts and FlatObserved objects
         """
         pass
 
@@ -281,31 +289,6 @@ class EvaluationBase(ABC):
             List of period identifiers (e.g., ["2024-01", "2024-02"])
         """
         pass
-
-    def compute_metrics(self, metrics: List[MetricBase]) -> pd.DataFrame:
-        """
-        Compute metrics on this evaluation.
-
-        Default implementation uses flat representations.
-        Subclasses can override for optimization.
-
-        Args:
-            metrics: List of metric objects to compute
-
-        Returns:
-            DataFrame with computed metric values
-        """
-        from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
-
-        forecasts = FlatForecasts(self.to_flat_forecasts())
-        observations = FlatObserved(self.to_flat_observations())
-
-        results = []
-        for metric in metrics:
-            metric_df = metric.get_metric(observations, forecasts)
-            results.append(metric_df)
-
-        return pd.concat(results, ignore_index=True)
 ```
 
 ### Concrete Implementation: BacktestEvaluation
@@ -327,8 +310,7 @@ class BacktestEvaluation(EvaluationBase):
             backtest: Database BackTest object
         """
         self._backtest = backtest
-        self._flat_forecasts_cache = None
-        self._flat_observations_cache = None
+        self._flat_data_cache = None
 
     @classmethod
     def from_backtest(cls, backtest: BackTest) -> "BacktestEvaluation":
@@ -352,29 +334,28 @@ class BacktestEvaluation(EvaluationBase):
         """
         return self._backtest
 
-    def to_flat_forecasts(self) -> pd.DataFrame:
-        """Export forecasts using existing conversion function."""
-        if self._flat_forecasts_cache is None:
+    def to_flat(self) -> FlatEvaluationData:
+        """Export evaluation data using existing conversion functions."""
+        if self._flat_data_cache is None:
             from chap_core.assessment.flat_representations import (
-                convert_backtest_to_flat_forecasts
+                FlatForecasts,
+                FlatObserved,
+                convert_backtest_to_flat_forecasts,
+                convert_backtest_observations_to_flat_observations,
             )
-            self._flat_forecasts_cache = convert_backtest_to_flat_forecasts(
+
+            forecasts_df = convert_backtest_to_flat_forecasts(
                 self._backtest.forecasts
             )
-        return self._flat_forecasts_cache
+            observations_df = convert_backtest_observations_to_flat_observations(
+                self._backtest.dataset.observations
+            )
 
-    def to_flat_observations(self) -> pd.DataFrame:
-        """Export observations using existing conversion function."""
-        if self._flat_observations_cache is None:
-            from chap_core.assessment.flat_representations import (
-                convert_backtest_observations_to_flat_observations
+            self._flat_data_cache = FlatEvaluationData(
+                forecasts=FlatForecasts(forecasts_df),
+                observations=FlatObserved(observations_df),
             )
-            self._flat_observations_cache = (
-                convert_backtest_observations_to_flat_observations(
-                    self._backtest.dataset.observations
-                )
-            )
-        return self._flat_observations_cache
+        return self._flat_data_cache
 
     def get_org_units(self) -> List[str]:
         """Get locations from BackTest metadata."""
@@ -400,20 +381,17 @@ class InMemoryEvaluation(EvaluationBase):
 
     def __init__(
         self,
-        forecasts_df: pd.DataFrame,
-        observations_df: pd.DataFrame,
+        flat_data: FlatEvaluationData,
         org_units: List[str],
         split_periods: List[str],
     ):
         """
         Args:
-            forecasts_df: DataFrame in FlatForecasts format
-            observations_df: DataFrame in FlatObserved format
+            flat_data: FlatEvaluationData containing forecasts and observations
             org_units: List of location identifiers
             split_periods: List of split period identifiers
         """
-        self._forecasts = forecasts_df
-        self._observations = observations_df
+        self._flat_data = flat_data
         self._org_units = org_units
         self._split_periods = split_periods
 
@@ -437,13 +415,9 @@ class InMemoryEvaluation(EvaluationBase):
         # (implementation details omitted for brevity)
         pass
 
-    def to_flat_forecasts(self) -> pd.DataFrame:
-        """Return forecasts DataFrame directly."""
-        return self._forecasts
-
-    def to_flat_observations(self) -> pd.DataFrame:
-        """Return observations DataFrame directly."""
-        return self._observations
+    def to_flat(self) -> FlatEvaluationData:
+        """Return flat data directly."""
+        return self._flat_data
 
     def get_org_units(self) -> List[str]:
         """Return stored org_units."""
@@ -480,14 +454,20 @@ flat_forecasts = convert_backtest_to_flat_forecasts(backtest.forecasts)
 flat_observations = convert_backtest_observations_to_flat_observations(
     backtest.dataset.observations
 )
-metrics_df = compute_metrics(flat_observations, flat_forecasts)
+# Compute metrics manually
+for metric in [RMSE(), MAE(), CRPS()]:
+    metric_df = metric.get_metric(flat_observations, flat_forecasts)
 
 # Proposed approach (using abstraction)
 backtest_db = session.get_backtest(backtest_id)
 evaluation = BacktestEvaluation.from_backtest(backtest_db)
 
-# Common interface regardless of implementation
-metrics_df = evaluation.compute_metrics([RMSE(), MAE(), CRPS()])
+# Get flat data for metric computation
+flat_data = evaluation.to_flat()
+for metric in [RMSE(), MAE(), CRPS()]:
+    metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
+
+# Access metadata
 org_units = evaluation.get_org_units()
 split_periods = evaluation.get_split_periods()
 ```
@@ -506,9 +486,8 @@ def make_plot_from_backtest_object(backtest: BackTest, metric):
 
 # Proposed approach (works with any EvaluationBase implementation)
 def make_plot_from_evaluation(evaluation: EvaluationBase, metric):
-    flat_forecasts = evaluation.to_flat_forecasts()
-    flat_observations = evaluation.to_flat_observations()
-    metric_data = metric.compute(flat_observations, flat_forecasts)
+    flat_data = evaluation.to_flat()
+    metric_data = metric.compute(flat_data.observations, flat_data.forecasts)
     return plot(metric_data)
 
 # Usage
@@ -535,12 +514,17 @@ def evaluate(data, model_name, ...):
         results, last_train_period
     )
 
-    # Use same metric computation as REST API
-    metrics_df = evaluation.compute_metrics([RMSE(), MAE(), CRPS()])
+    # Get flat data
+    flat_data = evaluation.to_flat()
 
-    # Export to CSV
-    evaluation.to_flat_forecasts().to_csv("forecasts.csv")
-    metrics_df.to_csv("metrics.csv")
+    # Use same metric computation as REST API
+    for metric in [RMSE(), MAE(), CRPS()]:
+        metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
+        # Process metric_df...
+
+    # Export to CSV (accessing underlying DataFrames)
+    flat_data.forecasts.to_csv("forecasts.csv")
+    flat_data.observations.to_csv("observations.csv")
 
     # Optionally persist to database
     if persist:
@@ -559,35 +543,48 @@ def compare_evaluations(eval1: EvaluationBase, eval2: EvaluationBase):
     assert eval1.get_org_units() == eval2.get_org_units()
     assert eval1.get_split_periods() == eval2.get_split_periods()
 
-    # Compute metrics for both
-    metrics1 = eval1.compute_metrics([RMSE(), CRPS()])
-    metrics2 = eval2.compute_metrics([RMSE(), CRPS()])
+    # Get flat data for both
+    flat_data1 = eval1.to_flat()
+    flat_data2 = eval2.to_flat()
 
-    # Compare results
-    comparison = pd.merge(
-        metrics1, metrics2,
-        on=["location", "time_period", "metric_name"],
-        suffixes=("_model1", "_model2")
-    )
-    return comparison
+    # Compute same metrics for both
+    results1 = {}
+    results2 = {}
+    for metric in [RMSE(), CRPS()]:
+        results1[metric.spec.metric_id] = metric.get_metric(
+            flat_data1.observations, flat_data1.forecasts
+        )
+        results2[metric.spec.metric_id] = metric.get_metric(
+            flat_data2.observations, flat_data2.forecasts
+        )
+
+    # Compare results (implementation varies by metric output format)
+    return results1, results2
 
 # Usage works with any combination
 eval_from_db = BacktestEvaluation.from_backtest(session.get_backtest(1))
 eval_from_cli = InMemoryEvaluation.from_samples_with_truth(results, ...)
-comparison = compare_evaluations(eval_from_db, eval_from_cli)
+results1, results2 = compare_evaluations(eval_from_db, eval_from_cli)
 ```
 
 ## Architecture Diagram
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
+│                  FlatEvaluationData (dataclass)                │
+├────────────────────────────────────────────────────────────────┤
+│  + forecasts: FlatForecasts                                    │
+│  + observations: FlatObserved                                  │
+└────────────────────────────────────────────────────────────────┘
+                               △
+                               │ returns
+                               │
+┌────────────────────────────────────────────────────────────────┐
 │                      EvaluationBase (ABC)                      │
 ├────────────────────────────────────────────────────────────────┤
-│  + to_flat_forecasts() -> pd.DataFrame                         │
-│  + to_flat_observations() -> pd.DataFrame                      │
+│  + to_flat() -> FlatEvaluationData                             │
 │  + get_org_units() -> List[str]                                │
 │  + get_split_periods() -> List[str]                            │
-│  + compute_metrics(metrics) -> pd.DataFrame                    │
 └────────────────────────────────────────────────────────────────┘
                                △
                                │ implements
@@ -596,23 +593,23 @@ comparison = compare_evaluations(eval_from_db, eval_from_cli)
 ┌───────────────┴──────────────┐  ┌──────────┴────────────────────┐
 │   BacktestEvaluation         │  │   InMemoryEvaluation          │
 ├──────────────────────────────┤  ├───────────────────────────────┤
-│  - _backtest: BackTest       │  │  - _forecasts: pd.DataFrame   │
-│  - _flat_forecasts_cache     │  │  - _observations: pd.DataFrame│
-│  - _flat_observations_cache  │  │  - _org_units: List[str]      │
+│  - _backtest: BackTest       │  │  - _flat_data:                │
+│  - _flat_data_cache          │  │      FlatEvaluationData       │
+│                              │  │  - _org_units: List[str]      │
 │                              │  │  - _split_periods: List[str]  │
 │  + from_backtest()           │  │                               │
 │  + to_backtest()             │  │  + from_samples_with_truth()  │
-│  + to_flat_forecasts()       │  │  + to_backtest()              │
-│  + to_flat_observations()    │  │  + to_flat_forecasts()        │
-│  + get_org_units()           │  │  + to_flat_observations()     │
+│  + to_flat()                 │  │  + to_backtest()              │
+│  + get_org_units()           │  │  + to_flat()                  │
 │  + get_split_periods()       │  │  + get_org_units()            │
+│                              │  │  + get_split_periods()        │
 └──────────────────────────────┘  └───────────────────────────────┘
          │                                   │
          │ wraps                             │ stores
          ▼                                   ▼
 ┌──────────────────────────────┐  ┌───────────────────────────────┐
-│  BackTest (DB Model)         │  │  In-Memory DataFrames         │
-│  + forecasts: List[...]      │  │  (FlatForecasts format)       │
+│  BackTest (DB Model)         │  │  FlatEvaluationData           │
+│  + forecasts: List[...]      │  │  (in-memory)                  │
 │  + dataset: DataSet          │  │                               │
 │  + org_units: List[str]      │  │                               │
 │  + split_periods: List[str]  │  │                               │
