@@ -307,12 +307,12 @@ class EvaluationBase(ABC):
         pass
 ```
 
-### Concrete Implementation: BacktestEvaluation
+### Concrete Implementation: Evaluation
 
 Wraps existing BackTest database model to implement the abstract interface:
 
 ```python
-class BacktestEvaluation(EvaluationBase):
+class Evaluation(EvaluationBase):
     """
     Evaluation implementation backed by database BackTest model.
 
@@ -329,15 +329,15 @@ class BacktestEvaluation(EvaluationBase):
         self._flat_data_cache = None
 
     @classmethod
-    def from_backtest(cls, backtest: BackTest) -> "BacktestEvaluation":
+    def from_backtest(cls, backtest: BackTest) -> "Evaluation":
         """
-        Create BacktestEvaluation from database BackTest object.
+        Create Evaluation from database BackTest object.
 
         Args:
             backtest: Database BackTest object (with relationships loaded)
 
         Returns:
-            BacktestEvaluation instance
+            Evaluation instance
         """
         return cls(backtest)
 
@@ -512,7 +512,7 @@ for metric in [RMSE(), MAE(), CRPS()]:
 
 # Proposed approach (using abstraction)
 backtest_db = session.get_backtest(backtest_id)
-evaluation = BacktestEvaluation.from_backtest(backtest_db)
+evaluation = Evaluation.from_backtest(backtest_db)
 
 # Get flat data for metric computation
 flat_data = evaluation.to_flat()
@@ -543,7 +543,7 @@ def make_plot_from_evaluation(evaluation: EvaluationBase, metric):
     return plot(metric_data)
 
 # Usage
-evaluation = BacktestEvaluation.from_backtest(backtest_db)
+evaluation = Evaluation.from_backtest(backtest_db)
 chart = make_plot_from_evaluation(evaluation, RMSE())
 ```
 
@@ -589,7 +589,7 @@ def evaluate(data, model_name, ...):
 def compare_evaluations(eval1: EvaluationBase, eval2: EvaluationBase):
     """
     Compare two evaluations regardless of their underlying implementation.
-    Works with BacktestEvaluation, InMemoryEvaluation, or any future implementation.
+    Works with Evaluation, InMemoryEvaluation, or any future implementation.
     """
     # Check compatibility
     assert eval1.get_org_units() == eval2.get_org_units()
@@ -615,7 +615,7 @@ def compare_evaluations(eval1: EvaluationBase, eval2: EvaluationBase):
 
 # Usage works with any combination
 # Both implementations support from_backtest()
-eval1 = BacktestEvaluation.from_backtest(session.get_backtest(1))
+eval1 = Evaluation.from_backtest(session.get_backtest(1))
 eval2 = InMemoryEvaluation.from_backtest(session.get_backtest(2))
 results1, results2 = compare_evaluations(eval1, eval2)
 
@@ -649,7 +649,7 @@ results_cli, results_db = compare_evaluations(eval_from_cli, eval1)
                 ┌──────────────┴──────────────┐
                 │                             │
 ┌───────────────┴──────────────┐  ┌──────────┴────────────────────┐
-│   BacktestEvaluation         │  │   InMemoryEvaluation          │
+│   Evaluation         │  │   InMemoryEvaluation          │
 ├──────────────────────────────┤  ├───────────────────────────────┤
 │  - _backtest: BackTest       │  │  - _flat_data:                │
 │  - _flat_data_cache          │  │      FlatEvaluationData       │
@@ -683,7 +683,7 @@ results_cli, results_db = compare_evaluations(eval_from_cli, eval1)
 3. **Flexibility**: Easy to add new implementations (e.g., for different storage backends, remote APIs, etc.)
 
 4. **Migration Path**: Can introduce gradually without breaking existing code:
-   - Start with BacktestEvaluation wrapping existing BackTest
+   - Start with Evaluation wrapping existing BackTest
    - Update visualization/metrics to accept EvaluationBase
    - Later add InMemoryEvaluation for CLI
    - Eventually unify REST API and CLI workflows
@@ -736,9 +736,9 @@ The implementation will be done in phases to minimize risk and allow for increme
    - Abstract method: `get_split_periods() -> List[str]`
    - Abstract classmethod: `from_backtest(backtest) -> EvaluationBase`
 
-3. **`BacktestEvaluation`** (concrete implementation):
+3. **`Evaluation`** (concrete implementation):
    - Constructor: `__init__(self, backtest: BackTest)`
-   - Classmethod: `from_backtest(backtest) -> BacktestEvaluation`
+   - Classmethod: `from_backtest(backtest) -> Evaluation`
    - Method: `to_backtest() -> BackTest` (return wrapped object)
    - Method: `to_flat() -> FlatEvaluationData` (with caching)
    - Method: `get_org_units() -> List[str]`
@@ -746,7 +746,7 @@ The implementation will be done in phases to minimize risk and allow for increme
 
 **Testing**:
 - Create `tests/test_evaluation.py`
-- Test `BacktestEvaluation.from_backtest()` with mock BackTest
+- Test `Evaluation.from_backtest()` with mock BackTest
 - Test `to_flat()` returns correct types and data
 - Test metadata accessors work correctly
 - Verify conversion matches existing `convert_backtest_to_flat_*()` functions
@@ -760,7 +760,7 @@ The implementation will be done in phases to minimize risk and allow for increme
 
 **Success Criteria**:
 - All tests pass
-- Can create `BacktestEvaluation` from database `BackTest` object
+- Can create `Evaluation` from database `BackTest` object
 - Can convert to flat representations correctly
 - Code is documented with docstrings
 - No existing code is modified
@@ -774,7 +774,7 @@ The implementation will be done in phases to minimize risk and allow for increme
 
 **Tasks**:
 1. Update analytics router endpoints to work with `EvaluationBase`
-2. Update worker functions to optionally return `BacktestEvaluation`
+2. Update worker functions to optionally return `Evaluation`
 3. Update metric computation functions to accept `EvaluationBase`
 4. Update visualization functions to accept `EvaluationBase`
 5. Ensure backward compatibility throughout
@@ -837,7 +837,7 @@ The implementation will be done in phases to minimize risk and allow for increme
    - May be better as separate utility functions
 
 5. **Performance**: Should we optimize for lazy loading or eager loading?
-   - BacktestEvaluation caches flat representations
+   - Evaluation caches flat representations
    - InMemoryEvaluation stores them directly
    - Should conversion be done on-demand or upfront?
 
@@ -845,7 +845,7 @@ The implementation will be done in phases to minimize risk and allow for increme
 
 Key files that would be affected by this refactoring:
 
-- `chap_core/database/tables.py` - BackTest model (unchanged, wrapped by BacktestEvaluation)
+- `chap_core/database/tables.py` - BackTest model (unchanged, wrapped by Evaluation)
 - `chap_core/assessment/flat_representations.py` - Conversion functions (reused by implementations)
 - `chap_core/assessment/metrics/` - Metric computation (updated to accept EvaluationBase)
 - `chap_core/plotting/evaluation_plot.py` - Visualization (updated to accept EvaluationBase)
@@ -854,6 +854,6 @@ Key files that would be affected by this refactoring:
 
 ## Conclusion
 
-The proposed EvaluationBase abstraction provides a clean separation between evaluation data and storage implementation. By starting with BacktestEvaluation as a wrapper, we can introduce this pattern gradually without breaking changes, then progressively refactor to achieve better code reuse between REST API and CLI workflows.
+The proposed EvaluationBase abstraction provides a clean separation between evaluation data and storage implementation. By starting with Evaluation as a wrapper, we can introduce this pattern gradually without breaking changes, then progressively refactor to achieve better code reuse between REST API and CLI workflows.
 
 The key insight is that most evaluation-related code only needs access to flat representations and metadata, not the full database model structure. By defining this interface explicitly, we make dependencies clear and enable more flexible implementations.
