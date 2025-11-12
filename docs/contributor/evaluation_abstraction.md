@@ -289,6 +289,22 @@ class EvaluationBase(ABC):
             List of period identifiers (e.g., ["2024-01", "2024-02"])
         """
         pass
+
+    @classmethod
+    @abstractmethod
+    def from_backtest(cls, backtest: "BackTest") -> "EvaluationBase":
+        """
+        Create Evaluation from database BackTest object.
+
+        All implementations must support loading from database.
+
+        Args:
+            backtest: Database BackTest object (with relationships loaded)
+
+        Returns:
+            Evaluation instance
+        """
+        pass
 ```
 
 ### Concrete Implementation: BacktestEvaluation
@@ -394,6 +410,42 @@ class InMemoryEvaluation(EvaluationBase):
         self._flat_data = flat_data
         self._org_units = org_units
         self._split_periods = split_periods
+
+    @classmethod
+    def from_backtest(cls, backtest: BackTest) -> "InMemoryEvaluation":
+        """
+        Create InMemoryEvaluation from database BackTest object.
+
+        Converts database representation to in-memory format.
+
+        Args:
+            backtest: Database BackTest object (with relationships loaded)
+
+        Returns:
+            InMemoryEvaluation instance
+        """
+        from chap_core.assessment.flat_representations import (
+            FlatForecasts,
+            FlatObserved,
+            convert_backtest_to_flat_forecasts,
+            convert_backtest_observations_to_flat_observations,
+        )
+
+        forecasts_df = convert_backtest_to_flat_forecasts(backtest.forecasts)
+        observations_df = convert_backtest_observations_to_flat_observations(
+            backtest.dataset.observations
+        )
+
+        flat_data = FlatEvaluationData(
+            forecasts=FlatForecasts(forecasts_df),
+            observations=FlatObserved(observations_df),
+        )
+
+        return cls(
+            flat_data=flat_data,
+            org_units=backtest.org_units,
+            split_periods=backtest.split_periods,
+        )
 
     @classmethod
     def from_samples_with_truth(
@@ -562,9 +614,14 @@ def compare_evaluations(eval1: EvaluationBase, eval2: EvaluationBase):
     return results1, results2
 
 # Usage works with any combination
-eval_from_db = BacktestEvaluation.from_backtest(session.get_backtest(1))
+# Both implementations support from_backtest()
+eval1 = BacktestEvaluation.from_backtest(session.get_backtest(1))
+eval2 = InMemoryEvaluation.from_backtest(session.get_backtest(2))
+results1, results2 = compare_evaluations(eval1, eval2)
+
+# Or use from_samples_with_truth() for CLI results
 eval_from_cli = InMemoryEvaluation.from_samples_with_truth(results, ...)
-results1, results2 = compare_evaluations(eval_from_db, eval_from_cli)
+results_cli, results_db = compare_evaluations(eval_from_cli, eval1)
 ```
 
 ## Architecture Diagram
@@ -585,6 +642,7 @@ results1, results2 = compare_evaluations(eval_from_db, eval_from_cli)
 │  + to_flat() -> FlatEvaluationData                             │
 │  + get_org_units() -> List[str]                                │
 │  + get_split_periods() -> List[str]                            │
+│  + from_backtest(backtest) -> EvaluationBase [classmethod]     │
 └────────────────────────────────────────────────────────────────┘
                                △
                                │ implements
