@@ -692,32 +692,131 @@ results_cli, results_db = compare_evaluations(eval_from_cli, eval1)
 
 6. **Caching**: Implementations can cache expensive conversions (flat representations)
 
-## Future Considerations
+## Implementation Strategy
 
-### Phase 1: Foundation (No Code Changes)
+The implementation will be done in phases to minimize risk and allow for incremental progress. **Phase 1 is the immediate next step** - implementing the Evaluation classes without changing any existing code.
+
+---
+
+## Implementation Phases
+
+### Phase 0: Design (Current Phase)
+**Goal**: Document the design and get team alignment
+
+**Tasks**:
 - Create design document (this document)
 - Review and discuss with team
 - Get alignment on approach
+- Refine design based on feedback
 
-### Phase 2: Basic Implementation
-- Implement EvaluationBase ABC
-- Implement BacktestEvaluation wrapper
-- Add unit tests
+**Deliverable**: Approved design document
 
-### Phase 3: Gradual Migration
-- Update visualization code to accept EvaluationBase
-- Update metric computation to accept EvaluationBase
-- Ensure backward compatibility with existing code
+---
 
-### Phase 4: CLI Integration
-- Implement InMemoryEvaluation
-- Refactor CLI evaluate to use InMemoryEvaluation
-- Share metric computation code between REST API and CLI
+### Phase 1: Core Implementation (First Step - Keep It Simple)
+**Goal**: Implement the Evaluation abstraction without changing any existing code
 
-### Phase 5: REST API Refactoring
-- Update REST API endpoints to return EvaluationBase
-- Simplify worker functions to use abstraction
-- Remove direct BackTest manipulation outside database layer
+**Scope**: Create new classes only - no refactoring of existing code
+
+**New File**: `chap_core/assessment/evaluation.py`
+
+**Classes to Implement**:
+
+1. **`FlatEvaluationData`** (dataclass):
+   ```python
+   @dataclass
+   class FlatEvaluationData:
+       forecasts: FlatForecasts
+       observations: FlatObserved
+   ```
+
+2. **`EvaluationBase`** (ABC):
+   - Abstract method: `to_flat() -> FlatEvaluationData`
+   - Abstract method: `get_org_units() -> List[str]`
+   - Abstract method: `get_split_periods() -> List[str]`
+   - Abstract classmethod: `from_backtest(backtest) -> EvaluationBase`
+
+3. **`BacktestEvaluation`** (concrete implementation):
+   - Constructor: `__init__(self, backtest: BackTest)`
+   - Classmethod: `from_backtest(backtest) -> BacktestEvaluation`
+   - Method: `to_backtest() -> BackTest` (return wrapped object)
+   - Method: `to_flat() -> FlatEvaluationData` (with caching)
+   - Method: `get_org_units() -> List[str]`
+   - Method: `get_split_periods() -> List[str]`
+
+**Testing**:
+- Create `tests/test_evaluation.py`
+- Test `BacktestEvaluation.from_backtest()` with mock BackTest
+- Test `to_flat()` returns correct types and data
+- Test metadata accessors work correctly
+- Verify conversion matches existing `convert_backtest_to_flat_*()` functions
+
+**What we do NOT do in Phase 1**:
+- ❌ Change any existing REST API code
+- ❌ Change any existing CLI code
+- ❌ Change any visualization or metric computation code
+- ❌ Change the database schema
+- ❌ Implement InMemoryEvaluation (that's Phase 3)
+
+**Success Criteria**:
+- All tests pass
+- Can create `BacktestEvaluation` from database `BackTest` object
+- Can convert to flat representations correctly
+- Code is documented with docstrings
+- No existing code is modified
+
+**Deliverable**: New `evaluation.py` module with working, tested classes that can load from database but aren't yet used anywhere
+
+---
+
+### Phase 2: REST API Integration
+**Goal**: Refactor REST API to use the Evaluation abstraction
+
+**Tasks**:
+1. Update analytics router endpoints to work with `EvaluationBase`
+2. Update worker functions to optionally return `BacktestEvaluation`
+3. Update metric computation functions to accept `EvaluationBase`
+4. Update visualization functions to accept `EvaluationBase`
+5. Ensure backward compatibility throughout
+6. Add integration tests
+
+**Files to modify**:
+- `chap_core/rest_api/v1/routers/analytics.py`
+- `chap_core/rest_api/db_worker_functions.py`
+- `chap_core/assessment/metrics/__init__.py`
+- `chap_core/plotting/evaluation_plot.py`
+
+**Deliverable**: REST API using Evaluation abstraction while maintaining all existing functionality
+
+---
+
+### Phase 3: CLI Integration
+**Goal**: Implement InMemoryEvaluation and refactor CLI to use it
+
+**Tasks**:
+1. Implement `InMemoryEvaluation` class:
+   - Implements `from_backtest()` for loading from DB
+   - Implements `from_samples_with_truth()` for CLI workflow
+   - Implements `to_backtest()` for optional persistence
+2. Refactor `cli.py` evaluate command to use `InMemoryEvaluation`
+3. Share metric computation code between REST API and CLI
+4. Add CLI-specific tests
+
+**Deliverable**: CLI and REST API using same evaluation abstraction and metric computation
+
+---
+
+### Phase 4: Code Consolidation
+**Goal**: Remove duplication and clean up deprecated code
+
+**Tasks**:
+1. Identify and remove duplicated evaluation logic
+2. Consolidate metric computation into shared utilities
+3. Update documentation and examples
+4. Remove deprecated functions if any
+5. Performance optimization if needed
+
+**Deliverable**: Cleaner codebase with less duplication and better maintainability
 
 ## Open Questions for Discussion
 
