@@ -197,7 +197,7 @@ async def health(worker_config=Depends(get_settings)) -> HealthResponse:
     #     wf.initialize_gee_client(usecwd=True, worker_config=worker_config)
     # except GEEError as e:
     #     return HealthResponse(status="failed", message="GEE authentication might not be set up properly: " + str(e))
-    return HealthResponse(status="success", message="GEE client initialized")
+    return HealthResponse(status="success", message="healthy")
 
 
 @app.get("/version")
