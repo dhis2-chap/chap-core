@@ -81,7 +81,6 @@ Homepage = "https://github.com/dhis2/chap-core"
 
 [project.scripts]
 chap = "chap_core.cli:main"
-chap-cli = "chap_core.chap_cli:main"
 chap-runner = "chap_core.models.model_rest_api_wrapper:main"
 
 [build-system]
