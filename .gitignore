@@ -47,3 +47,4 @@ config/configured_models/*
 
 # === OS-Specific ===
 .DS_Store
+chap_core.egg-info
