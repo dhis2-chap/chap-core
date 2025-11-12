@@ -528,7 +528,7 @@ def _run_alembic_migrations(engine):
         logger.info("Completed Alembic migrations successfully")
 
     except Exception as e:
-        logger.error(f"Error during Alembic migrations: {e}")
+        logger.error(f"Error during Alembic migrations: {e}", exc_info=True)
         # Don't raise - allow system to continue if Alembic fails
         # This ensures backward compatibility
 
@@ -772,9 +772,10 @@ def _get_column_default_value(column):
     column_type = str(column.type).lower()
 
     if "json" in column_type or "pydanticlisttype" in column_type:
-        # Default to empty array for JSON columns (safer default)
-        # Most JSON columns in this codebase are lists (org_units, data_sources, covariates, etc.)
-        return "[]"
+        # For JSON columns, only default to [] if there's a default_factory set
+        # If there's no explicit default, use NULL (safer for Optional[dict] fields)
+        # Most list JSON columns have default_factory=list which is handled above
+        return None
     elif "varchar" in column_type or "text" in column_type:
         return ""  # Empty string for text columns
     elif "integer" in column_type or "numeric" in column_type:
