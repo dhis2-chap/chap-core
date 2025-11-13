@@ -1,12 +1,15 @@
 import pytest
 
+from chap_core import get_temp_dir
 from chap_core.models.utils import get_model_template_from_mlproject_file
 from chap_core.models.model_template import ModelTemplate
 
 
 @pytest.fixture
 def model_template(data_path):
-    return get_model_template_from_mlproject_file(data_path / "debug_model" / "mlproject.yaml")
+    working_dir = get_temp_dir() / "test_models" / "debug_model"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    return get_model_template_from_mlproject_file(data_path / "debug_model" / "mlproject.yaml", working_dir=working_dir)
 
 
 @pytest.fixture

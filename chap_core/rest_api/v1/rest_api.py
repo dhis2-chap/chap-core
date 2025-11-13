@@ -1,26 +1,22 @@
-import json
 import logging
-from typing import Optional
+import traceback
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, ORJSONResponse
+from fastapi.responses import FileResponse, JSONResponse, ORJSONResponse
 from packaging.version import Version
 from pydantic import BaseModel
 
-import chap_core.rest_api.worker_functions as wf
-from chap_core.api_types import EvaluationResponse, PredictionRequest
+from chap_core.api_types import EvaluationResponse
 from chap_core.internal_state import Control, InternalState
 from chap_core.log_config import initialize_logging
 from chap_core.model_spec import ModelSpec
-from chap_core.predictor.feature_spec import Feature, all_features
-from chap_core.predictor.model_registry import registry
+from chap_core.predictor.feature_spec import Feature
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.rest_api.data_models import FullPredictionResponse
 from chap_core.rest_api.v1.routers import analytics, crud, visualization
 from chap_core.worker.interface import SeededJob
 
-from ...database.database import create_db_and_tables
 from . import debug, jobs
 from .routers.dependencies import get_settings
 
@@ -51,6 +47,20 @@ def create_api():
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Global exception handler to log full stack traces
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        """Catch all unhandled exceptions and log full traceback"""
+        logger.error(f"Unhandled exception on {request.method} {request.url.path}")
+        logger.error(f"Exception type: {type(exc).__name__}")
+        logger.error(f"Exception message: {str(exc)}")
+        logger.error("Full traceback:")
+        logger.error(traceback.format_exc())
+
+        return JSONResponse(
+            status_code=500, content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__}
+        )
 
     return app
 
@@ -86,50 +96,12 @@ async def favicon() -> FileResponse:
     return FileResponse("chap_icon.jpeg")
 
 
-@app.post("/predict")
-async def predict(data: PredictionRequest, worker_settings=Depends(get_settings)) -> dict:
-    """
-    Start a prediction task using the given data as training data.
-    Results can be retrieved using the get-results endpoint.
-    """
-    try:
-        health_data = wf.get_health_dataset(data)
-        target_id = wf.get_target_id(data, ["disease", "diseases", "disease_cases"])
-
-        func = wf.predict_pipeline_from_health_data if not data.include_data else wf.predict_pipeline_from_full_data
-        job = worker.queue(
-            func, health_data.model_dump(), data.estimator_id, data.n_periods, target_id, worker_config=worker_settings
-        )
-        internal_state.current_job = job
-    except Exception as e:
-        logger.error("Failed to run predic. Exception: %s", e)
-        return "{status: 'failed', exception: %s}" % e
-
-    return {"status": "success"}
-
-
-# TODO: include data flag etc
-@app.post("/evaluate")
-async def evaluate(
-    data: PredictionRequest, n_splits: Optional[int] = 2, stride: int = 1, worker_settings=Depends(get_settings)
-) -> dict:
-    """
-    Start an evaluation task using the given data as training data.
-    Results can be retrieved using the get-results endpoint.
-    """
-    json_data = data.model_dump()
-    str_data = json.dumps(json_data)
-    job = worker.queue(wf.evaluate, str_data, n_splits, stride, worker_config=worker_settings)
-    internal_state.current_job = job
-    return {"status": "success", "task_id": job.id}
-
-
-@app.get("/list-models")
+@app.get("/list-models", deprecated=True)
 async def list_models() -> list[ModelSpec]:
     """
     List all available models. These are not validated. Should set up test suite to validate them
     """
-    return registry.list_specifications()
+    return []
 
 
 # @app.get("/jobs/{job_id}/logs")
@@ -141,12 +113,13 @@ async def list_models() -> list[ModelSpec]:
 #     return job.get_logs(n_lines)
 
 
-@app.get("/list-features")
+@app.get("/list-features", deprecated=True)
 async def list_features() -> list[Feature]:
     """
     List all available features
     """
-    return all_features
+    return []
+    # return all_features
 
 
 @app.get("/get-results")
@@ -224,7 +197,7 @@ async def health(worker_config=Depends(get_settings)) -> HealthResponse:
     #     wf.initialize_gee_client(usecwd=True, worker_config=worker_config)
     # except GEEError as e:
     #     return HealthResponse(status="failed", message="GEE authentication might not be set up properly: " + str(e))
-    return HealthResponse(status="success", message="GEE client initialized")
+    return HealthResponse(status="success", message="healthy")
 
 
 @app.get("/version")
@@ -314,16 +287,6 @@ async def system_info() -> SystemInfoResponse:
     )
 
 
-@app.on_event("startup")
-def on_startup():
-    print("DEBUG: Starting ChAP REST API")
-    logger.info("Starting ChAP REST API")
-    logger.info("Starting up.")
-    print("DEBUG: About to call create_db_and_tables()")
-    create_db_and_tables()
-    print("DEBUG: Finished create_db_and_tables()")
-
-
 def seed(data):
     internal_state.current_job = SeededJob(result=data)
 
@@ -334,9 +297,13 @@ def get_openapi_schema():
 
 def main_backend(seed_data=None, auto_reload=False):
     import uvicorn
+    from chap_core.database.database import create_db_and_tables
+
+    create_db_and_tables()
 
     if seed_data is not None:
         seed(seed_data)
+
     if auto_reload:
         app_path = "chap_core.rest_api.v1.rest_api:app"
         uvicorn.run(app_path, host="0.0.0.0", port=8000, reload=auto_reload)

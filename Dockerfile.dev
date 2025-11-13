@@ -1,7 +1,7 @@
 #THIS DOCKERFILE RUNS THE WEB API
 
 # Use the official Python base image
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
@@ -36,6 +36,8 @@ COPY ./scripts/seed.py ./scripts/seed.py
 COPY ./pyproject.toml .
 COPY ./uv.lock .
 COPY ./README.md .
+COPY ./alembic.ini .
+COPY ./alembic ./alembic
 
 # Then, add the rest of the project source code and install it
 # Installing separately from its dependencies allows optimal layer caching

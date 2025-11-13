@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest ]
-        python-version: [ "3.10" ]
+        python-version: [ "3.13" ]
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # get copy of the code
@@ -29,16 +29,12 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Install the project
         run: uv sync --dev
-      - name: make html & commit the changes
-        run: |
-          uv run sphinx-build -b html ./docs_source ./docs
-          git config --global user.email "github@action.com"
-          git config user.name "pages"
-          git add -f ./docs
-          git commit -m 'update docs'
+      - name: Build documentation
+        run: make docs
 
-      - name: push changes to gh-pages to show automatically
-        uses: ad-m/github-push-action@master
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          branch: gh-pages
-          force: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site/html
+          force_orphan: true

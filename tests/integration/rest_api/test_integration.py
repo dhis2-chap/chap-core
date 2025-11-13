@@ -97,16 +97,19 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.skip("outdated")
 def test_predict(big_request_json, celery_session_worker, dependency_overrides):
     check_job_endpoint(big_request_json, predict_path)
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
 @pytest.mark.skip("This test is not working, outdated")
+@pytest.mark.skip("outdated")
 def test_evaluate(big_request_json, celery_session_worker, dependency_overrides):
     check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
 
 
+@pytest.mark.skip("predict endpoint removed")
 def test_model_that_does_not_exist(big_request_json, monkeypatch, dependency_overrides):
     # patch worker in rest_api to be NaiveWorker
     monkeypatch.setattr("chap_core.rest_api.v1.rest_api.worker", NaiveWorker())
@@ -167,6 +170,7 @@ def test_get_status():
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.skip("endpoint removed")
 def test_list_models():
     response = client.get(list_models_path)
     assert response.status_code == 200
@@ -177,21 +181,21 @@ def test_list_models():
     assert "population" in (feature["id"] for feature in spec["features"])
 
 
-@pytest.mark.skipif(not redis_available(), reason="Redis not available")
-def test_list_features():
-    response = client.get(list_features_path)
-    assert response.status_code == 200
-    assert {elem["id"] for elem in response.json()} == {
-        "population",
-        "rainfall",
-        "mean_temperature",
-    }
-
-
 def test_health_check_success(dependency_overrides):
     response = client.get("/v1/health")
     assert response.status_code == 200
     assert response.json()["status"] == "success"
+
+
+def test_common_api_get_endpoints_do_not_fail(dependency_overrides):
+    endpoints = [
+        "v1/crud/model-templates",
+        "v1/crud/configured-models",
+        "v1/crud/backtests",
+    ]
+    for endpoint in endpoints:
+        response = client.get(f"/{endpoint}")
+        assert response.status_code == 200
 
 
 @pytest.mark.skip(reason="No longer requireing GEE authentication")

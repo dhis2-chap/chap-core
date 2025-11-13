@@ -1,5 +1,6 @@
 import pytest
 
+from chap_core import get_temp_dir
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.exceptions import InvalidModelException, ModelFailedException
 from chap_core.file_io.example_data_set import datasets
@@ -59,7 +60,10 @@ def test_external_sanity_deepar(models_path, dataset):
     template = get_model_template_from_directory_or_github_url(folder_path, run_dir_type="latest")
     model = template.get_model()
     # model = get_model_from_directory_or_github_url(folder_path, run_dir_type="latest")
-    evaluate_model(model, dataset)
+    out_file = get_temp_dir() / "deepar_evaluation_report.html"
+    # make sure temp_dir exists
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    evaluate_model(model, dataset, report_filename=out_file)
 
     # sanity_check_external_model("https://github.com/dhis2-chap/minimalist_example")
 

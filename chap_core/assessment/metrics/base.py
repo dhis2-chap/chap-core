@@ -30,6 +30,9 @@ class MetricBase:
     spec: MetricSpec = MetricSpec()
 
     def get_metric(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        # Check taht obserations ar not nan
+        null_mask = observations.disease_cases.isnull()
+        observations = observations[~null_mask]
         out = self.compute(observations, forecasts)
 
         expected = [*(d for d in self.spec.output_dimensions), "metric"]
@@ -51,7 +54,7 @@ class MetricBase:
         for d in self.spec.output_dimensions:
             dtype, chk = DIM_REGISTRY[d]
             cols[d.value] = pa.Column(dtype, chk) if chk else pa.Column(dtype)
-        cols["metric"] = pa.Column(float)
+        cols["metric"] = pa.Column(float, nullable=True)
         return pa.DataFrameSchema(cols, strict=True, coerce=True)
 
     def get_name(self) -> str:

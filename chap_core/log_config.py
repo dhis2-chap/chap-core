@@ -1,11 +1,31 @@
 import logging
+import os
 from pathlib import Path
 
 # get root logger
 logger = logging.getLogger()
 
 
-def initialize_logging(debug: bool = False, log_file: str = None):
+def is_debug_mode() -> bool:
+    """Check if CHAP_DEBUG environment variable is set to enable debug mode.
+
+    Returns:
+        bool: True if CHAP_DEBUG is set to "true", "1", or "yes" (case-insensitive).
+    """
+    return os.getenv("CHAP_DEBUG", "false").lower() in ("true", "1", "yes")
+
+
+def initialize_logging(debug: bool = None, log_file: str = None):
+    """Initialize logging configuration.
+
+    Args:
+        debug: If True, set log level to DEBUG. If None, auto-detect from CHAP_DEBUG environment variable.
+        log_file: Optional log file path (currently not used).
+    """
+    # Auto-detect from environment if not explicitly provided
+    if debug is None:
+        debug = is_debug_mode()
+
     if debug:
         logger.setLevel(level=logging.DEBUG)
         logger.debug("Debug mode enabled")

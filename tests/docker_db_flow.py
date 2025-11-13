@@ -71,7 +71,7 @@ class IntegrationTest:
                 response = requests.get(self._chap_url + "/v1/health")
                 break
             except requests.exceptions.ConnectionError as e:
-                logger.error("Failed to connect to %s" % self._chap_url)
+                logger.error("Failed to connect to %s. Will sleep and try again." % self._chap_url)
                 logger.error(e)
                 errors.append(e)
                 time.sleep(5)
@@ -170,7 +170,7 @@ class IntegrationTest:
             json={"modelId": model, "datasetId": dataset_id, "name": f"integration_test: {model}"},
         )["id"]
         db_id = self.wait_for_db_id(job_id)
-        evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
+        evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}/full")
         assert evaluation_result["modelId"] == model
         assert evaluation_result["datasetId"] == dataset_id
         assert evaluation_result["name"].startswith("integration_test"), evaluation_result["name"]
@@ -216,7 +216,7 @@ class IntegrationTest:
         logger.info(f"Making evaluation for {data['modelId']}")
         job_id = self._post(self._chap_url + "/v1/analytics/create-backtest-with-data/", json=data)["id"]
         db_id = self.wait_for_db_id(job_id)
-        evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}")
+        evaluation_result = self._get(self._chap_url + f"/v1/crud/backtests/{db_id}/full")
         assert evaluation_result["modelId"] == data["modelId"]
         assert evaluation_result["name"].startswith("integration_test"), evaluation_result["name"]
         assert evaluation_result["created"], evaluation_result["created"]

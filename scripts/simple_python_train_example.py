@@ -3,6 +3,8 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 import joblib
 
+from chap_core import get_temp_dir
+
 
 def train(csv_fn, model_fn):
     df = pd.read_csv(csv_fn)
@@ -15,7 +17,10 @@ def train(csv_fn, model_fn):
     joblib.dump(model, model_fn)
 
 
-train('example_data/v0/training_data.csv', 'model.pkl')
+output_dir = get_temp_dir()
+output_dir.mkdir(exist_ok=True)
+
+train('example_data/v0/training_data.csv', str(output_dir / 'model.pkl'))
 
 
 def predict(model_fn, historic_data_fn, future_climatedata_fn, predictions_fn):
@@ -47,4 +52,4 @@ def predict(model_fn, historic_data_fn, future_climatedata_fn, predictions_fn):
     df.to_csv(predictions_fn, index=False)
 
 
-predict('model.pkl', 'example_data/v0/historic_data.csv', 'example_data/v0/future_data.csv', 'predictions.csv')
+predict(str(get_temp_dir() / 'model.pkl'), 'example_data/v0/historic_data.csv', 'example_data/v0/future_data.csv', str(get_temp_dir() / 'predictions.csv'))

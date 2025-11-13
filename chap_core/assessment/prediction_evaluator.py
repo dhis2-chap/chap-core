@@ -7,15 +7,17 @@ from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import pandas as pd
+
+from chap_core import get_temp_dir
 from chap_core.assessment.dataset_splitting import (
     train_test_generator,
 )
-
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
 from chap_core.datatypes import TimeSeriesData, Samples, SamplesWithTruth
 import logging
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
 
 plt.set_loglevel(level="warning")
 logger = logging.getLogger(__name__)
@@ -96,7 +98,7 @@ def evaluate_model(
 
     # transformed = create_multiloc_timeseries(truth_data)
     if report_filename is None:
-        report_filename = "evaluation_report.pdf"
+        report_filename = str(get_temp_dir() / "evaluation_report.pdf")
 
     if report_filename is not None:
         logger.info(f"Plotting forecasts to {report_filename}")
@@ -200,7 +202,7 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
 
             for forecast in forecasts:
                 logging.info("Forecasts: ")
-                logging.info(forecasts)
+                # logging.info(forecasts)
                 if np.any(np.isnan(forecast.samples)):
                     logger.warning(f"Forecast {forecast} has NaN values: {forecast.samples}")
 

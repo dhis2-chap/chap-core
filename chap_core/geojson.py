@@ -32,7 +32,7 @@ class NeighbourGraph:
     def from_geojson_file(cls, geo_json_file: IO):
         regions = gpd.read_file(geo_json_file)
         print(regions)
-        graph = Queen.from_dataframe(regions)
+        graph = Queen.from_dataframe(regions, use_index=True)
         return cls(regions, graph)
 
     def __init__(self, regions, graph):

@@ -11,11 +11,12 @@ from typing import Iterable, List, Optional
 
 import psycopg2
 import sqlalchemy
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.datatypes import FullData, SamplesWithTruth, create_tsdataclass
 from chap_core.geometry import Polygons
+from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.time_period import TimePeriod, Month, Week
 
@@ -23,6 +24,7 @@ from .. import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
+from ..models.external_chapkit_model import ExternalChapkitModelTemplate
 from ..rest_api.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
@@ -40,7 +42,7 @@ if database_url is not None:
     n = 0
     while n < 30:
         try:
-            engine = create_engine(database_url, echo=True)
+            engine = create_engine(database_url, echo=is_debug_mode())
             break
         except sqlalchemy.exc.OperationalError as e:
             logger.error(f"Failed to connect to database: {e}. Trying again")
@@ -114,21 +116,33 @@ class SessionWrapper:
         existing_template = self.session.exec(
             select(ModelTemplateDB).where(ModelTemplateDB.name == model_template_config.name)
         ).first()
-        if existing_template:
-            logger.info(f"Model template with name {model_template_config.name} already exists. Returning existing id")
-            return existing_template.id
-        d = model_template_config.dict()
+
+        d = model_template_config.model_dump()
         info = d.pop("meta_data")
         d = d | info
-        db_object = ModelTemplateDB(**d)
 
+        if existing_template:
+            logger.info(f"Model template with name {model_template_config.name} already exists. Updating it")
+            # Update the existing template with new data
+            for key, value in d.items():
+                if hasattr(existing_template, key):
+                    setattr(existing_template, key, value)
+            self.session.commit()
+            return existing_template.id
+
+        # Create new template
+        db_object = ModelTemplateDB(**d)
         logger.info(f"Adding model template: {db_object}")
         self.session.add(db_object)
         self.session.commit()
         return db_object.id
 
     def add_configured_model(
-        self, model_template_id: int, configuration: ModelConfiguration, configuration_name="default"
+        self,
+        model_template_id: int,
+        configuration: ModelConfiguration,
+        configuration_name="default",
+        uses_chapkit=False,
     ) -> int:
         # get model template name
         model_template = self.session.exec(
@@ -152,7 +166,11 @@ class SessionWrapper:
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
-            name=name, model_template_id=model_template_id, **configuration.dict(), model_template=model_template
+            name=name,
+            model_template_id=model_template_id,
+            **configuration.model_dump(),
+            model_template=model_template,
+            uses_chapkit=uses_chapkit,
         )
         configured_model.validate_user_options(configured_model)
         # configured_model.validate_user_options(model_template)
@@ -168,14 +186,32 @@ class SessionWrapper:
 
         # get configured models from db
         # configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
-        configured_models = self.session.exec(select(ConfiguredModelDB).join(ConfiguredModelDB.model_template)).all()
+        configured_models = self.session.exec(
+            select(ConfiguredModelDB).options(selectinload(ConfiguredModelDB.model_template))
+        ).all()
 
         # serialize to json and combine configured model with model template
         configured_models_data = []
         for configured_model in configured_models:
             # get configured model and model template json data
-            configured_data = configured_model.model_dump(mode="json")
-            template_data = configured_model.model_template.model_dump(mode="json")
+            try:
+                configured_data = configured_model.model_dump(mode="json")
+                template_data = configured_model.model_template.model_dump(mode="json")
+
+                # Debug logging for enum handling
+                logger.debug(f"Processing configured model {configured_model.id}: {configured_model.name}")
+                logger.debug(f"Template supported_period_type: {configured_model.model_template.supported_period_type}")
+
+            except Exception as e:
+                logger.error(
+                    f"Error dumping model data for configured_model id={configured_model.id}, name={configured_model.name}"
+                )
+                logger.error(
+                    f"Template id={configured_model.model_template.id if configured_model.model_template else 'None'}"
+                )
+                logger.error(f"Exception: {type(e).__name__}: {str(e)}")
+                logger.error("Full traceback:", exc_info=True)
+                raise
 
             # add display name for configuration (not stored in db)
             # stitch together template displayName with configured name stub
@@ -221,15 +257,20 @@ class SessionWrapper:
                 for cov in model["required_covariates"]
             ]
             # add list of additional covariate strings to list of covariate dicts
+            # Use .get() with default empty list for backwards compatibility with v1.0.17
+            # Extract existing covariate names to avoid dict comparison issues
+            existing_cov_names = [c["name"] for c in model["covariates"]]
             model["covariates"] += [
                 {
                     "name": cov,
                     "displayName": cov.replace("_", " ").capitalize(),
                     "description": cov.replace("_", " ").capitalize(),
                 }
-                for cov in model["additional_continuous_covariates"]
-                if cov not in model["covariates"]
+                for cov in model.get("additional_continuous_covariates", [])
+                if cov not in existing_cov_names
             ]
+            model["archived"] = model.get("archived", False)
+            model["uses_chapkit"] = model.get("uses_chapkit", False)
         # for m in configured_models_data:
         #    logger.info('converted list model data: ' + json.dumps(m, indent=4))
         configured_models_read = [ModelSpecRead.model_validate(m) for m in configured_models_data]
@@ -253,17 +294,28 @@ class SessionWrapper:
         return configured_model
 
     def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
+        logger.info(f"Getting configured model with id {configured_model_id}")
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model.name == "naive_model":
             return NaiveEstimator()
         template_name = configured_model.model_template.name
+        logger.info(f"Configured model: {configured_model}, template: {configured_model.model_template}")
         ignore_env = (
             template_name.startswith("chap_ewars") or template_name == "ewars_template"
         )  # TODO: seems hacky, how to fix?
-        return ModelTemplate.from_directory_or_github_url(
-            configured_model.model_template.source_url,
-            ignore_env=ignore_env,
-        ).get_model(configured_model)
+
+        if configured_model.uses_chapkit:
+            logger.info(f"Assuming chapkit model at {configured_model.model_template.source_url}")
+            template = ExternalChapkitModelTemplate(configured_model.model_template.source_url)
+            logger.info(f"template: {template}")
+            logger.info(f"configured_model: {configured_model}")
+            return template.get_model(configured_model)
+        else:
+            logger.info(f"Assuming github model at {configured_model.model_template.source_url}")
+            return ModelTemplate.from_directory_or_github_url(
+                configured_model.model_template.source_url,
+                ignore_env=ignore_env,
+            ).get_model(configured_model)
 
     def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
         model_template = self.session.get(ModelTemplateDB, model_template_id)
@@ -291,10 +343,12 @@ class SessionWrapper:
         info.created = datetime.datetime.now()
         # org_units = list({location for ds in evaluation_results for location in ds.locations()})
         # split_points = list({er.period_range[0] for er in evaluation_results})
-        model_db_id = (
-            self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first().id
+        model_db = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first()
+        model_db_id = model_db.id
+
+        backtest = BackTest(
+            **info.dict() | {"model_db_id": model_db_id, "model_template_version": model_db.model_template.version}
         )
-        backtest = BackTest(**info.dict() | {"model_db_id": model_db_id})
         self.session.add(backtest)
         org_units = set([])
         split_points = set([])
@@ -326,16 +380,25 @@ class SessionWrapper:
         self.session.commit()
 
         # read full backtest object so that we can compute aggregate metrics using this object
-        backtest = self.session.get(BackTest, backtest.id)
-        aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
-        logger.info(f"aggregate metrics {aggregate_metrics}")
-        backtest.aggregate_metrics = aggregate_metrics
-        self.session.commit()
+        # note: we don't do this anymore
+        # backtest = self.session.get(BackTest, backtest.id)
+        # aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
+        # logger.info(f"aggregate metrics {aggregate_metrics}")
+        # backtest.aggregate_metrics = aggregate_metrics
+        # self.session.commit()
         # add more
         return backtest.id
 
     def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict = {}):
         n_periods = len(list(predictions.values())[0])
+        samples_ = [
+            PredictionSamplesEntry(period=period.id, org_unit=location, values=value.tolist())
+            for location, data in predictions.items()
+            for period, value in zip(data.time_period, data.samples)
+        ]
+        org_units = list(predictions.keys())
+        model_db_id = self.session.exec(select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == model_id)).first()
+
         prediction = Prediction(
             dataset_id=dataset_id,
             model_id=model_id,
@@ -343,11 +406,9 @@ class SessionWrapper:
             created=datetime.datetime.now(),
             n_periods=n_periods,
             meta_data=metadata,
-            forecasts=[
-                PredictionSamplesEntry(period=period.id, org_unit=location, values=value.tolist())
-                for location, data in predictions.items()
-                for period, value in zip(data.time_period, data.samples)
-            ],
+            forecasts=samples_,
+            org_units=org_units,
+            model_db_id=model_db_id,
         )
         self.session.add(prediction)
         self.session.commit()
@@ -437,6 +498,41 @@ class SessionWrapper:
         return debug_entry.id
 
 
+def _run_alembic_migrations(engine):
+    """
+    Run Alembic migrations programmatically.
+    This is called after the custom migration system to apply any Alembic-managed schema changes.
+    """
+    from alembic import command
+    from alembic.config import Config
+
+    logger.info("Running Alembic migrations")
+
+    try:
+        # Get the path to alembic.ini relative to the project root
+        project_root = Path(__file__).parent.parent.parent
+        alembic_ini_path = project_root / "alembic.ini"
+
+        if not alembic_ini_path.exists():
+            logger.warning(f"Alembic config not found at {alembic_ini_path}. Skipping Alembic migrations.")
+            return
+
+        # Create Alembic config
+        alembic_cfg = Config(str(alembic_ini_path))
+
+        # Pass the engine connection to Alembic for programmatic usage
+        with engine.connect() as connection:
+            alembic_cfg.attributes["connection"] = connection
+            command.upgrade(alembic_cfg, "head")
+
+        logger.info("Completed Alembic migrations successfully")
+
+    except Exception as e:
+        logger.error(f"Error during Alembic migrations: {e}", exc_info=True)
+        # Don't raise - allow system to continue if Alembic fails
+        # This ensures backward compatibility
+
+
 def create_db_and_tables():
     # TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update
     if engine is not None:
@@ -444,15 +540,16 @@ def create_db_and_tables():
         n = 0
         while n < 30:
             try:
-                print("DEBUG: About to create tables with metadata:")
-                for table_name, table in SQLModel.metadata.tables.items():
-                    print(f"DEBUG: Table {table_name} - Columns: {[col.name for col in table.columns]}")
-
-                # Run generic migration before creating tables
+                # Step 1: Run custom migrations for backward compatibility (v1.0.17, etc.)
                 _run_generic_migration(engine)
 
+                # Step 2: Create any new tables that don't exist yet
                 SQLModel.metadata.create_all(engine)
-                logger.info("Table created")
+
+                # Step 3: Run Alembic migrations for future schema changes
+                _run_alembic_migrations(engine)
+
+                logger.info("Table created and migrations completed")
                 break
             except sqlalchemy.exc.OperationalError as e:
                 logger.error(f"Failed to create tables: {e}. Trying again")
@@ -469,6 +566,137 @@ def create_db_and_tables():
         logger.warning("Engine not set. Tables not created")
 
 
+def _run_v1_0_17_migrations(conn, engine):
+    """
+    Specific migrations needed when upgrading from v1.0.17 to current version.
+    This handles data type conversions and corrections that the generic migration cannot handle.
+    """
+    logger.info("Running v1.0.17 specific migrations")
+
+    inspector = sqlalchemy.inspect(engine)
+    existing_tables = inspector.get_table_names()
+
+    try:
+        # Fix: Check if modeltemplatedb table exists and has corrupted data
+        if "modeltemplatedb" in existing_tables:
+            logger.info("Checking for corrupted PeriodType enum values in modeltemplatedb")
+
+            # Check if there are any rows with invalid enum values (like '1' instead of 'week', 'month', etc.)
+            check_sql = """
+                SELECT COUNT(*) as count
+                FROM modeltemplatedb
+                WHERE supported_period_type NOT IN ('week', 'month', 'any', 'year')
+            """
+            result = conn.execute(sqlalchemy.text(check_sql)).fetchone()
+
+            if result and result[0] > 0:
+                logger.warning(f"Found {result[0]} rows with corrupted PeriodType enum values, fixing...")
+
+                # Map common corrupted values to correct enum values
+                # If the value is '1', we'll default to 'any' as it's the most permissive
+                fix_sql = """
+                    UPDATE modeltemplatedb
+                    SET supported_period_type = 'any'::periodtype
+                    WHERE supported_period_type NOT IN ('week', 'month', 'any', 'year')
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+                logger.info("Fixed corrupted PeriodType enum values")
+
+        # Fix: Ensure JSON columns that should be arrays are arrays, not objects
+        if "dataset" in existing_tables:
+            columns = {col["name"] for col in inspector.get_columns("dataset")}
+
+            # Fix data_sources if it exists and contains objects instead of arrays
+            if "data_sources" in columns:
+                logger.info("Fixing data_sources column in dataset table")
+                fix_sql = """
+                    UPDATE dataset
+                    SET data_sources = '[]'::json
+                    WHERE data_sources IS NULL OR data_sources::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+            # Fix org_units if it exists and contains objects instead of arrays
+            if "org_units" in columns:
+                logger.info("Fixing org_units column in dataset table")
+                fix_sql = """
+                    UPDATE dataset
+                    SET org_units = '[]'::json
+                    WHERE org_units IS NULL OR org_units::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+            # Fix covariates if it contains objects instead of arrays
+            if "covariates" in columns:
+                logger.info("Fixing covariates column in dataset table")
+                fix_sql = """
+                    UPDATE dataset
+                    SET covariates = '[]'::json
+                    WHERE covariates IS NULL OR covariates::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+        # Fix backtest table JSON columns
+        if "backtest" in existing_tables:
+            columns = {col["name"] for col in inspector.get_columns("backtest")}
+
+            if "org_units" in columns:
+                logger.info("Fixing org_units column in backtest table")
+                fix_sql = """
+                    UPDATE backtest
+                    SET org_units = '[]'::json
+                    WHERE org_units IS NULL OR org_units::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+            if "split_periods" in columns:
+                logger.info("Fixing split_periods column in backtest table")
+                fix_sql = """
+                    UPDATE backtest
+                    SET split_periods = '[]'::json
+                    WHERE split_periods IS NULL OR split_periods::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+        # Fix configuredmodeldb table JSON columns
+        if "configuredmodeldb" in existing_tables:
+            columns = {col["name"] for col in inspector.get_columns("configuredmodeldb")}
+
+            if "user_option_values" in columns:
+                logger.info("Fixing user_option_values column in configuredmodeldb table")
+                # This one should actually be an object {}, not an array
+                fix_sql = """
+                    UPDATE configuredmodeldb
+                    SET user_option_values = '{}'::json
+                    WHERE user_option_values IS NULL
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+            if "additional_continuous_covariates" in columns:
+                logger.info("Fixing additional_continuous_covariates column in configuredmodeldb table")
+                fix_sql = """
+                    UPDATE configuredmodeldb
+                    SET additional_continuous_covariates = '[]'::json
+                    WHERE additional_continuous_covariates IS NULL OR additional_continuous_covariates::text = '{}'
+                """
+                conn.execute(sqlalchemy.text(fix_sql))
+                conn.commit()
+
+        logger.info("Completed v1.0.17 specific migrations successfully")
+
+    except Exception as e:
+        logger.error(f"Error during v1.0.17 migrations: {e}")
+        conn.rollback()
+        raise
+
+
 def _run_generic_migration(engine):
     """
     Generic migration function that adds missing columns to existing tables
@@ -477,6 +705,9 @@ def _run_generic_migration(engine):
     logger.info("Running generic migration for missing columns")
 
     with engine.connect() as conn:
+        # Run v1.0.17 specific migrations first
+        # _run_v1_0_17_migrations(conn, engine)
+
         # Get current database schema
         inspector = sqlalchemy.inspect(engine)
         existing_tables = inspector.get_table_names()
@@ -525,17 +756,26 @@ def _get_column_default_value(column):
     # Check if column has a default value defined
     if column.default is not None:
         if hasattr(column.default, "arg") and column.default.arg is not None:
+            # Check if it's a factory function (like list or dict)
+            if callable(column.default.arg):
+                try:
+                    result = column.default.arg()
+                    if isinstance(result, list):
+                        return "[]"
+                    elif isinstance(result, dict):
+                        return "{}"
+                except Exception:
+                    pass
             return column.default.arg
 
     # Check column type and provide appropriate defaults
     column_type = str(column.type).lower()
 
-    if "json" in column_type:
-        # For JSON columns, return empty array or object
-        if "list" in str(column.type) or "array" in column_type:
-            return "[]"  # Empty array for lists
-        else:
-            return "{}"  # Empty object for general JSON
+    if "json" in column_type or "pydanticlisttype" in column_type:
+        # For JSON columns, only default to [] if there's a default_factory set
+        # If there's no explicit default, use NULL (safer for Optional[dict] fields)
+        # Most list JSON columns have default_factory=list which is handled above
+        return None
     elif "varchar" in column_type or "text" in column_type:
         return ""  # Empty string for text columns
     elif "integer" in column_type or "numeric" in column_type:

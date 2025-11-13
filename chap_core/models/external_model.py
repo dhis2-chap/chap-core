@@ -18,7 +18,7 @@ class ExternalModelBase(ConfiguredModel):
     """
     A base class for external models that provides some utility methods"""
 
-    def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency="M"):
+    def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency="ME"):
         if self._location_mapping is not None:
             data["location"] = data["location"].apply(self._location_mapping.name_to_index)
         if self._adapters is None:
@@ -45,7 +45,7 @@ class ExternalModelBase(ConfiguredModel):
                         data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
 
             elif from_name == "month":
-                if frequency == "M":
+                if frequency == "ME":
                     logger.info("Converting time period to month number")
 
                     if hasattr(data["time_period"], "dt"):
@@ -72,7 +72,7 @@ class ExternalModelBase(ConfiguredModel):
             Polygons(dataset.polygons).to_file(out_file_name)
 
     def _get_frequency(self, train_data):
-        frequency = "M" if isinstance(train_data.period_range[0], Month) else "W"
+        frequency = "ME" if isinstance(train_data.period_range[0], Month) else "W"
         return frequency
 
     def __call__(self):
@@ -92,13 +92,17 @@ class ExternalModel(ExternalModelBase):
         runner,
         name: str = None,
         adapters=None,
-        working_dir="./",
+        working_dir=None,
         data_type=HealthData,
         configuration: ModelConfiguration | None = None,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
         self._adapters = adapters
+        if working_dir is None:
+            from chap_core import get_temp_dir
+
+            working_dir = str(get_temp_dir() / "models")
         self._working_dir = working_dir
         self._location_mapping = None
         self._model_file_name = "model"

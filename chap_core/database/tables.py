@@ -5,6 +5,7 @@ todo: comment this file, make it clear which classes are central and being used
 import datetime
 from typing import Optional, List, Dict
 
+import numpy as np
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, Relationship
 
@@ -18,6 +19,9 @@ class BackTestBase(DBModel):
     model_id: str
     name: Optional[str] = None
     created: Optional[datetime.datetime] = None
+    model_template_version: Optional[str] = (
+        None  # This is the version of the model template in the moment the backtest was created (version at model template object can change later)
+    )
 
 
 class DataSetMeta(DataSetInfo):
@@ -54,13 +58,16 @@ OldBackTestRead = _BackTestRead
 class BackTestRead(_BackTestRead):
     dataset: DataSetMeta
     aggregate_metrics: Dict[str, float]
-    configured_model: ConfiguredModelRead
+    configured_model: Optional[ConfiguredModelRead]
 
 
 class ForecastBase(DBModel):
     period: PeriodID
     org_unit: str
     values: List[float] = Field(default_factory=list, sa_type=JSON)
+
+    def get_quantiles(self, quantiles: List[float]) -> np.ndarray:
+        return np.quantile(self.values, quantiles).astype(float)
 
 
 class ForecastRead(ForecastBase): ...
@@ -73,15 +80,24 @@ class PredictionBase(DBModel):
     name: str
     created: datetime.datetime
     meta_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    org_units: List[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class Prediction(PredictionBase, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     forecasts: List["PredictionSamplesEntry"] = Relationship(back_populates="prediction", cascade_delete=True)
     dataset: DataSet = Relationship()
+    model_db_id: int = Field(foreign_key="configuredmodeldb.id")
+    configured_model: Optional["ConfiguredModelDB"] = Relationship()
 
 
-PredictionInfo = PredictionBase.get_read_class()
+class PredictionInfo(PredictionBase):
+    id: int
+    configured_model: Optional[ConfiguredModelDB]
+    dataset: DataSetMeta
+
+
+# PredictionInfo = PredictionBase.get_read_class()
 
 
 class PredictionRead(PredictionInfo):

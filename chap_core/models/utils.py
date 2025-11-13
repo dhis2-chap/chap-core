@@ -5,6 +5,7 @@ import git
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
 from chap_core.external.model_configuration import ModelTemplateConfigV2
+from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.model_template import ModelTemplate
 import shutil
 import uuid
@@ -90,8 +91,11 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
     return working_dir
 
 
-def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> ModelTemplate:
-    working_dir = Path(mlproject_file).parent
+def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False, working_dir=None) -> ModelTemplate:
+    if working_dir is None:
+        working_dir = Path(mlproject_file).parent
+    else:
+        working_dir = Path(working_dir)
 
     with open(mlproject_file, "r") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
@@ -102,7 +106,11 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False) -> 
 
 
 def get_model_template_from_directory_or_github_url(
-    model_template_path, base_working_dir=Path("runs/"), ignore_env=False, run_dir_type="timestamp"
+    model_template_path,
+    base_working_dir=Path("runs/"),
+    ignore_env=False,
+    run_dir_type="timestamp",
+    is_chapkit_model: bool = False,
 ) -> ModelTemplate:
     """
     Note: Preferably use ModelTemplate.from_directory_or_github_url instead of
@@ -124,6 +132,14 @@ def get_model_template_from_directory_or_github_url(
         "latest" will create a new directory based on the model name, but will remove any existing directory with the same name.
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
+
+    if is_chapkit_model:
+        logger.info("Model is chapkit model")
+        # For now, we assume that if a model template has a url on localhost it is
+        # a chapkit model
+        template = ExternalChapkitModelTemplate(model_template_path)
+        assert template.name is not None, template
+        return template
 
     logger.info(
         f"Getting model template from {model_template_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}"

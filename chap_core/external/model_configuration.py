@@ -37,3 +37,4 @@ class ModelTemplateConfigV2(ModelTemplateConfigCommon, RunnerConfig, extra="forb
     source_url: Optional[str] = None
     adapters: Optional[dict[str, str]] = None
     rest_api_url: Optional[str] = None
+    version: Optional[str] = None

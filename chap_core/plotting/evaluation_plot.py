@@ -23,16 +23,16 @@ class MetricPlotV2(abc.ABC):
     def __init__(self, metric_data: FlatMetric, geojson: Optional[dict] = None):
         self._metric_data = metric_data
 
-    def plot(self) -> alt.Chart:
-        return self.plot_from_df()
+    def plot(self, title="Mean metric by horizon") -> alt.Chart:
+        return self.plot_from_df(title=title)
 
     @abc.abstractmethod
-    def plot_from_df(self) -> alt.Chart:
+    def plot_from_df(self, title: str = "") -> alt.Chart:
         pass
 
     def plot_spec(self) -> dict:
         chart = self.plot()
-        return chart.to_dict()
+        return chart.to_dict(format="vega")
 
 
 class VisualizationInfo(DBModel):
@@ -41,7 +41,7 @@ class VisualizationInfo(DBModel):
     description: str
 
 
-class MetricByHorizonV2(MetricPlotV2):
+class MetricByHorizonAndLocationMean(MetricPlotV2):
     visualization_info = VisualizationInfo(
         id="metric_by_horizon",
         display_name="Horizon Plot",
@@ -51,6 +51,7 @@ class MetricByHorizonV2(MetricPlotV2):
     def plot_from_df(self):
         df = self._metric_data
         adf = df.groupby(["horizon_distance", "location"]).agg({"metric": "mean"}).reset_index()
+        print(adf)
         chart = (
             alt.Chart(adf)
             .mark_bar(point=True)
@@ -59,8 +60,136 @@ class MetricByHorizonV2(MetricPlotV2):
                 y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "location", "metric"],
             )
-            .properties(width=600, height=400, title="Mean Metric by Horizon")
-            .interactive()
+            .properties(width=300, height=230, title="Mean Metric by Horizon")
+        )
+
+        return chart
+
+
+class MetricByHorizonV2Mean(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_horizon",
+        display_name="Horizon Plot",
+        description="Shows the aggregated metric by forecast horizon",
+    )
+
+    def plot_from_df(self, title="Mean metric by horizon"):
+        df = self._metric_data
+        adf = df.groupby(["horizon_distance"]).agg({"metric": "mean"}).reset_index()
+        chart = (
+            alt.Chart(adf)
+            .mark_bar(point=True)
+            .encode(
+                x=alt.X("horizon_distance:O", title="Horizon (periods ahead)"),
+                y=alt.Y("metric:Q", title="Mean Metric Value"),
+                tooltip=["horizon_distance", "metric"],
+            )
+            .properties(width=300, height=230, title=title)
+        )
+
+        return chart
+
+
+class MetricByHorizonV2Sum(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_horizon_sum",
+        display_name="Horizon Plot (sum)",
+        description="Sums metric across locations per forecast horizon",
+    )
+
+    def plot_from_df(self):
+        df = self._metric_data
+        chart = (
+            alt.Chart(df)
+            .mark_bar()
+            .encode(
+                x=alt.X("horizon_distance:O", title="Horizon (periods ahead)"),
+                y=alt.Y("sum(metric):Q", title="Samples above truth (count)"),
+                tooltip=[
+                    alt.Tooltip("horizon_distance:O", title="Horizon"),
+                    alt.Tooltip("sum(metric):Q", title="Count"),
+                ],
+            )
+            .properties(width=300, height=230, title="Samples above truth by horizon")
+        )
+
+        return chart
+
+
+class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_time_period",
+        display_name="Time Period Plot",
+        description="Shows the aggregated metric by time period (per location)",
+    )
+
+    def plot_from_df(self, title="Mean metric by location and time period") -> alt.Chart:
+        df = self._metric_data
+        adf = df.groupby(["time_period", "location"]).agg({"metric": "mean"}).reset_index()
+        chart = (
+            alt.Chart(adf)
+            .mark_line(point=True)
+            .encode(
+                x=alt.X("time_period:O", title="Time period"),
+                y=alt.Y("metric:Q", title="Mean Metric Value"),
+                color=alt.Color("location:N", title="Location"),
+                tooltip=["time_period", "location", "metric"],
+            )
+            .properties(width=300, height=230, title=title)
+        )
+
+        return chart
+
+
+class MetricByTimePeriodV2Sum(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_time_sum",
+        display_name="Horizon Plot (sum)",
+        description="Sums metric across locations per forecast horizon",
+    )
+
+    def plot_from_df(self):
+        df = self._metric_data
+        chart = (
+            alt.Chart(df)
+            .mark_line()
+            .encode(
+                x=alt.X("time_period:O", title="Time Period"),
+                y=alt.Y("sum(metric):Q", title="Samples above truth (count)"),
+                color=alt.Color("location:N", title="Location"),
+                tooltip=[
+                    alt.Tooltip("time_period:O", title="Time Period"),
+                    alt.Tooltip("sum(metric):Q", title="Count"),
+                ],
+            )
+            .properties(width=300, height=230, title="Samples above truth by time period")
+        )
+
+        return chart
+
+
+class MetricByTimePeriodV2Mean(MetricPlotV2):
+    visualization_info = VisualizationInfo(
+        id="metric_by_time_mean",
+        display_name="Metric by time (mean)",
+        description="Mean metric across locations and horizons per time period",
+    )
+
+    def plot_from_df(self, title="Mean metric by time period"):
+        df = self._metric_data
+        df = df.groupby(["time_period"]).agg({"metric": "mean"}).reset_index()
+        chart = (
+            alt.Chart(df)
+            .mark_line()
+            .encode(
+                x=alt.X("time_period:O", title="Time Period"),
+                y=alt.Y("mean(metric):Q", title="Mean Metric Value"),
+                tooltip=[
+                    alt.Tooltip("time_period:O", title="Time Period"),
+                    alt.Tooltip("mean(metric):Q", title="Count"),
+                ],
+            )
+            .properties(width=300, height=230, title=title)
         )
 
         return chart
@@ -75,7 +204,7 @@ class MetricMapV2(MetricPlotV2):
         super().__init__(metric_data, geojson)
         self._geojson = geojson
 
-    def plot_from_df(self) -> alt.Chart:
+    def plot_from_df(self, title="Metric Map by location") -> alt.Chart:
         # Get the metric data DataFrame
         df = self._metric_data
 
@@ -99,7 +228,7 @@ class MetricMapV2(MetricPlotV2):
                 from_=alt.LookupData(agg_df, "org_unit", ["value"]),
             )
             .project(type="equirectangular")  # Use equirectangular projection for proper proportions
-            .properties(width=600, height=400, title="Metric Map by Location")
+            .properties(width=300, height=230, title=title)
         )
         return chart
 

@@ -53,7 +53,7 @@ def train_test_generator(
     n_test_sets: int = 1,
     stride: int = 1,
     future_weather_provider: Optional[FutureWeatherFetcher] = None,
-) -> tuple[DataSet, Iterable[tuple[DataSet, DataSet]]]:
+) -> tuple[DataSet, Iterable[tuple[DataSet, DataSet, DataSet]]]:
     """
     Genereate a train set along with an iterator of test data that contains tuples of full data up until a
     split point and data without target variables for the remaining steps
@@ -99,7 +99,7 @@ def train_test_generator(
         ]
     else:
         masked_future_data = (dataset.remove_field("disease_cases") for dataset in future_data)
-    train_set.metadata = dataset.metadata.copy()
+    train_set.metadata = dataset.metadata.model_copy()
     train_set.metadata.name += "_train_set"
     return train_set, zip(historic_data, masked_future_data, future_data)
 

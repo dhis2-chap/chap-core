@@ -552,7 +552,14 @@ class PeriodRange(BNPDataClass):
 
     @classmethod
     def from_pandas(cls, periods: Iterable[pd.Period]):
-        time_deltas = {"M": delta_month, "Y": delta_year, "D": delta_day, "W-MON": delta_week, "W-SUN": delta_week}
+        time_deltas = {
+            "M": delta_month,
+            "ME": delta_month,
+            "Y": delta_year,
+            "D": delta_day,
+            "W-MON": delta_week,
+            "W-SUN": delta_week,
+        }
         periods = list(periods)
         if not len(periods):
             raise ValueError("Cannot create a period range from an empty list")

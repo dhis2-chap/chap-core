@@ -47,7 +47,7 @@ def train_data_pop(full_data) -> DataSet[ClimateHealthData]:
 @pytest.fixture()
 def train_data_new_period_range(train_data) -> DataSet[ClimateHealthData]:
     time_period = PeriodRange.from_time_periods(Month(2012, 1), Month(2012, 7))
-    return DataSet({loc: bnp.replace(data.data(), time_period=time_period) for loc, data in train_data.items()})
+    return DataSet({loc: bnp.replace(data, time_period=time_period) for loc, data in train_data.items()})
 
 
 @pytest.fixture()

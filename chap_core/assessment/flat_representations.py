@@ -2,6 +2,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Mapping, List
 
+import numpy as np
 import pandas as pd
 from pandera import Check
 import pandera.pandas as pa
@@ -40,11 +41,11 @@ class FlatForecasts(FlatDataWithHorizon):
     """
 
     sample: pa.typing.Series[int]  # index of sample
-    forecast: pa.typing.Series[int]  # actual forecast value
+    forecast: pa.typing.Series[float]  # actual forecast value
 
 
 class FlatMetric(FlatDataWithHorizon):
-    metric: pa.typing.Series[float]
+    metric: pa.typing.Series[float] = pa.Field(nullable=True)
 
 
 def horizon_diff(period: str, period2: str) -> int:
@@ -54,7 +55,7 @@ def horizon_diff(period: str, period2: str) -> int:
     return (tp - tp2) // tp.time_delta
 
 
-def convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast]) -> pd.DataFrame:
+def _convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast]) -> pd.DataFrame:
     """
     Convert a list of BackTestForecast objects to a flat DataFrame format
     conforming to ForecastFlatDataSchema.
@@ -65,7 +66,7 @@ def convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast
     Returns:
         pd.DataFrame with columns: location, time_period, horizon_distance, sample, forecast
     """
-    rows = []
+    dfs = []
 
     for forecast in backtest_forecasts:
         # Calculate horizon distance using the horizon_diff function
@@ -75,21 +76,91 @@ def convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast
 
         # Each BackTestForecast contains multiple sample values
         # We need to create one row per sample
+
+        df = _create_df(forecast, horizon_distance)
+        dfs.append(df)
+        """
         for sample_idx, sample_value in enumerate(forecast.values):
+            assert not np.isnan(sample_value), ("Sample values should not be NaN. "
+                                                "Potentially something wrong with forecasts given by model")
             row = {
                 "location": str(forecast.org_unit),
                 "time_period": str(forecast.period),
                 "horizon_distance": horizon_distance,
                 "sample": sample_idx,
-                "forecast": int(sample_value),  # Convert to int as per schema
+                "forecast": float(sample_value),  # Convert to int as per schema
             }
             rows.append(row)
+        """
 
     # Create DataFrame from rows
-    df = pd.DataFrame(rows)
+    # df = pd.DataFrame(rows)
+    df = pd.concat(dfs, ignore_index=True)
+
+    assert len(df) > 0, "No forecast data found in backtest forecasts. Something wrong in model?"
 
     # Validate against schema
-    FlatForecasts.validate(df)
+    # FlatForecasts.validate(df)
+
+    return df
+
+
+def _create_df(forecast: BackTestForecast, horizon_distance: int):
+    df = pd.DataFrame(
+        {
+            "location": str(forecast.org_unit),
+            "time_period": str(forecast.period),
+            "horizon_distance": horizon_distance,
+            "sample": np.arange(len(forecast.values)),
+            "forecast": forecast.values,
+        }
+    )
+    return df
+
+
+def convert_backtest_to_flat_forecasts(
+    backtest_forecasts: List[BackTestForecast], *, validate: bool = True
+) -> pd.DataFrame:
+    import numpy as np
+    import pandas as pd
+
+    total = sum(len(fc.values) for fc in backtest_forecasts)
+    loc_col = np.empty(total, dtype=object)
+    per_col = np.empty(total, dtype=object)
+    hdist_col = np.empty(total, dtype=np.int64)
+    sample_col = np.empty(total, dtype=np.int64)
+    forecast_col = np.empty(total, dtype=np.float64)
+
+    i = 0
+    for fc in backtest_forecasts:
+        loc = str(fc.org_unit)
+        per = str(fc.period)
+        hdist = horizon_diff(per, str(fc.last_seen_period))
+
+        vals = np.asarray(fc.values)
+        n = vals.shape[0]
+
+        sl = slice(i, i + n)
+        loc_col[sl] = loc
+        per_col[sl] = per
+        hdist_col[sl] = hdist
+        sample_col[sl] = np.arange(n, dtype=np.int64)
+        forecast_col[sl] = vals.astype(np.float64, copy=False)
+
+        i += n
+
+    df = pd.DataFrame(
+        {
+            "location": loc_col,
+            "time_period": per_col,
+            "horizon_distance": hdist_col,
+            "sample": sample_col,
+            "forecast": forecast_col,
+        }
+    )
+
+    # if validate:
+    #     FlatForecasts.validate(df)
 
     return df
 

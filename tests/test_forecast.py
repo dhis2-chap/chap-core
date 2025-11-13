@@ -15,28 +15,6 @@ def hydromet_dataset():
     return dataset
 
 
-# @pytest.mark.skip(reason="Needs docked image")
-@pytest.mark.skip(reason="slow")
-def test_forecast(hydromet_dataset):
-    model = get_model("HierarchicalStateModelD2")(num_warmup=20, num_samples=20)
-    dataset = hydromet_dataset
-    predictions = forecast(model, dataset, 12 * delta_month)
-    for location, prediction in predictions.items():
-        fig = plot_forecast_from_summaries(prediction.data(), dataset.get_location(location).data())
-        fig.show()
-
-
-@pytest.mark.skip(reason="slow")
-def test_multi_forecast(hydromet_dataset):
-    model = get_model("HierarchicalStateModelD2")(num_warmup=20, num_samples=20)
-    dataset = hydromet_dataset
-    predictions_list = list(multi_forecast(model, dataset, 48 * delta_month, pre_train_delta=24 * delta_month))
-    for location, true_data in dataset.items():
-        local_predictions = [pred.get_location(location).data() for pred in predictions_list]
-        fig = plot_forecast_from_summaries(local_predictions, true_data.data())
-        fig.show()
-
-
 def test_forecast_ahead():
     model = NaiveEstimator()
     dataset = ISIMIP_dengue_harmonized["vietnam"]

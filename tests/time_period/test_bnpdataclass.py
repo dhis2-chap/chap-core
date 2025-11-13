@@ -4,7 +4,7 @@ from chap_core.time_period import Year, Day, PeriodRange
 
 
 @bnpdataclass
-class TestClass:
+class SampleTimeSeries:
     period: Year
     cases: int
 
@@ -17,7 +17,7 @@ def test_year():
 @pytest.mark.xfail
 def test_indataclass():
     year = Year([2015, 2014, 2013])
-    test = TestClass(year, [1, 2, 3])
+    test = SampleTimeSeries(year, [1, 2, 3])
     assert test.period.year[0] == 2015
     assert test.sort_by("period").period.year[0] == 2013
 

@@ -23,7 +23,6 @@ from chap_core.geometry import Polygons
 from chap_core.rest_api.data_models import FetchRequest
 from chap_core.rest_api.v1.routers.crud import DatasetCreate, PredictionCreate
 from chap_core.rest_api.worker_functions import WorkerConfig
-from chap_core.services.cache_manager import get_cache
 
 from .data_fixtures import *
 
@@ -103,8 +102,8 @@ def data_path():
 
 @pytest.fixture
 def output_path():
-    path = Path(__file__).parent / "test_outputs"
-    path.mkdir(exist_ok=True)
+    path = Path(__file__).parent.parent / "target" / "test_outputs"
+    path.mkdir(parents=True, exist_ok=True)
     return path
 
 
@@ -124,16 +123,6 @@ def local_data_path():
 @pytest.fixture
 def tests_path():
     return Path(__file__).parent
-
-
-@pytest.fixture(scope="session", autouse=True)
-def use_test_cache():
-    os.environ["TEST_ENV"] = "true"
-    yield
-    del os.environ["TEST_ENV"]
-    cache = get_cache()
-    cache.close()
-    shutil.rmtree(cache.directory, ignore_errors=True)
 
 
 @pytest.fixture()
@@ -275,9 +264,11 @@ class GEEMock:
 
 @pytest.fixture(scope="session")
 def database_url():
-    # todo: fix tmp path
-    cur_dir = Path(__file__).parent
-    return f"sqlite:///{cur_dir}/test.db"
+    # Use target directory for test database
+    project_root = Path(__file__).parent.parent
+    db_dir = project_root / "target"
+    db_dir.mkdir(exist_ok=True)
+    return f"sqlite:///{db_dir}/test.db"
 
 
 @pytest.fixture(scope="session")
@@ -292,7 +283,7 @@ def clean_engine(database_url):
     from chap_core.database.model_template_seed import seed_configured_models_from_config_dir
 
     with Session(engine) as session:
-        seed_configured_models_from_config_dir(session)
+        seed_configured_models_from_config_dir(session, skip_chapkit_models=True)
     return engine
 
 

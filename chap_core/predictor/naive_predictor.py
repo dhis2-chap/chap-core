@@ -34,10 +34,10 @@ class MultiRegionNaivePredictor:
         self._average_cases = None
 
     def _get_mean(self, data):
-        y = data.data().disease_cases
+        y = data.disease_cases
         y = y[~np.isnan(y)]
         return y.mean()
-        # return data.data().disease_cases.mean()
+        # return data.disease_cases.mean()
 
     def train(self, data: DataSet[ClimateHealthTimeSeries]):
         self._average_cases = {location: self._get_mean(data) for location, data in data.items()}

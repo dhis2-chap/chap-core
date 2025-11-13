@@ -34,7 +34,12 @@ class ModelTemplate:
 
     @classmethod
     def from_directory_or_github_url(
-        cls, model_template_path, base_working_dir=Path("runs/"), ignore_env=False, run_dir_type="timestamp"
+        cls,
+        model_template_path,
+        base_working_dir=Path("runs/"),
+        ignore_env=False,
+        run_dir_type="timestamp",
+        is_chapkit_model: bool = False,
     ) -> "ModelTemplate":
         """
         Gets the model template and initializes a working directory with the code for the model.
@@ -56,12 +61,20 @@ class ModelTemplate:
         from .utils import get_model_template_from_directory_or_github_url
 
         return get_model_template_from_directory_or_github_url(
-            model_template_path, base_working_dir=base_working_dir, ignore_env=ignore_env, run_dir_type=run_dir_type
+            model_template_path,
+            base_working_dir=base_working_dir,
+            ignore_env=ignore_env,
+            run_dir_type=run_dir_type,
+            is_chapkit_model=is_chapkit_model,
         )
 
     @property
     def name(self):
         return self._model_template_config.name
+
+    @property
+    def model_template_config(self):
+        return self._model_template_config
 
     def get_train_predict_runner(self) -> TrainPredictRunner:
         pass
@@ -134,6 +147,7 @@ class ModelTemplate:
 
         # if model is web based, no runner and model should be ExternalWebModel
         if self._model_template_config.rest_api_url is not None:
+            # todo: this is outdatc, can be removed
             return ExternalWebModel(
                 self._model_template_config.rest_api_url,
                 self._model_template_config.name,

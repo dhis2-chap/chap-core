@@ -1,0 +1,14 @@
+weight_decay: 
+  values: [1e-5, 1e-6]
+max_epochs:
+  values: [1, 2]
+learning_rate: 
+  values: [1e-3]
+batch_size: 
+  values: [64]
+augmentations: 
+  values: [[]]
+context_length: 
+  values: [12]
+past_ratio: 
+  values: [0.2]
