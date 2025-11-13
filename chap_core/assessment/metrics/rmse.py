@@ -18,17 +18,27 @@ class RMSE(MetricBase):
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
         # Merge observations with forecasts on location and time_period
         merged = forecasts.merge(
-            observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
+            observations[["location", "time_period", "disease_cases"]], 
+            on=["location", "time_period"], 
+            how="inner"
+        )
+
+        # Calculate median forecast across samples for each location and time_period
+        median_forecast = merged.groupby(
+            ["location", "time_period"], as_index=False)["forecast"].median()
+
+        # Attatch true values
+        merged = median_forecast.merge(
+            observations[["location", "time_period", "disease_cases"]], 
+            on=["location", "time_period"], 
+            how="inner"
         )
 
         # Calculate squared error for each forecast
         merged["squared_error"] = (merged["forecast"] - merged["disease_cases"]) ** 2
 
-        # First average across samples for each location/time_period combination
-        per_sample_mse = merged.groupby(["location", "time_period", "sample"], as_index=False)["squared_error"].mean()
-
-        # Then average across all time periods and samples for each location
-        location_mse = per_sample_mse.groupby("location", as_index=False)["squared_error"].mean()
+        # Average squared error across time_periods for each location
+        location_mse = merged.groupby(["location"], as_index=False)["squared_error"].mean()
 
         # Take square root to get RMSE
         location_mse["metric"] = location_mse["squared_error"] ** 0.5
@@ -53,19 +63,29 @@ class DetailedRMSE(MetricBase):
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
         # Merge observations with forecasts on location and time_period
         merged = forecasts.merge(
-            observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
+            observations[["location", "time_period", "disease_cases"]], 
+            on=["location", "time_period"], 
+            how="inner",
+        )
+
+        median_forecast = merged.groupby(
+            ["location", "time_period", "horizon_distance"], as_index=False
+        )["forecast"].median()
+
+        # Attatch true values
+        merged = median_forecast.merge(
+            observations[["location", "time_period", "disease_cases"]], 
+            on=["location", "time_period"], 
+            how="inner",
         )
 
         # Calculate squared error for each forecast
         merged["squared_error"] = (merged["forecast"] - merged["disease_cases"]) ** 2
 
-        # Average across samples for each location/time_period/horizon combination
-        detailed_mse = merged.groupby(["location", "time_period", "horizon_distance"], as_index=False)[
-            "squared_error"
-        ].mean()
+
 
         # Take square root to get RMSE
-        detailed_mse["metric"] = detailed_mse["squared_error"] ** 0.5
+        merged["metric"] = merged["squared_error"] ** 0.5
 
         # Return only the required columns
-        return detailed_mse[["location", "time_period", "horizon_distance", "metric"]]
+        return merged[["location", "time_period", "horizon_distance", "metric"]]
