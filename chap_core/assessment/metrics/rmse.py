@@ -28,17 +28,17 @@ class RMSE(MetricBase):
             ["location", "time_period"], as_index=False)["forecast"].median()
 
         # Attatch true values
-        merged = median_forecast.merge(
+        median_with_truth = median_forecast.merge(
             observations[["location", "time_period", "disease_cases"]], 
             on=["location", "time_period"], 
             how="inner"
         )
 
         # Calculate squared error for each forecast
-        merged["squared_error"] = (merged["forecast"] - merged["disease_cases"]) ** 2
+        median_with_truth["squared_error"] = (median_with_truth["forecast"] - median_with_truth["disease_cases"]) ** 2
 
         # Average squared error across time_periods for each location
-        location_mse = merged.groupby(["location"], as_index=False)["squared_error"].mean()
+        location_mse = median_with_truth.groupby(["location"], as_index=False)["squared_error"].mean()
 
         # Take square root to get RMSE
         location_mse["metric"] = location_mse["squared_error"] ** 0.5

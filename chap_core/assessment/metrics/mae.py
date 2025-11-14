@@ -18,18 +18,26 @@ class MAE(MetricBase):
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
         # Merge observations with forecasts
         merged = forecasts.merge(
-            observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
+            observations[["location", "time_period", "disease_cases"]], 
+            on=["location", "time_period"], 
+            how="inner"
+        )
+
+        median_forecast = merged.groupby(
+            ["location", "time_period", "horizon_distance"], as_index=False)["forecast"].median()
+        
+        median_with_truth = median_forecast.merge(
+            observations[["location", "time_period", "disease_cases"]],
+            on=["location", "time_period"],
+            how="inner"
         )
 
         # Calculate absolute error
-        merged["abs_error"] = (merged["forecast"] - merged["disease_cases"]).abs()
-
-        # Average across samples first
-        per_sample_mae = merged.groupby(["location", "horizon_distance", "sample"], as_index=False)["abs_error"].mean()
+        median_with_truth["abs_error"] = (median_with_truth["forecast"] - median_with_truth["disease_cases"]).abs()
 
         # Then average across samples to get MAE per location and horizon
         mae_by_horizon = (
-            per_sample_mae.groupby(["location", "horizon_distance"], as_index=False)["abs_error"]
+            median_with_truth.groupby(["location", "horizon_distance"], as_index=False)["abs_error"]
             .mean()
             .rename(columns={"abs_error": "metric"})
         )
