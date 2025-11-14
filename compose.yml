@@ -1,6 +1,6 @@
 services:
   redis:
-    image: redis:7
+    image: valkey/valkey:8
     container_name: redis
     networks:
       - chap-network
