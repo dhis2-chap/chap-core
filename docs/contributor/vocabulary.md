@@ -22,3 +22,12 @@ Backtest: Is the same as evaluation for now (used as a term in the REST API)
 ## Runner
 
 A runner is something that can run commands. ExternalModels (not ConfiguredModels) have a Runner object attached to them. When train/predict is called, the runner is handling how to j6o05..,m.
+
+
+## Backtest and Evaluation
+
+Backtest and evaluation are used interchangeably for now. They refer to the process of evaluating a model on a dataset by splitting the dataset into training and test sets multiple times (e.g. using cross-validation) and measuring performance on the test sets.
+
+Evaluations is a common term in the machine learning domain. Backtest is often used more specifically in time series forecasting, where the model is tested on past data to see how well it would have performed.
+
+

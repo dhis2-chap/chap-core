@@ -9,6 +9,8 @@
 7. If you feel that the prompt is bad/unclear, always ask follow-up questions until you have high confidence you will be able to solve the problem given
 8. When adding new features or fixes, always add a test. Never access private fields or methods (starting with underscore) of a class through testing. Also, when changing code, if there are no relevant tests, consider adding a simple test for the change.
 9. When we ask you to go through some change (or finalize changes), always follow the rules in this document strictly.
+10. When making pr that has design document only, don't use docs in title.
+11. When writing tests, avoid creating new test data inline. Use existing fixtures from conftest.py files whenever possible. Only create new fixtures in conftest.py if testing edge cases not covered by existing fixtures. This improves test maintainability and reduces duplication.
 
 
 ## Domain Knowledge

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from altair import FacetChart
 
-from chap_core.assessment.flat_representations import convert_backtest_observations_to_flat_observations
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.tables import BackTest
 import altair as alt
 import textwrap
@@ -125,7 +125,10 @@ class EvaluationBackTestPlot(BackTestPlotBase):
                 | {f"q_{int(q * 100)}": v for q, v in zip(quantiles, bt_forecast.get_quantiles(quantiles))}
             )
         df = pd.DataFrame(rows)
-        flat_observations = convert_backtest_observations_to_flat_observations(backtest.dataset.observations)
+
+        # Use Evaluation abstraction for observations
+        evaluation = Evaluation.from_backtest(backtest)
+        flat_observations = evaluation.to_flat().observations.copy()
         flat_observations["time_period"] = flat_observations["time_period"].apply(clean_time)
         return cls(df, flat_observations)
 

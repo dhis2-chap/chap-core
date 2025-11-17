@@ -7,6 +7,7 @@ import numpy as np
 from pydantic import BaseModel
 
 from chap_core.api_types import BackTestParams
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.climate_predictor import QuickForecastFetcher
@@ -100,7 +101,10 @@ def run_backtest(
         weather_provider=QuickForecastFetcher,
     )
     last_train_period = dataset.period_range[-1]
-    db_id = session.add_evaluation_results(predictions_list, last_train_period, info)
+    evaluation = Evaluation.from_samples_with_truth(predictions_list, last_train_period, configured_model, info=info)
+    backtest = evaluation.to_backtest()
+    session.add_backtest(backtest)
+    db_id = backtest.id
     assert db_id is not None
     return db_id
 

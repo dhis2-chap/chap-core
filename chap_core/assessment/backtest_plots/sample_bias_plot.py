@@ -8,14 +8,10 @@ by horizon distance and time period.
 
 import altair as alt
 
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.tables import BackTest
 from chap_core.plotting.backtest_plot import BackTestPlotBase, text_chart
-from chap_core.assessment.flat_representations import (
-    FlatObserved,
-    FlatForecasts,
-    convert_backtest_to_flat_forecasts,
-    convert_backtest_observations_to_flat_observations,
-)
+from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 from chap_core.assessment.metrics.above_truth import RatioOfSamplesAboveTruth
 
 
@@ -73,12 +69,11 @@ class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
         RatioOfSamplesAboveTruthBacktestPlot
             An instance ready to generate the plot
         """
-        flat_forecasts = FlatForecasts(convert_backtest_to_flat_forecasts(backtest.forecasts))
-        flat_observations = FlatObserved(
-            convert_backtest_observations_to_flat_observations(backtest.dataset.observations)
-        )
+        # Use Evaluation abstraction to get flat representation
+        evaluation = Evaluation.from_backtest(backtest)
+        flat_data = evaluation.to_flat()
 
-        return cls(flat_observations, flat_forecasts, title=title)
+        return cls(flat_data.observations, flat_data.forecasts, title=title)
 
     def plot(self) -> alt.Chart:
         """
