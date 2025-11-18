@@ -36,7 +36,7 @@ class HpoModel(HpoModelInterface):
         self._leaderboard: list[dict[str, Any]] = []
         self._predictor = None
 
-    def train(self, dataset: Optional[DataSetType]) -> Tuple[str, dict[str, Any]]:
+    def train(self, dataset: Optional[DataSetType]):
         """
         Calls get_leaderboard to find the optimal configuration.
         Then trains the tuned model on the whole input dataset (train + validation).

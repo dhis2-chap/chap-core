@@ -22,6 +22,12 @@ from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_d
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 
+from chap_core.models.model_template import ModelTemplate
+from chap_core.hpo.base import load_search_space_from_config
+from chap_core.hpo.objective import Objective 
+from chap_core.hpo.hpoModel import HpoModel
+from chap_core.hpo.searcher import RandomSearcher
+
 logger = logging.getLogger(__name__)
 
 
@@ -89,8 +95,28 @@ def run_backtest(
         n_splits=n_splits,
         stride=stride,
     )
-    configured_model = session.get_configured_model_by_name(info.model_id)
-    estimator = session.get_configured_model_with_code(configured_model.id)
+
+
+    """
+    get base model from dataset
+    get its modelTemplate to get hpo_search_space
+    instead/before calling get_configured_model_with_code below
+    run hpo loop, maybe define in a seperate method, change things in get_configured_model_...
+    then reuse code from cli
+    """
+    if info.name == "something with hpo":
+        model_name = info.name
+        template = ModelTemplate.from_directory_or_github_url(model_name) 
+        model_template = session.get_configured_model_by_name(info.model_id).model_template
+        hpo_search_space = model_template.hpo_search_space
+        if hpo_search_space is not None:
+            configs = load_search_space_from_config(hpo_search_space)
+            objective = Objective(template, "MSE", 3, n_splits)
+            estimator = HpoModel(RandomSearcher(2), objective, "minimize", configs)
+    else:
+        configured_model = session.get_configured_model_by_name(info.model_id)
+        estimator = session.get_configured_model_with_code(configured_model.id)
+    
     predictions_list = _backtest(
         estimator,
         dataset,
