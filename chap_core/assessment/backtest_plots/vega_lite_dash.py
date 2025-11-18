@@ -4,6 +4,8 @@ import altair as alt
 import pandas as pd
 from typing import Optional
 import json
+from pathlib import Path
+import pandas as pd
 
 from chap_core import get_temp_dir
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
@@ -185,8 +187,11 @@ def combined_dashboard_from_backtest(
 
 
 if __name__ == "__main__":
-    obs_df = pd.read_csv("../../../../metrics/Assessment_example_chap_compatible/example_data/observations.csv")
-    fc_df = pd.read_csv("../../../../metrics/Assessment_example_chap_compatible/example_data/forecasts.csv")
+    script_dir = Path(__file__).resolve().parent
+    obs_path = script_dir / "observations.csv"
+    fc_path = script_dir / "forecasts.csv"
+    obs_df = pd.read_csv(obs_path)
+    fc_df = pd.read_csv(fc_path)
     if "value" in obs_df.columns and "disease_cases" not in obs_df.columns:
         obs_df = obs_df.rename(columns={"value": "disease_cases"})
     if "time" in fc_df.columns and "time_period" not in fc_df.columns:
@@ -196,6 +201,7 @@ if __name__ == "__main__":
     print("Fc  columns:", list(fc_df.columns))
 
     flat_obs = FlatObserved(obs_df)
+    fc_df["forecast"] = fc_df["forecast"].astype(float)
     flat_fc = FlatForecasts(fc_df)
 
     # build chart/spec

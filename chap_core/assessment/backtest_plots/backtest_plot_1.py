@@ -10,7 +10,7 @@ from chap_core.assessment.flat_representations import (
     convert_backtest_observations_to_flat_observations,
 )
 from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricByTimePeriodV2Mean
-
+from chap_core.assessment.flat_representations import FlatMetric
 
 # Import your metrics here
 # from chap_core.assessment.metrics.your_metric import YourMetric
@@ -112,9 +112,11 @@ class BackTestPlot1(BackTestPlotBase):
                 textplot = text_chart(f"The metric shown below is '{name}'. Description: {description}", line_length=80)
                 charts.append(textplot)
                 metric_df = metric().get_metric(self._flat_observations, self._flat_forecasts)
+                metric_flat = FlatMetric(metric_df)
+
                 print("MEtric df")
                 print(metric_df)
-                subplot = plotting_class(metric_df).plot(title=name)
+                subplot = plotting_class(metric_flat).plot(title=name)
                 charts.append(subplot)
 
         #

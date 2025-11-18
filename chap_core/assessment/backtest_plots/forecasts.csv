@@ -1,0 +1,10 @@
+location,time_period,horizon_distance,sample,forecast
+loc1,2023-W01,1,1,10
+loc1,2023-W02,2,1,12
+loc2,2023-W01,1,1,21
+loc2,2023-W02,2,1,23
+
+loc1,2023-W08,1,1,16
+loc1,2023-W09,2,1,19
+loc2,2023-W08,1,1,6
+loc2,2023-W09,2,1,9
