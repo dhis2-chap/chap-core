@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 [project]
 name = "chap_core"
 version = "1.1.0"
@@ -138,3 +139,145 @@ python_files = "test_*.py"
 # Import mode to avoid other assertion rewriting issues
 # Ignore specific test files that should not run
 addopts = "--import-mode=importlib --ignore=tests/test_meteostat_wrapper"
+=======
+[project]
+name = "chap_core"
+version = "1.1.1"
+description = "Climate Health Analysis Platform (CHAP)"
+readme = "README.md"
+requires-python = ">=3.13"
+
+authors = [{ name = "Chap Team", email = "chap@dhis2.org" }]
+license = { text = "AGPLv3 license" }
+keywords = ["chap_core"]
+
+dependencies = [
+    "bionumpy>=1.0.14",
+    "cyclopts>=3.24.0",
+    "diskcache>=5.6.3",
+    "docker>=7.1.0",
+    "fastapi>=0.118.0",
+    "sqlmodel>=0.0.25",
+    "psycopg2-binary>=2.9.10",
+    "geopandas>=1.1.1",
+    "geopy>=2.4.1",
+    "gitpython>=3.1.45",
+    "gluonts>=0.16.2",
+    "libpysal>=4.13.0",
+    "matplotlib>=3.10.6",
+    "mlflow-skinny>=3.4.0",
+    "pandas>=2.1.4",
+    "plotly>=6.3.1",
+    "pooch>=1.8.2",
+    "pycountry>=24.6.1",
+    "pydantic>=2.11.10",
+    "python-dateutil>=2.9.0.post0",
+    "python-dotenv>=1.1.1",
+    "python-multipart>=0.0.20",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+    "rq>=2.6.0",
+    "scikit-learn>=1.7.2",
+    "topojson>=1.10",
+    "unidecode>=1.4.0",
+    "uvicorn>=0.37.0",
+    "xarray>=2025.10.0",
+    "orjson>=3.11.3",
+    "celery[pytest]>=5.5.3",
+    "packaging>=25.0",
+    "jsonschema>=4.25.1",
+    "altair>=5.5.0",
+    "virtualenv>=20.34.0",
+    "pydantic-geojson>=0.2.0",
+    "pandera>=0.26.1",
+    "vegafusion>=2.0.2",
+    "vl-convert-python>=1.8.0",
+    "pyarrow>=21.0.0", # held back because of gluonts
+    "numpy>=2.1.3", # held back because of gluonts
+    "gunicorn>=23.0.0",
+    "optuna>=4.5.0",
+    "httpx>=0.28.1",
+    "alembic>=1.14.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.13.3",
+    "build>=1.3.0",
+    "coverage>=7.10.7",
+    "furo>=2023.3.27",
+    "myst-parser>=4.0.1",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=7.0.0",
+    "pytest-mock>=3.15.1",
+    "sphinx>=8.2.3",
+    "wheel>=0.45.1",
+    "typer>=0.19.2",
+    "ipython>=9.6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/dhis2/chap-core"
+
+[project.scripts]
+chap = "chap_core.cli:main"
+chap-runner = "chap_core.models.model_rest_api_wrapper:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+# Let Ruff discover both chap_core and tests for both "check" and "format"
+include = ["chap_core/**/*.py", "tests/**/*.py"]
+exclude = ["external_models/**"]
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+
+# Disable all linting in tests, but still allow formatting there.
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ALL"]
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+
+[tool.pytest.ini_options]
+log_cli = false
+log_level = "WARNING"
+norecursedirs = [
+    "tests/data_wrangling",
+    "tests/spatio_temporal_data",
+    ".mypy_cache",
+    "runs",
+    "dist",
+    "target",
+    "external_models",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:plotly.io._kaleido",
+    # Celery plugin is imported before pytest can rewrite it
+    # This is expected behavior when using celery.contrib.pytest
+    "ignore::pytest.PytestAssertRewriteWarning",
+    # Suppress ResourceWarnings from SQLAlchemy - connections are properly cleaned up
+    # but Python's garbage collector complains about timing
+    "ignore::ResourceWarning",
+]
+markers = [
+    "slow: marks tests as slow running",
+]
+python_files = "test_*.py"
+# Import mode to avoid other assertion rewriting issues
+# Ignore specific test files that should not run
+addopts = "--import-mode=importlib --ignore=tests/test_meteostat_wrapper"
+>>>>>>> upstream/master
