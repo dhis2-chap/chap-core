@@ -30,6 +30,7 @@
     old_version: "@36a537dac138af428a4167b2a89eac7dafd5d762"
     nightly_build: "@master"
     stable: "@8ec1eb6ea854022350ad86c9e12a6d63638fbdbe"
+    v2: "efda30f574bb41d179b6ff2d4199ca5a92a95c5d"
 
 - url: https://github.com/dhis2-chap/ewars_template
   versions:
