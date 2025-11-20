@@ -36,6 +36,7 @@
   versions:
     v1: "d666546c3975994183a6386468af217aba06b6c5"
     v2: 'main'
+    v3: 'cceefb373d51f08fd093d790e19748624681e5e2'
   configurations:
     default:
       user_option_values:
