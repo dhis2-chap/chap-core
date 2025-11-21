@@ -1,0 +1,93 @@
+chap\_core.assessment.metrics package
+=====================================
+
+Submodules
+----------
+
+chap\_core.assessment.metrics.above\_truth module
+-------------------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.above_truth
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metrics.base module
+-----------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.base
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metrics.crps module
+-----------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.crps
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metrics.crps\_norm module
+-----------------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.crps_norm
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metrics.example\_metric module
+----------------------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.example_metric
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metrics.mae module
+----------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.mae
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metrics.peak\_diff module
+-----------------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.peak_diff
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metrics.percentile\_coverage module
+---------------------------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.percentile_coverage
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metrics.rmse module
+-----------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.rmse
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metrics.test\_metrics module
+--------------------------------------------------
+
+.. automodule:: chap_core.assessment.metrics.test_metrics
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.assessment.metrics
+   :members:
+   :show-inheritance:
+   :undoc-members:

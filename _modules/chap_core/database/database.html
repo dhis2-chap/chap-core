@@ -1,0 +1,1156 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>chap_core.database.database - Climate Health 1.1.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/_static/" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #eeffcc;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../index.html"><div class="brand">Climate Health 1.1.1 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
+  
+  <span class="sidebar-brand-text">Climate Health 1.1.1 documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../modeling-app/index.html">Using Chap Core with DHIS2 Modeling App</a><input aria-label="Toggle navigation of Using Chap Core with DHIS2 Modeling App" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../modeling-app/installation.html">Installing Chap Core for use with the Modeling app</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../modeling-app/running-chap-on-server.html">Configure DHIS2 Modeling App and Chap Core to work together</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../external_models/index.html">Documentation for model developers</a><input aria-label="Toggle navigation of Documentation for model developers" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/chap-dhis2-connection.html">Chap’s native connection to DHIS2 and the DHIS2 Modelling App</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/chap_evaluate_examples.html">Examples of chap evaluate commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/describe_model.html">Describing your model in our yaml-based format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/experienced_modeller.html">Documentation for experienced modellers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/newcomer.html">Introduction to principles of spatiotemporal modelling and streamlined implementation of models through Chap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/newcomer.html#to-be-updated-developing-your-own-custom-model-with-chap">(to be updated) Developing your own custom model with CHAP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/running_models_in_chap.html">Running models through Chap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/running_models_in_chap.html#running-models-through-the-chap-command-line-interface">Running models through the Chap command-line interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/side_by_side_comparison.html">Evaluating your model side-by-side with a range of other models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/supporting_functionality.html">Chap’s broad range of supporting functionality for modelling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/train_and_predict.html">Making chap-compatible train and predict endpoints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../external_models/chapkit.html">Running models with chapkit</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../chap-cli/index.html">Using the CLI Tool</a><input aria-label="Toggle navigation of Using the CLI Tool" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../chap-cli/chap-core-cli-setup.html">Setting up CHAP-Core CLI Tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../chap-cli/earth-engine-auth.html">CHAP Core Credentials for Google Earth Engine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../chap-cli/using-pa-with-cli.html">Use JSON-file from DHIS2 Modeling App with CHAP Core CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../chap-cli/downloaded_json_data.html">Running on JSON Data Downloaded from the DHIS2 Modeling App</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../contributor/index.html">Contributor guide</a><input aria-label="Toggle navigation of Contributor guide" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/getting_started.html">Contributor getting started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/chap-contributor-setup.html">Setting Up CHAP Core as a Contributor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/windows_contributors.html">Important note for Windows contributors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/code_overview.html">Code overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/vocabulary.html">Vocabulary (domain specific terms used in the code)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/testing.html">Testing while developing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/database_migrations.html">Database Migrations with Alembic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/writing_building_documentation.html">Writing and building documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/r_docker_image.html">Creating a docker image for R models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contributor/development_tools.html">Introduction to Development Tools</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../webapi/index.html">Chap REST API</a><input aria-label="Toggle navigation of Chap REST API" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../webapi/developer.html">Using Chap REST API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../webapi/docker-compose-doc.html">Setting up Chap REST-API locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog.html">Releases and Future Plans</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for chap_core.database.database</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="c1"># CHeck if CHAP_DATABASE_URL is set in the environment</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">psycopg2</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sqlalchemy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sqlalchemy.orm</span><span class="w"> </span><span class="kn">import</span> <span class="n">selectinload</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sqlmodel</span><span class="w"> </span><span class="kn">import</span> <span class="n">Session</span><span class="p">,</span> <span class="n">SQLModel</span><span class="p">,</span> <span class="n">create_engine</span><span class="p">,</span> <span class="n">select</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">chap_core.datatypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">FullData</span><span class="p">,</span> <span class="n">SamplesWithTruth</span><span class="p">,</span> <span class="n">create_tsdataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">chap_core.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">Polygons</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">chap_core.log_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_debug_mode</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">chap_core.predictor.naive_estimator</span><span class="w"> </span><span class="kn">import</span> <span class="n">NaiveEstimator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">chap_core.time_period</span><span class="w"> </span><span class="kn">import</span> <span class="n">TimePeriod</span><span class="p">,</span> <span class="n">Month</span><span class="p">,</span> <span class="n">Week</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelTemplateInterface</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..external.model_configuration</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelTemplateConfigV2</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelTemplate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..models.configured_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfiguredModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..models.external_chapkit_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExternalChapkitModelTemplate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..rest_api.data_models</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackTestCreate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..spatio_temporal_data.converters</span><span class="w"> </span><span class="kn">import</span> <span class="n">observations_to_dataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..spatio_temporal_data.temporal_dataclass</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataSet</span> <span class="k">as</span> <span class="n">_DataSet</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.dataset_tables</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataSet</span><span class="p">,</span> <span class="n">Observation</span><span class="p">,</span> <span class="n">DataSetCreateInfo</span><span class="p">,</span> <span class="n">DataSetInfo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.debug</span><span class="w"> </span><span class="kn">import</span> <span class="n">DebugEntry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.model_spec_tables</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelSpecRead</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.model_templates_and_config_tables</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfiguredModelDB</span><span class="p">,</span> <span class="n">ModelConfiguration</span><span class="p">,</span> <span class="n">ModelTemplateDB</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.tables</span><span class="w"> </span><span class="kn">import</span> <span class="n">BackTest</span><span class="p">,</span> <span class="n">BackTestForecast</span><span class="p">,</span> <span class="n">Prediction</span><span class="p">,</span> <span class="n">PredictionSamplesEntry</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">engine</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">database_url</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;CHAP_DATABASE_URL&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database url: </span><span class="si">{</span><span class="n">database_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">database_url</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">30</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">engine</span> <span class="o">=</span> <span class="n">create_engine</span><span class="p">(</span><span class="n">database_url</span><span class="p">,</span> <span class="n">echo</span><span class="o">=</span><span class="n">is_debug_mode</span><span class="p">())</span>
+            <span class="k">break</span>
+        <span class="k">except</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">exc</span><span class="o">.</span><span class="n">OperationalError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to connect to database: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Trying again&quot;</span><span class="p">)</span>
+            <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">psycopg2</span><span class="o">.</span><span class="n">OperationalError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to connect to database: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Trying again&quot;</span><span class="p">)</span>
+            <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Failed to connect to database&quot;</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Database url not set. Database operations will not work&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SessionWrapper">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SessionWrapper</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This is a wrapper around data access operations.</span>
+<span class="sd">    This class handles cases when putting things in/out of db requires</span>
+<span class="sd">    more than just adding/getting a row, e.g. transforming data etc.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">local_engine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">engine</span> <span class="o">=</span> <span class="n">local_engine</span>  <span class="c1">#  or engine</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Session</span><span class="p">]</span> <span class="o">=</span> <span class="n">session</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">Session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="SessionWrapper.list_all">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.list_all">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">list_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">model</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.create_if_not_exists">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.create_if_not_exists">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_if_not_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">id_name</span><span class="o">=</span><span class="s2">&quot;id&quot;</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Create if not exist with </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">id_name</span><span class="p">)</span> <span class="o">==</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">id_name</span><span class="p">)))</span><span class="o">.</span><span class="n">first</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">model</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.add_model_template">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.add_model_template">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_model_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_template</span><span class="p">:</span> <span class="n">ModelTemplateDB</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="c1"># check if model template already exists</span>
+        <span class="n">existing_template</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
+            <span class="n">select</span><span class="p">(</span><span class="n">ModelTemplateDB</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ModelTemplateDB</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">model_template</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">existing_template</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model template with name </span><span class="si">{</span><span class="n">model_template</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> already exists. Returning existing id&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">existing_template</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="c1"># add db entry</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding model template: </span><span class="si">{</span><span class="n">model_template</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">model_template</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># return id</span>
+        <span class="k">return</span> <span class="n">model_template</span><span class="o">.</span><span class="n">id</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.add_model_template_from_yaml_config">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.add_model_template_from_yaml_config">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_model_template_from_yaml_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_template_config</span><span class="p">:</span> <span class="n">ModelTemplateConfigV2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the ModelSpecRead a yaml string.</span>
+<span class="sd">        Note that the yaml string is what&#39;s defined in a model template&#39;s MLProject file,</span>
+<span class="sd">        so source_url will have to be added manually.&quot;&quot;&quot;</span>
+        <span class="c1"># TODO: maybe just use add_model_template and make sure to structure it correctly first</span>
+        <span class="c1"># TODO: needs cleanup</span>
+        <span class="c1"># TODO: existing check should probably use name instead of source url</span>
+        <span class="c1"># parse yaml content as dict</span>
+        <span class="n">existing_template</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
+            <span class="n">select</span><span class="p">(</span><span class="n">ModelTemplateDB</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ModelTemplateDB</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">model_template_config</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+
+        <span class="n">d</span> <span class="o">=</span> <span class="n">model_template_config</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;meta_data&quot;</span><span class="p">)</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">d</span> <span class="o">|</span> <span class="n">info</span>
+
+        <span class="k">if</span> <span class="n">existing_template</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model template with name </span><span class="si">{</span><span class="n">model_template_config</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> already exists. Updating it&quot;</span><span class="p">)</span>
+            <span class="c1"># Update the existing template with new data</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">existing_template</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+                    <span class="nb">setattr</span><span class="p">(</span><span class="n">existing_template</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">existing_template</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="c1"># Create new template</span>
+        <span class="n">db_object</span> <span class="o">=</span> <span class="n">ModelTemplateDB</span><span class="p">(</span><span class="o">**</span><span class="n">d</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding model template: </span><span class="si">{</span><span class="n">db_object</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">db_object</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">db_object</span><span class="o">.</span><span class="n">id</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.add_configured_model">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.add_configured_model">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_configured_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_template_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">configuration</span><span class="p">:</span> <span class="n">ModelConfiguration</span><span class="p">,</span>
+        <span class="n">configuration_name</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+        <span class="n">uses_chapkit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="c1"># get model template name</span>
+        <span class="n">model_template</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
+            <span class="n">select</span><span class="p">(</span><span class="n">ModelTemplateDB</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ModelTemplateDB</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">model_template_id</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+        <span class="n">template_name</span> <span class="o">=</span> <span class="n">model_template</span><span class="o">.</span><span class="n">name</span>
+
+        <span class="c1"># set configured name</span>
+        <span class="k">if</span> <span class="n">configuration_name</span> <span class="o">==</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span>
+            <span class="c1"># default configurations just use the name of their model template (for backwards compatibility)</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">template_name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># combine model template with configuration name to make the name unique</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">template_name</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">configuration_name</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="c1"># check if configured model already exists</span>
+        <span class="n">existing_configured</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">))</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">existing_configured</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Configured model with name </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> already exists. Returning existing id&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">existing_configured</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="c1"># create and add db entry</span>
+        <span class="n">configured_model</span> <span class="o">=</span> <span class="n">ConfiguredModelDB</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">model_template_id</span><span class="o">=</span><span class="n">model_template_id</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">configuration</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+            <span class="n">model_template</span><span class="o">=</span><span class="n">model_template</span><span class="p">,</span>
+            <span class="n">uses_chapkit</span><span class="o">=</span><span class="n">uses_chapkit</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">configured_model</span><span class="o">.</span><span class="n">validate_user_options</span><span class="p">(</span><span class="n">configured_model</span><span class="p">)</span>
+        <span class="c1"># configured_model.validate_user_options(model_template)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding configured model: </span><span class="si">{</span><span class="n">configured_model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">configured_model</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># return id</span>
+        <span class="k">return</span> <span class="n">configured_model</span><span class="o">.</span><span class="n">id</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.get_configured_models">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.get_configured_models">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_configured_models</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ModelSpecRead</span><span class="p">]:</span>
+        <span class="c1"># TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?</span>
+
+        <span class="c1"># get configured models from db</span>
+        <span class="c1"># configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)</span>
+        <span class="n">configured_models</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
+            <span class="n">select</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="p">)</span><span class="o">.</span><span class="n">options</span><span class="p">(</span><span class="n">selectinload</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="o">.</span><span class="n">model_template</span><span class="p">))</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+        <span class="c1"># serialize to json and combine configured model with model template</span>
+        <span class="n">configured_models_data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">configured_model</span> <span class="ow">in</span> <span class="n">configured_models</span><span class="p">:</span>
+            <span class="c1"># get configured model and model template json data</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">configured_data</span> <span class="o">=</span> <span class="n">configured_model</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">)</span>
+                <span class="n">template_data</span> <span class="o">=</span> <span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">)</span>
+
+                <span class="c1"># Debug logging for enum handling</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processing configured model </span><span class="si">{</span><span class="n">configured_model</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">configured_model</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Template supported_period_type: </span><span class="si">{</span><span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">supported_period_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Error dumping model data for configured_model id=</span><span class="si">{</span><span class="n">configured_model</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">, name=</span><span class="si">{</span><span class="n">configured_model</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Template id=</span><span class="si">{</span><span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">id</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;None&#39;</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Exception: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Full traceback:&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">raise</span>
+
+            <span class="c1"># add display name for configuration (not stored in db)</span>
+            <span class="c1"># stitch together template displayName with configured name stub</span>
+            <span class="n">template_display_name</span> <span class="o">=</span> <span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">display_name</span>
+            <span class="k">if</span> <span class="s2">&quot;:&quot;</span> <span class="ow">in</span> <span class="n">configured_model</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                <span class="c1"># configured model name is already stitched together as template_name:configuration_name</span>
+                <span class="n">configuration_stub</span> <span class="o">=</span> <span class="n">configured_model</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="c1"># combine model template with configuration name to make the name unique</span>
+                <span class="n">configuration_display_name</span> <span class="o">=</span> <span class="n">configuration_stub</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span>
+                <span class="n">display_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">template_display_name</span><span class="si">}</span><span class="s2"> [</span><span class="si">{</span><span class="n">configuration_display_name</span><span class="si">}</span><span class="s2">]&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># default configurations just use the display name of their model template</span>
+                <span class="n">display_name</span> <span class="o">=</span> <span class="n">template_display_name</span>
+            <span class="n">configured_data</span><span class="p">[</span><span class="s2">&quot;display_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">display_name</span>
+
+            <span class="c1"># merge json data and add to results</span>
+            <span class="c1"># NOTE: the sequence is important, starting with template data and add/overwrite with configured model data</span>
+            <span class="c1"># ...in case of conflicting attrs, eg id and name</span>
+            <span class="n">merged_data</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">template_data</span><span class="p">,</span> <span class="o">**</span><span class="n">configured_data</span><span class="p">}</span>
+            <span class="n">configured_models_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">merged_data</span><span class="p">)</span>
+
+        <span class="c1"># debug</span>
+        <span class="c1"># import json</span>
+        <span class="c1"># for m in configured_models_data:</span>
+        <span class="c1">#    logger.info(&#39;list model data: &#39; + json.dumps(m, indent=4))</span>
+
+        <span class="c1"># temp: convert to ModelSpecRead to preserve existing results</span>
+        <span class="c1"># TODO: remove ModelSpecRead and return directly as ConfiguredModelDB</span>
+        <span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">configured_models_data</span><span class="p">:</span>
+            <span class="c1"># convert single target value to target dict</span>
+            <span class="n">model</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;displayName&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">capitalize</span><span class="p">(),</span>
+                <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">model</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">capitalize</span><span class="p">(),</span>
+            <span class="p">}</span>
+            <span class="c1"># convert list of required covarate strings to list of covariate dicts</span>
+            <span class="n">model</span><span class="p">[</span><span class="s2">&quot;covariates&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">cov</span><span class="p">,</span>
+                    <span class="s2">&quot;displayName&quot;</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">capitalize</span><span class="p">(),</span>
+                    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">capitalize</span><span class="p">(),</span>
+                <span class="p">}</span>
+                <span class="k">for</span> <span class="n">cov</span> <span class="ow">in</span> <span class="n">model</span><span class="p">[</span><span class="s2">&quot;required_covariates&quot;</span><span class="p">]</span>
+            <span class="p">]</span>
+            <span class="c1"># add list of additional covariate strings to list of covariate dicts</span>
+            <span class="c1"># Use .get() with default empty list for backwards compatibility with v1.0.17</span>
+            <span class="c1"># Extract existing covariate names to avoid dict comparison issues</span>
+            <span class="n">existing_cov_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">model</span><span class="p">[</span><span class="s2">&quot;covariates&quot;</span><span class="p">]]</span>
+            <span class="n">model</span><span class="p">[</span><span class="s2">&quot;covariates&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">cov</span><span class="p">,</span>
+                    <span class="s2">&quot;displayName&quot;</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">capitalize</span><span class="p">(),</span>
+                    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">capitalize</span><span class="p">(),</span>
+                <span class="p">}</span>
+                <span class="k">for</span> <span class="n">cov</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;additional_continuous_covariates&quot;</span><span class="p">,</span> <span class="p">[])</span>
+                <span class="k">if</span> <span class="n">cov</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">existing_cov_names</span>
+            <span class="p">]</span>
+            <span class="n">model</span><span class="p">[</span><span class="s2">&quot;archived&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;archived&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="n">model</span><span class="p">[</span><span class="s2">&quot;uses_chapkit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;uses_chapkit&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># for m in configured_models_data:</span>
+        <span class="c1">#    logger.info(&#39;converted list model data: &#39; + json.dumps(m, indent=4))</span>
+        <span class="n">configured_models_read</span> <span class="o">=</span> <span class="p">[</span><span class="n">ModelSpecRead</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">configured_models_data</span><span class="p">]</span>
+        <span class="c1"># for m in configured_models_read:</span>
+        <span class="c1">#    logger.info(&#39;read list model data: &#39; + json.dumps(m.model_dump(mode=&#39;json&#39;), indent=4))</span>
+
+        <span class="c1"># return</span>
+        <span class="k">return</span> <span class="n">configured_models_read</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.get_configured_model_by_name">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.get_configured_model_by_name">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_configured_model_by_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configured_model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfiguredModelDB</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">configured_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
+                <span class="n">select</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">configured_model_name</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">exc</span><span class="o">.</span><span class="n">NoResultFound</span><span class="p">:</span>
+            <span class="n">all_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="o">.</span><span class="n">name</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Configured model with name </span><span class="si">{</span><span class="n">configured_model_name</span><span class="si">}</span><span class="s2"> not found. Available names: </span><span class="si">{</span><span class="n">all_names</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">configured_model</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.get_configured_model_with_code">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.get_configured_model_with_code">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_configured_model_with_code</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">configured_model_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfiguredModel</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Getting configured model with id </span><span class="si">{</span><span class="n">configured_model_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">configured_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="p">,</span> <span class="n">configured_model_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">configured_model</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;naive_model&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">NaiveEstimator</span><span class="p">()</span>
+        <span class="n">template_name</span> <span class="o">=</span> <span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Configured model: </span><span class="si">{</span><span class="n">configured_model</span><span class="si">}</span><span class="s2">, template: </span><span class="si">{</span><span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">ignore_env</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">template_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;chap_ewars&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">template_name</span> <span class="o">==</span> <span class="s2">&quot;ewars_template&quot;</span>
+        <span class="p">)</span>  <span class="c1"># TODO: seems hacky, how to fix?</span>
+
+        <span class="k">if</span> <span class="n">configured_model</span><span class="o">.</span><span class="n">uses_chapkit</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assuming chapkit model at </span><span class="si">{</span><span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">source_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">template</span> <span class="o">=</span> <span class="n">ExternalChapkitModelTemplate</span><span class="p">(</span><span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">source_url</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;template: </span><span class="si">{</span><span class="n">template</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;configured_model: </span><span class="si">{</span><span class="n">configured_model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">template</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="n">configured_model</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assuming github model at </span><span class="si">{</span><span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">source_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">ModelTemplate</span><span class="o">.</span><span class="n">from_directory_or_github_url</span><span class="p">(</span>
+                <span class="n">configured_model</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">source_url</span><span class="p">,</span>
+                <span class="n">ignore_env</span><span class="o">=</span><span class="n">ignore_env</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="n">configured_model</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.get_model_template">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.get_model_template">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_model_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_template_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelTemplateInterface</span><span class="p">:</span>
+        <span class="n">model_template</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ModelTemplateDB</span><span class="p">,</span> <span class="n">model_template_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">model_template</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model template with id </span><span class="si">{</span><span class="n">model_template_id</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">model_template</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.get_backtest_with_truth">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.get_backtest_with_truth">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_backtest_with_truth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">backtest_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BackTest</span><span class="p">:</span>
+        <span class="n">backtest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">BackTest</span><span class="p">,</span> <span class="n">backtest_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">backtest</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Backtest with id </span><span class="si">{</span><span class="n">backtest_id</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">backtest</span><span class="o">.</span><span class="n">dataset</span>
+        <span class="k">if</span> <span class="n">dataset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dataset for backtest with id </span><span class="si">{</span><span class="n">backtest_id</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">)</span>
+        <span class="n">entries</span> <span class="o">=</span> <span class="n">backtest</span><span class="o">.</span><span class="n">forecasts</span>
+        <span class="k">if</span> <span class="n">entries</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">entries</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No forecasts found for backtest with id </span><span class="si">{</span><span class="n">backtest_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.add_evaluation_results">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.add_evaluation_results">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_evaluation_results</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">evaluation_results</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">_DataSet</span><span class="p">[</span><span class="n">SamplesWithTruth</span><span class="p">]],</span>
+        <span class="n">last_train_period</span><span class="p">:</span> <span class="n">TimePeriod</span><span class="p">,</span>
+        <span class="n">info</span><span class="p">:</span> <span class="n">BackTestCreate</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">info</span><span class="o">.</span><span class="n">created</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="c1"># org_units = list({location for ds in evaluation_results for location in ds.locations()})</span>
+        <span class="c1"># split_points = list({er.period_range[0] for er in evaluation_results})</span>
+        <span class="n">model_db</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">info</span><span class="o">.</span><span class="n">model_id</span><span class="p">))</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+        <span class="n">model_db_id</span> <span class="o">=</span> <span class="n">model_db</span><span class="o">.</span><span class="n">id</span>
+
+        <span class="n">backtest</span> <span class="o">=</span> <span class="n">BackTest</span><span class="p">(</span>
+            <span class="o">**</span><span class="n">info</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="o">|</span> <span class="p">{</span><span class="s2">&quot;model_db_id&quot;</span><span class="p">:</span> <span class="n">model_db_id</span><span class="p">,</span> <span class="s2">&quot;model_template_version&quot;</span><span class="p">:</span> <span class="n">model_db</span><span class="o">.</span><span class="n">model_template</span><span class="o">.</span><span class="n">version</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">backtest</span><span class="p">)</span>
+        <span class="n">org_units</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([])</span>
+        <span class="n">split_points</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([])</span>
+        <span class="c1"># define metrics (for each period)</span>
+        <span class="n">evaluation_results</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="n">evaluation_results</span>
+        <span class="p">)</span>  <span class="c1"># hacky, to avoid metric funcs using up the iterable before we can loop all splitpoints</span>
+        <span class="k">for</span> <span class="n">eval_result</span> <span class="ow">in</span> <span class="n">evaluation_results</span><span class="p">:</span>
+            <span class="n">first_period</span><span class="p">:</span> <span class="n">TimePeriod</span> <span class="o">=</span> <span class="n">eval_result</span><span class="o">.</span><span class="n">period_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">split_points</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">first_period</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">location</span><span class="p">,</span> <span class="n">samples_with_truth</span> <span class="ow">in</span> <span class="n">eval_result</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="c1"># NOTE: samples_with_truth is class datatypes.SamplesWithTruth</span>
+                <span class="n">org_units</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">location</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">period</span><span class="p">,</span> <span class="n">sample_values</span><span class="p">,</span> <span class="n">disease_cases</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                    <span class="n">eval_result</span><span class="o">.</span><span class="n">period_range</span><span class="p">,</span> <span class="n">samples_with_truth</span><span class="o">.</span><span class="n">samples</span><span class="p">,</span> <span class="n">samples_with_truth</span><span class="o">.</span><span class="n">disease_cases</span>
+                <span class="p">):</span>
+                    <span class="c1"># add forecast series for this period</span>
+                    <span class="n">forecast</span> <span class="o">=</span> <span class="n">BackTestForecast</span><span class="p">(</span>
+                        <span class="n">period</span><span class="o">=</span><span class="n">period</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="n">org_unit</span><span class="o">=</span><span class="n">location</span><span class="p">,</span>
+                        <span class="n">last_train_period</span><span class="o">=</span><span class="n">last_train_period</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="n">last_seen_period</span><span class="o">=</span><span class="n">first_period</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="n">values</span><span class="o">=</span><span class="n">sample_values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                    <span class="p">)</span>
+                    <span class="n">backtest</span><span class="o">.</span><span class="n">forecasts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+
+        <span class="n">backtest</span><span class="o">.</span><span class="n">org_units</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">org_units</span><span class="p">)</span>
+        <span class="n">backtest</span><span class="o">.</span><span class="n">split_periods</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">split_points</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># read full backtest object so that we can compute aggregate metrics using this object</span>
+        <span class="c1"># note: we don&#39;t do this anymore</span>
+        <span class="c1"># backtest = self.session.get(BackTest, backtest.id)</span>
+        <span class="c1"># aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)</span>
+        <span class="c1"># logger.info(f&quot;aggregate metrics {aggregate_metrics}&quot;)</span>
+        <span class="c1"># backtest.aggregate_metrics = aggregate_metrics</span>
+        <span class="c1"># self.session.commit()</span>
+        <span class="c1"># add more</span>
+        <span class="k">return</span> <span class="n">backtest</span><span class="o">.</span><span class="n">id</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.add_predictions">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.add_predictions">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_predictions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predictions</span><span class="p">,</span> <span class="n">dataset_id</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}):</span>
+        <span class="n">n_periods</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">predictions</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">samples_</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">PredictionSamplesEntry</span><span class="p">(</span><span class="n">period</span><span class="o">=</span><span class="n">period</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">org_unit</span><span class="o">=</span><span class="n">location</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="n">value</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="k">for</span> <span class="n">location</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">predictions</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">period</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">time_period</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">samples</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">org_units</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">predictions</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">model_db_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ConfiguredModelDB</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">model_id</span><span class="p">))</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+
+        <span class="n">prediction</span> <span class="o">=</span> <span class="n">Prediction</span><span class="p">(</span>
+            <span class="n">dataset_id</span><span class="o">=</span><span class="n">dataset_id</span><span class="p">,</span>
+            <span class="n">model_id</span><span class="o">=</span><span class="n">model_id</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">created</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(),</span>
+            <span class="n">n_periods</span><span class="o">=</span><span class="n">n_periods</span><span class="p">,</span>
+            <span class="n">meta_data</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">forecasts</span><span class="o">=</span><span class="n">samples_</span><span class="p">,</span>
+            <span class="n">org_units</span><span class="o">=</span><span class="n">org_units</span><span class="p">,</span>
+            <span class="n">model_db_id</span><span class="o">=</span><span class="n">model_db_id</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">prediction</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">prediction</span><span class="o">.</span><span class="n">id</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.add_dataset_from_csv">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.add_dataset_from_csv">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_dataset_from_csv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">geojson_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">_DataSet</span><span class="o">.</span><span class="n">from_csv</span><span class="p">(</span><span class="n">csv_path</span><span class="p">,</span> <span class="n">dataclass</span><span class="o">=</span><span class="n">FullData</span><span class="p">)</span>
+        <span class="n">geojson_content</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">geojson_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span> <span class="k">if</span> <span class="n">geojson_path</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">geojson_content</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">features</span> <span class="o">=</span> <span class="n">Polygons</span><span class="o">.</span><span class="n">from_geojson</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">geojson_content</span><span class="p">),</span> <span class="n">id_property</span><span class="o">=</span><span class="s2">&quot;NAME_1&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">feature_collection</span><span class="p">()</span>
+            <span class="n">features</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">model_dump_json</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_dataset</span><span class="p">(</span><span class="n">DataSetCreateInfo</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">),</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">features</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.add_dataset">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.add_dataset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_info</span><span class="p">:</span> <span class="n">DataSetCreateInfo</span><span class="p">,</span> <span class="n">orig_dataset</span><span class="p">:</span> <span class="n">_DataSet</span><span class="p">,</span> <span class="n">polygons</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a dataset to the database. The dataset is provided as a spatio-temporal dataclass.</span>
+<span class="sd">        The polygons should be provided as a geojson feature collection.</span>
+<span class="sd">        The dataset_info should contain information about the dataset, such as its name and data sources.</span>
+<span class="sd">        The function sets some derived fields in the dataset_info, such as the first and last time period and the covariates.</span>
+<span class="sd">        The function returns the id of the newly created dataset.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Adding dataset </span><span class="si">{</span><span class="n">dataset_info</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">orig_dataset</span><span class="o">.</span><span class="n">locations</span><span class="p">()))</span><span class="si">}</span><span class="s2"> locations and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">orig_dataset</span><span class="o">.</span><span class="n">period_range</span><span class="p">)</span><span class="si">}</span><span class="s2"> time periods&quot;</span>
+        <span class="p">)</span>
+        <span class="n">field_names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">field</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">fields</span><span class="p">(</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">orig_dataset</span><span class="o">.</span><span class="n">values</span><span class="p">())))</span>
+            <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;time_period&quot;</span><span class="p">,</span> <span class="s2">&quot;location&quot;</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Field names in dataset: </span><span class="si">{</span><span class="n">field_names</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">orig_dataset</span><span class="o">.</span><span class="n">period_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Month</span><span class="p">):</span>
+            <span class="n">period_type</span> <span class="o">=</span> <span class="s2">&quot;month&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">orig_dataset</span><span class="o">.</span><span class="n">period_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">Week</span><span class="p">),</span> <span class="n">orig_dataset</span><span class="o">.</span><span class="n">period_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">period_type</span> <span class="o">=</span> <span class="s2">&quot;week&quot;</span>
+        <span class="n">full_info</span> <span class="o">=</span> <span class="n">DataSetInfo</span><span class="p">(</span>
+            <span class="n">first_period</span><span class="o">=</span><span class="n">orig_dataset</span><span class="o">.</span><span class="n">period_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">last_period</span><span class="o">=</span><span class="n">orig_dataset</span><span class="o">.</span><span class="n">period_range</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">covariates</span><span class="o">=</span><span class="n">field_names</span><span class="p">,</span>
+            <span class="n">created</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(),</span>
+            <span class="n">org_units</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">orig_dataset</span><span class="o">.</span><span class="n">locations</span><span class="p">()),</span>
+            <span class="n">period_type</span><span class="o">=</span><span class="n">period_type</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">dataset_info</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">DataSet</span><span class="p">(</span><span class="n">geojson</span><span class="o">=</span><span class="n">polygons</span><span class="p">,</span> <span class="o">**</span><span class="n">full_info</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span>
+
+        <span class="k">for</span> <span class="n">location</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">orig_dataset</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">field_names</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">field</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">fields</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;time_period&quot;</span><span class="p">,</span> <span class="s2">&quot;location&quot;</span><span class="p">]</span>
+            <span class="p">]</span>
+            <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">field_names</span><span class="p">:</span>
+                    <span class="n">observation</span> <span class="o">=</span> <span class="n">Observation</span><span class="p">(</span>
+                        <span class="n">period</span><span class="o">=</span><span class="n">row</span><span class="o">.</span><span class="n">time_period</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="n">org_unit</span><span class="o">=</span><span class="n">location</span><span class="p">,</span>
+                        <span class="n">value</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">field</span><span class="p">)),</span>
+                        <span class="n">feature_name</span><span class="o">=</span><span class="n">field</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="n">dataset</span><span class="o">.</span><span class="n">observations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">observation</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">Observation</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">Observation</span><span class="o">.</span><span class="n">dataset_id</span> <span class="o">==</span> <span class="n">dataset</span><span class="o">.</span><span class="n">id</span><span class="p">))</span><span class="o">.</span><span class="n">first</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">dataset</span><span class="o">.</span><span class="n">id</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.get_dataset">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.get_dataset">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_id</span><span class="p">,</span> <span class="n">dataclass</span><span class="p">:</span> <span class="nb">type</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_DataSet</span><span class="p">:</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">DataSet</span><span class="p">,</span> <span class="n">dataset_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dataclass</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Getting dataset with covariates: </span><span class="si">{</span><span class="n">dataset</span><span class="o">.</span><span class="n">covariates</span><span class="si">}</span><span class="s2"> and name: </span><span class="si">{</span><span class="n">dataset</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">field_names</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">covariates</span>
+            <span class="n">dataclass</span> <span class="o">=</span> <span class="n">create_tsdataclass</span><span class="p">(</span><span class="n">field_names</span><span class="p">)</span>
+        <span class="n">observations</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">observations</span>
+        <span class="n">new_dataset</span> <span class="o">=</span> <span class="n">observations_to_dataset</span><span class="p">(</span><span class="n">dataclass</span><span class="p">,</span> <span class="n">observations</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_dataset</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.get_dataset_by_name">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.get_dataset_by_name">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_dataset_by_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataSet</span><span class="p">]:</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">DataSet</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">DataSet</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">dataset_name</span><span class="p">))</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">dataset</span></div>
+
+
+<div class="viewcode-block" id="SessionWrapper.add_debug">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.SessionWrapper.add_debug">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_debug</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for debuging&quot;&quot;&quot;</span>
+        <span class="n">debug_entry</span> <span class="o">=</span> <span class="n">DebugEntry</span><span class="p">(</span><span class="n">timestamp</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">debug_entry</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">debug_entry</span><span class="o">.</span><span class="n">id</span></div>
+</div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_alembic_migrations</span><span class="p">(</span><span class="n">engine</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run Alembic migrations programmatically.</span>
+<span class="sd">    This is called after the custom migration system to apply any Alembic-managed schema changes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">alembic</span><span class="w"> </span><span class="kn">import</span> <span class="n">command</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">alembic.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running Alembic migrations&quot;</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Get the path to alembic.ini relative to the project root</span>
+        <span class="n">project_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">alembic_ini_path</span> <span class="o">=</span> <span class="n">project_root</span> <span class="o">/</span> <span class="s2">&quot;alembic.ini&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">alembic_ini_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Alembic config not found at </span><span class="si">{</span><span class="n">alembic_ini_path</span><span class="si">}</span><span class="s2">. Skipping Alembic migrations.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Create Alembic config</span>
+        <span class="n">alembic_cfg</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">alembic_ini_path</span><span class="p">))</span>
+
+        <span class="c1"># Pass the engine connection to Alembic for programmatic usage</span>
+        <span class="k">with</span> <span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+            <span class="n">alembic_cfg</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;connection&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">connection</span>
+            <span class="n">command</span><span class="o">.</span><span class="n">upgrade</span><span class="p">(</span><span class="n">alembic_cfg</span><span class="p">,</span> <span class="s2">&quot;head&quot;</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Completed Alembic migrations successfully&quot;</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during Alembic migrations: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># Don&#39;t raise - allow system to continue if Alembic fails</span>
+        <span class="c1"># This ensures backward compatibility</span>
+
+
+<div class="viewcode-block" id="create_db_and_tables">
+<a class="viewcode-back" href="../../../chap_core.database.html#chap_core.database.database.create_db_and_tables">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_db_and_tables</span><span class="p">():</span>
+    <span class="c1"># TODO: Read config for options on how to create the database migrate/update/seed/seed_and_update</span>
+    <span class="k">if</span> <span class="n">engine</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Engine set. Creating tables&quot;</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">30</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Step 1: Run custom migrations for backward compatibility (v1.0.17, etc.)</span>
+                <span class="n">_run_generic_migration</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+
+                <span class="c1"># Step 2: Create any new tables that don&#39;t exist yet</span>
+                <span class="n">SQLModel</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">create_all</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+
+                <span class="c1"># Step 3: Run Alembic migrations for future schema changes</span>
+                <span class="n">_run_alembic_migrations</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Table created and migrations completed&quot;</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">except</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">exc</span><span class="o">.</span><span class="n">OperationalError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to create tables: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Trying again&quot;</span><span class="p">)</span>
+                <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">20</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">with</span> <span class="n">SessionWrapper</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">.model_template_seed</span><span class="w"> </span><span class="kn">import</span> <span class="n">seed_configured_models_from_config_dir</span>
+
+            <span class="n">seed_configured_models_from_config_dir</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">session</span><span class="p">)</span>
+            <span class="c1"># seed_example_datasets(session)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Engine not set. Tables not created&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_v1_0_17_migrations</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">engine</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Specific migrations needed when upgrading from v1.0.17 to current version.</span>
+<span class="sd">    This handles data type conversions and corrections that the generic migration cannot handle.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running v1.0.17 specific migrations&quot;</span><span class="p">)</span>
+
+    <span class="n">inspector</span> <span class="o">=</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">inspect</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+    <span class="n">existing_tables</span> <span class="o">=</span> <span class="n">inspector</span><span class="o">.</span><span class="n">get_table_names</span><span class="p">()</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Fix: Check if modeltemplatedb table exists and has corrupted data</span>
+        <span class="k">if</span> <span class="s2">&quot;modeltemplatedb&quot;</span> <span class="ow">in</span> <span class="n">existing_tables</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Checking for corrupted PeriodType enum values in modeltemplatedb&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Check if there are any rows with invalid enum values (like &#39;1&#39; instead of &#39;week&#39;, &#39;month&#39;, etc.)</span>
+            <span class="n">check_sql</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                SELECT COUNT(*) as count</span>
+<span class="s2">                FROM modeltemplatedb</span>
+<span class="s2">                WHERE supported_period_type NOT IN (&#39;week&#39;, &#39;month&#39;, &#39;any&#39;, &#39;year&#39;)</span>
+<span class="s2">            &quot;&quot;&quot;</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">check_sql</span><span class="p">))</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">result</span> <span class="ow">and</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> rows with corrupted PeriodType enum values, fixing...&quot;</span><span class="p">)</span>
+
+                <span class="c1"># Map common corrupted values to correct enum values</span>
+                <span class="c1"># If the value is &#39;1&#39;, we&#39;ll default to &#39;any&#39; as it&#39;s the most permissive</span>
+                <span class="n">fix_sql</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    UPDATE modeltemplatedb</span>
+<span class="s2">                    SET supported_period_type = &#39;any&#39;::periodtype</span>
+<span class="s2">                    WHERE supported_period_type NOT IN (&#39;week&#39;, &#39;month&#39;, &#39;any&#39;, &#39;year&#39;)</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">fix_sql</span><span class="p">))</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fixed corrupted PeriodType enum values&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Fix: Ensure JSON columns that should be arrays are arrays, not objects</span>
+        <span class="k">if</span> <span class="s2">&quot;dataset&quot;</span> <span class="ow">in</span> <span class="n">existing_tables</span><span class="p">:</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="p">{</span><span class="n">col</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">inspector</span><span class="o">.</span><span class="n">get_columns</span><span class="p">(</span><span class="s2">&quot;dataset&quot;</span><span class="p">)}</span>
+
+            <span class="c1"># Fix data_sources if it exists and contains objects instead of arrays</span>
+            <span class="k">if</span> <span class="s2">&quot;data_sources&quot;</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fixing data_sources column in dataset table&quot;</span><span class="p">)</span>
+                <span class="n">fix_sql</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    UPDATE dataset</span>
+<span class="s2">                    SET data_sources = &#39;[]&#39;::json</span>
+<span class="s2">                    WHERE data_sources IS NULL OR data_sources::text = &#39;</span><span class="si">{}</span><span class="s2">&#39;</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">fix_sql</span><span class="p">))</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+            <span class="c1"># Fix org_units if it exists and contains objects instead of arrays</span>
+            <span class="k">if</span> <span class="s2">&quot;org_units&quot;</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fixing org_units column in dataset table&quot;</span><span class="p">)</span>
+                <span class="n">fix_sql</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    UPDATE dataset</span>
+<span class="s2">                    SET org_units = &#39;[]&#39;::json</span>
+<span class="s2">                    WHERE org_units IS NULL OR org_units::text = &#39;</span><span class="si">{}</span><span class="s2">&#39;</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">fix_sql</span><span class="p">))</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+            <span class="c1"># Fix covariates if it contains objects instead of arrays</span>
+            <span class="k">if</span> <span class="s2">&quot;covariates&quot;</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fixing covariates column in dataset table&quot;</span><span class="p">)</span>
+                <span class="n">fix_sql</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    UPDATE dataset</span>
+<span class="s2">                    SET covariates = &#39;[]&#39;::json</span>
+<span class="s2">                    WHERE covariates IS NULL OR covariates::text = &#39;</span><span class="si">{}</span><span class="s2">&#39;</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">fix_sql</span><span class="p">))</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># Fix backtest table JSON columns</span>
+        <span class="k">if</span> <span class="s2">&quot;backtest&quot;</span> <span class="ow">in</span> <span class="n">existing_tables</span><span class="p">:</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="p">{</span><span class="n">col</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">inspector</span><span class="o">.</span><span class="n">get_columns</span><span class="p">(</span><span class="s2">&quot;backtest&quot;</span><span class="p">)}</span>
+
+            <span class="k">if</span> <span class="s2">&quot;org_units&quot;</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fixing org_units column in backtest table&quot;</span><span class="p">)</span>
+                <span class="n">fix_sql</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    UPDATE backtest</span>
+<span class="s2">                    SET org_units = &#39;[]&#39;::json</span>
+<span class="s2">                    WHERE org_units IS NULL OR org_units::text = &#39;</span><span class="si">{}</span><span class="s2">&#39;</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">fix_sql</span><span class="p">))</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="s2">&quot;split_periods&quot;</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fixing split_periods column in backtest table&quot;</span><span class="p">)</span>
+                <span class="n">fix_sql</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    UPDATE backtest</span>
+<span class="s2">                    SET split_periods = &#39;[]&#39;::json</span>
+<span class="s2">                    WHERE split_periods IS NULL OR split_periods::text = &#39;</span><span class="si">{}</span><span class="s2">&#39;</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">fix_sql</span><span class="p">))</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="c1"># Fix configuredmodeldb table JSON columns</span>
+        <span class="k">if</span> <span class="s2">&quot;configuredmodeldb&quot;</span> <span class="ow">in</span> <span class="n">existing_tables</span><span class="p">:</span>
+            <span class="n">columns</span> <span class="o">=</span> <span class="p">{</span><span class="n">col</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">inspector</span><span class="o">.</span><span class="n">get_columns</span><span class="p">(</span><span class="s2">&quot;configuredmodeldb&quot;</span><span class="p">)}</span>
+
+            <span class="k">if</span> <span class="s2">&quot;user_option_values&quot;</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fixing user_option_values column in configuredmodeldb table&quot;</span><span class="p">)</span>
+                <span class="c1"># This one should actually be an object {}, not an array</span>
+                <span class="n">fix_sql</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    UPDATE configuredmodeldb</span>
+<span class="s2">                    SET user_option_values = &#39;</span><span class="si">{}</span><span class="s2">&#39;::json</span>
+<span class="s2">                    WHERE user_option_values IS NULL</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">fix_sql</span><span class="p">))</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="s2">&quot;additional_continuous_covariates&quot;</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Fixing additional_continuous_covariates column in configuredmodeldb table&quot;</span><span class="p">)</span>
+                <span class="n">fix_sql</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                    UPDATE configuredmodeldb</span>
+<span class="s2">                    SET additional_continuous_covariates = &#39;[]&#39;::json</span>
+<span class="s2">                    WHERE additional_continuous_covariates IS NULL OR additional_continuous_covariates::text = &#39;</span><span class="si">{}</span><span class="s2">&#39;</span>
+<span class="s2">                &quot;&quot;&quot;</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">fix_sql</span><span class="p">))</span>
+                <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Completed v1.0.17 specific migrations successfully&quot;</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during v1.0.17 migrations: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">conn</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+        <span class="k">raise</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_generic_migration</span><span class="p">(</span><span class="n">engine</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generic migration function that adds missing columns to existing tables</span>
+<span class="sd">    and sets default values for new columns in existing records.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running generic migration for missing columns&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+        <span class="c1"># Run v1.0.17 specific migrations first</span>
+        <span class="c1"># _run_v1_0_17_migrations(conn, engine)</span>
+
+        <span class="c1"># Get current database schema</span>
+        <span class="n">inspector</span> <span class="o">=</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">inspect</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+        <span class="n">existing_tables</span> <span class="o">=</span> <span class="n">inspector</span><span class="o">.</span><span class="n">get_table_names</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">table</span> <span class="ow">in</span> <span class="n">SQLModel</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">tables</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">table_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">existing_tables</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Table </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2"> doesn&#39;t exist yet, will be created&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Get existing columns in the database</span>
+            <span class="n">existing_columns</span> <span class="o">=</span> <span class="p">{</span><span class="n">col</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">inspector</span><span class="o">.</span><span class="n">get_columns</span><span class="p">(</span><span class="n">table_name</span><span class="p">)}</span>
+
+            <span class="c1"># Check for missing columns</span>
+            <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">table</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">column</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">existing_columns</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adding missing column </span><span class="si">{</span><span class="n">column</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> to table </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                    <span class="c1"># Add the column</span>
+                    <span class="n">column_type</span> <span class="o">=</span> <span class="n">column</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">dialect</span><span class="o">=</span><span class="n">engine</span><span class="o">.</span><span class="n">dialect</span><span class="p">)</span>
+                    <span class="n">add_column_sql</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;ALTER TABLE </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2"> ADD COLUMN </span><span class="si">{</span><span class="n">column</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">column_type</span><span class="si">}</span><span class="s2">&quot;</span>
+
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">add_column_sql</span><span class="p">))</span>
+
+                        <span class="c1"># Set default value based on column type and properties</span>
+                        <span class="n">default_value</span> <span class="o">=</span> <span class="n">_get_column_default_value</span><span class="p">(</span><span class="n">column</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">default_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">update_sql</span> <span class="o">=</span> <span class="p">(</span>
+                                <span class="sa">f</span><span class="s2">&quot;UPDATE </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2"> SET </span><span class="si">{</span><span class="n">column</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> = :default_val WHERE </span><span class="si">{</span><span class="n">column</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> IS NULL&quot;</span>
+                            <span class="p">)</span>
+                            <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sqlalchemy</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">update_sql</span><span class="p">),</span> <span class="p">{</span><span class="s2">&quot;default_val&quot;</span><span class="p">:</span> <span class="n">default_value</span><span class="p">})</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Set default value for </span><span class="si">{</span><span class="n">column</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> in existing records&quot;</span><span class="p">)</span>
+
+                        <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Successfully added column </span><span class="si">{</span><span class="n">column</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to add column </span><span class="si">{</span><span class="n">column</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="n">conn</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_column_default_value</span><span class="p">(</span><span class="n">column</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Determine appropriate default value for a column based on its type and properties.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Check if column has a default value defined</span>
+    <span class="k">if</span> <span class="n">column</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">column</span><span class="o">.</span><span class="n">default</span><span class="p">,</span> <span class="s2">&quot;arg&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">column</span><span class="o">.</span><span class="n">default</span><span class="o">.</span><span class="n">arg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Check if it&#39;s a factory function (like list or dict)</span>
+            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">column</span><span class="o">.</span><span class="n">default</span><span class="o">.</span><span class="n">arg</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">column</span><span class="o">.</span><span class="n">default</span><span class="o">.</span><span class="n">arg</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                        <span class="k">return</span> <span class="s2">&quot;[]&quot;</span>
+                    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+            <span class="k">return</span> <span class="n">column</span><span class="o">.</span><span class="n">default</span><span class="o">.</span><span class="n">arg</span>
+
+    <span class="c1"># Check column type and provide appropriate defaults</span>
+    <span class="n">column_type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">column</span><span class="o">.</span><span class="n">type</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="s2">&quot;json&quot;</span> <span class="ow">in</span> <span class="n">column_type</span> <span class="ow">or</span> <span class="s2">&quot;pydanticlisttype&quot;</span> <span class="ow">in</span> <span class="n">column_type</span><span class="p">:</span>
+        <span class="c1"># For JSON columns, only default to [] if there&#39;s a default_factory set</span>
+        <span class="c1"># If there&#39;s no explicit default, use NULL (safer for Optional[dict] fields)</span>
+        <span class="c1"># Most list JSON columns have default_factory=list which is handled above</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">elif</span> <span class="s2">&quot;varchar&quot;</span> <span class="ow">in</span> <span class="n">column_type</span> <span class="ow">or</span> <span class="s2">&quot;text&quot;</span> <span class="ow">in</span> <span class="n">column_type</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>  <span class="c1"># Empty string for text columns</span>
+    <span class="k">elif</span> <span class="s2">&quot;integer&quot;</span> <span class="ow">in</span> <span class="n">column_type</span> <span class="ow">or</span> <span class="s2">&quot;numeric&quot;</span> <span class="ow">in</span> <span class="n">column_type</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>  <span class="c1"># Zero for numeric columns</span>
+    <span class="k">elif</span> <span class="s2">&quot;boolean&quot;</span> <span class="ow">in</span> <span class="n">column_type</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># False for boolean columns</span>
+    <span class="k">elif</span> <span class="s2">&quot;timestamp&quot;</span> <span class="ow">in</span> <span class="n">column_type</span> <span class="ow">or</span> <span class="s2">&quot;datetime&quot;</span> <span class="ow">in</span> <span class="n">column_type</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># Let NULL remain for timestamps</span>
+
+    <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># Default to NULL for unknown types</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; CHAP
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../_static/documentation_options.js?v=58fbf978"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

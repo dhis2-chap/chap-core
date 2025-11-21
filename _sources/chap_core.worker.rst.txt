@@ -1,0 +1,37 @@
+chap\_core.worker package
+=========================
+
+Submodules
+----------
+
+chap\_core.worker.background\_tasks\_worker module
+--------------------------------------------------
+
+.. automodule:: chap_core.worker.background_tasks_worker
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.worker.interface module
+----------------------------------
+
+.. automodule:: chap_core.worker.interface
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.worker.rq\_worker module
+-----------------------------------
+
+.. automodule:: chap_core.worker.rq_worker
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.worker
+   :members:
+   :show-inheritance:
+   :undoc-members:

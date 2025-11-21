@@ -1,0 +1,93 @@
+chap\_core.models package
+=========================
+
+Submodules
+----------
+
+chap\_core.models.chapkit\_rest\_api\_wrapper module
+----------------------------------------------------
+
+.. automodule:: chap_core.models.chapkit_rest_api_wrapper
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.models.configured\_model module
+------------------------------------------
+
+.. automodule:: chap_core.models.configured_model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.models.external\_chapkit\_model module
+-------------------------------------------------
+
+.. automodule:: chap_core.models.external_chapkit_model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.models.external\_model module
+----------------------------------------
+
+.. automodule:: chap_core.models.external_model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.models.external\_web\_model module
+---------------------------------------------
+
+.. automodule:: chap_core.models.external_web_model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.models.local\_configuration module
+---------------------------------------------
+
+.. automodule:: chap_core.models.local_configuration
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.models.model\_rest\_api\_wrapper module
+--------------------------------------------------
+
+.. automodule:: chap_core.models.model_rest_api_wrapper
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.models.model\_template module
+----------------------------------------
+
+.. automodule:: chap_core.models.model_template
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.models.model\_template\_interface module
+---------------------------------------------------
+
+.. automodule:: chap_core.models.model_template_interface
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.models.utils module
+------------------------------
+
+.. automodule:: chap_core.models.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.models
+   :members:
+   :show-inheritance:
+   :undoc-members:

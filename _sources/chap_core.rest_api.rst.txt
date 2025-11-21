@@ -1,0 +1,53 @@
+chap\_core.rest\_api package
+============================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   chap_core.rest_api.v1
+
+Submodules
+----------
+
+chap\_core.rest\_api.celery\_tasks module
+-----------------------------------------
+
+.. automodule:: chap_core.rest_api.celery_tasks
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.rest\_api.data\_models module
+----------------------------------------
+
+.. automodule:: chap_core.rest_api.data_models
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.rest\_api.db\_worker\_functions module
+-------------------------------------------------
+
+.. automodule:: chap_core.rest_api.db_worker_functions
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.rest\_api.worker\_functions module
+---------------------------------------------
+
+.. automodule:: chap_core.rest_api.worker_functions
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.rest_api
+   :members:
+   :show-inheritance:
+   :undoc-members:

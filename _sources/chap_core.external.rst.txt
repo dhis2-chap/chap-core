@@ -1,0 +1,85 @@
+chap\_core.external package
+===========================
+
+Submodules
+----------
+
+chap\_core.external.external\_model module
+------------------------------------------
+
+.. automodule:: chap_core.external.external_model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.external.github module
+---------------------------------
+
+.. automodule:: chap_core.external.github
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.external.mlflow\_wrappers module
+-------------------------------------------
+
+.. automodule:: chap_core.external.mlflow_wrappers
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.external.model\_configuration module
+-----------------------------------------------
+
+.. automodule:: chap_core.external.model_configuration
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.external.python\_model module
+----------------------------------------
+
+.. automodule:: chap_core.external.python_model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.external.r\_description module
+-----------------------------------------
+
+.. automodule:: chap_core.external.r_description
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.external.r\_model module
+-----------------------------------
+
+.. automodule:: chap_core.external.r_model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.external.r\_models module
+------------------------------------
+
+.. automodule:: chap_core.external.r_models
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.external.uv\_wrapper module
+--------------------------------------
+
+.. automodule:: chap_core.external.uv_wrapper
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.external
+   :members:
+   :show-inheritance:
+   :undoc-members:

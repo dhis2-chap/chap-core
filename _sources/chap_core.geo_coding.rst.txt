@@ -1,0 +1,10 @@
+chap\_core.geo\_coding package
+==============================
+
+Module contents
+---------------
+
+.. automodule:: chap_core.geo_coding
+   :members:
+   :show-inheritance:
+   :undoc-members:

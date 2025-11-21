@@ -1,0 +1,69 @@
+chap\_core.predictor package
+============================
+
+Submodules
+----------
+
+chap\_core.predictor.feature\_spec module
+-----------------------------------------
+
+.. automodule:: chap_core.predictor.feature_spec
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.predictor.model\_registry module
+-------------------------------------------
+
+.. automodule:: chap_core.predictor.model_registry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.predictor.naive\_estimator module
+--------------------------------------------
+
+.. automodule:: chap_core.predictor.naive_estimator
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.predictor.naive\_predictor module
+--------------------------------------------
+
+.. automodule:: chap_core.predictor.naive_predictor
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.predictor.poisson module
+-----------------------------------
+
+.. automodule:: chap_core.predictor.poisson
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.predictor.protocol module
+------------------------------------
+
+.. automodule:: chap_core.predictor.protocol
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.predictor.published\_models module
+---------------------------------------------
+
+.. automodule:: chap_core.predictor.published_models
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.predictor
+   :members:
+   :show-inheritance:
+   :undoc-members:

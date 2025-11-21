@@ -1,0 +1,93 @@
+chap\_core.assessment package
+=============================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   chap_core.assessment.metrics
+
+Submodules
+----------
+
+chap\_core.assessment.data\_representation\_transforming module
+---------------------------------------------------------------
+
+.. automodule:: chap_core.assessment.data_representation_transforming
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.dataset\_splitting module
+-----------------------------------------------
+
+.. automodule:: chap_core.assessment.dataset_splitting
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.evaluator module
+--------------------------------------
+
+.. automodule:: chap_core.assessment.evaluator
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.evaluator\_suites module
+----------------------------------------------
+
+.. automodule:: chap_core.assessment.evaluator_suites
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.flat\_representations module
+--------------------------------------------------
+
+.. automodule:: chap_core.assessment.flat_representations
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.forecast module
+-------------------------------------
+
+.. automodule:: chap_core.assessment.forecast
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.metric\_table module
+------------------------------------------
+
+.. automodule:: chap_core.assessment.metric_table
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.prediction\_evaluator module
+--------------------------------------------------
+
+.. automodule:: chap_core.assessment.prediction_evaluator
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.assessment.representations module
+--------------------------------------------
+
+.. automodule:: chap_core.assessment.representations
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.assessment
+   :members:
+   :show-inheritance:
+   :undoc-members:

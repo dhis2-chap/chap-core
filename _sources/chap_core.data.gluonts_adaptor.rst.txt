@@ -1,0 +1,21 @@
+chap\_core.data.gluonts\_adaptor package
+========================================
+
+Submodules
+----------
+
+chap\_core.data.gluonts\_adaptor.dataset module
+-----------------------------------------------
+
+.. automodule:: chap_core.data.gluonts_adaptor.dataset
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.data.gluonts_adaptor
+   :members:
+   :show-inheritance:
+   :undoc-members:

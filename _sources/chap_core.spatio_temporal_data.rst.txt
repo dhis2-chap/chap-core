@@ -1,0 +1,37 @@
+chap\_core.spatio\_temporal\_data package
+=========================================
+
+Submodules
+----------
+
+chap\_core.spatio\_temporal\_data.converters module
+---------------------------------------------------
+
+.. automodule:: chap_core.spatio_temporal_data.converters
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.spatio\_temporal\_data.multi\_country\_dataset module
+----------------------------------------------------------------
+
+.. automodule:: chap_core.spatio_temporal_data.multi_country_dataset
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.spatio\_temporal\_data.temporal\_dataclass module
+------------------------------------------------------------
+
+.. automodule:: chap_core.spatio_temporal_data.temporal_dataclass
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.spatio_temporal_data
+   :members:
+   :show-inheritance:
+   :undoc-members:

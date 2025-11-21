@@ -1,0 +1,37 @@
+chap\_core.rest\_api.v1 package
+===============================
+
+Submodules
+----------
+
+chap\_core.rest\_api.v1.debug module
+------------------------------------
+
+.. automodule:: chap_core.rest_api.v1.debug
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.rest\_api.v1.jobs module
+-----------------------------------
+
+.. automodule:: chap_core.rest_api.v1.jobs
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.rest\_api.v1.rest\_api module
+----------------------------------------
+
+.. automodule:: chap_core.rest_api.v1.rest_api
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.rest_api.v1
+   :members:
+   :show-inheritance:
+   :undoc-members:

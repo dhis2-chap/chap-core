@@ -1,0 +1,93 @@
+chap\_core.database package
+===========================
+
+Submodules
+----------
+
+chap\_core.database.base\_tables module
+---------------------------------------
+
+.. automodule:: chap_core.database.base_tables
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.database.database module
+-----------------------------------
+
+.. automodule:: chap_core.database.database
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.database.dataset\_tables module
+------------------------------------------
+
+.. automodule:: chap_core.database.dataset_tables
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.database.datasets\_seed module
+-----------------------------------------
+
+.. automodule:: chap_core.database.datasets_seed
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.database.debug module
+--------------------------------
+
+.. automodule:: chap_core.database.debug
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.database.feature\_tables module
+------------------------------------------
+
+.. automodule:: chap_core.database.feature_tables
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.database.model\_spec\_tables module
+----------------------------------------------
+
+.. automodule:: chap_core.database.model_spec_tables
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.database.model\_template\_seed module
+------------------------------------------------
+
+.. automodule:: chap_core.database.model_template_seed
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.database.model\_templates\_and\_config\_tables module
+----------------------------------------------------------------
+
+.. automodule:: chap_core.database.model_templates_and_config_tables
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.database.tables module
+---------------------------------
+
+.. automodule:: chap_core.database.tables
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.database
+   :members:
+   :show-inheritance:
+   :undoc-members:

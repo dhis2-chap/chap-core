@@ -1,0 +1,7 @@
+chap_core
+=========
+
+.. toctree::
+   :maxdepth: 4
+
+   chap_core

@@ -1,0 +1,61 @@
+chap\_core.hpo package
+======================
+
+Submodules
+----------
+
+chap\_core.hpo.base module
+--------------------------
+
+.. automodule:: chap_core.hpo.base
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.hpo.cli module
+-------------------------
+
+.. automodule:: chap_core.hpo.cli
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.hpo.hpoModel module
+------------------------------
+
+.. automodule:: chap_core.hpo.hpoModel
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.hpo.hpoModelInterface module
+---------------------------------------
+
+.. automodule:: chap_core.hpo.hpoModelInterface
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.hpo.objective module
+-------------------------------
+
+.. automodule:: chap_core.hpo.objective
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.hpo.searcher module
+------------------------------
+
+.. automodule:: chap_core.hpo.searcher
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.hpo
+   :members:
+   :show-inheritance:
+   :undoc-members:

@@ -1,0 +1,29 @@
+chap\_core.simulation package
+=============================
+
+Submodules
+----------
+
+chap\_core.simulation.naive\_simulator module
+---------------------------------------------
+
+.. automodule:: chap_core.simulation.naive_simulator
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.simulation.simulator module
+--------------------------------------
+
+.. automodule:: chap_core.simulation.simulator
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.simulation
+   :members:
+   :show-inheritance:
+   :undoc-members:
