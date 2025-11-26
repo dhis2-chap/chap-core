@@ -205,7 +205,7 @@ class PredictionCreate(DBModel):
 @router.get("/predictions", response_model=list[PredictionInfo])
 async def get_predictions(session: Session = Depends(get_session)):
     session_wrapper = SessionWrapper(session=session)
-    return session_wrapper.list_all(Prediction)
+    return [prediction for prediction in session_wrapper.list_all(Prediction) if prediction.configured_model is not None]
 
 
 @router.get("/predictions/{predictionId}", response_model=PredictionInfo)
