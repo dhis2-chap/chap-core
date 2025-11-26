@@ -6,9 +6,14 @@ evaluation results, enabling better code reuse between REST API and CLI workflow
 """
 
 import datetime
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional, Iterable
+from pathlib import Path
+from typing import List, Optional, Iterable, Union
+import numpy as np
+import pandas as pd
+import xarray as xr
 from chap_core.data import DataSet as _DataSet
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
