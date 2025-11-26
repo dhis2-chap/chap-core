@@ -8,7 +8,7 @@ evaluation results, enabling better code reuse between REST API and CLI workflow
 import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Iterable
+from typing import List, Optional, Iterable
 from chap_core.data import DataSet as _DataSet
 from chap_core.assessment.flat_representations import (
     FlatForecasts,

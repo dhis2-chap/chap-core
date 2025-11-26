@@ -217,7 +217,7 @@ def evaluate(
                 dataset,
                 prediction_length=prediction_length,
                 n_test_sets=n_splits,
-                report_filename=report_filename
+                report_filename=report_filename,
             )
         except NoPredictionsError as e:
             logger.error(f"No predictions were made: {e}")
@@ -229,8 +229,13 @@ def evaluate(
     return results_dict
 
 
-def _get_model(configuration: str, ignore_environment: bool, is_chapkit_model: bool, name,
-               run_directory_type: Literal["latest", "timestamp", "use_existing"] | None) -> Any:
+def _get_model(
+    configuration: str,
+    ignore_environment: bool,
+    is_chapkit_model: bool,
+    name,
+    run_directory_type: Literal["latest", "timestamp", "use_existing"] | None,
+) -> Any:
     template = ModelTemplate.from_directory_or_github_url(
         name,
         base_working_dir=Path("./runs/"),
@@ -299,8 +304,13 @@ def _create_model_lists(model_configuration_yaml: str | None, model_name) -> tup
     return model_configuration_yaml_list, model_list
 
 
-def _load_dataset(dataset_country: str | None, dataset_csv: Path | None, dataset_name: Any | None,
-                  polygons_id_field: str | None, polygons_json: Path | None) -> DataSet:
+def _load_dataset(
+    dataset_country: str | None,
+    dataset_csv: Path | None,
+    dataset_name: Any | None,
+    polygons_id_field: str | None,
+    polygons_json: Path | None,
+) -> DataSet:
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
         logging.info(f"Loading dataset from {dataset_csv}")
