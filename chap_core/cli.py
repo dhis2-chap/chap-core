@@ -33,7 +33,7 @@ from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core import api
+from chap_core import api, get_temp_dir
 from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
 
@@ -62,7 +62,7 @@ def evaluate_hpo(
     polygons_id_field: Optional[str] = "id",
     prediction_length: int = 3,
     n_splits: int = 7,
-    report_filename: Optional[str] = "report.pdf",
+    report_filename: Optional[str] = str(get_temp_dir() / "report.pdf"),
     ignore_environment: bool = False,
     debug: bool = False,
     log_file: Optional[str] = None,
@@ -195,7 +195,7 @@ def evaluate(
     polygons_id_field: Optional[str] = "id",
     prediction_length: int = 6,
     n_splits: int = 7,
-    report_filename: Optional[str] = "report.pdf",
+    report_filename: Optional[str] = str(get_temp_dir() / "report.pdf"),
     ignore_environment: bool = False,
     debug: bool = False,
     log_file: Optional[str] = None,
