@@ -240,7 +240,7 @@ def evaluate2(
     dataset_country: Optional[str] = None,
     polygons_json: Optional[Path] = None,
     polygons_id_field: str = "id",
-    prediction_length: int = 6,
+    prediction_length: int = 3,
     n_splits: int = 7,
     stride: int = 1,
     ignore_environment: bool = False,

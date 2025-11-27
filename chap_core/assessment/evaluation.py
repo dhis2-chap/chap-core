@@ -11,7 +11,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Iterable, Union
+
+import numpy as np
+import pandas as pd
 import xarray as xr
+
 from chap_core.data import DataSet as _DataSet
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
@@ -40,10 +44,10 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
         model_metadata: Dictionary with model information (name, configuration, version)
 
     Returns:
-        xarray.Dataset with dimensions (location, time_period, horizon_distance)
+        xarray.Dataset with dimensions (location, time_period, horizon_distance, sample)
     """
-    forecasts_df = flat_data.forecasts._df.copy()
-    observations_df = flat_data.observations._df.copy()
+    forecasts_df = pd.DataFrame(flat_data.forecasts).copy()
+    observations_df = pd.DataFrame(flat_data.observations).copy()
 
     # Set multi-index for forecasts: location, time_period, horizon_distance, sample
     forecasts_indexed = forecasts_df.set_index(["location", "time_period", "horizon_distance", "sample"])
@@ -55,17 +59,11 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
     observations_indexed = observations_df.set_index(["location", "time_period"])
     observed_da = observations_indexed["disease_cases"].to_xarray()
 
-    # Create horizon_distance coordinate from forecasts (take first sample since it's the same for all samples)
-    horizon_df = forecasts_df[["location", "time_period", "horizon_distance"]].drop_duplicates()
-    horizon_indexed = horizon_df.set_index(["location", "time_period"])
-    horizon_da = horizon_indexed["horizon_distance"].to_xarray()
-
     # Combine into a single dataset
     ds = xr.Dataset(
         {
             "forecast": forecast_da,
             "observed": observed_da,
-            "horizon_distance": horizon_da,
         }
     )
 
@@ -91,7 +89,7 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> "FlatEvaluationData":
     Convert xarray.Dataset back to FlatEvaluationData.
 
     Args:
-        ds: xarray.Dataset with forecast, observed, and horizon_distance variables
+        ds: xarray.Dataset with forecast and observed variables
 
     Returns:
         FlatEvaluationData with reconstructed forecasts and observations
@@ -100,17 +98,22 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> "FlatEvaluationData":
     forecasts_df = ds["forecast"].to_dataframe().reset_index()
 
     # Convert observed DataArray to DataFrame
+    # The DataArray name is 'observed' but we need it as 'disease_cases' for FlatObserved
     observations_df = ds["observed"].to_dataframe().reset_index()
-
-    # Get horizon_distance and merge with forecasts
-    horizon_df = ds["horizon_distance"].to_dataframe().reset_index()
-    forecasts_df = forecasts_df.merge(horizon_df, on=["location", "time_period"], how="left")
+    if "observed" in observations_df.columns:
+        observations_df = observations_df.rename(columns={"observed": "disease_cases"})
 
     # Drop NaN forecasts (missing data)
     forecasts_df = forecasts_df.dropna(subset=["forecast"])
 
     # Drop NaN observations
     observations_df = observations_df.dropna(subset=["disease_cases"])
+
+    # Convert horizon_distance and sample to int64 (NetCDF may have stored as int32)
+    if "horizon_distance" in forecasts_df.columns:
+        forecasts_df["horizon_distance"] = forecasts_df["horizon_distance"].astype(np.int64)
+    if "sample" in forecasts_df.columns:
+        forecasts_df["sample"] = forecasts_df["sample"].astype(np.int64)
 
     return FlatEvaluationData(
         forecasts=FlatForecasts(forecasts_df),
@@ -378,7 +381,7 @@ class Evaluation(EvaluationBase):
             forecasts=[],
         )
 
-        forecasts_df = flat_data.forecasts._df
+        forecasts_df = pd.DataFrame(flat_data.forecasts)
         for _, row in forecasts_df.iterrows():
             forecast = BackTestForecast(
                 period=row["time_period"],
