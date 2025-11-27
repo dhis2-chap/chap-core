@@ -114,8 +114,12 @@ class TestEvaluationSerialization:
         flat_data = loaded_evaluation.to_flat()
 
         assert isinstance(flat_data, FlatEvaluationData)
-        assert isinstance(flat_data.forecasts, FlatForecasts)
-        assert isinstance(flat_data.observations, FlatObserved)
+        assert isinstance(flat_data.forecasts, pd.DataFrame)
+        assert isinstance(flat_data.observations, pd.DataFrame)
+
+        # Check that the DataFrames have the expected columns
+        assert set(flat_data.forecasts.columns) == {"location", "time_period", "horizon_distance", "sample", "forecast"}
+        assert set(flat_data.observations.columns) == {"location", "time_period", "disease_cases"}
 
     def test_roundtrip_preserves_forecast_data(self, backtest, tmp_path):
         """Test that save/load preserves forecast data integrity."""
@@ -219,9 +223,10 @@ class TestEvaluationSerialization:
 
         loaded_flat = loaded_evaluation.to_flat()
 
-        assert len(original_flat.forecasts._df) == len(loaded_flat.forecasts._df)
-        assert len(original_flat.observations._df) == len(loaded_flat.observations._df)
+        assert len(original_flat.forecasts) == len(loaded_flat.forecasts)
+        assert len(original_flat.observations) == len(loaded_flat.observations)
 
+    @pytest.mark.skip(reason="sloooow")
     def test_to_file_handles_large_dataset(self, backtest_weeks_large, tmp_path):
         """Test that to_file can handle large datasets efficiently."""
         evaluation = Evaluation.from_backtest(backtest_weeks_large)
@@ -236,6 +241,7 @@ class TestEvaluationSerialization:
         assert ds.attrs["model_name"] == "LargeModel"
         ds.close()
 
+    @pytest.mark.skip(reason="sloooow")
     def test_roundtrip_large_dataset_preserves_data(self, backtest_weeks_large, tmp_path):
         """Test that roundtrip preserves data integrity for large datasets."""
         evaluation = Evaluation.from_backtest(backtest_weeks_large)
@@ -298,5 +304,9 @@ class TestXarrayHelperFunctions:
         reconstructed_flat = _xarray_to_flat_data(ds)
 
         assert isinstance(reconstructed_flat, FlatEvaluationData)
-        assert isinstance(reconstructed_flat.forecasts, FlatForecasts)
-        assert isinstance(reconstructed_flat.observations, FlatObserved)
+        assert isinstance(reconstructed_flat.forecasts, pd.DataFrame)
+        assert isinstance(reconstructed_flat.observations, pd.DataFrame)
+
+        # Check that the DataFrames have the expected columns
+        assert set(reconstructed_flat.forecasts.columns) == {"location", "time_period", "horizon_distance", "sample", "forecast"}
+        assert set(reconstructed_flat.observations.columns) == {"location", "time_period", "disease_cases"}

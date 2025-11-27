@@ -408,4 +408,6 @@ class Evaluation(EvaluationBase):
 
         ds.close()
 
-        return cls.from_backtest(backtest)
+        evaluation = cls.from_backtest(backtest)
+        evaluation._flat_data_cache = flat_data
+        return evaluation
