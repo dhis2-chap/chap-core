@@ -11,8 +11,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Iterable, Union
-import numpy as np
-import pandas as pd
 import xarray as xr
 from chap_core.data import DataSet as _DataSet
 from chap_core.assessment.flat_representations import (
@@ -26,6 +24,98 @@ from chap_core.datatypes import SamplesWithTruth
 from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.time_period import TimePeriod
 from chap_core.database.tables import BackTest, BackTestForecast
+
+try:
+    from chap_core import __version__ as CHAP_VERSION
+except ImportError:
+    CHAP_VERSION = "unknown"
+
+
+def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) -> xr.Dataset:
+    """
+    Convert FlatEvaluationData to xarray.Dataset.
+
+    Args:
+        flat_data: FlatEvaluationData containing forecasts and observations
+        model_metadata: Dictionary with model information (name, configuration, version)
+
+    Returns:
+        xarray.Dataset with dimensions (location, time_period, horizon_distance)
+    """
+    forecasts_df = flat_data.forecasts._df.copy()
+    observations_df = flat_data.observations._df.copy()
+
+    # Set multi-index for forecasts: location, time_period, horizon_distance, sample
+    forecasts_indexed = forecasts_df.set_index(["location", "time_period", "horizon_distance", "sample"])
+
+    # Convert to xarray - this creates a DataArray with the index levels as dimensions
+    forecast_da = forecasts_indexed["forecast"].to_xarray()
+
+    # Set multi-index for observations: location, time_period
+    observations_indexed = observations_df.set_index(["location", "time_period"])
+    observed_da = observations_indexed["disease_cases"].to_xarray()
+
+    # Create horizon_distance coordinate from forecasts (take first sample since it's the same for all samples)
+    horizon_df = forecasts_df[["location", "time_period", "horizon_distance"]].drop_duplicates()
+    horizon_indexed = horizon_df.set_index(["location", "time_period"])
+    horizon_da = horizon_indexed["horizon_distance"].to_xarray()
+
+    # Combine into a single dataset
+    ds = xr.Dataset(
+        {
+            "forecast": forecast_da,
+            "observed": observed_da,
+            "horizon_distance": horizon_da,
+        }
+    )
+
+    # Add global attributes
+    ds.attrs.update(
+        {
+            "title": "CHAP Model Evaluation Results",
+            "model_name": model_metadata.get("model_name", ""),
+            "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
+            "model_version": model_metadata.get("model_version", ""),
+            "created_date": datetime.datetime.now().isoformat(),
+            "split_periods": json.dumps(model_metadata.get("split_periods", [])),
+            "org_units": json.dumps(model_metadata.get("org_units", [])),
+            "chap_version": CHAP_VERSION,
+        }
+    )
+
+    return ds
+
+
+def _xarray_to_flat_data(ds: xr.Dataset) -> "FlatEvaluationData":
+    """
+    Convert xarray.Dataset back to FlatEvaluationData.
+
+    Args:
+        ds: xarray.Dataset with forecast, observed, and horizon_distance variables
+
+    Returns:
+        FlatEvaluationData with reconstructed forecasts and observations
+    """
+    # Convert forecast DataArray to DataFrame - pandas will handle multi-index automatically
+    forecasts_df = ds["forecast"].to_dataframe().reset_index()
+
+    # Convert observed DataArray to DataFrame
+    observations_df = ds["observed"].to_dataframe().reset_index()
+
+    # Get horizon_distance and merge with forecasts
+    horizon_df = ds["horizon_distance"].to_dataframe().reset_index()
+    forecasts_df = forecasts_df.merge(horizon_df, on=["location", "time_period"], how="left")
+
+    # Drop NaN forecasts (missing data)
+    forecasts_df = forecasts_df.dropna(subset=["forecast"])
+
+    # Drop NaN observations
+    observations_df = observations_df.dropna(subset=["disease_cases"])
+
+    return FlatEvaluationData(
+        forecasts=FlatForecasts(forecasts_df),
+        observations=FlatObserved(observations_df),
+    )
 
 
 @dataclass
@@ -231,3 +321,88 @@ class Evaluation(EvaluationBase):
             List of period identifiers
         """
         return self._backtest.split_periods
+
+    def to_file(
+        self,
+        filepath: Union[str, Path],
+        model_name: Optional[str] = None,
+        model_configuration: Optional[dict] = None,
+        model_version: Optional[str] = None,
+    ) -> None:
+        """
+        Export evaluation to NetCDF file using xarray.
+
+        Args:
+            filepath: Path to output NetCDF file
+            model_name: Name of the model (optional)
+            model_configuration: Model configuration dictionary (optional)
+            model_version: Model version string (optional)
+        """
+        flat_data = self.to_flat()
+
+        model_metadata = {
+            "model_name": model_name or "",
+            "model_configuration": model_configuration or {},
+            "model_version": model_version or "",
+            "split_periods": self.get_split_periods(),
+            "org_units": self.get_org_units(),
+        }
+
+        ds = _flat_data_to_xarray(flat_data, model_metadata)
+        ds.to_netcdf(filepath)
+
+    @classmethod
+    def from_file(cls, filepath: Union[str, Path]) -> "Evaluation":
+        """
+        Load evaluation from NetCDF file.
+
+        Creates an in-memory BackTest object without database persistence.
+
+        Args:
+            filepath: Path to NetCDF file
+
+        Returns:
+            Evaluation instance
+        """
+        ds = xr.open_dataset(filepath)
+
+        flat_data = _xarray_to_flat_data(ds)
+
+        split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
+        org_units = json.loads(ds.attrs.get("org_units", "[]"))
+
+        backtest = BackTest(
+            name=f"Loaded from {Path(filepath).name}",
+            org_units=org_units,
+            split_periods=split_periods,
+            forecasts=[],
+        )
+
+        forecasts_df = flat_data.forecasts._df
+        for _, row in forecasts_df.iterrows():
+            forecast = BackTestForecast(
+                period=row["time_period"],
+                org_unit=row["location"],
+                last_seen_period=row["time_period"],
+                last_train_period=row["time_period"],
+                values=[],
+            )
+
+            same_location_period = forecasts_df[
+                (forecasts_df["location"] == row["location"])
+                & (forecasts_df["time_period"] == row["time_period"])
+                & (forecasts_df["horizon_distance"] == row["horizon_distance"])
+            ]
+            forecast.values = same_location_period.sort_values("sample")["forecast"].tolist()
+
+            if not any(
+                f.period == forecast.period
+                and f.org_unit == forecast.org_unit
+                and f.last_seen_period == forecast.last_seen_period
+                for f in backtest.forecasts
+            ):
+                backtest.forecasts.append(forecast)
+
+        ds.close()
+
+        return cls.from_backtest(backtest)

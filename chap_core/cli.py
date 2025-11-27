@@ -12,9 +12,11 @@ import yaml
 from cyclopts import App
 
 from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
-from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+from chap_core.assessment.prediction_evaluator import evaluate_model, backtest
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ConfiguredModelDB, ModelTemplateDB
+from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
 from chap_core.hpo.searcher import RandomSearcher
@@ -227,6 +229,111 @@ def evaluate(
     _save_results(report_filename, results_dict)
 
     return results_dict
+
+
+@app.command()
+def evaluate2(
+    model_name: ModelType | str,
+    output_file: Path,
+    dataset_csv: Optional[Path] = None,
+    dataset_name: Optional[DataSetType] = None,
+    dataset_country: Optional[str] = None,
+    polygons_json: Optional[Path] = None,
+    polygons_id_field: str = "id",
+    prediction_length: int = 6,
+    n_splits: int = 7,
+    stride: int = 1,
+    ignore_environment: bool = False,
+    debug: bool = False,
+    log_file: Optional[str] = None,
+    run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+    model_configuration_yaml: Optional[str] = None,
+    is_chapkit_model: bool = False,
+):
+    """
+    Evaluate a single model and export results to NetCDF format using xarray.
+
+    This command evaluates one model (no comma-separated models allowed) and outputs
+    evaluation results in NetCDF format for easy integration with scientific tools.
+    """
+    initialize_logging(debug, log_file)
+
+    if "," in model_name:
+        logger.error("evaluate2 only supports single model evaluation. Use evaluate command for multiple models.")
+        raise ValueError("evaluate2 does not support comma-separated model names. Provide a single model only.")
+
+    logger.info(f"Evaluating model {model_name} with xarray/NetCDF output")
+
+    dataset = _load_dataset(dataset_country, dataset_csv, dataset_name, polygons_id_field, polygons_json)
+
+    template = ModelTemplate.from_directory_or_github_url(
+        model_name,
+        base_working_dir=Path("./runs/"),
+        ignore_env=ignore_environment,
+        run_dir_type=run_directory_type,
+        is_chapkit_model=is_chapkit_model,
+    )
+    logger.info(f"Model template loaded: {template}")
+
+    if model_configuration_yaml is not None:
+        logger.info(f"Loading model configuration from yaml file {model_configuration_yaml}")
+        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+        logger.info(f"Loaded model configuration from yaml file: {configuration}")
+    else:
+        configuration = None
+
+    model = template.get_model(configuration)
+    estimator = model()
+
+    logger.info(f"Running backtest with {n_splits} splits, prediction length {prediction_length}, stride {stride}")
+
+    train, test_generator = train_test_generator(dataset, prediction_length, n_splits, stride=stride)
+    last_train_period = train.period_range[-1]
+
+    evaluation_results = backtest(
+        estimator=estimator,
+        data=dataset,
+        prediction_length=prediction_length,
+        n_test_sets=n_splits,
+        stride=stride,
+    )
+
+    model_template_db = ModelTemplateDB(
+        id=template.model_template_config.name,
+        name=template.model_template_config.name,
+        version=template.model_template_config.version or "unknown",
+    )
+
+    configured_model_db = ConfiguredModelDB(
+        id="cli_eval",
+        model_template_id=model_template_db.id,
+        model_template=model_template_db,
+        configuration=configuration.model_dump() if configuration else {},
+    )
+
+    backtest_info = BackTestCreate(
+        name=f"{model_name}_evaluation",
+        dataset_id=0,
+        model_id=configured_model_db.id,
+    )
+
+    logger.info("Creating Evaluation from backtest results")
+    evaluation = Evaluation.from_samples_with_truth(
+        evaluation_results=evaluation_results,
+        last_train_period=last_train_period,
+        configured_model=configured_model_db,
+        info=backtest_info,
+    )
+
+    logger.info(f"Exporting evaluation to {output_file}")
+    evaluation.to_file(
+        filepath=output_file,
+        model_name=model_name,
+        model_configuration=configuration.model_dump() if configuration else {},
+        model_version=template.model_template_config.version or "unknown",
+    )
+
+    logger.info(f"Evaluation complete. Results saved to {output_file}")
 
 
 def _get_model(
