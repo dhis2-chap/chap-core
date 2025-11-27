@@ -85,7 +85,7 @@
 - url: https://github.com/dhis2-chap/chap_pymc
   versions:
     #v1: "@5b0ed30b634f1083340d249bc040b83c34f296c4"
-    v1: "@7a54a1ea8942ff653c890c63126660709a35ef3f"
+    v1: "@66884d8bc88b3a467de94013fae6b1045369783a"
   configurations:
     skip_two_seasons:
       user_option_values:
