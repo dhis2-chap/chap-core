@@ -4,12 +4,8 @@ All metrics are imported here for backwards compatibility.
 """
 
 import logging
-from chap_core.assessment.flat_representations import (
-    FlatForecasts,
-    FlatObserved,
-    convert_backtest_observations_to_flat_observations,
-    convert_backtest_to_flat_forecasts,
-)
+from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.database.tables import BackTest
 from chap_core.assessment.metrics.base import MetricBase, MetricSpec
 from chap_core.assessment.metrics.rmse import RMSE, DetailedRMSE
@@ -85,14 +81,14 @@ def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str
     relevant_metrics = {id: metric for id, metric in available_metrics.items() if metric().is_full_aggregate()}
     logger.info(f"Relevant metrics for aggregation: {relevant_metrics.keys()}")
 
-    # Convert to flat representation
-    flat_forecasts = FlatForecasts(convert_backtest_to_flat_forecasts(backtest.forecasts))
-    flat_observations = FlatObserved(convert_backtest_observations_to_flat_observations(backtest.dataset.observations))
+    # Use Evaluation abstraction to get flat representation
+    evaluation = Evaluation.from_backtest(backtest)
+    flat_data = evaluation.to_flat()
 
     results = {}
     for id, metric_cls in relevant_metrics.items():
         metric = metric_cls()
-        metric_df = metric.get_metric(flat_observations, flat_forecasts)
+        metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
         if len(metric_df) != 1:
             raise ValueError(
                 f"Metric {id} was expected to return a single aggregated value, but got {len(metric_df)} rows."
