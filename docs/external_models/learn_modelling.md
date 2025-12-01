@@ -18,10 +18,10 @@ At the core of early warning is forecasting of disease incidence forward in time
 
 If you have limited prior experience with statistics or machine learning, please read our brief intro in the expandable box below:
 
+## A gentle introduction to statistical and time series modelling
+
 <details>
-<summary>A Gentle Introduction to Basic Modeling Concepts - Click to expand</summary>
-## (expandable box): intro to statistical and time series modelling
-A Gentle Introduction to Basic Modeling Concepts
+<summary>Click to expand</summary>
 
 ### 1. Statistical or Machine Learning Model
 A **model** is a rule or formula we create to describe how some outcome depends on information we already have.
