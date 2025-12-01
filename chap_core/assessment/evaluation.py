@@ -200,7 +200,10 @@ class EvaluationBase(ABC):
     @classmethod
     @abstractmethod
     def from_samples_with_truth(
-        cls, evaluation_results: Iterable[_DataSet[SamplesWithTruth]], last_train_period: TimePeriod, model_id
+        cls,
+        evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
+        last_train_period: TimePeriod,
+        configured_model: ConfiguredModelDB,
     ) -> "EvaluationBase": ...
 
 
@@ -244,18 +247,12 @@ class Evaluation(EvaluationBase):
         info: BackTestCreate,
     ):
         info.created = datetime.datetime.now()
-        # org_units = list({location for ds in evaluation_results for location in ds.locations()})
-        # split_points = list({er.period_range[0] for er in evaluation_results})
         backtest = BackTest(
             **info.dict()
             | {"model_db_id": configured_model.id, "model_template_version": configured_model.model_template.version}
         )
         org_units = set([])
         split_points = set([])
-        # define metrics (for each period)
-        evaluation_results = list(
-            evaluation_results
-        )  # hacky, to avoid metric funcs using up the iterable before we can loop all splitpoints
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
             split_points.add(first_period.id)

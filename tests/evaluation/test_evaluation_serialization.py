@@ -127,17 +127,21 @@ class TestEvaluationSerialization:
         output_file = tmp_path / "test_evaluation.nc"
 
         original_flat = evaluation.to_flat()
-        original_forecasts = pd.DataFrame(original_flat.forecasts).sort_values(
-            ["location", "time_period", "horizon_distance", "sample"]
-        ).reset_index(drop=True)
+        original_forecasts = (
+            pd.DataFrame(original_flat.forecasts)
+            .sort_values(["location", "time_period", "horizon_distance", "sample"])
+            .reset_index(drop=True)
+        )
 
         evaluation.to_file(filepath=output_file)
         loaded_evaluation = Evaluation.from_file(output_file)
 
         loaded_flat = loaded_evaluation.to_flat()
-        loaded_forecasts = pd.DataFrame(loaded_flat.forecasts).sort_values(
-            ["location", "time_period", "horizon_distance", "sample"]
-        ).reset_index(drop=True)
+        loaded_forecasts = (
+            pd.DataFrame(loaded_flat.forecasts)
+            .sort_values(["location", "time_period", "horizon_distance", "sample"])
+            .reset_index(drop=True)
+        )
 
         assert len(original_forecasts) == len(loaded_forecasts)
         assert list(original_forecasts.columns) == list(loaded_forecasts.columns)
@@ -157,13 +161,17 @@ class TestEvaluationSerialization:
         output_file = tmp_path / "test_evaluation.nc"
 
         original_flat = evaluation.to_flat()
-        original_obs = pd.DataFrame(original_flat.observations).sort_values(["location", "time_period"]).reset_index(drop=True)
+        original_obs = (
+            pd.DataFrame(original_flat.observations).sort_values(["location", "time_period"]).reset_index(drop=True)
+        )
 
         evaluation.to_file(filepath=output_file)
         loaded_evaluation = Evaluation.from_file(output_file)
 
         loaded_flat = loaded_evaluation.to_flat()
-        loaded_obs = pd.DataFrame(loaded_flat.observations).sort_values(["location", "time_period"]).reset_index(drop=True)
+        loaded_obs = (
+            pd.DataFrame(loaded_flat.observations).sort_values(["location", "time_period"]).reset_index(drop=True)
+        )
 
         assert len(original_obs) == len(loaded_obs)
         assert list(original_obs.columns) == list(loaded_obs.columns)
@@ -308,5 +316,11 @@ class TestXarrayHelperFunctions:
         assert isinstance(reconstructed_flat.observations, pd.DataFrame)
 
         # Check that the DataFrames have the expected columns
-        assert set(reconstructed_flat.forecasts.columns) == {"location", "time_period", "horizon_distance", "sample", "forecast"}
+        assert set(reconstructed_flat.forecasts.columns) == {
+            "location",
+            "time_period",
+            "horizon_distance",
+            "sample",
+            "forecast",
+        }
         assert set(reconstructed_flat.observations.columns) == {"location", "time_period", "disease_cases"}
