@@ -18,6 +18,8 @@ At the core of early warning is forecasting of disease incidence forward in time
 
 If you have limited prior experience with statistics or machine learning, please read our brief intro in the expandable box below:
 
+<details>
+<summary>A Gentle Introduction to Basic Modeling Concepts - Click to expand</summary>
 ## (expandable box): intro to statistical and time series modelling
 A Gentle Introduction to Basic Modeling Concepts
 
@@ -134,7 +136,7 @@ For a bit more in-depth introduction, please also consider the following general
 https://pmc.ncbi.nlm.nih.gov/articles/PMC5905345/
 https://www.nature.com/articles/nmeth.3627
 https://www.nature.com/articles/nmeth.3665
-
+</details>
 
 # Motivation
 Our tutorial aims to introduce aspects of statistical modelling and machine learning that are useful specifically for developing, evaluating and later operationalising forecasting models. Our pedagogical approach is to begin by introducing a very simple model in a simple setting, and then expanding both the model and the setting in a stepwise fashion. We emphasize interoperability and rigorous evaluation of models right from the start, as a way of guiding the development of more sophisticated models. In doing this, we follow a philosophy resembling what is known as agile development in computer science [ref].
