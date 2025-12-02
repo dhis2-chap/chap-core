@@ -8,6 +8,7 @@ from starlette.responses import JSONResponse
 
 from chap_core.assessment.backtest_plots.backtest_plot_1 import BackTestPlot1
 from chap_core.assessment.backtest_plots.sample_bias_plot import RatioOfSamplesAboveTruthBacktestPlot
+from chap_core.assessment.backtest_plots.aggregated_metrics_plot import AggregatedMetricsPlot
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import BackTest
@@ -33,6 +34,7 @@ metric_plots_registry = {cls.visualization_info.id: cls for cls in [MetricByHori
 backtest_plots_registry = {
     "backtest_plot_1": BackTestPlot1,
     "ratio_of_samples_above_truth": RatioOfSamplesAboveTruthBacktestPlot,
+    "aggregated_metrics": AggregatedMetricsPlot,
 }
 
 

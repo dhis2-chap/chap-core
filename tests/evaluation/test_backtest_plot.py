@@ -6,6 +6,7 @@ from chap_core.database.tables import BackTest
 from chap_core.plotting.backtest_plot import EvaluationBackTestPlot
 from chap_core.assessment.backtest_plots.vega_lite_dash import combined_dashboard_from_backtest
 from chap_core.assessment.backtest_plots.backtest_plot_1 import BackTestPlot1
+from chap_core.assessment.backtest_plots.aggregated_metrics_plot import AggregatedMetricsPlot
 
 
 @pytest.fixture(scope="module")
@@ -32,4 +33,9 @@ def test_sample_bias_plot(simulated_backtest):
 
 def test_backtest_plot1(simulated_backtest):
     plotter = BackTestPlot1.from_backtest(simulated_backtest)
+    chart = plotter.plot()
+
+
+def test_aggregated_metrics_plot(simulated_backtest):
+    plotter = AggregatedMetricsPlot.from_backtest(simulated_backtest)
     chart = plotter.plot()
