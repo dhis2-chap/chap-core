@@ -16,13 +16,15 @@ def sample_dataset():
     rows = []
     for year in range(2019, 2023):
         for month in range(1, 13):
-            rows.append({
-                "location": "location1",
-                "time_period": f"{year}-{month:02d}",
-                "disease_cases": 100.0,
-                "rainfall": 50.0,
-                "mean_temperature": 25.0
-            })
+            rows.append(
+                {
+                    "location": "location1",
+                    "time_period": f"{year}-{month:02d}",
+                    "disease_cases": 100.0,
+                    "rainfall": 50.0,
+                    "mean_temperature": 25.0,
+                }
+            )
 
     df = pd.DataFrame(rows)
     return DataSet.from_pandas(df)
@@ -47,9 +49,7 @@ def test_apply_chap_transformations_without_covid_mask(sample_dataset, mock_runn
     with tempfile.TemporaryDirectory() as tmpdir:
         config = {"user_option_values": {"chap__covid_mask": False}}
 
-        model = ExternalModel(
-            runner=mock_runner, working_dir=tmpdir, configuration=config
-        )
+        model = ExternalModel(runner=mock_runner, working_dir=tmpdir, configuration=config)
 
         transformed_data = model._apply_chap_transformations(sample_dataset)
 
@@ -64,9 +64,7 @@ def test_apply_chap_transformations_with_covid_mask(sample_dataset, mock_runner)
     with tempfile.TemporaryDirectory() as tmpdir:
         config = {"user_option_values": {"chap__covid_mask": True}}
 
-        model = ExternalModel(
-            runner=mock_runner, working_dir=tmpdir, configuration=config
-        )
+        model = ExternalModel(runner=mock_runner, working_dir=tmpdir, configuration=config)
 
         transformed_data = model._apply_chap_transformations(sample_dataset)
 
@@ -80,12 +78,7 @@ def test_apply_chap_transformations_with_covid_mask(sample_dataset, mock_runner)
         assert np.all(disease_cases[pre_covid_mask] == 100)
 
         # Check COVID period (2020-03 to 2021-12-31) - should be NaN
-        covid_mask = np.array(
-            [
-                str(p) >= "2020-03" and str(p) <= "2021-12"
-                for p in time_periods
-            ]
-        )
+        covid_mask = np.array([str(p) >= "2020-03" and str(p) <= "2021-12" for p in time_periods])
         assert np.all(np.isnan(disease_cases[covid_mask]))
 
         # Check post-COVID period (2022) - should be intact
@@ -98,9 +91,7 @@ def test_apply_chap_transformations_with_empty_config(sample_dataset, mock_runne
     with tempfile.TemporaryDirectory() as tmpdir:
         config = {}
 
-        model = ExternalModel(
-            runner=mock_runner, working_dir=tmpdir, configuration=config
-        )
+        model = ExternalModel(runner=mock_runner, working_dir=tmpdir, configuration=config)
 
         transformed_data = model._apply_chap_transformations(sample_dataset)
 
@@ -114,13 +105,9 @@ def test_apply_chap_transformations_with_dict_configuration(sample_dataset, mock
     """Test that transformation works when configuration is a dict."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Configuration as dict (not ModelConfiguration object)
-        config = {
-            "user_option_values": {"chap__covid_mask": True, "other_param": 10}
-        }
+        config = {"user_option_values": {"chap__covid_mask": True, "other_param": 10}}
 
-        model = ExternalModel(
-            runner=mock_runner, working_dir=tmpdir, configuration=config
-        )
+        model = ExternalModel(runner=mock_runner, working_dir=tmpdir, configuration=config)
 
         transformed_data = model._apply_chap_transformations(sample_dataset)
 
@@ -128,12 +115,7 @@ def test_apply_chap_transformations_with_dict_configuration(sample_dataset, mock
         location_data = transformed_data["location1"]
         time_periods = location_data.time_period
 
-        covid_mask = np.array(
-            [
-                str(p) >= "2020-03" and str(p) <= "2021-12"
-                for p in time_periods
-            ]
-        )
+        covid_mask = np.array([str(p) >= "2020-03" and str(p) <= "2021-12" for p in time_periods])
         assert np.all(np.isnan(location_data.disease_cases[covid_mask]))
 
 
@@ -142,9 +124,7 @@ def test_apply_chap_transformations_preserves_other_fields(sample_dataset, mock_
     with tempfile.TemporaryDirectory() as tmpdir:
         config = {"user_option_values": {"chap__covid_mask": True}}
 
-        model = ExternalModel(
-            runner=mock_runner, working_dir=tmpdir, configuration=config
-        )
+        model = ExternalModel(runner=mock_runner, working_dir=tmpdir, configuration=config)
 
         transformed_data = model._apply_chap_transformations(sample_dataset)
 
