@@ -125,34 +125,29 @@ class AggregatedMetricsPlot(BackTestPlotBase):
                 )
             )
         else:
-            # Create a table with metrics as columns
-            # Transpose the data so metric names are columns and values are in one row
-            table_data = pd.DataFrame([{row["metric_name"]: f"{row['value']:.6f}" for _, row in metrics_df.iterrows()}])
+            # Create a table with metrics as rows and values in a column
+            table_data = metrics_df[["metric_name", "value"]].copy()
+            table_data["value"] = table_data["value"].apply(lambda x: f"{x:.6f}")
+            table_data.columns = ["Metric", "Value"]
 
-            # Melt the dataframe to create data suitable for Altair table
-            melted = table_data.melt(var_name="Metric", value_name="Value")
-
-            # Create header row
-            header = (
-                alt.Chart(melted)
-                .mark_text(align="center", baseline="middle", fontSize=12, fontWeight="bold")
-                .encode(
-                    x=alt.X("Metric:N", axis=alt.Axis(labelAngle=0, title=None)),
-                    text=alt.Text("Metric:N"),
-                )
-                .properties(width=100 * len(metrics_df), height=30)
+            # Create metric name column
+            metric_names = (
+                alt.Chart(table_data)
+                .mark_text(align="left", baseline="middle", fontSize=11, fontWeight="bold")
+                .encode(y=alt.Y("Metric:N", axis=None, sort=None), text=alt.Text("Metric:N"))
+                .properties(width=200, height=len(metrics_df) * 25)
             )
 
-            # Create value row
+            # Create value column
             values = (
-                alt.Chart(melted)
-                .mark_text(align="center", baseline="middle", fontSize=11)
-                .encode(x=alt.X("Metric:N", axis=None), text=alt.Text("Value:N"))
-                .properties(width=100 * len(metrics_df), height=30)
+                alt.Chart(table_data)
+                .mark_text(align="right", baseline="middle", fontSize=11)
+                .encode(y=alt.Y("Metric:N", axis=None, sort=None), text=alt.Text("Value:N"))
+                .properties(width=150, height=len(metrics_df) * 25)
             )
 
-            # Combine header and values vertically
-            table = alt.vconcat(header, values).properties(title="Aggregated Metrics")
+            # Combine metric names and values horizontally
+            table = alt.hconcat(metric_names, values).properties(title="Aggregated Metrics")
             charts.append(table)
 
         # Combine all charts vertically
