@@ -545,3 +545,59 @@ def get_content(url):
     content = response.json()
     assert response.status_code == 200, content
     return content
+
+
+def test_evaluation_entries_org_units_sorted(
+    celery_session_worker, dependency_overrides, create_backtest_with_data_request
+):
+    request_payload = create_backtest_with_data_request.model_dump()
+    url = "/v1/analytics/create-backtest-with-data"
+    response = client.post(url, json=request_payload)
+    content = response.json()
+    assert response.status_code == 200, content
+    job_id = content["id"]
+    db_id = await_result_id(job_id, timeout=180)
+
+    eval_params = {"backtestId": db_id, "quantiles": [0.5]}
+    eval_response = client.get("/v1/analytics/evaluation-entry", params=eval_params)
+    assert eval_response.status_code == 200, eval_response.json()
+    evaluation_entries = eval_response.json()
+    assert len(evaluation_entries) > 0
+
+    org_units = [entry["orgUnit"] for entry in evaluation_entries]
+    unique_org_units = []
+    seen = set()
+    for org_unit in org_units:
+        if org_unit not in seen:
+            unique_org_units.append(org_unit)
+            seen.add(org_unit)
+
+    assert unique_org_units == sorted(unique_org_units), f"Org units are not sorted: {unique_org_units}"
+
+
+def test_evaluation_entries_split_periods_sorted(
+    celery_session_worker, dependency_overrides, create_backtest_with_data_request
+):
+    request_payload = create_backtest_with_data_request.model_dump()
+    url = "/v1/analytics/create-backtest-with-data"
+    response = client.post(url, json=request_payload)
+    content = response.json()
+    assert response.status_code == 200, content
+    job_id = content["id"]
+    db_id = await_result_id(job_id, timeout=180)
+
+    eval_params = {"backtestId": db_id, "quantiles": [0.5]}
+    eval_response = client.get("/v1/analytics/evaluation-entry", params=eval_params)
+    assert eval_response.status_code == 200, eval_response.json()
+    evaluation_entries = eval_response.json()
+    assert len(evaluation_entries) > 0
+
+    split_periods = [entry["splitPeriod"] for entry in evaluation_entries]
+    unique_split_periods = []
+    seen = set()
+    for split_period in split_periods:
+        if split_period not in seen:
+            unique_split_periods.append(split_period)
+            seen.add(split_period)
+
+    assert unique_split_periods == sorted(unique_split_periods), f"Split periods are not sorted: {unique_split_periods}"
