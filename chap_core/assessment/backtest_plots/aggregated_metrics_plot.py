@@ -125,27 +125,24 @@ class AggregatedMetricsPlot(BackTestPlotBase):
                 )
             )
         else:
-            # Create a bar chart of metrics
-            bar_chart = (
-                alt.Chart(metrics_df)
-                .mark_bar()
-                .encode(
-                    x=alt.X("value:Q", title="Metric Value"),
-                    y=alt.Y("metric_name:N", title="Metric", sort="-x"),
-                    color=alt.Color("metric_name:N", legend=None),
-                    tooltip=["metric_name:N", "value:Q", "description:N"],
-                )
-                .properties(width=600, height=max(200, len(metrics_df) * 30), title="Global Metric Values")
-            )
-            charts.append(bar_chart)
+            # Create a table showing the metrics
+            table_data = metrics_df[["metric_name", "metric_id", "value"]].copy()
+            table_data.columns = ["Metric Name", "Metric ID", "Value"]
+            table_data["Value"] = table_data["Value"].apply(lambda x: f"{x:.6f}")
 
-            # Add a text chart with metric details
-            charts.append(title_chart("Metric Details", font_size=18))
-            for _, row in metrics_df.iterrows():
-                detail_text = f"{row['metric_name']} ({row['metric_id']}): {row['value']:.4f}"
-                if row["description"] and row["description"] != "No description provided":
-                    detail_text += f" - {row['description']}"
-                charts.append(text_chart(detail_text, line_length=80, font_size=11))
+            table = (
+                alt.Chart(table_data)
+                .mark_text(align="left", baseline="middle")
+                .encode(
+                    x=alt.X("column:N", axis=alt.Axis(title=None, labelAngle=0, labelFontSize=12)),
+                    y=alt.Y("row:O", axis=None),
+                    text=alt.Text("value:N"),
+                )
+                .transform_window(row="row_number()")
+                .transform_fold(["Metric Name", "Metric ID", "Value"], as_=["column", "value"])
+                .properties(width=600, height=max(150, len(metrics_df) * 25 + 30))
+            )
+            charts.append(table)
 
         # Combine all charts vertically
         dashboard = alt.vconcat(*charts).configure(
