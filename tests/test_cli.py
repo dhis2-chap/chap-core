@@ -1,7 +1,7 @@
 from chap_core.api import forecast
 import pytest
 from chap_core.util import docker_available
-from chap_core.cli import sanity_check_model, evaluate_hpo
+from chap_core.cli import sanity_check_model, evaluate_hpo, evaluate2
 
 
 @pytest.mark.skipif(not docker_available(), reason="Docker not available")
@@ -20,3 +20,7 @@ def test_hpo_evaluate(data_path):
         model_configuration_yaml=hpo_config_yaml,
     )
     # chap evaluate-hpo --model_name ../../chtorch --dataset_name hydromet_5_filtered --model_configuration_yaml config1.yaml
+
+
+def test_evaluate2():
+    evaluate2("https://github.com/knutdrand/external_rmodel_example.git", dataset_name="hydromet_5_filtered", prediction_length=3, output_file='tmp.nc')
