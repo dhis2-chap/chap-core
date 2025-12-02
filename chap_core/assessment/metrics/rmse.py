@@ -6,6 +6,10 @@ import pandas as pd
 from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.base import MetricBase, MetricSpec
 
+class GlobalRMSE(MetricBase):
+    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        
+
 
 class RMSE(MetricBase):
     """
@@ -16,6 +20,7 @@ class RMSE(MetricBase):
     spec = MetricSpec(output_dimensions=(DataDimension.location,), metric_name="RMSE")
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+
         # Merge observations with forecasts on location and time_period
         merged = forecasts.merge(
             observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"

@@ -125,24 +125,15 @@ class AggregatedMetricsPlot(BackTestPlotBase):
                 )
             )
         else:
-            # Create a table showing the metrics
-            table_data = metrics_df[["metric_name", "metric_id", "value"]].copy()
-            table_data.columns = ["Metric Name", "Metric ID", "Value"]
-            table_data["Value"] = table_data["Value"].apply(lambda x: f"{x:.6f}")
+            # Create CSV formatted text
+            csv_lines = ["metric_name,metric_id,value"]
+            for _, row in metrics_df.iterrows():
+                csv_lines.append(f"{row['metric_name']},{row['metric_id']},{row['value']:.6f}")
 
-            table = (
-                alt.Chart(table_data)
-                .mark_text(align="left", baseline="middle")
-                .encode(
-                    x=alt.X("column:N", axis=alt.Axis(title=None, labelAngle=0, labelFontSize=12)),
-                    y=alt.Y("row:O", axis=None),
-                    text=alt.Text("value:N"),
-                )
-                .transform_window(row="row_number()")
-                .transform_fold(["Metric Name", "Metric ID", "Value"], as_=["column", "value"])
-                .properties(width=600, height=max(150, len(metrics_df) * 25 + 30))
-            )
-            charts.append(table)
+            # Add CSV text as a code block
+            charts.append(title_chart("Aggregated Metrics (CSV format)", font_size=18))
+            for line in csv_lines:
+                charts.append(text_chart(line, line_length=120, font_size=11))
 
         # Combine all charts vertically
         dashboard = alt.vconcat(*charts).configure(
