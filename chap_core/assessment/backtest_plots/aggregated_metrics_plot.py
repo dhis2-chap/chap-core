@@ -125,15 +125,35 @@ class AggregatedMetricsPlot(BackTestPlotBase):
                 )
             )
         else:
-            # Create CSV formatted text
-            csv_lines = ["metric_name,metric_id,value"]
-            for _, row in metrics_df.iterrows():
-                csv_lines.append(f"{row['metric_name']},{row['metric_id']},{row['value']:.6f}")
+            # Create a table with metrics as columns
+            # Transpose the data so metric names are columns and values are in one row
+            table_data = pd.DataFrame([{row["metric_name"]: f"{row['value']:.6f}" for _, row in metrics_df.iterrows()}])
 
-            # Add CSV text as a code block
-            charts.append(title_chart("Aggregated Metrics (CSV format)", font_size=18))
-            for line in csv_lines:
-                charts.append(text_chart(line, line_length=120, font_size=11))
+            # Melt the dataframe to create data suitable for Altair table
+            melted = table_data.melt(var_name="Metric", value_name="Value")
+
+            # Create header row
+            header = (
+                alt.Chart(melted)
+                .mark_text(align="center", baseline="middle", fontSize=12, fontWeight="bold")
+                .encode(
+                    x=alt.X("Metric:N", axis=alt.Axis(labelAngle=0, title=None)),
+                    text=alt.Text("Metric:N"),
+                )
+                .properties(width=100 * len(metrics_df), height=30)
+            )
+
+            # Create value row
+            values = (
+                alt.Chart(melted)
+                .mark_text(align="center", baseline="middle", fontSize=11)
+                .encode(x=alt.X("Metric:N", axis=None), text=alt.Text("Value:N"))
+                .properties(width=100 * len(metrics_df), height=30)
+            )
+
+            # Combine header and values vertically
+            table = alt.vconcat(header, values).properties(title="Aggregated Metrics")
+            charts.append(table)
 
         # Combine all charts vertically
         dashboard = alt.vconcat(*charts).configure(
