@@ -6,9 +6,32 @@ import pandas as pd
 from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.base import MetricBase, MetricSpec
 
+
 class GlobalRMSE(MetricBase):
+    """
+    Global Root Mean Squared Error metric.
+    Aggregates across all locations, time periods, and horizons to give a single RMSE value.
+    """
+
+    spec = MetricSpec(output_dimensions=(), metric_name="Global RMSE", description="Overall RMSE across entire dataset")
+
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
-        
+        # Merge observations with forecasts on location and time_period
+        merged = forecasts.merge(
+            observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
+        )
+
+        # Calculate squared error for each forecast
+        merged["squared_error"] = (merged["forecast"] - merged["disease_cases"]) ** 2
+
+        # Average across all samples, locations, and time periods
+        mse = merged["squared_error"].mean()
+
+        # Take square root to get RMSE
+        rmse = mse**0.5
+
+        # Return as a single-row DataFrame
+        return pd.DataFrame({"metric": [rmse]})
 
 
 class RMSE(MetricBase):
@@ -20,7 +43,6 @@ class RMSE(MetricBase):
     spec = MetricSpec(output_dimensions=(DataDimension.location,), metric_name="RMSE")
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
-
         # Merge observations with forecasts on location and time_period
         merged = forecasts.merge(
             observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"

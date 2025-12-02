@@ -12,7 +12,7 @@ from chap_core.assessment.flat_representations import (
 )
 from chap_core.database.tables import BackTest
 from chap_core.assessment.metrics.base import MetricBase, MetricSpec
-from chap_core.assessment.metrics.rmse import RMSE, DetailedRMSE
+from chap_core.assessment.metrics.rmse import RMSE, DetailedRMSE, GlobalRMSE
 from chap_core.assessment.metrics.mae import MAE
 from chap_core.assessment.metrics.crps import CRPS, CRPSPerLocation, DetailedCRPS
 from chap_core.assessment.metrics.crps_norm import CRPSNorm, DetailedCRPSNorm
@@ -35,6 +35,7 @@ __all__ = [
     "MetricBase",
     "MetricSpec",
     "RMSE",
+    "GlobalRMSE",
     "DetailedRMSE",
     "MAE",
     "CRPS",
@@ -59,6 +60,7 @@ __all__ = [
 # Dictionary of available metrics for easy lookup
 available_metrics = {
     "rmse": RMSE,
+    "global_rmse": GlobalRMSE,
     "mae": MAE,
     "detailed_rmse": DetailedRMSE,
     "detailed_crps": DetailedCRPS,
