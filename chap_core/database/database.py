@@ -172,6 +172,8 @@ class SessionWrapper:
             model_template=model_template,
             uses_chapkit=uses_chapkit,
         )
+        # Add CHAP options to template for validation
+        model_template.with_chap_options()
         configured_model.validate_user_options(configured_model)
         # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
