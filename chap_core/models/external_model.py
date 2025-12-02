@@ -75,6 +75,27 @@ class ExternalModelBase(ConfiguredModel):
         frequency = "ME" if isinstance(train_data.period_range[0], Month) else "W"
         return frequency
 
+    def _apply_chap_transformations(self, data: DataSet) -> DataSet:
+        """Apply CHAP-specific transformations based on ChapUserOptions."""
+        from chap_core.models.chap_user_options import ChapUserOptions
+        from chap_core.transformations.covid_mask import mask_covid_data
+
+        # Extract configuration
+        if isinstance(self._configuration, dict):
+            user_option_values = self._configuration.get("user_option_values", {})
+        else:
+            user_option_values = getattr(self._configuration, "user_option_values", {})
+
+        # Get CHAP options
+        chap_options = ChapUserOptions.extract_from_config(user_option_values)
+
+        # Apply COVID mask if enabled
+        if chap_options.chap__covid_mask:
+            logger.info("Applying COVID mask to training data")
+            data = mask_covid_data(data)
+
+        return data
+
     def __call__(self):
         return self
 
@@ -152,6 +173,10 @@ class ExternalModel(ExternalModelBase):
             logging.info(f"Will pass polygons file {self._polygons_file_name} to train command and predict command")
 
         frequency = self._get_frequency(train_data)
+
+        # Apply CHAP transformations
+        train_data = self._apply_chap_transformations(train_data)
+
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd, frequency=frequency)
         new_pd.to_csv(train_file_name_full)

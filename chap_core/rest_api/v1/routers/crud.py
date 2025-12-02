@@ -344,9 +344,15 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
 @router.get("/model-templates", response_model=list[ModelTemplateRead])
 async def list_model_templates(session: Session = Depends(get_session)):
     """
-    Lists all model templates from the db.
+    Lists all model templates with CHAP options.
     """
     model_templates = session.exec(select(ModelTemplateDB)).all()
+
+    # Ensure all templates have CHAP options
+    for template in model_templates:
+        if not any(key.startswith("chap__") for key in (template.user_options or {}).keys()):
+            template.with_chap_options()
+
     return model_templates
 
 
