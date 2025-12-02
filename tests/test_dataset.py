@@ -20,6 +20,7 @@ def test_from_pandas():
     ds = DataSet.from_pandas(df)
     print(ds)
 
+
 @pytest.fixture
 def monthly_dataset():
     df = pd.DataFrame(
@@ -31,6 +32,7 @@ def monthly_dataset():
     )
     ds = DataSet.from_pandas(df)
     return ds
+
 
 @pytest.fixture
 def weekly_dataset():
@@ -44,8 +46,10 @@ def weekly_dataset():
     ds = DataSet.from_pandas(df)
     return ds
 
+
 def test_frequency(monthly_dataset):
-    assert monthly_dataset.frequency == 'M'
+    assert monthly_dataset.frequency == "M"
+
 
 def test_weekly(weekly_dataset):
-    assert weekly_dataset.frequency == 'W'
+    assert weekly_dataset.frequency == "W"

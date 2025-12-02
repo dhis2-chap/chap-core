@@ -54,6 +54,9 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     version: Optional[str] = None
 
 
+    def with_chap_options(self) -> "ConfiguredModelDB":
+        ...
+
 class ModelConfiguration(SQLModel):
     user_option_values: Optional[dict] = Field(sa_column=Column(JSON), default_factory=dict)
     additional_continuous_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))

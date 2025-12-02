@@ -158,12 +158,11 @@ class DataSet(Generic[FeaturesT]):
     def frequency(self):
         first_period = self.period_range[0]
         if isinstance(first_period, Month):
-            return 'M'
+            return "M"
         elif isinstance(first_period, Week):
-            return 'W'
+            return "W"
         else:
             raise NotImplementedError
-
 
     def model_dump(self):
         return {
