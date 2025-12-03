@@ -12,7 +12,7 @@ from chap_core.assessment.metrics.rmse import RMSE, DetailedRMSE
 from chap_core.assessment.metrics.mae import MAE
 from chap_core.assessment.metrics.crps import CRPS, CRPSPerLocation, DetailedCRPS
 from chap_core.assessment.metrics.crps_norm import CRPSNorm, DetailedCRPSNorm
-from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakWeekLagMetric
+from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakPeriodLagMetric
 from chap_core.assessment.metrics.above_truth import SamplesAboveTruth
 from chap_core.assessment.metrics.percentile_coverage import (
     IsWithin10th90thDetailed,
@@ -62,8 +62,8 @@ available_metrics = {
     "crps": CRPS,
     "detailed_crps_norm": DetailedCRPSNorm,
     "crps_norm": CRPSNorm,
-    #    "peak_value_diff": PeakValueDiffMetric,
-    #    "peak_week_lag": PeakWeekLagMetric,
+    "peak_value_diff": PeakValueDiffMetric,
+    "peak_period_lag": PeakPeriodLagMetric,
     "samples_above_truth": SamplesAboveTruth,
     "is_within_10th_90th_detailed": IsWithin10th90thDetailed,
     "is_within_25th_75th_detailed": IsWithin25th75thDetailed,
