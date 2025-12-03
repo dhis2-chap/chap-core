@@ -21,7 +21,7 @@ def test_backtest_plot(simulated_backtest: BackTest, default_transformer):
 
 def test_combined_dashboard_from_backtest(flat_observations, flat_forecasts, title="testplot"):
     plot = combined_dashboard_from_backtest(flat_observations, flat_forecasts, title)
-    # plot.show()
+    plot.show()
 
 
 def test_sample_bias_plot(simulated_backtest):

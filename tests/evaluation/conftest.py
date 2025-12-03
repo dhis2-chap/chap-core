@@ -227,6 +227,24 @@ def backtest_weeks_large(dataset_weeks_large, forecasts_weeks_large):
 
 
 @pytest.fixture
+def backtest_empty(dataset):
+    """BackTest with no forecasts for edge case testing."""
+    return BackTest(
+        id=1,
+        dataset_id=dataset.id,
+        dataset=dataset,
+        model_id="Test Model",
+        name="Empty Test BackTest",
+        created=None,
+        meta_data={},
+        forecasts=[],
+        metrics=[],
+        org_units=[],
+        split_periods=[],
+    )
+
+
+@pytest.fixture
 def backtest_metrics(forecasts):
     return [
         BackTestMetric(

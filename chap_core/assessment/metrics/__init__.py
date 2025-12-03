@@ -4,19 +4,15 @@ All metrics are imported here for backwards compatibility.
 """
 
 import logging
-from chap_core.assessment.flat_representations import (
-    FlatForecasts,
-    FlatObserved,
-    convert_backtest_observations_to_flat_observations,
-    convert_backtest_to_flat_forecasts,
-)
+from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.database.tables import BackTest
 from chap_core.assessment.metrics.base import MetricBase, MetricSpec
 from chap_core.assessment.metrics.rmse import RMSE, DetailedRMSE
 from chap_core.assessment.metrics.mae import MAE
 from chap_core.assessment.metrics.crps import CRPS, CRPSPerLocation, DetailedCRPS
 from chap_core.assessment.metrics.crps_norm import CRPSNorm, DetailedCRPSNorm
-from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakPeriodLagMetric
+from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakWeekLagMetric
 from chap_core.assessment.metrics.above_truth import SamplesAboveTruth
 from chap_core.assessment.metrics.percentile_coverage import (
     IsWithin10th90thDetailed,
@@ -43,7 +39,7 @@ __all__ = [
     "CRPSNorm",
     "DetailedCRPSNorm",
     "PeakValueDiffMetric",
-    "PeakPeriodLagMetric",
+    "PeakWeekLagMetric",
     "SamplesAboveTruth",
     "IsWithin10th90thDetailed",
     "IsWithin25th75thDetailed",
@@ -66,8 +62,8 @@ available_metrics = {
     "crps": CRPS,
     "detailed_crps_norm": DetailedCRPSNorm,
     "crps_norm": CRPSNorm,
-    "peak_value_diff": PeakValueDiffMetric,
-    "peak_period_lag": PeakPeriodLagMetric,
+    #    "peak_value_diff": PeakValueDiffMetric,
+    #    "peak_week_lag": PeakWeekLagMetric,
     "samples_above_truth": SamplesAboveTruth,
     "is_within_10th_90th_detailed": IsWithin10th90thDetailed,
     "is_within_25th_75th_detailed": IsWithin25th75thDetailed,
@@ -85,14 +81,14 @@ def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str
     relevant_metrics = {id: metric for id, metric in available_metrics.items() if metric().is_full_aggregate()}
     logger.info(f"Relevant metrics for aggregation: {relevant_metrics.keys()}")
 
-    # Convert to flat representation
-    flat_forecasts = FlatForecasts(convert_backtest_to_flat_forecasts(backtest.forecasts))
-    flat_observations = FlatObserved(convert_backtest_observations_to_flat_observations(backtest.dataset.observations))
+    # Use Evaluation abstraction to get flat representation
+    evaluation = Evaluation.from_backtest(backtest)
+    flat_data = evaluation.to_flat()
 
     results = {}
     for id, metric_cls in relevant_metrics.items():
         metric = metric_cls()
-        metric_df = metric.get_metric(flat_observations, flat_forecasts)
+        metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
         if len(metric_df) != 1:
             raise ValueError(
                 f"Metric {id} was expected to return a single aggregated value, but got {len(metric_df)} rows."

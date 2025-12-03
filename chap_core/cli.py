@@ -4,7 +4,7 @@ import logging
 import dataclasses
 import json
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Any
 
 import numpy as np
 import pandas as pd
@@ -204,62 +204,13 @@ def evaluate(
     is_chapkit_model: bool = False,
 ):
     initialize_logging(debug, log_file)
-    if dataset_name is None:
-        assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
-        logging.info(f"Loading dataset from {dataset_csv}")
-        dataset = DataSet.from_csv(dataset_csv, FullData)
-        if polygons_json is not None:
-            logging.info(f"Loading polygons from {polygons_json}")
-            polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)
-            polygons.filter_locations(dataset.locations())
-            dataset.set_polygons(polygons.data)
-    else:
-        logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
-
-        dataset = datasets[dataset_name]
-        dataset = dataset.load()
-
-        if isinstance(dataset, MultiCountryDataSet):
-            assert dataset_country is not None, "Must specify a country for multi country datasets"
-            assert dataset_country in dataset.countries, (
-                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
-            )
-            dataset = dataset[dataset_country]
-
-    if "," in model_name:
-        # model_name is not only one model, but contains a list of models
-        model_list = model_name.split(",")
-        model_configuration_yaml_list = [None for _ in model_list]
-        if model_configuration_yaml is not None:
-            model_configuration_yaml_list = model_configuration_yaml.split(",")
-            assert len(model_list) == len(model_configuration_yaml_list), (
-                "Number of model configurations does not match number of models"
-            )
-    else:
-        model_list = [model_name]
-        model_configuration_yaml_list = [model_configuration_yaml]
-
+    logger.info(f"Evaluating model {model_name}")
+    dataset = _load_dataset(dataset_country, dataset_csv, dataset_name, polygons_id_field, polygons_json)
+    model_configuration_yaml_list, model_list = _create_model_lists(model_configuration_yaml, model_name)
     logger.info(f"Model configuration: {model_configuration_yaml_list}")
-
     results_dict = {}
     for name, configuration in zip(model_list, model_configuration_yaml_list):
-        template = ModelTemplate.from_directory_or_github_url(
-            name,
-            base_working_dir=Path("./runs/"),
-            ignore_env=ignore_environment,
-            run_dir_type=run_directory_type,
-            is_chapkit_model=is_chapkit_model,
-        )
-        logger.info(f"Model template loaded: {template}")
-        if configuration is not None:
-            logger.info(f"Loading model configuration from yaml file {configuration}")
-            configuration = ModelConfiguration.model_validate(
-                yaml.safe_load(open(configuration))
-            )  # template.get_model_configuration_from_yaml(Path(configuration))
-            logger.info(f"Loaded model configuration from yaml file: {configuration}")
-
-        model = template.get_model(configuration)
-        model = model()
+        model = _get_model(configuration, ignore_environment, is_chapkit_model, name, run_directory_type)
         try:
             results = evaluate_model(
                 model,
@@ -271,11 +222,41 @@ def evaluate(
         except NoPredictionsError as e:
             logger.error(f"No predictions were made: {e}")
             return
-        print("!!RESULTS:")
-        print(results)
-        print("...")
         results_dict[name] = results
 
+    _save_results(report_filename, results_dict)
+
+    return results_dict
+
+
+def _get_model(
+    configuration: str,
+    ignore_environment: bool,
+    is_chapkit_model: bool,
+    name,
+    run_directory_type: Literal["latest", "timestamp", "use_existing"] | None,
+) -> Any:
+    template = ModelTemplate.from_directory_or_github_url(
+        name,
+        base_working_dir=Path("./runs/"),
+        ignore_env=ignore_environment,
+        run_dir_type=run_directory_type,
+        is_chapkit_model=is_chapkit_model,
+    )
+    logger.info(f"Model template loaded: {template}")
+    if configuration is not None:
+        logger.info(f"Loading model configuration from yaml file {configuration}")
+        configuration = ModelConfiguration.model_validate(
+            yaml.safe_load(open(configuration))
+        )  # template.get_model_configuration_from_yaml(Path(configuration))
+        logger.info(f"Loaded model configuration from yaml file: {configuration}")
+
+    model = template.get_model(configuration)
+    model = model()
+    return model
+
+
+def _save_results(report_filename: str | None, results_dict: dict[Any, Any]):
     # need to iterate through the dict, like key and value or something and then extract the relevant metrics
     # to a pandas dataframe, and save it as a csv file.
     # it seems like results contain two dictionairies, one for aggregate metrics and one with seperate ones for each ts
@@ -306,7 +287,51 @@ def evaluate(
     dataframe.to_csv(csvname, index=False, header=False)
     logger.info(f"Evaluation complete. Results saved to {csvname}")
 
-    return results_dict
+
+def _create_model_lists(model_configuration_yaml: str | None, model_name) -> tuple[list[str], Any]:
+    if "," in model_name:
+        # model_name is not only one model, but contains a list of models
+        model_list = model_name.split(",")
+        model_configuration_yaml_list = [None for _ in model_list]
+        if model_configuration_yaml is not None:
+            model_configuration_yaml_list = model_configuration_yaml.split(",")
+            assert len(model_list) == len(model_configuration_yaml_list), (
+                "Number of model configurations does not match number of models"
+            )
+    else:
+        model_list = [model_name]
+        model_configuration_yaml_list = [model_configuration_yaml]
+    return model_configuration_yaml_list, model_list
+
+
+def _load_dataset(
+    dataset_country: str | None,
+    dataset_csv: Path | None,
+    dataset_name: Any | None,
+    polygons_id_field: str | None,
+    polygons_json: Path | None,
+) -> DataSet:
+    if dataset_name is None:
+        assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
+        logging.info(f"Loading dataset from {dataset_csv}")
+        dataset = DataSet.from_csv(dataset_csv, FullData)
+        if polygons_json is not None:
+            logging.info(f"Loading polygons from {polygons_json}")
+            polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)
+            polygons.filter_locations(dataset.locations())
+            dataset.set_polygons(polygons.data)
+    else:
+        logger.info(f"Evaluating model on dataset {dataset_name}")
+        dataset = datasets[dataset_name]
+        dataset = dataset.load()
+
+        if isinstance(dataset, MultiCountryDataSet):
+            assert dataset_country is not None, "Must specify a country for multi country datasets"
+            assert dataset_country in dataset.countries, (
+                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
+            )
+            dataset = dataset[dataset_country]
+    return dataset
 
 
 @app.command()
