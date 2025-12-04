@@ -8,7 +8,6 @@ from chap_core.database.tables import BackTest
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import available_metrics
 
-from chap_core.plotting.backtest_plot import EvaluationBackTestPlot
 from chap_core.plotting.evaluation_plot import (
     MetricByHorizonV2Mean,
     MetricByHorizonV2Sum,
@@ -19,15 +18,30 @@ from chap_core.plotting.evaluation_plot import (
     MetricMapV2,
 )
 
-# If you want vegafusion (as in chap-core), you can keep this.
-# If you want pure inline data (e.g. for generic Vega viewers), switch to default/inline.
 alt.data_transformers.enable("vegafusion")
-# alt.data_transformers.enable("default")   # or "inline" if you prefer
 
+"""
+    YAML structure example:
 
-# -------------------------------------------------------------------
-# Metric plot types -> MetricPlotV2 subclasses
-# -------------------------------------------------------------------
+    name: TestPlot
+    title: Overskrift som vises øverst
+    configuration:
+      - row:
+          - plot:
+              type: metric
+              metric: detailed_crps
+              plot_type: metric_by_horizon_mean
+          - text:
+              value: "Mean Detailed CRPS by horizon."
+      - row:
+          - plot:
+              type: metric
+              metric: samples_above_truth
+              plot_type: metric_by_time_mean
+          - text:
+              value: "Samples above truth by time period."
+"""
+
 METRIC_PLOT_TYPES = {
     "metric_by_horizon_mean": MetricByHorizonV2Mean,
     "metric_by_horizon_sum": MetricByHorizonV2Sum,
@@ -39,9 +53,6 @@ METRIC_PLOT_TYPES = {
 }
 
 
-# -------------------------------------------------------------------
-# Simple helpers: title, text, concatenation
-# -------------------------------------------------------------------
 def title_chart(text: str, width: int = 600, font_size: int = 24, pad: int = 10):
     return (
         alt.Chart(pd.DataFrame({"x": [0], "y": [0]}))
@@ -89,32 +100,19 @@ def _concat_v(charts):
     return out
 
 
-# -------------------------------------------------------------------
-# Plot component builder
-# -------------------------------------------------------------------
-def _build_plot_component(backtest: BackTest, comp: dict, context: dict):
-    """
-    Build a single plot component from a YAML 'plot' block.
+def _build_plot_component(comp: dict, context: dict):
 
-    Supported:
-      type: metric
-        metric: <key in available_metrics>
-        plot_type: <key in METRIC_PLOT_TYPES>
-      type: evaluation
-        (no extra fields)
-    """
     comp_type = comp.get("type") or comp.get("kind")
 
-    # --- METRIC COMPONENTS ---
     if comp_type == "metric":
         metric_name = comp.get("metric")
-        plot_type = comp.get("plot_type", "metric_by_horizon_mean")
+        plot_type = comp.get("plot_type")
 
         if not metric_name:
             return text_chart("Metric name missing in YAML component.", line_length=60)
 
-        metric_cls = available_metrics.get(metric_name)
-        if metric_cls is None:
+        metric_class = available_metrics.get(metric_name)
+        if metric_class is None:
             return text_chart(
                 f"Metric '{metric_name}' not found.\n"
                 f"Available: {', '.join(sorted(available_metrics.keys()))}",
@@ -124,10 +122,8 @@ def _build_plot_component(backtest: BackTest, comp: dict, context: dict):
         flat_obs = context["flat_observations"]
         flat_fcst = context["flat_forecasts"]
 
-        metric = metric_cls()
+        metric = metric_class()
 
-        # CHAP-style: evaluation_plot uses .compute(...)
-        # (If your MetricBase only has get_metric, swap to that.)
         metric_df = metric.compute(flat_obs, flat_fcst)
 
         plot_class = METRIC_PLOT_TYPES.get(plot_type)
@@ -138,12 +134,7 @@ def _build_plot_component(backtest: BackTest, comp: dict, context: dict):
                 line_length=60,
             )
 
-        # Optional: basic compatibility checks to avoid cryptic KeyErrors
         required_cols = []
-        if plot_type.startswith("metric_by_time"):
-            required_cols.append("time_period")
-        if "horizon" in plot_type:
-            required_cols.append("horizon_distance")
 
         missing = [c for c in required_cols if c not in metric_df.columns]
         if missing:
@@ -156,62 +147,24 @@ def _build_plot_component(backtest: BackTest, comp: dict, context: dict):
         plotter = plot_class(metric_df)
         return plotter.plot()
 
-    # --- EVALUATION PLOT: forecast vs truth over time ---
-    if comp_type == "evaluation":
-        # Use the dedicated backtest forecast-vs-truth plot
-        return EvaluationBackTestPlot.from_backtest(backtest).plot()
-
-    # Fallback
     return text_chart(f"Unknown plot kind: {comp_type}", line_length=60)
 
 
-# -------------------------------------------------------------------
-# MAIN: build dashboard from YAML + BackTest
-# -------------------------------------------------------------------
 def build_from_yaml(yaml_str: str, backtest: BackTest, **context):
-    """
-    YAML structure example:
 
-    name: TestPlot
-    title: Overskrift som vises øverst
-    configuration:
-      - row:
-          - plot:
-              type: evaluation
-          - text:
-              value: "Backtest forecast vs truth."
-      - row:
-          - plot:
-              type: metric
-              metric: detailed_crps
-              plot_type: metric_by_horizon_mean
-          - text:
-              value: "Mean Detailed CRPS by horizon."
-      - row:
-          - plot:
-              type: metric
-              metric: samples_above_truth
-              plot_type: metric_by_time_mean
-          - text:
-              value: "Samples above truth by time period."
-    """
-    # Parse YAML into python dict
     configuration = yaml.safe_load(yaml_str)
 
-    # Retrieve data
     title = configuration.get("title")
     rows_spec = configuration.get("configuration", [])
 
     if backtest is None:
         raise ValueError("build_from_yaml requires a real BackTest object.")
 
-    # Use CHAP Evaluation abstraction to get flat forecasts/observations
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()
     flat_obs = flat_data.observations
     flat_fcst = flat_data.forecasts
 
-    # Extend context with flat data
     context = {
         **context,
         "flat_observations": flat_obs,
@@ -222,15 +175,15 @@ def build_from_yaml(yaml_str: str, backtest: BackTest, **context):
     if title:
         vrows.append(title_chart(title))
 
-    for r in rows_spec:
-        components = r.get("row", [])
+    for row in rows_spec:
+        components = row.get("row", [])
         hcharts = []
-        for c in components:
-            if "plot" in c:
-                chart = _build_plot_component(backtest, c["plot"], context)
+        for comp in components:
+            if "plot" in comp:
+                chart = _build_plot_component(comp["plot"], context)
                 hcharts.append(chart)
-            elif "text" in c:
-                txt = c["text"]
+            elif "text" in comp:
+                txt = comp["text"]
                 if isinstance(txt, dict):
                     val = txt.get("value", "")
                 else:
@@ -240,53 +193,6 @@ def build_from_yaml(yaml_str: str, backtest: BackTest, **context):
                 hcharts.append(text_chart("Unknown component", line_length=60))
         vrows.append(_concat_h(hcharts))
 
-    # Compose final chart
     chart = _concat_v([ch for ch in vrows if ch is not None])
     return chart
 
-
-# -------------------------------------------------------------------
-# Example usage (you must supply a real BackTest from CHAP)
-# -------------------------------------------------------------------
-if __name__ == "__main__":
-    # TODO: replace this with how you actually obtain a BackTest
-    # e.g. from DB, API, or a serialized JSON
-    #
-    # Example placeholder:
-    #   from chap_core.database.session import get_session
-    #   from chap_core.crud.backtests import get_backtest
-    #
-    #   session = get_session()
-    #   backtest = get_backtest(session, backtest_id="some-uuid")
-    #
-    # For now, we just mark it as a variable you must define:
-    backtest: BackTest = ...  # <-- supply a real BackTest here
-
-    yaml_cfg = """
-    name: TestPlot
-    title: Overskrift som vises øverst
-    configuration:
-      - row:
-          - plot:
-              type: evaluation
-          - text:
-              value: "Forecast vs observed disease cases."
-      - row:
-          - plot:
-              type: metric
-              metric: detailed_crps
-              plot_type: metric_by_horizon_mean
-          - text:
-              value: "Mean Detailed CRPS by horizon."
-      - row:
-          - plot:
-              type: metric
-              metric: samples_above_truth
-              plot_type: metric_by_time_mean
-          - text:
-              value: "Samples above truth by time period."
-    """
-
-    chart = build_from_yaml(yaml_cfg, backtest)
-    chart.save("yaml_plot.json")
-    print("Saved yaml_plot.json")
