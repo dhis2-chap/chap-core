@@ -174,9 +174,9 @@ class ExternalChapkitModel(ExternalModelBase):
         response = self.client.train_and_wait(self.configuration_id, new_pd, geo)
 
         if response["status"] == "failed":
-            raise RuntimeError(f"Training failed: {response.get('error', 'Unknown error')}")
+            raise RuntimeError(f"Training failed: {response.get('error', 'Unknown error')}. Stacktrace: {response.get('error_traceback', '')}")
 
-        artifact_id = response["model_artifact_id"]
+        artifact_id = response["artifact_id"]
         assert artifact_id is not None, response
         self._train_id = artifact_id
         return self
@@ -187,7 +187,7 @@ class ExternalChapkitModel(ExternalModelBase):
         historic_data_pd = self._adapt_data(historic_data.to_pandas())
         future_data_pd = self._adapt_data(future_data.to_pandas())
         response = self.client.predict_and_wait(
-            model_artifact_id=self._train_id,
+            artifact_id=self._train_id,
             future_data=future_data_pd,
             historic_data=historic_data_pd,
             geo_features=geo,
@@ -196,10 +196,10 @@ class ExternalChapkitModel(ExternalModelBase):
         if response["status"] == "failed":
             raise RuntimeError(f"Prediction failed: {response.get('error', 'Unknown error')}")
 
-        artifact_id = response["prediction_artifact_id"]
+        artifact_id = response["artifact_id"]
         assert artifact_id is not None, response.get("error", "No prediction artifact")
 
         # get artifact from the client
-        prediction = self.client.get_artifact(artifact_id)
-        data = prediction["data"]["predictions"]
-        return DataSet.from_pandas(pd.DataFrame(data=data["data"], columns=data["columns"]), Samples)
+        prediction_data = self.client.get_prediction_artifact_dataframe(artifact_id)
+        pd = prediction_data.to_pandas()
+        return DataSet.from_pandas(pd, Samples)
