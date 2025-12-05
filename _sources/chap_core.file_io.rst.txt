@@ -1,0 +1,53 @@
+chap\_core.file\_io package
+===========================
+
+Submodules
+----------
+
+chap\_core.file\_io.cleaners module
+-----------------------------------
+
+.. automodule:: chap_core.file_io.cleaners
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.file\_io.example\_data\_set module
+---------------------------------------------
+
+.. automodule:: chap_core.file_io.example_data_set
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.file\_io.external\_file module
+-----------------------------------------
+
+.. automodule:: chap_core.file_io.external_file
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.file\_io.file\_paths module
+--------------------------------------
+
+.. automodule:: chap_core.file_io.file_paths
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.file\_io.load module
+-------------------------------
+
+.. automodule:: chap_core.file_io.load
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.file_io
+   :members:
+   :show-inheritance:
+   :undoc-members:

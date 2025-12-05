@@ -1,0 +1,564 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html">
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+        <title>Learning statistical and machine learning modelling - with climate-sensitive disease forecasting as focus and case - Climate Health 1.1.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/_static/" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #eeffcc;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">Climate Health 1.1.1 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">Climate Health 1.1.1 documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../modeling-app/index.html">Using Chap Core with DHIS2 Modeling App</a><input aria-label="Toggle navigation of Using Chap Core with DHIS2 Modeling App" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../modeling-app/installation.html">Installing Chap Core for use with the Modeling app</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modeling-app/running-chap-on-server.html">Configure DHIS2 Modeling App and Chap Core to work together</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="index.html">Documentation for model developers</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../chap-cli/index.html">Using the CLI Tool</a><input aria-label="Toggle navigation of Using the CLI Tool" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../chap-cli/chap-core-cli-setup.html">Setting up CHAP-Core CLI Tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../chap-cli/earth-engine-auth.html">CHAP Core Credentials for Google Earth Engine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../chap-cli/using-pa-with-cli.html">Use JSON-file from DHIS2 Modeling App with CHAP Core CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../chap-cli/downloaded_json_data.html">Running on JSON Data Downloaded from the DHIS2 Modeling App</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../contributor/index.html">Contributor guide</a><input aria-label="Toggle navigation of Contributor guide" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/getting_started.html">Contributor getting started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/chap-contributor-setup.html">Setting Up CHAP Core as a Contributor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/windows_contributors.html">Important note for Windows contributors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/code_overview.html">Code overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/vocabulary.html">Vocabulary (domain specific terms used in the code)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/testing.html">Testing while developing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/database_migrations.html">Database Migrations with Alembic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/writing_building_documentation.html">Writing and building documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/r_docker_image.html">Creating a docker image for R models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributor/development_tools.html">Introduction to Development Tools</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../webapi/index.html">Chap REST API</a><input aria-label="Toggle navigation of Chap REST API" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../webapi/developer.html">Using Chap REST API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../webapi/docker-compose-doc.html">Setting up Chap REST-API locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Releases and Future Plans</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/external_models/learn_modelling.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="learning-statistical-and-machine-learning-modelling-with-climate-sensitive-disease-forecasting-as-focus-and-case">
+<h1>Learning statistical and machine learning modelling - with climate-sensitive disease forecasting as focus and case<a class="headerlink" href="#learning-statistical-and-machine-learning-modelling-with-climate-sensitive-disease-forecasting-as-focus-and-case" title="Link to this heading">¶</a></h1>
+<p>This material will gradually introduce you to important concepts from statistical modelling and machine learning,
+focusing on what you will need to understand in order to do forecasting of climate-sensitive disease.
+It thus selects a set of topics needed for disease forecasting, while mostly introducing these concepts in generality.</p>
+<p>The material is organised around hands-on tutorials, where you will learn how to practically develop models while learning the theoretical underpinnings.</p>
+</section>
+<section id="prerequisites">
+<h1>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Programming: you must know some programming, in either Python or R, to be able to follow our exercises and tutorials.</p></li>
+<li><p>Data science: You should know basic data science and statistics or machine learning. However, very little is presumed as it can be learnt underway, but one should know the most basic concepts and terminology.</p></li>
+<li><p>GitHub: Central to our approach is that you follow various practical tutorials along the way. These tutorials are available at GitHub, so you need to know at least the absolute basics of how to get code from GitHub to your local machine - if not please ask us for tips on Github tutorials.</p></li>
+</ul>
+</section>
+<section id="background">
+<h1>Background<a class="headerlink" href="#background" title="Link to this heading">¶</a></h1>
+<p>Climate change is rapidly reshaping the patterns and spread of disease, posing urgent challenges for health systems. To effectively respond, the health systems must become more adaptive and data-driven. Early warning and response systems (EWS) that leverage disease incidence forecasting offer a promising way to prioritize interventions where and when they are most needed.</p>
+<p>At the core of early warning is forecasting of disease incidence forward in time. This is based on learning a statistical/machine learning model of how disease progresses ahead in time based on various available data.</p>
+<p>If you have limited prior experience with statistics or machine learning, please read our brief intro in the expandable box below:</p>
+<section id="a-gentle-introduction-to-statistical-and-time-series-modelling">
+<h2>A gentle introduction to statistical and time series modelling<a class="headerlink" href="#a-gentle-introduction-to-statistical-and-time-series-modelling" title="Link to this heading">¶</a></h2>
+<details>
+<summary>Click to expand</summary>
+<section id="statistical-or-machine-learning-model">
+<h3>1. Statistical or Machine Learning Model<a class="headerlink" href="#statistical-or-machine-learning-model" title="Link to this heading">¶</a></h3>
+<p>A <strong>model</strong> is a rule or formula we create to describe how some outcome depends on information we already have.</p>
+<ul class="simple">
+<li><p>The outcome we want to understand or predict is often called the <strong>target</strong>.</p></li>
+<li><p>The information we use to make that prediction is called <strong>predictors</strong> (or <strong>features</strong>).</p></li>
+</ul>
+<p>A model tries to capture patterns in data in a simplified way.<br />
+You can think of a model as a machine:</p>
+<blockquote>
+<div><p><strong>input (predictors)</strong> → <em>model learns a pattern</em> → <strong>output (prediction)</strong></p>
+</div></blockquote>
+<p>The goal is either to <strong>explain</strong> something (“What affects sales?”) or to <strong>predict</strong> something (“What will sales be tomorrow?”).</p>
+</section>
+<hr class="docutils" />
+<section id="predictors-features">
+<h3>2. Predictors (Features)<a class="headerlink" href="#predictors-features" title="Link to this heading">¶</a></h3>
+<p>A <strong>predictor</strong> is any variable that provides information helpful for predicting the target.</p>
+<p>Examples:</p>
+<ul class="simple">
+<li><p>Temperature when predicting ice cream sales</p></li>
+<li><p>Age when predicting income</p></li>
+<li><p>Yesterday’s stock price when predicting today’s</p></li>
+</ul>
+<p>Predictors are the model’s <em>inputs</em>.<br />
+We usually write them as numbers:</p>
+<ul class="simple">
+<li><p>A single predictor as <em>x</em></p></li>
+<li><p>Several predictors as <em>x₁, x₂, x₃,</em> …</p></li>
+</ul>
+<p>The model learns how each predictor is related to the target.</p>
+</section>
+<hr class="docutils" />
+<section id="linear-regression">
+<h3>3. Linear Regression<a class="headerlink" href="#linear-regression" title="Link to this heading">¶</a></h3>
+<p><strong>Linear regression</strong> is one of the simplest and most widely used models.<br />
+It assumes that the target is approximately a <strong>straight-line combination</strong> of its predictors.</p>
+<p>With one predictor <em>x</em>, the model is:</p>
+<blockquote>
+<div><p><strong>prediction = a + b·x</strong></p>
+</div></blockquote>
+<ul class="simple">
+<li><p><strong>a</strong> is the model’s baseline (what we predict when <em>x = 0</em>)</p></li>
+<li><p><strong>b</strong> tells us how much the prediction changes when <em>x</em> increases by 1 unit</p></li>
+</ul>
+<p>With multiple predictors <em>x₁, x₂, …</em>, we extend the same idea:</p>
+<blockquote>
+<div><p><strong>prediction = a + b₁·x₁ + b₂·x₂ + …</strong></p>
+</div></blockquote>
+<p>You don’t need to imagine shapes in many dimensions—just think of it as a recipe where each predictor gets a weight (<strong>b</strong>) that shows how important it is.</p>
+<p>The model “learns” values of <em>a, b₁, b₂, …</em> by choosing them so that predictions are as close as possible to the observed data.</p>
+</section>
+<hr class="docutils" />
+<section id="time-series">
+<h3>4. Time Series<a class="headerlink" href="#time-series" title="Link to this heading">¶</a></h3>
+<p>A <strong>time series</strong> is a sequence of data points collected over time, in order:</p>
+<blockquote>
+<div><p>value at time 1, value at time 2, value at time 3, …</p>
+</div></blockquote>
+<p>Examples:</p>
+<ul class="simple">
+<li><p>Daily temperatures</p></li>
+<li><p>Hourly website traffic</p></li>
+<li><p>Monthly number of customers</p></li>
+</ul>
+<p>What makes time series special is that:</p>
+<ul class="simple">
+<li><p><strong>The order matters</strong></p></li>
+<li><p><strong>Past values can influence future values</strong></p></li>
+<li><p>Data may show <strong>patterns</strong> such as trends (general increase/decrease over time) or seasonality (repeating patterns, like higher electricity use every winter)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="time-series-forecasting">
+<h3>5. Time Series Forecasting<a class="headerlink" href="#time-series-forecasting" title="Link to this heading">¶</a></h3>
+<p><strong>Forecasting</strong> means using past observations to predict future ones.</p>
+<p>Unlike models that treat each data point separately, forecasting models learn ideas like:</p>
+<ul class="simple">
+<li><p>how the series tends to move (trend)</p></li>
+<li><p>whether it repeats patterns (seasonality)</p></li>
+<li><p>how strongly the recent past influences the next value</p></li>
+</ul>
+<p>A simple forecasting idea is to predict the next value using a weighted average of recent past values. More advanced methods learn more complex patterns automatically.</p>
+</section>
+<hr class="docutils" />
+<section id="evaluation-of-predictions">
+<h3>6. Evaluation of Predictions<a class="headerlink" href="#evaluation-of-predictions" title="Link to this heading">¶</a></h3>
+<p>Once a model makes predictions, we need to measure how good they are.<br />
+This means comparing the model’s predictions to the actual values.</p>
+<p>Let:</p>
+<ul class="simple">
+<li><p><strong>actual</strong> value = <em>y</em></p></li>
+<li><p><strong>predicted</strong> value = ŷ (read as “y-hat”)</p></li>
+</ul>
+<p>The <strong>error</strong> is:</p>
+<blockquote>
+<div><p><strong>error = actual − predicted = y − ŷ</strong></p>
+</div></blockquote>
+<p>Common ways to summarize how large the errors are:</p>
+<ul class="simple">
+<li><p><strong>MAE (Mean Absolute Error):</strong><br />
+average of |y − ŷ| (the average size of the mistakes)</p></li>
+<li><p><strong>MSE (Mean Squared Error):</strong><br />
+average of (y − ŷ)² (large mistakes count extra)</p></li>
+<li><p><strong>RMSE (Root Mean Squared Error):</strong><br />
+the square root of MSE (in the same units as the data)</p></li>
+<li><p><strong>MAPE (Mean Absolute Percentage Error):</strong><br />
+how large the errors are <em>relative</em> to the actual values, in %</p></li>
+</ul>
+<p>These measures help us compare models and choose the one that predicts best.</p>
+<p>For a bit more in-depth introduction, please also consider the following general papers:
+https://pmc.ncbi.nlm.nih.gov/articles/PMC5905345/
+https://www.nature.com/articles/nmeth.3627
+https://www.nature.com/articles/nmeth.3665</p>
+</details>
+</section>
+</section>
+</section>
+<section id="motivation">
+<h1>Motivation<a class="headerlink" href="#motivation" title="Link to this heading">¶</a></h1>
+<p>Our tutorial aims to introduce aspects of statistical modelling and machine learning that are useful specifically for developing, evaluating and later operationalising forecasting models. Our pedagogical approach is to begin by introducing a very simple model in a simple setting, and then expanding both the model and the setting in a stepwise fashion. We emphasize interoperability and rigorous evaluation of models right from the start, as a way of guiding the development of more sophisticated models. In doing this, we follow a philosophy resembling what is known as agile development in computer science [ref].
+To facilitate interoperability and evaluation of models, we rely on the Chap platform [https://dhis2-chap.github.io/chap-core], which enforces standards of interoperability already from the first, simple model. This interoperability allows models to be run on a broad data collection and be rigorously evaluated with rich visualisations of data and predictions already from the early phase.</p>
+</section>
+<section id="making-your-first-model-and-getting-it-into-chap">
+<h1>Making your first model and getting it into chap<a class="headerlink" href="#making-your-first-model-and-getting-it-into-chap" title="Link to this heading">¶</a></h1>
+<p>Disease forecasting is a type of problem within what is known as spatiotemporal modelling [ref] in the field of statistics/ML. What this means is that the data have both a temporal and spatial reference (i.e. data of disease incidence is available at multiple subsequent time points, for different regions in a country), where observations that are close in time or space are usually considered more likely to be similar [FINN BEDRE FORMULERING]. In our case, we also have data both on disease and on various climate variables that may influence disease incidence.</p>
+<p>Before going into the many challenges of spatiotemporal modelling, we recommend that you get the technical setup in place to allow efficient development and learning for the remainder of this tutorial. Although this can be a bit of a technical nuisance just now, it allows you to run your model on a variety of data inputs with rich evaluation now already, and it allows you to progress efficiently with very few technical wrinkles as the statistical and ML aspects become more advanced. To do this, please follow our minimalist example tutorial, which introduces an extremely oversimplified statistical model (linear regression of immediate climate effects on disease only), but shows you how to get this running in Chap.
+This minimalist tutorial is available both as Python and as R code:</p>
+<ul class="simple">
+<li><p>https://github.com/dhis2-chap/minimalist_example (Python)</p></li>
+<li><p>https://github.com/dhis2-chap/minimalist_example_r (R)</p></li>
+</ul>
+</section>
+<section id="evaluating-a-model">
+<h1>Evaluating a model<a class="headerlink" href="#evaluating-a-model" title="Link to this heading">¶</a></h1>
+<p>The purpose of spatiotemporal modelling is to learn generalisable patterns that can be used to reason about unseen regions or about the future. Since our use case is an early warning system, our focus is on the latter, i.e. forecasting disease incidence ahead in time based on historic data for a given region. Therefore, we will focus on evaluating a model through its forecasting skill into the future.</p>
+<p>A straightforward way to assess a forecasting model is to create and record forecasts for future disease development, wait to see how disease truly develops, and then afterwards compare the observed numbers to what was forecasted. This approach has two main limitations, though:
+it requires to wait through the forecast period to see what observations turn out to be
+it only shows the prediction skill of the forecast model at a single snapshot in time - leaving a large uncertainty on how a system may be expected to behave if used to forecast new future periods.</p>
+<p>A popular and powerful alternative is thus to perform what is called backtesting or hindcasting: one pretends to be at a past point in time, providing a model exclusively with data that was available before this pretended point in time, making forecasts beyond that time point (for which no information was available to the model), and then assessing how close this forecast is to what happened after the pretended time point. When performed correctly, this resolves the both mentioned issues with assessing forecasts truly made into the future:
+Since observations after the pretended time point is already available in historic records, assessment can be performed instantaneously, and
+one can choose several different pretended time points, reducing uncertainty of the estimated prediction skill  and also allowing to see variability in prediction skill across time.</p>
+<p>To be truly representative of true future use, it is crucial that the pretended time point for forecasting realistically reflects a situation where the future is not known. There are a myriad pitfalls in assessment setup that can lead to the assessment not respecting the principle of future information beyond the pretended time point not being accessible to models. This is discussed in more detail here: https://docs.google.com/document/d/1Hr7Wz4Yc4ZKZ6fsFJI_lpLO8d1SSxtfTeqByWZrQqFo/edit?tab=t.0</p>
+<p>Prediction skill can be measured in different ways. One simple way to measure this is to look at how far off the predictions are, on average, from the true values (known as mean absolute error, MAE). Other common measures are discussed later in this tutorial, after we have introduced further aspects of modelling.
+To make the most of the data we have, we often use a method called cross-validation. This means we repeatedly split the data into “past” and “future” parts at different time points. We then make forecasts for each split and check how accurate those forecasts are. This helps us see how well the model performs across different periods of time. To learn more, Wikipedia has a broad introduction, including specifics for time series models: https://en.wikipedia.org/wiki/Cross-validation_(statistics)#Cross_validation_for_time-series,_spatial_and_spatiotemporal_models</p>
+<p>Since we are here running our models through Chap, we can lean on an already implemented solution to avoid pitfalls and ensure a data-efficient and honest evaluation of the models we develop. Chap also includes several metrics, including MAE, and offers several convenient visualisations to provide insights on the prediction skill.
+To get a feeling for this, please follow the code-along tutorials on assessment with Chap. We recommend to start with a simple code-along tutorial for how to split data and compute MAE on the pretended future:
+https://github.com/dhis2-chap/Assessment_example_singlepred</p>
+<p>After getting a feeling for assessment, please continue with our code tutorial on how to perform more sophisticated evaluation of any model using the built-in chap evaluation functionality (rather than implementing your own simple evaluation from scratch, as in the previous code-along tutorial):
+https://github.com/dhis2-chap/Assessment_example_chap_compatible</p>
+<p>With this evaluation setup in place, you should be ready to start looking at more sophisticated modelling approaches. For each new version of your model, evaluation helps you check that the new version is actually an improvement (and if so, in which sense, for instance short-term vs long-term, accuracy vs calibration, large vs small data set).</p>
+</section>
+<section id="expanding-your-model-to-make-it-more-meaningful">
+<h1>Expanding your model to make it more meaningful<a class="headerlink" href="#expanding-your-model-to-make-it-more-meaningful" title="Link to this heading">¶</a></h1>
+<section id="multiple-regions">
+<h2>Multiple regions<a class="headerlink" href="#multiple-regions" title="Link to this heading">¶</a></h2>
+<p>While it may in some settings be useful to forecast disease at a national level, it is often more operationally relevant to create forecasts for smaller regions within the country, for instance at district level. Therefore, a disease forecasting approach needs to relate to multiple districts in the code, to create forecasts per district.
+If a single model is trained across district data (ignoring the fact that there are different districts) and used to directly forecast disease without taking into account differences between districts in any way, it would forecast similar levels of disease across districts regardless of disease prevalence in each particular district.
+To see this more concretely please follow this tutorial to see the errors that the minimalist_example model (which ignores districts) makes for the two districts D1 and D2 with respectively high and low prevalence:
+https://github.com/dhis2-chap/Assessment_example_multiregion</p>
+<p>The simplest approach to creating meaningful region-level forecast is to simply train and forecast based on a separate model per region. Please follow the tutorial below (in Python or R version) to see an easy way of doing this in code:</p>
+<ul class="simple">
+<li><p>https://github.com/dhis2-chap/minimalist_multiregion (Python)</p></li>
+<li><p>https://github.com/dhis2-chap/minimalist_multiregion_r (R)</p></li>
+</ul>
+<p>However, such independent consideration of each region also has several weaknesses.
+A main weakness is connected to the amount of data available to learn a good model. When learning a separate model per region, there may be a scarcity of data to fit a model of the desired complexity. This relates to a general principle in statistics concerning the amount of data available to fit a model versus the number of parameters in a model (see e.g.:,https://www.researchgate.net/publication/307526307_Points_of_Significance_Model_selection_and_overfitting) More available data allows for a larger number of parameters and a more complex model. Compared to the case with separate models per region, just combining data across all regions into a single model where the parameters are completely independent between districts does not change the ratio of available data versus parameters to be estimated. However, if the parameters are dependent (for example due a spatial structure, i.e. similarities between regions), the effective number of parameters will be lower than the actual number. There is a trade-off between having completely independent parameters on one hand and, and forcing parameters to be equal across regions on the other hand. This is often conveyed as “borrowing strength” between regions. It is also related to the concept of the bias-variance tradeoff in statistics and machine learning (see e.g.: https://en.wikipedia.org/wiki/Bias%E2%80%93variance_tradeoff ), where dependency between parameter values across regions introduces a small bias in each region towards the mean across regions, while reducing variance of the parameter estimates due to more efficient use of data.</p>
+<p>As the disease context (including numbers of disease cases) can vary greatly between regions, the same type of model is not necessarily suited for all regions. However, taking this into account can be complex, especially if one wants to combine flexibility of models with the concept of borrowing strength mentioned above. It is thus often more practical to use a single model across regions, but ensure that this model is flexible enough to handle such heterogeneity across regions.</p>
+</section>
+<section id="lags-and-autoregressive-effect">
+<h2>Lags and autoregressive effect<a class="headerlink" href="#lags-and-autoregressive-effect" title="Link to this heading">¶</a></h2>
+<p>The incidence of disease today is usually affected by the incidence of disease in the recent past. This is for instance almost always the case with infectious disease, whether or not transmission is directly  human-to-human or via a vector like mosquitoes (e.g. Malaria and Dengue). Thus, it is usually advisable to include past cases of disease as a predictor in a model. This is typically referred to as including autoregressive effects in models.</p>
+<p>Additionally, climate variables such as rainfall and temperature usually don’t have an instantaneous effect. Typically, there is no way that (for example) rainfall today would influence cases today or in the nearest days. Instead, heavy rainfall today could alter standing water, affecting mosquito development and behavior, with effects on reported Malaria cases being several weeks ahead. This means that models should typically make use of past climatic data to predict disease incidence ahead. The period between the time point that a given data value reflects and the time point of its effect is referred to as a lag. The effect of a predictor on disease may vary and even be opposite when considered at different lags. A model should usually include predictors at several different time lags, where the model aims to learn which time lags are important and what the effects are for a given predictor at each such lag.</p>
+<p>Available data can be on different time resolutions. In some contexts, reported disease cases are available with specific time stamps, but more often what is collected is aggregated and made available at weekly or monthly resolution. The available data resolution influences how precisely variation in predictor effects across lag times can be represented.</p>
+<p>Basically, the influence of each predictor at each time lag will be represented by a separate parameter in a model. As discussed in the previous section on multiple regions, this can lead to too many parameters to be effectively estimated. It is thus common to employ some form of smoothing of the effects of a predictor across lags, with a reasoning similar to that of borrowing strength across regions (here instead borrowing strength across lag times).</p>
+<p>At a practical level, model training is often assuming that all predictors to be used for a given prediction (including lagged variables) are available at the same row of the input data table. It is thus common to modify the data tables to make lagged predictors line up.
+To see a simple way of doing this in code, follow this tutorial in Python or R:</p>
+<ul class="simple">
+<li><p>https://github.com/dhis2-chap/minimalist_example_lag (Python)</p></li>
+<li><p>https://github.com/dhis2-chap/minimalist_example_lag_r (R)</p></li>
+</ul>
+</section>
+</section>
+<section id="expanding-your-model-with-uncertainty">
+<h1>Expanding your model with uncertainty<a class="headerlink" href="#expanding-your-model-with-uncertainty" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>What and why uncertainty</p></li>
+<li><p>How to generically represent uncertainty: provide an empirical distribution (samples)</p></li>
+<li><p>Add this by adding simple stochastic noise term to a single deterministic prediction from a model</p></li>
+</ul>
+</section>
+<section id="evaluating-predicted-uncertainty">
+<h1>Evaluating predicted uncertainty<a class="headerlink" href="#evaluating-predicted-uncertainty" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>The concept of uncertainty calibration (and why it is operationally important)</p></li>
+</ul>
+</section>
+<section id="honest-and-sophisticated-evaluation-in-more-detail">
+<h1>Honest and sophisticated evaluation in more detail<a class="headerlink" href="#honest-and-sophisticated-evaluation-in-more-detail" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>(see also separate manuscript about this..)
+*Time series cross-validation.. (growing/rolling window)</p></li>
+</ul>
+</section>
+<section id="relating-to-data-quality-issues-including-missing-data">
+<h1>Relating to data quality issues, including missing data<a class="headerlink" href="#relating-to-data-quality-issues-including-missing-data" title="Link to this heading">¶</a></h1>
+</section>
+<section id="more-realistic-sophisticated-models">
+<h1>More realistic (Sophisticated) models<a class="headerlink" href="#more-realistic-sophisticated-models" title="Link to this heading">¶</a></h1>
+<p>*BayesianHierarchicalModelling, including INLA, mentioning STAN
+*Auto-regressive ML
+*ARIMA and variants
+*Deep learning</p>
+</section>
+<section id="systematic-evaluation-on-simulated-data-for-debugging-understanding-and-stress-testing-models">
+<h1>Systematic evaluation on simulated data for debugging, understanding and stress-testing models<a class="headerlink" href="#systematic-evaluation-on-simulated-data-for-debugging-understanding-and-stress-testing-models" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Simulating from the model or something presumed close to the model - see if the model behaves as expected and how much data is needed to reach desired behavior..</p></li>
+<li><p>Simulate specific scenarios to stress-test models</p></li>
+<li><p>Develop more realistic simulations</p></li>
+</ul>
+</section>
+<section id="selecting-meaningful-features-covariates-and-data">
+<h1>Selecting meaningful features (covariates) and data<a class="headerlink" href="#selecting-meaningful-features-covariates-and-data" title="Link to this heading">¶</a></h1>
+</section>
+<section id="further-resources">
+<h1>Further resources<a class="headerlink" href="#further-resources" title="Link to this heading">¶</a></h1>
+<p>Some general resources - not properly screened for now:</p>
+<ul class="simple">
+<li><p>https://tjfisher19.github.io/introStatModeling/</p></li>
+<li><p>https://www.statlearning.com/</p></li>
+<li><p>https://www.kaggle.com/code/iamleonie/intro-to-time-series-forecasting</p></li>
+<li><p>https://www.kaggle.com/code/iamleonie/time-series-forecasting-building-intuition</p></li>
+<li><p>https://www.nature.com/articles/nmeth.4014</p></li>
+<li><p>https://www.nature.com/articles/nmeth.2613</p></li>
+</ul>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; CHAP
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=58fbf978"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

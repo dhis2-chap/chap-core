@@ -1,0 +1,45 @@
+chap\_core.testing package
+==========================
+
+Submodules
+----------
+
+chap\_core.testing.estimators module
+------------------------------------
+
+.. automodule:: chap_core.testing.estimators
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.testing.external\_model module
+-----------------------------------------
+
+.. automodule:: chap_core.testing.external_model
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.testing.mocks module
+-------------------------------
+
+.. automodule:: chap_core.testing.mocks
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.testing.testing module
+---------------------------------
+
+.. automodule:: chap_core.testing.testing
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.testing
+   :members:
+   :show-inheritance:
+   :undoc-members:

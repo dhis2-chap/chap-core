@@ -1,0 +1,45 @@
+chap\_core.data package
+=======================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   chap_core.data.gluonts_adaptor
+
+Submodules
+----------
+
+chap\_core.data.adaptors module
+-------------------------------
+
+.. automodule:: chap_core.data.adaptors
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.data.datasets module
+-------------------------------
+
+.. automodule:: chap_core.data.datasets
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.data.open\_dengue module
+-----------------------------------
+
+.. automodule:: chap_core.data.open_dengue
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.data
+   :members:
+   :show-inheritance:
+   :undoc-members:

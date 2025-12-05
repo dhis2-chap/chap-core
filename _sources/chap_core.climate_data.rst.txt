@@ -1,0 +1,21 @@
+chap\_core.climate\_data package
+================================
+
+Submodules
+----------
+
+chap\_core.climate\_data.seasonal\_forecasts module
+---------------------------------------------------
+
+.. automodule:: chap_core.climate_data.seasonal_forecasts
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.climate_data
+   :members:
+   :show-inheritance:
+   :undoc-members:

@@ -1,0 +1,21 @@
+chap\_core.transformations package
+==================================
+
+Submodules
+----------
+
+chap\_core.transformations.covid\_mask module
+---------------------------------------------
+
+.. automodule:: chap_core.transformations.covid_mask
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.transformations
+   :members:
+   :show-inheritance:
+   :undoc-members:

@@ -1,0 +1,193 @@
+chap\_core package
+==================
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   chap_core.adaptors
+   chap_core.assessment
+   chap_core.climate_data
+   chap_core.data
+   chap_core.database
+   chap_core.external
+   chap_core.fetch
+   chap_core.file_io
+   chap_core.geo_coding
+   chap_core.hpo
+   chap_core.models
+   chap_core.plotting
+   chap_core.predictor
+   chap_core.rest_api
+   chap_core.runners
+   chap_core.simulation
+   chap_core.spatio_temporal_data
+   chap_core.testing
+   chap_core.time_period
+   chap_core.transformations
+   chap_core.worker
+
+Submodules
+----------
+
+chap\_core.alarms module
+------------------------
+
+.. automodule:: chap_core.alarms
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.api module
+---------------------
+
+.. automodule:: chap_core.api
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.api\_types module
+----------------------------
+
+.. automodule:: chap_core.api_types
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.cli module
+---------------------
+
+.. automodule:: chap_core.cli
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.climate\_predictor module
+------------------------------------
+
+.. automodule:: chap_core.climate_predictor
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.datatypes module
+---------------------------
+
+.. automodule:: chap_core.datatypes
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.docker\_helper\_functions module
+-------------------------------------------
+
+.. automodule:: chap_core.docker_helper_functions
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.exceptions module
+----------------------------
+
+.. automodule:: chap_core.exceptions
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.geojson module
+-------------------------
+
+.. automodule:: chap_core.geojson
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.geometry module
+--------------------------
+
+.. automodule:: chap_core.geometry
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.geoutils module
+--------------------------
+
+.. automodule:: chap_core.geoutils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.internal\_state module
+---------------------------------
+
+.. automodule:: chap_core.internal_state
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.log\_config module
+-----------------------------
+
+.. automodule:: chap_core.log_config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.model\_spec module
+-----------------------------
+
+.. automodule:: chap_core.model_spec
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.pandas\_adaptors module
+----------------------------------
+
+.. automodule:: chap_core.pandas_adaptors
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.rbased\_docker module
+--------------------------------
+
+.. automodule:: chap_core.rbased_docker
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.training\_control module
+-----------------------------------
+
+.. automodule:: chap_core.training_control
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.util module
+----------------------
+
+.. automodule:: chap_core.util
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.validators module
+----------------------------
+
+.. automodule:: chap_core.validators
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core
+   :members:
+   :show-inheritance:
+   :undoc-members:

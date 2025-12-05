@@ -1,0 +1,45 @@
+chap\_core.time\_period package
+===============================
+
+Submodules
+----------
+
+chap\_core.time\_period.date\_util\_wrapper module
+--------------------------------------------------
+
+.. automodule:: chap_core.time_period.date_util_wrapper
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.time\_period.multi\_resolution module
+------------------------------------------------
+
+.. automodule:: chap_core.time_period.multi_resolution
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.time\_period.period\_assignment module
+-------------------------------------------------
+
+.. automodule:: chap_core.time_period.period_assignment
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.time\_period.relationships module
+--------------------------------------------
+
+.. automodule:: chap_core.time_period.relationships
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.time_period
+   :members:
+   :show-inheritance:
+   :undoc-members:

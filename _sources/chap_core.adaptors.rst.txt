@@ -1,0 +1,37 @@
+chap\_core.adaptors package
+===========================
+
+Submodules
+----------
+
+chap\_core.adaptors.command\_line\_interface module
+---------------------------------------------------
+
+.. automodule:: chap_core.adaptors.command_line_interface
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.adaptors.gluonts module
+----------------------------------
+
+.. automodule:: chap_core.adaptors.gluonts
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.adaptors.rest\_api module
+------------------------------------
+
+.. automodule:: chap_core.adaptors.rest_api
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.adaptors
+   :members:
+   :show-inheritance:
+   :undoc-members:

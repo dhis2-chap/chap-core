@@ -1,0 +1,10 @@
+chap\_core.fetch package
+========================
+
+Module contents
+---------------
+
+.. automodule:: chap_core.fetch
+   :members:
+   :show-inheritance:
+   :undoc-members:

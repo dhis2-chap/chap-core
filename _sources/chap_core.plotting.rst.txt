@@ -1,0 +1,61 @@
+chap\_core.plotting package
+===========================
+
+Submodules
+----------
+
+chap\_core.plotting.backtest\_plot module
+-----------------------------------------
+
+.. automodule:: chap_core.plotting.backtest_plot
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.plotting.conftest module
+-----------------------------------
+
+.. automodule:: chap_core.plotting.conftest
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.plotting.dataset\_plot module
+----------------------------------------
+
+.. automodule:: chap_core.plotting.dataset_plot
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.plotting.evaluation\_plot module
+-------------------------------------------
+
+.. automodule:: chap_core.plotting.evaluation_plot
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.plotting.prediction\_plot module
+-------------------------------------------
+
+.. automodule:: chap_core.plotting.prediction_plot
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+chap\_core.plotting.season\_plot module
+---------------------------------------
+
+.. automodule:: chap_core.plotting.season_plot
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: chap_core.plotting
+   :members:
+   :show-inheritance:
+   :undoc-members:
