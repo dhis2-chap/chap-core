@@ -51,6 +51,8 @@ services:
     working_dir: /app
     networks:
       - chap-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   postgres:
     image: postgres:17

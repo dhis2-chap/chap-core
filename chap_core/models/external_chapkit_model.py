@@ -31,6 +31,7 @@ class ExternalChapkitModelTemplate:
         while time.time() - start_time < timeout:
             if self.is_healthy():
                 return True
+            logger.info("Waiting for model service to become healthy...")
             time.sleep(2)
         raise TimeoutError(
             f"Model service at {self.rest_api_url} did not become healthy within {timeout} seconds. Check {self.rest_api_url}/health"
