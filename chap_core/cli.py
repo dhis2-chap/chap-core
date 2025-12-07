@@ -4,16 +4,14 @@ import logging
 import dataclasses
 import json
 from pathlib import Path
-from typing import Literal, Optional, Any, TYPE_CHECKING
+from typing import Literal, Optional, Any
 
 import numpy as np
 import pandas as pd
 import yaml
 from cyclopts import App
 
-if TYPE_CHECKING:
-    from chap_core.api_types import BackTestParams, RunConfig
-
+from chap_core.api_types import BackTestParams, RunConfig
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
@@ -233,12 +231,13 @@ def evaluate(
     return results_dict
 
 
+@app.command()
 def evaluate2(
     model_name: str,
     dataset_csv: Path,
     output_file: Path,
-    backtest_params: "BackTestParams",
-    run_config: "RunConfig",
+    backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
+    run_config: RunConfig = RunConfig(),
     model_configuration_yaml: Optional[Path] = None,
 ):
     """
@@ -290,57 +289,6 @@ def evaluate2(
     )
 
     logger.info(f"Evaluation complete. Results saved to {output_file}")
-
-
-@app.command()
-def evaluate2_cli(
-    model_name: str,
-    dataset_csv: Path,
-    output_file: Path,
-    n_periods: int = 3,
-    n_splits: int = 7,
-    stride: int = 1,
-    ignore_environment: bool = False,
-    debug: bool = False,
-    log_file: Optional[str] = None,
-    run_directory_type: Literal["latest", "timestamp", "use_existing"] = "timestamp",
-    is_chapkit_model: bool = False,
-    model_configuration_yaml: Optional[Path] = None,
-):
-    """
-    Evaluate a single model and export results to NetCDF format using xarray.
-
-    CLI wrapper that constructs BackTestParams and RunConfig from individual parameters.
-
-    Args:
-        model_name: Model identifier (path or GitHub URL)
-        dataset_csv: Path to CSV file with disease data
-        output_file: Path to output NetCDF file
-        n_periods: Number of periods to forecast (default: 3)
-        n_splits: Number of train/test splits for backtest (default: 7)
-        stride: Stride between splits (default: 1)
-        ignore_environment: Ignore model environment requirements (default: False)
-        debug: Enable debug logging (default: False)
-        log_file: Optional log file path
-        run_directory_type: How to handle model run directory (default: timestamp)
-        is_chapkit_model: Whether model is a CHAP kit model (default: False)
-        model_configuration_yaml: Optional YAML file with model configuration
-    """
-    from chap_core.api_types import BackTestParams, RunConfig
-
-    # Construct parameter models
-    backtest_params = BackTestParams(n_periods=n_periods, n_splits=n_splits, stride=stride)
-
-    run_config = RunConfig(
-        ignore_environment=ignore_environment,
-        debug=debug,
-        log_file=log_file,
-        run_directory_type=run_directory_type,
-        is_chapkit_model=is_chapkit_model,
-    )
-
-    # Call core implementation
-    evaluate2(model_name, dataset_csv, output_file, backtest_params, run_config, model_configuration_yaml)
 
 
 def _get_model(
