@@ -372,9 +372,30 @@ class TestMyPreferenceLearner:
         assert len(loaded.get_comparison_history()) == 1
 ```
 
+## Example Search Space
+
+See `example_data/preference_learning/ewars_hpo_search_space.yaml` for a complete example:
+
+```yaml
+# Number of lags to include in the model (integer parameter)
+n_lags:
+  low: 1
+  high: 6
+  type: int
+
+# Prior on precision of fixed effects - acts as regularization
+# Using log scale since this spans multiple orders of magnitude
+precision:
+  low: 0.001
+  high: 1.0
+  type: float
+  log: true
+```
+
 ## File Locations
 
 - `chap_core/preference_learning/preference_learner.py` - Base class and TournamentPreferenceLearner
 - `chap_core/preference_learning/decision_maker.py` - DecisionMaker implementations
 - `chap_core/cli_endpoints/preference_learn.py` - CLI endpoint
 - `tests/preference_learning/` - Tests
+- `example_data/preference_learning/` - Example search space files
