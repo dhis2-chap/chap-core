@@ -168,10 +168,10 @@ class ExternalChapkitModel(ExternalModelBase):
 
     def train(self, train_data: DataSet, extra_args=None):
         frequency = self._get_frequency(train_data)
-        pd = train_data.to_pandas()
-        new_pd = self._adapt_data(pd, frequency=frequency)
+        df = train_data.to_pandas()
+        new_df = self._adapt_data(df, frequency=frequency)
         geo = train_data.polygons
-        response = self.client.train_and_wait(self.configuration_id, new_pd, geo)
+        response = self.client.train_and_wait(self.configuration_id, new_df, geo)
 
         if response["status"] == "failed":
             raise RuntimeError(f"Training failed: {response.get('error', 'Unknown error')}")
