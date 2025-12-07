@@ -1,6 +1,5 @@
 """Tests for PreferenceLearner."""
 
-import json
 from pathlib import Path
 
 import pytest
@@ -8,8 +7,9 @@ import pytest
 from chap_core.preference_learning.preference_learner import (
     ComparisonResult,
     ModelCandidate,
-    PreferenceLearner,
+    PreferenceLearnerBase,
     PreferenceLearnerState,
+    TournamentPreferenceLearner,
 )
 
 
@@ -44,6 +44,20 @@ class TestModelCandidate:
         assert c1 != c3
 
 
+class TestComparisonResult:
+    def test_preferred_property(self):
+        c1 = ModelCandidate(model_name="model_a")
+        c2 = ModelCandidate(model_name="model_b")
+        result = ComparisonResult(
+            candidates=[c1, c2],
+            preferred_index=1,
+            metrics=[{"mae": 0.8}, {"mae": 0.5}],
+            iteration=0,
+        )
+        assert result.preferred == c2
+        assert result.preferred.model_name == "model_b"
+
+
 class TestPreferenceLearnerState:
     def test_state_to_dict(self):
         candidate = ModelCandidate(model_name="test_model")
@@ -75,11 +89,9 @@ class TestPreferenceLearnerState:
         c1 = ModelCandidate(model_name="model_a")
         c2 = ModelCandidate(model_name="model_b")
         result = ComparisonResult(
-            model_a=c1,
-            model_b=c2,
-            preferred=c1,
-            metrics_a={"mae": 0.5},
-            metrics_b={"mae": 0.7},
+            candidates=[c1, c2],
+            preferred_index=0,
+            metrics=[{"mae": 0.5}, {"mae": 0.7}],
             iteration=0,
         )
         state = PreferenceLearnerState(
@@ -95,73 +107,78 @@ class TestPreferenceLearnerState:
         assert len(restored.candidates) == 2
         assert len(restored.comparison_history) == 1
         assert restored.comparison_history[0].preferred.model_name == "model_a"
+        assert restored.comparison_history[0].preferred_index == 0
 
 
-class TestPreferenceLearner:
+class TestTournamentPreferenceLearner:
     def test_create_learner(self):
         candidates = [
             ModelCandidate(model_name="model_a"),
             ModelCandidate(model_name="model_b"),
         ]
-        learner = PreferenceLearner(candidates=candidates)
+        learner = TournamentPreferenceLearner(candidates=candidates)
 
         assert learner.current_iteration == 0
         assert not learner.is_complete()
 
-    def test_get_next_pair(self):
+    def test_implements_abc(self):
         candidates = [
             ModelCandidate(model_name="model_a"),
             ModelCandidate(model_name="model_b"),
         ]
-        learner = PreferenceLearner(candidates=candidates)
+        learner = TournamentPreferenceLearner(candidates=candidates)
+        assert isinstance(learner, PreferenceLearnerBase)
 
-        pair = learner.get_next_pair()
-        assert pair is not None
-        assert len(pair) == 2
+    def test_get_next_candidates(self):
+        candidates = [
+            ModelCandidate(model_name="model_a"),
+            ModelCandidate(model_name="model_b"),
+        ]
+        learner = TournamentPreferenceLearner(candidates=candidates)
 
-    def test_get_next_pair_not_enough_candidates(self):
+        next_candidates = learner.get_next_candidates()
+        assert next_candidates is not None
+        assert len(next_candidates) == 2
+
+    def test_get_next_candidates_not_enough(self):
         candidates = [ModelCandidate(model_name="model_a")]
-        learner = PreferenceLearner(candidates=candidates)
+        learner = TournamentPreferenceLearner(candidates=candidates)
 
-        pair = learner.get_next_pair()
-        assert pair is None
+        next_candidates = learner.get_next_candidates()
+        assert next_candidates is None
 
     def test_report_preference(self):
         candidates = [
             ModelCandidate(model_name="model_a"),
             ModelCandidate(model_name="model_b"),
         ]
-        learner = PreferenceLearner(candidates=candidates)
+        learner = TournamentPreferenceLearner(candidates=candidates)
 
-        pair = learner.get_next_pair()
+        next_candidates = learner.get_next_candidates()
         learner.report_preference(
-            model_a=pair[0],
-            model_b=pair[1],
-            preferred=pair[0],
-            metrics_a={"mae": 0.5},
-            metrics_b={"mae": 0.7},
+            candidates=next_candidates,
+            preferred_index=0,
+            metrics=[{"mae": 0.5}, {"mae": 0.7}],
         )
 
         assert learner.current_iteration == 1
-        assert learner.get_best_candidate() == pair[0]
+        assert learner.get_best_candidate() == next_candidates[0]
 
     def test_max_iterations(self):
         candidates = [
             ModelCandidate(model_name="model_a"),
             ModelCandidate(model_name="model_b"),
         ]
-        learner = PreferenceLearner(candidates=candidates, max_iterations=2)
+        learner = TournamentPreferenceLearner(candidates=candidates, max_iterations=2)
 
         # Report two preferences
         for _ in range(2):
-            pair = learner.get_next_pair()
-            if pair:
+            next_candidates = learner.get_next_candidates()
+            if next_candidates:
                 learner.report_preference(
-                    model_a=pair[0],
-                    model_b=pair[1],
-                    preferred=pair[0],
-                    metrics_a={"mae": 0.5},
-                    metrics_b={"mae": 0.7},
+                    candidates=next_candidates,
+                    preferred_index=0,
+                    metrics=[{"mae": 0.5}, {"mae": 0.7}],
                 )
 
         assert learner.is_complete()
@@ -174,20 +191,18 @@ class TestPreferenceLearner:
         ]
 
         # Create learner and report a preference
-        learner = PreferenceLearner(candidates=candidates, state_file=state_file)
-        pair = learner.get_next_pair()
+        learner = TournamentPreferenceLearner(candidates=candidates, state_file=state_file)
+        next_candidates = learner.get_next_candidates()
         learner.report_preference(
-            model_a=pair[0],
-            model_b=pair[1],
-            preferred=pair[0],
-            metrics_a={"mae": 0.5},
-            metrics_b={"mae": 0.7},
+            candidates=next_candidates,
+            preferred_index=0,
+            metrics=[{"mae": 0.5}, {"mae": 0.7}],
         )
 
         assert state_file.exists()
 
         # Create new learner from state file
-        learner2 = PreferenceLearner(candidates=candidates, state_file=state_file)
+        learner2 = TournamentPreferenceLearner(candidates=candidates, state_file=state_file)
         assert learner2.current_iteration == 1
         assert len(learner2.get_comparison_history()) == 1
 
@@ -196,19 +211,17 @@ class TestPreferenceLearner:
             ModelCandidate(model_name="model_a"),
             ModelCandidate(model_name="model_b"),
         ]
-        learner = PreferenceLearner(candidates=candidates)
+        learner = TournamentPreferenceLearner(candidates=candidates)
 
-        pair = learner.get_next_pair()
+        next_candidates = learner.get_next_candidates()
         learner.report_preference(
-            model_a=pair[0],
-            model_b=pair[1],
-            preferred=pair[1],
-            metrics_a={"mae": 0.8, "rmse": 1.0},
-            metrics_b={"mae": 0.5, "rmse": 0.7},
+            candidates=next_candidates,
+            preferred_index=1,
+            metrics=[{"mae": 0.8, "rmse": 1.0}, {"mae": 0.5, "rmse": 0.7}],
         )
 
         history = learner.get_comparison_history()
         assert len(history) == 1
         assert history[0].preferred.model_name == "model_b"
-        assert history[0].metrics_a["mae"] == 0.8
-        assert history[0].metrics_b["mae"] == 0.5
+        assert history[0].metrics[0]["mae"] == 0.8
+        assert history[0].metrics[1]["mae"] == 0.5

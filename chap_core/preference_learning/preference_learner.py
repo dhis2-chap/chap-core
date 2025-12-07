@@ -7,6 +7,7 @@ collects feedback on which model is preferred, and learns to propose better mode
 
 import json
 import logging
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -33,14 +34,17 @@ class ModelCandidate(BaseModel):
 
 @dataclass
 class ComparisonResult:
-    """Result of comparing two models."""
+    """Result of comparing models."""
 
-    model_a: ModelCandidate
-    model_b: ModelCandidate
-    preferred: ModelCandidate
-    metrics_a: dict
-    metrics_b: dict
+    candidates: list[ModelCandidate]
+    preferred_index: int
+    metrics: list[dict]
     iteration: int
+
+    @property
+    def preferred(self) -> ModelCandidate:
+        """Get the preferred model candidate."""
+        return self.candidates[self.preferred_index]
 
 
 @dataclass
@@ -58,11 +62,9 @@ class PreferenceLearnerState:
             "candidates": [c.model_dump() for c in self.candidates],
             "comparison_history": [
                 {
-                    "model_a": r.model_a.model_dump(),
-                    "model_b": r.model_b.model_dump(),
-                    "preferred": r.preferred.model_dump(),
-                    "metrics_a": r.metrics_a,
-                    "metrics_b": r.metrics_b,
+                    "candidates": [c.model_dump() for c in r.candidates],
+                    "preferred_index": r.preferred_index,
+                    "metrics": r.metrics,
                     "iteration": r.iteration,
                 }
                 for r in self.comparison_history
@@ -78,11 +80,9 @@ class PreferenceLearnerState:
             candidates=[ModelCandidate(**c) for c in data.get("candidates", [])],
             comparison_history=[
                 ComparisonResult(
-                    model_a=ModelCandidate(**r["model_a"]),
-                    model_b=ModelCandidate(**r["model_b"]),
-                    preferred=ModelCandidate(**r["preferred"]),
-                    metrics_a=r["metrics_a"],
-                    metrics_b=r["metrics_b"],
+                    candidates=[ModelCandidate(**c) for c in r["candidates"]],
+                    preferred_index=r["preferred_index"],
+                    metrics=r["metrics"],
                     iteration=r["iteration"],
                 )
                 for r in data.get("comparison_history", [])
@@ -92,12 +92,79 @@ class PreferenceLearnerState:
         )
 
 
-class PreferenceLearner:
+class PreferenceLearnerBase(ABC):
     """
-    Learn user preferences for models through iterative A/B testing.
+    Abstract base class for preference learning algorithms.
 
-    The learner proposes pairs of models, collects feedback on which is preferred,
-    and uses this information to propose better model candidates over time.
+    A PreferenceLearner is responsible for:
+    1. Proposing which models to compare next (get_next_candidates)
+    2. Recording comparison results and updating its internal model (report_preference)
+    3. Tracking the best candidate found so far
+
+    Implementations can use different strategies:
+    - Simple tournament bracket
+    - Bayesian optimization
+    - Multi-armed bandit approaches
+    - etc.
+    """
+
+    @abstractmethod
+    def get_next_candidates(self) -> Optional[list[ModelCandidate]]:
+        """
+        Get the next set of model candidates to compare.
+
+        Returns:
+            List of ModelCandidates to compare, or None if learning is complete.
+            Typically returns 2 candidates for pairwise comparison, but
+            implementations may return more for multi-way comparisons.
+        """
+        pass
+
+    @abstractmethod
+    def report_preference(
+        self,
+        candidates: list[ModelCandidate],
+        preferred_index: int,
+        metrics: list[dict],
+    ) -> None:
+        """
+        Report the result of a model comparison.
+
+        Args:
+            candidates: List of models that were compared
+            preferred_index: Index of the preferred model in candidates list
+            metrics: List of metric dictionaries, one per candidate
+        """
+        pass
+
+    @abstractmethod
+    def is_complete(self) -> bool:
+        """Check if learning is complete."""
+        pass
+
+    @abstractmethod
+    def get_best_candidate(self) -> Optional[ModelCandidate]:
+        """Get the current best candidate based on comparison history."""
+        pass
+
+    @abstractmethod
+    def get_comparison_history(self) -> list[ComparisonResult]:
+        """Get the full comparison history."""
+        pass
+
+    @property
+    @abstractmethod
+    def current_iteration(self) -> int:
+        """Get the current iteration number."""
+        pass
+
+
+class TournamentPreferenceLearner(PreferenceLearnerBase):
+    """
+    Simple tournament-style preference learner.
+
+    Uses a bracket-style tournament where winners advance to compete
+    against other winners or uncompared candidates.
     """
 
     def __init__(
@@ -107,7 +174,7 @@ class PreferenceLearner:
         max_iterations: int = 10,
     ):
         """
-        Initialize PreferenceLearner.
+        Initialize TournamentPreferenceLearner.
 
         Args:
             candidates: List of model candidates to explore
@@ -123,7 +190,7 @@ class PreferenceLearner:
             logger.info(f"Loaded state from {state_file}, iteration {self._state.current_iteration}")
         else:
             self._state = PreferenceLearnerState(candidates=candidates)
-            logger.info(f"Initialized new PreferenceLearner with {len(candidates)} candidates")
+            logger.info(f"Initialized new TournamentPreferenceLearner with {len(candidates)} candidates")
 
     def _load_state(self) -> PreferenceLearnerState:
         """Load state from file."""
@@ -138,12 +205,12 @@ class PreferenceLearner:
                 json.dump(self._state.to_dict(), f, indent=2)
             logger.info(f"Saved state to {self._state_file}")
 
-    def get_next_pair(self) -> Optional[tuple[ModelCandidate, ModelCandidate]]:
+    def get_next_candidates(self) -> Optional[list[ModelCandidate]]:
         """
         Get the next pair of models to compare.
 
         Returns:
-            Tuple of two ModelCandidates, or None if learning is complete.
+            List of two ModelCandidates, or None if learning is complete.
         """
         if self._state.current_iteration >= self._max_iterations:
             logger.info("Max iterations reached")
@@ -160,7 +227,7 @@ class PreferenceLearner:
             logger.info("No more pairs to compare")
             return None
 
-        return (candidates[0], candidates[1])
+        return [candidates[0], candidates[1]]
 
     def _get_candidates_for_comparison(self) -> list[ModelCandidate]:
         """
@@ -178,8 +245,8 @@ class PreferenceLearner:
         # Prioritize winners, then add uncompared candidates
         compared = set()
         for r in self._state.comparison_history:
-            compared.add(r.model_a)
-            compared.add(r.model_b)
+            for c in r.candidates:
+                compared.add(c)
 
         uncompared = [c for c in self._state.candidates if c not in compared]
 
@@ -194,43 +261,37 @@ class PreferenceLearner:
 
     def report_preference(
         self,
-        model_a: ModelCandidate,
-        model_b: ModelCandidate,
-        preferred: ModelCandidate,
-        metrics_a: dict,
-        metrics_b: dict,
+        candidates: list[ModelCandidate],
+        preferred_index: int,
+        metrics: list[dict],
     ) -> None:
         """
         Report the result of a model comparison.
 
         Args:
-            model_a: First model in comparison
-            model_b: Second model in comparison
-            preferred: The model that was preferred
-            metrics_a: Metrics computed for model_a
-            metrics_b: Metrics computed for model_b
+            candidates: List of models that were compared
+            preferred_index: Index of the preferred model
+            metrics: List of metric dictionaries, one per candidate
         """
         result = ComparisonResult(
-            model_a=model_a,
-            model_b=model_b,
-            preferred=preferred,
-            metrics_a=metrics_a,
-            metrics_b=metrics_b,
+            candidates=candidates,
+            preferred_index=preferred_index,
+            metrics=metrics,
             iteration=self._state.current_iteration,
         )
         self._state.comparison_history.append(result)
         self._state.current_iteration += 1
-        self._state.best_candidate = preferred
+        self._state.best_candidate = candidates[preferred_index]
 
-        logger.info(f"Iteration {result.iteration}: {preferred.model_name} preferred")
-        logger.info(f"Metrics A: {metrics_a}")
-        logger.info(f"Metrics B: {metrics_b}")
+        logger.info(f"Iteration {result.iteration}: {result.preferred.model_name} preferred")
+        for i, m in enumerate(metrics):
+            logger.info(f"Metrics {i}: {m}")
 
         self._save_state()
 
     def is_complete(self) -> bool:
         """Check if learning is complete."""
-        return self._state.current_iteration >= self._max_iterations or self.get_next_pair() is None
+        return self._state.current_iteration >= self._max_iterations or self.get_next_candidates() is None
 
     def get_best_candidate(self) -> Optional[ModelCandidate]:
         """Get the current best candidate based on comparison history."""
@@ -244,3 +305,7 @@ class PreferenceLearner:
     def current_iteration(self) -> int:
         """Get the current iteration number."""
         return self._state.current_iteration
+
+
+# Backwards compatibility alias
+PreferenceLearner = TournamentPreferenceLearner

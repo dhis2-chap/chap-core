@@ -15,12 +15,12 @@ from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 from chap_core.preference_learning.decision_maker import (
     DecisionMaker,
-    InteractiveDecisionMaker,
-    MetricBasedDecisionMaker,
+    MetricDecisionMaker,
+    VisualDecisionMaker,
 )
 from chap_core.preference_learning.preference_learner import (
     ModelCandidate,
-    PreferenceLearner,
+    TournamentPreferenceLearner,
 )
 
 from chap_core.cli_endpoints._common import (
@@ -29,6 +29,23 @@ from chap_core.cli_endpoints._common import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _compute_metrics(evaluation: Evaluation) -> dict:
+    """
+    Compute metrics from an evaluation.
+
+    Args:
+        evaluation: Evaluation object with forecasts and observations
+
+    Returns:
+        Dictionary of metric name to value
+    """
+    from chap_core.rest_api.v1.routers.analytics import calculate_all_metrics
+
+    flat_data = evaluation.to_flat()
+    metrics = calculate_all_metrics(flat_data.forecasts, flat_data.observations)
+    return metrics
 
 
 def _create_evaluation(
@@ -97,7 +114,7 @@ def preference_learn(
     backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfig = RunConfig(),
     max_iterations: int = 10,
-    decision_mode: Literal["interactive", "metric"] = "metric",
+    decision_mode: Literal["visual", "metric"] = "visual",
     decision_metric: str = "mae",
     lower_is_better: bool = True,
 ):
@@ -105,10 +122,10 @@ def preference_learn(
     Learn user preferences for models through iterative A/B testing.
 
     This command implements a preference learning loop:
-    1. Get two candidate models from the PreferenceLearner
-    2. Run backtest/evaluation on both models
-    3. Present both evaluations to a DecisionMaker
-    4. Calculate metrics and determine preferred model
+    1. Get candidate models from the PreferenceLearner
+    2. Run backtest/evaluation on all candidates
+    3. Compute metrics for each evaluation
+    4. Present evaluations to a DecisionMaker (visual or metric-based)
     5. Report preference back to PreferenceLearner
     6. Repeat until convergence or max iterations
 
@@ -119,9 +136,9 @@ def preference_learn(
         backtest_params: Backtest configuration (n_periods, n_splits, stride)
         run_config: Model run environment configuration
         max_iterations: Maximum number of comparison iterations
-        decision_mode: How to decide preference ('interactive' or 'metric')
-        decision_metric: Metric to use for automatic decisions
-        lower_is_better: Whether lower metric values are preferred
+        decision_mode: How to decide preference ('visual' shows plots, 'metric' uses automatic comparison)
+        decision_metric: Metric to use for automatic decisions (only used when decision_mode='metric')
+        lower_is_better: Whether lower metric values are preferred (only used when decision_mode='metric')
     """
     initialize_logging(run_config.debug, run_config.log_file)
 
@@ -137,18 +154,8 @@ def preference_learn(
     geojson_path = discover_geojson(dataset_csv)
     dataset = load_dataset_from_csv(dataset_csv, geojson_path)
 
-    # Create decision maker
-    decision_maker: DecisionMaker
-    if decision_mode == "interactive":
-        decision_maker = InteractiveDecisionMaker()
-    else:
-        decision_maker = MetricBasedDecisionMaker(
-            metric_name=decision_metric,
-            lower_is_better=lower_is_better,
-        )
-
     # Create preference learner (will load state if file exists)
-    learner = PreferenceLearner(
+    learner = TournamentPreferenceLearner(
         candidates=candidates,
         state_file=state_file,
         max_iterations=max_iterations,
@@ -158,26 +165,40 @@ def preference_learn(
 
     # Main learning loop
     while not learner.is_complete():
-        pair = learner.get_next_pair()
-        if pair is None:
-            logger.info("No more pairs to compare")
+        next_candidates = learner.get_next_candidates()
+        if next_candidates is None:
+            logger.info("No more candidates to compare")
             break
 
-        model_a, model_b = pair
-        logger.info(f"Comparing: {model_a.model_name} vs {model_b.model_name}")
+        model_names_in_round = [c.model_name for c in next_candidates]
+        logger.info(f"Comparing: {' vs '.join(model_names_in_round)}")
 
-        # Run evaluations for both models
-        logger.info(f"Evaluating model A: {model_a.model_name}")
-        evaluation_a = _create_evaluation(model_a, dataset, backtest_params, run_config)
+        # Run evaluations for all candidates
+        evaluations = []
+        for candidate in next_candidates:
+            logger.info(f"Evaluating: {candidate.model_name}")
+            evaluation = _create_evaluation(candidate, dataset, backtest_params, run_config)
+            evaluations.append(evaluation)
 
-        logger.info(f"Evaluating model B: {model_b.model_name}")
-        evaluation_b = _create_evaluation(model_b, dataset, backtest_params, run_config)
+        # Compute metrics for all evaluations
+        metrics = [_compute_metrics(e) for e in evaluations]
+
+        # Create decision maker
+        decision_maker: DecisionMaker
+        if decision_mode == "visual":
+            decision_maker = VisualDecisionMaker(model_names=model_names_in_round)
+        else:
+            decision_maker = MetricDecisionMaker(
+                metrics=metrics,
+                metric_name=decision_metric,
+                lower_is_better=lower_is_better,
+            )
 
         # Get decision
-        preferred, metrics_a, metrics_b = decision_maker.decide(model_a, evaluation_a, model_b, evaluation_b)
+        preferred_index = decision_maker.decide(evaluations)
 
         # Report to learner
-        learner.report_preference(model_a, model_b, preferred, metrics_a, metrics_b)
+        learner.report_preference(next_candidates, preferred_index, metrics)
 
         logger.info(f"Iteration {learner.current_iteration} complete")
 
@@ -197,7 +218,8 @@ def preference_learn(
     if history:
         print(f"\nComparison history ({len(history)} iterations):")
         for i, result in enumerate(history):
-            print(f"  {i + 1}. {result.model_a.model_name} vs {result.model_b.model_name}")
+            names = [c.model_name for c in result.candidates]
+            print(f"  {i + 1}. {' vs '.join(names)}")
             print(f"     Winner: {result.preferred.model_name}")
 
 

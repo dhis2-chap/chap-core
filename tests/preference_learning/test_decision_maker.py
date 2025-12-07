@@ -5,82 +5,105 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from chap_core.preference_learning.decision_maker import (
-    MetricBasedDecisionMaker,
+    DecisionMaker,
+    MetricDecisionMaker,
+    VisualDecisionMaker,
 )
 from chap_core.preference_learning.preference_learner import ModelCandidate
 
 
-class TestMetricBasedDecisionMaker:
-    @pytest.fixture
-    def mock_evaluation(self):
-        """Create a mock evaluation with configurable metrics."""
-
-        def _create_mock(metrics: dict):
-            mock = MagicMock()
-            mock_flat_data = MagicMock()
-            mock.to_flat.return_value = mock_flat_data
-            return mock, metrics
-
-        return _create_mock
-
-    def test_lower_is_better(self, mock_evaluation):
-        """Test that lower values are preferred when lower_is_better=True."""
-        decision_maker = MetricBasedDecisionMaker(
+class TestDecisionMakerInterface:
+    def test_decide_returns_int(self):
+        """Test that decide returns an integer index."""
+        metrics = [{"mae": 0.8}, {"mae": 0.5}]
+        decision_maker = MetricDecisionMaker(
+            metrics=metrics,
             metric_name="mae",
             lower_is_better=True,
         )
 
-        model_a = ModelCandidate(model_name="model_a")
-        model_b = ModelCandidate(model_name="model_b")
+        mock_evaluations = [MagicMock(), MagicMock()]
+        result = decision_maker.decide(mock_evaluations)
 
-        eval_a, metrics_a = mock_evaluation({"mae": 0.8, "rmse": 1.0})
-        eval_b, metrics_b = mock_evaluation({"mae": 0.5, "rmse": 0.7})
+        assert isinstance(result, int)
+        assert 0 <= result < len(mock_evaluations)
 
-        with patch.object(decision_maker, "_compute_metrics") as mock_compute:
-            mock_compute.side_effect = [metrics_a, metrics_b]
 
-            preferred, result_metrics_a, result_metrics_b = decision_maker.decide(model_a, eval_a, model_b, eval_b)
+class TestMetricDecisionMaker:
+    def test_lower_is_better(self):
+        """Test that lower values are preferred when lower_is_better=True."""
+        metrics = [{"mae": 0.8}, {"mae": 0.5}]
+        decision_maker = MetricDecisionMaker(
+            metrics=metrics,
+            metric_name="mae",
+            lower_is_better=True,
+        )
 
-        assert preferred == model_b
-        assert result_metrics_a["mae"] == 0.8
-        assert result_metrics_b["mae"] == 0.5
+        mock_evaluations = [MagicMock(), MagicMock()]
+        preferred_index = decision_maker.decide(mock_evaluations)
 
-    def test_higher_is_better(self, mock_evaluation):
+        assert preferred_index == 1  # Second model has lower MAE
+
+    def test_higher_is_better(self):
         """Test that higher values are preferred when lower_is_better=False."""
-        decision_maker = MetricBasedDecisionMaker(
+        metrics = [{"accuracy": 0.9}, {"accuracy": 0.7}]
+        decision_maker = MetricDecisionMaker(
+            metrics=metrics,
             metric_name="accuracy",
             lower_is_better=False,
         )
 
-        model_a = ModelCandidate(model_name="model_a")
-        model_b = ModelCandidate(model_name="model_b")
+        mock_evaluations = [MagicMock(), MagicMock()]
+        preferred_index = decision_maker.decide(mock_evaluations)
 
-        eval_a, metrics_a = mock_evaluation({"accuracy": 0.9})
-        eval_b, metrics_b = mock_evaluation({"accuracy": 0.7})
+        assert preferred_index == 0  # First model has higher accuracy
 
-        with patch.object(decision_maker, "_compute_metrics") as mock_compute:
-            mock_compute.side_effect = [metrics_a, metrics_b]
-
-            preferred, _, _ = decision_maker.decide(model_a, eval_a, model_b, eval_b)
-
-        assert preferred == model_a
-
-    def test_equal_values_prefers_first(self, mock_evaluation):
-        """Test that equal metric values prefer model_a."""
-        decision_maker = MetricBasedDecisionMaker(
+    def test_equal_values_prefers_first(self):
+        """Test that equal metric values prefer first model."""
+        metrics = [{"mae": 0.5}, {"mae": 0.5}]
+        decision_maker = MetricDecisionMaker(
+            metrics=metrics,
             metric_name="mae",
             lower_is_better=True,
         )
 
-        model_a = ModelCandidate(model_name="model_a")
-        model_b = ModelCandidate(model_name="model_b")
+        mock_evaluations = [MagicMock(), MagicMock()]
+        preferred_index = decision_maker.decide(mock_evaluations)
 
-        eval_a, metrics_a = mock_evaluation({"mae": 0.5})
-        eval_b, metrics_b = mock_evaluation({"mae": 0.5})
+        assert preferred_index == 0
 
-        with patch.object(decision_maker, "_compute_metrics") as mock_compute:
-            mock_compute.side_effect = [metrics_a, metrics_b]
+    def test_multiple_candidates(self):
+        """Test with more than 2 candidates."""
+        metrics = [{"mae": 0.8}, {"mae": 0.3}, {"mae": 0.5}]
+        decision_maker = MetricDecisionMaker(
+            metrics=metrics,
+            metric_name="mae",
+            lower_is_better=True,
+        )
 
-            preferred, _, _ = decision_maker.decide(model_a, eval_a, model_b, eval_b)
+        mock_evaluations = [MagicMock(), MagicMock(), MagicMock()]
+        preferred_index = decision_maker.decide(mock_evaluations)
 
-        assert preferred == model_a
+        assert preferred_index == 1  # Second model has lowest MAE
+
+    def test_mismatched_metrics_count_raises(self):
+        """Test that mismatched metrics count raises error."""
+        metrics = [{"mae": 0.8}]  # Only 1 metric
+        decision_maker = MetricDecisionMaker(
+            metrics=metrics,
+            metric_name="mae",
+            lower_is_better=True,
+        )
+
+        mock_evaluations = [MagicMock(), MagicMock()]  # 2 evaluations
+
+        with pytest.raises(ValueError, match="Expected 2 metrics"):
+            decision_maker.decide(mock_evaluations)
+
+
+class TestVisualDecisionMaker:
+    def test_model_names_stored(self):
+        """Test that model names are stored for display."""
+        model_names = ["model_a", "model_b"]
+        decision_maker = VisualDecisionMaker(model_names=model_names)
+        assert decision_maker._model_names == model_names

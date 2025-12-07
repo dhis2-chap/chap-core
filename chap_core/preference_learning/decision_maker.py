@@ -2,224 +2,170 @@
 DecisionMaker for selecting preferred models from evaluation results.
 
 This module provides interfaces and implementations for deciding which model
-is preferred given two evaluation results.
+is preferred given a list of evaluation results.
 """
 
 import logging
+import tempfile
+import webbrowser
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.preference_learning.preference_learner import ModelCandidate
 
 logger = logging.getLogger(__name__)
 
 
 class DecisionMaker(ABC):
     """
-    Abstract base class for making decisions between two model evaluations.
+    Abstract base class for making decisions between model evaluations.
 
-    Implementations can use different strategies: metric-based, user input,
-    or more sophisticated preference models.
+    The DecisionMaker receives a list of Evaluations and returns the index
+    of the preferred one. It does not compute metrics - that responsibility
+    belongs to the caller.
     """
 
     @abstractmethod
-    def decide(
-        self,
-        model_a: ModelCandidate,
-        evaluation_a: Evaluation,
-        model_b: ModelCandidate,
-        evaluation_b: Evaluation,
-    ) -> tuple[ModelCandidate, dict, dict]:
+    def decide(self, evaluations: list[Evaluation]) -> int:
         """
-        Decide which model is preferred.
+        Decide which evaluation is preferred.
 
         Args:
-            model_a: First model candidate
-            evaluation_a: Evaluation results for model_a
-            model_b: Second model candidate
-            evaluation_b: Evaluation results for model_b
+            evaluations: List of Evaluation objects to compare
 
         Returns:
-            Tuple of (preferred model, metrics for model_a, metrics for model_b)
+            Index of the preferred evaluation (0-based)
         """
         pass
 
 
-class MetricBasedDecisionMaker(DecisionMaker):
+class VisualDecisionMaker(DecisionMaker):
     """
-    Decision maker that selects based on a specific metric.
+    Decision maker that displays backtest plots and asks user to choose.
 
-    Computes metrics from evaluations and selects the model with the
-    better metric value.
+    Shows visual comparison of model predictions vs observations and
+    prompts the user to select their preferred model.
+    """
+
+    def __init__(self, model_names: list[str] | None = None):
+        """
+        Initialize VisualDecisionMaker.
+
+        Args:
+            model_names: Optional list of model names for display purposes
+        """
+        self._model_names = model_names
+
+    def decide(self, evaluations: list[Evaluation]) -> int:
+        """
+        Display backtest plots and ask user to choose preferred model.
+
+        Args:
+            evaluations: List of Evaluation objects to compare
+
+        Returns:
+            Index of the preferred evaluation
+        """
+        from chap_core.plotting.backtest_plot import EvaluationBackTestPlot
+
+        # Generate and display plots for each evaluation
+        for i, evaluation in enumerate(evaluations):
+            model_name = self._model_names[i] if self._model_names and i < len(self._model_names) else f"Model {i + 1}"
+
+            logger.info(f"Generating backtest plot for {model_name}")
+
+            backtest = evaluation.to_backtest()
+            plot = EvaluationBackTestPlot.from_backtest(backtest)
+            chart = plot.plot()
+
+            # Save to temp file and open in browser
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
+                chart.save(f.name)
+                logger.info(f"Opening plot for {model_name}: {f.name}")
+                webbrowser.open(f"file://{f.name}")
+
+        # Prompt user for choice
+        print("\n" + "=" * 60)
+        print("MODEL COMPARISON - Please review the plots")
+        print("=" * 60)
+
+        for i in range(len(evaluations)):
+            model_name = self._model_names[i] if self._model_names and i < len(self._model_names) else f"Model {i + 1}"
+            print(f"  [{i + 1}] {model_name}")
+
+        print("=" * 60)
+
+        while True:
+            try:
+                choice = input(f"\nWhich model do you prefer? [1-{len(evaluations)}]: ").strip()
+                idx = int(choice) - 1
+                if 0 <= idx < len(evaluations):
+                    return idx
+                print(f"Please enter a number between 1 and {len(evaluations)}")
+            except ValueError:
+                print(f"Please enter a number between 1 and {len(evaluations)}")
+
+
+class MetricDecisionMaker(DecisionMaker):
+    """
+    Decision maker that selects based on pre-computed metrics.
+
+    This is a simple automatic decision maker that compares a specific
+    metric value across evaluations.
     """
 
     def __init__(
         self,
+        metrics: list[dict],
         metric_name: str = "mae",
         lower_is_better: bool = True,
     ):
         """
-        Initialize MetricBasedDecisionMaker.
+        Initialize MetricDecisionMaker.
 
         Args:
+            metrics: List of metric dictionaries, one per evaluation
             metric_name: Name of metric to use for comparison
             lower_is_better: If True, lower metric values are preferred
         """
+        self._metrics = metrics
         self._metric_name = metric_name
         self._lower_is_better = lower_is_better
 
-    def _compute_metrics(self, evaluation: Evaluation) -> dict:
-        """
-        Compute metrics from an evaluation.
-
-        Args:
-            evaluation: Evaluation object with forecasts and observations
-
-        Returns:
-            Dictionary of metric name to value
-        """
-        from chap_core.rest_api.v1.routers.analytics import calculate_all_metrics
-
-        flat_data = evaluation.to_flat()
-        metrics = calculate_all_metrics(flat_data.forecasts, flat_data.observations)
-        return metrics
-
-    def decide(
-        self,
-        model_a: ModelCandidate,
-        evaluation_a: Evaluation,
-        model_b: ModelCandidate,
-        evaluation_b: Evaluation,
-    ) -> tuple[ModelCandidate, dict, dict]:
+    def decide(self, evaluations: list[Evaluation]) -> int:
         """
         Decide based on comparing a specific metric.
 
         Args:
-            model_a: First model candidate
-            evaluation_a: Evaluation results for model_a
-            model_b: Second model candidate
-            evaluation_b: Evaluation results for model_b
+            evaluations: List of Evaluation objects (used for count validation)
 
         Returns:
-            Tuple of (preferred model, metrics for model_a, metrics for model_b)
+            Index of the preferred evaluation
         """
-        metrics_a = self._compute_metrics(evaluation_a)
-        metrics_b = self._compute_metrics(evaluation_b)
+        if len(self._metrics) != len(evaluations):
+            raise ValueError(f"Expected {len(evaluations)} metrics, got {len(self._metrics)}")
 
-        value_a = metrics_a.get(self._metric_name)
-        value_b = metrics_b.get(self._metric_name)
+        values = [m.get(self._metric_name) for m in self._metrics]
 
-        if value_a is None or value_b is None:
-            logger.warning(f"Metric {self._metric_name} not found, using first available metric")
-            # Fall back to first available metric
-            for key in metrics_a:
-                if key in metrics_b:
-                    self._metric_name = key
-                    value_a = metrics_a[key]
-                    value_b = metrics_b[key]
-                    break
+        # Handle missing metric
+        if any(v is None for v in values):
+            logger.warning(f"Metric {self._metric_name} not found in all evaluations")
+            # Find first common metric
+            common_metrics = set(self._metrics[0].keys())
+            for m in self._metrics[1:]:
+                common_metrics &= set(m.keys())
+            if common_metrics:
+                self._metric_name = next(iter(common_metrics))
+                values = [m.get(self._metric_name) for m in self._metrics]
+                logger.info(f"Using fallback metric: {self._metric_name}")
 
-        logger.info(f"Model A ({model_a.model_name}): {self._metric_name}={value_a}")
-        logger.info(f"Model B ({model_b.model_name}): {self._metric_name}={value_b}")
+        for i, v in enumerate(values):
+            logger.info(f"Model {i + 1}: {self._metric_name}={v}")
 
         if self._lower_is_better:
-            preferred = model_a if value_a <= value_b else model_b
+            best_idx = min(range(len(values)), key=lambda idx: values[idx])
         else:
-            preferred = model_a if value_a >= value_b else model_b
+            best_idx = max(range(len(values)), key=lambda idx: values[idx])
 
-        logger.info(f"Preferred: {preferred.model_name} (based on {self._metric_name})")
+        logger.info(f"Preferred: Model {best_idx + 1} (based on {self._metric_name})")
 
-        return preferred, metrics_a, metrics_b
-
-
-class InteractiveDecisionMaker(DecisionMaker):
-    """
-    Decision maker that prompts the user to select their preferred model.
-
-    Displays metrics for both models and asks for user input.
-    """
-
-    def __init__(self, display_metrics: Optional[list[str]] = None):
-        """
-        Initialize InteractiveDecisionMaker.
-
-        Args:
-            display_metrics: List of metric names to display (None for all)
-        """
-        self._display_metrics = display_metrics
-
-    def _compute_metrics(self, evaluation: Evaluation) -> dict:
-        """Compute metrics from an evaluation."""
-        from chap_core.rest_api.v1.routers.analytics import calculate_all_metrics
-
-        flat_data = evaluation.to_flat()
-        metrics = calculate_all_metrics(flat_data.forecasts, flat_data.observations)
-        return metrics
-
-    def _display_comparison(
-        self,
-        model_a: ModelCandidate,
-        metrics_a: dict,
-        model_b: ModelCandidate,
-        metrics_b: dict,
-    ) -> None:
-        """Display metrics comparison to user."""
-        print("\n" + "=" * 60)
-        print("MODEL COMPARISON")
-        print("=" * 60)
-
-        metrics_to_show = self._display_metrics or list(metrics_a.keys())
-
-        print(f"\n{'Metric':<20} {'Model A':<20} {'Model B':<20}")
-        print("-" * 60)
-        print(f"{'Name':<20} {model_a.model_name:<20} {model_b.model_name:<20}")
-        print("-" * 60)
-
-        for metric in metrics_to_show:
-            val_a = metrics_a.get(metric, "N/A")
-            val_b = metrics_b.get(metric, "N/A")
-            if isinstance(val_a, float):
-                val_a = f"{val_a:.4f}"
-            if isinstance(val_b, float):
-                val_b = f"{val_b:.4f}"
-            print(f"{metric:<20} {str(val_a):<20} {str(val_b):<20}")
-
-        print("=" * 60)
-
-    def decide(
-        self,
-        model_a: ModelCandidate,
-        evaluation_a: Evaluation,
-        model_b: ModelCandidate,
-        evaluation_b: Evaluation,
-    ) -> tuple[ModelCandidate, dict, dict]:
-        """
-        Ask user to decide which model is preferred.
-
-        Args:
-            model_a: First model candidate
-            evaluation_a: Evaluation results for model_a
-            model_b: Second model candidate
-            evaluation_b: Evaluation results for model_b
-
-        Returns:
-            Tuple of (preferred model, metrics for model_a, metrics for model_b)
-        """
-        metrics_a = self._compute_metrics(evaluation_a)
-        metrics_b = self._compute_metrics(evaluation_b)
-
-        self._display_comparison(model_a, metrics_a, model_b, metrics_b)
-
-        while True:
-            choice = input("\nWhich model do you prefer? [A/B]: ").strip().upper()
-            if choice == "A":
-                preferred = model_a
-                break
-            elif choice == "B":
-                preferred = model_b
-                break
-            else:
-                print("Please enter 'A' or 'B'")
-
-        return preferred, metrics_a, metrics_b
+        return best_idx
