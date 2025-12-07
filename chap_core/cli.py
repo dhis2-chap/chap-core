@@ -4,12 +4,15 @@ import logging
 import dataclasses
 import json
 from pathlib import Path
-from typing import Literal, Optional, Any
+from typing import Literal, Optional, Any, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 import yaml
 from cyclopts import App
+
+if TYPE_CHECKING:
+    from chap_core.api_types import BackTestParams, RunConfig
 
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.assessment.evaluation import Evaluation
@@ -230,19 +233,12 @@ def evaluate(
     return results_dict
 
 
-@app.command()
 def evaluate2(
     model_name: str,
     dataset_csv: Path,
     output_file: Path,
-    n_periods: int = 3,
-    n_splits: int = 7,
-    stride: int = 1,
-    ignore_environment: bool = False,
-    debug: bool = False,
-    log_file: Optional[str] = None,
-    run_directory_type: Literal["latest", "timestamp", "use_existing"] = "timestamp",
-    is_chapkit_model: bool = False,
+    backtest_params: "BackTestParams",
+    run_config: "RunConfig",
     model_configuration_yaml: Optional[Path] = None,
 ):
     """
@@ -256,34 +252,15 @@ def evaluate2(
         model_name: Model identifier (path or GitHub URL)
         dataset_csv: Path to CSV file with disease data
         output_file: Path to output NetCDF file
-        n_periods: Number of periods to forecast (default: 3)
-        n_splits: Number of train/test splits for backtest (default: 7)
-        stride: Stride between splits (default: 1)
-        ignore_environment: Ignore model environment requirements (default: False)
-        debug: Enable debug logging (default: False)
-        log_file: Optional log file path
-        run_directory_type: How to handle model run directory (default: timestamp)
-        is_chapkit_model: Whether model is a CHAP kit model (default: False)
+        backtest_params: Backtest configuration (n_periods, n_splits, stride)
+        run_config: Model run environment configuration
         model_configuration_yaml: Optional YAML file with model configuration
     """
-    from chap_core.api_types import BackTestParams, RunConfig
-
     logger.info(f"Evaluating model {model_name} with xarray/NetCDF output")
 
     # Load dataset (GeoJSON auto-discovered)
     geojson_path = _discover_geojson(dataset_csv)
     dataset = _load_dataset_from_csv(dataset_csv, geojson_path)
-
-    # Prepare parameters
-    backtest_params = BackTestParams(n_periods=n_periods, n_splits=n_splits, stride=stride)
-
-    run_config = RunConfig(
-        ignore_environment=ignore_environment,
-        debug=debug,
-        log_file=log_file,
-        run_directory_type=run_directory_type,
-        is_chapkit_model=is_chapkit_model,
-    )
 
     # Load model configuration
     configuration = None
@@ -292,7 +269,9 @@ def evaluate2(
         configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
 
     # Create evaluation by running backtest
-    logger.info(f"Running backtest with {n_splits} splits, {n_periods} periods, stride {stride}")
+    logger.info(
+        f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
+    )
     evaluation = Evaluation.create(
         model_name=model_name,
         dataset=dataset,
@@ -311,6 +290,57 @@ def evaluate2(
     )
 
     logger.info(f"Evaluation complete. Results saved to {output_file}")
+
+
+@app.command()
+def evaluate2_cli(
+    model_name: str,
+    dataset_csv: Path,
+    output_file: Path,
+    n_periods: int = 3,
+    n_splits: int = 7,
+    stride: int = 1,
+    ignore_environment: bool = False,
+    debug: bool = False,
+    log_file: Optional[str] = None,
+    run_directory_type: Literal["latest", "timestamp", "use_existing"] = "timestamp",
+    is_chapkit_model: bool = False,
+    model_configuration_yaml: Optional[Path] = None,
+):
+    """
+    Evaluate a single model and export results to NetCDF format using xarray.
+
+    CLI wrapper that constructs BackTestParams and RunConfig from individual parameters.
+
+    Args:
+        model_name: Model identifier (path or GitHub URL)
+        dataset_csv: Path to CSV file with disease data
+        output_file: Path to output NetCDF file
+        n_periods: Number of periods to forecast (default: 3)
+        n_splits: Number of train/test splits for backtest (default: 7)
+        stride: Stride between splits (default: 1)
+        ignore_environment: Ignore model environment requirements (default: False)
+        debug: Enable debug logging (default: False)
+        log_file: Optional log file path
+        run_directory_type: How to handle model run directory (default: timestamp)
+        is_chapkit_model: Whether model is a CHAP kit model (default: False)
+        model_configuration_yaml: Optional YAML file with model configuration
+    """
+    from chap_core.api_types import BackTestParams, RunConfig
+
+    # Construct parameter models
+    backtest_params = BackTestParams(n_periods=n_periods, n_splits=n_splits, stride=stride)
+
+    run_config = RunConfig(
+        ignore_environment=ignore_environment,
+        debug=debug,
+        log_file=log_file,
+        run_directory_type=run_directory_type,
+        is_chapkit_model=is_chapkit_model,
+    )
+
+    # Call core implementation
+    evaluate2(model_name, dataset_csv, output_file, backtest_params, run_config, model_configuration_yaml)
 
 
 def _get_model(
