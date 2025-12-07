@@ -6,9 +6,19 @@ evaluation results, enabling better code reuse between REST API and CLI workflow
 """
 
 import datetime
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional, Iterable
+from pathlib import Path
+from typing import List, Optional, Iterable, Union, TYPE_CHECKING
+
+import numpy as np
+import pandas as pd
+import xarray as xr
+
+if TYPE_CHECKING:
+    from chap_core.api_types import BackTestParams
+
 from chap_core.data import DataSet as _DataSet
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
@@ -21,6 +31,98 @@ from chap_core.datatypes import SamplesWithTruth
 from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.time_period import TimePeriod
 from chap_core.database.tables import BackTest, BackTestForecast
+from chap_core.database.dataset_tables import DataSet, Observation
+
+try:
+    from chap_core import __version__ as CHAP_VERSION
+except ImportError:
+    CHAP_VERSION = "unknown"
+
+
+def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) -> xr.Dataset:
+    """
+    Convert FlatEvaluationData to xarray.Dataset.
+
+    Args:
+        flat_data: FlatEvaluationData containing forecasts and observations
+        model_metadata: Dictionary with model information (name, configuration, version)
+
+    Returns:
+        xarray.Dataset with dimensions (location, time_period, horizon_distance, sample)
+    """
+    forecasts_df = pd.DataFrame(flat_data.forecasts).copy()
+    observations_df = pd.DataFrame(flat_data.observations).copy()
+
+    # Set multi-index for forecasts: location, time_period, horizon_distance, sample
+    forecasts_indexed = forecasts_df.set_index(["location", "time_period", "horizon_distance", "sample"])
+
+    # Convert to xarray - this creates a DataArray with the index levels as dimensions
+    forecast_da = forecasts_indexed["forecast"].to_xarray()
+
+    # Set multi-index for observations: location, time_period
+    observations_indexed = observations_df.set_index(["location", "time_period"])
+    observed_da = observations_indexed["disease_cases"].to_xarray()
+
+    # Combine into a single dataset
+    ds = xr.Dataset(
+        {
+            "forecast": forecast_da,
+            "observed": observed_da,
+        }
+    )
+
+    # Add global attributes
+    ds.attrs.update(
+        {
+            "title": "CHAP Model Evaluation Results",
+            "model_name": model_metadata.get("model_name", ""),
+            "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
+            "model_version": model_metadata.get("model_version", ""),
+            "created_date": datetime.datetime.now().isoformat(),
+            "split_periods": json.dumps(model_metadata.get("split_periods", [])),
+            "org_units": json.dumps(model_metadata.get("org_units", [])),
+            "chap_version": CHAP_VERSION,
+        }
+    )
+
+    return ds
+
+
+def _xarray_to_flat_data(ds: xr.Dataset) -> "FlatEvaluationData":
+    """
+    Convert xarray.Dataset back to FlatEvaluationData.
+
+    Args:
+        ds: xarray.Dataset with forecast and observed variables
+
+    Returns:
+        FlatEvaluationData with reconstructed forecasts and observations
+    """
+    # Convert forecast DataArray to DataFrame - pandas will handle multi-index automatically
+    forecasts_df = ds["forecast"].to_dataframe().reset_index()
+
+    # Convert observed DataArray to DataFrame
+    # The DataArray name is 'observed' but we need it as 'disease_cases' for FlatObserved
+    observations_df = ds["observed"].to_dataframe().reset_index()
+    if "observed" in observations_df.columns:
+        observations_df = observations_df.rename(columns={"observed": "disease_cases"})
+
+    # Drop NaN forecasts (missing data)
+    forecasts_df = forecasts_df.dropna(subset=["forecast"])
+
+    # Drop NaN observations
+    observations_df = observations_df.dropna(subset=["disease_cases"])
+
+    # Convert horizon_distance and sample to int64 (NetCDF may have stored as int32)
+    if "horizon_distance" in forecasts_df.columns:
+        forecasts_df["horizon_distance"] = forecasts_df["horizon_distance"].astype(np.int64)
+    if "sample" in forecasts_df.columns:
+        forecasts_df["sample"] = forecasts_df["sample"].astype(np.int64)
+
+    return FlatEvaluationData(
+        forecasts=FlatForecasts(forecasts_df),
+        observations=FlatObserved(observations_df),
+    )
 
 
 @dataclass
@@ -102,7 +204,10 @@ class EvaluationBase(ABC):
     @classmethod
     @abstractmethod
     def from_samples_with_truth(
-        cls, evaluation_results: Iterable[_DataSet[SamplesWithTruth]], last_train_period: TimePeriod, model_id
+        cls,
+        evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
+        last_train_period: TimePeriod,
+        configured_model: ConfiguredModelDB,
     ) -> "EvaluationBase": ...
 
 
@@ -146,18 +251,14 @@ class Evaluation(EvaluationBase):
         info: BackTestCreate,
     ):
         info.created = datetime.datetime.now()
-        # org_units = list({location for ds in evaluation_results for location in ds.locations()})
-        # split_points = list({er.period_range[0] for er in evaluation_results})
         backtest = BackTest(
-            **info.dict()
+            **info.model_dump()
             | {"model_db_id": configured_model.id, "model_template_version": configured_model.model_template.version}
         )
         org_units = set([])
         split_points = set([])
-        # define metrics (for each period)
-        evaluation_results = list(
-            evaluation_results
-        )  # hacky, to avoid metric funcs using up the iterable before we can loop all splitpoints
+        observations = []
+
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
             split_points.add(first_period.id)
@@ -177,9 +278,96 @@ class Evaluation(EvaluationBase):
                     )
                     backtest.forecasts.append(forecast)
 
+                    # add observation for this period/location
+                    observation = Observation(
+                        period=period.id,
+                        org_unit=location,
+                        value=float(disease_cases) if disease_cases is not None else None,
+                        feature_name="disease_cases",
+                    )
+                    observations.append(observation)
+
         backtest.org_units = list(org_units)
         backtest.split_periods = list(split_points)
+
+        # Deduplicate observations by (period, org_unit) - keep first occurrence
+        seen = set()
+        unique_observations = []
+        for obs in observations:
+            key = (obs.period, obs.org_unit)
+            if key not in seen:
+                seen.add(key)
+                unique_observations.append(obs)
+
+        # Create a minimal in-memory dataset with observations
+        # Only create this if there's no existing dataset (CLI path)
+        # For database path, the dataset relationship will be loaded via dataset_id
+        # Check if dataset_id is 0 (CLI dummy value) to determine if we need an in-memory dataset
+        if info.dataset_id == 0:
+            backtest.dataset = DataSet(
+                name="cli_evaluation_dataset",
+                observations=unique_observations,
+            )
+
         return cls.from_backtest(backtest)
+
+    @classmethod
+    def create(
+        cls,
+        configured_model: ConfiguredModelDB,
+        estimator,
+        dataset: _DataSet,
+        backtest_params: "BackTestParams",
+        backtest_name: str = "evaluation",
+    ) -> "Evaluation":
+        """
+        Create an Evaluation by running a backtest.
+
+        Factory method that handles the complete backtest workflow:
+        1. Run backtest with provided estimator
+        2. Create Evaluation from results
+
+        Args:
+            configured_model: Configured model database object with metadata
+            estimator: Model estimator instance ready for training/prediction
+            dataset: Dataset to evaluate on
+            backtest_params: Backtest execution parameters (n_periods, n_splits, stride)
+            backtest_name: Name for the backtest (default: "evaluation")
+
+        Returns:
+            Evaluation instance with backtest results
+        """
+        from chap_core.assessment.dataset_splitting import train_test_generator
+        from chap_core.assessment.prediction_evaluator import backtest
+
+        # Run backtest
+        evaluation_results = backtest(
+            estimator=estimator,
+            data=dataset,
+            prediction_length=backtest_params.n_periods,
+            n_test_sets=backtest_params.n_splits,
+            stride=backtest_params.stride,
+        )
+
+        # Prepare metadata
+        train, _ = train_test_generator(
+            dataset, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
+        )
+        last_train_period = train.period_range[-1]
+
+        backtest_info = BackTestCreate(
+            name=backtest_name,
+            dataset_id=0,
+            model_id=configured_model.id,
+        )
+
+        # Create Evaluation
+        return cls.from_samples_with_truth(
+            evaluation_results=evaluation_results,
+            last_train_period=last_train_period,
+            configured_model=configured_model,
+            info=backtest_info,
+        )
 
     def to_backtest(self) -> "BackTest":
         """
@@ -226,3 +414,104 @@ class Evaluation(EvaluationBase):
             List of period identifiers
         """
         return self._backtest.split_periods
+
+    def to_file(
+        self,
+        filepath: Union[str, Path],
+        model_name: Optional[str] = None,
+        model_configuration: Optional[dict] = None,
+        model_version: Optional[str] = None,
+    ) -> None:
+        """
+        Export evaluation to NetCDF file using xarray.
+
+        Args:
+            filepath: Path to output NetCDF file
+            model_name: Name of the model (optional)
+            model_configuration: Model configuration dictionary (optional)
+            model_version: Model version string (optional)
+        """
+        flat_data = self.to_flat()
+
+        model_metadata = {
+            "model_name": model_name or "",
+            "model_configuration": model_configuration or {},
+            "model_version": model_version or "",
+            "split_periods": self.get_split_periods(),
+            "org_units": self.get_org_units(),
+        }
+
+        ds = _flat_data_to_xarray(flat_data, model_metadata)
+        ds.to_netcdf(filepath)
+
+    @classmethod
+    def from_file(cls, filepath: Union[str, Path]) -> "Evaluation":
+        """
+        Load evaluation from NetCDF file.
+
+        Creates an in-memory BackTest object without database persistence.
+
+        Args:
+            filepath: Path to NetCDF file
+
+        Returns:
+            Evaluation instance
+        """
+        ds = xr.open_dataset(filepath)
+
+        flat_data = _xarray_to_flat_data(ds)
+
+        split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
+        org_units = json.loads(ds.attrs.get("org_units", "[]"))
+
+        backtest = BackTest(
+            name=f"Loaded from {Path(filepath).name}",
+            org_units=org_units,
+            split_periods=split_periods,
+            forecasts=[],
+            dataset_id=0,
+        )
+
+        forecasts_df = pd.DataFrame(flat_data.forecasts)
+
+        # Group by (location, time_period, horizon_distance) to create BackTestForecast objects
+        for (location, time_period, horizon_distance), group in forecasts_df.groupby(
+            ["location", "time_period", "horizon_distance"]
+        ):
+            # Calculate last_seen_period from horizon_distance
+            period = TimePeriod.parse(time_period)
+            last_seen_period = period - (int(horizon_distance) * period.time_delta)
+
+            # Get all sample values for this forecast, sorted by sample number
+            values = group.sort_values("sample")["forecast"].tolist()
+
+            forecast = BackTestForecast(
+                period=time_period,
+                org_unit=location,
+                last_seen_period=last_seen_period.id,
+                last_train_period=last_seen_period.id,
+                values=values,
+            )
+            backtest.forecasts.append(forecast)
+
+        # Create observations from flat data
+        observations_df = pd.DataFrame(flat_data.observations)
+        observations = []
+        for _, row in observations_df.iterrows():
+            observation = Observation(
+                period=row["time_period"],
+                org_unit=row["location"],
+                value=float(row["disease_cases"]) if row["disease_cases"] is not None else None,
+                feature_name="disease_cases",
+            )
+            observations.append(observation)
+
+        # Create in-memory dataset with observations
+        backtest.dataset = DataSet(
+            name=f"dataset_from_{Path(filepath).name}",
+            observations=observations,
+        )
+
+        ds.close()
+
+        return cls.from_backtest(backtest)
