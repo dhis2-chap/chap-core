@@ -46,14 +46,20 @@ class VisualDecisionMaker(DecisionMaker):
     prompts the user to select their preferred model.
     """
 
-    def __init__(self, model_names: list[str] | None = None):
+    def __init__(
+        self,
+        model_names: list[str] | None = None,
+        metrics: list[dict] | None = None,
+    ):
         """
         Initialize VisualDecisionMaker.
 
         Args:
             model_names: Optional list of model names for display purposes
+            metrics: Optional pre-computed metrics to display alongside plots
         """
         self._model_names = model_names
+        self._metrics = metrics
 
     def decide(self, evaluations: list[Evaluation]) -> int:
         """
@@ -91,6 +97,12 @@ class VisualDecisionMaker(DecisionMaker):
         for i in range(len(evaluations)):
             model_name = self._model_names[i] if self._model_names and i < len(self._model_names) else f"Model {i + 1}"
             print(f"  [{i + 1}] {model_name}")
+            if self._metrics and i < len(self._metrics):
+                for metric_name, value in self._metrics[i].items():
+                    if isinstance(value, float):
+                        print(f"       {metric_name}: {value:.4f}")
+                    else:
+                        print(f"       {metric_name}: {value}")
 
         print("=" * 60)
 
@@ -109,14 +121,14 @@ class MetricDecisionMaker(DecisionMaker):
     """
     Decision maker that selects based on pre-computed metrics.
 
-    This is a simple automatic decision maker that compares a specific
-    metric value across evaluations.
+    This is a simple automatic decision maker that compares metrics
+    across evaluations. Uses multiple metrics with priority ordering.
     """
 
     def __init__(
         self,
         metrics: list[dict],
-        metric_name: str = "mae",
+        metric_names: list[str] | None = None,
         lower_is_better: bool = True,
     ):
         """
@@ -124,16 +136,19 @@ class MetricDecisionMaker(DecisionMaker):
 
         Args:
             metrics: List of metric dictionaries, one per evaluation
-            metric_name: Name of metric to use for comparison
+            metric_names: List of metric names to use for comparison, in priority order.
+                         If None, uses ["mae"] as default.
             lower_is_better: If True, lower metric values are preferred
         """
         self._metrics = metrics
-        self._metric_name = metric_name
+        self._metric_names = metric_names or ["mae"]
         self._lower_is_better = lower_is_better
 
     def decide(self, evaluations: list[Evaluation]) -> int:
         """
-        Decide based on comparing a specific metric.
+        Decide based on comparing metrics.
+
+        Uses the first available metric from metric_names list.
 
         Args:
             evaluations: List of Evaluation objects (used for count validation)
@@ -144,28 +159,34 @@ class MetricDecisionMaker(DecisionMaker):
         if len(self._metrics) != len(evaluations):
             raise ValueError(f"Expected {len(evaluations)} metrics, got {len(self._metrics)}")
 
-        values = [m.get(self._metric_name) for m in self._metrics]
+        # Find first metric that exists in all evaluations
+        metric_name = None
+        for name in self._metric_names:
+            if all(name in m for m in self._metrics):
+                metric_name = name
+                break
 
-        # Handle missing metric
-        if any(v is None for v in values):
-            logger.warning(f"Metric {self._metric_name} not found in all evaluations")
-            # Find first common metric
+        if metric_name is None:
+            # Fall back to first common metric
             common_metrics = set(self._metrics[0].keys())
             for m in self._metrics[1:]:
                 common_metrics &= set(m.keys())
             if common_metrics:
-                self._metric_name = next(iter(common_metrics))
-                values = [m.get(self._metric_name) for m in self._metrics]
-                logger.info(f"Using fallback metric: {self._metric_name}")
+                metric_name = next(iter(common_metrics))
+                logger.warning(f"Requested metrics {self._metric_names} not found, using {metric_name}")
+            else:
+                raise ValueError("No common metrics found across evaluations")
+
+        values = [m.get(metric_name) for m in self._metrics]
 
         for i, v in enumerate(values):
-            logger.info(f"Model {i + 1}: {self._metric_name}={v}")
+            logger.info(f"Model {i + 1}: {metric_name}={v}")
 
         if self._lower_is_better:
             best_idx = min(range(len(values)), key=lambda idx: values[idx])
         else:
             best_idx = max(range(len(values)), key=lambda idx: values[idx])
 
-        logger.info(f"Preferred: Model {best_idx + 1} (based on {self._metric_name})")
+        logger.info(f"Preferred: Model {best_idx + 1} (based on {metric_name})")
 
         return best_idx

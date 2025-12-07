@@ -2,7 +2,11 @@
 
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
+
+import yaml
+
+from pydantic import BaseModel
 
 from chap_core.api_types import BackTestParams, RunConfig
 from chap_core.assessment.evaluation import Evaluation
@@ -11,6 +15,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelConfiguration,
     ModelTemplateDB,
 )
+from chap_core.hpo.base import load_search_space_from_config
 from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 from chap_core.preference_learning.decision_maker import (
@@ -29,6 +34,15 @@ from chap_core.cli_endpoints._common import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class PreferenceLearningParams(BaseModel):
+    """Parameters for preference learning."""
+
+    max_iterations: int = 10
+    decision_mode: Literal["visual", "metric"] = "visual"
+    decision_metrics: list[str] = ["mae"]
+    lower_is_better: bool = True
 
 
 def _compute_metrics(evaluation: Evaluation) -> dict:
@@ -108,21 +122,19 @@ def _create_evaluation(
 
 
 def preference_learn(
-    model_names: str,
+    model_name: str,
     dataset_csv: Path,
+    search_space_yaml: Optional[Path] = None,
     state_file: Path = Path("preference_state.json"),
     backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfig = RunConfig(),
-    max_iterations: int = 10,
-    decision_mode: Literal["visual", "metric"] = "visual",
-    decision_metric: str = "mae",
-    lower_is_better: bool = True,
+    learning_params: PreferenceLearningParams = PreferenceLearningParams(),
 ):
     """
-    Learn user preferences for models through iterative A/B testing.
+    Learn user preferences for model configurations through iterative A/B testing.
 
     This command implements a preference learning loop:
-    1. Get candidate models from the PreferenceLearner
+    1. Get candidate model configurations from the PreferenceLearner
     2. Run backtest/evaluation on all candidates
     3. Compute metrics for each evaluation
     4. Present evaluations to a DecisionMaker (visual or metric-based)
@@ -130,36 +142,60 @@ def preference_learn(
     6. Repeat until convergence or max iterations
 
     Args:
-        model_names: Comma-separated list of model identifiers to compare
+        model_name: Model identifier (path or GitHub URL)
         dataset_csv: Path to CSV file with disease data
+        search_space_yaml: Path to YAML file defining hyperparameter search space
         state_file: Path to file for persisting learner state
         backtest_params: Backtest configuration (n_periods, n_splits, stride)
         run_config: Model run environment configuration
-        max_iterations: Maximum number of comparison iterations
-        decision_mode: How to decide preference ('visual' shows plots, 'metric' uses automatic comparison)
-        decision_metric: Metric to use for automatic decisions (only used when decision_mode='metric')
-        lower_is_better: Whether lower metric values are preferred (only used when decision_mode='metric')
+        learning_params: Preference learning configuration
     """
     initialize_logging(run_config.debug, run_config.log_file)
 
-    logger.info(f"Starting preference learning with models: {model_names}")
-
-    # Parse model names into candidates
-    model_list = [name.strip() for name in model_names.split(",")]
-    candidates = [ModelCandidate(model_name=name) for name in model_list]
-
-    logger.info(f"Created {len(candidates)} model candidates")
+    logger.info(f"Starting preference learning for model: {model_name}")
 
     # Load dataset
     geojson_path = discover_geojson(dataset_csv)
     dataset = load_dataset_from_csv(dataset_csv, geojson_path)
 
-    # Create preference learner (will load state if file exists)
-    learner = TournamentPreferenceLearner(
-        candidates=candidates,
-        state_file=state_file,
-        max_iterations=max_iterations,
-    )
+    # Load or create preference learner
+    if state_file.exists():
+        logger.info(f"Loading existing state from {state_file}")
+        learner = TournamentPreferenceLearner.load(state_file)
+    else:
+        # Load search space
+        if search_space_yaml is None:
+            # Try to get search space from model template
+            template = ModelTemplate.from_directory_or_github_url(
+                model_name,
+                base_working_dir=Path("./runs/"),
+                ignore_env=run_config.ignore_environment,
+                run_dir_type=run_config.run_directory_type,
+                is_chapkit_model=run_config.is_chapkit_model,
+            )
+            raw_search_space = template.model_template_config.hpo_search_space
+            if not raw_search_space:
+                raise ValueError(
+                    "No search space provided and model template has no hpo_search_space. "
+                    "Please provide --search-space-yaml"
+                )
+        else:
+            logger.info(f"Loading search space from {search_space_yaml}")
+            with open(search_space_yaml, "r") as f:
+                raw_search_space = yaml.safe_load(f)
+
+        search_space = load_search_space_from_config(raw_search_space)
+
+        logger.info(f"Initializing learner with search space: {search_space}")
+        learner = TournamentPreferenceLearner.init(
+            model_name=model_name,
+            search_space=raw_search_space,  # Store raw for serialization
+            max_iterations=learning_params.max_iterations,
+        )
+        # Update candidates with parsed search space
+        learner._state.candidates = TournamentPreferenceLearner._generate_candidates_from_search_space(
+            model_name, search_space
+        )
 
     logger.info(f"Starting from iteration {learner.current_iteration}")
 
@@ -170,13 +206,21 @@ def preference_learn(
             logger.info("No more candidates to compare")
             break
 
-        model_names_in_round = [c.model_name for c in next_candidates]
+        # Get display names (show config differences)
+        model_names_in_round = []
+        for c in next_candidates:
+            if c.configuration:
+                config_str = ", ".join(f"{k}={v}" for k, v in c.configuration.items())
+                model_names_in_round.append(f"{c.model_name}({config_str})")
+            else:
+                model_names_in_round.append(c.model_name)
+
         logger.info(f"Comparing: {' vs '.join(model_names_in_round)}")
 
         # Run evaluations for all candidates
         evaluations = []
         for candidate in next_candidates:
-            logger.info(f"Evaluating: {candidate.model_name}")
+            logger.info(f"Evaluating: {candidate.model_name} with config {candidate.configuration}")
             evaluation = _create_evaluation(candidate, dataset, backtest_params, run_config)
             evaluations.append(evaluation)
 
@@ -185,13 +229,16 @@ def preference_learn(
 
         # Create decision maker
         decision_maker: DecisionMaker
-        if decision_mode == "visual":
-            decision_maker = VisualDecisionMaker(model_names=model_names_in_round)
+        if learning_params.decision_mode == "visual":
+            decision_maker = VisualDecisionMaker(
+                model_names=model_names_in_round,
+                metrics=metrics,
+            )
         else:
             decision_maker = MetricDecisionMaker(
                 metrics=metrics,
-                metric_name=decision_metric,
-                lower_is_better=lower_is_better,
+                metric_names=learning_params.decision_metrics,
+                lower_is_better=learning_params.lower_is_better,
             )
 
         # Get decision
@@ -199,6 +246,9 @@ def preference_learn(
 
         # Report to learner
         learner.report_preference(next_candidates, preferred_index, metrics)
+
+        # Save state after each iteration
+        learner.save(state_file)
 
         logger.info(f"Iteration {learner.current_iteration} complete")
 
@@ -218,9 +268,20 @@ def preference_learn(
     if history:
         print(f"\nComparison history ({len(history)} iterations):")
         for i, result in enumerate(history):
-            names = [c.model_name for c in result.candidates]
+            names = []
+            for c in result.candidates:
+                if c.configuration:
+                    config_str = ", ".join(f"{k}={v}" for k, v in c.configuration.items())
+                    names.append(f"{c.model_name}({config_str})")
+                else:
+                    names.append(c.model_name)
             print(f"  {i + 1}. {' vs '.join(names)}")
-            print(f"     Winner: {result.preferred.model_name}")
+            winner = result.preferred
+            if winner.configuration:
+                config_str = ", ".join(f"{k}={v}" for k, v in winner.configuration.items())
+                print(f"     Winner: {winner.model_name}({config_str})")
+            else:
+                print(f"     Winner: {winner.model_name}")
 
 
 def register_commands(app):

@@ -10,7 +10,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -47,51 +47,6 @@ class ComparisonResult:
         return self.candidates[self.preferred_index]
 
 
-@dataclass
-class PreferenceLearnerState:
-    """Serializable state for PreferenceLearner."""
-
-    candidates: list[ModelCandidate] = field(default_factory=list)
-    comparison_history: list[ComparisonResult] = field(default_factory=list)
-    current_iteration: int = 0
-    best_candidate: Optional[ModelCandidate] = None
-
-    def to_dict(self) -> dict:
-        """Convert state to dictionary for JSON serialization."""
-        return {
-            "candidates": [c.model_dump() for c in self.candidates],
-            "comparison_history": [
-                {
-                    "candidates": [c.model_dump() for c in r.candidates],
-                    "preferred_index": r.preferred_index,
-                    "metrics": r.metrics,
-                    "iteration": r.iteration,
-                }
-                for r in self.comparison_history
-            ],
-            "current_iteration": self.current_iteration,
-            "best_candidate": self.best_candidate.model_dump() if self.best_candidate else None,
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "PreferenceLearnerState":
-        """Create state from dictionary."""
-        return cls(
-            candidates=[ModelCandidate(**c) for c in data.get("candidates", [])],
-            comparison_history=[
-                ComparisonResult(
-                    candidates=[ModelCandidate(**c) for c in r["candidates"]],
-                    preferred_index=r["preferred_index"],
-                    metrics=r["metrics"],
-                    iteration=r["iteration"],
-                )
-                for r in data.get("comparison_history", [])
-            ],
-            current_iteration=data.get("current_iteration", 0),
-            best_candidate=ModelCandidate(**data["best_candidate"]) if data.get("best_candidate") else None,
-        )
-
-
 class PreferenceLearnerBase(ABC):
     """
     Abstract base class for preference learning algorithms.
@@ -107,6 +62,51 @@ class PreferenceLearnerBase(ABC):
     - Multi-armed bandit approaches
     - etc.
     """
+
+    @classmethod
+    @abstractmethod
+    def init(
+        cls,
+        model_name: str,
+        search_space: dict[str, Any],
+        max_iterations: int = 10,
+    ) -> "PreferenceLearnerBase":
+        """
+        Initialize a new PreferenceLearner with a search space.
+
+        Args:
+            model_name: Name of the model template to optimize
+            search_space: Dictionary defining the hyperparameter search space
+            max_iterations: Maximum number of comparison iterations
+
+        Returns:
+            New PreferenceLearner instance
+        """
+        pass
+
+    @abstractmethod
+    def save(self, filepath: Path) -> None:
+        """
+        Save the learner state to a file.
+
+        Args:
+            filepath: Path to save the state
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def load(cls, filepath: Path) -> "PreferenceLearnerBase":
+        """
+        Load a PreferenceLearner from a file.
+
+        Args:
+            filepath: Path to load the state from
+
+        Returns:
+            Loaded PreferenceLearner instance
+        """
+        pass
 
     @abstractmethod
     def get_next_candidates(self) -> Optional[list[ModelCandidate]]:
@@ -159,6 +159,60 @@ class PreferenceLearnerBase(ABC):
         pass
 
 
+@dataclass
+class TournamentPreferenceLearnerState:
+    """Serializable state for TournamentPreferenceLearner."""
+
+    model_name: str = ""
+    search_space: dict = field(default_factory=dict)
+    candidates: list[ModelCandidate] = field(default_factory=list)
+    comparison_history: list[ComparisonResult] = field(default_factory=list)
+    current_iteration: int = 0
+    max_iterations: int = 10
+    best_candidate: Optional[ModelCandidate] = None
+
+    def to_dict(self) -> dict:
+        """Convert state to dictionary for JSON serialization."""
+        return {
+            "model_name": self.model_name,
+            "search_space": self.search_space,
+            "candidates": [c.model_dump() for c in self.candidates],
+            "comparison_history": [
+                {
+                    "candidates": [c.model_dump() for c in r.candidates],
+                    "preferred_index": r.preferred_index,
+                    "metrics": r.metrics,
+                    "iteration": r.iteration,
+                }
+                for r in self.comparison_history
+            ],
+            "current_iteration": self.current_iteration,
+            "max_iterations": self.max_iterations,
+            "best_candidate": self.best_candidate.model_dump() if self.best_candidate else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TournamentPreferenceLearnerState":
+        """Create state from dictionary."""
+        return cls(
+            model_name=data.get("model_name", ""),
+            search_space=data.get("search_space", {}),
+            candidates=[ModelCandidate(**c) for c in data.get("candidates", [])],
+            comparison_history=[
+                ComparisonResult(
+                    candidates=[ModelCandidate(**c) for c in r["candidates"]],
+                    preferred_index=r["preferred_index"],
+                    metrics=r["metrics"],
+                    iteration=r["iteration"],
+                )
+                for r in data.get("comparison_history", [])
+            ],
+            current_iteration=data.get("current_iteration", 0),
+            max_iterations=data.get("max_iterations", 10),
+            best_candidate=ModelCandidate(**data["best_candidate"]) if data.get("best_candidate") else None,
+        )
+
+
 class TournamentPreferenceLearner(PreferenceLearnerBase):
     """
     Simple tournament-style preference learner.
@@ -167,43 +221,109 @@ class TournamentPreferenceLearner(PreferenceLearnerBase):
     against other winners or uncompared candidates.
     """
 
-    def __init__(
-        self,
-        candidates: list[ModelCandidate],
-        state_file: Optional[Path] = None,
-        max_iterations: int = 10,
-    ):
+    def __init__(self, state: TournamentPreferenceLearnerState):
         """
-        Initialize TournamentPreferenceLearner.
+        Initialize TournamentPreferenceLearner with state.
 
         Args:
-            candidates: List of model candidates to explore
-            state_file: Optional path to file for persisting state
-            max_iterations: Maximum number of comparison iterations
+            state: The learner state
         """
-        self._state_file = state_file
-        self._max_iterations = max_iterations
+        self._state = state
 
-        # Load state from file if it exists, otherwise initialize
-        if state_file and state_file.exists():
-            self._state = self._load_state()
-            logger.info(f"Loaded state from {state_file}, iteration {self._state.current_iteration}")
-        else:
-            self._state = PreferenceLearnerState(candidates=candidates)
-            logger.info(f"Initialized new TournamentPreferenceLearner with {len(candidates)} candidates")
+    @classmethod
+    def init(
+        cls,
+        model_name: str,
+        search_space: dict[str, Any],
+        max_iterations: int = 10,
+    ) -> "TournamentPreferenceLearner":
+        """
+        Initialize a new TournamentPreferenceLearner with a search space.
 
-    def _load_state(self) -> PreferenceLearnerState:
-        """Load state from file."""
-        with open(self._state_file, "r") as f:
+        Args:
+            model_name: Name of the model template to optimize
+            search_space: Dictionary defining the hyperparameter search space
+            max_iterations: Maximum number of comparison iterations
+
+        Returns:
+            New TournamentPreferenceLearner instance
+        """
+        # Generate initial candidates from search space
+        candidates = cls._generate_candidates_from_search_space(model_name, search_space)
+
+        state = TournamentPreferenceLearnerState(
+            model_name=model_name,
+            search_space=search_space,
+            candidates=candidates,
+            max_iterations=max_iterations,
+        )
+
+        logger.info(f"Initialized new TournamentPreferenceLearner with {len(candidates)} candidates")
+        return cls(state)
+
+    @staticmethod
+    def _generate_candidates_from_search_space(
+        model_name: str,
+        search_space: dict[str, Any],
+    ) -> list[ModelCandidate]:
+        """
+        Generate model candidates from a search space.
+
+        For categorical parameters, generates all combinations.
+        For continuous parameters, samples representative values.
+        """
+        from chap_core.hpo.base import Int, Float
+
+        # Extract categorical values and sample from continuous ranges
+        param_values: dict[str, list] = {}
+
+        for param_name, spec in search_space.items():
+            if isinstance(spec, list):
+                # Categorical values
+                param_values[param_name] = spec
+            elif isinstance(spec, Int):
+                # Sample integer range
+                param_values[param_name] = [spec.low, (spec.low + spec.high) // 2, spec.high]
+            elif isinstance(spec, Float):
+                # Sample float range
+                param_values[param_name] = [spec.low, (spec.low + spec.high) / 2, spec.high]
+            else:
+                logger.warning(f"Unknown search space spec type for {param_name}: {type(spec)}")
+
+        # Generate combinations (limit to avoid explosion)
+        import itertools
+
+        all_combinations = list(itertools.product(*param_values.values()))
+
+        # Limit number of candidates
+        max_candidates = 20
+        if len(all_combinations) > max_candidates:
+            # Sample evenly
+            step = len(all_combinations) // max_candidates
+            all_combinations = all_combinations[::step][:max_candidates]
+
+        candidates = []
+        param_names = list(param_values.keys())
+        for combo in all_combinations:
+            config = dict(zip(param_names, combo))
+            candidates.append(ModelCandidate(model_name=model_name, configuration=config))
+
+        return candidates
+
+    def save(self, filepath: Path) -> None:
+        """Save the learner state to a file."""
+        with open(filepath, "w") as f:
+            json.dump(self._state.to_dict(), f, indent=2)
+        logger.info(f"Saved state to {filepath}")
+
+    @classmethod
+    def load(cls, filepath: Path) -> "TournamentPreferenceLearner":
+        """Load a TournamentPreferenceLearner from a file."""
+        with open(filepath, "r") as f:
             data = json.load(f)
-        return PreferenceLearnerState.from_dict(data)
-
-    def _save_state(self) -> None:
-        """Save state to file."""
-        if self._state_file:
-            with open(self._state_file, "w") as f:
-                json.dump(self._state.to_dict(), f, indent=2)
-            logger.info(f"Saved state to {self._state_file}")
+        state = TournamentPreferenceLearnerState.from_dict(data)
+        logger.info(f"Loaded state from {filepath}, iteration {state.current_iteration}")
+        return cls(state)
 
     def get_next_candidates(self) -> Optional[list[ModelCandidate]]:
         """
@@ -212,7 +332,7 @@ class TournamentPreferenceLearner(PreferenceLearnerBase):
         Returns:
             List of two ModelCandidates, or None if learning is complete.
         """
-        if self._state.current_iteration >= self._max_iterations:
+        if self._state.current_iteration >= self._state.max_iterations:
             logger.info("Max iterations reached")
             return None
 
@@ -287,11 +407,9 @@ class TournamentPreferenceLearner(PreferenceLearnerBase):
         for i, m in enumerate(metrics):
             logger.info(f"Metrics {i}: {m}")
 
-        self._save_state()
-
     def is_complete(self) -> bool:
         """Check if learning is complete."""
-        return self._state.current_iteration >= self._max_iterations or self.get_next_candidates() is None
+        return self._state.current_iteration >= self._state.max_iterations or self.get_next_candidates() is None
 
     def get_best_candidate(self) -> Optional[ModelCandidate]:
         """Get the current best candidate based on comparison history."""

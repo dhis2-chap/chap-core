@@ -9,7 +9,6 @@ from chap_core.preference_learning.decision_maker import (
     MetricDecisionMaker,
     VisualDecisionMaker,
 )
-from chap_core.preference_learning.preference_learner import ModelCandidate
 
 
 class TestDecisionMakerInterface:
@@ -18,7 +17,7 @@ class TestDecisionMakerInterface:
         metrics = [{"mae": 0.8}, {"mae": 0.5}]
         decision_maker = MetricDecisionMaker(
             metrics=metrics,
-            metric_name="mae",
+            metric_names=["mae"],
             lower_is_better=True,
         )
 
@@ -35,7 +34,7 @@ class TestMetricDecisionMaker:
         metrics = [{"mae": 0.8}, {"mae": 0.5}]
         decision_maker = MetricDecisionMaker(
             metrics=metrics,
-            metric_name="mae",
+            metric_names=["mae"],
             lower_is_better=True,
         )
 
@@ -49,7 +48,7 @@ class TestMetricDecisionMaker:
         metrics = [{"accuracy": 0.9}, {"accuracy": 0.7}]
         decision_maker = MetricDecisionMaker(
             metrics=metrics,
-            metric_name="accuracy",
+            metric_names=["accuracy"],
             lower_is_better=False,
         )
 
@@ -63,7 +62,7 @@ class TestMetricDecisionMaker:
         metrics = [{"mae": 0.5}, {"mae": 0.5}]
         decision_maker = MetricDecisionMaker(
             metrics=metrics,
-            metric_name="mae",
+            metric_names=["mae"],
             lower_is_better=True,
         )
 
@@ -77,7 +76,7 @@ class TestMetricDecisionMaker:
         metrics = [{"mae": 0.8}, {"mae": 0.3}, {"mae": 0.5}]
         decision_maker = MetricDecisionMaker(
             metrics=metrics,
-            metric_name="mae",
+            metric_names=["mae"],
             lower_is_better=True,
         )
 
@@ -91,7 +90,7 @@ class TestMetricDecisionMaker:
         metrics = [{"mae": 0.8}]  # Only 1 metric
         decision_maker = MetricDecisionMaker(
             metrics=metrics,
-            metric_name="mae",
+            metric_names=["mae"],
             lower_is_better=True,
         )
 
@@ -99,6 +98,36 @@ class TestMetricDecisionMaker:
 
         with pytest.raises(ValueError, match="Expected 2 metrics"):
             decision_maker.decide(mock_evaluations)
+
+    def test_fallback_to_common_metric(self):
+        """Test fallback when requested metric not available."""
+        metrics = [{"rmse": 0.8}, {"rmse": 0.5}]
+        decision_maker = MetricDecisionMaker(
+            metrics=metrics,
+            metric_names=["mae"],  # Not in metrics
+            lower_is_better=True,
+        )
+
+        mock_evaluations = [MagicMock(), MagicMock()]
+        preferred_index = decision_maker.decide(mock_evaluations)
+
+        # Should fall back to rmse and pick second model
+        assert preferred_index == 1
+
+    def test_priority_ordering(self):
+        """Test that first available metric in list is used."""
+        metrics = [{"rmse": 0.3, "mae": 0.8}, {"rmse": 0.5, "mae": 0.2}]
+        decision_maker = MetricDecisionMaker(
+            metrics=metrics,
+            metric_names=["mae", "rmse"],  # mae first
+            lower_is_better=True,
+        )
+
+        mock_evaluations = [MagicMock(), MagicMock()]
+        preferred_index = decision_maker.decide(mock_evaluations)
+
+        # Should use mae, second model has lower mae
+        assert preferred_index == 1
 
 
 class TestVisualDecisionMaker:
