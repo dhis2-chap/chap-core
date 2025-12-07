@@ -255,7 +255,13 @@ def evaluate2(
         run_config: Model run environment configuration
         model_configuration_yaml: Optional YAML file with model configuration
     """
+    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+    from chap_core.log_config import initialize_logging
+
     logger.info(f"Evaluating model {model_name} with xarray/NetCDF output")
+
+    # Initialize logging
+    initialize_logging(run_config.debug, run_config.log_file)
 
     # Load dataset (GeoJSON auto-discovered)
     geojson_path = _discover_geojson(dataset_csv)
@@ -267,16 +273,44 @@ def evaluate2(
         logger.info(f"Loading model configuration from {model_configuration_yaml}")
         configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
 
+    # Load model template
+    logger.info(f"Loading model template from {model_name}")
+    template = ModelTemplate.from_directory_or_github_url(
+        model_name,
+        base_working_dir=Path("./runs/"),
+        ignore_env=run_config.ignore_environment,
+        run_dir_type=run_config.run_directory_type,
+        is_chapkit_model=run_config.is_chapkit_model,
+    )
+
+    # Configure and instantiate model
+    model = template.get_model(configuration)
+    estimator = model()
+
+    # Create configured model metadata
+    model_template_db = ModelTemplateDB(
+        id=template.model_template_config.name,
+        name=template.model_template_config.name,
+        version=template.model_template_config.version or "unknown",
+    )
+
+    configured_model_db = ConfiguredModelDB(
+        id="cli_eval",
+        model_template_id=model_template_db.id,
+        model_template=model_template_db,
+        configuration=configuration.model_dump() if configuration else {},
+    )
+
     # Create evaluation by running backtest
     logger.info(
         f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
     )
     evaluation = Evaluation.create(
-        model_name=model_name,
+        configured_model=configured_model_db,
+        estimator=estimator,
         dataset=dataset,
         backtest_params=backtest_params,
-        run_config=run_config,
-        model_configuration=configuration,
+        backtest_name=f"{model_name}_evaluation",
     )
 
     # Export to file
@@ -285,7 +319,7 @@ def evaluate2(
         filepath=output_file,
         model_name=model_name,
         model_configuration=configuration.model_dump() if configuration else {},
-        model_version=evaluation._backtest.model_template_version or "unknown",
+        model_version=template.model_template_config.version or "unknown",
     )
 
     logger.info(f"Evaluation complete. Results saved to {output_file}")

@@ -17,7 +17,7 @@ import pandas as pd
 import xarray as xr
 
 if TYPE_CHECKING:
-    from chap_core.api_types import BackTestParams, RunConfig
+    from chap_core.api_types import BackTestParams
 
 from chap_core.data import DataSet as _DataSet
 from chap_core.assessment.flat_representations import (
@@ -26,7 +26,7 @@ from chap_core.assessment.flat_representations import (
     convert_backtest_observations_to_flat_observations,
     convert_backtest_to_flat_forecasts,
 )
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.datatypes import SamplesWithTruth
 from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.time_period import TimePeriod
@@ -314,51 +314,31 @@ class Evaluation(EvaluationBase):
     @classmethod
     def create(
         cls,
-        model_name: str,
+        configured_model: ConfiguredModelDB,
+        estimator,
         dataset: _DataSet,
         backtest_params: "BackTestParams",
-        run_config: "RunConfig",
-        model_configuration: Optional[ModelConfiguration] = None,
+        backtest_name: str = "evaluation",
     ) -> "Evaluation":
         """
         Create an Evaluation by running a backtest.
 
         Factory method that handles the complete backtest workflow:
-        1. Load model template
-        2. Configure model
-        3. Run backtest
-        4. Create Evaluation from results
+        1. Run backtest with provided estimator
+        2. Create Evaluation from results
 
         Args:
-            model_name: Model identifier (path or GitHub URL)
+            configured_model: Configured model database object with metadata
+            estimator: Model estimator instance ready for training/prediction
             dataset: Dataset to evaluate on
             backtest_params: Backtest execution parameters (n_periods, n_splits, stride)
-            run_config: Model run environment configuration
-            model_configuration: Optional model configuration
+            backtest_name: Name for the backtest (default: "evaluation")
 
         Returns:
             Evaluation instance with backtest results
         """
         from chap_core.assessment.dataset_splitting import train_test_generator
         from chap_core.assessment.prediction_evaluator import backtest
-        from chap_core.log_config import initialize_logging
-        from chap_core.models.model_template import ModelTemplate
-
-        # Initialize logging
-        initialize_logging(run_config.debug, run_config.log_file)
-
-        # Load model template
-        template = ModelTemplate.from_directory_or_github_url(
-            model_name,
-            base_working_dir=Path("./runs/"),
-            ignore_env=run_config.ignore_environment,
-            run_dir_type=run_config.run_directory_type,
-            is_chapkit_model=run_config.is_chapkit_model,
-        )
-
-        # Configure and instantiate model
-        model = template.get_model(model_configuration)
-        estimator = model()
 
         # Run backtest
         evaluation_results = backtest(
@@ -375,30 +355,17 @@ class Evaluation(EvaluationBase):
         )
         last_train_period = train.period_range[-1]
 
-        model_template_db = ModelTemplateDB(
-            id=template.model_template_config.name,
-            name=template.model_template_config.name,
-            version=template.model_template_config.version or "unknown",
-        )
-
-        configured_model_db = ConfiguredModelDB(
-            id="cli_eval",
-            model_template_id=model_template_db.id,
-            model_template=model_template_db,
-            configuration=model_configuration.model_dump() if model_configuration else {},
-        )
-
         backtest_info = BackTestCreate(
-            name=f"{model_name}_evaluation",
+            name=backtest_name,
             dataset_id=0,
-            model_id=configured_model_db.id,
+            model_id=configured_model.id,
         )
 
         # Create Evaluation
         return cls.from_samples_with_truth(
             evaluation_results=evaluation_results,
             last_train_period=last_train_period,
-            configured_model=configured_model_db,
+            configured_model=configured_model,
             info=backtest_info,
         )
 
