@@ -1,7 +1,8 @@
 from chap_core.api import forecast
 import pytest
 from chap_core.util import docker_available
-from chap_core.cli import sanity_check_model, evaluate_hpo, evaluate2
+from chap_core.cli_endpoints.evaluate import evaluate_hpo, evaluate2
+from chap_core.cli_endpoints.utils import sanity_check_model
 
 
 @pytest.mark.skipif(not docker_available(), reason="Docker not available")
@@ -26,7 +27,6 @@ def test_hpo_evaluate(data_path):
 def test_evaluate2(tmp_path):
     from chap_core.file_io.example_data_set import datasets
     from chap_core.api_types import BackTestParams, RunConfig
-    from chap_core.cli import evaluate2
 
     # Export hydromet dataset to CSV for testing
     dataset = datasets["hydromet_5_filtered"].load()
