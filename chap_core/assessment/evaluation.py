@@ -28,6 +28,7 @@ from chap_core.datatypes import SamplesWithTruth
 from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.time_period import TimePeriod
 from chap_core.database.tables import BackTest, BackTestForecast
+from chap_core.database.dataset_tables import DataSet, Observation
 
 try:
     from chap_core import __version__ as CHAP_VERSION
@@ -248,11 +249,13 @@ class Evaluation(EvaluationBase):
     ):
         info.created = datetime.datetime.now()
         backtest = BackTest(
-            **info.dict()
+            **info.model_dump()
             | {"model_db_id": configured_model.id, "model_template_version": configured_model.model_template.version}
         )
         org_units = set([])
         split_points = set([])
+        observations = []
+
         for eval_result in evaluation_results:
             first_period: TimePeriod = eval_result.period_range[0]
             split_points.add(first_period.id)
@@ -272,8 +275,37 @@ class Evaluation(EvaluationBase):
                     )
                     backtest.forecasts.append(forecast)
 
+                    # add observation for this period/location
+                    observation = Observation(
+                        period=period.id,
+                        org_unit=location,
+                        value=float(disease_cases) if disease_cases is not None else None,
+                        feature_name="disease_cases",
+                    )
+                    observations.append(observation)
+
         backtest.org_units = list(org_units)
         backtest.split_periods = list(split_points)
+
+        # Deduplicate observations by (period, org_unit) - keep first occurrence
+        seen = set()
+        unique_observations = []
+        for obs in observations:
+            key = (obs.period, obs.org_unit)
+            if key not in seen:
+                seen.add(key)
+                unique_observations.append(obs)
+
+        # Create a minimal in-memory dataset with observations
+        # Only create this if there's no existing dataset (CLI path)
+        # For database path, the dataset relationship will be loaded via dataset_id
+        # Check if dataset_id is 0 (CLI dummy value) to determine if we need an in-memory dataset
+        if info.dataset_id == 0:
+            backtest.dataset = DataSet(
+                name="cli_evaluation_dataset",
+                observations=unique_observations,
+            )
+
         return cls.from_backtest(backtest)
 
     def to_backtest(self) -> "BackTest":
@@ -376,35 +408,49 @@ class Evaluation(EvaluationBase):
             org_units=org_units,
             split_periods=split_periods,
             forecasts=[],
+            dataset_id=0,
         )
 
         forecasts_df = pd.DataFrame(flat_data.forecasts)
-        for _, row in forecasts_df.iterrows():
+
+        # Group by (location, time_period, horizon_distance) to create BackTestForecast objects
+        for (location, time_period, horizon_distance), group in forecasts_df.groupby(
+            ["location", "time_period", "horizon_distance"]
+        ):
+            # Calculate last_seen_period from horizon_distance
+            period = TimePeriod.parse(time_period)
+            last_seen_period = period - (int(horizon_distance) * period.time_delta)
+
+            # Get all sample values for this forecast, sorted by sample number
+            values = group.sort_values("sample")["forecast"].tolist()
+
             forecast = BackTestForecast(
+                period=time_period,
+                org_unit=location,
+                last_seen_period=last_seen_period.id,
+                last_train_period=last_seen_period.id,
+                values=values,
+            )
+            backtest.forecasts.append(forecast)
+
+        # Create observations from flat data
+        observations_df = pd.DataFrame(flat_data.observations)
+        observations = []
+        for _, row in observations_df.iterrows():
+            observation = Observation(
                 period=row["time_period"],
                 org_unit=row["location"],
-                last_seen_period=row["time_period"],
-                last_train_period=row["time_period"],
-                values=[],
+                value=float(row["disease_cases"]) if row["disease_cases"] is not None else None,
+                feature_name="disease_cases",
             )
+            observations.append(observation)
 
-            same_location_period = forecasts_df[
-                (forecasts_df["location"] == row["location"])
-                & (forecasts_df["time_period"] == row["time_period"])
-                & (forecasts_df["horizon_distance"] == row["horizon_distance"])
-            ]
-            forecast.values = same_location_period.sort_values("sample")["forecast"].tolist()
-
-            if not any(
-                f.period == forecast.period
-                and f.org_unit == forecast.org_unit
-                and f.last_seen_period == forecast.last_seen_period
-                for f in backtest.forecasts
-            ):
-                backtest.forecasts.append(forecast)
+        # Create in-memory dataset with observations
+        backtest.dataset = DataSet(
+            name=f"dataset_from_{Path(filepath).name}",
+            observations=observations,
+        )
 
         ds.close()
 
-        evaluation = cls.from_backtest(backtest)
-        evaluation._flat_data_cache = flat_data
-        return evaluation
+        return cls.from_backtest(backtest)

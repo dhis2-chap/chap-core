@@ -22,7 +22,7 @@ def test_hpo_evaluate(data_path):
     # chap evaluate-hpo --model_name ../../chtorch --dataset_name hydromet_5_filtered --model_configuration_yaml config1.yaml
 
 
-#@pytest.mark.xfail(reason="Not implemented yet")
+# @pytest.mark.xfail(reason="Not implemented yet")
 def test_evaluate2():
     evaluate2(
         "https://github.com/dhis2-chap/minimalist_example_lag",
