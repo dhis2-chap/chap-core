@@ -47,6 +47,30 @@ class ComparisonResult:
         return self.candidates[self.preferred_index]
 
 
+# Type alias for parsed search space values
+SearchSpaceValue = Any  # Int, Float, or list of values
+
+
+def _search_space_to_serializable(search_space: dict[str, SearchSpaceValue]) -> dict:
+    """Convert parsed search space to JSON-serializable format."""
+    from chap_core.hpo.base import Int, Float
+
+    result = {}
+    for name, spec in search_space.items():
+        if isinstance(spec, list):
+            result[name] = {"values": spec}
+        elif isinstance(spec, Int):
+            result[name] = {"low": spec.low, "high": spec.high, "step": spec.step, "log": spec.log, "type": "int"}
+        elif isinstance(spec, Float):
+            entry = {"low": spec.low, "high": spec.high, "log": spec.log, "type": "float"}
+            if spec.step is not None:
+                entry["step"] = spec.step
+            result[name] = entry
+        else:
+            result[name] = spec
+    return result
+
+
 class PreferenceLearnerBase(ABC):
     """
     Abstract base class for preference learning algorithms.
@@ -68,15 +92,17 @@ class PreferenceLearnerBase(ABC):
     def init(
         cls,
         model_name: str,
-        search_space: dict[str, Any],
+        search_space: dict[str, SearchSpaceValue],
         max_iterations: int = 10,
     ) -> "PreferenceLearnerBase":
         """
-        Initialize a new PreferenceLearner with a search space.
+        Initialize a new PreferenceLearner with a parsed search space.
 
         Args:
             model_name: Name of the model template to optimize
-            search_space: Dictionary defining the hyperparameter search space
+            search_space: Parsed search space dict mapping param names to
+                         Int, Float, or list of categorical values.
+                         Use load_search_space_from_config() to parse raw YAML.
             max_iterations: Maximum number of comparison iterations
 
         Returns:
@@ -234,43 +260,21 @@ class TournamentPreferenceLearner(PreferenceLearnerBase):
     def init(
         cls,
         model_name: str,
-        search_space: dict[str, Any],
+        search_space: dict[str, SearchSpaceValue],
         max_iterations: int = 10,
     ) -> "TournamentPreferenceLearner":
         """
-        Initialize a new TournamentPreferenceLearner with a search space.
+        Initialize a new TournamentPreferenceLearner with a parsed search space.
 
         Args:
             model_name: Name of the model template to optimize
-            search_space: Dictionary defining the hyperparameter search space
+            search_space: Parsed search space dict mapping param names to
+                         Int, Float, or list of categorical values.
+                         Use load_search_space_from_config() to parse raw YAML.
             max_iterations: Maximum number of comparison iterations
 
         Returns:
             New TournamentPreferenceLearner instance
-        """
-        # Generate initial candidates from search space
-        candidates = cls._generate_candidates_from_search_space(model_name, search_space)
-
-        state = TournamentPreferenceLearnerState(
-            model_name=model_name,
-            search_space=search_space,
-            candidates=candidates,
-            max_iterations=max_iterations,
-        )
-
-        logger.info(f"Initialized new TournamentPreferenceLearner with {len(candidates)} candidates")
-        return cls(state)
-
-    @staticmethod
-    def _generate_candidates_from_search_space(
-        model_name: str,
-        search_space: dict[str, Any],
-    ) -> list[ModelCandidate]:
-        """
-        Generate model candidates from a search space.
-
-        For categorical parameters, generates all combinations.
-        For continuous parameters, samples representative values.
         """
         from chap_core.hpo.base import Int, Float
 
@@ -308,7 +312,18 @@ class TournamentPreferenceLearner(PreferenceLearnerBase):
             config = dict(zip(param_names, combo))
             candidates.append(ModelCandidate(model_name=model_name, configuration=config))
 
-        return candidates
+        # Convert search space to serializable format for persistence
+        serializable_search_space = _search_space_to_serializable(search_space)
+
+        state = TournamentPreferenceLearnerState(
+            model_name=model_name,
+            search_space=serializable_search_space,
+            candidates=candidates,
+            max_iterations=max_iterations,
+        )
+
+        logger.info(f"Initialized new TournamentPreferenceLearner with {len(candidates)} candidates")
+        return cls(state)
 
     def save(self, filepath: Path) -> None:
         """Save the learner state to a file."""

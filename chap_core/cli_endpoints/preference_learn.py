@@ -189,12 +189,8 @@ def preference_learn(
         logger.info(f"Initializing learner with search space: {search_space}")
         learner = TournamentPreferenceLearner.init(
             model_name=model_name,
-            search_space=raw_search_space,  # Store raw for serialization
+            search_space=search_space,
             max_iterations=learning_params.max_iterations,
-        )
-        # Update candidates with parsed search space
-        learner._state.candidates = TournamentPreferenceLearner._generate_candidates_from_search_space(
-            model_name, search_space
         )
 
     logger.info(f"Starting from iteration {learner.current_iteration}")
