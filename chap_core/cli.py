@@ -14,9 +14,8 @@ from cyclopts import App
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
-from chap_core.assessment.prediction_evaluator import evaluate_model, backtest
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration, ConfiguredModelDB, ModelTemplateDB
-from chap_core.rest_api.data_models import BackTestCreate
+from chap_core.assessment.prediction_evaluator import evaluate_model
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.exceptions import NoPredictionsError
 from chap_core.hpo.searcher import RandomSearcher
@@ -233,104 +232,82 @@ def evaluate(
 
 @app.command()
 def evaluate2(
-    model_name: ModelType | str,
+    model_name: str,
+    dataset_csv: Path,
     output_file: Path,
-    dataset_csv: Optional[Path] = None,
-    dataset_name: Optional[DataSetType] = None,
-    dataset_country: Optional[str] = None,
-    polygons_json: Optional[Path] = None,
-    polygons_id_field: str = "id",
-    prediction_length: int = 3,
+    n_periods: int = 3,
     n_splits: int = 7,
     stride: int = 1,
     ignore_environment: bool = False,
     debug: bool = False,
     log_file: Optional[str] = None,
-    run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
-    model_configuration_yaml: Optional[str] = None,
+    run_directory_type: Literal["latest", "timestamp", "use_existing"] = "timestamp",
     is_chapkit_model: bool = False,
+    model_configuration_yaml: Optional[Path] = None,
 ):
     """
     Evaluate a single model and export results to NetCDF format using xarray.
 
-    This command evaluates one model (no comma-separated models allowed) and outputs
-    evaluation results in NetCDF format for easy integration with scientific tools.
-    """
-    initialize_logging(debug, log_file)
+    This command evaluates one model and outputs evaluation results in NetCDF format
+    for easy integration with scientific tools. GeoJSON polygons are automatically
+    discovered from a file with the same name as the CSV but with .geojson extension.
 
-    if "," in model_name:
-        logger.error("evaluate2 only supports single model evaluation. Use evaluate command for multiple models.")
-        raise ValueError("evaluate2 does not support comma-separated model names. Provide a single model only.")
+    Args:
+        model_name: Model identifier (path or GitHub URL)
+        dataset_csv: Path to CSV file with disease data
+        output_file: Path to output NetCDF file
+        n_periods: Number of periods to forecast (default: 3)
+        n_splits: Number of train/test splits for backtest (default: 7)
+        stride: Stride between splits (default: 1)
+        ignore_environment: Ignore model environment requirements (default: False)
+        debug: Enable debug logging (default: False)
+        log_file: Optional log file path
+        run_directory_type: How to handle model run directory (default: timestamp)
+        is_chapkit_model: Whether model is a CHAP kit model (default: False)
+        model_configuration_yaml: Optional YAML file with model configuration
+    """
+    from chap_core.api_types import BackTestParams, RunConfig
 
     logger.info(f"Evaluating model {model_name} with xarray/NetCDF output")
 
-    dataset = _load_dataset(dataset_country, dataset_csv, dataset_name, polygons_id_field, polygons_json)
+    # Load dataset (GeoJSON auto-discovered)
+    geojson_path = _discover_geojson(dataset_csv)
+    dataset = _load_dataset_from_csv(dataset_csv, geojson_path)
 
-    template = ModelTemplate.from_directory_or_github_url(
-        model_name,
-        base_working_dir=Path("./runs/"),
-        ignore_env=ignore_environment,
-        run_dir_type=run_directory_type,
+    # Prepare parameters
+    backtest_params = BackTestParams(n_periods=n_periods, n_splits=n_splits, stride=stride)
+
+    run_config = RunConfig(
+        ignore_environment=ignore_environment,
+        debug=debug,
+        log_file=log_file,
+        run_directory_type=run_directory_type,
         is_chapkit_model=is_chapkit_model,
     )
-    logger.info(f"Model template loaded: {template}")
 
+    # Load model configuration
+    configuration = None
     if model_configuration_yaml is not None:
-        logger.info(f"Loading model configuration from yaml file {model_configuration_yaml}")
+        logger.info(f"Loading model configuration from {model_configuration_yaml}")
         configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
-        logger.info(f"Loaded model configuration from yaml file: {configuration}")
-    else:
-        configuration = None
 
-    model = template.get_model(configuration)
-    estimator = model()
-
-    logger.info(f"Running backtest with {n_splits} splits, prediction length {prediction_length}, stride {stride}")
-
-    train, test_generator = train_test_generator(dataset, prediction_length, n_splits, stride=stride)
-    last_train_period = train.period_range[-1]
-
-    evaluation_results = backtest(
-        estimator=estimator,
-        data=dataset,
-        prediction_length=prediction_length,
-        n_test_sets=n_splits,
-        stride=stride,
+    # Create evaluation by running backtest
+    logger.info(f"Running backtest with {n_splits} splits, {n_periods} periods, stride {stride}")
+    evaluation = Evaluation.create(
+        model_name=model_name,
+        dataset=dataset,
+        backtest_params=backtest_params,
+        run_config=run_config,
+        model_configuration=configuration,
     )
 
-    model_template_db = ModelTemplateDB(
-        id=template.model_template_config.name,
-        name=template.model_template_config.name,
-        version=template.model_template_config.version or "unknown",
-    )
-
-    configured_model_db = ConfiguredModelDB(
-        id="cli_eval",
-        model_template_id=model_template_db.id,
-        model_template=model_template_db,
-        configuration=configuration.model_dump() if configuration else {},
-    )
-
-    backtest_info = BackTestCreate(
-        name=f"{model_name}_evaluation",
-        dataset_id=0,
-        model_id=configured_model_db.id,
-    )
-
-    logger.info("Creating Evaluation from backtest results")
-    evaluation = Evaluation.from_samples_with_truth(
-        evaluation_results=evaluation_results,
-        last_train_period=last_train_period,
-        configured_model=configured_model_db,
-        info=backtest_info,
-    )
-
+    # Export to file
     logger.info(f"Exporting evaluation to {output_file}")
     evaluation.to_file(
         filepath=output_file,
         model_name=model_name,
         model_configuration=configuration.model_dump() if configuration else {},
-        model_version=template.model_template_config.version or "unknown",
+        model_version=evaluation._backtest.model_template_version or "unknown",
     )
 
     logger.info(f"Evaluation complete. Results saved to {output_file}")
@@ -409,6 +386,47 @@ def _create_model_lists(model_configuration_yaml: str | None, model_name) -> tup
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
     return model_configuration_yaml_list, model_list
+
+
+def _discover_geojson(csv_path: Path) -> Optional[Path]:
+    """
+    Discover GeoJSON file alongside CSV file.
+
+    Looks for a file with the same name as the CSV but with .geojson extension.
+
+    Args:
+        csv_path: Path to CSV file
+
+    Returns:
+        Path to GeoJSON file if it exists, None otherwise
+    """
+    geojson_path = Path(str(csv_path).replace(".csv", ".geojson"))
+    if geojson_path.exists():
+        return geojson_path
+    return None
+
+
+def _load_dataset_from_csv(csv_path: Path, geojson_path: Optional[Path] = None) -> DataSet:
+    """
+    Load dataset from CSV file with optional GeoJSON polygons.
+
+    Args:
+        csv_path: Path to CSV file with disease data
+        geojson_path: Optional path to GeoJSON file with polygon boundaries
+
+    Returns:
+        DataSet loaded from CSV with polygons if provided
+    """
+    logging.info(f"Loading dataset from {csv_path}")
+    dataset = DataSet.from_csv(csv_path, FullData)
+
+    if geojson_path is not None:
+        logging.info(f"Loading polygons from {geojson_path}")
+        polygons = Polygons.from_file(geojson_path, id_property="id")
+        polygons.filter_locations(dataset.locations())
+        dataset.set_polygons(polygons.data)
+
+    return dataset
 
 
 def _load_dataset(

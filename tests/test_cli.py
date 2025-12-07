@@ -23,10 +23,25 @@ def test_hpo_evaluate(data_path):
 
 
 # @pytest.mark.xfail(reason="Not implemented yet")
-def test_evaluate2():
+def test_evaluate2(tmp_path):
+    from chap_core.file_io.example_data_set import datasets
+    from chap_core.datatypes import FullData
+
+    # Export hydromet dataset to CSV for testing
+    dataset = datasets["hydromet_5_filtered"].load()
+    csv_path = tmp_path / "test_data.csv"
+    dataset.to_csv(csv_path)
+
+    # Run evaluate2 with CSV
+    output_file = tmp_path / "evaluation.nc"
     evaluate2(
-        "https://github.com/dhis2-chap/minimalist_example_lag",
-        dataset_name="hydromet_5_filtered",
-        prediction_length=3,
-        output_file="tmp.nc",
+        model_name="https://github.com/dhis2-chap/minimalist_example_lag",
+        dataset_csv=csv_path,
+        output_file=output_file,
+        n_periods=3,
+        n_splits=2,
+        stride=1,
     )
+
+    # Verify output file was created
+    assert output_file.exists()
