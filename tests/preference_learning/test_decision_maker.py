@@ -131,8 +131,7 @@ class TestMetricDecisionMaker:
 
 
 class TestVisualDecisionMaker:
-    def test_model_names_stored(self):
-        """Test that model names are stored for display."""
-        model_names = ["model_a", "model_b"]
-        decision_maker = VisualDecisionMaker(model_names=model_names)
-        assert decision_maker._model_names == model_names
+    def test_instantiation(self):
+        """Test that VisualDecisionMaker can be instantiated."""
+        decision_maker = VisualDecisionMaker()
+        assert isinstance(decision_maker, DecisionMaker)

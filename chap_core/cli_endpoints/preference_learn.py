@@ -55,11 +55,24 @@ def _compute_metrics(evaluation: Evaluation) -> dict:
     Returns:
         Dictionary of metric name to value
     """
-    from chap_core.rest_api.v1.routers.analytics import calculate_all_metrics
+    from chap_core.assessment.metrics import available_metrics
 
     flat_data = evaluation.to_flat()
-    metrics = calculate_all_metrics(flat_data.forecasts, flat_data.observations)
-    return metrics
+
+    # Compute all aggregated metrics (those that return a single value)
+    results = {}
+    for metric_id, metric_cls in available_metrics.items():
+        metric = metric_cls()
+        if not metric.is_full_aggregate():
+            continue
+        try:
+            metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
+            if len(metric_df) == 1:
+                results[metric_id] = float(metric_df["metric"].iloc[0])
+        except Exception as e:
+            logger.warning(f"Failed to compute metric {metric_id}: {e}")
+
+    return results
 
 
 def _create_evaluation(
@@ -202,17 +215,6 @@ def preference_learn(
             logger.info("No more candidates to compare")
             break
 
-        # Get display names (show config differences)
-        model_names_in_round = []
-        for c in next_candidates:
-            if c.configuration:
-                config_str = ", ".join(f"{k}={v}" for k, v in c.configuration.items())
-                model_names_in_round.append(f"{c.model_name}({config_str})")
-            else:
-                model_names_in_round.append(c.model_name)
-
-        logger.info(f"Comparing: {' vs '.join(model_names_in_round)}")
-
         # Run evaluations for all candidates
         evaluations = []
         for candidate in next_candidates:
@@ -226,10 +228,7 @@ def preference_learn(
         # Create decision maker
         decision_maker: DecisionMaker
         if learning_params.decision_mode == "visual":
-            decision_maker = VisualDecisionMaker(
-                model_names=model_names_in_round,
-                metrics=metrics,
-            )
+            decision_maker = VisualDecisionMaker()
         else:
             decision_maker = MetricDecisionMaker(
                 metrics=metrics,
@@ -258,26 +257,6 @@ def preference_learn(
             print(f"Configuration: {best.configuration}")
     else:
         logger.warning("No best candidate found")
-
-    # Print comparison history
-    history = learner.get_comparison_history()
-    if history:
-        print(f"\nComparison history ({len(history)} iterations):")
-        for i, result in enumerate(history):
-            names = []
-            for c in result.candidates:
-                if c.configuration:
-                    config_str = ", ".join(f"{k}={v}" for k, v in c.configuration.items())
-                    names.append(f"{c.model_name}({config_str})")
-                else:
-                    names.append(c.model_name)
-            print(f"  {i + 1}. {' vs '.join(names)}")
-            winner = result.preferred
-            if winner.configuration:
-                config_str = ", ".join(f"{k}={v}" for k, v in winner.configuration.items())
-                print(f"     Winner: {winner.model_name}({config_str})")
-            else:
-                print(f"     Winner: {winner.model_name}")
 
 
 def register_commands(app):
