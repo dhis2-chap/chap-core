@@ -90,13 +90,13 @@
 
 ## chtorch model (thrugh chapkit, defined in compose.yml)
 #- url: http://chtorch:8000
-- url: http://193.157.251.13:5004  # for testing locally, replace with local ip
-  uses_chapkit: true
-  versions:
-    v1: "/v1"
-  configurations:
-    debug:
-        max_epochs: 2
+##- url: http://193.157.251.13:5004  # for testing locally, replace with local ip
+#  uses_chapkit: true
+#  versions:
+#    v1: "/v1"
+#  configurations:
+#    debug:
+#        max_epochs: 2
 
 
 #- url: http://193.157.236.38:5003  # for testing locally, replace with local ip

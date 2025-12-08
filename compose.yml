@@ -76,7 +76,8 @@ services:
 
   # chtorch model (which uses chapkit)
 #  chtorch:
-#    image: ghcr.io/dhis2-chap/chtorch:chapkit2-1aa43a0
+#    #image: ghcr.io/dhis2-chap/chtorch:chapkit2-1aa43a0
+#    image: ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3
 #    ports:
 #      - "5001:8000"
 #    restart: unless-stopped
