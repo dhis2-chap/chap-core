@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 import numpy as np
 
 from pydantic import BaseModel, Field
@@ -72,6 +72,16 @@ class BackTestParams(DBModel):
     n_periods: int
     n_splits: int
     stride: int
+
+
+class RunConfig(BaseModel):
+    """Configuration for model execution environment."""
+
+    ignore_environment: bool = False
+    debug: bool = False
+    log_file: Optional[str] = None
+    run_directory_type: Literal["latest", "timestamp", "use_existing"] = "timestamp"
+    is_chapkit_model: bool = False
 
 
 class EvaluationResponse(BaseModel):

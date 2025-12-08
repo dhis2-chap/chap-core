@@ -18,8 +18,8 @@ from ..datatypes import (
     create_tsdataclass,
 )
 from ..geometry import Polygons
-from ..time_period import PeriodRange
-from ..time_period.date_util_wrapper import TimeStamp, clean_timestring
+from ..time_period import PeriodRange, Month
+from ..time_period.date_util_wrapper import TimeStamp, clean_timestring, Week
 import dataclasses
 from typing import TypeVar
 from pydantic import BaseModel
@@ -153,6 +153,16 @@ class DataSet(Generic[FeaturesT]):
             for field in dataclasses.fields(next(iter(self._data_dict.values())))
             if field.name not in ("time_period", "location")
         ]
+
+    @property
+    def frequency(self):
+        first_period = self.period_range[0]
+        if isinstance(first_period, Month):
+            return "M"
+        elif isinstance(first_period, Week):
+            return "W"
+        else:
+            raise NotImplementedError
 
     def model_dump(self):
         return {
