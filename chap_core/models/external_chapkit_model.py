@@ -1,5 +1,4 @@
 import logging
-import pandas as pd
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
@@ -175,7 +174,9 @@ class ExternalChapkitModel(ExternalModelBase):
         response = self.client.train_and_wait(self.configuration_id, new_pd, geo)
 
         if response["status"] == "failed":
-            raise RuntimeError(f"Training failed: {response.get('error', 'Unknown error')}. Stacktrace: {response.get('error_traceback', '')}")
+            raise RuntimeError(
+                f"Training failed: {response.get('error', 'Unknown error')}. Stacktrace: {response.get('error_traceback', '')}"
+            )
 
         artifact_id = response["artifact_id"]
         assert artifact_id is not None, response
