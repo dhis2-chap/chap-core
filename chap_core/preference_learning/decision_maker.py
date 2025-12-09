@@ -46,21 +46,6 @@ class VisualDecisionMaker(DecisionMaker):
     prompts the user to select their preferred model.
     """
 
-    def __init__(
-        self,
-        model_names: list[str] | None = None,
-        metrics: list[dict] | None = None,
-    ):
-        """
-        Initialize VisualDecisionMaker.
-
-        Args:
-            model_names: Optional list of model names for display purposes
-            metrics: Optional pre-computed metrics to display alongside plots
-        """
-        self._model_names = model_names
-        self._metrics = metrics
-
     def decide(self, evaluations: list[Evaluation]) -> int:
         """
         Display backtest plots and ask user to choose preferred model.
@@ -75,10 +60,6 @@ class VisualDecisionMaker(DecisionMaker):
 
         # Generate and display plots for each evaluation
         for i, evaluation in enumerate(evaluations):
-            model_name = self._model_names[i] if self._model_names and i < len(self._model_names) else f"Model {i + 1}"
-
-            logger.info(f"Generating backtest plot for {model_name}")
-
             backtest = evaluation.to_backtest()
             plot = EvaluationBackTestPlot.from_backtest(backtest)
             chart = plot.plot()
@@ -86,26 +67,13 @@ class VisualDecisionMaker(DecisionMaker):
             # Save to temp file and open in browser
             with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
                 chart.save(f.name)
-                logger.info(f"Opening plot for {model_name}: {f.name}")
+                logger.info(f"Opening plot for {i}: {f.name}")
                 webbrowser.open(f"file://{f.name}")
 
         # Prompt user for choice
         print("\n" + "=" * 60)
         print("MODEL COMPARISON - Please review the plots")
         print("=" * 60)
-
-        for i in range(len(evaluations)):
-            model_name = self._model_names[i] if self._model_names and i < len(self._model_names) else f"Model {i + 1}"
-            print(f"  [{i + 1}] {model_name}")
-            if self._metrics and i < len(self._metrics):
-                for metric_name, value in self._metrics[i].items():
-                    if isinstance(value, float):
-                        print(f"       {metric_name}: {value:.4f}")
-                    else:
-                        print(f"       {metric_name}: {value}")
-
-        print("=" * 60)
-
         while True:
             try:
                 choice = input(f"\nWhich model do you prefer? [1-{len(evaluations)}]: ").strip()
