@@ -16,6 +16,15 @@ The workflow consists of three main steps:
 - A dataset CSV file with disease case data
 - A GeoJSON file with region polygons (optional, auto-discovered if named same as CSV)
 
+## Example Dataset
+
+CHAP includes a small example dataset for testing and learning:
+
+- `example_data/laos_subset.csv` - Monthly dengue data for 3 provinces (2010-2012)
+- `example_data/laos_subset.geojson` - Matching polygon boundaries
+
+This dataset contains 108 rows with rainfall, temperature, disease cases, and population data for Bokeo, Vientiane, and Savannakhet provinces.
+
 ## Step 1: Create an Evaluation
 
 Use `evaluate2` to run a backtest on a model and export results to NetCDF format:
@@ -131,39 +140,43 @@ chap export-metrics \
 
 ## Complete Example
 
-Here's a complete workflow comparing two models on Vietnam dengue data:
+Here's a complete workflow comparing two models using the included example dataset:
 
 ```bash
-# Step 1: Evaluate first model
+# Step 1: Evaluate first model (auto-regressive)
 chap evaluate2 \
-    --model-name https://github.com/dhis2-chap/minimalist_example_r \
-    --dataset-csv ./vietnam_dengue.csv \
-    --output-file ./eval_minimalist.nc
+    --model-name https://github.com/dhis2-chap/chap_auto_ewars \
+    --dataset-csv ./example_data/laos_subset.csv \
+    --output-file ./eval_ewars.nc \
+    --backtest-params.n-splits 3
 
 # Step 2: Plot first model results
-chap plot-backtest \
-    --input-file ./eval_minimalist.nc \
-    --output-file ./plot_minimalist.html
-
-# Step 3: Evaluate second model
-chap evaluate2 \
-    --model-name https://github.com/dhis2-chap/chap_auto_ewars_weekly \
-    --dataset-csv ./vietnam_dengue.csv \
-    --output-file ./eval_ewars.nc
-
-# Step 4: Plot second model results
 chap plot-backtest \
     --input-file ./eval_ewars.nc \
     --output-file ./plot_ewars.html
 
+# Step 3: Evaluate second model (minimalist R model)
+chap evaluate2 \
+    --model-name https://github.com/dhis2-chap/minimalist_example_r \
+    --dataset-csv ./example_data/laos_subset.csv \
+    --output-file ./eval_minimalist.nc \
+    --backtest-params.n-splits 3
+
+# Step 4: Plot second model results
+chap plot-backtest \
+    --input-file ./eval_minimalist.nc \
+    --output-file ./plot_minimalist.html
+
 # Step 5: Compare metrics
 chap export-metrics \
-    --input-files ./eval_minimalist.nc ./eval_ewars.nc \
+    --input-files ./eval_ewars.nc ./eval_minimalist.nc \
     --output-file ./model_comparison.csv
 
 # View the comparison
 cat ./model_comparison.csv
 ```
+
+The GeoJSON file `example_data/laos_subset.geojson` is automatically discovered since it has the same base name as the CSV.
 
 ## Tips
 
