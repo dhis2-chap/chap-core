@@ -1,0 +1,23 @@
+# Example HPO search space for the EWARS model
+# Used with the preference-learn CLI command
+#
+# Usage:
+#   chap preference-learn \
+#       --model-name dhis2-chap/ewars_template \
+#       --dataset-csv ./data.csv \
+#       --search-space-yaml ./ewars_hpo_search_space.yaml \
+#       --decision-mode metric
+
+# Number of lags to include in the model (integer parameter)
+n_lags:
+  low: 1
+  high: 6
+  type: int
+
+# Prior on precision of fixed effects - acts as regularization
+# Using log scale since this spans multiple orders of magnitude
+precision:
+  low: 0.001
+  high: 1.0
+  type: float
+  log: true
