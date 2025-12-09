@@ -69,9 +69,9 @@ class EvaluationEntry(PredictionEntry):
 
 
 class BackTestParams(DBModel):
-    n_periods: int
-    n_splits: int
-    stride: int
+    n_periods: int = 3
+    n_splits: int = 7
+    stride: int = 1
 
 
 class RunConfig(BaseModel):
