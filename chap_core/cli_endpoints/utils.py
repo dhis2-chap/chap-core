@@ -128,6 +128,57 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plo
     fig.show()
 
 
+def plot_backtest(input_file: Path, output_file: Path, plot_type: str = "backtest_plot_1"):
+    """
+    Generate a backtest plot from evaluation data and save to file.
+
+    Args:
+        input_file: Path to NetCDF file containing evaluation data (from evaluate2)
+        output_file: Path to output file (supports .html, .png, .svg, .pdf)
+        plot_type: Type of plot to generate. Options: backtest_plot_1, evaluation_plot,
+                   ratio_of_samples_above_truth
+    """
+    from chap_core.assessment.backtest_plots.backtest_plot_1 import BackTestPlot1
+    from chap_core.assessment.backtest_plots.sample_bias_plot import RatioOfSamplesAboveTruthBacktestPlot
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.plotting.backtest_plot import EvaluationBackTestPlot
+
+    backtest_plots_registry = {
+        "backtest_plot_1": BackTestPlot1,
+        "evaluation_plot": EvaluationBackTestPlot,
+        "ratio_of_samples_above_truth": RatioOfSamplesAboveTruthBacktestPlot,
+    }
+
+    if plot_type not in backtest_plots_registry:
+        available = ", ".join(backtest_plots_registry.keys())
+        raise ValueError(f"Unknown plot type: {plot_type}. Available: {available}")
+
+    logger.info(f"Loading evaluation from {input_file}")
+    evaluation = Evaluation.from_file(input_file)
+    backtest = evaluation.to_backtest()
+
+    logger.info(f"Generating {plot_type} plot")
+    plot_class = backtest_plots_registry[plot_type]
+    plotter = plot_class.from_backtest(backtest)
+    chart = plotter.plot()
+
+    output_path = Path(output_file)
+    suffix = output_path.suffix.lower()
+
+    logger.info(f"Saving plot to {output_file}")
+    if suffix == ".html":
+        chart.save(str(output_path))
+    elif suffix in (".png", ".svg", ".pdf"):
+        chart.save(str(output_path))
+    elif suffix == ".json":
+        with open(output_path, "w") as f:
+            json.dump(chart.to_dict(format="vega"), f, indent=2)
+    else:
+        raise ValueError(f"Unsupported output format: {suffix}. Use .html, .png, .svg, .pdf, or .json")
+
+    logger.info(f"Plot saved to {output_file}")
+
+
 def register_commands(app):
     """Register utility commands with the CLI app."""
     app.command()(sanity_check_model)
@@ -135,3 +186,4 @@ def register_commands(app):
     app.command()(write_open_api_spec)
     app.command()(test)
     app.command()(plot_dataset)
+    app.command()(plot_backtest)
