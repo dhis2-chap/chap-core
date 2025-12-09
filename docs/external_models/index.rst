@@ -12,3 +12,19 @@ We provide more detailed documentation depending on who you are:
 
 * `Experienced climate health modellers <experienced_modeller.html>`_ who want to develop or adapt existing models to be compatible with Chap.
 * `Someone new to modelling <newcomer.html>`_ that want to learn the principles of spatiotemporal modelling and how to more easily implement such models through Chap.
+
+.. toctree::
+   :glob:
+   :maxdepth: 1
+   :caption: Integrating external or custom models with the Chap modelling platform
+
+   chap-dhis2-connection
+   chap_evaluate_examples
+   describe_model
+   experienced_modeller
+   newcomer
+   running_models_in_chap
+   side_by_side_comparison
+   supporting_functionality
+   train_and_predict
+   chapkit

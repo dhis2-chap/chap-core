@@ -12,7 +12,7 @@ For more general information about the Chap project, we refer you to `the Chap M
 
 .. toctree::
    :glob:
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Contents
 
    modeling-app/index
