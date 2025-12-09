@@ -2,7 +2,8 @@ import numpy as np
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 
-from chap_core.assessment.metrics.rmse import RMSE, DetailedRMSE
+from chap_core.assessment.metrics.rmse import RMSE, RMSEAggregate, DetailedRMSE
+from chap_core.assessment.metrics.mae import MAE, MAEAggregate
 from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 import pytest
@@ -54,6 +55,46 @@ def test_rmse_detailed(flat_forecasts, flat_observations):
         result.sort_values(["location", "horizon_distance"]).reset_index(drop=True),
         correct.sort_values(["location", "horizon_distance"]).reset_index(drop=True),
     )
+
+
+def test_rmse_aggregate(flat_forecasts, flat_observations):
+    """Test RMSEAggregate computes a single value across all data."""
+    rmse_agg = RMSEAggregate()
+    result = rmse_agg.compute(flat_observations, flat_forecasts)
+
+    assert len(result) == 1
+    assert "metric" in result.columns
+
+    # Manually compute expected: errors are [1, 1, 2, 2], squared = [1, 1, 4, 4]
+    # MSE = (1+1+4+4)/4 = 2.5, RMSE = sqrt(2.5) ~ 1.58
+    expected_rmse = np.sqrt(2.5)
+    np.testing.assert_almost_equal(result["metric"].iloc[0], expected_rmse, decimal=5)
+
+
+def test_mae_aggregate(flat_forecasts, flat_observations):
+    """Test MAEAggregate computes a single value across all data."""
+    mae_agg = MAEAggregate()
+    result = mae_agg.compute(flat_observations, flat_forecasts)
+
+    assert len(result) == 1
+    assert "metric" in result.columns
+
+    # Manually compute expected: errors are [1, 1, 2, 2]
+    # MAE = (1+1+2+2)/4 = 1.5
+    expected_mae = 1.5
+    np.testing.assert_almost_equal(result["metric"].iloc[0], expected_mae, decimal=5)
+
+
+def test_rmse_aggregate_is_full_aggregate():
+    """Test that RMSEAggregate.is_full_aggregate() returns True."""
+    rmse_agg = RMSEAggregate()
+    assert rmse_agg.is_full_aggregate() is True
+
+
+def test_mae_aggregate_is_full_aggregate():
+    """Test that MAEAggregate.is_full_aggregate() returns True."""
+    mae_agg = MAEAggregate()
+    assert mae_agg.is_full_aggregate() is True
 
 
 def test_get_all_aggregated_metrics_from_backtest(backtest_weeks):
