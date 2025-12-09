@@ -11,7 +11,7 @@
 9. When we ask you to go through some change (or finalize changes), always follow the rules in this document strictly.
 10. When making pr that has design document only, don't use docs in title.
 11. When writing tests, avoid creating new test data inline. Use existing fixtures from conftest.py files whenever possible. Only create new fixtures in conftest.py if testing edge cases not covered by existing fixtures. This improves test maintainability and reduces duplication.
-
+12. Never access private variables
 
 ## Domain Knowledge
 - To learn about domain-specific terms used in the codebase, refer to @docs/contributor/vocabulary.md.
