@@ -3,6 +3,7 @@ site_description: Climate Health Analysis Platform (CHAP) Documentation
 site_url: https://dhis2-chap.github.io/chap-core/
 repo_url: https://github.com/dhis2-chap/chap-core
 repo_name: dhis2-chap/chap-core
+use_directory_urls: false
 
 theme:
   name: material
