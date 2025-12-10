@@ -8,6 +8,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 import yaml
 
 from chap_core.assessment.dataset_splitting import train_test_generator
@@ -128,6 +129,130 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plo
     fig.show()
 
 
+def plot_backtest(input_file: Path, output_file: Path, plot_type: str = "backtest_plot_1"):
+    """
+    Generate a backtest plot from evaluation data and save to file.
+
+    Args:
+        input_file: Path to NetCDF file containing evaluation data (from evaluate2)
+        output_file: Path to output file (supports .html, .png, .svg, .pdf)
+        plot_type: Type of plot to generate. Options: backtest_plot_1, evaluation_plot,
+                   ratio_of_samples_above_truth
+    """
+    from chap_core.assessment.backtest_plots.backtest_plot_1 import BackTestPlot1
+    from chap_core.assessment.backtest_plots.sample_bias_plot import RatioOfSamplesAboveTruthBacktestPlot
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.plotting.backtest_plot import EvaluationBackTestPlot
+
+    backtest_plots_registry = {
+        "backtest_plot_1": BackTestPlot1,
+        "evaluation_plot": EvaluationBackTestPlot,
+        "ratio_of_samples_above_truth": RatioOfSamplesAboveTruthBacktestPlot,
+    }
+
+    if plot_type not in backtest_plots_registry:
+        available = ", ".join(backtest_plots_registry.keys())
+        raise ValueError(f"Unknown plot type: {plot_type}. Available: {available}")
+
+    logger.info(f"Loading evaluation from {input_file}")
+    evaluation = Evaluation.from_file(input_file)
+    backtest = evaluation.to_backtest()
+
+    logger.info(f"Generating {plot_type} plot")
+    plot_class = backtest_plots_registry[plot_type]
+    plotter = plot_class.from_backtest(backtest)
+    chart = plotter.plot()
+
+    output_path = Path(output_file)
+    suffix = output_path.suffix.lower()
+
+    logger.info(f"Saving plot to {output_file}")
+    if suffix == ".html":
+        chart.save(str(output_path))
+    elif suffix in (".png", ".svg", ".pdf"):
+        chart.save(str(output_path))
+    elif suffix == ".json":
+        with open(output_path, "w") as f:
+            json.dump(chart.to_dict(format="vega"), f, indent=2)
+    else:
+        raise ValueError(f"Unsupported output format: {suffix}. Use .html, .png, .svg, .pdf, or .json")
+
+    logger.info(f"Plot saved to {output_file}")
+
+
+def export_metrics(
+    input_files: list[Path],
+    output_file: Path,
+    metric_ids: Optional[list[str]] = None,
+):
+    """
+    Export metrics from multiple backtest files to CSV.
+
+    Reads NetCDF evaluation files (from evaluate2) and computes aggregate metrics,
+    outputting a CSV file with evaluations as rows and metrics as columns.
+
+    Args:
+        input_files: List of paths to NetCDF evaluation files
+        output_file: Path to output CSV file
+        metric_ids: Optional list of metric IDs to compute. If None, all aggregate metrics are computed.
+    """
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.assessment.metrics import available_metrics
+
+    # Get list of aggregate metrics
+    aggregate_metric_ids = [
+        metric_id for metric_id, metric_cls in available_metrics.items() if metric_cls().is_full_aggregate()
+    ]
+
+    # Filter to requested metrics (if specified)
+    if metric_ids is not None:
+        invalid_ids = set(metric_ids) - set(aggregate_metric_ids)
+        if invalid_ids:
+            available = ", ".join(aggregate_metric_ids)
+            raise ValueError(f"Invalid metric IDs: {invalid_ids}. Available aggregate metrics: {available}")
+        metrics_to_compute = metric_ids
+    else:
+        metrics_to_compute = aggregate_metric_ids
+
+    results = []
+
+    for input_file in input_files:
+        logger.info(f"Processing {input_file}")
+
+        # Load file metadata directly from xarray to get model info
+        ds = xr.open_dataset(input_file)
+        model_name = ds.attrs.get("model_name", "")
+        model_version = ds.attrs.get("model_version", "")
+        ds.close()
+
+        # Load evaluation and compute metrics
+        evaluation = Evaluation.from_file(input_file)
+        flat_data = evaluation.to_flat()
+
+        row = {
+            "filename": input_file.name,
+            "model_name": model_name,
+            "model_version": model_version,
+        }
+
+        for metric_id in metrics_to_compute:
+            metric_cls = available_metrics[metric_id]
+            metric = metric_cls()
+            metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
+            if len(metric_df) == 1:
+                row[metric_id] = float(metric_df["metric"].iloc[0])
+            else:
+                logger.warning(f"Metric {metric_id} returned {len(metric_df)} rows, expected 1. Skipping.")
+                row[metric_id] = None
+
+        results.append(row)
+
+    # Create DataFrame and write to CSV
+    df = pd.DataFrame(results)
+    df.to_csv(output_file, index=False)
+    logger.info(f"Metrics exported to {output_file}")
+
+
 def register_commands(app):
     """Register utility commands with the CLI app."""
     app.command()(sanity_check_model)
@@ -135,3 +260,5 @@ def register_commands(app):
     app.command()(write_open_api_spec)
     app.command()(test)
     app.command()(plot_dataset)
+    app.command()(plot_backtest)
+    app.command()(export_metrics)
