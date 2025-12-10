@@ -212,6 +212,7 @@ def evaluate2(
     backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfig = RunConfig(),
     model_configuration_yaml: Optional[Path] = None,
+    historical_context_years: int = 6,
 ):
     """
     Evaluate a single model and export results to NetCDF format using xarray.
@@ -227,6 +228,9 @@ def evaluate2(
         backtest_params: Backtest configuration (n_periods, n_splits, stride)
         run_config: Model run environment configuration
         model_configuration_yaml: Optional YAML file with model configuration
+        historical_context_years: Years of historical data to include for plotting
+            context (default: 6). Number of periods is calculated based on dataset
+            period type (e.g., 6 years = 312 weeks or 72 months).
     """
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
@@ -270,12 +274,14 @@ def evaluate2(
     logger.info(
         f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
     )
+    logger.info(f"Including {historical_context_years} years of historical context for plotting")
     evaluation = Evaluation.create(
         configured_model=configured_model_db,
         estimator=estimator,
         dataset=dataset,
         backtest_params=backtest_params,
         backtest_name=f"{model_name}_evaluation",
+        historical_context_years=historical_context_years,
     )
 
     logger.info(f"Exporting evaluation to {output_file}")
