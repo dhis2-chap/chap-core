@@ -106,6 +106,11 @@ class ExternalChapkitModelTemplate:
         version = info.get("version")
         return f"{name}_v{version}"
 
+    @property
+    def model_template_config(self) -> ModelTemplateConfigV2:
+        """Property alias for get_model_template_config for backwards compatibility."""
+        return self.get_model_template_config()
+
     def get_model_template_config(self) -> ModelTemplateConfigV2:
         """
         This method is meant to make things backwards compatible with old system. An object of type
@@ -121,10 +126,11 @@ class ExternalChapkitModelTemplate:
             user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
 
         # Build metadata dict from info endpoint
+        # TODO: this can be done by dumping the dict into a base-model
         meta_data_dict = {
             "display_name": model_info.get("display_name", "No Display Name"),
             "description": model_info.get("description") or model_info.get("summary", "No Description"),
-            "author_note": model_info.get("author_note", ""),
+            "author_note": model_info.get("author_note") or "",
             "author_assessed_status": model_info.get("author_assessed_status", "red"),
             "author": model_info.get("author", "Unknown Author"),
             "organization": model_info.get("organization"),
