@@ -5,7 +5,6 @@ import pandas as pd
 from typing import Optional
 import json
 from pathlib import Path
-import pandas as pd
 
 from chap_core import get_temp_dir
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts

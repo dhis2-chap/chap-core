@@ -5,7 +5,6 @@ import numpy as np
 import textwrap
 import yaml
 from collections.abc import Mapping
-import numpy as np
 from datetime import datetime, timedelta
 from chap_core.assessment.metrics import available_metrics
 from chap_core.assessment.evaluation import Evaluation
