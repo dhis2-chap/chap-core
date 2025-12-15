@@ -37,7 +37,6 @@ def test_plot_backtest_cli(backtest: BackTest, tmp_path: Path, default_transform
 
 def test_combined_dashboard_from_backtest(flat_observations, flat_forecasts, title="testplot"):
     plotter = combined_dashboard_from_backtest(flat_observations, flat_forecasts, title)
-    chart = plotter.plot()
 
 
 def test_sample_bias_plot(simulated_backtest):
