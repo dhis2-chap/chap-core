@@ -1,15 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import pandas as pd
 
-from chap_core.assessment.flat_representations import (
-    DIM_REGISTRY,
-    DataDimension,
-    FlatForecasts,
-    FlatObserved,
-)
-from .base import MetricBase, MetricSpec 
+from .base import MetricBase
 
 class componentBasedMetric(MetricBase):
     """
