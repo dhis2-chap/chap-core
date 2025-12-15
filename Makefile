@@ -63,13 +63,9 @@ coverage: ## run tests with coverage reporting
 	@uv run coverage xml
 	@echo "Coverage report: htmlcov/index.html"
 
-docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs/chap_core.rst
-	rm -f docs/modules.rst
-	uv run sphinx-apidoc -o docs/ chap_core
-	$(MAKE) -C docs clean
-	$(MAKE) -C docs html
-	@echo "Docs: site/html/index.html"
+docs: ## generate MkDocs HTML documentation
+	uv run mkdocs build
+	@echo "Docs: site/index.html"
 
 dist: clean ## build source and wheel package
 	uv build

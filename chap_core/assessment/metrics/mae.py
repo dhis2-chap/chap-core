@@ -3,7 +3,7 @@ Mean Absolute Error (MAE) metric.
 """
 
 import pandas as pd
-from chap_core.assessment.flat_representations import DataDimension
+from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.base import MetricBase, MetricSpec
 
 
@@ -43,3 +43,30 @@ class MAE(MetricBase):
         )
 
         return mae_by_horizon
+
+
+class MAEAggregate(MetricBase):
+    """
+    Fully aggregated Mean Absolute Error metric.
+    Computes a single MAE value across all locations, time periods, and horizons.
+    Aggregates directly from all data points, not by averaging per-location MAEs.
+    """
+
+    spec = MetricSpec(
+        output_dimensions=(),
+        metric_name="MAE",
+        metric_id="mae_aggregate",
+        description="Aggregate MAE across all data",
+    )
+
+    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        merged = forecasts.merge(
+            observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
+        )
+
+        merged["abs_error"] = (merged["forecast"] - merged["disease_cases"]).abs()
+
+        # Average absolute error across all entries
+        mae = merged["abs_error"].mean()
+
+        return pd.DataFrame({"metric": [mae]})

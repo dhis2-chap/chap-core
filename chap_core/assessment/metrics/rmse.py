@@ -47,6 +47,34 @@ class RMSE(MetricBase):
         return location_mse[["location", "metric"]]
 
 
+class RMSEAggregate(MetricBase):
+    """
+    Fully aggregated Root Mean Squared Error metric.
+    Computes a single RMSE value across all locations, time periods, and horizons.
+    Aggregates directly from all data points, not by averaging per-location RMSEs.
+    """
+
+    spec = MetricSpec(
+        output_dimensions=(),
+        metric_name="RMSE",
+        metric_id="rmse_aggregate",
+        description="Aggregate RMSE across all data",
+    )
+
+    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+        merged = forecasts.merge(
+            observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
+        )
+
+        merged["squared_error"] = (merged["forecast"] - merged["disease_cases"]) ** 2
+
+        # Average squared error across all entries, then take square root
+        mse = merged["squared_error"].mean()
+        rmse = mse**0.5
+
+        return pd.DataFrame({"metric": [rmse]})
+
+
 class DetailedRMSE(MetricBase):
     """
     Detailed Root Mean Squared Error metric.

@@ -8,11 +8,11 @@ from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.database.tables import BackTest
 from chap_core.assessment.metrics.base import MetricBase, MetricSpec
-from chap_core.assessment.metrics.rmse import RMSE, DetailedRMSE
-from chap_core.assessment.metrics.mae import MAE
+from chap_core.assessment.metrics.rmse import RMSE, RMSEAggregate, DetailedRMSE
+from chap_core.assessment.metrics.mae import MAE, MAEAggregate
 from chap_core.assessment.metrics.crps import CRPS, CRPSPerLocation, DetailedCRPS
 from chap_core.assessment.metrics.crps_norm import CRPSNorm, DetailedCRPSNorm
-from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakPeriodLagMetric
+from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakWeekLagMetric
 from chap_core.assessment.metrics.above_truth import SamplesAboveTruth
 from chap_core.assessment.metrics.percentile_coverage import (
     IsWithin10th90thDetailed,
@@ -31,8 +31,10 @@ __all__ = [
     "MetricBase",
     "MetricSpec",
     "RMSE",
+    "RMSEAggregate",
     "DetailedRMSE",
     "MAE",
+    "MAEAggregate",
     "CRPS",
     "CRPSPerLocation",
     "DetailedCRPS",
@@ -55,15 +57,17 @@ __all__ = [
 # Dictionary of available metrics for easy lookup
 available_metrics = {
     "rmse": RMSE,
+    "rmse_aggregate": RMSEAggregate,
     "mae": MAE,
+    "mae_aggregate": MAEAggregate,
     "detailed_rmse": DetailedRMSE,
     "detailed_crps": DetailedCRPS,
     "crps_per_location": CRPSPerLocation,
     "crps": CRPS,
     "detailed_crps_norm": DetailedCRPSNorm,
     "crps_norm": CRPSNorm,
-    "peak_value_diff": PeakValueDiffMetric,
-    "peak_period_lag": PeakPeriodLagMetric,
+    #    "peak_value_diff": PeakValueDiffMetric,
+    #    "peak_week_lag": PeakWeekLagMetric,
     "samples_above_truth": SamplesAboveTruth,
     "is_within_10th_90th_detailed": IsWithin10th90thDetailed,
     "is_within_25th_75th_detailed": IsWithin25th75thDetailed,

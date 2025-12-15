@@ -4,7 +4,7 @@
 
 **This page contains documentation on how to use the Modeling App to create predictions.**
 
-**NOTE: The old name for this app was _Modeling App_. We are currently updating the documentation
+**NOTE: The old name for this app was _Prediction App_. We are currently updating the documentation
 to reflect the new name. Some references may still be in transition.**
 
 Modeling App enables integration between [CHAP Core](https://github.com/dhis2-chap/chap-core) and [DHIS2](https://dhis2.org/) (2.41+).
