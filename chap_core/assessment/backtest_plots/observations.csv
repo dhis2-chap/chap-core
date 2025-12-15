@@ -1,0 +1,10 @@
+location,time_period,disease_cases
+loc1,2023-W01,11.0
+loc1,2023-W02,1.0
+loc2,2023-W01,19.0
+loc2,2023-W02,2.0
+
+loc1,2023-W08,15.0
+loc1,2023-W09,1.0
+loc2,2023-W08,25.0
+loc2,2023-W09,2.0

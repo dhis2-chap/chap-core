@@ -1,4 +1,4 @@
-# Running models with chapkit
+s# Running models with chapkit
 
 Chapkit is a new experimental way of integrating and running models through chap.
 
