@@ -156,11 +156,17 @@ def plot_backtest(input_file: Path, output_file: Path, plot_type: str = "backtes
 
     logger.info(f"Loading evaluation from {input_file}")
     evaluation = Evaluation.from_file(input_file)
-    backtest = evaluation.to_backtest()
 
     logger.info(f"Generating {plot_type} plot")
     plot_class = backtest_plots_registry[plot_type]
-    plotter = plot_class.from_backtest(backtest)
+
+    # Use from_evaluation for EvaluationBackTestPlot to preserve historical observations
+    if plot_type == "evaluation_plot":
+        plotter = plot_class.from_evaluation(evaluation)
+    else:
+        backtest = evaluation.to_backtest()
+        plotter = plot_class.from_backtest(backtest)
+
     chart = plotter.plot()
 
     output_path = Path(output_file)
