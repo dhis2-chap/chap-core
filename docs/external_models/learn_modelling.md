@@ -18,125 +18,126 @@ At the core of early warning is forecasting of disease incidence forward in time
 
 If you have limited prior experience with statistics or machine learning, please read our brief intro in the expandable box below:
 
-## A gentle introduction to statistical and time series modelling
+??? info "A gentle introduction to statistical and time series modelling"
 
-<details>
-<summary>Click to expand</summary>
+    ### 1. Statistical or Machine Learning Model
+    A **model** is a rule or formula we create to describe how some outcome depends on information we already have.
 
-### 1. Statistical or Machine Learning Model
-A **model** is a rule or formula we create to describe how some outcome depends on information we already have.
+    - The outcome we want to understand or predict is often called the **target**.
+    - The information we use to make that prediction is called **predictors** (or **features**).
 
-- The outcome we want to understand or predict is often called the **target**.
-- The information we use to make that prediction is called **predictors** (or **features**).
+    A model tries to capture patterns in data in a simplified way.
+    You can think of a model as a machine:
 
-A model tries to capture patterns in data in a simplified way.  
-You can think of a model as a machine:
+    > **input (predictors)** → *model learns a pattern* → **output (prediction)**
 
-> **input (predictors)** → *model learns a pattern* → **output (prediction)**
+    The goal is either to **explain** something ("What affects sales?") or to **predict** something ("What will sales be tomorrow?").
 
-The goal is either to **explain** something (“What affects sales?”) or to **predict** something (“What will sales be tomorrow?”).
+    ---
 
----
+    ### 2. Predictors (Features)
+    A **predictor** is any variable that provides information helpful for predicting the target.
 
-### 2. Predictors (Features)
-A **predictor** is any variable that provides information helpful for predicting the target.
+    Examples:
 
-Examples:
-- Temperature when predicting ice cream sales  
-- Age when predicting income  
-- Yesterday’s stock price when predicting today’s  
+    - Temperature when predicting ice cream sales
+    - Age when predicting income
+    - Yesterday's stock price when predicting today's
 
-Predictors are the model’s *inputs*.  
-We usually write them as numbers:  
-- A single predictor as *x*  
-- Several predictors as *x₁, x₂, x₃,* …  
+    Predictors are the model's *inputs*.
+    We usually write them as numbers:
 
-The model learns how each predictor is related to the target.
+    - A single predictor as *x*
+    - Several predictors as *x₁, x₂, x₃,* …
 
----
+    The model learns how each predictor is related to the target.
 
-### 3. Linear Regression
-**Linear regression** is one of the simplest and most widely used models.  
-It assumes that the target is approximately a **straight-line combination** of its predictors.
+    ---
 
-With one predictor *x*, the model is:
+    ### 3. Linear Regression
+    **Linear regression** is one of the simplest and most widely used models.
+    It assumes that the target is approximately a **straight-line combination** of its predictors.
 
-> **prediction = a + b·x**
+    With one predictor *x*, the model is:
 
-- **a** is the model’s baseline (what we predict when *x = 0*)  
-- **b** tells us how much the prediction changes when *x* increases by 1 unit  
+    > **prediction = a + b·x**
 
-With multiple predictors *x₁, x₂, …*, we extend the same idea:
+    - **a** is the model's baseline (what we predict when *x = 0*)
+    - **b** tells us how much the prediction changes when *x* increases by 1 unit
 
-> **prediction = a + b₁·x₁ + b₂·x₂ + …**
+    With multiple predictors *x₁, x₂, …*, we extend the same idea:
 
-You don’t need to imagine shapes in many dimensions—just think of it as a recipe where each predictor gets a weight (**b**) that shows how important it is.
+    > **prediction = a + b₁·x₁ + b₂·x₂ + …**
 
-The model “learns” values of *a, b₁, b₂, …* by choosing them so that predictions are as close as possible to the observed data.
+    You don't need to imagine shapes in many dimensions—just think of it as a recipe where each predictor gets a weight (**b**) that shows how important it is.
 
----
+    The model "learns" values of *a, b₁, b₂, …* by choosing them so that predictions are as close as possible to the observed data.
 
-### 4. Time Series
-A **time series** is a sequence of data points collected over time, in order:
+    ---
 
-> value at time 1, value at time 2, value at time 3, …
+    ### 4. Time Series
+    A **time series** is a sequence of data points collected over time, in order:
 
-Examples:
-- Daily temperatures  
-- Hourly website traffic  
-- Monthly number of customers  
+    > value at time 1, value at time 2, value at time 3, …
 
-What makes time series special is that:
+    Examples:
 
-- **The order matters**  
-- **Past values can influence future values**  
-- Data may show **patterns** such as trends (general increase/decrease over time) or seasonality (repeating patterns, like higher electricity use every winter)
+    - Daily temperatures
+    - Hourly website traffic
+    - Monthly number of customers
 
----
+    What makes time series special is that:
 
-### 5. Time Series Forecasting
-**Forecasting** means using past observations to predict future ones.
+    - **The order matters**
+    - **Past values can influence future values**
+    - Data may show **patterns** such as trends (general increase/decrease over time) or seasonality (repeating patterns, like higher electricity use every winter)
 
-Unlike models that treat each data point separately, forecasting models learn ideas like:
+    ---
 
-- how the series tends to move (trend)  
-- whether it repeats patterns (seasonality)  
-- how strongly the recent past influences the next value  
+    ### 5. Time Series Forecasting
+    **Forecasting** means using past observations to predict future ones.
 
-A simple forecasting idea is to predict the next value using a weighted average of recent past values. More advanced methods learn more complex patterns automatically.
+    Unlike models that treat each data point separately, forecasting models learn ideas like:
 
----
+    - how the series tends to move (trend)
+    - whether it repeats patterns (seasonality)
+    - how strongly the recent past influences the next value
 
-### 6. Evaluation of Predictions
-Once a model makes predictions, we need to measure how good they are.  
-This means comparing the model’s predictions to the actual values.
+    A simple forecasting idea is to predict the next value using a weighted average of recent past values. More advanced methods learn more complex patterns automatically.
 
-Let:
-- **actual** value = *y*
-- **predicted** value = ŷ (read as “y-hat”)
+    ---
 
-The **error** is:
+    ### 6. Evaluation of Predictions
+    Once a model makes predictions, we need to measure how good they are.
+    This means comparing the model's predictions to the actual values.
 
-> **error = actual − predicted = y − ŷ**
+    Let:
 
-Common ways to summarize how large the errors are:
+    - **actual** value = *y*
+    - **predicted** value = ŷ (read as "y-hat")
 
-- **MAE (Mean Absolute Error):**  
-  average of |y − ŷ| (the average size of the mistakes)
-- **MSE (Mean Squared Error):**  
-  average of (y − ŷ)² (large mistakes count extra)
-- **RMSE (Root Mean Squared Error):**  
-  the square root of MSE (in the same units as the data)
-- **MAPE (Mean Absolute Percentage Error):**  
-  how large the errors are *relative* to the actual values, in %
+    The **error** is:
 
-These measures help us compare models and choose the one that predicts best.
+    > **error = actual − predicted = y − ŷ**
 
-For a bit more in-depth introduction, please also consider the following general papers:
-https://pmc.ncbi.nlm.nih.gov/articles/PMC5905345/
-https://www.nature.com/articles/nmeth.3627
-https://www.nature.com/articles/nmeth.3665
-</details>
+    Common ways to summarize how large the errors are:
+
+    - **MAE (Mean Absolute Error):**
+      average of |y − ŷ| (the average size of the mistakes)
+    - **MSE (Mean Squared Error):**
+      average of (y − ŷ)² (large mistakes count extra)
+    - **RMSE (Root Mean Squared Error):**
+      the square root of MSE (in the same units as the data)
+    - **MAPE (Mean Absolute Percentage Error):**
+      how large the errors are *relative* to the actual values, in %
+
+    These measures help us compare models and choose the one that predicts best.
+
+    For a bit more in-depth introduction, please also consider the following general papers:
+
+    - <https://pmc.ncbi.nlm.nih.gov/articles/PMC5905345/>
+    - <https://www.nature.com/articles/nmeth.3627>
+    - <https://www.nature.com/articles/nmeth.3665>
 
 # Motivation
 Our tutorial aims to introduce aspects of statistical modelling and machine learning that are useful specifically for developing, evaluating and later operationalising forecasting models. Our pedagogical approach is to begin by introducing a very simple model in a simple setting, and then expanding both the model and the setting in a stepwise fashion. We emphasize interoperability and rigorous evaluation of models right from the start, as a way of guiding the development of more sophisticated models. In doing this, we follow a philosophy resembling what is known as agile development in computer science [ref].
