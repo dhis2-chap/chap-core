@@ -1,12 +1,7 @@
-"""
-one numeric metric column per metric. get_metric validates this against your MetricSpec. If you try to return extra numeric columns (e.g., both value_diff and week_lag), CHAP will raise a “produced wrong columns” error.
-"""
 import re
 import pandas as pd
 from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.base import MetricBase, MetricSpec
-
-
 
 _WEEK_RE = re.compile(r"^(\d{4})-W(\d{2})$")
 _MONTH_RE = re.compile(r"^(\d{4})-(\d{2})$")
@@ -32,21 +27,6 @@ def _time_index(tp: str) -> int:
 
 def _time_diff(tp1: str, tp2: str) -> int:
     return _time_index(tp2) - _time_index(tp1)
-
-""""
-def _parse_year_week(week_str: str) -> tuple[int, int]:
-    year_str, w = week_str.split("-W")
-    return int(year_str), int(w)
-
-
-def _week_index(week_str: str) -> int:
-    y, w = _parse_year_week(week_str)
-    return y * 54 + (w - 1)
-
-
-def _week_diff(w1: str, w2: str) -> int:
-    return _week_index(w2) - _week_index(w1)
-"""
 
 def _pick_peak(rows: pd.DataFrame, value_col: str) -> tuple[str, float]:
     tmp = rows[["time_period", value_col]].copy()
