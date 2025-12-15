@@ -17,6 +17,7 @@ from chap_core.datatypes import TimeSeriesData, Samples, SamplesWithTruth
 import logging
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import PeriodRange
 
 
 plt.set_loglevel(level="warning")
@@ -239,3 +240,84 @@ def plot_predictions(predictions: DataSet[Samples], truth: DataSet, pdf_filename
             plt.legend()
             pdf.savefig()
             plt.close()  # Close the figure
+
+
+def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
+    """
+    Generate old-style matplotlib PDF report from an Evaluation object.
+
+    Creates a multi-page PDF with one page per location/split combination,
+    showing historical observations and forecast distributions using GluonTS
+    SampleForecast plotting.
+
+    Args:
+        evaluation: Evaluation object (from Evaluation.from_file or Evaluation.from_backtest)
+        pdf_filename: Path to output PDF file
+    """
+    from chap_core.time_period import TimePeriod
+
+    backtest = evaluation.to_backtest()
+    flat_data = evaluation.to_flat()
+
+    # Build observations dict from test period observations
+    observations = backtest.dataset.observations
+    obs_by_location = defaultdict(dict)
+    for obs in observations:
+        if obs.feature_name == "disease_cases" and obs.value is not None:
+            obs_by_location[obs.org_unit][obs.period] = obs.value
+
+    # Add historical observations if available
+    if flat_data.historical_observations is not None:
+        historical_df = pd.DataFrame(flat_data.historical_observations)
+        for _, row in historical_df.iterrows():
+            location = row["location"]
+            period = row["time_period"]
+            value = row["disease_cases"]
+            if value is not None and not np.isnan(value):
+                obs_by_location[location][period] = value
+
+    forecasts_by_loc_split = defaultdict(lambda: defaultdict(list))
+    for fc in backtest.forecasts:
+        key = (fc.org_unit, fc.last_seen_period)
+        forecasts_by_loc_split[key][fc.period] = fc.values
+
+    with PdfPages(pdf_filename) as pdf:
+        for (location, last_seen_period), period_forecasts in sorted(forecasts_by_loc_split.items()):
+            if location not in obs_by_location:
+                logger.warning(f"No observations found for location {location}, skipping")
+                continue
+
+            obs_dict = obs_by_location[location]
+            obs_df = pd.DataFrame(
+                {"disease_cases": list(obs_dict.values())},
+                index=pd.PeriodIndex([TimePeriod.parse(p).topandas() for p in obs_dict.keys()]),
+            )
+            obs_df = obs_df.sort_index()
+
+            sorted_periods = sorted(period_forecasts.keys())
+            samples_matrix = np.array([period_forecasts[p] for p in sorted_periods])
+
+            forecast = ForecastAdaptor.from_samples(
+                Samples(
+                    samples=samples_matrix,
+                    time_period=PeriodRange.from_strings(sorted_periods),
+                )
+            )
+
+            if np.any(np.isnan(forecast.samples)):
+                logger.warning(f"Forecast for {location} at {last_seen_period} has NaN values")
+
+            plt.figure(figsize=(8, 4))
+
+            # Filter observations up to and including the forecast period
+            obs_until_forecast_end = obs_df[obs_df.index <= forecast.index[-1]]
+
+            forecast.plot(show_label=True)
+            plt.plot(obs_until_forecast_end.to_timestamp(), label="Observed")
+
+            plt.title(location)
+            plt.legend()
+            pdf.savefig()
+            plt.close()
+
+    logger.info(f"PDF report saved to {pdf_filename}")

@@ -49,3 +49,17 @@ def test_sample_bias_plot(simulated_backtest):
 def test_backtest_plot1(simulated_backtest):
     plotter = BackTestPlot1.from_backtest(simulated_backtest)
     chart = plotter.plot()
+
+
+def test_generate_pdf_report(backtest: BackTest, tmp_path: Path):
+    from chap_core.cli_endpoints.utils import generate_pdf_report
+
+    evaluation = Evaluation.from_backtest(backtest)
+    input_file = tmp_path / "evaluation.nc"
+    evaluation.to_file(input_file)
+
+    output_file = tmp_path / "report.pdf"
+    generate_pdf_report(input_file, output_file)
+
+    assert output_file.exists()
+    assert output_file.stat().st_size > 0
