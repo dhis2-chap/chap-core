@@ -16,20 +16,22 @@ class MAE(MetricBase):
     spec = MetricSpec(output_dimensions=(DataDimension.location, DataDimension.horizon_distance), metric_name="MAE")
 
     def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
-        # Merge observations with forecasts
-        merged = forecasts.merge(
+        # Compute median forecast across samples for each location/time_period/horizon combination
+        median_forecasts = forecasts.groupby(["location", "time_period", "horizon_distance"], as_index=False)[
+            "forecast"
+        ].median()
+
+        # Merge observations with median forecasts
+        merged = median_forecasts.merge(
             observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
         )
 
-        # Calculate absolute error
+        # Calculate absolute error from median prediction
         merged["abs_error"] = (merged["forecast"] - merged["disease_cases"]).abs()
 
-        # Average across samples first
-        per_sample_mae = merged.groupby(["location", "horizon_distance", "sample"], as_index=False)["abs_error"].mean()
-
-        # Then average across samples to get MAE per location and horizon
+        # Average across time periods to get MAE per location and horizon
         mae_by_horizon = (
-            per_sample_mae.groupby(["location", "horizon_distance"], as_index=False)["abs_error"]
+            merged.groupby(["location", "horizon_distance"], as_index=False)["abs_error"]
             .mean()
             .rename(columns={"abs_error": "metric"})
         )
@@ -52,10 +54,17 @@ class MAEAggregate(MetricBase):
     )
 
     def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
-        merged = forecasts.merge(
+        # Compute median forecast across samples for each location/time_period/horizon combination
+        median_forecasts = forecasts.groupby(["location", "time_period", "horizon_distance"], as_index=False)[
+            "forecast"
+        ].median()
+
+        # Merge observations with median forecasts
+        merged = median_forecasts.merge(
             observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
         )
 
+        # Calculate absolute error from median prediction
         merged["abs_error"] = (merged["forecast"] - merged["disease_cases"]).abs()
 
         # Average absolute error across all entries
