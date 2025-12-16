@@ -64,12 +64,22 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
     observed_da = observations_indexed["disease_cases"].to_xarray()
 
     # Combine into a single dataset
-    ds = xr.Dataset(
-        {
-            "forecast": forecast_da,
-            "observed": observed_da,
-        }
-    )
+    data_vars = {
+        "forecast": forecast_da,
+        "observed": observed_da,
+    }
+
+    # Add historical observations if present
+    if flat_data.historical_observations is not None:
+        historical_df = pd.DataFrame(flat_data.historical_observations).copy()
+        if not historical_df.empty:
+            # Use different dimension name to avoid conflicts with test period observations
+            historical_indexed = historical_df.set_index(["location", "time_period"])
+            historical_indexed = historical_indexed.rename_axis(index={"time_period": "historical_time_period"})
+            historical_da = historical_indexed["disease_cases"].to_xarray()
+            data_vars["historical_observed"] = historical_da
+
+    ds = xr.Dataset(data_vars)
 
     # Add global attributes
     ds.attrs.update(
@@ -81,6 +91,7 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
             "created_date": datetime.datetime.now().isoformat(),
             "split_periods": json.dumps(model_metadata.get("split_periods", [])),
             "org_units": json.dumps(model_metadata.get("org_units", [])),
+            "historical_context_periods": model_metadata.get("historical_context_periods", 0),
             "chap_version": CHAP_VERSION,
         }
     )
@@ -119,9 +130,23 @@ def _xarray_to_flat_data(ds: xr.Dataset) -> "FlatEvaluationData":
     if "sample" in forecasts_df.columns:
         forecasts_df["sample"] = forecasts_df["sample"].astype(np.int64)
 
+    # Load historical observations if present (backwards compatible)
+    historical_observations = None
+    if "historical_observed" in ds:
+        historical_df = ds["historical_observed"].to_dataframe().reset_index()
+        if "historical_observed" in historical_df.columns:
+            historical_df = historical_df.rename(columns={"historical_observed": "disease_cases"})
+        # Rename dimension back to time_period for consistency
+        if "historical_time_period" in historical_df.columns:
+            historical_df = historical_df.rename(columns={"historical_time_period": "time_period"})
+        historical_df = historical_df.dropna(subset=["disease_cases"])
+        if not historical_df.empty:
+            historical_observations = FlatObserved(historical_df)
+
     return FlatEvaluationData(
         forecasts=FlatForecasts(forecasts_df),
         observations=FlatObserved(observations_df),
+        historical_observations=historical_observations,
     )
 
 
@@ -135,11 +160,14 @@ class FlatEvaluationData:
 
     Attributes:
         forecasts: Flat representation of forecast samples
-        observations: Flat representation of observed values
+        observations: Flat representation of observed values (test periods for evaluation)
+        historical_observations: Flat representation of historical observed values
+            before split periods (for plotting context). Optional for backwards compatibility.
     """
 
     forecasts: FlatForecasts
     observations: FlatObserved
+    historical_observations: Optional[FlatObserved] = None
 
 
 class EvaluationBase(ABC):
@@ -219,14 +247,24 @@ class Evaluation(EvaluationBase):
     EvaluationBase interface without modifying the database schema.
     """
 
-    def __init__(self, backtest: "BackTest"):
+    def __init__(
+        self,
+        backtest: "BackTest",
+        historical_observations: Optional[List[Observation]] = None,
+        historical_context_periods: int = 0,
+    ):
         """
         Initialize Evaluation with a BackTest object.
 
         Args:
             backtest: Database BackTest object (with relationships loaded)
+            historical_observations: Optional list of Observation objects for historical
+                context (periods before split points, for plotting)
+            historical_context_periods: Number of periods of historical context stored
         """
         self._backtest = backtest
+        self._historical_observations = historical_observations or []
+        self._historical_context_periods = historical_context_periods
         self._flat_data_cache: Optional[FlatEvaluationData] = None
 
     @classmethod
@@ -249,6 +287,8 @@ class Evaluation(EvaluationBase):
         last_train_period: TimePeriod,
         configured_model: ConfiguredModelDB,
         info: BackTestCreate,
+        historical_observations: Optional[List[Observation]] = None,
+        historical_context_periods: int = 0,
     ):
         info.created = datetime.datetime.now()
         backtest = BackTest(
@@ -309,7 +349,11 @@ class Evaluation(EvaluationBase):
                 observations=unique_observations,
             )
 
-        return cls.from_backtest(backtest)
+        return cls(
+            backtest,
+            historical_observations=historical_observations,
+            historical_context_periods=historical_context_periods,
+        )
 
     @classmethod
     def create(
@@ -319,6 +363,7 @@ class Evaluation(EvaluationBase):
         dataset: _DataSet,
         backtest_params: "BackTestParams",
         backtest_name: str = "evaluation",
+        historical_context_years: int = 6,
     ) -> "Evaluation":
         """
         Create an Evaluation by running a backtest.
@@ -333,6 +378,9 @@ class Evaluation(EvaluationBase):
             dataset: Dataset to evaluate on
             backtest_params: Backtest execution parameters (n_periods, n_splits, stride)
             backtest_name: Name for the backtest (default: "evaluation")
+            historical_context_years: Years of historical data to include for plotting
+                context (default: 6). Number of periods is calculated based on dataset
+                period type (e.g., 6 years = 312 weeks or 72 months).
 
         Returns:
             Evaluation instance with backtest results
@@ -361,13 +409,119 @@ class Evaluation(EvaluationBase):
             model_id=configured_model.id,
         )
 
+        # Calculate number of periods based on dataset period type
+        historical_context_periods = cls._calculate_periods_from_years(
+            dataset=dataset,
+            years=historical_context_years,
+        )
+
+        # Extract historical observations from the dataset for plotting context
+        historical_observations = cls._extract_historical_observations(
+            dataset=dataset,
+            up_to_period=last_train_period,
+            n_periods=historical_context_periods,
+        )
+
         # Create Evaluation
         return cls.from_samples_with_truth(
             evaluation_results=evaluation_results,
             last_train_period=last_train_period,
             configured_model=configured_model,
             info=backtest_info,
+            historical_observations=historical_observations,
+            historical_context_periods=historical_context_periods,
         )
+
+    @classmethod
+    def _calculate_periods_from_years(cls, dataset: _DataSet, years: int) -> int:
+        """
+        Calculate number of periods from years based on dataset period type.
+
+        Args:
+            dataset: Dataset to get period type from
+            years: Number of years
+
+        Returns:
+            Number of periods (e.g., 6 years = 312 weeks or 72 months)
+        """
+        # Get time delta from the first location's data
+        first_location = next(iter(dataset.keys()))
+        time_periods = dataset[first_location].time_period
+        time_delta = time_periods.delta
+
+        # Calculate periods per year based on time delta
+        rd = time_delta._relative_delta
+        if rd.days == 7 or rd.weeks == 1:
+            # Weekly data
+            periods_per_year = 52
+        elif rd.months == 1:
+            # Monthly data
+            periods_per_year = 12
+        elif rd.days == 1:
+            # Daily data
+            periods_per_year = 365
+        elif rd.years == 1:
+            # Yearly data
+            periods_per_year = 1
+        else:
+            # Default to weekly if unknown
+            periods_per_year = 52
+
+        return years * periods_per_year
+
+    @classmethod
+    def _extract_historical_observations(
+        cls,
+        dataset: _DataSet,
+        up_to_period: TimePeriod,
+        n_periods: int,
+    ) -> List[Observation]:
+        """
+        Extract historical observations from a dataset for plotting context.
+
+        Args:
+            dataset: Dataset containing disease_cases time series
+            up_to_period: Include observations up to and including this period
+            n_periods: Maximum number of periods to include
+
+        Returns:
+            List of Observation objects for historical context
+        """
+        observations = []
+
+        for location in dataset.keys():
+            location_data = dataset[location]
+            time_periods = location_data.time_period
+            disease_cases = location_data.disease_cases
+
+            # Find the index of up_to_period (inclusive)
+            end_idx = None
+            for i, period in enumerate(time_periods):
+                if period.id <= up_to_period.id:
+                    end_idx = i
+
+            if end_idx is None:
+                continue
+
+            # Calculate start index based on n_periods
+            start_idx = max(0, end_idx - n_periods + 1)
+
+            # Extract observations for this location
+            for i in range(start_idx, end_idx + 1):
+                period = time_periods[i]
+                value = disease_cases[i]
+
+                # Skip NaN values
+                if value is not None and not np.isnan(value):
+                    observation = Observation(
+                        period=period.id,
+                        org_unit=location,
+                        value=float(value),
+                        feature_name="disease_cases",
+                    )
+                    observations.append(observation)
+
+        return observations
 
     def to_backtest(self) -> "BackTest":
         """
@@ -385,15 +539,23 @@ class Evaluation(EvaluationBase):
         Results are cached for performance. Repeated calls return the cached result.
 
         Returns:
-            FlatEvaluationData containing forecasts and observations
+            FlatEvaluationData containing forecasts, observations, and historical observations
         """
         if self._flat_data_cache is None:
             forecasts_df = convert_backtest_to_flat_forecasts(self._backtest.forecasts)
             observations_df = convert_backtest_observations_to_flat_observations(self._backtest.dataset.observations)
 
+            # Convert historical observations if present
+            historical_observations = None
+            if self._historical_observations:
+                historical_df = convert_backtest_observations_to_flat_observations(self._historical_observations)
+                if not historical_df.empty:
+                    historical_observations = FlatObserved(historical_df)
+
             self._flat_data_cache = FlatEvaluationData(
                 forecasts=FlatForecasts(forecasts_df),
                 observations=FlatObserved(observations_df),
+                historical_observations=historical_observations,
             )
         return self._flat_data_cache
 
@@ -439,6 +601,7 @@ class Evaluation(EvaluationBase):
             "model_version": model_version or "",
             "split_periods": self.get_split_periods(),
             "org_units": self.get_org_units(),
+            "historical_context_periods": self._historical_context_periods,
         }
 
         ds = _flat_data_to_xarray(flat_data, model_metadata)
@@ -463,6 +626,7 @@ class Evaluation(EvaluationBase):
 
         split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
         org_units = json.loads(ds.attrs.get("org_units", "[]"))
+        historical_context_periods = int(ds.attrs.get("historical_context_periods", 0))
 
         backtest = BackTest(
             name=f"Loaded from {Path(filepath).name}",
@@ -512,6 +676,23 @@ class Evaluation(EvaluationBase):
             observations=observations,
         )
 
+        # Load historical observations if present
+        historical_observations = []
+        if flat_data.historical_observations is not None:
+            historical_df = pd.DataFrame(flat_data.historical_observations)
+            for _, row in historical_df.iterrows():
+                observation = Observation(
+                    period=row["time_period"],
+                    org_unit=row["location"],
+                    value=float(row["disease_cases"]) if row["disease_cases"] is not None else None,
+                    feature_name="disease_cases",
+                )
+                historical_observations.append(observation)
+
         ds.close()
 
-        return cls.from_backtest(backtest)
+        return cls(
+            backtest,
+            historical_observations=historical_observations,
+            historical_context_periods=historical_context_periods,
+        )
