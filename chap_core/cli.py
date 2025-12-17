@@ -1,10 +1,14 @@
 """Console script for chap_core."""
 
 import logging
+import warnings
 
-from cyclopts import App
+# Suppress GluonTS deprecation warning about pandas frequency aliases
+warnings.filterwarnings("ignore", category=FutureWarning, module="gluonts")
 
-from chap_core.cli_endpoints import evaluate, forecast, preference_learn, utils
+from cyclopts import App  # noqa: E402
+
+from chap_core.cli_endpoints import evaluate, forecast, preference_learn, utils  # noqa: E402
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

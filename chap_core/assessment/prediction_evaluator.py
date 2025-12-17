@@ -185,7 +185,6 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
     forecast_dict = _get_forecast_dict(predictor, test_instance)
     with PdfPages(pdf_filename) as pdf:
         for location, forecasts in forecast_dict.items():
-            logging.info(f"Running on location {location}")
             try:
                 _t = truth[location]
             except KeyError:
@@ -202,7 +201,6 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
                 )
 
             for forecast in forecasts:
-                logging.info("Forecasts: ")
                 # logging.info(forecasts)
                 if np.any(np.isnan(forecast.samples)):
                     logger.warning(f"Forecast {forecast} has NaN values: {forecast.samples}")
