@@ -7,6 +7,7 @@ import numpy as np
 from pydantic import BaseModel
 
 from chap_core.api_types import BackTestParams
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.climate_predictor import QuickForecastFetcher
@@ -126,7 +127,10 @@ def run_backtest(
         weather_provider=QuickForecastFetcher,
     )
     last_train_period = dataset.period_range[-1]
-    db_id = session.add_evaluation_results(predictions_list, last_train_period, info)
+    evaluation = Evaluation.from_samples_with_truth(predictions_list, last_train_period, configured_model, info=info)
+    backtest = evaluation.to_backtest()
+    session.add_backtest(backtest)
+    db_id = backtest.id
     assert db_id is not None
     return db_id
 
@@ -230,7 +234,9 @@ def run_backtest_from_dataset(
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
     dataset_id = session.add_dataset(dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json())
     backtest_create_info = BackTestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)
-
+    if ds.frequency == "W" and backtest_params.stride < 4:
+        logging.warning("Setting stride to 4 since its weekly data")
+        backtest_params.stride = 4
     return run_backtest(
         info=backtest_create_info,
         n_periods=backtest_params.n_periods,

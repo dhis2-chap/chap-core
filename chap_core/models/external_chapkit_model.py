@@ -1,5 +1,4 @@
 import logging
-import pandas as pd
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
@@ -31,6 +30,7 @@ class ExternalChapkitModelTemplate:
         while time.time() - start_time < timeout:
             if self.is_healthy():
                 return True
+            logger.info("Waiting for model service to become healthy...")
             time.sleep(2)
         raise TimeoutError(
             f"Model service at {self.rest_api_url} did not become healthy within {timeout} seconds. Check {self.rest_api_url}/health"
@@ -106,6 +106,11 @@ class ExternalChapkitModelTemplate:
         version = info.get("version")
         return f"{name}_v{version}"
 
+    @property
+    def model_template_config(self) -> ModelTemplateConfigV2:
+        """Property alias for get_model_template_config for backwards compatibility."""
+        return self.get_model_template_config()
+
     def get_model_template_config(self) -> ModelTemplateConfigV2:
         """
         This method is meant to make things backwards compatible with old system. An object of type
@@ -121,10 +126,11 @@ class ExternalChapkitModelTemplate:
             user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
 
         # Build metadata dict from info endpoint
+        # TODO: this can be done by dumping the dict into a base-model
         meta_data_dict = {
             "display_name": model_info.get("display_name", "No Display Name"),
             "description": model_info.get("description") or model_info.get("summary", "No Description"),
-            "author_note": model_info.get("author_note", ""),
+            "author_note": model_info.get("author_note") or "",
             "author_assessed_status": model_info.get("author_assessed_status", "red"),
             "author": model_info.get("author", "Unknown Author"),
             "organization": model_info.get("organization"),
@@ -168,15 +174,17 @@ class ExternalChapkitModel(ExternalModelBase):
 
     def train(self, train_data: DataSet, extra_args=None):
         frequency = self._get_frequency(train_data)
-        pd = train_data.to_pandas()
-        new_pd = self._adapt_data(pd, frequency=frequency)
+        df = train_data.to_pandas()
+        new_df = self._adapt_data(df, frequency=frequency)
         geo = train_data.polygons
-        response = self.client.train_and_wait(self.configuration_id, new_pd, geo)
+        response = self.client.train_and_wait(self.configuration_id, new_df, geo)
 
         if response["status"] == "failed":
-            raise RuntimeError(f"Training failed: {response.get('error', 'Unknown error')}")
+            raise RuntimeError(
+                f"Training failed: {response.get('error', 'Unknown error')}. Stacktrace: {response.get('error_traceback', '')}"
+            )
 
-        artifact_id = response["model_artifact_id"]
+        artifact_id = response["artifact_id"]
         assert artifact_id is not None, response
         self._train_id = artifact_id
         return self
@@ -187,7 +195,7 @@ class ExternalChapkitModel(ExternalModelBase):
         historic_data_pd = self._adapt_data(historic_data.to_pandas())
         future_data_pd = self._adapt_data(future_data.to_pandas())
         response = self.client.predict_and_wait(
-            model_artifact_id=self._train_id,
+            artifact_id=self._train_id,
             future_data=future_data_pd,
             historic_data=historic_data_pd,
             geo_features=geo,
@@ -196,10 +204,10 @@ class ExternalChapkitModel(ExternalModelBase):
         if response["status"] == "failed":
             raise RuntimeError(f"Prediction failed: {response.get('error', 'Unknown error')}")
 
-        artifact_id = response["prediction_artifact_id"]
+        artifact_id = response["artifact_id"]
         assert artifact_id is not None, response.get("error", "No prediction artifact")
 
         # get artifact from the client
-        prediction = self.client.get_artifact(artifact_id)
-        data = prediction["data"]["predictions"]
-        return DataSet.from_pandas(pd.DataFrame(data=data["data"], columns=data["columns"]), Samples)
+        prediction_data = self.client.get_prediction_artifact_dataframe(artifact_id)
+        pd = prediction_data.to_pandas()
+        return DataSet.from_pandas(pd, Samples)

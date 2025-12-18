@@ -82,9 +82,25 @@ def run_migrations_online() -> None:
     if connectable is None:
         raise ValueError("No database connection available. Set CHAP_DATABASE_URL environment variable.")
 
-    with connectable.connect() as connection:
+    # Check if connectable is already a Connection or an Engine
+    if hasattr(connectable, 'connect'):
+        # It's an Engine, need to create a connection
+        with connectable.connect() as connection:
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                # Compare type is needed for proper column type comparison
+                compare_type=True,
+                # Compare server default is needed for detecting default value changes
+                compare_server_default=True,
+            )
+
+            with context.begin_transaction():
+                context.run_migrations()
+    else:
+        # It's already a Connection, use it directly
         context.configure(
-            connection=connection,
+            connection=connectable,
             target_metadata=target_metadata,
             # Compare type is needed for proper column type comparison
             compare_type=True,

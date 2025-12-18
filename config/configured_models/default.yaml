@@ -30,11 +30,13 @@
     old_version: "@36a537dac138af428a4167b2a89eac7dafd5d762"
     nightly_build: "@master"
     stable: "@8ec1eb6ea854022350ad86c9e12a6d63638fbdbe"
+    v2: "efda30f574bb41d179b6ff2d4199ca5a92a95c5d"
 
 - url: https://github.com/dhis2-chap/ewars_template
   versions:
     v1: "d666546c3975994183a6386468af217aba06b6c5"
     v2: 'main'
+    v3: 'e4520a2123a3228c10947f2b25029c3f7190e320'
   configurations:
     default:
       user_option_values:
@@ -80,22 +82,28 @@
   versions:
     v1: "@chap"
 
+- url: https://github.com/dhis2-chap/chap_pymc
+  versions:
+    v1: "@5b0ed30b634f1083340d249bc040b83c34f296c4"
+  configurations:
+    skip_two_seasons:
+      user_option_values:
+        skip_bottom_n_seasons: 2
 
 #- url: https://github.com/dhis2-chap/INLA_baseline_model
 #  versions:
 #    v1: "@chap"
 
 
-## chtorch model (through chapkit, defined in compose.yml)
+## chtorch model (thrugh chapkit, defined in compose.yml)
 #- url: http://chtorch:8000
-##- url: http://193.157.236.38:5001  # for testing locally, replace with local ip
+##- url: http://193.157.251.13:5004  # for testing locally, replace with local ip
 #  uses_chapkit: true
 #  versions:
 #    v1: "/v1"
 #  configurations:
 #    debug:
-#      user_option_values:
-#          max_epochs: 2
+#        max_epochs: 2
 
 
 #- url: http://193.157.236.38:5003  # for testing locally, replace with local ip

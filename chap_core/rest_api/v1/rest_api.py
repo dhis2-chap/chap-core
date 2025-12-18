@@ -4,7 +4,7 @@ import traceback
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, ORJSONResponse
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel
 
 from chap_core.api_types import EvaluationResponse
@@ -52,11 +52,15 @@ def create_api():
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         """Catch all unhandled exceptions and log full traceback"""
-        logger.error(f"Unhandled exception on {request.method} {request.url.path}")
-        logger.error(f"Exception type: {type(exc).__name__}")
-        logger.error(f"Exception message: {str(exc)}")
-        logger.error("Full traceback:")
-        logger.error(traceback.format_exc())
+        # Handle InvalidVersion exceptions without full stack trace
+        if isinstance(exc, InvalidVersion):
+            logger.warning(f"Invalid version string on {request.method} {request.url.path}: {str(exc)}")
+        else:
+            logger.error(f"Unhandled exception on {request.method} {request.url.path}")
+            logger.error(f"Exception type: {type(exc).__name__}")
+            logger.error(f"Exception message: {str(exc)}")
+            logger.error("Full traceback:")
+            logger.error(traceback.format_exc())
 
         return JSONResponse(
             status_code=500, content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__}
@@ -197,7 +201,7 @@ async def health(worker_config=Depends(get_settings)) -> HealthResponse:
     #     wf.initialize_gee_client(usecwd=True, worker_config=worker_config)
     # except GEEError as e:
     #     return HealthResponse(status="failed", message="GEE authentication might not be set up properly: " + str(e))
-    return HealthResponse(status="success", message="GEE client initialized")
+    return HealthResponse(status="success", message="healthy")
 
 
 @app.get("/version")

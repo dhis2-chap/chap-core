@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from altair import FacetChart
 
-from chap_core.assessment.flat_representations import convert_backtest_observations_to_flat_observations
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.tables import BackTest
 import altair as alt
 import textwrap
@@ -103,16 +103,43 @@ class BackTestPlotBase(ABC):
 class EvaluationBackTestPlot(BackTestPlotBase):
     """
     Backtest-plot that shows truth vs predictions over time.
+
+    Shows forecasts with uncertainty bands and observed values.
+    Optionally includes historical observations for context.
     """
 
     name: str = "Evaluation Plot"
 
-    def __init__(self, forecast_df: pd.DataFrame, observed_df: pd.DataFrame):
+    def __init__(
+        self,
+        forecast_df: pd.DataFrame,
+        observed_df: pd.DataFrame,
+        historical_df: pd.DataFrame = None,
+    ):
         self._forecast = forecast_df
         self._observed = observed_df
+        self._historical = historical_df
 
     @classmethod
-    def from_backtest(cls, backtest: BackTest) -> "EvaluationBackTestPlot":
+    def from_evaluation(cls, evaluation: Evaluation) -> "EvaluationBackTestPlot":
+        """
+        Create plot from an Evaluation object.
+
+        This method preserves historical observations if present in the Evaluation.
+
+        Parameters
+        ----------
+        evaluation : Evaluation
+            The evaluation object containing forecasts, observations, and optional
+            historical observations
+
+        Returns
+        -------
+        EvaluationBackTestPlot
+            An instance ready for plotting
+        """
+        backtest = evaluation.to_backtest()
+
         rows = []
         quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
         for bt_forecast in backtest.forecasts:
@@ -125,15 +152,47 @@ class EvaluationBackTestPlot(BackTestPlotBase):
                 | {f"q_{int(q * 100)}": v for q, v in zip(quantiles, bt_forecast.get_quantiles(quantiles))}
             )
         df = pd.DataFrame(rows)
-        flat_observations = convert_backtest_observations_to_flat_observations(backtest.dataset.observations)
+
+        flat_data = evaluation.to_flat()
+
+        # Test period observations
+        flat_observations = pd.DataFrame(flat_data.observations).copy()
         flat_observations["time_period"] = flat_observations["time_period"].apply(clean_time)
-        return cls(df, flat_observations)
+
+        # Historical observations (optional)
+        historical_df = None
+        if flat_data.historical_observations is not None:
+            historical_df = pd.DataFrame(flat_data.historical_observations).copy()
+            historical_df["time_period"] = historical_df["time_period"].apply(clean_time)
+
+        return cls(df, flat_observations, historical_df)
+
+    @classmethod
+    def from_backtest(cls, backtest: BackTest) -> "EvaluationBackTestPlot":
+        """
+        Create plot from a BackTest object.
+
+        Note: This method does not include historical observations.
+        Use from_evaluation() to include historical context.
+
+        Parameters
+        ----------
+        backtest : BackTest
+            The backtest object containing forecast and observation data
+
+        Returns
+        -------
+        EvaluationBackTestPlot
+            An instance ready for plotting
+        """
+        evaluation = Evaluation.from_backtest(backtest)
+        return cls.from_evaluation(evaluation)
 
     def plot(self) -> FacetChart:
         # Replicate observations for each split_period to show in all facets
         unique_split_periods = self._forecast["split_period"].unique()
 
-        # Create observed data with all combinations of split_period
+        # Create observed data (test periods) with all combinations of split_period
         observed_replicated = []
         for split_period in unique_split_periods:
             tmp = self._observed.copy()
@@ -142,12 +201,33 @@ class EvaluationBackTestPlot(BackTestPlotBase):
 
         observed_with_split = pd.concat(observed_replicated, ignore_index=True)
 
+        # Add historical observations if available
+        # Historical observations are filtered to only show up to each split_period
+        if self._historical is not None and not self._historical.empty:
+            historical_replicated = []
+            for split_period in unique_split_periods:
+                tmp = self._historical.copy()
+                tmp["split_period"] = split_period
+                # Filter to only include observations before or at the split_period
+                tmp = tmp[tmp["time_period"] <= split_period]
+                historical_replicated.append(tmp)
+
+            historical_with_split = pd.concat(historical_replicated, ignore_index=True)
+
+            # Combine historical and test observations
+            # Remove duplicates (historical may overlap with test observations)
+            all_observations = pd.concat(
+                [historical_with_split, observed_with_split], ignore_index=True
+            ).drop_duplicates(subset=["location", "time_period", "split_period"])
+        else:
+            all_observations = observed_with_split
+
         # Combine all data into a single dataset for faceting
         # Add a column to distinguish data types
         forecast_data = self._forecast.copy()
         forecast_data["data_type"] = "forecast"
 
-        observed_data = observed_with_split.copy()
+        observed_data = all_observations.copy()
         observed_data["data_type"] = "observed"
 
         # Align column names - add disease_cases to forecast (as NaN) and quantiles to observed (as NaN)
@@ -199,7 +279,7 @@ class EvaluationBackTestPlot(BackTestPlotBase):
             )
         )
 
-        # Observations
+        # Observations (including historical context if available)
         observations = (
             base.transform_filter(alt.datum.data_type == "observed")
             .mark_line(color="orange")

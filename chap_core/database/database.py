@@ -7,32 +7,31 @@ import logging
 import os
 from pathlib import Path
 import time
-from typing import Iterable, List, Optional
+from typing import List, Optional
 
 import psycopg2
 import sqlalchemy
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from chap_core.datatypes import FullData, SamplesWithTruth, create_tsdataclass
+from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
-from chap_core.time_period import TimePeriod, Month, Week
+from chap_core.time_period import Month, Week
 
 from .. import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
-from ..rest_api.data_models import BackTestCreate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 from .dataset_tables import DataSet, Observation, DataSetCreateInfo, DataSetInfo
 from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
-from .tables import BackTest, BackTestForecast, Prediction, PredictionSamplesEntry
+from .tables import BackTest, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -351,60 +350,9 @@ class SessionWrapper:
         if entries is None or len(entries) == 0:
             raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
 
-    def add_evaluation_results(
-        self,
-        evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
-        last_train_period: TimePeriod,
-        info: BackTestCreate,
-    ):
-        info.created = datetime.datetime.now()
-        # org_units = list({location for ds in evaluation_results for location in ds.locations()})
-        # split_points = list({er.period_range[0] for er in evaluation_results})
-        model_db = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == info.model_id)).first()
-        model_db_id = model_db.id
-
-        backtest = BackTest(
-            **info.dict() | {"model_db_id": model_db_id, "model_template_version": model_db.model_template.version}
-        )
+    def add_backtest(self, backtest: BackTest) -> None:
         self.session.add(backtest)
-        org_units = set([])
-        split_points = set([])
-        # define metrics (for each period)
-        evaluation_results = list(
-            evaluation_results
-        )  # hacky, to avoid metric funcs using up the iterable before we can loop all splitpoints
-        for eval_result in evaluation_results:
-            first_period: TimePeriod = eval_result.period_range[0]
-            split_points.add(first_period.id)
-            for location, samples_with_truth in eval_result.items():
-                # NOTE: samples_with_truth is class datatypes.SamplesWithTruth
-                org_units.add(location)
-                for period, sample_values, disease_cases in zip(
-                    eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases
-                ):
-                    # add forecast series for this period
-                    forecast = BackTestForecast(
-                        period=period.id,
-                        org_unit=location,
-                        last_train_period=last_train_period.id,
-                        last_seen_period=first_period.id,
-                        values=sample_values.tolist(),
-                    )
-                    backtest.forecasts.append(forecast)
-
-        backtest.org_units = list(org_units)
-        backtest.split_periods = list(split_points)
         self.session.commit()
-
-        # read full backtest object so that we can compute aggregate metrics using this object
-        # note: we don't do this anymore
-        # backtest = self.session.get(BackTest, backtest.id)
-        # aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
-        # logger.info(f"aggregate metrics {aggregate_metrics}")
-        # backtest.aggregate_metrics = aggregate_metrics
-        # self.session.commit()
-        # add more
-        return backtest.id
 
     def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict = {}):
         n_periods = len(list(predictions.values())[0])
@@ -545,7 +493,7 @@ def _run_alembic_migrations(engine):
         logger.info("Completed Alembic migrations successfully")
 
     except Exception as e:
-        logger.error(f"Error during Alembic migrations: {e}")
+        logger.error(f"Error during Alembic migrations: {e}", exc_info=True)
         # Don't raise - allow system to continue if Alembic fails
         # This ensures backward compatibility
 
@@ -789,9 +737,10 @@ def _get_column_default_value(column):
     column_type = str(column.type).lower()
 
     if "json" in column_type or "pydanticlisttype" in column_type:
-        # Default to empty array for JSON columns (safer default)
-        # Most JSON columns in this codebase are lists (org_units, data_sources, covariates, etc.)
-        return "[]"
+        # For JSON columns, only default to [] if there's a default_factory set
+        # If there's no explicit default, use NULL (safer for Optional[dict] fields)
+        # Most list JSON columns have default_factory=list which is handled above
+        return None
     elif "varchar" in column_type or "text" in column_type:
         return ""  # Empty string for text columns
     elif "integer" in column_type or "numeric" in column_type:

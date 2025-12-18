@@ -7,6 +7,7 @@ NOTE: Written by ai as a prototype, TODO: refactor and cleanup once working
 """
 
 import logging
+import chapkit
 import time
 from typing import Optional, Dict, Any, List
 import numpy as np
@@ -259,6 +260,21 @@ class CHAPKitRestAPIWrapper:
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}")
         return response.json()
 
+    def get_prediction_artifact_dataframe(self, artifact_id: str) -> chapkit.data.DataFrame:
+        """
+        Get the data content of a specific artifact by ID
+
+        Args:
+            artifact_id: Artifact ID
+
+        Returns:
+            Artifact data object
+        """
+        response = self.get_artifact(artifact_id)
+        # note: this is a dict of a chapkit DataFrame
+        data = chapkit.artifact.schemas.MLPredictionArtifactData.model_validate(response["data"])
+        return chapkit.data.DataFrame(**data.content)
+
     def delete_artifact(self, artifact_id: str) -> None:
         """
         Delete an artifact by ID
@@ -321,7 +337,7 @@ class CHAPKitRestAPIWrapper:
             geo_features: Optional GeoJSON FeatureCollection
 
         Returns:
-            Dict with job_id and model_artifact_id
+            Dict with job_id and artifact_id
         """
         # Convert DataFrame to split format
         if "time_period" in data.columns:
@@ -336,11 +352,11 @@ class CHAPKitRestAPIWrapper:
 
         response = self._request("POST", "/api/v1/ml/$train", json=train_body)
         result = response.json()
-        return {"job_id": result["job_id"], "model_artifact_id": result["model_artifact_id"]}
+        return {"job_id": result["job_id"], "artifact_id": result["artifact_id"]}
 
     def predict(
         self,
-        model_artifact_id: str,
+        artifact_id: str,
         future_data: pd.DataFrame,
         historic_data: Optional[pd.DataFrame] = None,
         geo_features: Optional[Dict[str, Any]] = None,
@@ -349,20 +365,20 @@ class CHAPKitRestAPIWrapper:
         Make predictions with a trained model
 
         Args:
-            model_artifact_id: Trained model artifact ID
+            artifact_id: Trained model artifact ID
             future_data: Future covariates as pandas DataFrame
             historic_data: Optional historical data as pandas DataFrame
             geo_features: Optional GeoJSON FeatureCollection
 
         Returns:
-            Dict with job_id and prediction_artifact_id
+            Dict with job_id and artifact_id
         """
         if "time_period" in future_data.columns:
             future_data["time_period"] = future_data["time_period"].astype(str)
         future_data = future_data.replace({np.nan: None})
 
         predict_body = {
-            "model_artifact_id": model_artifact_id,
+            "artifact_id": artifact_id,
             "future": {"columns": future_data.columns.tolist(), "data": future_data.values.tolist()},
         }
 
@@ -380,7 +396,7 @@ class CHAPKitRestAPIWrapper:
 
         response = self._request("POST", "/api/v1/ml/$predict", json=predict_body)
         result = response.json()
-        return {"job_id": result["job_id"], "prediction_artifact_id": result["prediction_artifact_id"]}
+        return {"job_id": result["job_id"], "artifact_id": result["artifact_id"]}
 
     # Helper methods
 
@@ -430,17 +446,17 @@ class CHAPKitRestAPIWrapper:
             timeout: Maximum seconds to wait
 
         Returns:
-            Dict with job record and model_artifact_id
+            Dict with job record and artifact_id
         """
         result = self.train(config_id, data, geo_features)
         job_id = result["job_id"]
         job = self.wait_for_job(job_id, timeout=timeout)
-        job["model_artifact_id"] = result["model_artifact_id"]
+        job["artifact_id"] = result["artifact_id"]
         return job
 
     def predict_and_wait(
         self,
-        model_artifact_id: str,
+        artifact_id: str,
         future_data: pd.DataFrame,
         historic_data: Optional[pd.DataFrame] = None,
         geo_features: Optional[Dict[str, Any]] = None,
@@ -450,19 +466,19 @@ class CHAPKitRestAPIWrapper:
         Make predictions and wait for completion
 
         Args:
-            model_artifact_id: Trained model artifact ID
+            artifact_id: Trained model artifact ID
             future_data: Future covariates
             historic_data: Optional historical data
             geo_features: Optional GeoJSON features
             timeout: Maximum seconds to wait
 
         Returns:
-            Dict with job record and prediction_artifact_id
+            Dict with job record and artifact_id
         """
-        result = self.predict(model_artifact_id, future_data, historic_data, geo_features)
+        result = self.predict(artifact_id, future_data, historic_data, geo_features)
         job_id = result["job_id"]
         job = self.wait_for_job(job_id, timeout=timeout)
-        job["prediction_artifact_id"] = result["prediction_artifact_id"]
+        job["artifact_id"] = result["artifact_id"]
         return job
 
     def poll_job(self, job_id: str, timeout: Optional[int] = None) -> Dict[str, Any]:

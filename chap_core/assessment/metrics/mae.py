@@ -4,10 +4,10 @@ Mean Absolute Error (MAE) metric.
 
 import pandas as pd
 from chap_core.assessment.flat_representations import DataDimension
-from chap_core.assessment.metrics.base import MetricBase, MetricSpec
+from chap_core.assessment.metrics.base import DeterministicMetric, MetricSpec
 
 
-class MAE(MetricBase):
+class MAE(DeterministicMetric):
     """
     Mean Absolute Error metric.
     Groups by location and horizon_distance to show error patterns across forecast horizons.
@@ -15,23 +15,30 @@ class MAE(MetricBase):
 
     spec = MetricSpec(output_dimensions=(DataDimension.location, DataDimension.horizon_distance), metric_name="MAE")
 
-    def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
-        # Merge observations with forecasts
-        merged = forecasts.merge(
-            observations[["location", "time_period", "disease_cases"]], on=["location", "time_period"], how="inner"
-        )
-
-        # Calculate absolute error
+    def compute_from_merged(self, merged: pd.DataFrame) -> pd.DataFrame:
         merged["abs_error"] = (merged["forecast"] - merged["disease_cases"]).abs()
-
-        # Average across samples first
-        per_sample_mae = merged.groupby(["location", "horizon_distance", "sample"], as_index=False)["abs_error"].mean()
-
-        # Then average across samples to get MAE per location and horizon
         mae_by_horizon = (
-            per_sample_mae.groupby(["location", "horizon_distance"], as_index=False)["abs_error"]
+            merged.groupby(["location", "horizon_distance"], as_index=False)["abs_error"]
             .mean()
             .rename(columns={"abs_error": "metric"})
         )
-
         return mae_by_horizon
+
+
+class MAEAggregate(DeterministicMetric):
+    """
+    Fully aggregated Mean Absolute Error metric.
+    Computes a single MAE value across all locations, time periods, and horizons.
+    Aggregates directly from all data points, not by averaging per-location MAEs.
+    """
+
+    spec = MetricSpec(
+        output_dimensions=(),
+        metric_name="MAE",
+        metric_id="mae_aggregate",
+        description="Aggregate MAE across all data",
+    )
+
+    def compute_from_merged(self, merged: pd.DataFrame) -> pd.DataFrame:
+        merged["abs_error"] = (merged["forecast"] - merged["disease_cases"]).abs()
+        return pd.DataFrame({"metric": [merged["abs_error"].mean()]})

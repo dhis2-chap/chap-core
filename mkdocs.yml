@@ -1,0 +1,105 @@
+site_name: Climate Health
+site_description: Climate Health Analysis Platform (CHAP) Documentation
+site_url: https://dhis2-chap.github.io/chap-core/
+repo_url: https://github.com/dhis2-chap/chap-core
+repo_name: dhis2-chap/chap-core
+use_directory_urls: false
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            heading_level: 2
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - toc:
+      permalink: true
+
+docs_dir: docs
+
+nav:
+  - Home: index.md
+  - Modeling App:
+      - Overview: modeling-app/index.md
+      - Installation: modeling-app/installation.md
+      - Using the App: modeling-app/modeling-app.md
+      - Server Deployment: modeling-app/running-chap-on-server.md
+  - Model Developers:
+      - Overview: external_models/index.md
+      - Getting Started:
+          - For Newcomers: external_models/newcomer.md
+          - For Experienced Modellers: external_models/experienced_modeller.md
+          - Learning Modelling: external_models/learn_modelling.md
+      - Building Models:
+          - Chapkit: external_models/chapkit.md
+          - Describe Your Model: external_models/describe_model.md
+          - Train and Predict: external_models/train_and_predict.md
+          - Running Models: external_models/running_models_in_chap.md
+      - Integration:
+          - DHIS2 Connection: external_models/chap-dhis2-connection.md
+          - Supporting Functionality: external_models/supporting_functionality.md
+          - Evaluation Examples: external_models/chap_evaluate_examples.md
+          - Side by Side Comparison: external_models/side_by_side_comparison.md
+  - CLI:
+      - Overview: chap-cli/index.md
+      - Setup: chap-cli/chap-core-cli-setup.md
+      - Earth Engine Auth: chap-cli/earth-engine-auth.md
+      - Using PA with CLI: chap-cli/using-pa-with-cli.md
+      - JSON Data: chap-cli/downloaded_json_data.md
+  - Contributors:
+      - Overview: contributor/index.md
+      - Getting Started: contributor/getting_started.md
+      - Setup: contributor/chap-contributor-setup.md
+      - Windows Setup: contributor/windows_contributors.md
+      - Code Overview: contributor/code_overview.md
+      - Vocabulary: contributor/vocabulary.md
+      - Testing: contributor/testing.md
+      - Database Migrations: contributor/database_migrations.md
+      - Documentation: contributor/writing_building_documentation.md
+      - Development Tools: contributor/development_tools.md
+      - Evaluation Abstraction: contributor/evaluation_abstraction.md
+      - Preference Learning: contributor/preference_learning.md
+  - Web API:
+      - Overview: webapi/index.md
+      - Developer Guide: webapi/developer.md
+      - Docker Compose: webapi/docker-compose-doc.md
+  - API Reference: api/index.md
+  - Changelog: changelog.md

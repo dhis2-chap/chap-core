@@ -1,6 +1,6 @@
 [project]
 name = "chap_core"
-version = "1.1.0"
+version = "1.1.1"
 description = "Climate Health Analysis Platform (CHAP)"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -46,7 +46,7 @@ dependencies = [
     "jsonschema>=4.25.1",
     "altair>=5.5.0",
     "virtualenv>=20.34.0",
-    "pydantic-geojson>=0.2.0",
+    "pydantic-geojson>=0.2.0,<0.3.0",
     "pandera>=0.26.1",
     "vegafusion>=2.0.2",
     "vl-convert-python>=1.8.0",
@@ -56,6 +56,8 @@ dependencies = [
     "optuna>=4.5.0",
     "httpx>=0.28.1",
     "alembic>=1.14.0",
+    "chapkit>=0.10.2",
+    "cryptography>=46.0.3",
 ]
 
 [dependency-groups]
@@ -63,14 +65,14 @@ dev = [
     "ruff>=0.13.3",
     "build>=1.3.0",
     "coverage>=7.10.7",
-    "furo>=2023.3.27",
-    "myst-parser>=4.0.1",
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
-    "sphinx>=8.2.3",
     "wheel>=0.45.1",
     "typer>=0.19.2",
     "ipython>=9.6.0",
@@ -81,7 +83,6 @@ Homepage = "https://github.com/dhis2/chap-core"
 
 [project.scripts]
 chap = "chap_core.cli:main"
-chap-cli = "chap_core.chap_cli:main"
 chap-runner = "chap_core.models.model_rest_api_wrapper:main"
 
 [build-system]

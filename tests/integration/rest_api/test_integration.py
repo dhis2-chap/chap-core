@@ -187,6 +187,17 @@ def test_health_check_success(dependency_overrides):
     assert response.json()["status"] == "success"
 
 
+def test_common_api_get_endpoints_do_not_fail(dependency_overrides):
+    endpoints = [
+        "v1/crud/model-templates",
+        "v1/crud/configured-models",
+        "v1/crud/backtests",
+    ]
+    for endpoint in endpoints:
+        response = client.get(f"/{endpoint}")
+        assert response.status_code == 200
+
+
 @pytest.mark.skip(reason="No longer requireing GEE authentication")
 def test_health_check_fail(dependency_overrides):
     app.dependency_overrides[get_settings] = lambda: WorkerConfig(is_test=True, failing_services=("gee",))

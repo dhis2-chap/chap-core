@@ -17,7 +17,7 @@ This document describes very briefly how to make a model compatible with chapkit
 
 ## How to make a model compatible with chapkit
 
-This guide is not written yet, for now we refer to the chapkit documentation: [https://winterop-com.github.io/chapkit/](https://winterop-com.github.io/chapkit/)
+This guide is not written yet, for now we refer to the chapkit documentation: [https://dhis2-chap.github.io/chapkit/](https://dhis2-chap.github.io/chapkit/).
 
 
 ## How to run a chapkit model from the command line with chap evaluate
@@ -36,7 +36,7 @@ user_option_values:
 Then start the chtorch command on port 5001:
 
 ```bash
-docker run -p 5001:8000 ghcr.io/dhis2-chap/chtorch:chapkit2-d3fc2dd
+docker run -p 5001:8000 ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3
 ```
 
 Then we can run the following command to evaluate the model. Note the http://localhost:5001 url, which tells chap to look for the model at that url.
@@ -50,7 +50,7 @@ chap evaluate --model-name http://localhost:5001 --dataset-name ISIMIP_dengue_ha
 
 NOTE: This is experimental, and the way this is done might change in the future.
 
-1) Add your model to compose.yml, pick a port for your model that is not used by other models
+1) Add your model to a file compose-models.yml, pick a port for your model that is not used by other models
 2) Add your model to a config file inside config/configured_models (e.g. config/configured_models/local_config.yaml), with the url pointing to your model, using the container name you specified in compose-models, e.g. http://chtorch:5001 (localhost will not work for communication between the chap worker container and your model container). Here is an example:
   ```yaml
 - url: http://chtorch:8000
@@ -65,3 +65,4 @@ NOTE: This is experimental, and the way this is done might change in the future.
 3) Start both chap and your model by running `docker compose -f compose.yml -f compose-models.yml up --build --force-recreate`
 
 Now, the model should show up in the modeling app.
+

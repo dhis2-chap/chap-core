@@ -71,3 +71,40 @@ class MetricBase:
         Returns True if the metric gives only one number for the whole dataset
         """
         return len(self.spec.output_dimensions) == 0
+
+
+class DeterministicMetric(MetricBase):
+    """
+    Base class for deterministic metrics that operate on the median of samples.
+    Subclasses implement compute_from_merged() which receives a DataFrame with:
+    - location, time_period, horizon_distance (from forecasts)
+    - forecast (median across samples)
+    - disease_cases (from observations)
+    """
+
+    def compute(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+        # Compute median forecast across samples
+        median_forecasts = forecasts.groupby(["location", "time_period", "horizon_distance"], as_index=False)[
+            "forecast"
+        ].median()
+
+        # Merge with observations
+        merged = median_forecasts.merge(
+            observations[["location", "time_period", "disease_cases"]],
+            on=["location", "time_period"],
+            how="inner",
+        )
+
+        return self.compute_from_merged(merged)
+
+    def compute_from_merged(self, merged: pd.DataFrame) -> pd.DataFrame:
+        """
+        Compute the metric from the merged DataFrame.
+
+        Args:
+            merged: DataFrame with columns [location, time_period, horizon_distance, forecast, disease_cases]
+
+        Returns:
+            DataFrame with columns matching spec.output_dimensions + ["metric"]
+        """
+        raise NotImplementedError

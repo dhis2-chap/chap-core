@@ -6,7 +6,7 @@ import httpx
 # from chap_core.models.external_chapkit_model import ExternalChapkitModel, ExternalChapkitModelTemplate
 from chap_core.file_io.example_data_set import datasets
 
-model_url = "http://localhost:5005"
+model_url = "http://localhost:8003"
 
 
 @pytest.fixture

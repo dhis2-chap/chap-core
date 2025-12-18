@@ -25,13 +25,16 @@ def get_temp_dir() -> Path:
 
     Returns temporary directory path for storing build artifacts,
     test outputs, model files, and other temporary files.
+    Creates the directory if it doesn't exist.
 
     Returns
     -------
     Path
         Path to the temporary directory (default: 'target/')
     """
-    return Path("target")
+    temp_dir = Path("target")
+    temp_dir.mkdir(exist_ok=True)
+    return temp_dir
 
 
 __all__ = ["fetch", "data", "ModelTemplateInterface", "is_debug_mode", "get_temp_dir"]
