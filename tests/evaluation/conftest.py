@@ -390,3 +390,28 @@ def flat_observations():
             }
         )
     )
+
+
+@pytest.fixture
+def flat_forecasts_multiple_samples():
+    """Forecasts with multiple samples per location/time_period/horizon.
+
+    For each location/time_period/horizon, we have 3 samples.
+    The median should be used for deterministic metrics.
+
+    loc1, 2023-W01, horizon 1: samples [8, 10, 15] -> median = 10, obs = 11, error = 1
+    loc1, 2023-W02, horizon 2: samples [11, 12, 16] -> median = 12, obs = 13, error = 1
+    loc2, 2023-W01, horizon 1: samples [17, 21, 24] -> median = 21, obs = 19, error = 2
+    loc2, 2023-W02, horizon 2: samples [20, 23, 26] -> median = 23, obs = 21, error = 2
+    """
+    return FlatForecasts(
+        pd.DataFrame(
+            {
+                "location": ["loc1"] * 3 + ["loc1"] * 3 + ["loc2"] * 3 + ["loc2"] * 3,
+                "time_period": ["2023-W01"] * 3 + ["2023-W02"] * 3 + ["2023-W01"] * 3 + ["2023-W02"] * 3,
+                "horizon_distance": [1] * 3 + [2] * 3 + [1] * 3 + [2] * 3,
+                "sample": [0, 1, 2] * 4,
+                "forecast": [8.0, 10.0, 15.0, 11.0, 12.0, 16.0, 17.0, 21.0, 24.0, 20.0, 23.0, 26.0],
+            }
+        )
+    )

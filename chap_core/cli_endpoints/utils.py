@@ -156,11 +156,17 @@ def plot_backtest(input_file: Path, output_file: Path, plot_type: str = "backtes
 
     logger.info(f"Loading evaluation from {input_file}")
     evaluation = Evaluation.from_file(input_file)
-    backtest = evaluation.to_backtest()
 
     logger.info(f"Generating {plot_type} plot")
     plot_class = backtest_plots_registry[plot_type]
-    plotter = plot_class.from_backtest(backtest)
+
+    # Use from_evaluation for EvaluationBackTestPlot to preserve historical observations
+    if plot_type == "evaluation_plot":
+        plotter = plot_class.from_evaluation(evaluation)
+    else:
+        backtest = evaluation.to_backtest()
+        plotter = plot_class.from_backtest(backtest)
+
     chart = plotter.plot()
 
     output_path = Path(output_file)
@@ -178,6 +184,29 @@ def plot_backtest(input_file: Path, output_file: Path, plot_type: str = "backtes
         raise ValueError(f"Unsupported output format: {suffix}. Use .html, .png, .svg, .pdf, or .json")
 
     logger.info(f"Plot saved to {output_file}")
+
+
+def generate_pdf_report(input_file: Path, output_file: Path):
+    """
+    Generate old-style matplotlib PDF report from a stored backtest.
+
+    Creates a multi-page PDF with one page per location/forecast period,
+    showing historical observations and forecast distributions with quantiles.
+
+    Args:
+        input_file: Path to NetCDF file containing evaluation data (from evaluate2)
+        output_file: Path to output PDF file
+    """
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.assessment.prediction_evaluator import generate_pdf_from_evaluation
+
+    logger.info(f"Loading evaluation from {input_file}")
+    evaluation = Evaluation.from_file(input_file)
+
+    logger.info(f"Generating PDF report to {output_file}")
+    generate_pdf_from_evaluation(evaluation, str(output_file))
+
+    logger.info(f"PDF report saved to {output_file}")
 
 
 def export_metrics(
@@ -261,4 +290,5 @@ def register_commands(app):
     app.command()(test)
     app.command()(plot_dataset)
     app.command()(plot_backtest)
+    app.command()(generate_pdf_report)
     app.command()(export_metrics)
