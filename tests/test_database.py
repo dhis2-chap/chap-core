@@ -51,14 +51,14 @@ def engine():
 @pytest.fixture
 def engine_with_dataset(engine, weekly_full_data):
     with SessionWrapper(engine) as session:
-        session.add_dataset("full_data", weekly_full_data, "polygons")
+        session.add_dataset("full_data", weekly_full_data, None)
     return engine
 
 
 def test_dataset_roundrip(health_population_data, engine):
     info = DataSetCreateInfo(name="health_population")
     with SessionWrapper(engine) as session:
-        dataset_id = session.add_dataset(info, health_population_data, "polygons")
+        dataset_id = session.add_dataset(info, health_population_data, None)
         dataset = session.get_dataset(dataset_id, HealthPopulationData)
         assert_dataset_equal(dataset, health_population_data)
 
