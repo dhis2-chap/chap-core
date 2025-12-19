@@ -1,5 +1,6 @@
 import logging
 from chap_core.external.model_configuration import ModelTemplateConfigV2
+from chap_core.model_spec import PeriodType
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, RunInfo
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -148,10 +149,9 @@ class ExternalChapkitModelTemplate:
             "allow_free_additional_continuous_covariates": model_info.get(
                 "allow_free_additional_continuous_covariates", False
             ),
+            "supported_period_type": PeriodType(model_info.get("supported_period_type", "any")),
             "user_options": user_options,
-            # ModelTemplateInformation fields will use defaults if not provided:
-            # - supported_period_type defaults to PeriodType.any
-            # - target defaults to "disease_cases"
+            # target defaults to "disease_cases"
             # RunnerConfig fields not needed for REST API models:
             "entry_points": None,
             "docker_env": None,
