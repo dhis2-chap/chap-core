@@ -14,6 +14,9 @@ class GithubUrl:
 
 
 def parse_github_url(github_url) -> GithubUrl:
+    # trim trailing slash
+    if github_url.endswith("/"):
+        github_url = github_url[:-1]
     splitted_url = github_url.split("/")
     owner = splitted_url[3]
     repo_name = splitted_url[4]
@@ -26,7 +29,7 @@ def parse_github_url(github_url) -> GithubUrl:
 
 def fetch_mlproject_content(github_url: str) -> str:
     parsed = parse_github_url(github_url)
-    logger.info(parsed)
+    logger.warning(parsed)
     # Takes a github url, parses the MLProject file, returns an object with the correct information
     raw_mlproject_url = f"https://raw.githubusercontent.com/{parsed.owner}/{parsed.repo_name}/{parsed.commit}/MLproject"
     # fetch this MLProject file and parse it
