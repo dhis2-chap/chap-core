@@ -25,7 +25,7 @@ from chap_core.time_period import Month
 
 from chap_core.models.model_template import ModelTemplate
 from chap_core.hpo.base import load_search_space_from_config
-from chap_core.hpo.objective import Objective 
+from chap_core.hpo.objective import Objective
 from chap_core.hpo.hpoModel import HpoModel
 from chap_core.hpo.searcher import RandomSearcher
 
@@ -97,7 +97,6 @@ def run_backtest(
         stride=stride,
     )
 
-
     """
     get base model from dataset
     get its modelTemplate to get hpo_search_space
@@ -107,7 +106,7 @@ def run_backtest(
     """
     if info.name == "something with hpo":
         model_name = info.name
-        template = ModelTemplate.from_directory_or_github_url(model_name) 
+        template = ModelTemplate.from_directory_or_github_url(model_name)
         model_template = session.get_configured_model_by_name(info.model_id).model_template
         hpo_search_space = model_template.hpo_search_space
         if hpo_search_space is not None:
@@ -117,7 +116,7 @@ def run_backtest(
     else:
         configured_model = session.get_configured_model_by_name(info.model_id)
         estimator = session.get_configured_model_with_code(configured_model.id)
-    
+
     predictions_list = _backtest(
         estimator,
         dataset,

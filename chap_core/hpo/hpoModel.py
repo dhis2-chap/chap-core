@@ -1,5 +1,5 @@
 import logging
-from typing import Literal, Optional, Any, Tuple
+from typing import Literal, Optional, Any
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration

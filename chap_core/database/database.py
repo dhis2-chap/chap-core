@@ -189,7 +189,6 @@ class SessionWrapper:
             select(ConfiguredModelDB).options(selectinload(ConfiguredModelDB.model_template))
         ).all()
 
-
         """
         this is to hack frontend, when not actually touching database for simplicity
         for template in select(ModelTemplateDB):
@@ -198,13 +197,13 @@ class SessionWrapper:
                 the rest should stay the same
         """
         import copy
+
         for configured_model in configured_models:
             if configured_model.model_template.hpo_search_space is not None:
                 name = configured_model.name + " [hpo]"
                 new_model = copy.deepcopy(configured_model)
                 new_model.name = name
                 configured_models.append(new_model)
-
 
         # serialize to json and combine configured model with model template
         configured_models_data = []
