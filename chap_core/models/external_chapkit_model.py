@@ -1,7 +1,7 @@
 import logging
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.external_model import ExternalModelBase
-from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
+from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, RunInfo
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
@@ -172,12 +172,14 @@ class ExternalChapkitModel(ExternalModelBase):
         self.client = CHAPKitRestAPIWrapper(rest_api_url)
         self._train_id = None
 
-    def train(self, train_data: DataSet, extra_args=None):
+    def train(self, train_data: DataSet, extra_args=None, run_info: RunInfo | None = None):
         frequency = self._get_frequency(train_data)
         df = train_data.to_pandas()
         new_df = self._adapt_data(df, frequency=frequency)
         geo = train_data.polygons
-        response = self.client.train_and_wait(self.configuration_id, new_df, geo)
+        if run_info is None:
+            run_info = RunInfo(prediction_length=1)
+        response = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
 
         if response["status"] == "failed":
             raise RuntimeError(
@@ -189,14 +191,18 @@ class ExternalChapkitModel(ExternalModelBase):
         self._train_id = artifact_id
         return self
 
-    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+    def predict(self, historic_data: DataSet, future_data: DataSet, run_info: RunInfo | None = None) -> DataSet:
         assert self._train_id is not None, "Model must be trained before prediction"
         geo = historic_data.polygons
         historic_data_pd = self._adapt_data(historic_data.to_pandas())
         future_data_pd = self._adapt_data(future_data.to_pandas())
+        if run_info is None:
+            prediction_length = len(future_data.period_range)
+            run_info = RunInfo(prediction_length=prediction_length)
         response = self.client.predict_and_wait(
             artifact_id=self._train_id,
             future_data=future_data_pd,
+            run_info=run_info,
             historic_data=historic_data_pd,
             geo_features=geo,
         )
