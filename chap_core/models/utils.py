@@ -135,10 +135,12 @@ def get_model_template_from_directory_or_github_url(
 
     if is_chapkit_model:
         logger.debug("Model is chapkit model")
-        # For now, we assume that if a model template has a url on localhost it is
-        # a chapkit model
+        # ExternalChapkitModelTemplate now handles both URLs and directory paths.
+        # For directory mode, the caller must use it as a context manager.
         template = ExternalChapkitModelTemplate(model_template_path)
-        assert template.name is not None, template
+        # Only verify name for URL mode (service already running)
+        if template._is_url_mode:
+            assert template.name is not None, template
         return template
 
     logger.debug(
