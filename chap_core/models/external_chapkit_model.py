@@ -216,4 +216,7 @@ class ExternalChapkitModel(ExternalModelBase):
         # get artifact from the client
         prediction_data = self.client.get_prediction_artifact_dataframe(artifact_id)
         pd = prediction_data.to_pandas()
+        # Sort by location and time_period to ensure consecutive periods
+        if "time_period" in pd.columns and "location" in pd.columns:
+            pd = pd.sort_values(by=["location", "time_period"]).reset_index(drop=True)
         return DataSet.from_pandas(pd, Samples)
