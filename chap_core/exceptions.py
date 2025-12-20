@@ -19,3 +19,9 @@ class ModelConfigurationException(Exception): ...
 
 
 class InvalidDateError(Exception): ...
+
+
+class ChapkitServiceStartupError(Exception):
+    """Raised when a chapkit model service fails to start."""
+
+    ...

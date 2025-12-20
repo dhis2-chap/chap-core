@@ -255,44 +255,45 @@ def evaluate2(
         is_chapkit_model=run_config.is_chapkit_model,
     )
 
-    model = template.get_model(configuration)
-    estimator = model()
+    with template:
+        model = template.get_model(configuration)
+        estimator = model()
 
-    model_template_db = ModelTemplateDB(
-        id=template.model_template_config.name,
-        name=template.model_template_config.name,
-        version=template.model_template_config.version or "unknown",
-    )
+        model_template_db = ModelTemplateDB(
+            id=template.model_template_config.name,
+            name=template.model_template_config.name,
+            version=template.model_template_config.version or "unknown",
+        )
 
-    configured_model_db = ConfiguredModelDB(
-        id="cli_eval",
-        model_template_id=model_template_db.id,
-        model_template=model_template_db,
-        configuration=configuration.model_dump() if configuration else {},
-    )
+        configured_model_db = ConfiguredModelDB(
+            id="cli_eval",
+            model_template_id=model_template_db.id,
+            model_template=model_template_db,
+            configuration=configuration.model_dump() if configuration else {},
+        )
 
-    logger.info(
-        f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
-    )
-    logger.debug(f"Including {historical_context_years} years of historical context for plotting")
-    evaluation = Evaluation.create(
-        configured_model=configured_model_db,
-        estimator=estimator,
-        dataset=dataset,
-        backtest_params=backtest_params,
-        backtest_name=f"{model_name}_evaluation",
-        historical_context_years=historical_context_years,
-    )
+        logger.info(
+            f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
+        )
+        logger.debug(f"Including {historical_context_years} years of historical context for plotting")
+        evaluation = Evaluation.create(
+            configured_model=configured_model_db,
+            estimator=estimator,
+            dataset=dataset,
+            backtest_params=backtest_params,
+            backtest_name=f"{model_name}_evaluation",
+            historical_context_years=historical_context_years,
+        )
 
-    logger.info(f"Exporting evaluation to {output_file}")
-    evaluation.to_file(
-        filepath=output_file,
-        model_name=model_name,
-        model_configuration=configuration.model_dump() if configuration else {},
-        model_version=template.model_template_config.version or "unknown",
-    )
+        logger.info(f"Exporting evaluation to {output_file}")
+        evaluation.to_file(
+            filepath=output_file,
+            model_name=model_name,
+            model_configuration=configuration.model_dump() if configuration else {},
+            model_version=template.model_template_config.version or "unknown",
+        )
 
-    logger.info(f"Evaluation complete. Results saved to {output_file}")
+        logger.info(f"Evaluation complete. Results saved to {output_file}")
 
 
 def register_commands(app):
