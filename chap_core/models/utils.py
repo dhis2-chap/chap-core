@@ -61,7 +61,7 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
         model_name = Path(model_path).name
 
     run_dir_type, working_dir = _get_working_dir(model_path, base_working_dir, run_dir_type, model_name)
-    logger.info(f"Writing results to {working_dir}")
+    logger.debug(f"Writing results to {working_dir}")
 
     if is_github:
         working_dir.mkdir(parents=True)
@@ -78,10 +78,10 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
             logger.info(f"Cloning repository {model_path} (shallow clone)")
             repo = git.Repo.clone_from(model_path, working_dir, depth=1)
     elif run_dir_type == "use_existing":
-        logging.info("Not copying any model files, using existing directory")
+        logging.debug("Not copying any model files, using existing directory")
     else:
         # copy contents of model_path to working_dir
-        logger.info(f"Copying files from {model_path} to {working_dir}")
+        logger.debug(f"Copying files from {model_path} to {working_dir}")
         shutil.copytree(
             model_path,
             working_dir,
@@ -134,19 +134,19 @@ def get_model_template_from_directory_or_github_url(
     """
 
     if is_chapkit_model:
-        logger.info("Model is chapkit model")
+        logger.debug("Model is chapkit model")
         # For now, we assume that if a model template has a url on localhost it is
         # a chapkit model
         template = ExternalChapkitModelTemplate(model_template_path)
         assert template.name is not None, template
         return template
 
-    logger.info(
+    logger.debug(
         f"Getting model template from {model_template_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}"
     )
     working_dir = _get_model_code_base(model_template_path, base_working_dir, run_dir_type)
 
-    logger.info(f"Current directory is {os.getcwd()}, working dir is {working_dir.absolute()}")
+    logger.debug(f"Current directory is {os.getcwd()}, working dir is {working_dir.absolute()}")
     assert os.path.isdir(working_dir), working_dir
     assert os.path.isdir(os.path.abspath(working_dir)), working_dir
 
