@@ -274,7 +274,7 @@ def evaluate2(
     logger.info(
         f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
     )
-    logger.info(f"Including {historical_context_years} years of historical context for plotting")
+    logger.debug(f"Including {historical_context_years} years of historical context for plotting")
     evaluation = Evaluation.create(
         configured_model=configured_model_db,
         estimator=estimator,

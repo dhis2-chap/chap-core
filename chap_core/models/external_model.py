@@ -169,11 +169,11 @@ class ExternalModel(ExternalModelBase):
         return self
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
-        logging.info("Running predict")
+        logging.debug("Running predict")
         future_data_name = Path(self._working_dir) / "future_data.csv"
         historic_data_name = Path(self._working_dir) / "historic_data.csv"
         start_time = future_data.start_timestamp
-        logger.info(f"Predicting on dataset from {start_time} to {future_data.end_timestamp}")
+        logger.debug(f"Predicting on dataset from {start_time} to {future_data.end_timestamp}")
 
         for filename, dataset in [
             (future_data_name, future_data),
