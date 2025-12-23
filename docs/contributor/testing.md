@@ -20,13 +20,13 @@ problems ideally before pushing new code.
 First make sure you have activated your local development environment:
 
 ```bash
-$ source .venv/bin/activate
+source .venv/bin/activate
 ```
 
 The quick test can be run simply by running `pytest` in the root folder of the project:
 
 ```bash
-$ pytest
+pytest
 ```
 
 All tests should pass. If you write a new test and it is not passing for some reason (e.g. the functionalit you are testing is not implemented yet),
@@ -64,7 +64,7 @@ The comprehensive tests include the quick tests (see above) in addition to:
 The comprehensive tests are run by running this in the root folder of the project:
 
 ```bash
-$ make test-all
+make test-all
 ```
 
 To see what is actually being run, you can see what is specified under `test-all` in the Makefile.

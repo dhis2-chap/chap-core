@@ -27,9 +27,10 @@ SKIP_FILES = [
     # Design documents and planning docs
     "docs/contributor/evaluation_abstraction.md",
     "docs/contributor/preference_learning.md",
-    # Files with bash prompts ($) or outdated Python imports
-    "docs/contributor/testing.md",
-    "docs/external_models/surplus_after_refactoring.md",
+    # Files that download external data or require optional dependencies
+    "docs/external_models/surplus_after_refactoring.md",  # Requires gluonts, downloads data
+    # Files with commands that can't be safely tested (would run full test suite, etc.)
+    "docs/contributor/testing.md",  # Contains pytest, make test-all commands
 ]
 
 
