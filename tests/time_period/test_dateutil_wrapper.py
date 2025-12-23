@@ -48,7 +48,7 @@ def test_init_week_with_numbers():
     week = Week(2023, 2)
     assert isinstance(week, Week)
     assert week.start_timestamp == TimeStamp.parse("2023-01-09")
-    assert week.to_string() == "2023W2"  # pd.Period('2023-01-09', freq='W-MON')
+    assert week.to_string() == "2023-W02"  # New ISO-like format
 
 
 def test_parse(period1):
@@ -107,6 +107,60 @@ def test_from_id(period1):
     assert TimePeriod.from_id("2023W02") == Week(2023, 2)
     assert TimePeriod.from_id("20230203") == Day(2023, 2, 3)
     assert TimePeriod.from_id("2023") == Year(2023)
+
+
+def test_parse_week_formats():
+    """Test parsing of old and new week formats."""
+    # Old format: YYYYWnn
+    week1 = TimePeriod.parse("2023W02")
+    assert week1 == Week(2023, 2)
+    assert week1.year == 2023
+    assert week1.week == 2
+
+    # New format: YYYY-Wnn
+    week2 = TimePeriod.parse("2023-W02")
+    assert week2 == Week(2023, 2)
+    assert week2.year == 2023
+    assert week2.week == 2
+
+    # Both should produce the same week
+    assert week1 == week2
+
+
+def test_parse_sunday_week_formats():
+    """Test parsing of old and new Sunday-start week formats."""
+    # Old format: YYYYSunWnn
+    week1 = TimePeriod.parse("2023SunW02")
+    assert week1.year == 2023
+    assert week1.week == 2
+
+    # New format: YYYY-Snn
+    week2 = TimePeriod.parse("2023-S02")
+    assert week2.year == 2023
+    assert week2.week == 2
+
+    # Both should produce equivalent weeks
+    assert week1 == week2
+
+
+def test_week_to_string_format():
+    """Test that to_string() returns new ISO-like format."""
+    # Monday-start week
+    week_mon = Week(2023, 5)
+    assert week_mon.to_string() == "2023-W05"
+
+    # Sunday-start week
+    week_sun = Week(2023, 5, iso_day=7)
+    assert week_sun.to_string() == "2023-S05"
+
+
+def test_week_id_backwards_compatible():
+    """Test that id property returns old format for backwards compatibility."""
+    week_mon = Week(2023, 5)
+    assert week_mon.id == "2023W05"  # Old format
+
+    week_sun = Week(2023, 5, iso_day=7)
+    assert week_sun.id == "2023SunW05"  # Old format
 
 
 @pytest.fixture
