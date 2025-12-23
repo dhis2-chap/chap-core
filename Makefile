@@ -36,6 +36,9 @@ lint: ## check and fix code style with ruff
 test: ## run tests quickly with minimal output
 	uv run pytest -q
 
+test-docs: ## run documentation code block tests
+	uv run pytest tests/test_documentation.py -v
+
 test-verbose: ## run tests with INFO level logging
 	uv run pytest --log-cli-level=INFO -o log_cli=true -v
 
