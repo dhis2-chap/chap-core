@@ -15,6 +15,8 @@ import pandas as pd
 import httpx
 from pydantic import BaseModel, Field
 
+from chap_core.time_period.date_util_wrapper import pandas_period_to_string
+
 logger = logging.getLogger(__name__)
 
 
@@ -361,7 +363,9 @@ class CHAPKitRestAPIWrapper:
         """
         # Convert DataFrame to split format
         if "time_period" in data.columns:
-            data["time_period"] = data["time_period"].astype(str)
+            data["time_period"] = data["time_period"].apply(
+                lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
+            )
         data = data.replace({np.nan: None})
 
         # Convert DataFrame to columns/data format
@@ -400,7 +404,9 @@ class CHAPKitRestAPIWrapper:
             Dict with job_id and artifact_id
         """
         if "time_period" in future_data.columns:
-            future_data["time_period"] = future_data["time_period"].astype(str)
+            future_data["time_period"] = future_data["time_period"].apply(
+                lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
+            )
         future_data = future_data.replace({np.nan: None})
 
         predict_body: Dict[str, Any] = {
@@ -411,7 +417,9 @@ class CHAPKitRestAPIWrapper:
 
         if historic_data is not None:
             if "time_period" in historic_data.columns:
-                historic_data["time_period"] = historic_data["time_period"].astype(str)
+                historic_data["time_period"] = historic_data["time_period"].apply(
+                    lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
+                )
             historic_data = historic_data.replace({np.nan: None})
             predict_body["historic"] = {
                 "columns": historic_data.columns.tolist(),

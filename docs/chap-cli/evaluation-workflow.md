@@ -27,7 +27,11 @@ This dataset contains 108 rows with rainfall, temperature, disease cases, and po
 
 ## Step 1: Create an Evaluation
 
-Use `evaluate2` to run a backtest on a model and export results to NetCDF format:
+Use `evaluate2` to run a backtest on a model and export results to NetCDF format.
+
+### Standard Models (GitHub URL or Local Directory)
+
+For models hosted on GitHub or cloned locally:
 
 ```bash
 chap evaluate2 \
@@ -38,17 +42,68 @@ chap evaluate2 \
     --backtest-params.n-splits 7
 ```
 
+Or using a local directory:
+
+```bash
+chap evaluate2 \
+    --model-name /path/to/minimalist_example_r \
+    --dataset-csv ./data/vietnam_data.csv \
+    --output-file ./results/model_a_eval.nc \
+    --backtest-params.n-periods 3 \
+    --backtest-params.n-splits 7
+```
+
+### Chapkit Models
+
+Chapkit models are REST API-based models that follow the chapkit specification. See [Running models with chapkit](../external_models/chapkit.md) for more details.
+
+**From a running chapkit service (URL):**
+
+```bash
+chap evaluate2 \
+    --model-name http://localhost:8000 \
+    --dataset-csv ./data/vietnam_data.csv \
+    --output-file ./results/chapkit_eval.nc \
+    --run-config.is-chapkit-model \
+    --backtest-params.n-periods 3 \
+    --backtest-params.n-splits 7
+```
+
+**From a local chapkit model directory (auto-starts the service):**
+
+When you provide a directory path with `--run-config.is-chapkit-model`, CHAP automatically:
+
+1. Starts a FastAPI dev server from the model directory using `uv run fastapi dev`
+2. Waits for the service to become healthy
+3. Runs the evaluation
+4. Stops the service when complete
+
+```bash
+chap evaluate2 \
+    --model-name /path/to/your/chapkit/model \
+    --dataset-csv ./data/vietnam_data.csv \
+    --output-file ./results/chapkit_eval.nc \
+    --run-config.is-chapkit-model \
+    --backtest-params.n-periods 3 \
+    --backtest-params.n-splits 7
+```
+
 ### Parameters
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--model-name` | Model path or GitHub URL | Required |
+| `--model-name` | Model path, GitHub URL, or chapkit service URL | Required |
 | `--dataset-csv` | Path to CSV with disease data | Required |
 | `--output-file` | Path for output NetCDF file | Required |
 | `--backtest-params.n-periods` | Forecast horizon (periods ahead) | 3 |
 | `--backtest-params.n-splits` | Number of train/test splits | 7 |
 | `--backtest-params.stride` | Step size between splits | 1 |
 | `--model-configuration-yaml` | Optional YAML with model config | None |
+| `--run-config.is-chapkit-model` | Flag to indicate chapkit model | false |
+| `--run-config.ignore-environment` | Skip environment setup | false |
+| `--run-config.debug` | Enable debug logging | false |
+| `--run-config.run-directory-type` | Directory handling: `latest`, `timestamp`, or `use_existing` | timestamp |
+| `--historical-context-years` | Years of historical data for plot context | 6 |
 
 ### GeoJSON Auto-Discovery
 
@@ -138,9 +193,9 @@ chap export-metrics \
     --metric-ids rmse_aggregate mae_aggregate crps
 ```
 
-## Complete Example
+## Complete Example: Standard Models
 
-Here's a complete workflow comparing two models using the included example dataset:
+Here's a complete workflow comparing two standard models using the included example dataset:
 
 ```bash
 # Step 1: Evaluate first model (auto-regressive)
@@ -178,9 +233,87 @@ cat ./model_comparison.csv
 
 The GeoJSON file `example_data/laos_subset.geojson` is automatically discovered since it has the same base name as the CSV.
 
+## Complete Example: Chapkit Models
+
+Here's a workflow using chapkit models, including both a running service and a local directory:
+
+### Option A: Using a running chapkit service
+
+First, start your chapkit model service (e.g., using Docker):
+
+```bash
+docker run -p 8000:8000 ghcr.io/dhis2-chap/chtorch:latest
+```
+
+Then run the evaluation:
+
+```bash
+# Evaluate the chapkit model
+chap evaluate2 \
+    --model-name http://localhost:8000 \
+    --dataset-csv ./example_data/laos_subset.csv \
+    --output-file ./eval_chapkit.nc \
+    --run-config.is-chapkit-model \
+    --backtest-params.n-splits 3
+
+# Plot results
+chap plot-backtest \
+    --input-file ./eval_chapkit.nc \
+    --output-file ./plot_chapkit.html
+```
+
+### Option B: Using a local chapkit model directory (auto-start)
+
+If you have a chapkit model in a local directory, CHAP can automatically start and stop the service:
+
+```bash
+# Clone or create your chapkit model
+git clone https://github.com/your-org/your-chapkit-model /path/to/chapkit-model
+
+# Evaluate with auto-start (CHAP starts the service automatically)
+chap evaluate2 \
+    --model-name /path/to/chapkit-model \
+    --dataset-csv ./example_data/laos_subset.csv \
+    --output-file ./eval_local_chapkit.nc \
+    --run-config.is-chapkit-model \
+    --backtest-params.n-splits 3
+
+# Plot results
+chap plot-backtest \
+    --input-file ./eval_local_chapkit.nc \
+    --output-file ./plot_local_chapkit.html
+```
+
+### Comparing chapkit and standard models
+
+You can compare chapkit models with standard models using export-metrics:
+
+```bash
+# Evaluate a standard model
+chap evaluate2 \
+    --model-name https://github.com/dhis2-chap/minimalist_example_r \
+    --dataset-csv ./example_data/laos_subset.csv \
+    --output-file ./eval_standard.nc \
+    --backtest-params.n-splits 3
+
+# Evaluate a chapkit model
+chap evaluate2 \
+    --model-name /path/to/chapkit-model \
+    --dataset-csv ./example_data/laos_subset.csv \
+    --output-file ./eval_chapkit.nc \
+    --run-config.is-chapkit-model \
+    --backtest-params.n-splits 3
+
+# Compare both
+chap export-metrics \
+    --input-files ./eval_standard.nc ./eval_chapkit.nc \
+    --output-file ./comparison.csv
+```
+
 ## Tips
 
 - **Consistent parameters**: Use the same `n-periods` and `n-splits` when comparing models
 - **Same dataset**: Always use identical datasets for fair comparison
 - **Multiple runs**: Consider running evaluations with different random seeds for robustness
 - **Metric interpretation**: Lower RMSE/MAE/CRPS is better; higher coverage ratios indicate better calibrated uncertainty
+- **Chapkit auto-start**: When using local chapkit directories, ensure `uv` is installed and the model directory has a valid FastAPI app structure with a `/health` endpoint
