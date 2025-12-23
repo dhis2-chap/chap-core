@@ -7,11 +7,13 @@ from pathlib import Path
 import pytest
 
 EXAMPLE_DATA = Path("example_data/laos_subset.csv")
+# Use a lightweight GitHub model for testing (evaluate2 requires path or URL, not built-in names)
+TEST_MODEL = "https://github.com/dhis2-chap/minimalist_example_lag"
 
 
 @pytest.mark.slow
-def test_evaluate2_with_naive_model():
-    """Test evaluate2 command with naive_model and example data."""
+def test_evaluate2_with_github_model():
+    """Test evaluate2 command with GitHub model and example data."""
     if not EXAMPLE_DATA.exists():
         pytest.skip(f"Example data not found: {EXAMPLE_DATA}")
 
@@ -23,7 +25,7 @@ def test_evaluate2_with_naive_model():
                 "chap",
                 "evaluate2",
                 "--model-name",
-                "naive_model",
+                TEST_MODEL,
                 "--dataset-csv",
                 str(EXAMPLE_DATA),
                 "--output-file",
@@ -56,7 +58,7 @@ def test_plot_backtest():
                 "chap",
                 "evaluate2",
                 "--model-name",
-                "naive_model",
+                TEST_MODEL,
                 "--dataset-csv",
                 str(EXAMPLE_DATA),
                 "--output-file",
@@ -104,7 +106,7 @@ def test_export_metrics():
                 "chap",
                 "evaluate2",
                 "--model-name",
-                "naive_model",
+                TEST_MODEL,
                 "--dataset-csv",
                 str(EXAMPLE_DATA),
                 "--output-file",
@@ -137,7 +139,7 @@ def test_export_metrics():
 
         # Verify CSV has content
         content = output_csv.read_text()
-        assert "naive_model" in content or "filename" in content
+        assert "minimalist_example_lag" in content or "filename" in content
 
 
 @pytest.mark.slow
@@ -157,7 +159,7 @@ def test_full_evaluation_workflow():
                 "chap",
                 "evaluate2",
                 "--model-name",
-                "naive_model",
+                TEST_MODEL,
                 "--dataset-csv",
                 str(EXAMPLE_DATA),
                 "--output-file",
