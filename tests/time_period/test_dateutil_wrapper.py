@@ -14,6 +14,7 @@ from chap_core.time_period.date_util_wrapper import (
     Day,
     Year,
     Week,
+    pandas_period_to_string,
 )
 
 
@@ -161,6 +162,35 @@ def test_week_id_backwards_compatible():
 
     week_sun = Week(2023, 5, iso_day=7)
     assert week_sun.id == "2023SunW05"  # Old format
+
+
+def test_pandas_period_to_string():
+    """Test conversion of pandas Period objects to ISO-like format."""
+    # Weekly period
+    weekly = pd.Period("2020-01-06", freq="W")
+    assert pandas_period_to_string(weekly) == "2020-W02"
+
+    # Monthly period
+    monthly = pd.Period("2020-01", freq="M")
+    assert pandas_period_to_string(monthly) == "2020-01"
+
+    # Daily period
+    daily = pd.Period("2020-01-15", freq="D")
+    assert pandas_period_to_string(daily) == "2020-01-15"
+
+    # Yearly period
+    yearly = pd.Period("2020", freq="Y")
+    assert pandas_period_to_string(yearly) == "2020"
+
+
+def test_pandas_period_to_string_from_week_object():
+    """Test conversion flow from Week object through pandas Period."""
+    pr = PeriodRange.from_time_periods(Week(2020, 1), Week(2020, 3))
+    pandas_periods = pr.topandas()
+
+    # Convert each pandas Period to our format
+    result = [pandas_period_to_string(p) for p in pandas_periods]
+    assert result == ["2020-W01", "2020-W02", "2020-W03"]
 
 
 @pytest.fixture

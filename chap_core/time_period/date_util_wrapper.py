@@ -735,3 +735,29 @@ def convert_time_period_string(row):
     if len(row) == 6 and "W" not in row:
         return f"{row[:4]}-{row[4:]}"
     return row
+
+
+def pandas_period_to_string(period: pd.Period) -> str:
+    """Convert a pandas Period to our ISO-like string format.
+
+    Weekly periods are converted to YYYY-Wnn format (ISO week numbering).
+    Monthly periods are converted to YYYY-MM format.
+    """
+    freq = period.freqstr
+    if freq.startswith("W"):
+        # Weekly period - convert to ISO week format (YYYY-Wnn)
+        # Use ISO calendar to get the correct week number
+        year, week, _ = period.start_time.isocalendar()
+        return f"{year}-W{week:02d}"
+    elif freq in ("M", "ME"):
+        # Monthly period
+        return f"{period.year}-{period.month:02d}"
+    elif freq in ("Y", "YE", "A"):
+        # Yearly period
+        return str(period.year)
+    elif freq == "D":
+        # Daily period
+        return f"{period.year}-{period.month:02d}-{period.day:02d}"
+    else:
+        # Fallback to string representation
+        return str(period)

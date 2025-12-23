@@ -204,18 +204,19 @@ When running things with docker compose, some logging will be done by each conta
 
 # Data requirements in CHAP
 
-CHAP expects the data to contain certain features as column names of the supplied csv files. Specifically, time_period, population, disease_cases, location, rainfall and mean_temperature. CHAP gives an error if any of these are missing in the supplied datafile. Additionally, there are convntions for how to represent time in the time_period. For instance, weekly data should be represented as 
+CHAP expects the data to contain certain features as column names of the supplied csv files. Specifically, time_period, population, disease_cases, location, rainfall and mean_temperature. CHAP gives an error if any of these are missing in the supplied datafile. Additionally, there are conventions for how to represent time in the time_period. For instance, weekly data should be represented as
+
 |time_period|
-|-----------------|
-|2014-12-29/2015-01-04|
-|2015-01-05/2015-01-11|
-|2015-01-12/2015-01-18|
-|2015-01-19/2015-01-25|
+|-----------|
+|2014-W52|
+|2015-W01|
+|2015-W02|
+|2015-W03|
 
 And for monthly data it should be
 
 |time_period|
-|-----------------|
+|-----------|
 |2014-12|
 |2015-01|
 |2015-02|
