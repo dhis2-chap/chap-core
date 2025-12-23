@@ -16,6 +16,22 @@ The workflow consists of three main steps:
 - A dataset CSV file with disease case data
 - A GeoJSON file with region polygons (optional, auto-discovered if named same as CSV)
 
+## Verify Installation
+
+Before starting, verify that the CLI tools are installed correctly:
+
+```bash
+chap evaluate2 --help
+```
+
+```bash
+chap plot-backtest --help
+```
+
+```bash
+chap export-metrics --help
+```
+
 ## Example Dataset
 
 CHAP includes a small example dataset for testing and learning:
@@ -33,7 +49,7 @@ Use `evaluate2` to run a backtest on a model and export results to NetCDF format
 
 For models hosted on GitHub or cloned locally:
 
-```bash
+```console
 chap evaluate2 \
     --model-name https://github.com/dhis2-chap/minimalist_example_r \
     --dataset-csv ./data/vietnam_data.csv \
@@ -44,7 +60,7 @@ chap evaluate2 \
 
 Or using a local directory:
 
-```bash
+```console
 chap evaluate2 \
     --model-name /path/to/minimalist_example_r \
     --dataset-csv ./data/vietnam_data.csv \
@@ -59,7 +75,7 @@ Chapkit models are REST API-based models that follow the chapkit specification. 
 
 **From a running chapkit service (URL):**
 
-```bash
+```console
 chap evaluate2 \
     --model-name http://localhost:8000 \
     --dataset-csv ./data/vietnam_data.csv \
@@ -78,7 +94,7 @@ When you provide a directory path with `--run-config.is-chapkit-model`, CHAP aut
 3. Runs the evaluation
 4. Stops the service when complete
 
-```bash
+```console
 chap evaluate2 \
     --model-name /path/to/your/chapkit/model \
     --dataset-csv ./data/vietnam_data.csv \
@@ -113,7 +129,7 @@ If your dataset is `vietnam_data.csv`, CHAP will automatically look for `vietnam
 
 Use `plot-backtest` to generate visualizations from the evaluation results:
 
-```bash
+```console
 chap plot-backtest \
     --input-file ./results/model_a_eval.nc \
     --output-file ./results/model_a_plot.html \
@@ -142,7 +158,7 @@ The output format is determined by file extension:
 
 Run the same process with a different model for comparison:
 
-```bash
+```console
 chap evaluate2 \
     --model-name https://github.com/dhis2-chap/chap_auto_ewars_weekly \
     --dataset-csv ./data/vietnam_data.csv \
@@ -155,7 +171,7 @@ chap evaluate2 \
 
 Use `export-metrics` to compute metrics from multiple evaluations and export to CSV:
 
-```bash
+```console
 chap export-metrics \
     --input-files ./results/model_a_eval.nc ./results/model_b_eval.nc \
     --output-file ./results/comparison.csv
@@ -186,7 +202,7 @@ model_b_eval.nc,chap_auto_ewars_weekly,2.0.0,38.7,28.4,0.038,0.88,0.70,168
 
 To export only specific metrics:
 
-```bash
+```console
 chap export-metrics \
     --input-files ./results/model_a_eval.nc ./results/model_b_eval.nc \
     --output-file ./results/comparison.csv \
@@ -197,7 +213,7 @@ chap export-metrics \
 
 Here's a complete workflow comparing two standard models using the included example dataset:
 
-```bash
+```console
 # Step 1: Evaluate first model (auto-regressive)
 chap evaluate2 \
     --model-name https://github.com/dhis2-chap/chap_auto_ewars \
@@ -241,13 +257,13 @@ Here's a workflow using chapkit models, including both a running service and a l
 
 First, start your chapkit model service (e.g., using Docker):
 
-```bash
+```console
 docker run -p 8000:8000 ghcr.io/dhis2-chap/chtorch:latest
 ```
 
 Then run the evaluation:
 
-```bash
+```console
 # Evaluate the chapkit model
 chap evaluate2 \
     --model-name http://localhost:8000 \
@@ -266,7 +282,7 @@ chap plot-backtest \
 
 If you have a chapkit model in a local directory, CHAP can automatically start and stop the service:
 
-```bash
+```console
 # Clone or create your chapkit model
 git clone https://github.com/your-org/your-chapkit-model /path/to/chapkit-model
 
@@ -288,7 +304,7 @@ chap plot-backtest \
 
 You can compare chapkit models with standard models using export-metrics:
 
-```bash
+```console
 # Evaluate a standard model
 chap evaluate2 \
     --model-name https://github.com/dhis2-chap/minimalist_example_r \

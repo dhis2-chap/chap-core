@@ -9,8 +9,8 @@ from mktestdocs import check_md_file
 # Files to skip entirely (contain only non-testable examples)
 SKIP_FILES = [
     # These files have examples requiring external models, docker, or network access
-    "docs/chap-cli/evaluation-workflow.md",
-    "docs/external_models/chapkit.md",
+    # Note: chapkit.md and evaluation-workflow.md have testable help commands
+    # and their JSON/YAML examples are validated in test_documentation_slow.py
     "docs/external_models/chap_evaluate_examples.md",
     "docs/external_models/running_models_in_chap.md",
     "docs/modeling-app/installation.md",
