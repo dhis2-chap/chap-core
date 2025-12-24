@@ -1,0 +1,2280 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Climate Health Analysis Platform (CHAP) Documentation">
+      
+      
+      
+        <link rel="canonical" href="https://dhis2-chap.github.io/chap-core/external_models/learn_modelling.html">
+      
+      
+        <link rel="prev" href="experienced_modeller.html">
+      
+      
+        <link rel="next" href="chapkit.html">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+    
+    
+      
+        <title>Learning Modelling - Climate Health</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.618322db.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#learning-statistical-and-machine-learning-modelling-with-climate-sensitive-disease-forecasting-as-focus-and-case" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../index.html" title="Climate Health" class="md-header__button md-logo" aria-label="Climate Health" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Climate Health
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Learning Modelling
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dhis2-chap/chap-core" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dhis2-chap/chap-core
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../index.html" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../modeling-app/index.html" class="md-tabs__link">
+          
+  
+  
+  Modeling App
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="index.html" class="md-tabs__link">
+          
+  
+  
+  Model Developers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../chap-cli/index.html" class="md-tabs__link">
+          
+  
+  
+  CLI
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../contributor/index.html" class="md-tabs__link">
+          
+  
+  
+  Contributors
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../webapi/index.html" class="md-tabs__link">
+          
+  
+  
+  Web API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../api/index.html" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../changelog.html" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../index.html" title="Climate Health" class="md-nav__button md-logo" aria-label="Climate Health" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Climate Health
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dhis2-chap/chap-core" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dhis2-chap/chap-core
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modeling App
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modeling App
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modeling-app/index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modeling-app/installation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modeling-app/modeling-app.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using the App
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modeling-app/running-chap-on-server.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Developers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Model Developers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="newcomer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    For Newcomers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="experienced_modeller.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    For Experienced Modellers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="learn_modelling.html" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Learning Modelling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building Models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Building Models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="chapkit.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Chapkit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="describe_model.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Describe Your Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="train_and_predict.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Train and Predict
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="running_models_in_chap.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Integration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="chap-dhis2-connection.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DHIS2 Connection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="supporting_functionality.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supporting Functionality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="chap_evaluate_examples.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="side_by_side_comparison.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Side by Side Comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chap-cli/index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chap-cli/chap-core-cli-setup.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chap-cli/evaluation-workflow.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contributors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/getting_started.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/chap-contributor-setup.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/windows_contributors.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Windows Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/code_overview.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/vocabulary.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Vocabulary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/testing.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/database_migrations.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/writing_building_documentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/development_tools.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/evaluation_abstraction.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Evaluation Abstraction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributor/preference_learning.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preference Learning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Web API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../webapi/index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../webapi/developer.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../webapi/docker-compose-doc.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker Compose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="learning-statistical-and-machine-learning-modelling-with-climate-sensitive-disease-forecasting-as-focus-and-case">Learning statistical and machine learning modelling - with climate-sensitive disease forecasting as focus and case<a class="headerlink" href="#learning-statistical-and-machine-learning-modelling-with-climate-sensitive-disease-forecasting-as-focus-and-case" title="Permanent link">&para;</a></h1>
+<p>This material will gradually introduce you to important concepts from statistical modelling and machine learning, 
+focusing on what you will need to understand in order to do forecasting of climate-sensitive disease.
+It thus selects a set of topics needed for disease forecasting, while mostly introducing these concepts in generality.</p>
+<p>The material is organised around hands-on tutorials, where you will learn how to practically develop models while learning the theoretical underpinnings.</p>
+<h1 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h1>
+<ul>
+<li>Programming: you must know some programming, in either Python or R, to be able to follow our exercises and tutorials. </li>
+<li>Data science: You should know basic data science and statistics or machine learning. However, very little is presumed as it can be learnt underway, but one should know the most basic concepts and terminology.</li>
+<li>GitHub: Central to our approach is that you follow various practical tutorials along the way. These tutorials are available at GitHub, so you need to know at least the absolute basics of how to get code from GitHub to your local machine - if not please ask us for tips on Github tutorials.</li>
+</ul>
+<h1 id="background">Background<a class="headerlink" href="#background" title="Permanent link">&para;</a></h1>
+<p>Climate change is rapidly reshaping the patterns and spread of disease, posing urgent challenges for health systems. To effectively respond, the health systems must become more adaptive and data-driven. Early warning and response systems (EWS) that leverage disease incidence forecasting offer a promising way to prioritize interventions where and when they are most needed.</p>
+<p>At the core of early warning is forecasting of disease incidence forward in time. This is based on learning a statistical/machine learning model of how disease progresses ahead in time based on various available data. </p>
+<p>If you have limited prior experience with statistics or machine learning, please read our brief intro in the expandable box below:</p>
+<details class="info">
+<summary>A gentle introduction to statistical and time series modelling</summary>
+<h3 id="1-statistical-or-machine-learning-model">1. Statistical or Machine Learning Model<a class="headerlink" href="#1-statistical-or-machine-learning-model" title="Permanent link">&para;</a></h3>
+<p>A <strong>model</strong> is a rule or formula we create to describe how some outcome depends on information we already have.</p>
+<ul>
+<li>The outcome we want to understand or predict is often called the <strong>target</strong>.</li>
+<li>The information we use to make that prediction is called <strong>predictors</strong> (or <strong>features</strong>).</li>
+</ul>
+<p>A model tries to capture patterns in data in a simplified way.<br />
+You can think of a model as a machine:</p>
+<blockquote>
+<p><strong>input (predictors)</strong> → <em>model learns a pattern</em> → <strong>output (prediction)</strong></p>
+</blockquote>
+<p>The goal is either to <strong>explain</strong> something (“What affects sales?”) or to <strong>predict</strong> something (“What will sales be tomorrow?”).</p>
+<hr />
+<h3 id="2-predictors-features">2. Predictors (Features)<a class="headerlink" href="#2-predictors-features" title="Permanent link">&para;</a></h3>
+<p>A <strong>predictor</strong> is any variable that provides information helpful for predicting the target.</p>
+<p>Examples:
+- Temperature when predicting ice cream sales<br />
+- Age when predicting income<br />
+- Yesterday’s stock price when predicting today’s  </p>
+<p>Predictors are the model’s <em>inputs</em>.<br />
+We usually write them as numbers:<br />
+- A single predictor as <em>x</em><br />
+- Several predictors as <em>x₁, x₂, x₃,</em> …  </p>
+<p>The model learns how each predictor is related to the target.</p>
+<hr />
+<h3 id="3-linear-regression">3. Linear Regression<a class="headerlink" href="#3-linear-regression" title="Permanent link">&para;</a></h3>
+<p><strong>Linear regression</strong> is one of the simplest and most widely used models.<br />
+It assumes that the target is approximately a <strong>straight-line combination</strong> of its predictors.</p>
+<p>With one predictor <em>x</em>, the model is:</p>
+<blockquote>
+<p><strong>prediction = a + b·x</strong></p>
+</blockquote>
+<ul>
+<li><strong>a</strong> is the model’s baseline (what we predict when <em>x = 0</em>)  </li>
+<li><strong>b</strong> tells us how much the prediction changes when <em>x</em> increases by 1 unit  </li>
+</ul>
+<p>With multiple predictors <em>x₁, x₂, …</em>, we extend the same idea:</p>
+<blockquote>
+<p><strong>prediction = a + b₁·x₁ + b₂·x₂ + …</strong></p>
+</blockquote>
+<p>You don’t need to imagine shapes in many dimensions—just think of it as a recipe where each predictor gets a weight (<strong>b</strong>) that shows how important it is.</p>
+<p>The model “learns” values of <em>a, b₁, b₂, …</em> by choosing them so that predictions are as close as possible to the observed data.</p>
+<hr />
+<h3 id="4-time-series">4. Time Series<a class="headerlink" href="#4-time-series" title="Permanent link">&para;</a></h3>
+<p>A <strong>time series</strong> is a sequence of data points collected over time, in order:</p>
+<blockquote>
+<p>value at time 1, value at time 2, value at time 3, …</p>
+</blockquote>
+<p>Examples:
+- Daily temperatures<br />
+- Hourly website traffic<br />
+- Monthly number of customers  </p>
+<p>What makes time series special is that:</p>
+<ul>
+<li><strong>The order matters</strong>  </li>
+<li><strong>Past values can influence future values</strong>  </li>
+<li>Data may show <strong>patterns</strong> such as trends (general increase/decrease over time) or seasonality (repeating patterns, like higher electricity use every winter)</li>
+</ul>
+<hr />
+<h3 id="5-time-series-forecasting">5. Time Series Forecasting<a class="headerlink" href="#5-time-series-forecasting" title="Permanent link">&para;</a></h3>
+<p><strong>Forecasting</strong> means using past observations to predict future ones.</p>
+<p>Unlike models that treat each data point separately, forecasting models learn ideas like:</p>
+<ul>
+<li>how the series tends to move (trend)  </li>
+<li>whether it repeats patterns (seasonality)  </li>
+<li>how strongly the recent past influences the next value  </li>
+</ul>
+<p>A simple forecasting idea is to predict the next value using a weighted average of recent past values. More advanced methods learn more complex patterns automatically.</p>
+<hr />
+<h3 id="6-evaluation-of-predictions">6. Evaluation of Predictions<a class="headerlink" href="#6-evaluation-of-predictions" title="Permanent link">&para;</a></h3>
+<p>Once a model makes predictions, we need to measure how good they are.<br />
+This means comparing the model’s predictions to the actual values.</p>
+<p>Let:
+- <strong>actual</strong> value = <em>y</em>
+- <strong>predicted</strong> value = ŷ (read as “y-hat”)</p>
+<p>The <strong>error</strong> is:</p>
+<blockquote>
+<p><strong>error = actual − predicted = y − ŷ</strong></p>
+</blockquote>
+<p>Common ways to summarize how large the errors are:</p>
+<ul>
+<li><strong>MAE (Mean Absolute Error):</strong><br />
+  average of |y − ŷ| (the average size of the mistakes)</li>
+<li><strong>MSE (Mean Squared Error):</strong><br />
+  average of (y − ŷ)² (large mistakes count extra)</li>
+<li><strong>RMSE (Root Mean Squared Error):</strong><br />
+  the square root of MSE (in the same units as the data)</li>
+<li><strong>MAPE (Mean Absolute Percentage Error):</strong><br />
+  how large the errors are <em>relative</em> to the actual values, in %</li>
+</ul>
+<p>These measures help us compare models and choose the one that predicts best.</p>
+<p>For a bit more in-depth introduction, please also consider the following general papers:</p>
+<ul>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5905345/">Machine learning: A primer</a></li>
+<li><a href="https://www.nature.com/articles/nmeth.3627">Simple linear regression</a></li>
+<li><a href="https://www.nature.com/articles/nmeth.3665">Multiple linear regression</a></li>
+</ul>
+</details>
+<h1 id="motivation">Motivation<a class="headerlink" href="#motivation" title="Permanent link">&para;</a></h1>
+<p>Our tutorial aims to introduce aspects of statistical modelling and machine learning that are useful specifically for developing, evaluating and later operationalising forecasting models. Our pedagogical approach is to begin by introducing a very simple model in a simple setting, and then expanding both the model and the setting in a stepwise fashion. We emphasize interoperability and rigorous evaluation of models right from the start, as a way of guiding the development of more sophisticated models. In doing this, we follow a philosophy resembling what is known as agile development in computer science.
+To facilitate interoperability and evaluation of models, we rely on the <a href="https://dhis2-chap.github.io/chap-core">Chap platform</a>, which enforces standards of interoperability already from the first, simple model. This interoperability allows models to be run on a broad data collection and be rigorously evaluated with rich visualisations of data and predictions already from the early phase.</p>
+<h1 id="making-your-first-model-and-getting-it-into-chap">Making your first model and getting it into chap<a class="headerlink" href="#making-your-first-model-and-getting-it-into-chap" title="Permanent link">&para;</a></h1>
+<p>Disease forecasting is a type of problem within what is known as spatiotemporal modelling in the field of statistics/ML. What this means is that the data have both a temporal and spatial reference (i.e. data of disease incidence is available at multiple subsequent time points, for different regions in a country), where observations that are close in time or space are usually considered more likely to be similar. In our case, we also have data both on disease and on various climate variables that may influence disease incidence.</p>
+<p>Before going into the many challenges of spatiotemporal modelling, we recommend that you get the technical setup in place to allow efficient development and learning for the remainder of this tutorial. Although this can be a bit of a technical nuisance just now, it allows you to run your model on a variety of data inputs with rich evaluation now already, and it allows you to progress efficiently with very few technical wrinkles as the statistical and ML aspects become more advanced. To do this, please follow our minimalist example tutorial, which introduces an extremely oversimplified statistical model (linear regression of immediate climate effects on disease only), but shows you how to get this running in Chap. 
+This minimalist tutorial is available both as Python and as R code:</p>
+<ul>
+<li><a href="https://github.com/dhis2-chap/minimalist_example">Minimalist Example (Python)</a> </li>
+<li><a href="https://github.com/dhis2-chap/minimalist_example_r">Minimalist Example (R)</a> </li>
+</ul>
+<h1 id="evaluating-a-model">Evaluating a model<a class="headerlink" href="#evaluating-a-model" title="Permanent link">&para;</a></h1>
+<p>The purpose of spatiotemporal modelling is to learn generalisable patterns that can be used to reason about unseen regions or about the future. Since our use case is an early warning system, our focus is on the latter, i.e. forecasting disease incidence ahead in time based on historic data for a given region. Therefore, we will focus on evaluating a model through its forecasting skill into the future.</p>
+<p>A straightforward way to assess a forecasting model is to create and record forecasts for future disease development, wait to see how disease truly develops, and then afterwards compare the observed numbers to what was forecasted. This approach has two main limitations, though: 
+it requires to wait through the forecast period to see what observations turn out to be
+it only shows the prediction skill of the forecast model at a single snapshot in time - leaving a large uncertainty on how a system may be expected to behave if used to forecast new future periods. </p>
+<p>A popular and powerful alternative is thus to perform what is called backtesting or hindcasting: one pretends to be at a past point in time, providing a model exclusively with data that was available before this pretended point in time, making forecasts beyond that time point (for which no information was available to the model), and then assessing how close this forecast is to what happened after the pretended time point. When performed correctly, this resolves the both mentioned issues with assessing forecasts truly made into the future: 
+Since observations after the pretended time point is already available in historic records, assessment can be performed instantaneously, and
+one can choose several different pretended time points, reducing uncertainty of the estimated prediction skill  and also allowing to see variability in prediction skill across time. </p>
+<p>To be truly representative of true future use, it is crucial that the pretended time point for forecasting realistically reflects a situation where the future is not known. There are a myriad pitfalls in assessment setup that can lead to the assessment not respecting the principle of future information beyond the pretended time point not being accessible to models. This is discussed in more detail in the document <a href="https://docs.google.com/document/d/1Hr7Wz4Yc4ZKZ6fsFJI_lpLO8d1SSxtfTeqByWZrQqFo/edit?tab=t.0">"Ensuring unbiased and operationally relevant assessments of climate-informed disease forecasting"</a>.</p>
+<p>Prediction skill can be measured in different ways. One simple way to measure this is to look at how far off the predictions are, on average, from the true values (known as mean absolute error, MAE). Other common measures are discussed later in this tutorial, after we have introduced further aspects of modelling. 
+To make the most of the data we have, we often use a method called cross-validation. This means we repeatedly split the data into “past” and “future” parts at different time points. We then make forecasts for each split and check how accurate those forecasts are. This helps us see how well the model performs across different periods of time. To learn more, Wikipedia has a broad <a href="https://en.wikipedia.org/wiki/Cross-validation_(statistics)#Cross_validation_for_time-series,_spatial_and_spatiotemporal_models">introduction to this topic</a>, including specifics for time series models. </p>
+<p>Since we are here running our models through Chap, we can lean on an already implemented solution to avoid pitfalls and ensure a data-efficient and honest evaluation of the models we develop. Chap also includes several metrics, including MAE, and offers several convenient visualisations to provide insights on the prediction skill. 
+To get a feeling for this, please follow the code-along tutorials on assessment with Chap. We recommend to start with our simple code-along <a href="https://github.com/dhis2-chap/Assessment_example_singlepred">tutorial for how to split data and compute MAE</a> on the pretended future. </p>
+<p>After getting a feeling for assessment, please continue with our code <a href="https://github.com/dhis2-chap/Assessment_example_chap_compatible">tutorial on how to use the built-in chap evaluation functionality</a> to perform more sophisticated evaluation of any model (rather than implementing your own simple evaluation from scratch, as in the previous code-along tutorial).</p>
+<p>With this evaluation setup in place, you should be ready to start looking at more sophisticated modelling approaches. For each new version of your model, evaluation helps you check that the new version is actually an improvement (and if so, in which sense, for instance short-term vs long-term, accuracy vs calibration, large vs small data set).</p>
+<h1 id="expanding-your-model-to-make-it-more-meaningful">Expanding your model to make it more meaningful<a class="headerlink" href="#expanding-your-model-to-make-it-more-meaningful" title="Permanent link">&para;</a></h1>
+<h2 id="multiple-regions">Multiple regions<a class="headerlink" href="#multiple-regions" title="Permanent link">&para;</a></h2>
+<p>While it may in some settings be useful to forecast disease at a national level, it is often more operationally relevant to create forecasts for smaller regions within the country, for instance at district level. Therefore, a disease forecasting approach needs to relate to multiple districts in the code, to create forecasts per district. 
+If a single model is trained across district data (ignoring the fact that there are different districts) and used to directly forecast disease without taking into account differences between districts in any way, it would forecast similar levels of disease across districts regardless of disease prevalence in each particular district. 
+To see this more concretely please follow this <a href="https://github.com/dhis2-chap/Assessment_example_multiregion">tutorial to see the errors</a> that the minimalist_example model (which ignores districts) makes for the two districts D1 and D2 with respectively high and low prevalence.</p>
+<p>The simplest approach to creating meaningful region-level forecast is to simply train and forecast based on a separate model per region. Please follow the tutorial below (in Python or R version) to see an easy way of doing this in code: </p>
+<ul>
+<li><a href="https://github.com/dhis2-chap/minimalist_multiregion">Minimalist Multiregion (Python)</a></li>
+<li><a href="https://github.com/dhis2-chap/minimalist_multiregion_r">Minimalist Multiregion (R)</a></li>
+</ul>
+<p>However, such independent consideration of each region also has several weaknesses.
+A main weakness is connected to the amount of data available to learn a good model. When learning a separate model per region, there may be a scarcity of data to fit a model of the desired complexity. This relates to a general principle in statistics concerning the amount of data available to fit a model versus the number of parameters in a model (see e.g. <a href="https://www.researchgate.net/publication/307526307_Points_of_Significance_Model_selection_and_overfitting">this article</a>). More available data allows for a larger number of parameters and a more complex model. Compared to the case with separate models per region, just combining data across all regions into a single model where the parameters are completely independent between districts does not change the ratio of available data versus parameters to be estimated. However, if the parameters are dependent (for example due a spatial structure, i.e. similarities between regions), the effective number of parameters will be lower than the actual number. There is a trade-off between having completely independent parameters on one hand and, and forcing parameters to be equal across regions on the other hand. This is often conveyed as “borrowing strength” between regions. It is also related to the concept of the bias-variance tradeoff in statistics and machine learning (see e.g. <a href="https://en.wikipedia.org/wiki/Bias%E2%80%93variance_tradeoff">this Wikipedia article</a>), where dependency between parameter values across regions introduces a small bias in each region towards the mean across regions, while reducing variance of the parameter estimates due to more efficient use of data. </p>
+<p>As the disease context (including numbers of disease cases) can vary greatly between regions, the same type of model is not necessarily suited for all regions. However, taking this into account can be complex, especially if one wants to combine flexibility of models with the concept of borrowing strength mentioned above. It is thus often more practical to use a single model across regions, but ensure that this model is flexible enough to handle such heterogeneity across regions. </p>
+<h2 id="lags-and-autoregressive-effect">Lags and autoregressive effect<a class="headerlink" href="#lags-and-autoregressive-effect" title="Permanent link">&para;</a></h2>
+<p>The incidence of disease today is usually affected by the incidence of disease in the recent past. This is for instance almost always the case with infectious disease, whether or not transmission is directly  human-to-human or via a vector like mosquitoes (e.g. Malaria and Dengue). Thus, it is usually advisable to include past cases of disease as a predictor in a model. This is typically referred to as including autoregressive effects in models.</p>
+<p>Additionally, climate variables such as rainfall and temperature usually don’t have an instantaneous effect. Typically, there is no way that (for example) rainfall today would influence cases today or in the nearest days. Instead, heavy rainfall today could alter standing water, affecting mosquito development and behavior, with effects on reported Malaria cases being several weeks ahead. This means that models should typically make use of past climatic data to predict disease incidence ahead. The period between the time point that a given data value reflects and the time point of its effect is referred to as a lag. The effect of a predictor on disease may vary and even be opposite when considered at different lags. A model should usually include predictors at several different time lags, where the model aims to learn which time lags are important and what the effects are for a given predictor at each such lag.</p>
+<p>Available data can be on different time resolutions. In some contexts, reported disease cases are available with specific time stamps, but more often what is collected is aggregated and made available at weekly or monthly resolution. The available data resolution influences how precisely variation in predictor effects across lag times can be represented. </p>
+<p>Basically, the influence of each predictor at each time lag will be represented by a separate parameter in a model. As discussed in the previous section on multiple regions, this can lead to too many parameters to be effectively estimated. It is thus common to employ some form of smoothing of the effects of a predictor across lags, with a reasoning similar to that of borrowing strength across regions (here instead borrowing strength across lag times).</p>
+<p>At a practical level, model training is often assuming that all predictors to be used for a given prediction (including lagged variables) are available at the same row of the input data table. It is thus common to modify the data tables to make lagged predictors line up. </p>
+<p>To see a simple way of doing this in code, follow this tutorial in Python or R:</p>
+<ul>
+<li><a href="https://github.com/dhis2-chap/minimalist_example_lag">Minimalist Example Lag (Python)</a></li>
+<li><a href="https://github.com/dhis2-chap/minimalist_example_lag_r">Minimalist Example Lag (R)</a></li>
+</ul>
+<h1 id="expanding-your-model-with-uncertainty">Expanding your model with uncertainty<a class="headerlink" href="#expanding-your-model-with-uncertainty" title="Permanent link">&para;</a></h1>
+<p>Future disease development can never be predicted with absolute certainty - even for short time scales there will always be some uncertainty of how the disease develops. For a decision maker, receiving a point estimate (a single best guess) without any indication of uncertainty is usually not very useful. Consider a best guess of 100 cases in a region. The way to use this information would likely be very different if the model predicted a range from 95 to 105 vs a range from 0 to 10 000. Although the range provided by the model is itself uncertain, it still provides a useful indication of what can be expected, and it will be possible to evaluate its ability to report its own uncertainty (as will be explained in the next section). </p>
+<p>When doing statistical modelling, uncertainty arises from several distinct sources, many of which are particularly important in time series settings. First, observed data are often noisy or imperfect measurements of an underlying process. Measurement error, reporting delays, missing values, or later data revisions mean that the observed series does not exactly reflect the true system being modelled.</p>
+<p>Even with perfect observations, the underlying process itself is usually stochastic, meaning that even if one had precise measurements of the current status and had learnt a perfectly correct model that involves these measured data, a variety of external factors would influence disease development in unpredictable ways. Additional uncertainty comes from estimating model parameters (relations between climate and disease) using often limited historical data. This uncertainty propagates into predictions. There is also uncertainty associated with model choice. Any model is a simplification of reality, and incorrect assumptions about lag structure, stationarity, seasonality, or linearity can lead to biased inference and misleading forecasts. This structural uncertainty is difficult to quantify but often dominates in practice.</p>
+<p>Bayesian modelling provides a way to combine uncertainties from various sources in a coherent, principled way, making sure that the overall uncertainty is well represented. One aspect of this is that instead of estimating one particular value for each of its model parameters (e.g. for the relation between a given climate factor and the disease), it estimates a probability distribution for this value (referred to as the posterior distribution). Uncertainty intervals can then be based on the posterior distribution, for example using the interval between the 5% and 95% quantiles would give an interval with 90% probability of containing the true value of the parameter. Similarly, prediction intervals can be generated for the disease forecasts based on the uncertainty represented in the model itself (in its parameter distributions).</p>
+<p>Many other modelling approaches (e.g. classical ARIMA and most machine learning models) are mainly focused on the trend of disease development - of predicting a point estimate (single value) for the expected (or most likely) number of disease cases ahead. Uncertainty is then often added on top of this prediction of expected value. A simple choice is to view the model predictions as representing the expected value of some probability distribution that captures the uncertainty of the forecast. For instance, one could view model forecasts as representing the expected value of a normal distribution with a fixed standard deviation that is estimated to capture the uncertainty as well as possible (under such an assumption of normality). Another more sophisticated alternative is to model this standard deviation itself, so that for every forecast, both the expected value and the uncertainty of the forecast is influenced by the available data.</p>
+<p>Reporting forecasted point estimates is straightforward - it is just to report a single number per region and time period. Reporting a prediction that includes uncertainty is less trivial. If the uncertainty is captured by a given parametric distribution (like a plain normal distribution), one could simply report the parameters of this distribution (the mean and standard deviation in the case of the normal distribution). When uncertainty may follow different distributions, one needs a more flexible approach. One possibility is to report quantiles of this distribution - e.g. the 10% and 90% quantiles, which allows to see a 80% prediction interval. One could also report many of these. An even more generic approach to this is to report samples from the distribution, which allows the full distribution to be approximately reconstructed from the samples. It also allows any quantile to be approximated by simply sorting the samples and finding the value that a given proportion of samples are below. Due to its flexibility, this representation is often the preferred and chosen approach to represent predicted distributions, and is also what is used in the chap models when models report their forecasts back to the platform. </p>
+<h2 id="evaluating-predicted-uncertainty">Evaluating predicted uncertainty<a class="headerlink" href="#evaluating-predicted-uncertainty" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The concept of uncertainty calibration (and why it is operationally important)</li>
+</ul>
+<h1 id="honest-and-sophisticated-evaluation-in-more-detail">Honest and sophisticated evaluation in more detail<a class="headerlink" href="#honest-and-sophisticated-evaluation-in-more-detail" title="Permanent link">&para;</a></h1>
+<ul>
+<li>(see also separate manuscript about this..)</li>
+<li>Time series cross-validation.. (growing/rolling window)</li>
+</ul>
+<h1 id="relating-to-data-quality-issues-including-missing-data">Relating to data quality issues, including missing data<a class="headerlink" href="#relating-to-data-quality-issues-including-missing-data" title="Permanent link">&para;</a></h1>
+<h1 id="more-realistic-sophisticated-models">More realistic (Sophisticated) models<a class="headerlink" href="#more-realistic-sophisticated-models" title="Permanent link">&para;</a></h1>
+<ul>
+<li>BayesianHierarchicalModelling, including INLA, mentioning STAN</li>
+<li>Auto-regressive ML</li>
+<li>ARIMA and variants</li>
+<li>Deep learning</li>
+</ul>
+<h1 id="systematic-evaluation-on-simulated-data-for-debugging-understanding-and-stress-testing-models">Systematic evaluation on simulated data for debugging, understanding and stress-testing models<a class="headerlink" href="#systematic-evaluation-on-simulated-data-for-debugging-understanding-and-stress-testing-models" title="Permanent link">&para;</a></h1>
+<ul>
+<li>Simulating from the model or something presumed close to the model - see if the model behaves as expected and how much data is needed to reach desired behavior..</li>
+<li>Simulate specific scenarios to stress-test models</li>
+<li>Develop more realistic simulations</li>
+</ul>
+<h1 id="selecting-meaningful-features-covariates-and-data">Selecting meaningful features (covariates) and data<a class="headerlink" href="#selecting-meaningful-features-covariates-and-data" title="Permanent link">&para;</a></h1>
+<h1 id="further-resources">Further resources<a class="headerlink" href="#further-resources" title="Permanent link">&para;</a></h1>
+<p>Some general resources - not properly screened for now:</p>
+<ul>
+<li><a href="https://tjfisher19.github.io/introStatModeling/">Introduction to Statistical Modeling, Hughes and Fisher, 2025</a></li>
+<li><a href="https://www.statlearning.com/">An Introduction to Statistical Learning, James et. al., 2021</a></li>
+<li><a href="https://www.kaggle.com/code/iamleonie/intro-to-time-series-forecasting">Intro to Time Series Forecasting</a></li>
+<li><a href="https://www.kaggle.com/code/iamleonie/time-series-forecasting-building-intuition">Time Series Forecasting: Building Intuition</a></li>
+<li><a href="https://www.nature.com/articles/nmeth.4014">Regularization</a></li>
+<li><a href="https://www.nature.com/articles/nmeth.2613">Importance of being uncertain</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      
+    
+  </body>
+</html>
