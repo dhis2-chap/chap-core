@@ -81,9 +81,7 @@ nav:
   - CLI:
       - Overview: chap-cli/index.md
       - Setup: chap-cli/chap-core-cli-setup.md
-      - Earth Engine Auth: chap-cli/earth-engine-auth.md
-      - Using PA with CLI: chap-cli/using-pa-with-cli.md
-      - JSON Data: chap-cli/downloaded_json_data.md
+      - Evaluation Workflow: chap-cli/evaluation-workflow.md
   - Contributors:
       - Overview: contributor/index.md
       - Getting Started: contributor/getting_started.md
