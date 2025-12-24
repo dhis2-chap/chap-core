@@ -6,28 +6,28 @@ If you want to use CHAP Core on the command line, develop custom models, or inte
 
 ## Installation
 
-We recommend installing `chap-core` inside a Conda virtual environment. If you don't have Conda, you can install Miniconda (a minimal installer for Conda) from [Miniconda Installers](https://docs.anaconda.com/miniconda/#latest-miniconda-installer-links).
-
-- **Windows**: After installation, open "Anaconda Prompt". Search for "Anaconda Prompt" in the Windows Start menu.
-- **Linux/macOS**: Conda should work in your default terminal after installation.
-
-Create and activate a Conda environment:
+We recommend using [uv](https://docs.astral.sh/uv/) for installation. If you don't have uv installed, you can install it with:
 
 ```console
-conda create -n chap-core python=3.11
-conda activate chap-core
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Install the latest version of `chap-core` using pip:
+On Windows, use:
 
 ```console
-pip install chap-core
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Then install `chap-core`:
+
+```console
+uv tool install chap-core
 ```
 
 To install a specific version (e.g., v1.0.1):
 
 ```console
-pip install chap-core==1.0.1
+uv tool install chap-core==1.0.1
 ```
 
 ## Verify Installation
