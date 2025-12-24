@@ -46,17 +46,18 @@ a model that does not take weather into account, but only the the auto-regressiv
 Let's start by loading the data and the model.
 
 ```python
-from climate_health.data.datasets import ISIMIP_dengue_harmonized
+from chap_core.file_io.example_data_set import datasets
+from chap_core.adaptors.gluonts import GluonTSEstimator
 from gluonts.torch import DeepAREstimator
 from gluonts.torch.distributions import NegativeBinomialOutput
 
 # Load the data
-data = ISIMIP_dengue_harmonized['vietnam']
+data = datasets['ISIMIP_dengue_harmonized'].load()['vietnam']
 
 # Define the DeepAR model
 n_locations = len(data.locations)
 prediction_length = 4
-deep_ar =  DeepAREstimator(
+deep_ar = DeepAREstimator(
     num_layers=2,
     hidden_size=24,
     dropout_rate=0.3,
@@ -68,17 +69,14 @@ deep_ar =  DeepAREstimator(
     distr_output=NegativeBinomialOutput(),
     freq='M')
 
-    # Wrap the model in a CHAP model
-
-    from climate_health.adapters.gluonts import GluonTSEstimator
-
-    model = GluonTSEstimator(gluonts_model, data)
+# Wrap the model in a CHAP model
+model = GluonTSEstimator(deep_ar, data)
 ```
 
 The model now is a chap compatible model and we can run our evaluation pipeline on it.
 
 ```python
-from climate_health.evaluation import evaluate_model
+from chap_core.assessment.prediction_evaluator import evaluate_model
 
 evaluate_model(model, data, prediction_length=4, n_test_sets=8, report_filename='gluonts_deepar_results.csv')
 ```
@@ -92,7 +90,7 @@ CHAP contains an API for loading models through Python. The following shows an e
 import pandas as pd
 
 from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.external.external_model import get_model_from_directory_or_github_url
+from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.file_io.file_paths import get_models_path
 from chap_core.file_io.example_data_set import datasets
 import logging

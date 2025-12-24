@@ -126,13 +126,13 @@ user_option_values:
 
 Then start the chtorch command on port 5001:
 
-```bash
+```console
 docker run -p 5001:8000 ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3
 ```
 
 Then we can run the following command to evaluate the model. Note the http://localhost:5001 url, which tells chap to look for the model at that url.
 
-```bash
+```console
 chap evaluate --model-name http://localhost:5001 --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --report-filename report.pdf --debug --n-splits=2 --model-configuration-yaml testconfig.yaml --prediction-length 3 --is-chapkit-model
 ```
 
