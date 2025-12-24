@@ -12,7 +12,7 @@ The workflow consists of three main steps:
 
 ## Prerequisites
 
-- CHAP Core installed (see [CLI setup guide](chap-core-cli-setup.md))
+- CHAP Core installed (see [Setup guide](chap-core-cli-setup.md))
 - A dataset CSV file with disease case data
 - A GeoJSON file with region polygons (optional, auto-discovered if named same as CSV)
 
