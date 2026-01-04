@@ -362,9 +362,10 @@ class DataSet(Generic[FeaturesT]):
             )
 
         data_dict = {}
+        non_string_locations = []
         for location, data in df.groupby("location"):
             if not isinstance(location, str):
-                logging.warning(f"Location {location} is not a string, converting to string")
+                non_string_locations.append(location)
                 location = str(location)
 
             time_element = data["time_period"].iloc[0]
@@ -374,6 +375,9 @@ class DataSet(Generic[FeaturesT]):
 
             data_dict[location] = dataclass.from_pandas(data.sort_values(by="time_period"), fill_missing)
         data_dict = cls._fill_missing(data_dict)
+
+        if non_string_locations:
+            logging.warning(f"{len(non_string_locations)} location(s) are not strings, converting to strings")
 
         return cls(data_dict)
 

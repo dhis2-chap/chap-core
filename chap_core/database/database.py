@@ -432,6 +432,11 @@ class SessionWrapper:
             dataclass = create_tsdataclass(field_names)
         observations = dataset.observations
         new_dataset = observations_to_dataset(dataclass, observations)
+
+        if dataset.geojson:
+            logger.info(f"Loading polygons from geojson for dataset id {dataset_id}")
+            new_dataset.set_polygons(Polygons.from_geojson(json.loads(dataset.geojson), id_property="district").data)
+
         return new_dataset
 
     def get_dataset_by_name(self, dataset_name: str) -> Optional[DataSet]:

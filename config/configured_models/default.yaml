@@ -90,6 +90,12 @@
       user_option_values:
         skip_bottom_n_seasons: 2
 
+
+#- url: https://github.com/dhis2-chap/ewars_plus_python_wrapper/
+#  versions:
+#    v1: "@modeling_app_test"
+
+
 #- url: https://github.com/dhis2-chap/INLA_baseline_model
 #  versions:
 #    v1: "@chap"

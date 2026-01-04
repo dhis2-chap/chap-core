@@ -14,6 +14,43 @@ from chap_core.time_period.date_util_wrapper import TimePeriod, Month
 logger = logging.getLogger(__name__)
 
 
+def _extract_week_number(period_str: str) -> int:
+    """Extract week number from period string.
+
+    Handles both old format (2020W01, 2020SunW01) and new format (2020-W01, 2020-S01).
+    """
+    # New format: YYYY-Wnn or YYYY-Snn
+    if "-W" in period_str:
+        return int(period_str.split("-W")[-1])
+    if "-S" in period_str:
+        return int(period_str.split("-S")[-1])
+    # Old format: YYYYSunWnn or YYYYWnn
+    if "SunW" in period_str:
+        return int(period_str.split("SunW")[-1])
+    if "W" in period_str:
+        return int(period_str.split("W")[-1])
+    raise ValueError(f"Cannot extract week number from: {period_str}")
+
+
+def _extract_year(period_str: str) -> int:
+    """Extract year from period string.
+
+    Handles both old format (2020W01) and new format (2020-W01, 2020-S01).
+    """
+    # New format: YYYY-Wnn or YYYY-Snn (year is before the hyphen)
+    if "-W" in period_str or "-S" in period_str:
+        return int(period_str.split("-")[0])
+    # Old format: YYYYSunWnn or YYYYWnn
+    if "SunW" in period_str:
+        return int(period_str.split("SunW")[0])
+    if "W" in period_str:
+        return int(period_str.split("W")[0])
+    # Monthly format: YYYY-MM
+    if "-" in period_str:
+        return int(period_str.split("-")[0])
+    raise ValueError(f"Cannot extract year from: {period_str}")
+
+
 class ExternalModelBase(ConfiguredModel):
     """
     A base class for external models that provides some utility methods"""
@@ -42,7 +79,7 @@ class ExternalModelBase(ConfiguredModel):
                         new_val = data["time_period"].dt.week
                         data[to_name] = new_val
                     else:
-                        data[to_name] = [int(str(p).split("W")[-1]) for p in data["time_period"]]  # .dt.week
+                        data[to_name] = [_extract_week_number(str(p)) for p in data["time_period"]]
 
             elif from_name == "month":
                 if frequency == "ME":
@@ -58,9 +95,7 @@ class ExternalModelBase(ConfiguredModel):
                 if hasattr(data["time_period"], "dt"):
                     data[to_name] = data["time_period"].dt.year
                 else:
-                    data[to_name] = [
-                        int(str(p).split("W")[0]) for p in data["time_period"]
-                    ]  # data['time_period'].dt.year
+                    data[to_name] = [_extract_year(str(p)) for p in data["time_period"]]
             else:
                 data[to_name] = data[from_name]
         logger.info(f"Adapted data to columns {data.columns.tolist()}")
@@ -169,11 +204,11 @@ class ExternalModel(ExternalModelBase):
         return self
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
-        logging.info("Running predict")
+        logging.debug("Running predict")
         future_data_name = Path(self._working_dir) / "future_data.csv"
         historic_data_name = Path(self._working_dir) / "historic_data.csv"
         start_time = future_data.start_timestamp
-        logger.info(f"Predicting on dataset from {start_time} to {future_data.end_timestamp}")
+        logger.debug(f"Predicting on dataset from {start_time} to {future_data.end_timestamp}")
 
         for filename, dataset in [
             (future_data_name, future_data),

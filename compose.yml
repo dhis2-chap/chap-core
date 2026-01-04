@@ -84,6 +84,15 @@ services:
 #    networks:
 #      - chap-network
 
+  # ewars plus (uncomment to add ewars plus)
+#  ewars_plus:
+#    image: maquins/ewars_plus_api:Upload
+#    container_name: ewars_plus
+#    ports:
+#      - "3288:3288"
+#    networks:
+#      - chap-network
+
 
 networks:
   chap-network:

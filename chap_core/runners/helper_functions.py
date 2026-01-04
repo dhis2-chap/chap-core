@@ -32,8 +32,8 @@ def get_train_predict_runner_from_model_template_config(
         runner_type = ""
         skip_environment = True
 
-    logger.info(f"skip_environement: {skip_environment}, runner_type: {runner_type}")
-    logger.info(f"Model Configuration: {model_configuration}")
+    logger.debug(f"skip_environment: {skip_environment}, runner_type: {runner_type}")
+    logger.debug(f"Model Configuration: {model_configuration}")
     yaml_filename = "model_configuration_for_run.yaml"
     model_configuration_file = working_dir / yaml_filename
     with open(model_configuration_file, "w") as file:
@@ -64,7 +64,7 @@ def get_train_predict_runner_from_model_template_config(
         else:
             assert model_template_config.docker_env is not None
 
-        logging.info(f"Docker image is {model_template_config.docker_env.image}")
+        logging.debug(f"Docker image is {model_template_config.docker_env.image}")
         command_runner = DockerRunner(model_template_config.docker_env.image, working_dir)
         return DockerTrainPredictRunner(command_runner, train_command, predict_command, yaml_filename)
     else:
@@ -86,7 +86,7 @@ def get_train_predict_runner(
     If runner_type is "docker", the mlproject file is parsed to create a runner
     if skip_environment, mlflow and docker is not used, instead returning a TrainPredictRunner that uses the command line
     """
-    logger.info(f"skip_environement: {skip_environment}, runner_type: {runner_type}")
+    logger.debug(f"skip_environment: {skip_environment}, runner_type: {runner_type}")
     if skip_environment or runner_type == "docker":
         working_dir = mlproject_file.parent
 

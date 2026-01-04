@@ -82,6 +82,14 @@ class ModelTemplate:
     def __str__(self):
         return f"ModelTemplate: {self._model_template_config}"
 
+    def __enter__(self) -> "ModelTemplate":
+        """Context manager entry (no-op for compatibility with ExternalChapkitModelTemplate)."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit (no-op for compatibility with ExternalChapkitModelTemplate)."""
+        pass
+
     def get_config_class(self) -> type[ModelConfiguration]:
         """This will probably not be used"""
 

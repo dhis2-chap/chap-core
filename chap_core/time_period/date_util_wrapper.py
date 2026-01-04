@@ -103,8 +103,16 @@ class TimePeriod:
     def from_id(cls, id: str):
         if len(id) == 4:
             return Year(int(id))
+        # Handle new format: YYYY-Snn (Sunday-start)
+        if "-S" in id:
+            return Week(*map(int, id.split("-S")), iso_day=7)
+        # Handle new format: YYYY-Wnn (Monday-start)
+        if "-W" in id:
+            return Week(*map(int, id.split("-W")))
+        # Handle old format: YYYYSunWnn (Sunday-start)
         if "SunW" in id:
             return Week(*map(int, id.split("SunW")), iso_day=7)
+        # Handle old format: YYYYWnn (Monday-start)
         if "W" in id:
             return Week(*map(int, id.split("W")))
         elif len(id) == 6:
@@ -169,9 +177,8 @@ class TimePeriod:
 
     @classmethod
     def parse(cls, text_repr: str):
-        if "W" in text_repr or "/" in text_repr:
-            if "SunW" in text_repr:
-                return cls.from_id(text_repr)
+        # Handle week formats (old: W, SunW; new: -W, -S)
+        if "W" in text_repr or "/" in text_repr or "-S" in text_repr:
             return cls.parse_week(text_repr)
         try:
             year = int(text_repr)
@@ -193,7 +200,18 @@ class TimePeriod:
 
     @classmethod
     def parse_week(cls, week: str):
-        if "W" in week:
+        # Handle new format: YYYY-Wnn (Monday-start) or YYYY-Snn (Sunday-start)
+        if "-W" in week:
+            year, weeknr = week.split("-W")
+            return Week(int(year), int(weeknr))
+        elif "-S" in week:
+            year, weeknr = week.split("-S")
+            return Week(int(year), int(weeknr), iso_day=7)
+        # Handle old format: YYYYWnn or YYYYSunWnn
+        elif "SunW" in week:
+            year, weeknr = week.split("SunW")
+            return Week(int(year), int(weeknr), iso_day=7)
+        elif "W" in week:
             year, weeknr = week.split("W")
             return Week(int(year), int(weeknr))
         elif "/" in week:
@@ -202,6 +220,7 @@ class TimePeriod:
             end_date = dateutil.parser.parse(end)
             assert relativedelta(end_date, start_date).days == 6, f"Week must be 7 days {start_date} {end_date}"
             return Week(start_date)  # type: ignore
+        raise ValueError(f"Cannot parse week string: {week}")
 
     @property
     def start_timestamp(self):
@@ -252,17 +271,22 @@ class Week(TimePeriod):
     _used_attributes = []  # 'year']
     _extension = relativedelta(weeks=1)
     _week_numbering = WeekNumbering
-    _sep_strings = {1: "W", 7: "SunW"}
+    # Separators for id property (old format, backwards compatible)
+    _id_sep_strings = {1: "W", 7: "SunW"}
+    # Separators for to_string (new ISO-like format)
+    _str_sep_strings = {1: "W", 7: "S"}
 
     @property
     def id(self):
+        """Return week ID in old format (YYYYWNN or YYYYSunWNN) for backwards compatibility."""
         if self._day_nr != 1:
             assert self._day_nr == 7, "Only support Sunday or Monday as the first day of the week"
-            return f"{self.year}{self._sep_strings[self._day_nr]}{self.week:02d}"
+            return f"{self.year}{self._id_sep_strings[self._day_nr]}{self.week:02d}"
         return f"{self.year}W{self.week:02d}"
 
     def to_string(self):
-        return f"{self.year}{self._sep_strings[self._day_nr]}{self.week}"
+        """Return week string in new ISO-like format (YYYY-Wnn or YYYY-Snn)."""
+        return f"{self.year}-{self._str_sep_strings[self._day_nr]}{self.week:02d}"
 
     def __init__(self, date, *args, **kwargs):
         if args or kwargs:
@@ -291,7 +315,7 @@ class Week(TimePeriod):
         return TimeDelta(self._date - other._date)
 
     def __str__(self):
-        return f"{self.year}{self._sep_strings[self._day_nr]}{self.week:02d}"
+        return f"{self.year}{self._id_sep_strings[self._day_nr]}{self.week:02d}"
 
     __repr__ = __str__
 
@@ -317,8 +341,20 @@ class Week(TimePeriod):
 
 
 def clean_timestring(timestring: str):
+    """Normalize time string format, ensuring 2-digit week numbers."""
     if isinstance(timestring, Number):
         return str(timestring)
+    # Handle new format: YYYY-Wnn or YYYY-Snn
+    if "-W" in timestring:
+        year, week = timestring.split("-W")
+        return f"{year}-W{int(week):02d}"
+    if "-S" in timestring:
+        year, week = timestring.split("-S")
+        return f"{year}-S{int(week):02d}"
+    # Handle old format: YYYYSunWnn or YYYYWnn
+    if "SunW" in timestring:
+        year, week = timestring.split("SunW")
+        return f"{year}SunW{int(week):02d}"
     if "W" in timestring:
         year, week = timestring.split("W")
         return f"{year}W{int(week):02d}"
@@ -699,3 +735,29 @@ def convert_time_period_string(row):
     if len(row) == 6 and "W" not in row:
         return f"{row[:4]}-{row[4:]}"
     return row
+
+
+def pandas_period_to_string(period: pd.Period) -> str:
+    """Convert a pandas Period to our ISO-like string format.
+
+    Weekly periods are converted to YYYY-Wnn format (ISO week numbering).
+    Monthly periods are converted to YYYY-MM format.
+    """
+    freq = period.freqstr
+    if freq.startswith("W"):
+        # Weekly period - convert to ISO week format (YYYY-Wnn)
+        # Use ISO calendar to get the correct week number
+        year, week, _ = period.start_time.isocalendar()
+        return f"{year}-W{week:02d}"
+    elif freq in ("M", "ME"):
+        # Monthly period
+        return f"{period.year}-{period.month:02d}"
+    elif freq in ("Y", "YE", "A"):
+        # Yearly period
+        return str(period.year)
+    elif freq == "D":
+        # Daily period
+        return f"{period.year}-{period.month:02d}-{period.day:02d}"
+    else:
+        # Fallback to string representation
+        return str(period)

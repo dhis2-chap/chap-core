@@ -46,7 +46,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             raise ModelFailedException(str(e)) from e
 
     def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):
-        logging.info("Running predict with output to %s" % output_file)
+        logging.debug("Running predict with output to %s" % output_file)
         if self.model_configuration_filename is not None:
             ("Model configuration not supported for MLflow runner")
         params = {
@@ -55,7 +55,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             "model": str(model_file_name),
             "out_file": str(output_file),
         }
-        logging.info("Params for predict: %s" % params)
+        logging.debug("Params for predict: %s" % params)
         extra_params = {
             "model_config": str(self.model_configuration_filename) if self.model_configuration_filename else None,
         }

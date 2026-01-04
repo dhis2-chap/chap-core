@@ -13,8 +13,25 @@ from typing import Optional, Dict, Any, List
 import numpy as np
 import pandas as pd
 import httpx
+from pydantic import BaseModel, Field
+
+from chap_core.time_period.date_util_wrapper import pandas_period_to_string
 
 logger = logging.getLogger(__name__)
+
+
+class RunInfo(BaseModel):
+    """Runtime information passed from CHAP to models."""
+
+    prediction_length: int = Field(description="Number of periods to predict")
+    additional_continuous_covariates: list[str] = Field(
+        default_factory=list,
+        description="User-specified additional covariates present in the data",
+    )
+    future_covariate_origin: str | None = Field(
+        default=None,
+        description="Origin/source of future covariate forecasts",
+    )
 
 
 class CHAPKitRestAPIWrapper:
@@ -326,7 +343,11 @@ class CHAPKitRestAPIWrapper:
     # CHAP operation endpoints
 
     def train(
-        self, config_id: str, data: pd.DataFrame, geo_features: Optional[Dict[str, Any]] = None
+        self,
+        config_id: str,
+        data: pd.DataFrame,
+        run_info: RunInfo,
+        geo_features: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, str]:
         """
         Train a model with data
@@ -334,6 +355,7 @@ class CHAPKitRestAPIWrapper:
         Args:
             config_id: Configuration ID to use for training
             data: Training data as pandas DataFrame
+            run_info: Runtime information for the model
             geo_features: Optional GeoJSON FeatureCollection
 
         Returns:
@@ -341,11 +363,17 @@ class CHAPKitRestAPIWrapper:
         """
         # Convert DataFrame to split format
         if "time_period" in data.columns:
-            data["time_period"] = data["time_period"].astype(str)
+            data["time_period"] = data["time_period"].apply(
+                lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
+            )
         data = data.replace({np.nan: None})
 
         # Convert DataFrame to columns/data format
-        train_body = {"config_id": config_id, "data": {"columns": data.columns.tolist(), "data": data.values.tolist()}}
+        train_body: Dict[str, Any] = {
+            "config_id": config_id,
+            "data": {"columns": data.columns.tolist(), "data": data.values.tolist()},
+            "run_info": run_info.model_dump(exclude_none=True),
+        }
 
         if geo_features:
             train_body["geo"] = geo_features
@@ -358,6 +386,7 @@ class CHAPKitRestAPIWrapper:
         self,
         artifact_id: str,
         future_data: pd.DataFrame,
+        run_info: RunInfo,
         historic_data: Optional[pd.DataFrame] = None,
         geo_features: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, str]:
@@ -367,6 +396,7 @@ class CHAPKitRestAPIWrapper:
         Args:
             artifact_id: Trained model artifact ID
             future_data: Future covariates as pandas DataFrame
+            run_info: Runtime information for the model
             historic_data: Optional historical data as pandas DataFrame
             geo_features: Optional GeoJSON FeatureCollection
 
@@ -374,17 +404,22 @@ class CHAPKitRestAPIWrapper:
             Dict with job_id and artifact_id
         """
         if "time_period" in future_data.columns:
-            future_data["time_period"] = future_data["time_period"].astype(str)
+            future_data["time_period"] = future_data["time_period"].apply(
+                lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
+            )
         future_data = future_data.replace({np.nan: None})
 
-        predict_body = {
+        predict_body: Dict[str, Any] = {
             "artifact_id": artifact_id,
             "future": {"columns": future_data.columns.tolist(), "data": future_data.values.tolist()},
+            "run_info": run_info.model_dump(exclude_none=True),
         }
 
         if historic_data is not None:
             if "time_period" in historic_data.columns:
-                historic_data["time_period"] = historic_data["time_period"].astype(str)
+                historic_data["time_period"] = historic_data["time_period"].apply(
+                    lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
+                )
             historic_data = historic_data.replace({np.nan: None})
             predict_body["historic"] = {
                 "columns": historic_data.columns.tolist(),
@@ -433,6 +468,7 @@ class CHAPKitRestAPIWrapper:
         self,
         config_id: str,
         data: pd.DataFrame,
+        run_info: RunInfo,
         geo_features: Optional[Dict[str, Any]] = None,
         timeout: Optional[int] = 300,
     ) -> Dict[str, Any]:
@@ -442,13 +478,14 @@ class CHAPKitRestAPIWrapper:
         Args:
             config_id: Configuration ID
             data: Training data
+            run_info: Runtime information for the model
             geo_features: Optional GeoJSON features
             timeout: Maximum seconds to wait
 
         Returns:
             Dict with job record and artifact_id
         """
-        result = self.train(config_id, data, geo_features)
+        result = self.train(config_id, data, run_info, geo_features)
         job_id = result["job_id"]
         job = self.wait_for_job(job_id, timeout=timeout)
         job["artifact_id"] = result["artifact_id"]
@@ -458,6 +495,7 @@ class CHAPKitRestAPIWrapper:
         self,
         artifact_id: str,
         future_data: pd.DataFrame,
+        run_info: RunInfo,
         historic_data: Optional[pd.DataFrame] = None,
         geo_features: Optional[Dict[str, Any]] = None,
         timeout: Optional[int] = 7200,
@@ -468,6 +506,7 @@ class CHAPKitRestAPIWrapper:
         Args:
             artifact_id: Trained model artifact ID
             future_data: Future covariates
+            run_info: Runtime information for the model
             historic_data: Optional historical data
             geo_features: Optional GeoJSON features
             timeout: Maximum seconds to wait
@@ -475,7 +514,7 @@ class CHAPKitRestAPIWrapper:
         Returns:
             Dict with job record and artifact_id
         """
-        result = self.predict(artifact_id, future_data, historic_data, geo_features)
+        result = self.predict(artifact_id, future_data, run_info, historic_data, geo_features)
         job_id = result["job_id"]
         job = self.wait_for_job(job_id, timeout=timeout)
         job["artifact_id"] = result["artifact_id"]

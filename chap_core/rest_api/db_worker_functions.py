@@ -81,8 +81,18 @@ def run_backtest(
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     dataset = session.get_dataset(info.dataset_id)
+
+    configured_model = session.get_configured_model_by_name(info.model_id)
+
+    # hack to get who ewars model to work, it requires n_peridos=3.
+    # todo: should be removed in future when system for model specific backtest params is implemented
+    if configured_model.model_template.name == "ewars_plus":
+        logger.warning("Forcing n_periods=3 for ewars_plus model")
+        n_periods = 3
+
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
+
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
         target_name="disease_cases",
@@ -90,7 +100,6 @@ def run_backtest(
         n_splits=n_splits,
         stride=stride,
     )
-    configured_model = session.get_configured_model_by_name(info.model_id)
     estimator = session.get_configured_model_with_code(configured_model.id)
     predictions_list = _backtest(
         estimator,
