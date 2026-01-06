@@ -6,6 +6,7 @@ import yaml
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import HealthData, Samples
 from chap_core.exceptions import CommandLineException, ModelFailedException, NoPredictionsError
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.geometry import Polygons
 from chap_core.models.configured_model import ConfiguredModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -130,6 +131,7 @@ class ExternalModel(ExternalModelBase):
         working_dir=None,
         data_type=HealthData,
         configuration: ModelConfiguration | None = None,
+        model_information: ModelTemplateConfigV2 = None
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
@@ -148,6 +150,7 @@ class ExternalModel(ExternalModelBase):
             configuration or {}
         )  # configuration passed from the user to the model, e.g. about covariates or parameters
         self._config_filename = "model_config.yaml"
+        self._model_information = model_information
 
     @property
     def name(self):
@@ -160,6 +163,10 @@ class ExternalModel(ExternalModelBase):
     @property
     def required_fields(self):
         return self._required_fields
+
+    @property
+    def model_information(self):
+        return self._model_information
 
     @property
     def optional_fields(self):
