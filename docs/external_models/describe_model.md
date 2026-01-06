@@ -9,6 +9,10 @@ These should contain commands that can be run to train a model and predict the f
 
 Here is an [example of a valid MLproject file](https://github.com/dhis2-chap/minimalist_example/blob/main/MLproject) (taken from our minimalist_example).
 
-The MLproject file can specify a docker image or Python virtual environment that will be used when running the commands. 
+The MLproject file can specify a docker image or Python virtual environment that will be used when running the commands.
 An example of this is the [MLproject file](https://github.com/dhis2-chap/minimalist_example_r/blob/main/MLproject) contained within our minimalist_example_r.
+
+## Specifying prediction length constraints
+
+Include `min_prediction_length` and `max_prediction_length` in your model configuration to define how many time periods your model can predict ahead. When users need predictions beyond your `max_prediction_length`, CHAP automatically uses ExtendedPredictor to make iterative predictions (see [supporting functionality](supporting_functionality.md)).
 
