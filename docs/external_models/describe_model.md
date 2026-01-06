@@ -54,3 +54,7 @@ entry_points:
     command: "python main.py predict {model} {historic_data} {future_data} {out_file}"
 ```
 
+## Specifying prediction length constraints
+
+Include `min_prediction_length` and `max_prediction_length` in your model configuration to define how many time periods your model can predict ahead. When users need predictions beyond your `max_prediction_length`, CHAP automatically uses ExtendedPredictor to make iterative predictions (see [supporting functionality](supporting_functionality.md)).
+
