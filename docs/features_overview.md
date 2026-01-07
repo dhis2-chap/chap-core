@@ -17,7 +17,7 @@ Integrating with the Chap platform allows to focus only on the model itself, and
 * A broad repository of [public harmonised climate and health data]() is available in this format and can be directly used with a model. 
 * There are also future plans for a [collection of metadata for restricted data]() potentially available from specific countries (TODO: and more?).
 * There is ongoing work on [generation of synthetic climate and health datasets]() for understanding model behaviour and stress-testing model in particular settings. 
-
+* There is ongoing work on supporting the [computation of endemic channels]() (outbreak thresholds), as well as functionality to [compute outbreak periods]() (binary representation of early warning forecast) based on outbreak threshold and probabilistic disease forecasts.  
 ### Ways of running models:
 * Any model can always be run through its native programming language, and the ongoing work on SDKs will bring streamlined ways of running
 * Any model, implemented in any language, can be run through the [Chap command-line interface]()
