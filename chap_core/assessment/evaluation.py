@@ -696,3 +696,13 @@ class Evaluation(EvaluationBase):
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
         )
+
+class ModelCard(BackTest):
+    """
+    ModelCard is a class that includes metadata
+    for documenting model evaluations, such as descriptions, authorship,
+    and usage notes.
+    """
+
+    description: Optional[str] = None
+
