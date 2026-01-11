@@ -697,12 +697,19 @@ class Evaluation(EvaluationBase):
             historical_context_periods=historical_context_periods,
         )
 
-class ModelCard(BackTest):
+class ModelCard:
     """
     ModelCard is a class that includes metadata
     for documenting model evaluations, such as descriptions, authorship,
     and usage notes.
     """
+    def __init__(
+            self,
+            backtest: "BackTest",
+            description: Optional[str] = None,):
+        
 
-    description: Optional[str] = None
+        self.backtest = backtest
+        self.description = description
+        
 
