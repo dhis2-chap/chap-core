@@ -6,6 +6,7 @@ from chap_core.runners.command_line_runner import CommandLineRunner, CommandLine
 from chap_core.runners.docker_runner import DockerRunner, DockerTrainPredictRunner
 from chap_core.runners.mlflow_runner import MlFlowTrainPredictRunner
 from chap_core.runners.runner import TrainPredictRunner
+from chap_core.runners.uv_runner import UvRunner, UvTrainPredictRunner
 import yaml
 from pathlib import Path
 
@@ -26,6 +27,8 @@ def get_train_predict_runner_from_model_template_config(
     """
     if model_template_config.docker_env is not None:
         runner_type = "docker"
+    elif model_template_config.uv_env is not None:
+        runner_type = "uv"
     elif model_template_config.python_env is not None:
         runner_type = "mlflow"
     else:
@@ -41,7 +44,7 @@ def get_train_predict_runner_from_model_template_config(
         d = model_configuration if isinstance(model_configuration, dict) else model_configuration.model_dump()
         yaml.dump(d, file)
 
-    if skip_environment or runner_type == "docker":
+    if skip_environment or runner_type in ("docker", "uv"):
         # read yaml file into a dict
         train_command = model_template_config.entry_points.train.command  # data["entry_points"]["train"]["command"]
         predict_command = (
@@ -61,12 +64,18 @@ def get_train_predict_runner_from_model_template_config(
                 predict_command,
                 model_configuration_filename=yaml_filename,
             )
+        elif runner_type == "uv":
+            return UvTrainPredictRunner(
+                UvRunner(working_dir),
+                train_command,
+                predict_command,
+                model_configuration_filename=yaml_filename,
+            )
         else:
             assert model_template_config.docker_env is not None
-
-        logging.debug(f"Docker image is {model_template_config.docker_env.image}")
-        command_runner = DockerRunner(model_template_config.docker_env.image, working_dir)
-        return DockerTrainPredictRunner(command_runner, train_command, predict_command, yaml_filename)
+            logging.debug(f"Docker image is {model_template_config.docker_env.image}")
+            command_runner = DockerRunner(model_template_config.docker_env.image, working_dir)
+            return DockerTrainPredictRunner(command_runner, train_command, predict_command, yaml_filename)
     else:
         # assert model_configuration is None or model_configuration == {}, "ModelConfiguration (for templates) not supported when runner is mlflow for now"
         assert runner_type == "mlflow"
@@ -78,16 +87,17 @@ def get_train_predict_runner_from_model_template_config(
 
 
 def get_train_predict_runner(
-    mlproject_file: Path, runner_type: Literal["mlflow", "docker"], skip_environment=False
+    mlproject_file: Path, runner_type: Literal["mlflow", "docker", "uv"], skip_environment=False
 ) -> TrainPredictRunner:
     """
     Returns a TrainPredictRunner based on the runner_type.
     If runner_type is "mlflow", returns an MlFlowTrainPredictRunner.
     If runner_type is "docker", the mlproject file is parsed to create a runner
+    If runner_type is "uv", creates a UvTrainPredictRunner for uv-managed environments
     if skip_environment, mlflow and docker is not used, instead returning a TrainPredictRunner that uses the command line
     """
     logger.debug(f"skip_environment: {skip_environment}, runner_type: {runner_type}")
-    if skip_environment or runner_type == "docker":
+    if skip_environment or runner_type in ("docker", "uv"):
         working_dir = mlproject_file.parent
 
         # read yaml file into a dict
@@ -99,12 +109,14 @@ def get_train_predict_runner(
 
         if skip_environment:
             return CommandLineTrainPredictRunner(CommandLineRunner(working_dir), train_command, predict_command)
+        elif runner_type == "uv":
+            assert "uv_env" in data, "Runner type is uv, but no uv_env in mlproject file"
+            return UvTrainPredictRunner(UvRunner(working_dir), train_command, predict_command)
         else:
             assert "docker_env" in data, "Runner type is docker, but no docker_env in mlproject file"
-
-        logging.info(f"Docker image is {data['docker_env']['image']}")
-        command_runner = DockerRunner(data["docker_env"]["image"], working_dir)
-        return DockerTrainPredictRunner(command_runner, train_command, predict_command)
+            logging.info(f"Docker image is {data['docker_env']['image']}")
+            command_runner = DockerRunner(data["docker_env"]["image"], working_dir)
+            return DockerTrainPredictRunner(command_runner, train_command, predict_command)
     else:
         assert runner_type == "mlflow"
         return MlFlowTrainPredictRunner(mlproject_file.parent)
