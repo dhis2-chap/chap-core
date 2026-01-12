@@ -697,6 +697,7 @@ class Evaluation(EvaluationBase):
             historical_context_periods=historical_context_periods,
         )
 
+@dataclass
 class ModelCard:
     """
     ModelCard is a class that includes metadata
