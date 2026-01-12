@@ -181,7 +181,7 @@ class ModelTemplate:
             data_type=data_type,
             working_dir=self._working_dir,
             configuration=config_passed_to_model,
-            model_information=self._model_template_config
+            model_information=self._model_template_config,
         )
 
 

@@ -19,12 +19,14 @@ from chap_core.hpo.hpoModel import HpoModel, Direction
 from chap_core.hpo.objective import Objective
 from chap_core.hpo.searcher import RandomSearcher
 from chap_core.log_config import initialize_logging
+from chap_core.models.external_model import ExternalModel
 from chap_core.models.model_template import ModelTemplate
 from chap_core.predictor import ModelType
 from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core import get_temp_dir
 from chap_core.file_io.example_data_set import datasets, DataSetType
+from chap_core.external.ExtendedPredictor import ExtendedPredictor
 
 from chap_core.cli_endpoints._common import (
     create_model_lists,
@@ -128,6 +130,21 @@ def evaluate_hpo(
             configs = load_search_space_from_config(configs)
             objective = Objective(template, metric, prediction_length, n_splits)
             model = HpoModel(RandomSearcher(2), objective, direction, configs)
+
+        model_info = model.model_information
+        if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
+            logger.warning("Model has not specified minimum and maximum predicted length")
+        else:
+            if model_info.min_prediction_length > prediction_length:
+                raise ValueError(
+                    f"The desired prediction length of {prediction_length} is less than the model's minimum prediction length of {model_info.min_prediction_length}"
+                )
+            elif model_info.max_prediction_length < prediction_length:
+                logger.warning(
+                    f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {prediction_length}. This is done iteratively, and may worsen model performance"
+                )
+                model = ExtendedPredictor(model, prediction_length)
+
         try:
             results = evaluate_model(
                 estimator=model,
@@ -187,6 +204,21 @@ def evaluate(
     results_dict = {}
     for name, configuration in zip(model_list, model_configuration_yaml_list):
         model = get_model(configuration, ignore_environment, is_chapkit_model, name, run_directory_type)
+        assert isinstance(model, ExternalModel)
+        model_info = model.model_information
+        if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
+            logger.warning("Model has not specified minimum and maximum predicted length")
+        else:
+            if model_info.min_prediction_length > prediction_length:
+                raise ValueError(
+                    f"The desired prediction length of {prediction_length} is less than the model's minimum prediction length of {model_info.min_prediction_length}"
+                )
+            elif model_info.max_prediction_length < prediction_length:
+                logger.warning(
+                    f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {prediction_length}. This is done iteratively, and may worsen model performance"
+                )
+                model = ExtendedPredictor(model, prediction_length)
+
         try:
             results = evaluate_model(
                 model,
@@ -258,6 +290,20 @@ def evaluate2(
     with template:
         model = template.get_model(configuration)
         estimator = model()
+
+        model_info = estimator.model_information
+        if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
+            logger.warning("Model has not specified minimum and maximum predicted length")
+        else:
+            if model_info.min_prediction_length > backtest_params.n_periods:
+                raise ValueError(
+                    f"The desired prediction length of {backtest_params.n_periods} is less than the model's minimum prediction length of {model_info.min_prediction_length}"
+                )
+            elif model_info.max_prediction_length < backtest_params.n_periods:
+                logger.warning(
+                    f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
+                )
+                estimator = ExtendedPredictor(estimator, backtest_params.n_periods)
 
         model_template_db = ModelTemplateDB(
             id=template.model_template_config.name,
