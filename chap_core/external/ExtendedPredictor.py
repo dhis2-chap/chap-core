@@ -1,12 +1,10 @@
 from chap_core.models.configured_model import ConfiguredModel
-from chap_core.models.external_model import ExternalModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 import pandas as pd
 
 
 class ExtendedPredictor(ConfiguredModel):
-
-    def __init__(self, configured_model : ExternalModel, desired_scope):
+    def __init__(self, configured_model: ConfiguredModel, desired_scope):
         self._config_model = configured_model
         self._desired_scope = desired_scope
 
@@ -34,10 +32,11 @@ class ExtendedPredictor(ConfiguredModel):
         while remaining_time_periods > 0:
             steps_to_predict = min(max_pred_length, remaining_time_periods)
 
-            future_slice = future_df.iloc[future_idx: future_idx + steps_to_predict]
+            future_slice = future_df.iloc[future_idx : future_idx + steps_to_predict]
 
-            new_prediction = self._config_model.predict(DataSet.from_pandas(historic_df),
-                                                        DataSet.from_pandas(future_slice))
+            new_prediction = self._config_model.predict(
+                DataSet.from_pandas(historic_df), DataSet.from_pandas(future_slice)
+            )
             new_prediction_pandas = new_prediction.to_pandas()
             predictions = pd.concat([predictions, new_prediction_pandas])
             if remaining_time_periods > max_pred_length:
@@ -54,12 +53,11 @@ class ExtendedPredictor(ConfiguredModel):
             future_idx += newly_predicted
             remaining_time_periods -= newly_predicted
 
-            historic_df = self.update_historic_data(historic_df, new_prediction_pandas,
-                                                             newly_predicted)
+            historic_df = self.update_historic_data(historic_df, new_prediction_pandas, newly_predicted)
 
         # Remove duplicate time periods, keeping the last (most recent) prediction
         # This is important because later predictions are more accurate (shorter prediction horizon)
-        predictions = predictions.drop_duplicates(subset=['time_period', 'location'], keep='last')
+        predictions = predictions.drop_duplicates(subset=["time_period", "location"], keep="last")
         predictions = predictions.reset_index(drop=True)
 
         return DataSet.from_pandas(predictions)
@@ -79,5 +77,3 @@ class ExtendedPredictor(ConfiguredModel):
         # Concatenate with historic data
         updated_history = pd.concat([historic_data_pandas, new_rows], ignore_index=True)
         return updated_history
-
-

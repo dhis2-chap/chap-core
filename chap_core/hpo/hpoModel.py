@@ -111,6 +111,10 @@ class HpoModel(HpoModelInterface):
         return self._leaderboard
 
     @property
+    def model_information(self):
+        return self._objective.model_template.model_template_config
+
+    @property
     def get_best_config(self):
         return self._best_config
 
