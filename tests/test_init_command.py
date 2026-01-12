@@ -21,6 +21,10 @@ def test_init_creates_expected_files(tmp_path, monkeypatch):
     assert (model_dir / "pyproject.toml").exists()
     assert (model_dir / "main.py").exists()
     assert (model_dir / "README.md").exists()
+    assert (model_dir / "isolated_run.py").exists()
+    assert (model_dir / "input" / "trainData.csv").exists()
+    assert (model_dir / "input" / "futureClimateData.csv").exists()
+    assert (model_dir / "output").exists()
 
 
 def test_init_mlproject_has_correct_content(tmp_path, monkeypatch):
@@ -85,6 +89,9 @@ def test_init_via_cli(tmp_path):
     assert (model_dir / "pyproject.toml").exists()
     assert (model_dir / "main.py").exists()
     assert (model_dir / "README.md").exists()
+    assert (model_dir / "isolated_run.py").exists()
+    assert (model_dir / "input" / "trainData.csv").exists()
+    assert (model_dir / "input" / "futureClimateData.csv").exists()
 
 
 @pytest.mark.slow
