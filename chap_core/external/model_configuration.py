@@ -23,6 +23,7 @@ class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to fo
     entry_points: Optional[EntryPointConfig] = None
     docker_env: Optional[DockerEnvConfig] = None
     python_env: Optional[str] = None
+    uv_env: Optional[str] = None
 
 
 class ModelTemplateConfigCommon(ModelTemplateInformation, extra="forbid"):
