@@ -39,6 +39,10 @@ def pyenv_available():
     return which("pyenv") is not None
 
 
+def uv_available():
+    return which("uv") is not None
+
+
 def redis_available():
     try:
         r = load_redis()

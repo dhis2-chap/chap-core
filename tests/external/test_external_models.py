@@ -7,7 +7,7 @@ from chap_core.file_io.example_data_set import datasets
 from chap_core.geometry import Polygons
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 from chap_core.testing.external_model import sanity_check_external_model
-from chap_core.util import docker_available, pyenv_available
+from chap_core.util import docker_available, pyenv_available, uv_available
 
 
 @pytest.mark.skipif(not docker_available(), reason="Requires docker")
@@ -66,6 +66,13 @@ def test_external_sanity_deepar(models_path, dataset):
     evaluate_model(model, dataset, report_filename=out_file)
 
     # sanity_check_external_model("https://github.com/dhis2-chap/minimalist_example")
+
+
+@pytest.mark.skipif(not uv_available(), reason="Requires uv")
+def test_uv_model_from_folder(models_path):
+    path = models_path / "naive_python_model_uv"
+    template = get_model_template_from_directory_or_github_url(path)
+    assert template.name == "naive_python_uv"
 
 
 @pytest.mark.skip(reason="Under development")

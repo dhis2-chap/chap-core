@@ -1,0 +1,13 @@
+[project]
+name = "naive-python-model-uv"
+version = "0.1.0"
+description = "Example CHAP model using uv for environment management"
+requires-python = ">=3.10"
+dependencies = [
+    "chap-core",
+    "cyclopts",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
