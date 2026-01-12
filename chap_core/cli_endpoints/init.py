@@ -160,7 +160,7 @@ Make sure you have [uv](https://docs.astral.sh/uv/) installed. No other setup is
 Before integrating with CHAP, you can test the model directly using the included sample data:
 
 ```bash
-python isolated_run.py
+uv run python isolated_run.py
 ```
 
 Or run the commands manually:
@@ -196,6 +196,7 @@ chap evaluate --model-name /path/to/{model_name} --dataset-name ISIMIP_dengue_ha
 - `MLproject` - Defines how CHAP interacts with your model
 - `pyproject.toml` - Lists your Python dependencies
 - `main.py` - Contains your model's train and predict logic
+- `isolated_run.py` - Script to test the model without CHAP
 - `input/` - Sample training and future climate data
 - `output/` - Where trained models and predictions are saved
 
@@ -254,7 +255,7 @@ def init(model_name: str):
     print()
     print("Next steps:")
     print(f"  cd {model_name}")
-    print("  python isolated_run.py  # Test the model")
+    print("  uv run python isolated_run.py  # Test the model")
     print("  chap evaluate --model-name ./ --dataset-csv your_data.csv")
 
 
