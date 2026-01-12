@@ -108,16 +108,7 @@ def test_init_model_runs_through_evaluate(tmp_path):
 
     model_dir = tmp_path / "eval_test_model"
 
-    # 2. Run uv sync in the model directory
-    result = subprocess.run(
-        ["uv", "sync"],
-        cwd=model_dir,
-        capture_output=True,
-        timeout=120,
-    )
-    assert result.returncode == 0, f"uv sync failed: {result.stderr.decode()}"
-
-    # 3. Run chap evaluate2 with example data
+    # 2. Run chap evaluate2 with example data (uv run handles dependencies automatically)
     example_data = Path("example_data/laos_subset.csv").resolve()
     output_file = tmp_path / "eval.nc"
 

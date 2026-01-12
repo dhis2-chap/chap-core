@@ -151,15 +151,9 @@ This is a CHAP-compatible forecasting model using [uv](https://docs.astral.sh/uv
 
 The model learns a linear regression from rainfall and temperature to disease cases in the same month. It is meant as a starting point for developing your own model.
 
-## Setting Up the Environment
+## Requirements
 
-Make sure you have [uv](https://docs.astral.sh/uv/) installed, then run:
-
-```bash
-uv sync
-```
-
-This will create a virtual environment and install all dependencies automatically.
+Make sure you have [uv](https://docs.astral.sh/uv/) installed. No other setup is needed - `uv run` will automatically create the virtual environment and install dependencies on first use.
 
 ## Running the model without CHAP integration
 
@@ -212,7 +206,7 @@ Edit `main.py` to change:
 - The machine learning algorithm (currently LinearRegression)
 - How predictions are formatted
 
-Add dependencies to `pyproject.toml` and run `uv sync` to install them.
+Add dependencies to `pyproject.toml` - they will be installed automatically on the next `uv run`.
 """
 
 
@@ -260,7 +254,6 @@ def init(model_name: str):
     print()
     print("Next steps:")
     print(f"  cd {model_name}")
-    print("  uv sync")
     print("  python isolated_run.py  # Test the model")
     print("  chap evaluate --model-name ./ --dataset-csv your_data.csv")
 
