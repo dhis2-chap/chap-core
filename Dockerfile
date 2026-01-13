@@ -1,13 +1,18 @@
 FROM ghcr.io/astral-sh/uv:0.9-python3.13-bookworm-slim
 
+# Compile Python bytecode for faster startup
+ENV UV_COMPILE_BYTECODE=1
+
+# Use copy mode to avoid issues with file permissions in mixed environments
+ENV UV_LINK_MODE=copy
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt update && apt upgrade -y && \
     apt install -y --no-install-recommends git curl && \
     apt clean && rm -rf /var/lib/apt/lists/* && \
 \
-    useradd --no-create-home --shell /usr/sbin/nologin chap && \
-    mkdir -p /app && chown -R chap:chap /app
+    useradd --create-home --shell /usr/sbin/nologin chap
 
 WORKDIR /app
 
