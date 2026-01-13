@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.8-python3.13-bookworm-slim
+FROM ghcr.io/astral-sh/uv:0.9-python3.13-bookworm-slim
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
