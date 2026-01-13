@@ -8,6 +8,8 @@ services:
       REDIS_PORT: 6379
       CHAP_DATABASE_URL: postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
       CELERY_BROKER: redis://redis:6379/0
+    # for now some of the tests uses hardocded names so we need to set the container name
+    container_name: chap
     ports:
       - "8000:8000"
     depends_on:
