@@ -6,8 +6,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt install -y --no-install-recommends git curl && \
     apt clean && rm -rf /var/lib/apt/lists/* && \
 \
-    useradd --create-home --shell /usr/sbin/nologin chap && \
-    mkdir -p /app && chown -R chap:chap /app
+    useradd --shell /usr/sbin/nologin chap
 
 WORKDIR /app
 
