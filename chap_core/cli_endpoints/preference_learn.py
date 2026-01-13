@@ -1,37 +1,12 @@
 """Preference learning commands for CHAP CLI."""
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import Literal, Optional
 
-import yaml
-
 from pydantic import BaseModel
-
-from chap_core.api_types import BackTestParams, RunConfig
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.database.model_templates_and_config_tables import (
-    ConfiguredModelDB,
-    ModelConfiguration,
-    ModelTemplateDB,
-)
-from chap_core.hpo.base import load_search_space_from_config
-from chap_core.log_config import initialize_logging
-from chap_core.models.model_template import ModelTemplate
-from chap_core.preference_learning.decision_maker import (
-    DecisionMaker,
-    MetricDecisionMaker,
-    VisualDecisionMaker,
-)
-from chap_core.preference_learning.preference_learner import (
-    ModelCandidate,
-    TournamentPreferenceLearner,
-)
-
-from chap_core.cli_endpoints._common import (
-    discover_geojson,
-    load_dataset_from_csv,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +20,7 @@ class PreferenceLearningParams(BaseModel):
     lower_is_better: bool = True
 
 
-def _compute_metrics(evaluation: Evaluation) -> dict:
+def _compute_metrics(evaluation) -> dict:
     """
     Compute metrics from an evaluation.
 
@@ -75,12 +50,7 @@ def _compute_metrics(evaluation: Evaluation) -> dict:
     return results
 
 
-def _create_evaluation(
-    model_candidate: ModelCandidate,
-    dataset,
-    backtest_params: BackTestParams,
-    run_config: RunConfig,
-) -> Evaluation:
+def _create_evaluation(model_candidate, dataset, backtest_params, run_config):
     """
     Create an Evaluation for a model candidate.
 
@@ -93,6 +63,14 @@ def _create_evaluation(
     Returns:
         Evaluation object with backtest results
     """
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.database.model_templates_and_config_tables import (
+        ConfiguredModelDB,
+        ModelConfiguration,
+        ModelTemplateDB,
+    )
+    from chap_core.models.model_template import ModelTemplate
+
     logger.info(f"Loading model template from {model_candidate.model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_candidate.model_name,
@@ -139,9 +117,18 @@ def preference_learn(
     dataset_csv: Path,
     search_space_yaml: Optional[Path] = None,
     state_file: Path = Path("preference_state.json"),
-    backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
-    run_config: RunConfig = RunConfig(),
-    learning_params: PreferenceLearningParams = PreferenceLearningParams(),
+    n_periods: int = 3,
+    n_splits: int = 7,
+    stride: int = 1,
+    ignore_environment: bool = False,
+    debug: bool = False,
+    log_file: Optional[str] = None,
+    run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+    is_chapkit_model: bool = False,
+    max_iterations: int = 10,
+    decision_mode: Literal["visual", "metric"] = "visual",
+    decision_metrics: Optional[list[str]] = None,
+    lower_is_better: bool = True,
 ):
     """
     Learn user preferences for model configurations through iterative A/B testing.
@@ -159,10 +146,55 @@ def preference_learn(
         dataset_csv: Path to CSV file with disease data
         search_space_yaml: Path to YAML file defining hyperparameter search space
         state_file: Path to file for persisting learner state
-        backtest_params: Backtest configuration (n_periods, n_splits, stride)
-        run_config: Model run environment configuration
-        learning_params: Preference learning configuration
+        n_periods: Number of forecast periods
+        n_splits: Number of train/test splits
+        stride: Stride between splits
+        ignore_environment: Ignore model environment requirements
+        debug: Enable debug logging
+        log_file: Path to log file
+        run_directory_type: Type of run directory
+        is_chapkit_model: Whether model is a chapkit model
+        max_iterations: Maximum iterations for preference learning
+        decision_mode: How to decide between candidates (visual or metric)
+        decision_metrics: Metrics to use for metric-based decisions
+        lower_is_better: Whether lower metric values are better
     """
+    import yaml
+
+    from chap_core.api_types import BackTestParams, RunConfig
+    from chap_core.hpo.base import load_search_space_from_config
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.preference_learning.decision_maker import (
+        DecisionMaker,
+        MetricDecisionMaker,
+        VisualDecisionMaker,
+    )
+    from chap_core.preference_learning.preference_learner import TournamentPreferenceLearner
+
+    from chap_core.cli_endpoints._common import (
+        discover_geojson,
+        load_dataset_from_csv,
+    )
+
+    if decision_metrics is None:
+        decision_metrics = ["mae"]
+
+    backtest_params = BackTestParams(n_periods=n_periods, n_splits=n_splits, stride=stride)
+    run_config = RunConfig(
+        ignore_environment=ignore_environment,
+        debug=debug,
+        log_file=log_file,
+        run_directory_type=run_directory_type,
+        is_chapkit_model=is_chapkit_model,
+    )
+    learning_params = PreferenceLearningParams(
+        max_iterations=max_iterations,
+        decision_mode=decision_mode,
+        decision_metrics=decision_metrics,
+        lower_is_better=lower_is_better,
+    )
+
     initialize_logging(run_config.debug, run_config.log_file)
 
     logger.info(f"Starting preference learning for model: {model_name}")

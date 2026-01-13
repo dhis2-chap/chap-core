@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from chap_core.api_types import BackTestParams, RunConfig
 from chap_core.cli_endpoints.preference_learn import (
     PreferenceLearningParams,
     preference_learn,
@@ -42,8 +41,8 @@ class TestPreferenceLearningParams:
 class TestPreferenceLearnCLI:
     @patch("chap_core.cli_endpoints.preference_learn._create_evaluation")
     @patch("chap_core.cli_endpoints.preference_learn._compute_metrics")
-    @patch("chap_core.cli_endpoints.preference_learn.load_dataset_from_csv")
-    @patch("chap_core.cli_endpoints.preference_learn.discover_geojson")
+    @patch("chap_core.cli_endpoints._common.load_dataset_from_csv")
+    @patch("chap_core.cli_endpoints._common.discover_geojson")
     def test_preference_learn_metric_mode(
         self,
         mock_discover_geojson,
@@ -84,20 +83,17 @@ learning_rate:
         state_file = tmp_path / "state.json"
 
         # Run preference learning with max 1 iteration
-        learning_params = PreferenceLearningParams(
-            max_iterations=1,
-            decision_mode="metric",
-            decision_metrics=["mae"],
-        )
-
         preference_learn(
             model_name="test_model",
             dataset_csv=dataset_csv,
             search_space_yaml=search_space_yaml,
             state_file=state_file,
-            backtest_params=BackTestParams(n_periods=2, n_splits=2, stride=1),
-            run_config=RunConfig(),
-            learning_params=learning_params,
+            n_periods=2,
+            n_splits=2,
+            stride=1,
+            max_iterations=1,
+            decision_mode="metric",
+            decision_metrics=["mae"],
         )
 
         # Verify state was saved
@@ -114,8 +110,8 @@ learning_rate:
 
     @patch("chap_core.cli_endpoints.preference_learn._create_evaluation")
     @patch("chap_core.cli_endpoints.preference_learn._compute_metrics")
-    @patch("chap_core.cli_endpoints.preference_learn.load_dataset_from_csv")
-    @patch("chap_core.cli_endpoints.preference_learn.discover_geojson")
+    @patch("chap_core.cli_endpoints._common.load_dataset_from_csv")
+    @patch("chap_core.cli_endpoints._common.discover_geojson")
     def test_preference_learn_resumes_from_state(
         self,
         mock_discover_geojson,
@@ -150,18 +146,15 @@ learning_rate:
         dataset_csv.write_text("location,time_period,disease_cases\nA,2020-01,10")
 
         # Run preference learning - should resume from iteration 1
-        learning_params = PreferenceLearningParams(
-            max_iterations=2,  # Will stop after 2 total iterations
-            decision_mode="metric",
-        )
-
         preference_learn(
             model_name="test_model",
             dataset_csv=dataset_csv,
             state_file=state_file,
-            backtest_params=BackTestParams(n_periods=2, n_splits=2, stride=1),
-            run_config=RunConfig(),
-            learning_params=learning_params,
+            n_periods=2,
+            n_splits=2,
+            stride=1,
+            max_iterations=2,  # Will stop after 2 total iterations
+            decision_mode="metric",
         )
 
         # Verify we continued from existing state
@@ -169,25 +162,27 @@ learning_rate:
         assert resumed_learner.current_iteration == 2
         assert len(resumed_learner.get_comparison_history()) == 2
 
-    def test_preference_learn_no_search_space_raises(self, tmp_path):
+    @patch("chap_core.cli_endpoints._common.load_dataset_from_csv")
+    @patch("chap_core.cli_endpoints._common.discover_geojson")
+    @patch("chap_core.models.model_template.ModelTemplate")
+    def test_preference_learn_no_search_space_raises(
+        self, mock_template, mock_geojson, mock_load, tmp_path
+    ):
         """Test that missing search space raises appropriate error."""
         dataset_csv = tmp_path / "test_data.csv"
         dataset_csv.write_text("location,time_period,disease_cases\nA,2020-01,10")
 
-        with patch("chap_core.cli_endpoints.preference_learn.discover_geojson") as mock_geojson:
-            with patch("chap_core.cli_endpoints.preference_learn.load_dataset_from_csv") as mock_load:
-                with patch("chap_core.cli_endpoints.preference_learn.ModelTemplate") as mock_template:
-                    mock_geojson.return_value = None
-                    mock_load.return_value = MagicMock()
+        mock_geojson.return_value = None
+        mock_load.return_value = MagicMock()
 
-                    # Mock template with no search space
-                    mock_template_instance = MagicMock()
-                    mock_template_instance.model_template_config.hpo_search_space = None
-                    mock_template.from_directory_or_github_url.return_value = mock_template_instance
+        # Mock template with no search space
+        mock_template_instance = MagicMock()
+        mock_template_instance.model_template_config.hpo_search_space = None
+        mock_template.from_directory_or_github_url.return_value = mock_template_instance
 
-                    with pytest.raises(ValueError, match="No search space provided"):
-                        preference_learn(
-                            model_name="test_model",
-                            dataset_csv=dataset_csv,
-                            state_file=tmp_path / "state.json",
-                        )
+        with pytest.raises(ValueError, match="No search space provided"):
+            preference_learn(
+                model_name="test_model",
+                dataset_csv=dataset_csv,
+                state_file=tmp_path / "state.json",
+            )

@@ -2,9 +2,7 @@
 
 from pathlib import Path
 
-from . import data, fetch
 from .log_config import is_debug_mode
-from .models.model_template_interface import ModelTemplateInterface
 
 __author__ = """Chap Team"""
 __email__ = "chap@dhis2.org"
@@ -35,6 +33,26 @@ def get_temp_dir() -> Path:
     temp_dir = Path("target")
     temp_dir.mkdir(exist_ok=True)
     return temp_dir
+
+
+def __getattr__(name: str):
+    """Lazy import for heavy dependencies."""
+    if name == "data":
+        from . import data
+
+        globals()["data"] = data
+        return data
+    if name == "fetch":
+        from . import fetch
+
+        globals()["fetch"] = fetch
+        return fetch
+    if name == "ModelTemplateInterface":
+        from .models.model_template_interface import ModelTemplateInterface
+
+        globals()["ModelTemplateInterface"] = ModelTemplateInterface
+        return ModelTemplateInterface
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = ["fetch", "data", "ModelTemplateInterface", "is_debug_mode", "get_temp_dir"]

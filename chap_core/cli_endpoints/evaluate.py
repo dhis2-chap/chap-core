@@ -1,65 +1,58 @@
 """Evaluation commands for CHAP CLI."""
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import Literal, Optional
-
-import pandas as pd
-import yaml
-
-from chap_core.api_types import BackTestParams, RunConfig
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.datatypes import FullData
-from chap_core.exceptions import NoPredictionsError
-from chap_core.geometry import Polygons
-from chap_core.hpo.base import load_search_space_from_config
-from chap_core.hpo.hpoModel import HpoModel, Direction
-from chap_core.hpo.objective import Objective
-from chap_core.hpo.searcher import RandomSearcher
-from chap_core.log_config import initialize_logging
-from chap_core.models.model_template import ModelTemplate
-from chap_core.predictor import ModelType
-from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core import get_temp_dir
-from chap_core.file_io.example_data_set import datasets, DataSetType
-
-from chap_core.cli_endpoints._common import (
-    create_model_lists,
-    discover_geojson,
-    get_model,
-    load_dataset,
-    load_dataset_from_csv,
-    save_results,
-)
 
 logger = logging.getLogger(__name__)
 
 
 def evaluate_hpo(
-    model_name: ModelType | str,
-    dataset_name: Optional[DataSetType] = None,
+    model_name: str,
+    dataset_name: Optional[str] = None,
     dataset_country: Optional[str] = None,
     dataset_csv: Optional[Path] = None,
     polygons_json: Optional[Path] = None,
     polygons_id_field: Optional[str] = "id",
     prediction_length: int = 3,
     n_splits: int = 7,
-    report_filename: Optional[str] = str(get_temp_dir() / "report.pdf"),
+    report_filename: Optional[str] = None,
     ignore_environment: bool = False,
     debug: bool = False,
     log_file: Optional[str] = None,
     run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
     model_configuration_yaml: Optional[str] = None,
     metric: Optional[str] = "MSE",
-    direction: Direction = "minimize",
+    direction: Literal["minimize", "maximize"] = "minimize",
     do_hpo: Optional[bool] = True,
 ):
     """
     Same as evaluate, but has three added arguments and a if check on argument do_hpo.
     """
+    import pandas as pd
+    import yaml
+
+    from chap_core import get_temp_dir
+    from chap_core.assessment.prediction_evaluator import evaluate_model
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.datatypes import FullData
+    from chap_core.exceptions import NoPredictionsError
+    from chap_core.geometry import Polygons
+    from chap_core.hpo.base import load_search_space_from_config
+    from chap_core.hpo.hpoModel import HpoModel
+    from chap_core.hpo.objective import Objective
+    from chap_core.hpo.searcher import RandomSearcher
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+    from chap_core.file_io.example_data_set import datasets
+
+    if report_filename is None:
+        report_filename = str(get_temp_dir() / "report.pdf")
+
     initialize_logging(debug, log_file)
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
@@ -163,15 +156,15 @@ def evaluate_hpo(
 
 
 def evaluate(
-    model_name: ModelType | str,
-    dataset_name: Optional[DataSetType] = None,
+    model_name: str,
+    dataset_name: Optional[str] = None,
     dataset_country: Optional[str] = None,
     dataset_csv: Optional[Path] = None,
     polygons_json: Optional[Path] = None,
     polygons_id_field: Optional[str] = "id",
     prediction_length: int = 6,
     n_splits: int = 7,
-    report_filename: Optional[str] = str(get_temp_dir() / "report.pdf"),
+    report_filename: Optional[str] = None,
     ignore_environment: bool = False,
     debug: bool = False,
     log_file: Optional[str] = None,
@@ -179,6 +172,21 @@ def evaluate(
     model_configuration_yaml: Optional[str] = None,
     is_chapkit_model: bool = False,
 ):
+    from chap_core import get_temp_dir
+    from chap_core.assessment.prediction_evaluator import evaluate_model
+    from chap_core.exceptions import NoPredictionsError
+    from chap_core.log_config import initialize_logging
+
+    from chap_core.cli_endpoints._common import (
+        create_model_lists,
+        get_model,
+        load_dataset,
+        save_results,
+    )
+
+    if report_filename is None:
+        report_filename = str(get_temp_dir() / "report.pdf")
+
     initialize_logging(debug, log_file)
     logger.info(f"Evaluating model {model_name}")
     dataset = load_dataset(dataset_country, dataset_csv, dataset_name, polygons_id_field, polygons_json)
@@ -209,8 +217,14 @@ def evaluate2(
     model_name: str,
     dataset_csv: Path,
     output_file: Path,
-    backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
-    run_config: RunConfig = RunConfig(),
+    n_periods: int = 3,
+    n_splits: int = 7,
+    stride: int = 1,
+    ignore_environment: bool = False,
+    debug: bool = False,
+    log_file: Optional[str] = None,
+    run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+    is_chapkit_model: bool = False,
     model_configuration_yaml: Optional[Path] = None,
     historical_context_years: int = 6,
 ):
@@ -225,14 +239,44 @@ def evaluate2(
         model_name: Model identifier (path or GitHub URL)
         dataset_csv: Path to CSV file with disease data
         output_file: Path to output NetCDF file
-        backtest_params: Backtest configuration (n_periods, n_splits, stride)
-        run_config: Model run environment configuration
+        n_periods: Number of forecast periods
+        n_splits: Number of train/test splits
+        stride: Stride between splits
+        ignore_environment: Ignore model environment requirements
+        debug: Enable debug logging
+        log_file: Path to log file
+        run_directory_type: Type of run directory
+        is_chapkit_model: Whether model is a chapkit model
         model_configuration_yaml: Optional YAML file with model configuration
         historical_context_years: Years of historical data to include for plotting
             context (default: 6). Number of periods is calculated based on dataset
             period type (e.g., 6 years = 312 weeks or 72 months).
     """
-    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+    import yaml
+
+    from chap_core.api_types import BackTestParams, RunConfig
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.database.model_templates_and_config_tables import (
+        ConfiguredModelDB,
+        ModelConfiguration,
+        ModelTemplateDB,
+    )
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.model_template import ModelTemplate
+
+    from chap_core.cli_endpoints._common import (
+        discover_geojson,
+        load_dataset_from_csv,
+    )
+
+    backtest_params = BackTestParams(n_periods=n_periods, n_splits=n_splits, stride=stride)
+    run_config = RunConfig(
+        ignore_environment=ignore_environment,
+        debug=debug,
+        log_file=log_file,
+        run_directory_type=run_directory_type,
+        is_chapkit_model=is_chapkit_model,
+    )
 
     logger.info(f"Evaluating model {model_name} with xarray/NetCDF output")
 
