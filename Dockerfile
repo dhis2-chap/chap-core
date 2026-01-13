@@ -1,6 +1,5 @@
 FROM ghcr.io/astral-sh/uv:0.8-python3.13-bookworm-slim
 
-# OCI labels for container metadata
 LABEL org.opencontainers.image.title="Chap Modeling Platform"
 LABEL org.opencontainers.image.description="The backend engine for the Chap Modeling Platform"
 LABEL org.opencontainers.image.vendor="DHIS2"
