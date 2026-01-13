@@ -5,6 +5,8 @@ import warnings
 
 # Suppress GluonTS deprecation warning about pandas frequency aliases
 warnings.filterwarnings("ignore", category=FutureWarning, module="gluonts")
+# Suppress bionumpy warnings
+warnings.filterwarnings("ignore", module="bionumpy")
 
 from cyclopts import App  # noqa: E402
 
