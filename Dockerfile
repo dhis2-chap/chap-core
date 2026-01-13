@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.9-python3.13-bookworm-slim
 
-# Compile Python bytecode for faster startup
+# Compile Python bytecode for faster startup (.venv only)
 ENV UV_COMPILE_BYTECODE=1
 
 # Use copy mode to avoid issues with file permissions in mixed environments
@@ -32,6 +32,12 @@ ENV PORT=8000
 ENV PATH="/app/.venv/bin:$PATH"
 
 HEALTHCHECK CMD curl --fail http://localhost:${PORT}/health || exit 1
+
+# Pre-compile application bytecode as root user
+RUN python -m compileall -q chap_core/
+
+# Prevent Python from writing .pyc files at runtime
+ENV PYTHONDONTWRITEBYTECODE=1
 
 USER chap
 
