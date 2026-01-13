@@ -6,16 +6,13 @@ LABEL org.opencontainers.image.vendor="DHIS2"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 LABEL org.opencontainers.image.source="https://github.com/dhis2-chap/chap-core"
 
-RUN useradd -m -s /bin/bash chap && \
-    mkdir -p /app && chown -R chap:chap /app
-
-WORKDIR /app
-
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends git tini && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt update && apt upgrade -y && \
+    apt install -y --no-install-recommends git curl && \
+    apt clean && rm -rf /var/lib/apt/lists/* && \
+\
+    useradd --create-home --shell /usr/sbin/nologin chap
 
 COPY --chown=chap:chap ./pyproject.toml ./uv.lock ./.python-version ./README.md ./
 COPY --chown=chap:chap ./chap_core ./chap_core
