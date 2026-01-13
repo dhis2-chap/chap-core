@@ -14,12 +14,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 \
     useradd --create-home --shell /usr/sbin/nologin chap
 
-COPY --chown=chap:chap ./pyproject.toml ./uv.lock ./.python-version ./README.md ./
-COPY --chown=chap:chap ./chap_core ./chap_core
-COPY --chown=chap:chap ./config ./config
-COPY --chown=chap:chap ./gunicorn.conf.py ./gunicorn.conf.py
-COPY --chown=chap:chap ./alembic.ini ./alembic.ini
-COPY --chown=chap:chap ./alembic ./alembic
+WORKDIR /app
+
+COPY --chown=root:root ./pyproject.toml ./uv.lock ./.python-version ./gunicorn.conf.py ./alembic.ini README.md ./
+COPY --chown=root:root ./chap_core ./chap_core
+COPY --chown=root:root ./config ./config
+COPY --chown=root:root ./alembic ./alembic
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
