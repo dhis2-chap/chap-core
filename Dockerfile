@@ -6,10 +6,6 @@ LABEL org.opencontainers.image.vendor="DHIS2"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 LABEL org.opencontainers.image.source="https://github.com/dhis2-chap/chap-core"
 
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
-ENV UV_PROJECT_ENVIRONMENT=/app/.venv
-
 RUN useradd -m -s /bin/bash chap && \
     mkdir -p /app && chown -R chap:chap /app
 
