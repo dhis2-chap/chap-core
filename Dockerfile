@@ -24,10 +24,6 @@ COPY --chown=root:root ./alembic ./alembic
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-USER chap
-
-# Set the default port Gunicorn will bind to inside the container.
-# Can be overridden at runtime with: `docker run -e PORT=9000 -p 9000:9000 myimage`
 ENV PORT=8000
 ENV WORKERS=1
 
@@ -35,7 +31,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 HEALTHCHECK CMD curl --fail http://localhost:${PORT}/health || exit 1
 
-ENTRYPOINT ["/usr/bin/tini","--"]
+USER chap
 
 CMD ["sh","-c", "\
 effective_cpus() { \
