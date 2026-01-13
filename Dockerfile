@@ -1,11 +1,5 @@
 FROM ghcr.io/astral-sh/uv:0.8-python3.13-bookworm-slim
 
-LABEL org.opencontainers.image.title="Chap Modeling Platform"
-LABEL org.opencontainers.image.description="The backend engine for the Chap Modeling Platform"
-LABEL org.opencontainers.image.vendor="DHIS2"
-LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
-LABEL org.opencontainers.image.source="https://github.com/dhis2-chap/chap-core"
-
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt update && apt upgrade -y && \
