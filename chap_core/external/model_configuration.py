@@ -24,6 +24,7 @@ class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to fo
     docker_env: Optional[DockerEnvConfig] = None
     python_env: Optional[str] = None
     uv_env: Optional[str] = None
+    renv_env: Optional[str] = None
 
 
 class ModelTemplateConfigCommon(ModelTemplateInformation, extra="forbid"):
