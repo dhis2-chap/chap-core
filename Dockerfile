@@ -11,6 +11,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 WORKDIR /app
 
+# TODO: Figure out what's writing to the folder and make it write elsewhere
+RUN chown -R chap:chap /app
+
 COPY --chown=root:root ./pyproject.toml ./uv.lock ./.python-version ./gunicorn.conf.py ./alembic.ini README.md ./
 COPY --chown=root:root ./chap_core ./chap_core
 COPY --chown=root:root ./config ./config
