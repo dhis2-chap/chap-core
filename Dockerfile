@@ -60,9 +60,7 @@ ENV MAX_REQUESTS_JITTER=200
 # Ensure virtual environment is first in PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Health check to verify the API is responding
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/health').read()" || exit 1
+HEALTHCHECK CMD curl --fail http://localhost:${PORT}/health || exit 1
 
 ENTRYPOINT ["/usr/bin/tini","--"]
 
