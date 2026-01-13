@@ -14,6 +14,7 @@ from chap_core.time_period.date_util_wrapper import (
     Day,
     Year,
     Week,
+    pandas_period_to_string,
 )
 
 
@@ -48,7 +49,7 @@ def test_init_week_with_numbers():
     week = Week(2023, 2)
     assert isinstance(week, Week)
     assert week.start_timestamp == TimeStamp.parse("2023-01-09")
-    assert week.to_string() == "2023W2"  # pd.Period('2023-01-09', freq='W-MON')
+    assert week.to_string() == "2023-W02"  # New ISO-like format
 
 
 def test_parse(period1):
@@ -107,6 +108,89 @@ def test_from_id(period1):
     assert TimePeriod.from_id("2023W02") == Week(2023, 2)
     assert TimePeriod.from_id("20230203") == Day(2023, 2, 3)
     assert TimePeriod.from_id("2023") == Year(2023)
+
+
+def test_parse_week_formats():
+    """Test parsing of old and new week formats."""
+    # Old format: YYYYWnn
+    week1 = TimePeriod.parse("2023W02")
+    assert week1 == Week(2023, 2)
+    assert week1.year == 2023
+    assert week1.week == 2
+
+    # New format: YYYY-Wnn
+    week2 = TimePeriod.parse("2023-W02")
+    assert week2 == Week(2023, 2)
+    assert week2.year == 2023
+    assert week2.week == 2
+
+    # Both should produce the same week
+    assert week1 == week2
+
+
+def test_parse_sunday_week_formats():
+    """Test parsing of old and new Sunday-start week formats."""
+    # Old format: YYYYSunWnn
+    week1 = TimePeriod.parse("2023SunW02")
+    assert week1.year == 2023
+    assert week1.week == 2
+
+    # New format: YYYY-Snn
+    week2 = TimePeriod.parse("2023-S02")
+    assert week2.year == 2023
+    assert week2.week == 2
+
+    # Both should produce equivalent weeks
+    assert week1 == week2
+
+
+def test_week_to_string_format():
+    """Test that to_string() returns new ISO-like format."""
+    # Monday-start week
+    week_mon = Week(2023, 5)
+    assert week_mon.to_string() == "2023-W05"
+
+    # Sunday-start week
+    week_sun = Week(2023, 5, iso_day=7)
+    assert week_sun.to_string() == "2023-S05"
+
+
+def test_week_id_backwards_compatible():
+    """Test that id property returns old format for backwards compatibility."""
+    week_mon = Week(2023, 5)
+    assert week_mon.id == "2023W05"  # Old format
+
+    week_sun = Week(2023, 5, iso_day=7)
+    assert week_sun.id == "2023SunW05"  # Old format
+
+
+def test_pandas_period_to_string():
+    """Test conversion of pandas Period objects to ISO-like format."""
+    # Weekly period
+    weekly = pd.Period("2020-01-06", freq="W")
+    assert pandas_period_to_string(weekly) == "2020-W02"
+
+    # Monthly period
+    monthly = pd.Period("2020-01", freq="M")
+    assert pandas_period_to_string(monthly) == "2020-01"
+
+    # Daily period
+    daily = pd.Period("2020-01-15", freq="D")
+    assert pandas_period_to_string(daily) == "2020-01-15"
+
+    # Yearly period
+    yearly = pd.Period("2020", freq="Y")
+    assert pandas_period_to_string(yearly) == "2020"
+
+
+def test_pandas_period_to_string_from_week_object():
+    """Test conversion flow from Week object through pandas Period."""
+    pr = PeriodRange.from_time_periods(Week(2020, 1), Week(2020, 3))
+    pandas_periods = pr.topandas()
+
+    # Convert each pandas Period to our format
+    result = [pandas_period_to_string(p) for p in pandas_periods]
+    assert result == ["2020-W01", "2020-W02", "2020-W03"]
 
 
 @pytest.fixture

@@ -46,17 +46,18 @@ a model that does not take weather into account, but only the the auto-regressiv
 Let's start by loading the data and the model.
 
 ```python
-from climate_health.data.datasets import ISIMIP_dengue_harmonized
+from chap_core.file_io.example_data_set import datasets
+from chap_core.adaptors.gluonts import GluonTSEstimator
 from gluonts.torch import DeepAREstimator
 from gluonts.torch.distributions import NegativeBinomialOutput
 
 # Load the data
-data = ISIMIP_dengue_harmonized['vietnam']
+data = datasets['ISIMIP_dengue_harmonized'].load()['vietnam']
 
 # Define the DeepAR model
 n_locations = len(data.locations)
 prediction_length = 4
-deep_ar =  DeepAREstimator(
+deep_ar = DeepAREstimator(
     num_layers=2,
     hidden_size=24,
     dropout_rate=0.3,
@@ -68,17 +69,14 @@ deep_ar =  DeepAREstimator(
     distr_output=NegativeBinomialOutput(),
     freq='M')
 
-    # Wrap the model in a CHAP model
-
-    from climate_health.adapters.gluonts import GluonTSEstimator
-
-    model = GluonTSEstimator(gluonts_model, data)
+# Wrap the model in a CHAP model
+model = GluonTSEstimator(deep_ar, data)
 ```
 
 The model now is a chap compatible model and we can run our evaluation pipeline on it.
 
 ```python
-from climate_health.evaluation import evaluate_model
+from chap_core.assessment.prediction_evaluator import evaluate_model
 
 evaluate_model(model, data, prediction_length=4, n_test_sets=8, report_filename='gluonts_deepar_results.csv')
 ```
@@ -92,7 +90,7 @@ CHAP contains an API for loading models through Python. The following shows an e
 import pandas as pd
 
 from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.external.external_model import get_model_from_directory_or_github_url
+from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.file_io.file_paths import get_models_path
 from chap_core.file_io.example_data_set import datasets
 import logging
@@ -204,18 +202,19 @@ When running things with docker compose, some logging will be done by each conta
 
 # Data requirements in CHAP
 
-CHAP expects the data to contain certain features as column names of the supplied csv files. Specifically, time_period, population, disease_cases, location, rainfall and mean_temperature. CHAP gives an error if any of these are missing in the supplied datafile. Additionally, there are convntions for how to represent time in the time_period. For instance, weekly data should be represented as 
+CHAP expects the data to contain certain features as column names of the supplied csv files. Specifically, time_period, population, disease_cases, location, rainfall and mean_temperature. CHAP gives an error if any of these are missing in the supplied datafile. Additionally, there are conventions for how to represent time in the time_period. For instance, weekly data should be represented as
+
 |time_period|
-|-----------------|
-|2014-12-29/2015-01-04|
-|2015-01-05/2015-01-11|
-|2015-01-12/2015-01-18|
-|2015-01-19/2015-01-25|
+|-----------|
+|2014-W52|
+|2015-W01|
+|2015-W02|
+|2015-W03|
 
 And for monthly data it should be
 
 |time_period|
-|-----------------|
+|-----------|
 |2014-12|
 |2015-01|
 |2015-02|

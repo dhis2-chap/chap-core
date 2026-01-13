@@ -7,7 +7,7 @@ If you are an external contributor without write-access to the chap-core reposit
 1.  Start by downloading the latest chap-core `master` branch to a local folder of your choice, either from the main repository or from your own fork:
 
     ```bash
-    $ git clone https://github.com/dhis2-chap/chap-core/tree/master
+    $ git clone https://github.com/dhis2-chap/chap-core.git
     $ cd chap-core
     ```
 

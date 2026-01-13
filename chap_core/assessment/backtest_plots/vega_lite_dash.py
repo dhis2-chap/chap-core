@@ -23,7 +23,7 @@ def _compute_metric_df(metric_cls, flat_obs, flat_fc) -> pd.DataFrame:
 def _horizon_section(flat_obs: FlatObserved, flat_fc: FlatForecasts, geojson: Optional[dict]):
     # rmse_df = _compute_metric_df(DetailedRMSE, flat_obs, flat_fc)
     # peak_diff_df = _compute_metric_df(PeakValueDiffMetric, flat_obs, flat_fc)
-    # peak_lag_df = _compute_metric_df(PeakWeekLagMetric, flat_obs, flat_fc)
+    # peak_lag_df = _compute_metric_df(PeakPeriodLagMetric, flat_obs, flat_fc)
     above_truth_df = _compute_metric_df(RatioOfSamplesAboveTruth, flat_obs, flat_fc)
     print("Above truth df:", above_truth_df)
 
@@ -86,7 +86,7 @@ def _horizon_section(flat_obs: FlatObserved, flat_fc: FlatForecasts, geojson: Op
 def _time_section(flat_obs: FlatObserved, flat_fc: FlatForecasts):
     # rmse_df = _compute_metric_df(DetailedRMSE, flat_obs, flat_fc)
     # peak_diff_df = _compute_metric_df(PeakValueDiffMetric, flat_obs, flat_fc)
-    # peak_lag_df = _compute_metric_df(PeakWeekLagMetric, flat_obs, flat_fc)
+    # peak_lag_df = _compute_metric_df(PeakPeriodLagMetric, flat_obs, flat_fc)
     above_truth_df = _compute_metric_df(RatioOfSamplesAboveTruth, flat_obs, flat_fc)
 
     # Ensure columns needed for grouping exist
