@@ -18,6 +18,3 @@ compose-models.yml
 compose.*.yml
 
 Dockerfile*
-
-example_data
-external_models
