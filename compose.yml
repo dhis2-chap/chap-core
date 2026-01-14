@@ -12,6 +12,10 @@ services:
     # TODO: Update the tests so they don't rely on hardcoded container names
     container_name: chap
     read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     volumes:
       - type: tmpfs
         target: /tmp
@@ -46,6 +50,16 @@ services:
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 1000000
 
   redis:
     image: valkey/valkey:8
