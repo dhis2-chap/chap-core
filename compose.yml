@@ -16,6 +16,7 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    user: chap:chap
     volumes:
       - type: tmpfs
         target: /tmp
@@ -55,6 +56,7 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    user: chap:chap
     volumes:
       - type: tmpfs
         target: /tmp
