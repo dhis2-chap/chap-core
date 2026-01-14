@@ -14,7 +14,7 @@ The exact way of specifying the train and predict endpoints are described [here]
 
 ## Standardised data format
 Part of the standardised interface is to rely on a standardised data format (for the "historic data" and "weather forecast" data in the figure above).
-This is a simple csv format. An example is provided in the [minimalist_example respository](https://github.com/dhis2-chap/minimalist_example).
+This is a simple csv format. An example is provided in the [minimalist_example respository](https://github.com/dhis2-chap/minimalist_example). For details, consult the [data format definition](data_formats.md).
 
 ### Monthly data example
 ```csv
