@@ -254,7 +254,7 @@ class CeleryJob(Generic[ReturnType]):
         return str(self._result.traceback or "")
 
     def get_logs(self) -> str:
-        log_file = Path("app/logs") / f"task_{self._job.id}.txt"  # TODO: not sure why have to specify app/logs...
+        log_file = Path("/tmp/chap/logs") / f"task_{self._job.id}.txt"  # TODO: not sure why have to specify app/logs...
         logger.info(f"Looking for log file at {log_file}")
         logger.info(f"Job id is: {self._job.id}")
         if log_file.exists():

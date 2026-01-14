@@ -33,7 +33,7 @@ def initialize_logging(debug: bool = None, log_file: str = None):
         logger.setLevel(level=logging.INFO)
         logger.info("Level set to INFO")
 
-    Path("logs").mkdir(parents=True, exist_ok=True)  # keep this in as it might be required for celery tasks
+    Path("/tmp/chap/logs").mkdir(parents=True, exist_ok=True)  # keep this in as it might be required for celery tasks
 
     # check if environment variable CHAP_LOG_FILE is set, use that as handler
     # if os.getenv("CHAP_LOG_FILE") and log_file is None:
