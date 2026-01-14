@@ -4,7 +4,12 @@ focusing on what you will need to understand in order to do forecasting of clima
 It thus selects a set of topics needed for disease forecasting, while mostly introducing these concepts in generality.
 
 The material is organised around hands-on tutorials, where you will learn how to practically develop models while learning the theoretical underpinnings.
+We provide guides and example models in both *Python* and *R*.
 
+The hands-on work relies on Chap, which is designed to allow model developers to focus on their core modelling idea, and then rely on Chap for rich support of data, evaluation, interoperability and more. 
+This helps you learn effectively - by being hands-on and concrete, while still focusing on the core concepts.  
+
+If you are already experienced in spatiotemporal modelling, and just want to integrate a model of yours with a professional framework, please see our separate guide for [experienced modellers](experienced_modeller.md).
 # Prerequisites
 
 - Programming: you must know some programming, in either Python or R, to be able to follow our exercises and tutorials. 
