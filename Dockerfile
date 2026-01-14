@@ -36,14 +36,5 @@ USER chap
 CMD [ \
     "gunicorn", "-c", "gunicorn.conf.py", "-k", "uvicorn.workers.UvicornWorker", "chap_core.rest_api.v1.rest_api:app", \
       "--bind 0.0.0.0:${PORT}", \
-      "--workers 1", \
-      "--timeout 60", \
-      "--graceful-timeout 30", \
-      "--keep-alive 5", \
-      "--forwarded-allow-ips *", \
-      "--max-requests 1000", \
-      "--max-requests-jitter 200", \
-      "--access-logfile -", \
-      "--error-logfile -", \
-      "--worker-tmp-dir /dev/shm" \
+      "--workers 1" \
   ]
