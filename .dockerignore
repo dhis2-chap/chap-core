@@ -12,3 +12,9 @@ target/*.tmp
 
 # other
 /chap_core/web_interface
+
+compose.yml
+compose-models.yml
+compose.*.yml
+
+Dockerfile*

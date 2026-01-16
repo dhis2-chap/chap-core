@@ -73,7 +73,9 @@ class TrackedTask(Task):
         task_id = self.request.id
 
         # Create a file handler for this task's logs
-        file_handler = logging.FileHandler(Path("logs") / f"task_{task_id}.txt")
+        log_dir = Path("/tmp/chap/logs")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(log_dir / f"task_{task_id}.txt")
         file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
         file_handler.setFormatter(file_formatter)
 
@@ -254,7 +256,7 @@ class CeleryJob(Generic[ReturnType]):
         return str(self._result.traceback or "")
 
     def get_logs(self) -> str:
-        log_file = Path("app/logs") / f"task_{self._job.id}.txt"  # TODO: not sure why have to specify app/logs...
+        log_file = Path("/tmp/chap/logs") / f"task_{self._job.id}.txt"
         logger.info(f"Looking for log file at {log_file}")
         logger.info(f"Job id is: {self._job.id}")
         if log_file.exists():

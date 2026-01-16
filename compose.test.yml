@@ -7,6 +7,7 @@ services:
     # multine command
     depends_on:
         -  worker
+    # for now some of the tests uses hardocded names so we need to set the container name
     container_name: chap_test
     environment:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}

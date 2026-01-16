@@ -30,10 +30,10 @@ def get_temp_dir() -> Path:
     Returns
     -------
     Path
-        Path to the temporary directory (default: 'target/')
+        Path to the temporary directory (default: '/tmp/chap/temp/')
     """
-    temp_dir = Path("target")
-    temp_dir.mkdir(exist_ok=True)
+    temp_dir = Path("/tmp/chap/temp")
+    temp_dir.mkdir(parents=True, exist_ok=True)
     return temp_dir
 
 

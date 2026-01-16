@@ -73,4 +73,5 @@ jobs:
           command: ""
       - name: Run
         run: |
+          cp .env.example .env
           make test-all
