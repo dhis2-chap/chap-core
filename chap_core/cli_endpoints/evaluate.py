@@ -213,6 +213,7 @@ def evaluate2(
     run_config: RunConfig = RunConfig(),
     model_configuration_yaml: Optional[Path] = None,
     historical_context_years: int = 6,
+    data_source_mapping: Optional[Path] = None,
 ):
     """
     Evaluate a single model and export results to NetCDF format using xarray.
@@ -231,6 +232,10 @@ def evaluate2(
         historical_context_years: Years of historical data to include for plotting
             context (default: 6). Number of periods is calculated based on dataset
             period type (e.g., 6 years = 312 weeks or 72 months).
+        data_source_mapping: Optional path to JSON file with column name mappings.
+            Keys are covariate names expected by the model, values are column names
+            in the CSV file. Example: {"rainfall": "precipitation_mm"} renames
+            the "precipitation_mm" column to "rainfall".
     """
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
@@ -238,8 +243,16 @@ def evaluate2(
 
     initialize_logging(run_config.debug, run_config.log_file)
 
+    column_mapping = None
+    if data_source_mapping is not None:
+        import json
+
+        logger.info(f"Loading column mapping from {data_source_mapping}")
+        with open(data_source_mapping) as f:
+            column_mapping = json.load(f)
+
     geojson_path = discover_geojson(dataset_csv)
-    dataset = load_dataset_from_csv(dataset_csv, geojson_path)
+    dataset = load_dataset_from_csv(dataset_csv, geojson_path, column_mapping)
 
     configuration = None
     if model_configuration_yaml is not None:
