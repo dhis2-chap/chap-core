@@ -6,7 +6,7 @@ services:
       GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      CHAP_DATABASE_URL: postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
+      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       CELERY_BROKER: redis://redis:6379/0
     # for now some of the tests uses hardocded names so we need to set the container name
     # TODO: Update the tests so they don't rely on hardcoded container names
@@ -44,7 +44,7 @@ services:
       - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - IS_IN_DOCKER=1
-      - CHAP_DATABASE_URL=postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
+      - CHAP_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - CELERY_BROKER=redis://redis:6379
       - C_FORCE_ROOT=1 #TODO: Remove this when we have a proper user
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
@@ -69,11 +69,11 @@ services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: thisisnotgoingtobeexposed
-      POSTGRES_DB: chap_core
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d chap_core"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d chap_core"]
       interval: 10s
       timeout: 10s
       retries: 10
