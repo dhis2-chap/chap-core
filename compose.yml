@@ -8,7 +8,7 @@ services:
       REDIS_PORT: 6379
       CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       CELERY_BROKER: redis://redis:6379/0
-    # for now some of the tests uses hardocded names so we need to set the container name
+    # for now some of the tests uses hardcoded names so we need to set the container name
     # TODO: Update the tests so they don't rely on hardcoded container names
     container_name: chap
     read_only: true
