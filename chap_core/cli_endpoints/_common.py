@@ -12,7 +12,7 @@ from chap_core.datatypes import FullData
 from chap_core.geometry import Polygons
 from chap_core.models.model_template import ModelTemplate
 from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet, DataSetMetaData
 from chap_core.file_io.example_data_set import datasets
 
 logger = logging.getLogger(__name__)
@@ -106,19 +106,34 @@ def discover_geojson(csv_path: Path) -> Optional[Path]:
     return None
 
 
-def load_dataset_from_csv(csv_path: Path, geojson_path: Optional[Path] = None) -> DataSet:
+def load_dataset_from_csv(
+    csv_path: Path,
+    geojson_path: Optional[Path] = None,
+    column_mapping: Optional[dict[str, str]] = None,
+) -> DataSet:
     """
     Load dataset from CSV file with optional GeoJSON polygons.
 
     Args:
         csv_path: Path to CSV file with disease data
         geojson_path: Optional path to GeoJSON file with polygon boundaries
+        column_mapping: Optional mapping from covariate names (keys) to CSV column names (values).
+            If provided, columns will be renamed before creating the DataSet.
 
     Returns:
         DataSet loaded from CSV with polygons if provided
     """
     logging.info(f"Loading dataset from {csv_path}")
-    dataset = DataSet.from_csv(csv_path, FullData)
+
+    if column_mapping is not None:
+        logging.info(f"Applying column mapping: {column_mapping}")
+        df = pd.read_csv(csv_path)
+        # Rename columns: mapping is {target_name: source_name}, so swap for rename
+        df.rename(columns={v: k for k, v in column_mapping.items()}, inplace=True)
+        dataset = DataSet.from_pandas(df, FullData)
+        dataset.metadata = DataSetMetaData(name=str(Path(csv_path).stem), filename=str(csv_path))
+    else:
+        dataset = DataSet.from_csv(csv_path, FullData)
 
     if geojson_path is not None:
         logging.info(f"Loading polygons from {geojson_path}")
