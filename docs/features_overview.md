@@ -41,7 +41,8 @@ Integrating with the Chap platform allows to focus only on the model itself, and
 * A plugin-like system for visualisations, allowing anyone to contribute [visualisations of data]() or [visualisations for model evaluation]().  
 
 ### Beyond the core features described above, the platform also currently or in the future offers the following features to any model integrated with it
-* Persistency: Both trained models and their predictions on different datasets can be stored according to our [persistency support](), allowing to run trained models on new data and set up comparative evaluations. 
+* Persistency: Both trained models and their predictions on different datasets can be stored according to our [persistency support](), allowing to run trained models on new data and set up comparative evaluations.
+* Extended prediction horizons: Any model can be wrapped with ExtendedPredictor to make predictions beyond its maximum prediction length through iterative prediction.
 * AutoML: There is ongoing work to support [automatic model tuning]() (model Hyper-parameters to be tuned), as well as planned work to allow automatic variable selection and automatic selection of model to use on a given dataset.
 * Ensemble model learning: There is ongoing work on combining multiple models to get both mean predictions and uncertainty combined across models, ranging from: 
   * Ongoing work on basic aggregation and manual or automatically learned weighting of multiple models 

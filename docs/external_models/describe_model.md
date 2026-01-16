@@ -53,4 +53,3 @@ entry_points:
       out_file: str
     command: "python main.py predict {model} {historic_data} {future_data} {out_file}"
 ```
-
