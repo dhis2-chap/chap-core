@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from chap_core.assessment.evaluation import Evaluation, EvaluationBase, FlatEvaluationData
+from chap_core.assessment.evaluation import Evaluation, EvaluationBase, FlatEvaluationData, ModelCard
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
     FlatObserved,
@@ -149,3 +149,18 @@ class TestEvaluation:
         required_cols = ["location", "time_period", "disease_cases"]
         for col in required_cols:
             assert col in flat_data.observations.columns
+
+    class TestModelCard:
+        """Tests for ModelCard class"""
+        
+        def test_modelcard_inherits_backtest(self, backtest):
+            """Test to assert that ModelCard wraps backtest"""
+            modelCard = ModelCard(backtest)
+            assert modelCard.backtest is backtest
+
+        def test_modelcard_description(self,backtest):
+            """Test that description is given"""
+            description = "Test description"
+            modelCard = ModelCard(backtest, description)
+            assert (modelCard.description == description)
+            
