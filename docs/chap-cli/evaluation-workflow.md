@@ -120,6 +120,9 @@ chap evaluate2 \
 | `--run-config.debug` | Enable debug logging | false |
 | `--run-config.run-directory-type` | Directory handling: `latest`, `timestamp`, or `use_existing` | timestamp |
 | `--historical-context-years` | Years of historical data for plot context | 6 |
+| `--data-source-mapping` | JSON file mapping model covariate names to CSV columns | None |
+
+For detailed parameter descriptions and examples, see the [evaluate2 Reference](evaluate2-reference.md).
 
 ### GeoJSON Auto-Discovery
 

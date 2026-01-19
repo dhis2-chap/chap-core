@@ -152,15 +152,14 @@ class TestEvaluation:
 
     class TestModelCard:
         """Tests for ModelCard class"""
-        
+
         def test_modelcard_inherits_backtest(self, backtest):
             """Test to assert that ModelCard wraps backtest"""
             modelCard = ModelCard(backtest)
             assert modelCard.backtest is backtest
 
-        def test_modelcard_description(self,backtest):
+        def test_modelcard_description(self, backtest):
             """Test that description is given"""
             description = "Test description"
             modelCard = ModelCard(backtest, description)
-            assert (modelCard.description == description)
-            
+            assert modelCard.description == description
