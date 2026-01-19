@@ -82,6 +82,7 @@ nav:
       - Overview: chap-cli/index.md
       - Setup: chap-cli/chap-core-cli-setup.md
       - Evaluation Workflow: chap-cli/evaluation-workflow.md
+      - evaluate2 Reference: chap-cli/evaluate2-reference.md
   - Contributors:
       - Overview: contributor/index.md
       - Getting Started: contributor/getting_started.md
