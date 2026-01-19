@@ -30,6 +30,7 @@ from chap_core.api_types import FeatureCollectionModel
 from chap_core.models.approved_templates import (
     ApprovedTemplate,
     get_approved_templates,
+    get_git_ref,
     is_approved,
 )
 from chap_core.models.model_template import ExternalModelTemplate
@@ -387,7 +388,8 @@ async def add_model_template(
     if not is_approved(model_template_create.url, model_template_create.version, approved):
         raise HTTPException(status_code=403, detail="Model template not in approved list")
 
-    full_url = f"{model_template_create.url}{model_template_create.version}"
+    git_ref = get_git_ref(model_template_create.url, model_template_create.version, approved)
+    full_url = f"{model_template_create.url}{git_ref}"
     try:
         config = ExternalModelTemplate.fetch_config_from_github_url(full_url)
     except Exception as e:
