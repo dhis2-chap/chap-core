@@ -16,3 +16,7 @@ See the [Evaluation Workflow](evaluation-workflow.md) guide for detailed usage a
 
 - [Setup](chap-core-cli-setup.md) - How to install and configure the CLI
 - [Evaluation Workflow](evaluation-workflow.md) - Complete guide to evaluating and comparing models
+
+## Command Reference
+
+- [evaluate2](evaluate2-reference.md) - Full reference for the evaluate2 command with all parameters

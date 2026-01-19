@@ -2,10 +2,11 @@
 
 import logging
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 import pandas as pd
 import yaml
+from cyclopts import Parameter
 
 from chap_core.api_types import BackTestParams, RunConfig
 from chap_core.assessment.evaluation import Evaluation
@@ -238,31 +239,80 @@ def evaluate(
 
 
 def evaluate2(
-    model_name: str,
-    dataset_csv: Path,
-    output_file: Path,
-    backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
-    run_config: RunConfig = RunConfig(),
-    model_configuration_yaml: Optional[Path] = None,
-    historical_context_years: int = 6,
+    model_name: Annotated[
+        str,
+        Parameter(
+            help="Model path (local directory), GitHub URL, or chapkit service URL. "
+            "Examples: /path/to/model, https://github.com/org/model, http://localhost:8000"
+        ),
+    ],
+    dataset_csv: Annotated[
+        Path,
+        Parameter(
+            help="Path to CSV file containing disease data with columns: time_period, "
+            "location, disease_cases, and climate covariates (rainfall, temperature, etc.)"
+        ),
+    ],
+    output_file: Annotated[
+        Path,
+        Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
+    ],
+    backtest_params: Annotated[
+        BackTestParams,
+        Parameter(
+            help="Backtest configuration. Use --backtest-params.n-periods for forecast horizon, "
+            "--backtest-params.n-splits for number of train/test splits, "
+            "--backtest-params.stride for step size between splits"
+        ),
+    ] = BackTestParams(n_periods=3, n_splits=7, stride=1),
+    run_config: Annotated[
+        RunConfig,
+        Parameter(
+            help="Model execution configuration. Use --run-config.is-chapkit-model for chapkit models, "
+            "--run-config.debug for verbose logging, --run-config.ignore-environment to skip env setup"
+        ),
+    ] = RunConfig(),
+    model_configuration_yaml: Annotated[
+        Optional[Path],
+        Parameter(help="Path to YAML file with model-specific configuration parameters"),
+    ] = None,
+    historical_context_years: Annotated[
+        int,
+        Parameter(
+            help="Years of historical data to include for plotting context. "
+            "Calculated as periods based on dataset frequency (e.g., 6 years = 312 weeks or 72 months)"
+        ),
+    ] = 6,
+    data_source_mapping: Annotated[
+        Optional[Path],
+        Parameter(
+            help="Path to JSON file mapping model covariate names to CSV column names. "
+            'Format: {"model_name": "csv_column"}. Example: {"rainfall": "precipitation_mm"}'
+        ),
+    ] = None,
 ):
-    """
-    Evaluate a single model and export results to NetCDF format using xarray.
+    """Evaluate a model using backtesting and export results to NetCDF format.
 
-    This command evaluates one model and outputs evaluation results in NetCDF format
-    for easy integration with scientific tools. GeoJSON polygons are automatically
-    discovered from a file with the same name as the CSV but with .geojson extension.
+    Runs a rolling-origin backtest evaluation on a disease prediction model and saves
+    results in NetCDF format for analysis with scientific tools. GeoJSON polygon files
+    are auto-discovered from files with the same name as the CSV but with .geojson extension.
 
-    Args:
-        model_name: Model identifier (path or GitHub URL)
-        dataset_csv: Path to CSV file with disease data
-        output_file: Path to output NetCDF file
-        backtest_params: Backtest configuration (n_periods, n_splits, stride)
-        run_config: Model run environment configuration
-        model_configuration_yaml: Optional YAML file with model configuration
-        historical_context_years: Years of historical data to include for plotting
-            context (default: 6). Number of periods is calculated based on dataset
-            period type (e.g., 6 years = 312 weeks or 72 months).
+    The evaluation splits historical data into multiple train/test sets, trains the model
+    on each training set, and generates probabilistic forecasts that are compared against
+    actual observations. Results include predictions, observations, and computed metrics.
+
+    Examples:
+        # Evaluate a GitHub-hosted model
+        chap evaluate2 --model-name https://github.com/dhis2-chap/minimalist_example_r \\
+            --dataset-csv ./data/vietnam.csv --output-file ./results/eval.nc
+
+        # Evaluate a chapkit model (REST API)
+        chap evaluate2 --model-name http://localhost:8000 --run-config.is-chapkit-model \\
+            --dataset-csv ./data/vietnam.csv --output-file ./results/eval.nc
+
+        # Use column name mapping when CSV columns don't match model expectations
+        chap evaluate2 --model-name ./my_model --dataset-csv ./data.csv \\
+            --output-file ./eval.nc --data-source-mapping ./column_mapping.json
     """
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
@@ -270,8 +320,16 @@ def evaluate2(
 
     initialize_logging(run_config.debug, run_config.log_file)
 
+    column_mapping = None
+    if data_source_mapping is not None:
+        import json
+
+        logger.info(f"Loading column mapping from {data_source_mapping}")
+        with open(data_source_mapping) as f:
+            column_mapping = json.load(f)
+
     geojson_path = discover_geojson(dataset_csv)
-    dataset = load_dataset_from_csv(dataset_csv, geojson_path)
+    dataset = load_dataset_from_csv(dataset_csv, geojson_path, column_mapping)
 
     configuration = None
     if model_configuration_yaml is not None:
