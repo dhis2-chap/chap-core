@@ -56,13 +56,11 @@ class VisualDecisionMaker(DecisionMaker):
         Returns:
             Index of the preferred evaluation
         """
-        from chap_core.plotting.backtest_plot import EvaluationBackTestPlot
+        from chap_core.assessment.backtest_plots import create_plot_from_evaluation
 
         # Generate and display plots for each evaluation
         for i, evaluation in enumerate(evaluations):
-            backtest = evaluation.to_backtest()
-            plot = EvaluationBackTestPlot.from_backtest(backtest)
-            chart = plot.plot()
+            chart = create_plot_from_evaluation("evaluation_plot", evaluation)
 
             # Save to temp file and open in browser
             with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:

@@ -136,16 +136,16 @@ Use `plot-backtest` to generate visualizations from the evaluation results:
 chap plot-backtest \
     --input-file ./results/model_a_eval.nc \
     --output-file ./results/model_a_plot.html \
-    --plot-type backtest_plot_1
+    --plot-type metrics_dashboard
 ```
 
 ### Available Plot Types
 
 | Plot Type | Description |
 |-----------|-------------|
-| `backtest_plot_1` | Standard backtest visualization with forecasts vs observations |
-| `evaluation_plot` | Evaluation summary plot |
-| `ratio_of_samples_above_truth` | Shows forecast bias across locations |
+| `metrics_dashboard` | Dashboard showing various metrics by forecast horizon and time period |
+| `evaluation_plot` | Evaluation summary plot with forecasts vs observations and uncertainty bands |
+| `ratio_of_samples_above_truth` | Shows forecast bias relative to observations |
 
 ### Output Formats
 
