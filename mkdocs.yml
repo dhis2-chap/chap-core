@@ -56,7 +56,7 @@ markdown_extensions:
 docs_dir: docs
 
 nav:
-  - Home: index.md
+  - Getting Started: index.md
   - Modeling App:
       - Overview: modeling-app/index.md
       - Installation: modeling-app/installation.md
