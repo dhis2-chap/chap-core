@@ -6,12 +6,14 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session
 from starlette.responses import JSONResponse
 
-from chap_core.assessment.backtest_plots.backtest_plot_1 import BackTestPlot1
-from chap_core.assessment.backtest_plots.sample_bias_plot import RatioOfSamplesAboveTruthBacktestPlot
+from chap_core.assessment.backtest_plots import (
+    get_backtest_plots_registry,
+    list_backtest_plots,
+    create_plot_from_backtest,
+)
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import BackTest
-from chap_core.plotting.backtest_plot import EvaluationBackTestPlot
 from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.evaluation_plot import (
     MetricByHorizonV2Mean,
@@ -30,10 +32,6 @@ router = APIRouter(prefix="/visualization", tags=["Visualization"])
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 
 metric_plots_registry = {cls.visualization_info.id: cls for cls in [MetricByHorizonV2Mean, MetricMapV2]}
-backtest_plots_registry = {
-    "backtest_plot_1": BackTestPlot1,
-    "ratio_of_samples_above_truth": RatioOfSamplesAboveTruthBacktestPlot,
-}
 
 
 # List visualizations
@@ -115,24 +113,22 @@ class BackTestPlotType(DBModel):
 
 @router.get("/backtest-plots/", response_model=list[BackTestPlotType])
 def list_backtest_plot_types():
+    plots = list_backtest_plots()
     return [
-        BackTestPlotType(id=plot_id, display_name=plot_class.name, description=plot_class.description)
-        for plot_id, plot_class in backtest_plots_registry.items()
+        BackTestPlotType(id=plot["id"], display_name=plot["name"], description=plot["description"]) for plot in plots
     ]
 
 
 @router.get("/backtest-plots/{visualization_name}/{backtest_id}")
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
-    if visualization_name == "evaluation_plot":
-        # backwards compatible with this plot, which is not in the registry
-        plot_class = EvaluationBackTestPlot
-    else:
-        assert visualization_name in backtest_plots_registry, f"Visualization {visualization_name} not found"
-        plot_class = backtest_plots_registry[visualization_name]
+    registry = get_backtest_plots_registry()
+    if visualization_name not in registry:
+        available = ", ".join(registry.keys())
+        return {"error": f"Visualization {visualization_name} not found. Available: {available}"}
 
     backtest = session.get(BackTest, backtest_id)
     if not backtest:
         return {"error": "Backtest not found"}
-    plotter = plot_class.from_backtest(backtest)
-    chart = plotter.plot().to_dict(format="vega")
-    return JSONResponse(chart)
+
+    chart = create_plot_from_backtest(visualization_name, backtest)
+    return JSONResponse(chart.to_dict(format="vega"))
