@@ -4,7 +4,9 @@ import dataclasses
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
+
+from cyclopts import Parameter
 
 import numpy as np
 import pandas as pd
@@ -129,14 +131,31 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plo
     fig.show()
 
 
-def plot_backtest(input_file: Path, output_file: Path, plot_type: str = "metrics_dashboard"):
+def _get_plot_type_help() -> str:
+    """Generate help text listing available plot types from the registry."""
+    from chap_core.assessment.backtest_plots import list_backtest_plots
+
+    plots = list_backtest_plots()
+    plot_list = ", ".join(f'"{p["id"]}"' for p in plots)
+    return f"Type of plot to generate. Available: {plot_list}"
+
+
+def plot_backtest(
+    input_file: Annotated[
+        Path,
+        Parameter(help="Path to NetCDF file containing evaluation data (from evaluate2)"),
+    ],
+    output_file: Annotated[
+        Path,
+        Parameter(help="Path to output file (supports .html, .png, .svg, .pdf)"),
+    ],
+    plot_type: Annotated[
+        str,
+        Parameter(help=_get_plot_type_help()),
+    ] = "metrics_dashboard",
+):
     """
     Generate a backtest plot from evaluation data and save to file.
-
-    Args:
-        input_file: Path to NetCDF file containing evaluation data (from evaluate2)
-        output_file: Path to output file (supports .html, .png, .svg, .pdf)
-        plot_type: Type of plot to generate. Use 'chap plot-backtest --help' to see available types.
     """
     from chap_core.assessment.backtest_plots import (
         get_backtest_plots_registry,
