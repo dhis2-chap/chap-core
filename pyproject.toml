@@ -77,6 +77,9 @@ dev = [
     "wheel>=0.45.1",
     "typer>=0.19.2",
     "ipython>=9.6.0",
+    "mypy>=1.19.1",
+    "pyright>=1.1.408",
+    "pandas-stubs>=2.3.3.260113",
 ]
 
 [project.urls]
