@@ -1,5 +1,6 @@
 from chap_core.models.configured_model import ConfiguredModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.datatypes import Samples
 import pandas as pd
 
 
@@ -10,10 +11,18 @@ class ExtendedPredictor(ConfiguredModel):
 
     def train(self, train_data: DataSet, extra_args=None):
         self._config_model.train(train_data, extra_args)
+        return self
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         historic_df = historic_data.to_pandas()
         future_df = future_data.to_pandas()
+
+        # Drop 'parent' column if present - it's metadata for hierarchical aggregation,
+        # not a predictive feature, and can contain non-numeric placeholders like '-'
+        if "parent" in historic_df.columns:
+            historic_df = historic_df.drop(columns=["parent"])
+        if "parent" in future_df.columns:
+            future_df = future_df.drop(columns=["parent"])
 
         model_information = self._config_model.model_information
 
@@ -27,12 +36,15 @@ class ExtendedPredictor(ConfiguredModel):
         remaining_time_periods = self._desired_scope
         predictions = pd.DataFrame()
 
-        future_idx = 0
+        future_time_idx = 0
+        unique_time_periods = future_df["time_period"].unique()
 
         while remaining_time_periods > 0:
             steps_to_predict = min(max_pred_length, remaining_time_periods)
 
-            future_slice = future_df.iloc[future_idx : future_idx + steps_to_predict]
+            # Slice by time period values to include all locations
+            time_periods_to_select = unique_time_periods[future_time_idx : future_time_idx + steps_to_predict]
+            future_slice = future_df[future_df["time_period"].isin(time_periods_to_select)]
 
             new_prediction = self._config_model.predict(
                 DataSet.from_pandas(historic_df), DataSet.from_pandas(future_slice)
@@ -50,7 +62,7 @@ class ExtendedPredictor(ConfiguredModel):
                 # last prediction
                 newly_predicted = remaining_time_periods
 
-            future_idx += newly_predicted
+            future_time_idx += newly_predicted
             remaining_time_periods -= newly_predicted
 
             historic_df = self.update_historic_data(historic_df, new_prediction_pandas, newly_predicted)
@@ -60,10 +72,13 @@ class ExtendedPredictor(ConfiguredModel):
         predictions = predictions.drop_duplicates(subset=["time_period", "location"], keep="last")
         predictions = predictions.reset_index(drop=True)
 
-        return DataSet.from_pandas(predictions)
+        return DataSet.from_pandas(predictions, Samples)
 
     def update_historic_data(self, historic_data_pandas, predictions_pandas, num_predictions):
-        new_rows = predictions_pandas.head(num_predictions).copy()
+        # Select rows by time period, not by row index, to include all locations
+        unique_time_periods = predictions_pandas["time_period"].unique()
+        time_periods_to_add = unique_time_periods[:num_predictions]
+        new_rows = predictions_pandas[predictions_pandas["time_period"].isin(time_periods_to_add)].copy()
 
         # Find all columns that start with "sample_"
         sample_cols = [col for col in new_rows.columns if col.startswith("sample_")]
