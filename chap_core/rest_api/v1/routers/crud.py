@@ -395,6 +395,8 @@ async def add_model_template(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch from GitHub: {e}")
 
+    config.version = model_template_create.version
+
     session_wrapper = SessionWrapper(session=session)
     template_id = session_wrapper.add_model_template_from_yaml_config(config)
     return session.get(ModelTemplateDB, template_id)

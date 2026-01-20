@@ -15,6 +15,7 @@ from chap_core.database.model_template_seed import (
 from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
     ModelConfiguration,
+    ModelTemplateDB,
     ModelTemplateMetaData,
 )
 from chap_core.database.tables import BackTest
@@ -117,6 +118,24 @@ def test_add_model_template_from_yaml_config(model_template_yaml_config, engine)
         )
         assert model_template.user_options == model_template_yaml_config.user_options
         assert model_template.author_assessed_status == model_template_yaml_config.meta_data.author_assessed_status
+
+
+def test_add_model_template_unarchives_existing(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        template = session.session.get(ModelTemplateDB, template_id)
+        template.archived = True
+        session.session.commit()
+
+    with SessionWrapper(engine) as session:
+        template = session.session.get(ModelTemplateDB, template_id)
+        assert template.archived is True
+
+    with SessionWrapper(engine) as session:
+        returned_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        assert returned_id == template_id
+        template = session.session.get(ModelTemplateDB, template_id)
+        assert template.archived is False
 
 
 @pytest.mark.parametrize("url", template_urls)
