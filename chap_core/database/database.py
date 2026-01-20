@@ -36,7 +36,12 @@ from .tables import BackTest, Prediction, PredictionSamplesEntry
 logger = logging.getLogger(__name__)
 engine = None
 database_url = os.getenv("CHAP_DATABASE_URL", default=None)
-logger.info(f"Database url: {database_url}")
+# Log database URL with credentials masked for security
+if database_url:
+    masked_url = database_url.split("@")[-1] if "@" in database_url else database_url
+    logger.info(f"Database host: {masked_url}")
+else:
+    logger.info("Database URL not set")
 if database_url is not None:
     n = 0
     while n < 30:
