@@ -128,7 +128,7 @@ You can define configurable parameters in your MLproject file using `user_option
 Each option in `user_options` has the following fields:
 
 - `title`: Display name for the parameter
-- `type`: One of `string`, `integer`, `float`, or `boolean`
+- `type`: One of `string`, `integer`, `number`, `boolean`, or `array`
 - `description`: What the parameter does
 - `default`: Optional default value. If omitted, the parameter is required
 
@@ -162,7 +162,7 @@ user_options:
     description: "Number of lag periods to include in the model"
   learning_rate:
     title: learning_rate
-    type: float
+    type: number
     description: "Learning rate for training (required)"
 ```
 
