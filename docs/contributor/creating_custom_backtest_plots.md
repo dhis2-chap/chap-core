@@ -92,7 +92,7 @@ The forecasts DataFrame looks like:
 
 ### Step 1: Import Requirements
 
-```console
+```python
 from typing import Optional
 import pandas as pd
 import altair as alt
@@ -103,7 +103,11 @@ from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase,
 
 Use the `@backtest_plot` decorator to register your plot, then inherit from `BacktestPlotBase` and implement the `plot()` method:
 
-```console
+```python
+from typing import Optional
+import pandas as pd
+from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
+
 @backtest_plot(
     id="my_custom_plot",              # Unique identifier (used in APIs)
     name="My Custom Plot",             # Human-readable display name
@@ -117,7 +121,7 @@ class MyCustomPlot(BacktestPlotBase):
         historical_observations: Optional[pd.DataFrame] = None,
     ) -> ChartType:
         # Your visualization logic here
-        ...
+        chart = None
         return chart
 ```
 
@@ -125,7 +129,7 @@ class MyCustomPlot(BacktestPlotBase):
 
 Here's a complete working example that shows mean absolute error by location:
 
-```console
+```python
 from typing import Optional
 import pandas as pd
 import altair as alt
@@ -301,7 +305,11 @@ This means:
 
 If your plot needs historical context (observations from before the test period), set `needs_historical=True`:
 
-```console
+```python
+from typing import Optional
+import pandas as pd
+from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
+
 @backtest_plot(
     id="trend_plot",
     name="Trend Plot",
@@ -318,7 +326,8 @@ class TrendPlot(BacktestPlotBase):
         # historical_observations will now be populated
         if historical_observations is not None:
             # Use historical data for context
-            ...
+            pass
+        return None
 ```
 
 ### Returning Different Chart Types
@@ -395,24 +404,16 @@ def plot(
 
 #### Helper Functions
 
-```console
+```python
 # Get all registered plots
 from chap_core.assessment.backtest_plots import get_backtest_plots_registry
 registry = get_backtest_plots_registry()
 
 # Get a specific plot class
 from chap_core.assessment.backtest_plots import get_backtest_plot
-plot_cls = get_backtest_plot("my_plot_id")
+plot_cls = get_backtest_plot("sample_bias")
 
 # List all plots with metadata
 from chap_core.assessment.backtest_plots import list_backtest_plots
 plots = list_backtest_plots()
-
-# Create plot from Evaluation
-from chap_core.assessment.backtest_plots import create_plot_from_evaluation
-chart = create_plot_from_evaluation("my_plot_id", evaluation)
-
-# Create plot from BackTest
-from chap_core.assessment.backtest_plots import create_plot_from_backtest
-chart = create_plot_from_backtest("my_plot_id", backtest)
 ```
