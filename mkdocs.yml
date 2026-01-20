@@ -57,7 +57,7 @@ docs_dir: docs
 
 nav:
   - Getting Started: index.md
-  - DHIS2 Setup:
+  - DHIS2 implementation:
       - Overview: modeling-app/index.md
       - Installation: modeling-app/installation.md
       - Using the App: modeling-app/modeling-app.md
