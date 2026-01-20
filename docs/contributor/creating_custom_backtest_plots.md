@@ -10,6 +10,7 @@ Each backtest plot:
 - Receives flat pandas DataFrames containing observations and forecasts
 - Returns an Altair chart
 - Is automatically registered and discoverable
+- **Is automatically available in the CHAP Modeling App** through the REST API once registered
 
 ## Data Schemas
 
@@ -250,6 +251,49 @@ def test_my_custom_plot_directly(flat_observations, flat_forecasts, default_tran
 ```
 
 The `flat_observations` and `flat_forecasts` fixtures are defined in `tests/evaluation/conftest.py`.
+
+## Using Your Plot
+
+### Generating Plots with the CLI
+
+Once your plot is registered, you can generate it from the command line using evaluation data from `chap evaluate2`:
+
+```console
+# First, run an evaluation to generate the .nc file
+chap evaluate2 my_model data.csv evaluation.nc
+
+# Then generate your custom plot
+chap plot-backtest evaluation.nc my_plot.html --plot-type my_custom_plot
+```
+
+The `plot-backtest` command supports multiple output formats:
+- `.html` - Interactive Vega-Lite chart (recommended for exploration)
+- `.png` - Static image
+- `.svg` - Vector graphics
+- `.pdf` - PDF document
+- `.json` - Raw Vega specification
+
+To see all available plot types:
+
+```console
+chap plot-backtest --help
+```
+
+### Automatic Integration with CHAP Modeling App
+
+Once your plot is registered in CHAP, it becomes **automatically available in the CHAP Modeling App** through the REST API. Users of the modeling app will be able to select your plot from the available visualization options when viewing backtest results.
+
+The REST API exposes your plot through these endpoints:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /visualization/backtest-plots/` | Lists all available plot types (including yours) |
+| `GET /visualization/backtest-plots/{plot_id}/{backtest_id}` | Generates your plot for a specific backtest |
+
+This means:
+- No additional frontend work is required
+- Your plot appears alongside built-in plots in the UI
+- Users can access your visualization without any code changes
 
 ## Advanced Topics
 
