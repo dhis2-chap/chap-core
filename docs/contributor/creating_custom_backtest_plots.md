@@ -225,18 +225,18 @@ Create your plot file in `chap_core/assessment/backtest_plots/`. For example:
 
 You can test your plot with an `Evaluation` object:
 
-```console
+```python
 from chap_core.assessment.backtest_plots import create_plot_from_evaluation
 from chap_core.assessment.evaluation import Evaluation
 
-# Load an evaluation from file
-evaluation = Evaluation.from_file("path/to/evaluation.nc")
+# Load an evaluation from the example file
+evaluation = Evaluation.from_file("example_data/example_evaluation.nc")
 
-# Create your plot
-chart = create_plot_from_evaluation("my_custom_plot", evaluation)
+# Create a plot (using a built-in plot type)
+chart = create_plot_from_evaluation("ratio_of_samples_above_truth", evaluation)
 
-# Save to HTML for inspection
-chart.save("my_plot.html")
+# Save to HTML for inspection (uncomment to save)
+# chart.save("my_plot.html")
 ```
 
 ### Unit Testing
@@ -411,7 +411,7 @@ registry = get_backtest_plots_registry()
 
 # Get a specific plot class
 from chap_core.assessment.backtest_plots import get_backtest_plot
-plot_cls = get_backtest_plot("sample_bias")
+plot_cls = get_backtest_plot("ratio_of_samples_above_truth")
 
 # List all plots with metadata
 from chap_core.assessment.backtest_plots import list_backtest_plots
