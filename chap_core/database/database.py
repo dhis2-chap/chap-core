@@ -126,6 +126,8 @@ class SessionWrapper:
             for key, value in d.items():
                 if hasattr(existing_template, key):
                     setattr(existing_template, key, value)
+            # Unarchive if it was previously archived
+            existing_template.archived = False
             self.session.commit()
             return existing_template.id
 
