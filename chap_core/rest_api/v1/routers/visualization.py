@@ -23,7 +23,7 @@ from chap_core.plotting.evaluation_plot import (
 )
 from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.rest_api.v1.routers.dependencies import get_session
-from chap_core.assessment.metrics import available_metrics  # Import from __init__.py
+from chap_core.assessment.metrics import available_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -55,17 +55,23 @@ class Metric(DBModel):
 
 @router.get("/metrics/{backtest_id}", response_model=list[Metric])
 def get_available_metrics(backtest_id: int):
+    """
+    List available metrics for visualization.
+
+    All unified metrics support detailed level visualization.
+    """
     logger.info(f"Getting available metrics for backtest {backtest_id}")
-    suitable_metrics = {id: metric for id, metric in available_metrics.items() if metric().gives_highest_resolution()}
-    logger.info(f"All available: {available_metrics.keys()}")
-    logger.info(f"Suitable: {suitable_metrics.keys()}")
+    logger.info(f"Available metrics: {available_metrics.keys()}")
     return [
-        Metric(id=id, display_name=metric.spec.metric_name, description=metric.spec.description)
-        for id, metric in suitable_metrics.items()
+        Metric(
+            id=metric_id,
+            display_name=metric_factory().get_name(),
+            description=metric_factory().get_description(),
+        )
+        for metric_id, metric_factory in available_metrics.items()
     ]
 
 
-# TODO: this should be renamed to /metric-visualization/
 @router.get("/metric-plots/{visualization_name}/{backtest_id}/{metric_id}")
 def generate_visualization(
     visualization_name: str, backtest_id: int, metric_id: str, session: Session = Depends(get_session)
@@ -75,15 +81,15 @@ def generate_visualization(
     if not backtest:
         return {"error": "Backtest not found"}
 
-    suitable_metrics = {id: metric for id, metric in available_metrics.items() if metric().gives_highest_resolution()}
-    if metric_id not in suitable_metrics:
-        return {"error": f"Metric {metric_id} not found or not suitable for visualization"}
+    if metric_id not in available_metrics:
+        return {"error": f"Metric {metric_id} not found"}
 
     if visualization_name not in metric_plots_registry:
         return {"error": f"Visualization {visualization_name} not found"}
 
     plot_class = metric_plots_registry[visualization_name]
-    plot_spec = make_plot_from_backtest_object(backtest, plot_class, suitable_metrics[metric_id](), geojson)
+    metric = available_metrics[metric_id]()
+    plot_spec = make_plot_from_backtest_object(backtest, plot_class, metric, geojson)
     return JSONResponse(plot_spec)
 
 

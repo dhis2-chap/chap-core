@@ -2,53 +2,34 @@
 Test metrics for debugging and verification.
 """
 
-import pandas as pd
-from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
-from chap_core.assessment.metrics.base import MetricBase, MetricSpec
+import numpy as np
+from chap_core.assessment.metrics.base import (
+    AggregationOp,
+    ProbabilisticUnifiedMetric,
+    UnifiedMetricSpec,
+)
 
 
-class TestMetricDetailed(MetricBase):
+class SampleCountMetric(ProbabilisticUnifiedMetric):
     """
-    Test metric that counts the number of forecast samples per location/time_period/horizon_distance.
+    Test metric that counts the number of forecast samples.
+
     Useful for debugging and verifying data structure correctness.
-    Returns the count of samples for each combination.
+    Returns the count of samples at detailed level, sum when aggregated.
+
+    Usage:
+        sample_count = SampleCountMetric()
+        detailed = sample_count.get_metric(obs, forecasts, AggregationLevel.DETAILED)
+        aggregate = sample_count.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
     """
 
-    spec = MetricSpec(
-        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
+    spec = UnifiedMetricSpec(
+        metric_id="sample_count",
         metric_name="Sample Count",
-        metric_id="test_sample_count_detailed",
-        description="Number of forecast samples per location, time period and horizon",
+        aggregation_op=AggregationOp.SUM,
+        description="Number of forecast samples (sum across aggregation)",
     )
 
-    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
-        # Group by location, time_period, and horizon_distance to count samples
-        sample_counts = (
-            forecasts.groupby(["location", "time_period", "horizon_distance"], as_index=False)
-            .size()
-            .rename(columns={"size": "metric"})
-        )
-
-        # Convert metric to float to match schema expectations
-        sample_counts["metric"] = sample_counts["metric"].astype(float)
-
-        return sample_counts
-
-
-class TestMetric(MetricBase):
-    """
-    Test metric that counts the total number of forecast samples in the entire dataset.
-    Returns a single number representing the total sample count.
-    """
-
-    spec = MetricSpec(
-        output_dimensions=(),
-        metric_name="Sample Count",
-        metric_id="test_sample_count",
-        description="Total number of forecast samples in dataset",
-    )
-
-    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
-        # Count total number of rows in forecasts (each row is one sample)
-        total_samples = float(len(forecasts))
-        return pd.DataFrame({"metric": [total_samples]})
+    def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
+        """Return the count of samples."""
+        return float(len(samples))

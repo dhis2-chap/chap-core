@@ -1,7 +1,14 @@
+"""
+Peak-related metrics for comparing predicted and observed peaks.
+"""
+
 import re
 import pandas as pd
-from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
-from chap_core.assessment.metrics.base import MetricBase, MetricSpec
+from chap_core.assessment.metrics.base import (
+    AggregationOp,
+    UnifiedMetric,
+    UnifiedMetricSpec,
+)
 
 _WEEK_RE = re.compile(r"^(\d{4})-W(\d{2})$")
 _MONTH_RE = re.compile(r"^(\d{4})-(\d{2})$")
@@ -39,16 +46,31 @@ def _pick_peak(rows: pd.DataFrame, value_col: str) -> tuple[str, float]:
     return str(top["time_period"]), float(top[value_col])
 
 
-class PeakValueDiffMetric(MetricBase):
-    # Now returns (location, time_period, horizon_distance, metric)
-    spec = MetricSpec(
-        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
-        metric_name="Peak Value Difference",
+class PeakValueDiffMetric(UnifiedMetric):
+    """
+    Peak value difference metric.
+
+    Computes the difference between the true peak value and predicted peak value
+    for each location and horizon distance.
+
+    Note: This metric returns results per (location, horizon_distance) with
+    the time_period being the period of the true peak.
+
+    Usage:
+        peak_diff = PeakValueDiffMetric()
+        detailed = peak_diff.get_metric(obs, forecasts, AggregationLevel.DETAILED)
+        aggregate = peak_diff.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+    """
+
+    spec = UnifiedMetricSpec(
         metric_id="peak_value_diff",
-        description="Truth peak value minus predicted peak value, per horizon.",
+        metric_name="Peak Value Difference",
+        aggregation_op=AggregationOp.MEAN,
+        description="Truth peak value minus predicted peak value, per horizon",
     )
 
-    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+    def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+        """Compute peak value difference per location/horizon."""
         fc_mean = (
             forecasts.groupby(["location", "time_period", "horizon_distance"], as_index=False)["forecast"]
             .mean()
@@ -83,15 +105,31 @@ class PeakValueDiffMetric(MetricBase):
         return pd.DataFrame(out_rows, columns=["location", "time_period", "horizon_distance", "metric"])
 
 
-class PeakPeriodLagMetric(MetricBase):
-    spec = MetricSpec(
-        output_dimensions=(DataDimension.location, DataDimension.time_period, DataDimension.horizon_distance),
-        metric_name="Peak Period Lag",
+class PeakPeriodLagMetric(UnifiedMetric):
+    """
+    Peak period lag metric.
+
+    Computes the lag in time periods between the predicted and true peak
+    for each location and horizon distance.
+
+    Positive values indicate the prediction peaks later than truth,
+    negative values indicate the prediction peaks earlier.
+
+    Usage:
+        peak_lag = PeakPeriodLagMetric()
+        detailed = peak_lag.get_metric(obs, forecasts, AggregationLevel.DETAILED)
+        aggregate = peak_lag.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+    """
+
+    spec = UnifiedMetricSpec(
         metric_id="peak_period_lag",
-        description="Lag in time periods (weeks for weekly data, months for monthly data) between true and predicted peak (pred - truth), per horizon.",
+        metric_name="Peak Period Lag",
+        aggregation_op=AggregationOp.MEAN,
+        description="Lag in time periods between true and predicted peak (pred - truth), per horizon",
     )
 
-    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
+    def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+        """Compute peak period lag per location/horizon."""
         fc_mean = (
             forecasts.groupby(["location", "time_period", "horizon_distance"], as_index=False)["forecast"]
             .mean()

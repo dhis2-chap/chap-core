@@ -1,102 +1,108 @@
 """
 Metrics submodule for assessment.
-All metrics are imported here for backwards compatibility.
+
+This module provides a unified metric system where each metric is defined once
+and supports multiple aggregation levels (DETAILED, PER_LOCATION, PER_HORIZON, AGGREGATE).
 """
 
 import logging
+from typing import Callable
+
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.database.tables import BackTest
-from chap_core.assessment.metrics.base import MetricBase, MetricSpec
-from chap_core.assessment.metrics.rmse import RMSE, RMSEAggregate, DetailedRMSE
-from chap_core.assessment.metrics.mae import MAE, MAEAggregate
-from chap_core.assessment.metrics.crps import CRPS, CRPSPerLocation, DetailedCRPS
-from chap_core.assessment.metrics.crps_norm import CRPSNorm, DetailedCRPSNorm
-from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakPeriodLagMetric
-from chap_core.assessment.metrics.above_truth import SamplesAboveTruth
-from chap_core.assessment.metrics.percentile_coverage import (
-    IsWithin10th90thDetailed,
-    IsWithin25th75thDetailed,
-    RatioWithin10th90th,
-    RatioWithin10th90thPerLocation,
-    RatioWithin25th75th,
-    RatioWithin25th75thPerLocation,
+from chap_core.assessment.metrics.base import (
+    AggregationLevel,
+    AggregationOp,
+    UnifiedMetric,
+    UnifiedMetricSpec,
+    DeterministicUnifiedMetric,
+    ProbabilisticUnifiedMetric,
+    LEVEL_TO_DIMENSIONS,
 )
-from chap_core.assessment.metrics.test_metrics import TestMetric, TestMetricDetailed
+from chap_core.assessment.metrics.rmse import RMSEMetric
+from chap_core.assessment.metrics.mae import MAEMetric
+from chap_core.assessment.metrics.crps import CRPSMetric
+from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
+from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakPeriodLagMetric
+from chap_core.assessment.metrics.above_truth import RatioAboveTruthMetric
+from chap_core.assessment.metrics.percentile_coverage import (
+    PercentileCoverageMetric,
+    Coverage10_90Metric,
+    Coverage25_75Metric,
+)
+from chap_core.assessment.metrics.test_metrics import SampleCountMetric
 from chap_core.assessment.metrics.example_metric import ExampleMetric
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "MetricBase",
-    "MetricSpec",
-    "RMSE",
-    "RMSEAggregate",
-    "DetailedRMSE",
-    "MAE",
-    "MAEAggregate",
-    "CRPS",
-    "CRPSPerLocation",
-    "DetailedCRPS",
-    "CRPSNorm",
-    "DetailedCRPSNorm",
+    # Base classes
+    "AggregationLevel",
+    "AggregationOp",
+    "UnifiedMetric",
+    "UnifiedMetricSpec",
+    "DeterministicUnifiedMetric",
+    "ProbabilisticUnifiedMetric",
+    "LEVEL_TO_DIMENSIONS",
+    # Metrics
+    "RMSEMetric",
+    "MAEMetric",
+    "CRPSMetric",
+    "CRPSNormMetric",
     "PeakValueDiffMetric",
     "PeakPeriodLagMetric",
-    "SamplesAboveTruth",
-    "IsWithin10th90thDetailed",
-    "IsWithin25th75thDetailed",
-    "RatioWithin10th90th",
-    "RatioWithin10th90thPerLocation",
-    "RatioWithin25th75th",
-    "RatioWithin25th75thPerLocation",
-    "TestMetric",
-    "TestMetricDetailed",
+    "RatioAboveTruthMetric",
+    "PercentileCoverageMetric",
+    "Coverage10_90Metric",
+    "Coverage25_75Metric",
+    "SampleCountMetric",
     "ExampleMetric",
 ]
 
 # Dictionary of available metrics for easy lookup
-available_metrics = {
-    "rmse": RMSE,
-    "rmse_aggregate": RMSEAggregate,
-    "mae": MAE,
-    "mae_aggregate": MAEAggregate,
-    "detailed_rmse": DetailedRMSE,
-    "detailed_crps": DetailedCRPS,
-    "crps_per_location": CRPSPerLocation,
-    "crps": CRPS,
-    "detailed_crps_norm": DetailedCRPSNorm,
-    "crps_norm": CRPSNorm,
-    #    "peak_value_diff": PeakValueDiffMetric,
-    #    "peak_period_lag": PeakPeriodLagMetric,
-    "samples_above_truth": SamplesAboveTruth,
-    "is_within_10th_90th_detailed": IsWithin10th90thDetailed,
-    "is_within_25th_75th_detailed": IsWithin25th75thDetailed,
-    "ratio_within_10th_90th_per_location": RatioWithin10th90thPerLocation,
-    "ratio_within_10th_90th": RatioWithin10th90th,
-    "ratio_within_25th_75th_per_location": RatioWithin25th75thPerLocation,
-    "ratio_within_25th_75th": RatioWithin25th75th,
-    "test_sample_count_detailed": TestMetricDetailed,
-    "test_sample_count": TestMetric,
+# Each entry maps a metric_id to a callable that returns a metric instance
+available_metrics: dict[str, Callable[[], UnifiedMetric]] = {
+    "rmse": RMSEMetric,
+    "mae": MAEMetric,
+    "crps": CRPSMetric,
+    "crps_norm": CRPSNormMetric,
+    "ratio_above_truth": RatioAboveTruthMetric,
+    "coverage_10_90": Coverage10_90Metric,
+    "coverage_25_75": Coverage25_75Metric,
+    "sample_count": SampleCountMetric,
     "example_metric": ExampleMetric,
+    # Peak metrics are special - they compute across time periods
+    # "peak_value_diff": PeakValueDiffMetric,
+    # "peak_period_lag": PeakPeriodLagMetric,
 }
 
 
 def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str, float]:
-    relevant_metrics = {id: metric for id, metric in available_metrics.items() if metric().is_full_aggregate()}
-    logger.info(f"Relevant metrics for aggregation: {relevant_metrics.keys()}")
+    """
+    Compute all available metrics at the AGGREGATE level for a backtest.
+
+    Args:
+        backtest: The BackTest object to compute metrics for
+
+    Returns:
+        Dictionary mapping metric_id to the aggregated metric value
+    """
+    logger.info(f"Computing aggregated metrics for backtest {backtest.id}")
 
     # Use Evaluation abstraction to get flat representation
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()
 
     results = {}
-    for id, metric_cls in relevant_metrics.items():
-        metric = metric_cls()
-        metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
+    for metric_id, metric_factory in available_metrics.items():
+        metric = metric_factory()
+        metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts, AggregationLevel.AGGREGATE)
         if len(metric_df) != 1:
             raise ValueError(
-                f"Metric {id} was expected to return a single aggregated value, but got {len(metric_df)} rows."
+                f"Metric {metric_id} was expected to return a single aggregated value, but got {len(metric_df)} rows."
             )
-        results[id] = float(metric_df["metric"].iloc[0])
+        results[metric_id] = float(metric_df["metric"].iloc[0])
 
+    logger.info(f"Computed metrics: {list(results.keys())}")
     return results
