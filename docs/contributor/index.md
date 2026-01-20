@@ -17,6 +17,9 @@ This section provides documentation for contributors to the Chap platform.
 - [Documentation](writing_building_documentation.md) - Writing and building documentation
 - [Development Tools](development_tools.md) - Tools for development
 
+## Extending CHAP
+- [Creating Custom Backtest Plots](creating_custom_backtest_plots.md) - How to create custom visualizations
+
 ## Design Documents
 - [Evaluation Abstraction](evaluation_abstraction.md) - Evaluation system design
 - [Preference Learning](preference_learning.md) - Preference learning design
