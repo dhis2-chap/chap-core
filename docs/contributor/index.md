@@ -19,6 +19,7 @@ This section provides documentation for contributors to the Chap platform.
 
 ## Extending CHAP
 - [Creating Custom Backtest Plots](creating_custom_backtest_plots.md) - How to create custom visualizations
+- [Creating Custom Metrics](creating_custom_metrics.md) - How to create custom evaluation metrics
 
 ## Design Documents
 - [Evaluation Abstraction](evaluation_abstraction.md) - Evaluation system design
