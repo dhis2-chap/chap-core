@@ -9,8 +9,10 @@ from chap_core.assessment.metrics.base import (
     ProbabilisticUnifiedMetric,
     UnifiedMetricSpec,
 )
+from chap_core.assessment.metrics import metric
 
 
+@metric()
 class RatioAboveTruthMetric(ProbabilisticUnifiedMetric):
     """
     Ratio of forecast samples above the observed truth.
@@ -21,9 +23,9 @@ class RatioAboveTruthMetric(ProbabilisticUnifiedMetric):
 
     Usage:
         ratio_above = RatioAboveTruthMetric()
-        detailed = ratio_above.get_metric(obs, forecasts, AggregationLevel.DETAILED)
-        per_loc = ratio_above.get_metric(obs, forecasts, AggregationLevel.PER_LOCATION)
-        aggregate = ratio_above.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+        detailed = ratio_above.get_detailed_metric(obs, forecasts)
+        global_val = ratio_above.get_global_metric(obs, forecasts)
+        per_loc = ratio_above.get_metric(obs, forecasts, dimensions=(DataDimension.location,))
     """
 
     spec = UnifiedMetricSpec(

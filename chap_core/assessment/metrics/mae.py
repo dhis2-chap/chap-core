@@ -7,8 +7,10 @@ from chap_core.assessment.metrics.base import (
     DeterministicUnifiedMetric,
     UnifiedMetricSpec,
 )
+from chap_core.assessment.metrics import metric
 
 
+@metric()
 class MAEMetric(DeterministicUnifiedMetric):
     """
     Mean Absolute Error metric.
@@ -18,9 +20,9 @@ class MAEMetric(DeterministicUnifiedMetric):
 
     Usage:
         mae = MAEMetric()
-        detailed = mae.get_metric(obs, forecasts, AggregationLevel.DETAILED)
-        per_loc = mae.get_metric(obs, forecasts, AggregationLevel.PER_LOCATION)
-        aggregate = mae.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+        detailed = mae.get_detailed_metric(obs, forecasts)
+        global_val = mae.get_global_metric(obs, forecasts)
+        per_loc = mae.get_metric(obs, forecasts, dimensions=(DataDimension.location,))
     """
 
     spec = UnifiedMetricSpec(

@@ -7,8 +7,10 @@ from chap_core.assessment.metrics.base import (
     DeterministicUnifiedMetric,
     UnifiedMetricSpec,
 )
+from chap_core.assessment.metrics import metric
 
 
+@metric()
 class RMSEMetric(DeterministicUnifiedMetric):
     """
     Root Mean Squared Error metric.
@@ -18,9 +20,9 @@ class RMSEMetric(DeterministicUnifiedMetric):
 
     Usage:
         rmse = RMSEMetric()
-        detailed = rmse.get_metric(obs, forecasts, AggregationLevel.DETAILED)
-        per_loc = rmse.get_metric(obs, forecasts, AggregationLevel.PER_LOCATION)
-        aggregate = rmse.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+        detailed = rmse.get_detailed_metric(obs, forecasts)
+        global_val = rmse.get_global_metric(obs, forecasts)
+        per_loc = rmse.get_metric(obs, forecasts, dimensions=(DataDimension.location,))
     """
 
     spec = UnifiedMetricSpec(

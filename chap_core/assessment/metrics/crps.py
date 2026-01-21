@@ -9,8 +9,10 @@ from chap_core.assessment.metrics.base import (
     ProbabilisticUnifiedMetric,
     UnifiedMetricSpec,
 )
+from chap_core.assessment.metrics import metric
 
 
+@metric()
 class CRPSMetric(ProbabilisticUnifiedMetric):
     """
     Continuous Ranked Probability Score (CRPS) metric.
@@ -23,9 +25,9 @@ class CRPSMetric(ProbabilisticUnifiedMetric):
 
     Usage:
         crps = CRPSMetric()
-        detailed = crps.get_metric(obs, forecasts, AggregationLevel.DETAILED)
-        per_loc = crps.get_metric(obs, forecasts, AggregationLevel.PER_LOCATION)
-        aggregate = crps.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+        detailed = crps.get_detailed_metric(obs, forecasts)
+        global_val = crps.get_global_metric(obs, forecasts)
+        per_loc = crps.get_metric(obs, forecasts, dimensions=(DataDimension.location,))
     """
 
     spec = UnifiedMetricSpec(

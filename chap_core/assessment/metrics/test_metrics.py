@@ -8,8 +8,10 @@ from chap_core.assessment.metrics.base import (
     ProbabilisticUnifiedMetric,
     UnifiedMetricSpec,
 )
+from chap_core.assessment.metrics import metric
 
 
+@metric()
 class SampleCountMetric(ProbabilisticUnifiedMetric):
     """
     Test metric that counts the number of forecast samples.
@@ -19,8 +21,8 @@ class SampleCountMetric(ProbabilisticUnifiedMetric):
 
     Usage:
         sample_count = SampleCountMetric()
-        detailed = sample_count.get_metric(obs, forecasts, AggregationLevel.DETAILED)
-        aggregate = sample_count.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+        detailed = sample_count.get_detailed_metric(obs, forecasts)
+        global_val = sample_count.get_global_metric(obs, forecasts)
     """
 
     spec = UnifiedMetricSpec(

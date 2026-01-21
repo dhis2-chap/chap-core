@@ -7,8 +7,10 @@ from chap_core.assessment.metrics.base import (
     DeterministicUnifiedMetric,
     UnifiedMetricSpec,
 )
+from chap_core.assessment.metrics import metric
 
 
+@metric()
 class ExampleMetric(DeterministicUnifiedMetric):
     """
     Example metric that computes absolute error.
@@ -18,8 +20,8 @@ class ExampleMetric(DeterministicUnifiedMetric):
 
     Usage:
         example = ExampleMetric()
-        detailed = example.get_metric(obs, forecasts, AggregationLevel.DETAILED)
-        aggregate = example.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+        detailed = example.get_detailed_metric(obs, forecasts)
+        global_val = example.get_global_metric(obs, forecasts)
     """
 
     spec = UnifiedMetricSpec(
