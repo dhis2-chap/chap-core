@@ -47,23 +47,23 @@ class VisualizationParams(DBModel):
     metric_id: int
 
 
-class Metric(DBModel):
+class MetricInfo(DBModel):
     id: str
     display_name: str
     description: str = ""
 
 
-@router.get("/metrics/{backtest_id}", response_model=list[Metric])
+@router.get("/metrics/{backtest_id}", response_model=list[MetricInfo])
 def get_available_metrics(backtest_id: int):
     """
     List available metrics for visualization.
 
-    All unified metrics support detailed level visualization.
+    All metrics support detailed level visualization.
     """
     logger.info(f"Getting available metrics for backtest {backtest_id}")
     logger.info(f"Available metrics: {available_metrics.keys()}")
     return [
-        Metric(
+        MetricInfo(
             id=metric_id,
             display_name=metric_factory().get_name(),
             description=metric_factory().get_description(),

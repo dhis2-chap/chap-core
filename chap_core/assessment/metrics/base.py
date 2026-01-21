@@ -36,9 +36,9 @@ DEFAULT_OUTPUT_DIMENSIONS: tuple[DataDimension, ...] = (
 
 
 @dataclass(frozen=True)
-class UnifiedMetricSpec:
+class MetricSpec:
     """
-    Specification for a unified metric.
+    Specification for a metric.
     """
 
     metric_id: str
@@ -48,15 +48,15 @@ class UnifiedMetricSpec:
     description: str = "No description provided"
 
 
-class UnifiedMetric(ABC):
+class Metric(ABC):
     """
-    Base class for unified metrics that support multiple aggregation levels.
+    Base class for metrics that support multiple aggregation levels.
 
     Subclasses implement compute_detailed() which computes the metric at the
     finest resolution. Aggregation to other levels is handled automatically.
     """
 
-    spec: UnifiedMetricSpec
+    spec: MetricSpec
 
     def get_global_metric(
         self,
@@ -215,7 +215,7 @@ class UnifiedMetric(ABC):
         return self.spec.description
 
 
-class DeterministicUnifiedMetric(UnifiedMetric):
+class DeterministicMetric(Metric):
     """
     Base class for deterministic metrics that operate on the median of samples.
 
@@ -259,7 +259,7 @@ class DeterministicUnifiedMetric(UnifiedMetric):
         raise NotImplementedError
 
 
-class ProbabilisticUnifiedMetric(UnifiedMetric):
+class ProbabilisticMetric(Metric):
     """
     Base class for probabilistic metrics that need all samples.
 

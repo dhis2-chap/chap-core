@@ -1,7 +1,7 @@
 """
 Metrics submodule for assessment.
 
-This module provides a unified metric system where each metric is defined once
+This module provides a metric system where each metric is defined once
 and supports multiple aggregation levels via dimension specification.
 
 Metrics are registered using the @metric() decorator, which automatically
@@ -16,25 +16,25 @@ from chap_core.assessment.flat_representations import FlatForecasts, FlatObserve
 from chap_core.database.tables import BackTest
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    UnifiedMetric,
-    UnifiedMetricSpec,
-    DeterministicUnifiedMetric,
-    ProbabilisticUnifiedMetric,
+    Metric,
+    MetricSpec,
+    DeterministicMetric,
+    ProbabilisticMetric,
     DEFAULT_OUTPUT_DIMENSIONS,
 )
 
 logger = logging.getLogger(__name__)
 
 # Registry mapping metric_id to metric class
-_metrics_registry: dict[str, type[UnifiedMetric]] = {}
+_metrics_registry: dict[str, type[Metric]] = {}
 
 
 def metric():
     """Decorator to register a metric class. Reads metric_id from class spec."""
 
-    def decorator(cls: type[UnifiedMetric]) -> type[UnifiedMetric]:
-        if not isinstance(cls, type) or not issubclass(cls, UnifiedMetric):
-            raise TypeError(f"{cls} must be a class inheriting from UnifiedMetric")
+    def decorator(cls: type[Metric]) -> type[Metric]:
+        if not isinstance(cls, type) or not issubclass(cls, Metric):
+            raise TypeError(f"{cls} must be a class inheriting from Metric")
         if not hasattr(cls, "spec"):
             raise ValueError(f"{cls.__name__} missing 'spec' class attribute")
 
@@ -44,12 +44,12 @@ def metric():
     return decorator
 
 
-def get_metrics_registry() -> dict[str, type[UnifiedMetric]]:
+def get_metrics_registry() -> dict[str, type[Metric]]:
     """Get a copy of the metrics registry."""
     return _metrics_registry.copy()
 
 
-def get_metric(metric_id: str) -> type[UnifiedMetric] | None:
+def get_metric(metric_id: str) -> type[Metric] | None:
     """Get a metric class by ID."""
     return _metrics_registry.get(metric_id)
 
@@ -102,15 +102,15 @@ from chap_core.assessment.metrics.test_metrics import SampleCountMetric  # noqa:
 from chap_core.assessment.metrics.example_metric import ExampleMetric  # noqa: E402
 
 # Backward compatibility alias
-available_metrics: dict[str, Callable[[], UnifiedMetric]] = _metrics_registry
+available_metrics: dict[str, Callable[[], Metric]] = _metrics_registry
 
 __all__ = [
     # Base classes
     "AggregationOp",
-    "UnifiedMetric",
-    "UnifiedMetricSpec",
-    "DeterministicUnifiedMetric",
-    "ProbabilisticUnifiedMetric",
+    "Metric",
+    "MetricSpec",
+    "DeterministicMetric",
+    "ProbabilisticMetric",
     "DEFAULT_OUTPUT_DIMENSIONS",
     "DataDimension",
     # Registry API

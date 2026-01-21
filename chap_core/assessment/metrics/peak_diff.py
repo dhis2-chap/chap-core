@@ -6,8 +6,8 @@ import re
 import pandas as pd
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    UnifiedMetric,
-    UnifiedMetricSpec,
+    Metric,
+    MetricSpec,
 )
 
 _WEEK_RE = re.compile(r"^(\d{4})-W(\d{2})$")
@@ -46,7 +46,7 @@ def _pick_peak(rows: pd.DataFrame, value_col: str) -> tuple[str, float]:
     return str(top["time_period"]), float(top[value_col])
 
 
-class PeakValueDiffMetric(UnifiedMetric):
+class PeakValueDiffMetric(Metric):
     """
     Peak value difference metric.
 
@@ -62,7 +62,7 @@ class PeakValueDiffMetric(UnifiedMetric):
         global_val = peak_diff.get_global_metric(obs, forecasts)
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="peak_value_diff",
         metric_name="Peak Value Difference",
         aggregation_op=AggregationOp.MEAN,
@@ -105,7 +105,7 @@ class PeakValueDiffMetric(UnifiedMetric):
         return pd.DataFrame(out_rows, columns=["location", "time_period", "horizon_distance", "metric"])
 
 
-class PeakPeriodLagMetric(UnifiedMetric):
+class PeakPeriodLagMetric(Metric):
     """
     Peak period lag metric.
 
@@ -121,7 +121,7 @@ class PeakPeriodLagMetric(UnifiedMetric):
         global_val = peak_lag.get_global_metric(obs, forecasts)
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="peak_period_lag",
         metric_name="Peak Period Lag",
         aggregation_op=AggregationOp.MEAN,

@@ -4,14 +4,14 @@ Mean Absolute Error (MAE) metric.
 
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    DeterministicUnifiedMetric,
-    UnifiedMetricSpec,
+    DeterministicMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
 @metric()
-class MAEMetric(DeterministicUnifiedMetric):
+class MAEMetric(DeterministicMetric):
     """
     Mean Absolute Error metric.
 
@@ -25,7 +25,7 @@ class MAEMetric(DeterministicUnifiedMetric):
         per_loc = mae.get_metric(obs, forecasts, dimensions=(DataDimension.location,))
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="mae",
         metric_name="MAE",
         aggregation_op=AggregationOp.MEAN,

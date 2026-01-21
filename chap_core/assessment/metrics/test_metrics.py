@@ -5,14 +5,14 @@ Test metrics for debugging and verification.
 import numpy as np
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticUnifiedMetric,
-    UnifiedMetricSpec,
+    ProbabilisticMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
 @metric()
-class SampleCountMetric(ProbabilisticUnifiedMetric):
+class SampleCountMetric(ProbabilisticMetric):
     """
     Test metric that counts the number of forecast samples.
 
@@ -25,7 +25,7 @@ class SampleCountMetric(ProbabilisticUnifiedMetric):
         global_val = sample_count.get_global_metric(obs, forecasts)
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="sample_count",
         metric_name="Sample Count",
         aggregation_op=AggregationOp.SUM,

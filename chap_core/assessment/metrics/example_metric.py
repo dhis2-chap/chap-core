@@ -4,19 +4,19 @@ Example metric for demonstration purposes.
 
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    DeterministicUnifiedMetric,
-    UnifiedMetricSpec,
+    DeterministicMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
 @metric()
-class ExampleMetric(DeterministicUnifiedMetric):
+class ExampleMetric(DeterministicMetric):
     """
     Example metric that computes absolute error.
 
     This is a demonstration metric showing how to create custom metrics
-    using the unified metric system.
+    using the metric system.
 
     Usage:
         example = ExampleMetric()
@@ -24,7 +24,7 @@ class ExampleMetric(DeterministicUnifiedMetric):
         global_val = example.get_global_metric(obs, forecasts)
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="example_metric",
         metric_name="Example Absolute Error",
         aggregation_op=AggregationOp.SUM,

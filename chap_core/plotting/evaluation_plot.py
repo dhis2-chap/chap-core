@@ -4,7 +4,7 @@ from typing import Optional
 import altair as alt
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.flat_representations import FlatMetric
-from chap_core.assessment.metrics.base import UnifiedMetric
+from chap_core.assessment.metrics.base import Metric
 from chap_core.database.base_tables import DBModel
 from chap_core.database.tables import BackTest
 
@@ -231,7 +231,7 @@ class MetricMapV2(MetricPlotV2):
 
 
 def make_plot_from_backtest_object(
-    backtest: BackTest, plotting_class: MetricPlotV2, metric: UnifiedMetric, geojson=None
+    backtest: BackTest, plotting_class: MetricPlotV2, metric: Metric, geojson=None
 ) -> alt.Chart:
     # Convert to flat representation using Evaluation abstraction
     evaluation = Evaluation.from_backtest(backtest)

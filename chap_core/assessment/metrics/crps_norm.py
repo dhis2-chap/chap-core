@@ -7,15 +7,15 @@ import pandas as pd
 
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticUnifiedMetric,
-    UnifiedMetricSpec,
+    ProbabilisticMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics.crps import CRPSMetric
 from chap_core.assessment.metrics import metric
 
 
 @metric()
-class CRPSNormMetric(ProbabilisticUnifiedMetric):
+class CRPSNormMetric(ProbabilisticMetric):
     """
     Normalized Continuous Ranked Probability Score (CRPS) metric.
 
@@ -29,7 +29,7 @@ class CRPSNormMetric(ProbabilisticUnifiedMetric):
         per_loc = crps_norm.get_metric(obs, forecasts, dimensions=(DataDimension.location,))
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="crps_norm",
         metric_name="CRPS Normalized",
         aggregation_op=AggregationOp.MEAN,

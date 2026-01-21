@@ -1,10 +1,10 @@
 # Creating Custom Metrics
 
-This guide explains how to create custom evaluation metrics for CHAP backtest results using the unified metrics system.
+This guide explains how to create custom evaluation metrics for CHAP backtest results using the metrics system.
 
 ## Overview
 
-Metrics in CHAP measure how well a model's forecasts match observed values. The unified metrics system provides:
+Metrics in CHAP measure how well a model's forecasts match observed values. The metrics system provides:
 
 - **Single definition**: Each metric is defined once and supports multiple aggregation levels
 - **Multi-level aggregation**: Get global values, per-location, per-horizon, or detailed breakdowns
@@ -54,20 +54,20 @@ Metrics return a DataFrame with:
 
 CHAP provides two base classes:
 
-- **`DeterministicUnifiedMetric`**: For metrics that use the median of forecast samples (point forecast comparison)
-- **`ProbabilisticUnifiedMetric`**: For metrics that need all forecast samples
+- **`DeterministicMetric`**: For metrics that use the median of forecast samples (point forecast comparison)
+- **`ProbabilisticMetric`**: For metrics that need all forecast samples
 
 ### Step 2: Define the Spec
 
-Create a `UnifiedMetricSpec` with:
+Create a `MetricSpec` with:
 
 ```python
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    UnifiedMetricSpec,
+    MetricSpec,
 )
 
-spec = UnifiedMetricSpec(
+spec = MetricSpec(
     metric_id="my_metric",           # Unique identifier (used in APIs)
     metric_name="My Metric",          # Human-readable display name
     aggregation_op=AggregationOp.MEAN,  # How to aggregate: MEAN, SUM, or ROOT_MEAN_SQUARE
@@ -79,7 +79,7 @@ spec = UnifiedMetricSpec(
 
 For **deterministic metrics**, implement `compute_point_metric()`:
 
-```python
+```console
 def compute_point_metric(self, forecast: float, observed: float) -> float:
     """Compute metric for a single forecast/observation pair."""
     return abs(forecast - observed)
@@ -87,7 +87,7 @@ def compute_point_metric(self, forecast: float, observed: float) -> float:
 
 For **probabilistic metrics**, implement `compute_sample_metric()`:
 
-```python
+```console
 def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
     """Compute metric from all samples and observation."""
     return float(np.mean(np.abs(samples - observed)))
@@ -97,11 +97,11 @@ def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
 
 Use `@metric()` to register your metric:
 
-```python
+```console
 from chap_core.assessment.metrics import metric
 
 @metric()
-class MyMetric(DeterministicUnifiedMetric):
+class MyMetric(DeterministicMetric):
     # ...
 ```
 
@@ -114,14 +114,14 @@ This example shows a simple deterministic metric that computes absolute error:
 ```python
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    DeterministicUnifiedMetric,
-    UnifiedMetricSpec,
+    DeterministicMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
 @metric()
-class MAEMetric(DeterministicUnifiedMetric):
+class MAEMetric(DeterministicMetric):
     """
     Mean Absolute Error metric.
 
@@ -129,7 +129,7 @@ class MAEMetric(DeterministicUnifiedMetric):
     MEAN, this produces the MAE (mean of absolute errors).
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="mae",
         metric_name="MAE",
         aggregation_op=AggregationOp.MEAN,
@@ -150,21 +150,21 @@ import numpy as np
 
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticUnifiedMetric,
-    UnifiedMetricSpec,
+    ProbabilisticMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
 @metric()
-class CRPSMetric(ProbabilisticUnifiedMetric):
+class CRPSMetric(ProbabilisticMetric):
     """
     Continuous Ranked Probability Score (CRPS) metric.
 
     CRPS measures both calibration and sharpness of probabilistic forecasts.
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="crps",
         metric_name="CRPS",
         aggregation_op=AggregationOp.MEAN,
@@ -188,13 +188,13 @@ import numpy as np
 
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticUnifiedMetric,
-    UnifiedMetricSpec,
+    ProbabilisticMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
-class PercentileCoverageMetric(ProbabilisticUnifiedMetric):
+class PercentileCoverageMetric(ProbabilisticMetric):
     """
     Base class for percentile coverage metrics.
 
@@ -215,7 +215,7 @@ class PercentileCoverageMetric(ProbabilisticUnifiedMetric):
 class Coverage10_90Metric(PercentileCoverageMetric):
     """10th-90th percentile coverage metric."""
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="coverage_10_90",
         metric_name="Coverage 10-90",
         aggregation_op=AggregationOp.MEAN,
@@ -229,7 +229,7 @@ class Coverage10_90Metric(PercentileCoverageMetric):
 class Coverage25_75Metric(PercentileCoverageMetric):
     """25th-75th percentile coverage metric."""
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="coverage_25_75",
         metric_name="Coverage 25-75",
         aggregation_op=AggregationOp.MEAN,
@@ -245,7 +245,7 @@ class Coverage25_75Metric(PercentileCoverageMetric):
 
 The `@metric()` decorator registers your metric class in a global registry when the module is imported. The decorator:
 
-1. Validates that your class inherits from `UnifiedMetric`
+1. Validates that your class inherits from `Metric`
 2. Reads the `metric_id` from the class's `spec` attribute
 3. Adds the class to the registry under that ID
 
@@ -253,7 +253,7 @@ The `@metric()` decorator registers your metric class in a global registry when 
 
 For CHAP to discover your metric at startup, import your module in the `_discover_metrics()` function in `chap_core/assessment/metrics/__init__.py`:
 
-```python
+```console
 def _discover_metrics():
     """Import all metric modules to trigger registration."""
     from chap_core.assessment.metrics import rmse  # noqa: F401
@@ -294,7 +294,7 @@ The `DataDimension` enum defines the available dimensions:
 
 The `get_metric()` method allows you to specify which dimensions to keep:
 
-```python
+```console
 from chap_core.assessment.flat_representations import DataDimension
 
 metric = MAEMetric()
@@ -326,7 +326,7 @@ per_loc_horizon_df = metric.get_metric(
 
 Write a test for your metric in `tests/evaluation/`:
 
-```python
+```console
 def test_my_custom_metric(flat_observations, flat_forecasts):
     """Test my custom metric with flat data."""
     from chap_core.assessment.metrics.my_custom_metric import MyCustomMetric
@@ -353,7 +353,7 @@ The `flat_observations` and `flat_forecasts` fixtures are defined in `tests/eval
 
 You can test your metric interactively:
 
-```python
+```console
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics.my_custom_metric import MyCustomMetric
 
@@ -373,7 +373,7 @@ print(f"Global {metric.get_name()}: {result['metric'].iloc[0]:.4f}")
 
 Once registered, your metric is available via the registry:
 
-```python
+```console
 from chap_core.assessment.metrics import (
     get_metric,
     get_metrics_registry,
@@ -417,19 +417,19 @@ Study these existing implementations as examples:
 
 #### `@metric()` Decorator
 
-```python
+```console
 @metric()
-class MyMetric(UnifiedMetric):
-    spec = UnifiedMetricSpec(...)
+class MyMetric(Metric):
+    spec = MetricSpec(...)
     # ...
 ```
 
 Registers a metric class in the global registry using `spec.metric_id`.
 
-#### `UnifiedMetricSpec` Dataclass
+#### `MetricSpec` Dataclass
 
-```python
-UnifiedMetricSpec(
+```console
+MetricSpec(
     metric_id: str,                    # Required: Unique identifier
     metric_name: str,                  # Required: Display name
     aggregation_op: AggregationOp = AggregationOp.MEAN,  # How to aggregate
@@ -437,26 +437,26 @@ UnifiedMetricSpec(
 )
 ```
 
-#### `DeterministicUnifiedMetric` Base Class
+#### `DeterministicMetric` Base Class
 
 For metrics that operate on the median of samples:
 
-```python
-class MyMetric(DeterministicUnifiedMetric):
-    spec = UnifiedMetricSpec(...)
+```console
+class MyMetric(DeterministicMetric):
+    spec = MetricSpec(...)
 
     def compute_point_metric(self, forecast: float, observed: float) -> float:
         """Compute metric for a single forecast/observation pair."""
         pass
 ```
 
-#### `ProbabilisticUnifiedMetric` Base Class
+#### `ProbabilisticMetric` Base Class
 
 For metrics that need all samples:
 
-```python
-class MyMetric(ProbabilisticUnifiedMetric):
-    spec = UnifiedMetricSpec(...)
+```console
+class MyMetric(ProbabilisticMetric):
+    spec = MetricSpec(...)
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
         """Compute metric from all samples and observation."""
@@ -465,7 +465,7 @@ class MyMetric(ProbabilisticUnifiedMetric):
 
 #### Helper Functions
 
-```python
+```console
 # Get all registered metrics
 from chap_core.assessment.metrics import get_metrics_registry
 registry = get_metrics_registry()

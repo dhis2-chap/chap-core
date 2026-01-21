@@ -6,13 +6,13 @@ import numpy as np
 
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticUnifiedMetric,
-    UnifiedMetricSpec,
+    ProbabilisticMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
-class PercentileCoverageMetric(ProbabilisticUnifiedMetric):
+class PercentileCoverageMetric(ProbabilisticMetric):
     """
     Base class for percentile coverage metrics.
 
@@ -38,7 +38,7 @@ class PercentileCoverageMetric(ProbabilisticUnifiedMetric):
 class Coverage10_90Metric(PercentileCoverageMetric):
     """10th-90th percentile coverage metric."""
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="coverage_10_90",
         metric_name="Coverage 10-90",
         aggregation_op=AggregationOp.MEAN,
@@ -52,7 +52,7 @@ class Coverage10_90Metric(PercentileCoverageMetric):
 class Coverage25_75Metric(PercentileCoverageMetric):
     """25th-75th percentile coverage metric."""
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="coverage_25_75",
         metric_name="Coverage 25-75",
         aggregation_op=AggregationOp.MEAN,

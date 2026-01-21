@@ -6,14 +6,14 @@ import numpy as np
 
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticUnifiedMetric,
-    UnifiedMetricSpec,
+    ProbabilisticMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
 @metric()
-class CRPSMetric(ProbabilisticUnifiedMetric):
+class CRPSMetric(ProbabilisticMetric):
     """
     Continuous Ranked Probability Score (CRPS) metric.
 
@@ -30,7 +30,7 @@ class CRPSMetric(ProbabilisticUnifiedMetric):
         per_loc = crps.get_metric(obs, forecasts, dimensions=(DataDimension.location,))
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="crps",
         metric_name="CRPS",
         aggregation_op=AggregationOp.MEAN,

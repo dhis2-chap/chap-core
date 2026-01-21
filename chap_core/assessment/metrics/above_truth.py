@@ -6,14 +6,14 @@ import numpy as np
 
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticUnifiedMetric,
-    UnifiedMetricSpec,
+    ProbabilisticMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
 @metric()
-class RatioAboveTruthMetric(ProbabilisticUnifiedMetric):
+class RatioAboveTruthMetric(ProbabilisticMetric):
     """
     Ratio of forecast samples above the observed truth.
 
@@ -28,7 +28,7 @@ class RatioAboveTruthMetric(ProbabilisticUnifiedMetric):
         per_loc = ratio_above.get_metric(obs, forecasts, dimensions=(DataDimension.location,))
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="ratio_above_truth",
         metric_name="Ratio Above Truth",
         aggregation_op=AggregationOp.MEAN,

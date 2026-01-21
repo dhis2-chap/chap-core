@@ -4,14 +4,14 @@ Root Mean Squared Error (RMSE) metric.
 
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    DeterministicUnifiedMetric,
-    UnifiedMetricSpec,
+    DeterministicMetric,
+    MetricSpec,
 )
 from chap_core.assessment.metrics import metric
 
 
 @metric()
-class RMSEMetric(DeterministicUnifiedMetric):
+class RMSEMetric(DeterministicMetric):
     """
     Root Mean Squared Error metric.
 
@@ -25,7 +25,7 @@ class RMSEMetric(DeterministicUnifiedMetric):
         per_loc = rmse.get_metric(obs, forecasts, dimensions=(DataDimension.location,))
     """
 
-    spec = UnifiedMetricSpec(
+    spec = MetricSpec(
         metric_id="rmse",
         metric_name="RMSE",
         aggregation_op=AggregationOp.ROOT_MEAN_SQUARE,
