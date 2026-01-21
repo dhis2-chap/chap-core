@@ -12,7 +12,6 @@ import pandas as pd
 
 from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
 from chap_core.assessment.metrics import (
-    AggregationLevel,
     RMSEMetric,
     CRPSNormMetric,
     Coverage25_75Metric,
@@ -89,7 +88,7 @@ class MetricsDashboard(BacktestPlotBase):
                 charts.append(title_plot)
                 textplot = text_chart(f"The metric shown below is '{name}'. Description: {description}", line_length=80)
                 charts.append(textplot)
-                metric_df = metric.get_metric(flat_observations, flat_forecasts, AggregationLevel.DETAILED)
+                metric_df = metric.get_detailed_metric(flat_observations, flat_forecasts)
                 subplot = plotting_class(metric_df).plot(title=name)
                 charts.append(subplot)
 

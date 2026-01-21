@@ -58,8 +58,8 @@ class PeakValueDiffMetric(UnifiedMetric):
 
     Usage:
         peak_diff = PeakValueDiffMetric()
-        detailed = peak_diff.get_metric(obs, forecasts, AggregationLevel.DETAILED)
-        aggregate = peak_diff.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+        detailed = peak_diff.get_detailed_metric(obs, forecasts)
+        global_val = peak_diff.get_global_metric(obs, forecasts)
     """
 
     spec = UnifiedMetricSpec(
@@ -117,8 +117,8 @@ class PeakPeriodLagMetric(UnifiedMetric):
 
     Usage:
         peak_lag = PeakPeriodLagMetric()
-        detailed = peak_lag.get_metric(obs, forecasts, AggregationLevel.DETAILED)
-        aggregate = peak_lag.get_metric(obs, forecasts, AggregationLevel.AGGREGATE)
+        detailed = peak_lag.get_detailed_metric(obs, forecasts)
+        global_val = peak_lag.get_global_metric(obs, forecasts)
     """
 
     spec = UnifiedMetricSpec(

@@ -231,9 +231,9 @@ def export_metrics(
         metric_ids: Optional list of metric IDs to compute. If None, all metrics are computed at AGGREGATE level.
     """
     from chap_core.assessment.evaluation import Evaluation
-    from chap_core.assessment.metrics import available_metrics, AggregationLevel
+    from chap_core.assessment.metrics import available_metrics
 
-    # All unified metrics support AGGREGATE level
+    # All unified metrics support global aggregation
     all_metric_ids = list(available_metrics.keys())
 
     # Filter to requested metrics (if specified)
@@ -270,7 +270,7 @@ def export_metrics(
         for metric_id in metrics_to_compute:
             metric_cls = available_metrics[metric_id]
             metric = metric_cls()
-            metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts, AggregationLevel.AGGREGATE)
+            metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
             if len(metric_df) == 1:
                 row[metric_id] = float(metric_df["metric"].iloc[0])
             else:

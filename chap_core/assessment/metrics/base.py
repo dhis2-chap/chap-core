@@ -17,17 +17,6 @@ from chap_core.assessment.flat_representations import (
 )
 
 
-class AggregationLevel(str, Enum):
-    """
-    Enum for metric aggregation levels.
-    """
-
-    DETAILED = "detailed"  # Per location/time_period/horizon_distance
-    PER_LOCATION = "per_location"  # Per location only
-    PER_HORIZON = "per_horizon"  # Per horizon_distance only
-    AGGREGATE = "aggregate"  # Single scalar
-
-
 class AggregationOp(str, Enum):
     """
     Enum for aggregation operations.
@@ -38,6 +27,14 @@ class AggregationOp(str, Enum):
     ROOT_MEAN_SQUARE = "root_mean_square"
 
 
+# Default output dimensions for detailed metrics
+DEFAULT_OUTPUT_DIMENSIONS: tuple[DataDimension, ...] = (
+    DataDimension.location,
+    DataDimension.time_period,
+    DataDimension.horizon_distance,
+)
+
+
 @dataclass(frozen=True)
 class UnifiedMetricSpec:
     """
@@ -46,21 +43,9 @@ class UnifiedMetricSpec:
 
     metric_id: str
     metric_name: str
+    output_dimensions: tuple[DataDimension, ...] = DEFAULT_OUTPUT_DIMENSIONS
     aggregation_op: AggregationOp = AggregationOp.MEAN
     description: str = "No description provided"
-
-
-# Mapping of AggregationLevel to output dimensions
-LEVEL_TO_DIMENSIONS: dict[AggregationLevel, tuple[DataDimension, ...]] = {
-    AggregationLevel.DETAILED: (
-        DataDimension.location,
-        DataDimension.time_period,
-        DataDimension.horizon_distance,
-    ),
-    AggregationLevel.PER_LOCATION: (DataDimension.location,),
-    AggregationLevel.PER_HORIZON: (DataDimension.horizon_distance,),
-    AggregationLevel.AGGREGATE: (),
-}
 
 
 class UnifiedMetric(ABC):
@@ -73,19 +58,54 @@ class UnifiedMetric(ABC):
 
     spec: UnifiedMetricSpec
 
-    def get_metric(
+    def get_global_metric(
         self,
         observations: FlatObserved,
         forecasts: FlatForecasts,
-        level: AggregationLevel = AggregationLevel.AGGREGATE,
     ) -> pd.DataFrame:
         """
-        Compute the metric at the specified aggregation level.
+        Compute the metric as a single aggregated scalar value.
 
         Args:
             observations: Flat observations DataFrame
             forecasts: Flat forecasts DataFrame
-            level: Aggregation level (DETAILED, PER_LOCATION, PER_HORIZON, AGGREGATE)
+
+        Returns:
+            DataFrame with a single metric value
+        """
+        return self.get_metric(observations, forecasts, dimensions=())
+
+    def get_detailed_metric(
+        self,
+        observations: FlatObserved,
+        forecasts: FlatForecasts,
+    ) -> pd.DataFrame:
+        """
+        Compute the metric at the finest resolution (from spec.output_dimensions).
+
+        Args:
+            observations: Flat observations DataFrame
+            forecasts: Flat forecasts DataFrame
+
+        Returns:
+            DataFrame with metric values at the finest resolution
+        """
+        return self.get_metric(observations, forecasts, dimensions=self.spec.output_dimensions)
+
+    def get_metric(
+        self,
+        observations: FlatObserved,
+        forecasts: FlatForecasts,
+        dimensions: tuple[DataDimension, ...] = (),
+    ) -> pd.DataFrame:
+        """
+        Compute the metric, keeping the specified dimensions.
+
+        Args:
+            observations: Flat observations DataFrame
+            forecasts: Flat forecasts DataFrame
+            dimensions: Which dimensions to keep in the output. Empty tuple means
+                       aggregate to a single scalar value.
 
         Returns:
             DataFrame with metric values at the specified level
@@ -98,11 +118,10 @@ class UnifiedMetric(ABC):
         detailed = self.compute_detailed(observations, forecasts)
 
         # Aggregate to requested level
-        result = self._aggregate_to_level(detailed, level)
+        result = self._aggregate_to_dimensions(detailed, dimensions)
 
         # Validate output
-        output_dimensions = LEVEL_TO_DIMENSIONS[level]
-        return self._validate_output(result, output_dimensions)
+        return self._validate_output(result, dimensions)
 
     @abstractmethod
     def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
@@ -118,12 +137,12 @@ class UnifiedMetric(ABC):
         """
         raise NotImplementedError
 
-    def _aggregate_to_level(self, detailed: pd.DataFrame, level: AggregationLevel) -> pd.DataFrame:
-        """Aggregate detailed results to the specified level."""
-        if level == AggregationLevel.DETAILED:
+    def _aggregate_to_dimensions(self, detailed: pd.DataFrame, dimensions: tuple[DataDimension, ...]) -> pd.DataFrame:
+        """Aggregate detailed results to keep only the specified dimensions."""
+        # Check if dimensions match the detailed output (no aggregation needed)
+        if dimensions == self.spec.output_dimensions:
             return detailed
 
-        dimensions = LEVEL_TO_DIMENSIONS[level]
         group_cols = [d.value for d in dimensions]
 
         if not group_cols:

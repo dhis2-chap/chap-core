@@ -12,7 +12,7 @@ import pandas as pd
 
 from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
-from chap_core.assessment.metrics import AggregationLevel, RatioAboveTruthMetric
+from chap_core.assessment.metrics import RatioAboveTruthMetric
 from chap_core.plotting.backtest_plot import text_chart
 
 
@@ -60,7 +60,7 @@ class SampleBiasPlot(BacktestPlotBase):
 
         # Compute the ratio of samples above truth metric
         metric = RatioAboveTruthMetric()
-        metric_df = metric.get_metric(flat_observations, flat_forecasts, AggregationLevel.DETAILED)
+        metric_df = metric.get_detailed_metric(flat_observations, flat_forecasts)
 
         charts = []
 
