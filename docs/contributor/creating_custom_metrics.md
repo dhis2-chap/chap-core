@@ -232,19 +232,43 @@ class Coverage80Metric(IntervalCoverageMetric):
 
 ## Using Metrics
 
-### Getting Metrics from the Registry
+### Creating Example Data
+
+First, let's create sample data to demonstrate metric computation:
 
 ```python
-from chap_core.assessment.metrics import get_metric, get_metrics_registry, list_metrics
+import pandas as pd
+import numpy as np
+from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 
-# Get a specific metric by ID
-MAEClass = get_metric("mae")
-mae_metric = MAEClass()
-print(f"Metric name: {mae_metric.get_name()}")
+# Create sample observations: 2 locations, 3 time periods
+observations_df = pd.DataFrame({
+    "location": ["loc_A", "loc_A", "loc_A", "loc_B", "loc_B", "loc_B"],
+    "time_period": ["2024-01", "2024-02", "2024-03", "2024-01", "2024-02", "2024-03"],
+    "disease_cases": [100.0, 120.0, 90.0, 200.0, 180.0, 220.0],
+})
+observations = FlatObserved(observations_df)
 
-# List all available metrics
-for info in list_metrics():
-    print(f"  {info['id']}: {info['name']}")
+# Create sample forecasts: 10 samples per observation, horizon 1 and 2
+forecast_rows = []
+np.random.seed(42)
+for loc in ["loc_A", "loc_B"]:
+    base = 100 if loc == "loc_A" else 200
+    for period in ["2024-01", "2024-02", "2024-03"]:
+        for horizon in [1, 2]:
+            for sample_id in range(10):
+                forecast_rows.append({
+                    "location": loc,
+                    "time_period": period,
+                    "horizon_distance": horizon,
+                    "sample": sample_id,
+                    "forecast": base + np.random.normal(0, 15),
+                })
+forecasts_df = pd.DataFrame(forecast_rows)
+forecasts = FlatForecasts(forecasts_df)
+
+print(f"Observations shape: {observations_df.shape}")
+print(f"Forecasts shape: {forecasts_df.shape}")
 ```
 
 ### Computing Metrics at Different Aggregation Levels
@@ -256,10 +280,46 @@ from chap_core.assessment.flat_representations import DataDimension
 # Get the MAE metric
 mae = get_metric("mae")()
 
-# These methods are available on all metrics:
-# - get_global_metric(obs, forecasts) -> single aggregated value
-# - get_detailed_metric(obs, forecasts) -> per location/time/horizon
-# - get_metric(obs, forecasts, dimensions=(...)) -> custom aggregation
+# Global aggregate: single value across all data
+global_result = mae.get_global_metric(observations, forecasts)
+print("Global MAE:")
+print(global_result)
+print()
+
+# Detailed: one value per (location, time_period, horizon_distance)
+detailed_result = mae.get_detailed_metric(observations, forecasts)
+print("Detailed MAE (first 6 rows):")
+print(detailed_result.head(6))
+print()
+
+# Per location only
+per_location = mae.get_metric(observations, forecasts, dimensions=(DataDimension.location,))
+print("MAE per location:")
+print(per_location)
+print()
+
+# Per horizon only
+per_horizon = mae.get_metric(observations, forecasts, dimensions=(DataDimension.horizon_distance,))
+print("MAE per horizon:")
+print(per_horizon)
+```
+
+### Getting Metrics from the Registry
+
+```python
+from chap_core.assessment.metrics import get_metric, list_metrics
+
+# Get a specific metric by ID
+MAEClass = get_metric("mae")
+mae_metric = MAEClass()
+print(f"Metric: {mae_metric.get_name()} ({mae_metric.get_id()})")
+print(f"Description: {mae_metric.get_description()}")
+print()
+
+# List all available metrics
+print("Available metrics:")
+for info in list_metrics():
+    print(f"  {info['id']}: {info['name']}")
 ```
 
 ## Registration and Discovery
