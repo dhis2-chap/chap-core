@@ -57,7 +57,7 @@ docs_dir: docs
 
 nav:
   - Getting Started: index.md
-  - DHIS2 implementation:
+  - DHIS2 Implementers:
       - Overview: modeling-app/index.md
       - Installation: modeling-app/installation.md
       - Using the App: modeling-app/modeling-app.md
@@ -84,7 +84,7 @@ nav:
           - Setup: chap-cli/chap-core-cli-setup.md
           - Evaluation Workflow: chap-cli/evaluation-workflow.md
           - evaluate2 Reference: chap-cli/evaluate2-reference.md
-  - Contributors:
+  - Porject Contributors:
       - Contributors:
           - Overview: contributor/index.md
           - Getting Started: contributor/getting_started.md
