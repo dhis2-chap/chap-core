@@ -231,7 +231,7 @@ Here's a complete workflow using the included example dataset (`example_data/lao
 ```bash
 # Step 1: Evaluate model
 chap evaluate2 \
-    --model-name https://github.com/dhis2-chap/minimalist_example_lag \
+    --model-name external_models/naive_python_model_uv \
     --dataset-csv example_data/laos_subset.csv \
     --output-file ./eval_doctest.nc \
     --backtest-params.n-splits 2 \
