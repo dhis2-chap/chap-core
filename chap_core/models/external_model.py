@@ -1,7 +1,6 @@
 import logging
 from pathlib import Path
 import pandas as pd
-import yaml
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import HealthData, Samples
@@ -149,7 +148,7 @@ class ExternalModel(ExternalModelBase):
         self._configuration = (
             configuration or {}
         )  # configuration passed from the user to the model, e.g. about covariates or parameters
-        #self._config_filename = "model_config.yaml"
+        # self._config_filename = "model_config.yaml"
         self._model_information = model_information
 
     @property
@@ -199,7 +198,7 @@ class ExternalModel(ExternalModelBase):
         new_pd.to_csv(train_file_name_full)
 
         # removed line below, writing this config is handled by runner, this should not be needed here
-        #yaml.dump(self._configuration, open(self._config_filename, "w"))
+        # yaml.dump(self._configuration, open(self._config_filename, "w"))
         try:
             self._runner.train(
                 train_file_name,
