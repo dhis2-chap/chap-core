@@ -56,7 +56,7 @@ dependencies = [
     "optuna>=4.5.0",
     "httpx>=0.28.1",
     "alembic>=1.14.0",
-    "chapkit>=0.10.2",
+    "chapkit>=0.14",
     "cryptography>=46.0.3",
 ]
 
