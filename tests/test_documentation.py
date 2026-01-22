@@ -39,8 +39,12 @@ def get_doc_files():
 
 @pytest.mark.parametrize("fpath", get_doc_files(), ids=str)
 def test_docs_python(fpath):
-    """Test Python code blocks in documentation."""
-    check_md_file(fpath=fpath, lang="python")
+    """Test Python code blocks in documentation.
+
+    Uses memory=True so code blocks within a file share state (imports, variables).
+    This allows documentation to have one import block followed by usage examples.
+    """
+    check_md_file(fpath=fpath, lang="python", memory=True)
 
 
 @pytest.mark.parametrize("fpath", get_doc_files(), ids=str)

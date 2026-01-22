@@ -2,26 +2,35 @@
 Example metric for demonstration purposes.
 """
 
-import pandas as pd
-from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
-from chap_core.assessment.metrics.base import MetricBase, MetricSpec
+from chap_core.assessment.metrics.base import (
+    AggregationOp,
+    DeterministicMetric,
+    MetricSpec,
+)
+from chap_core.assessment.metrics import metric
 
 
-class ExampleMetric(MetricBase):
+@metric()
+class ExampleMetric(DeterministicMetric):
     """
-    Example metric that computes absolute error per location and time_period.
-    This is a demonstration metric showing how to create custom metrics.
+    Example metric that computes absolute error.
+
+    This is a demonstration metric showing how to create custom metrics
+    using the metric system.
+
+    Usage:
+        example = ExampleMetric()
+        detailed = example.get_detailed_metric(obs, forecasts)
+        global_val = example.get_global_metric(obs, forecasts)
     """
 
     spec = MetricSpec(
-        output_dimensions=(DataDimension.location, DataDimension.time_period),
-        metric_name="Example Absolute Error",
         metric_id="example_metric",
-        description="Sum of absolute error per location and time_period",
+        metric_name="Example Absolute Error",
+        aggregation_op=AggregationOp.SUM,
+        description="Sum of absolute error - demonstration metric",
     )
 
-    def compute(self, observations: FlatObserved, forecasts: FlatForecasts) -> pd.DataFrame:
-        # sum of absolute error per location and time_period
-        merged = forecasts.merge(observations, on=["location", "time_period"], how="left")
-        merged["metric"] = (merged["forecast"] - merged["disease_cases"]).abs()
-        return merged[["location", "time_period", "metric"]]
+    def compute_point_metric(self, forecast: float, observed: float) -> float:
+        """Compute absolute error for a single forecast/observation pair."""
+        return abs(forecast - observed)
