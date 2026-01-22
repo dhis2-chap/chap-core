@@ -405,7 +405,7 @@ requires-dist = [
     { name = "altair", specifier = ">=5.5.0" },
     { name = "bionumpy", specifier = ">=1.0.14" },
     { name = "celery", extras = ["pytest"], specifier = ">=5.5.3" },
-    { name = "chapkit", specifier = ">=0.10.2" },
+    { name = "chapkit", specifier = ">=0.14" },
     { name = "cryptography", specifier = ">=46.0.3" },
     { name = "cyclopts", specifier = ">=3.24.0" },
     { name = "diskcache", specifier = ">=5.6.3" },
@@ -475,21 +475,18 @@ dev = [
 
 [[package]]
 name = "chapkit"
-version = "0.10.2"
+version = "0.14.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "geojson-pydantic" },
+    { name = "httpx" },
     { name = "jinja2" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "polars" },
     { name = "servicekit" },
     { name = "typer" },
-    { name = "xarray" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/b4/9dba2af01777c47b858c8b6a7e03decdaacf0efe38adae7171fb76d08609/chapkit-0.10.2.tar.gz", hash = "sha256:4ede1818055c20b09c68a95f6f8d1d5037e30e8968b63184d7841ab6550998c3", size = 61635, upload-time = "2025-12-05T12:35:29.891Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/8f/c4ead7adb997959fa81e9c98712d5b71752b4d8222755e3b3a7eb655a798/chapkit-0.14.1.tar.gz", hash = "sha256:9a64bd29c2707f9a54a35df1d42ce42d5c784c6c8fc5eb7fd5964c3aedfb016c", size = 74671, upload-time = "2026-01-16T13:07:03.461Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/09/eb2438045c37a8bdfeaf4f47df94626c521cae3f08168522e8acee8a2053/chapkit-0.10.2-py3-none-any.whl", hash = "sha256:7a22b23d7ea9e98843979b58a861a89c3e72389d443bfbd343f394434e8c2872", size = 86645, upload-time = "2025-12-05T12:35:28.448Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/dc/4ae402cb219bb3844d851648010fc1eaf77de4f590d4887d3ef9b7089adc/chapkit-0.14.1-py3-none-any.whl", hash = "sha256:7ce33cd8e7e61715b1e8c3bc5794797460521c9428021dbd1422cfee85a9f0cf", size = 102628, upload-time = "2026-01-16T13:07:05.202Z" },
 ]
 
 [[package]]
@@ -2139,32 +2136,6 @@ wheels = [
 ]
 
 [[package]]
-name = "polars"
-version = "1.35.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "polars-runtime-32" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/43/09d4738aa24394751cb7e5d1fc4b5ef461d796efcadd9d00c79578332063/polars-1.35.2.tar.gz", hash = "sha256:ae458b05ca6e7ca2c089342c70793f92f1103c502dc1b14b56f0a04f2cc1d205", size = 694895, upload-time = "2025-11-09T13:20:05.921Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b4/9a/24e4b890c7ee4358964aa92c4d1865df0e8831f7df6abaa3a39914521724/polars-1.35.2-py3-none-any.whl", hash = "sha256:5e8057c8289ac148c793478323b726faea933d9776bd6b8a554b0ab7c03db87e", size = 783597, upload-time = "2025-11-09T13:18:51.361Z" },
-]
-
-[[package]]
-name = "polars-runtime-32"
-version = "1.35.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cb/75/ac1256ace28c832a0997b20ba9d10a9d3739bd4d457c1eb1e7d196b6f88b/polars_runtime_32-1.35.2.tar.gz", hash = "sha256:6e6e35733ec52abe54b7d30d245e6586b027d433315d20edfb4a5d162c79fe90", size = 2694387, upload-time = "2025-11-09T13:20:07.624Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/66/de/a532b81e68e636483a5dd764d72e106215543f3ef49a142272b277ada8fe/polars_runtime_32-1.35.2-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:e465d12a29e8df06ea78947e50bd361cdf77535cd904fd562666a8a9374e7e3a", size = 40524507, upload-time = "2025-11-09T13:18:55.727Z" },
-    { url = "https://files.pythonhosted.org/packages/2d/0b/679751ea6aeaa7b3e33a70ba17f9c8150310792583f3ecf9bb1ce15fe15c/polars_runtime_32-1.35.2-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:ef2b029b78f64fb53f126654c0bfa654045c7546bd0de3009d08bd52d660e8cc", size = 36700154, upload-time = "2025-11-09T13:18:59.78Z" },
-    { url = "https://files.pythonhosted.org/packages/e2/c8/fd9f48dd6b89ae9cff53d896b51d08579ef9c739e46ea87a647b376c8ca2/polars_runtime_32-1.35.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:85dda0994b5dff7f456bb2f4bbd22be9a9e5c5e28670e23fedb13601ec99a46d", size = 41317788, upload-time = "2025-11-09T13:19:03.949Z" },
-    { url = "https://files.pythonhosted.org/packages/67/89/e09d9897a70b607e22a36c9eae85a5b829581108fd1e3d4292e5c0f52939/polars_runtime_32-1.35.2-cp39-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:3b9006902fc51b768ff747c0f74bd4ce04005ee8aeb290ce9c07ce1cbe1b58a9", size = 37850590, upload-time = "2025-11-09T13:19:08.154Z" },
-    { url = "https://files.pythonhosted.org/packages/dc/40/96a808ca5cc8707894e196315227f04a0c82136b7fb25570bc51ea33b88d/polars_runtime_32-1.35.2-cp39-abi3-win_amd64.whl", hash = "sha256:ddc015fac39735592e2e7c834c02193ba4d257bb4c8c7478b9ebe440b0756b84", size = 41290019, upload-time = "2025-11-09T13:19:12.214Z" },
-    { url = "https://files.pythonhosted.org/packages/f4/d1/8d1b28d007da43c750367c8bf5cb0f22758c16b1104b2b73b9acadb2d17a/polars_runtime_32-1.35.2-cp39-abi3-win_arm64.whl", hash = "sha256:6861145aa321a44eda7cc6694fb7751cb7aa0f21026df51b5faa52e64f9dc39b", size = 36955684, upload-time = "2025-11-09T13:19:15.666Z" },
-]
-
-[[package]]
 name = "pooch"
 version = "1.8.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2975,7 +2946,7 @@ wheels = [
 
 [[package]]
 name = "servicekit"
-version = "0.5.4"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiosqlite" },
@@ -2992,9 +2963,9 @@ dependencies = [
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5e/ac/2d96cf3130c003325721efce3296b03b78f7f56ae9d1df5b9a5078a7aeac/servicekit-0.5.4.tar.gz", hash = "sha256:7fd976275b56b9529cdfaa304214555db16c3e524dd9bf555837e3d962599290", size = 40763, upload-time = "2025-12-05T12:28:48.531Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b1/70/828458b627ebdc20117bc4c3f79dab122956caf7f46eb68dc54fd17bea55/servicekit-0.6.0.tar.gz", hash = "sha256:ecbdd93aeb83e3b89de83c0a490fd9e3b1ed7d56c8fb252ecda024530aea5eb4", size = 40827, upload-time = "2026-01-13T10:21:58.942Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a0/39/c4f3ebc6a4e693f4c2c93dacf2f350257e483d4750a97405dcf03f208eda/servicekit-0.5.4-py3-none-any.whl", hash = "sha256:f6657d94d80dc4b4c36adfb2d5b97c125e121cbe5ba6ec44048069c683ff2092", size = 53139, upload-time = "2025-12-05T12:28:49.958Z" },
+    { url = "https://files.pythonhosted.org/packages/50/d4/9c8000d0e30c12420a7600cf04ce4e998e6ccb365e4d7e11e30a996bdf49/servicekit-0.6.0-py3-none-any.whl", hash = "sha256:7cd4aaa232b28a08624860c48c9447ea978c07c4deb1d6bc3636e0ae2a4d8df6", size = 53234, upload-time = "2026-01-13T10:21:57.373Z" },
 ]
 
 [[package]]
@@ -3228,7 +3199,7 @@ wheels = [
 
 [[package]]
 name = "typer"
-version = "0.20.0"
+version = "0.21.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -3236,9 +3207,9 @@ dependencies = [
     { name = "shellingham" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/28/7c85c8032b91dbe79725b6f17d2fffc595dff06a35c7a30a37bef73a1ab4/typer-0.20.0.tar.gz", hash = "sha256:1aaf6494031793e4876fb0bacfa6a912b551cf43c1e63c800df8b1a866720c37", size = 106492, upload-time = "2025-10-20T17:03:49.445Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/bf/8825b5929afd84d0dabd606c67cd57b8388cb3ec385f7ef19c5cc2202069/typer-0.21.1.tar.gz", hash = "sha256:ea835607cd752343b6b2b7ce676893e5a0324082268b48f27aa058bdb7d2145d", size = 110371, upload-time = "2026-01-06T11:21:10.989Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/64/7713ffe4b5983314e9d436a90d5bd4f63b6054e2aca783a3cfc44cb95bbf/typer-0.20.0-py3-none-any.whl", hash = "sha256:5b463df6793ec1dca6213a3cf4c0f03bc6e322ac5e16e13ddd622a889489784a", size = 47028, upload-time = "2025-10-20T17:03:47.617Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/1d/d9257dd49ff2ca23ea5f132edf1281a0c4f9de8a762b9ae399b670a59235/typer-0.21.1-py3-none-any.whl", hash = "sha256:7985e89081c636b88d172c2ee0cfe33c253160994d47bdfdc302defd7d1f1d01", size = 47381, upload-time = "2026-01-06T11:21:09.824Z" },
 ]
 
 [[package]]
