@@ -18,14 +18,24 @@ class CommandLineRunner(Runner):
         pass
 
 
-def run_command(command: str, working_directory=Path(".")):
-    """Runs a unix command using subprocess"""
+def run_command(command: str, working_directory=Path("."), env: dict | None = None):
+    """Runs a unix command using subprocess.
+
+    Parameters
+    ----------
+    command : str
+        The command to run
+    working_directory : Path
+        The directory to run the command in
+    env : dict, optional
+        Environment variables to use. If None, uses the current environment.
+    """
     logging.debug(f"Running command: {command}")
     # command = command.split()
 
     try:
         process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_directory, shell=True
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=working_directory, shell=True, env=env
         )
         stdout, stderr = process.communicate()
         output = stdout.decode() + "\n" + stderr.decode()

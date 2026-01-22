@@ -1,8 +1,8 @@
 """
-Integration test for minimalist_example_r via REST API.
+Integration test for external models via REST API.
 
-This file tests the flow of registering an R model template via the REST API,
-creating a configured model, and running a backtest evaluation.
+This file tests the flow of registering model templates via the REST API,
+creating configured models, and running backtest evaluations.
 
 This file should not import chap as a python package and should be possible to
 run without chap pip installed, only with the necessary requirements (requests).
@@ -16,8 +16,10 @@ import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-MINIMALIST_R_MODEL_URL = "https://github.com/dhis2-chap/minimalist_example_r"
-MINIMALIST_R_MODEL_VERSION = "stable"
+MODELS_TO_TEST = [
+    ("https://github.com/dhis2-chap/minimalist_example_r", "stable"),
+    ("https://github.com/dhis2-chap/minimalist_example_uv", "stable"),
+]
 
 
 def make_backtest_with_data_request(model_name):
@@ -35,7 +37,7 @@ def make_backtest_with_data_request(model_name):
     return data
 
 
-class RModelIntegrationTest:
+class ModelIntegrationTest:
     def __init__(self, chap_url):
         self._chap_url = chap_url
 
@@ -84,12 +86,12 @@ class RModelIntegrationTest:
         assert response.status_code == 200, (response.status_code, response.text)
         return response.json()
 
-    def register_model_template(self):
-        """Register the minimalist_example_r model template via REST API."""
-        logger.info("Registering model template from %s" % MINIMALIST_R_MODEL_URL)
+    def register_model_template(self, url, version):
+        """Register a model template via REST API."""
+        logger.info("Registering model template from %s" % url)
         response = self._post(
             f"{self._chap_url}/v1/crud/model-templates",
-            {"url": MINIMALIST_R_MODEL_URL, "version": MINIMALIST_R_MODEL_VERSION},
+            {"url": url, "version": version},
         )
         template_id = response["id"]
         template_name = response["name"]
@@ -160,14 +162,12 @@ class RModelIntegrationTest:
 
         return evaluation_entries
 
-    def run_test(self):
-        """Run the full integration test."""
-        logger.info("Starting R model integration test")
-
-        self.ensure_up()
+    def run_test_for_model(self, model_url, model_version):
+        """Run the integration test for a single model."""
+        logger.info(f"Starting integration test for {model_url}")
 
         # Register the model template
-        template_id, template_name = self.register_model_template()
+        template_id, template_name = self.register_model_template(model_url, model_version)
 
         # Create a configured model
         configuration_name = f"{template_name}_integration_test"
@@ -182,13 +182,24 @@ class RModelIntegrationTest:
         # Verify results
         self.verify_backtest_results(backtest_id, model_id)
 
-        logger.info(f"SUCCESS: R model integration test completed. Backtest ID: {backtest_id}")
+        logger.info(f"SUCCESS: Integration test for {template_name} completed. Backtest ID: {backtest_id}")
+
+    def run_all_tests(self):
+        """Run integration tests for all models."""
+        logger.info("Starting integration tests for all models")
+
+        self.ensure_up()
+
+        for model_url, model_version in MODELS_TO_TEST:
+            self.run_test_for_model(model_url, model_version)
+
+        logger.info("SUCCESS: All integration tests completed")
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Integration test for minimalist_example_r via REST API.")
+    parser = argparse.ArgumentParser(description="Integration test for external models via REST API.")
     parser.add_argument(
         "host",
         type=str,
@@ -201,5 +212,5 @@ if __name__ == "__main__":
     logger.info(args)
 
     chap_url = f"http://{args.host}:8000"
-    test = RModelIntegrationTest(chap_url)
-    test.run_test()
+    test = ModelIntegrationTest(chap_url)
+    test.run_all_tests()

@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner, run_command
@@ -11,12 +12,16 @@ class UvRunner(Runner):
     """Runs commands through uv in a pyproject.toml-managed environment"""
 
     def __init__(self, working_dir: str | Path):
-        self._working_dir = working_dir
+        self._working_dir = Path(working_dir)
 
     def run_command(self, command):
         uv_command = f"uv run {command}"
         logger.debug(f"Running command {uv_command} in {self._working_dir}")
-        return run_command(uv_command, self._working_dir)
+        # Override UV_PROJECT_ENVIRONMENT to use a model-specific venv in the working directory.
+        # This prevents UV from trying to install packages into the main application's venv.
+        env = os.environ.copy()
+        env["UV_PROJECT_ENVIRONMENT"] = str(self._working_dir / ".venv")
+        return run_command(uv_command, self._working_dir, env=env)
 
     def store_file(self):
         pass

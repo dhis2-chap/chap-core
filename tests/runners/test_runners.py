@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 
 from chap_core.exceptions import CommandLineException
 from chap_core.runners.command_line_runner import CommandLineRunner
@@ -48,7 +48,7 @@ def test_uv_runner_prepends_uv_run():
         mock_run_command.return_value = "test output"
         runner = UvRunner(Path("."))
         runner.run_command("python main.py train data.csv model.pkl")
-        mock_run_command.assert_called_once_with("uv run python main.py train data.csv model.pkl", Path("."))
+        mock_run_command.assert_called_once_with("uv run python main.py train data.csv model.pkl", Path("."), env=ANY)
 
 
 def test_uv_train_predict_runner_formats_commands():
@@ -61,7 +61,7 @@ def test_uv_train_predict_runner_formats_commands():
             predict_command="python main.py predict {model} {historic_data} {future_data} {out_file}",
         )
         runner.train("train.csv", "model.pkl")
-        mock_run_command.assert_called_with("uv run python main.py train train.csv model.pkl", Path("."))
+        mock_run_command.assert_called_with("uv run python main.py train train.csv model.pkl", Path("."), env=ANY)
 
 
 def test_runner_selection_with_uv_env(tmp_path):
