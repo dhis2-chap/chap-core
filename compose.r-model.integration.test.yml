@@ -6,6 +6,4 @@ services:
     container_name: chap_r_model_test
     depends_on:
       - chap
-    networks:
-      - chap-network
     command: python docker_db_flow_r_model.py chap
