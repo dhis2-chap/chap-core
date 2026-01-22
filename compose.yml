@@ -62,7 +62,9 @@ services:
         target: /tmp
         tmpfs:
           size: 1000000
-
+      - type: bind
+        source: runs
+        target: /app/runs
   redis:
     image: valkey/valkey:8
 
@@ -100,3 +102,4 @@ services:
 
 volumes:
   chap-db: {}
+  runs:
