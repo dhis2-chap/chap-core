@@ -63,7 +63,7 @@ services:
       - type: tmpfs
         target: /tmp
         tmpfs:
-          size: 10000000000  # 10GB for testing (git clone, renv downloads, etc.)
+          size: 10000000000  # 10GB for caches etc
       - type: bind
         source: runs
         target: /app/runs
