@@ -83,12 +83,12 @@ class TestExportMetrics:
         export_metrics(
             input_files=[input_file],
             output_file=output_file,
-            metric_ids=["crps", "ratio_within_10th_90th"],
+            metric_ids=["crps", "coverage_10_90"],
         )
 
         df = pd.read_csv(output_file)
         # Should only have metadata columns plus the two requested metrics
-        expected_columns = {"filename", "model_name", "model_version", "crps", "ratio_within_10th_90th"}
+        expected_columns = {"filename", "model_name", "model_version", "crps", "coverage_10_90"}
         assert set(df.columns) == expected_columns
 
     def test_export_metrics_invalid_metric_id(self, backtest, tmp_path):
@@ -120,11 +120,11 @@ class TestExportMetrics:
         )
 
         df = pd.read_csv(output_file)
-        # Check that all aggregate metrics are present
+        # Check that all aggregate metrics are present (using new unified metric IDs)
         assert "crps" in df.columns
-        assert "ratio_within_10th_90th" in df.columns
-        assert "ratio_within_25th_75th" in df.columns
-        assert "test_sample_count" in df.columns
+        assert "coverage_10_90" in df.columns
+        assert "coverage_25_75" in df.columns
+        assert "sample_count" in df.columns
 
     def test_export_metrics_with_weekly_data(self, backtest_weeks, tmp_path):
         """Test exporting metrics from weekly backtest data."""

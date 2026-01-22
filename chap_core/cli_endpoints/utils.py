@@ -228,25 +228,23 @@ def export_metrics(
     Args:
         input_files: List of paths to NetCDF evaluation files
         output_file: Path to output CSV file
-        metric_ids: Optional list of metric IDs to compute. If None, all aggregate metrics are computed.
+        metric_ids: Optional list of metric IDs to compute. If None, all metrics are computed at AGGREGATE level.
     """
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.assessment.metrics import available_metrics
 
-    # Get list of aggregate metrics
-    aggregate_metric_ids = [
-        metric_id for metric_id, metric_cls in available_metrics.items() if metric_cls().is_full_aggregate()
-    ]
+    # All unified metrics support global aggregation
+    all_metric_ids = list(available_metrics.keys())
 
     # Filter to requested metrics (if specified)
     if metric_ids is not None:
-        invalid_ids = set(metric_ids) - set(aggregate_metric_ids)
+        invalid_ids = set(metric_ids) - set(all_metric_ids)
         if invalid_ids:
-            available = ", ".join(aggregate_metric_ids)
-            raise ValueError(f"Invalid metric IDs: {invalid_ids}. Available aggregate metrics: {available}")
+            available = ", ".join(all_metric_ids)
+            raise ValueError(f"Invalid metric IDs: {invalid_ids}. Available metrics: {available}")
         metrics_to_compute = metric_ids
     else:
-        metrics_to_compute = aggregate_metric_ids
+        metrics_to_compute = all_metric_ids
 
     results = []
 
@@ -272,7 +270,7 @@ def export_metrics(
         for metric_id in metrics_to_compute:
             metric_cls = available_metrics[metric_id]
             metric = metric_cls()
-            metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
+            metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
             if len(metric_df) == 1:
                 row[metric_id] = float(metric_df["metric"].iloc[0])
             else:

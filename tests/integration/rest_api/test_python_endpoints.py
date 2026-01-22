@@ -18,7 +18,8 @@ from chap_core.rest_api.v1.routers.visualization import (
 def test_get_available_metrics():
     metrics = get_available_metrics(backtest_id=1)
     print(metrics)
-    assert any(metric.id == "detailed_rmse" for metric in metrics)
+    # Check for unified metrics (no more "detailed_" prefix)
+    assert any(metric.id == "rmse" for metric in metrics)
 
 
 def all_metric_ids():

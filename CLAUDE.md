@@ -14,6 +14,15 @@
 12. Never access private variables
 13. When creating Jira issues, always set at least one component
 
+## Documentation
+When writing documentation with code examples:
+1. All `python` code blocks are automatically tested by mktestdocs with `memory=True`, meaning code blocks within a file share state (imports, variables).
+2. Structure documentation with imports in earlier blocks, then usage examples in subsequent blocks that can reference those imports.
+3. Use real module paths and class names that exist in the codebase.
+4. For examples that reference user-created code (like `my_custom_metric.py`), use existing implementations instead (e.g., `MAEMetric` from `chap_core.assessment.metrics.mae`).
+5. Only use `console` blocks as a last resort for pseudo-code, CLI commands, or incomplete code signatures that cannot be made executable.
+6. When showing class/function signatures, prefer a complete minimal example over an incomplete signature snippet.
+
 ## Domain Knowledge
 - To learn about domain-specific terms used in the codebase, refer to @docs/contributor/vocabulary.md.
 

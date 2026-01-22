@@ -11,7 +11,11 @@ import altair as alt
 import pandas as pd
 
 from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
-from chap_core.assessment.metrics import DetailedRMSE, DetailedCRPSNorm, IsWithin25th75thDetailed
+from chap_core.assessment.metrics import (
+    RMSEMetric,
+    CRPSNormMetric,
+    Coverage25_75Metric,
+)
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 from chap_core.plotting.backtest_plot import text_chart, title_chart
 from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricByTimePeriodV2Mean
@@ -75,15 +79,16 @@ class MetricsDashboard(BacktestPlotBase):
 
         plotting_classes = [MetricByHorizonV2Mean, MetricByTimePeriodV2Mean]
         for plotting_class in plotting_classes:
-            metrics_to_show = [IsWithin25th75thDetailed, DetailedRMSE, DetailedCRPSNorm]
-            for metric in metrics_to_show:
-                name = metric().spec.metric_name
-                description = metric().spec.description
+            metrics_to_show = [Coverage25_75Metric, RMSEMetric, CRPSNormMetric]
+            for metric_factory in metrics_to_show:
+                metric = metric_factory()
+                name = metric.get_name()
+                description = metric.get_description()
                 title_plot = title_chart(name)
                 charts.append(title_plot)
                 textplot = text_chart(f"The metric shown below is '{name}'. Description: {description}", line_length=80)
                 charts.append(textplot)
-                metric_df = metric().get_metric(flat_observations, flat_forecasts)
+                metric_df = metric.get_detailed_metric(flat_observations, flat_forecasts)
                 subplot = plotting_class(metric_df).plot(title=name)
                 charts.append(subplot)
 

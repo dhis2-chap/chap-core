@@ -37,7 +37,7 @@ Integrating with the Chap platform allows to focus only on the model itself, and
 * Interoperability with the full set of [DHIS2 ecosystem tools and functionalities](), including planned support for missing data analysis and imputation, for endemic threshold definition and outbreak inference, for derived variable computation and dashboard visualisation of prediction.
 
 * In addition to the plugin-like system for models, we similarly offer:
-* A plugin-like system for evaluation metrics, allowing anyone to [contribute implementations of custom metrics]() (formulas) for evaluating model predictions against truth   
+* A plugin-like system for evaluation metrics, allowing anyone to [contribute implementations of custom metrics](contributor/creating_custom_metrics.md) (formulas) for evaluating model predictions against truth   
 * A plugin-like system for visualisations, allowing anyone to contribute [visualisations of data]() or [visualisations for model evaluation]().  
 
 ### Beyond the core features described above, the platform also currently or in the future offers the following features to any model integrated with it
