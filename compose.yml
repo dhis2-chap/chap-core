@@ -47,6 +47,8 @@ services:
       - CHAP_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - CELERY_BROKER=redis://redis:6379
       - C_FORCE_ROOT=1 #TODO: Remove this when we have a proper user
+      - RENV_PATHS_ROOT=/tmp/renv
+      - UV_CACHE_DIR=/tmp/uv
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
     extra_hosts:
@@ -61,7 +63,7 @@ services:
       - type: tmpfs
         target: /tmp
         tmpfs:
-          size: 1000000
+          size: 10000000000  # 10GB for testing (git clone, renv downloads, etc.)
       - type: bind
         source: runs
         target: /app/runs
