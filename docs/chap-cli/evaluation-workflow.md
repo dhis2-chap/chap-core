@@ -174,10 +174,15 @@ chap evaluate2 \
 
 Use `export-metrics` to compute metrics from multiple evaluations and export to CSV:
 
-```console
+```bash
 chap export-metrics \
-    --input-files ./results/model_a_eval.nc ./results/model_b_eval.nc \
-    --output-file ./results/comparison.csv
+    --input-files example_data/example_evaluation.nc \
+    --input-files example_data/example_evaluation_2.nc \
+    --output-file ./comparison_doctest.csv
+```
+
+```bash
+rm -f ./comparison_doctest.csv
 ```
 
 ### Output Format
@@ -205,49 +210,51 @@ model_b_eval.nc,chap_auto_ewars_weekly,2.0.0,38.7,28.4,0.038,0.88,0.70,168
 
 To export only specific metrics:
 
-```console
+```bash
 chap export-metrics \
-    --input-files ./results/model_a_eval.nc ./results/model_b_eval.nc \
-    --output-file ./results/comparison.csv \
-    --metric-ids rmse_aggregate mae_aggregate crps
+    --input-files example_data/example_evaluation.nc \
+    --input-files example_data/example_evaluation_2.nc \
+    --output-file ./comparison_specific_doctest.csv \
+    --metric-ids rmse \
+    --metric-ids mae \
+    --metric-ids crps
+```
+
+```bash
+rm -f ./comparison_specific_doctest.csv
 ```
 
 ## Complete Example: Standard Models
 
-Here's a complete workflow comparing two standard models using the included example dataset:
+Here's a complete workflow using the included example dataset (`example_data/laos_subset.csv`) with a minimal model for fast testing:
 
-```console
-# Step 1: Evaluate first model (auto-regressive)
+```bash
+# Step 1: Evaluate model
 chap evaluate2 \
-    --model-name https://github.com/dhis2-chap/chap_auto_ewars \
-    --dataset-csv ./example_data/laos_subset.csv \
-    --output-file ./eval_ewars.nc \
-    --backtest-params.n-splits 3
+    --model-name https://github.com/dhis2-chap/minimalist_example_lag \
+    --dataset-csv example_data/laos_subset.csv \
+    --output-file ./eval_doctest.nc \
+    --backtest-params.n-splits 2 \
+    --backtest-params.n-periods 1
+```
 
-# Step 2: Plot first model results
+```bash
+# Step 2: Plot results
 chap plot-backtest \
-    --input-file ./eval_ewars.nc \
-    --output-file ./plot_ewars.html
+    --input-file ./eval_doctest.nc \
+    --output-file ./plot_doctest.html
+```
 
-# Step 3: Evaluate second model (minimalist R model)
-chap evaluate2 \
-    --model-name https://github.com/dhis2-chap/minimalist_example_r \
-    --dataset-csv ./example_data/laos_subset.csv \
-    --output-file ./eval_minimalist.nc \
-    --backtest-params.n-splits 3
-
-# Step 4: Plot second model results
-chap plot-backtest \
-    --input-file ./eval_minimalist.nc \
-    --output-file ./plot_minimalist.html
-
-# Step 5: Compare metrics
+```bash
+# Step 3: Export metrics
 chap export-metrics \
-    --input-files ./eval_ewars.nc ./eval_minimalist.nc \
-    --output-file ./model_comparison.csv
+    --input-files ./eval_doctest.nc \
+    --output-file ./metrics_doctest.csv
+```
 
-# View the comparison
-cat ./model_comparison.csv
+```bash
+# Cleanup
+rm -f ./eval_doctest.nc ./plot_doctest.html ./metrics_doctest.csv
 ```
 
 The GeoJSON file `example_data/laos_subset.geojson` is automatically discovered since it has the same base name as the CSV.
@@ -325,7 +332,8 @@ chap evaluate2 \
 
 # Compare both
 chap export-metrics \
-    --input-files ./eval_standard.nc ./eval_chapkit.nc \
+    --input-files ./eval_standard.nc \
+    --input-files ./eval_chapkit.nc \
     --output-file ./comparison.csv
 ```
 
