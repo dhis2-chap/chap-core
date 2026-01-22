@@ -149,7 +149,7 @@ class ExternalModel(ExternalModelBase):
         self._configuration = (
             configuration or {}
         )  # configuration passed from the user to the model, e.g. about covariates or parameters
-        self._config_filename = "model_config.yaml"
+        #self._config_filename = "model_config.yaml"
         self._model_information = model_information
 
     @property
@@ -198,7 +198,8 @@ class ExternalModel(ExternalModelBase):
         new_pd = self._adapt_data(pd, frequency=frequency)
         new_pd.to_csv(train_file_name_full)
 
-        yaml.dump(self._configuration, open(self._config_filename, "w"))
+        # removed line below, writing this config is handled by runner, this should not be needed here
+        #yaml.dump(self._configuration, open(self._config_filename, "w"))
         try:
             self._runner.train(
                 train_file_name,
