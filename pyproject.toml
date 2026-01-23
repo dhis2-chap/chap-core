@@ -58,6 +58,7 @@ dependencies = [
     "alembic>=1.14.0",
     "chapkit>=0.14",
     "cryptography>=46.0.3",
+    "python-ulid>=3.0.0",
 ]
 
 [dependency-groups]
@@ -80,6 +81,7 @@ dev = [
     "mypy>=1.19.1",
     "pyright>=1.1.408",
     "pandas-stubs>=2.3.3.260113",
+    "fakeredis>=2.26.0",
 ]
 
 [project.urls]
