@@ -4,7 +4,9 @@ from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
 from chap_core.rest_api.services.orchestrator import Orchestrator
-from chap_core.rest_api.v2.dependencies import get_orchestrator
+from chap_core.rest_api.v2.dependencies import SERVICE_KEY_ENV_VAR, get_orchestrator
+
+TEST_SERVICE_KEY = "test-service-key"
 
 
 @pytest.fixture
@@ -18,8 +20,10 @@ def test_orchestrator(fake_redis):
 
 
 @pytest.fixture
-def client(test_orchestrator):
+def client(test_orchestrator, monkeypatch):
     from chap_core.rest_api.v2.rest_api import app as v2_app
+
+    monkeypatch.setenv(SERVICE_KEY_ENV_VAR, TEST_SERVICE_KEY)
 
     def override_get_orchestrator():
         return test_orchestrator
@@ -57,7 +61,11 @@ class TestParentApp:
             "info": {"name": "test-model"},
         }
 
-        response = client.post("/v2/services/$register", json=payload)
+        response = client.post(
+            "/v2/services/$register",
+            json=payload,
+            headers={"X-Service-Key": TEST_SERVICE_KEY},
+        )
 
         assert response.status_code == 200
         assert response.json()["status"] == "registered"

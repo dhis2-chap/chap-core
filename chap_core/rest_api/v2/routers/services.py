@@ -8,7 +8,7 @@ from chap_core.rest_api.services.schemas import (
     ServiceDetail,
     ServiceListResponse,
 )
-from chap_core.rest_api.v2.dependencies import get_orchestrator
+from chap_core.rest_api.v2.dependencies import get_orchestrator, verify_service_key
 
 router = APIRouter(prefix="/services", tags=["services"])
 
@@ -17,6 +17,7 @@ router = APIRouter(prefix="/services", tags=["services"])
 def register_service(
     payload: RegistrationPayload,
     orchestrator: Orchestrator = Depends(get_orchestrator),
+    _: str = Depends(verify_service_key),
 ) -> RegistrationResponse:
     """Register a new service with the orchestrator."""
     return orchestrator.register(payload)
@@ -26,6 +27,7 @@ def register_service(
 def ping_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),
+    _: str = Depends(verify_service_key),
 ) -> PingResponse:
     """Send a keepalive ping for a registered service."""
     try:
@@ -58,6 +60,7 @@ def get_service(
 def deregister_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),
+    _: str = Depends(verify_service_key),
 ) -> None:
     """Deregister a service."""
     try:
