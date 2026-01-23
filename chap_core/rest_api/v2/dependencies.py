@@ -7,7 +7,7 @@ from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.util import load_redis
 
 SERVICE_KEY_HEADER = "X-Service-Key"
-SERVICE_KEY_ENV_VAR = "CHAP_SERVICE_REGISTRATION_KEY"
+SERVICE_KEY_ENV_VAR = "SERVICEKIT_REGISTRATION_KEY"
 
 
 @lru_cache
