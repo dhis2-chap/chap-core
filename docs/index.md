@@ -1,3 +1,9 @@
+<script>
+if (window.location.hostname === "dhis2-chap.github.io") {
+    window.location.href = "https://chap.dhis2.org/";
+}
+</script>
+
 # The Chap Modeling Platform
 
 Chap is a Climate & Health Modeling Platform that brings together disease forecasting models into a unified ecosystem, connecting researchers with cutting-edge epidemiological models to policy makers and health practitioners. It makes complex modeling workflows accessible to users, automates rigorous model evaluation, provides a broad range of generic convenience functionality available to modellers, and integrates directly with DHIS2, the world's leading health information system.

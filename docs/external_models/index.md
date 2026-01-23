@@ -1,3 +1,9 @@
+<script>
+if (window.location.hostname === "dhis2-chap.github.io") {
+    window.location.href = "https://chap.dhis2.org/";
+}
+</script>
+
 # Documentation for Model Developers
 
 The Chap platform brings several advantages to you as a model developer:

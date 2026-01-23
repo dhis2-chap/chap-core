@@ -1,3 +1,9 @@
+<script>
+if (window.location.hostname === "dhis2-chap.github.io") {
+    window.location.href = "https://chap.dhis2.org/";
+}
+</script>
+
 # Using Chap Core with DHIS2 Modeling App
 
 This section provides documentation for setting up and using Chap Core with the DHIS2 Modeling App.
