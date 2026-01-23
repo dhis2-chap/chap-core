@@ -1,6 +1,6 @@
 <script>
 if (window.location.hostname === "dhis2-chap.github.io") {
-    window.location.href = "https://chap.dhis2.org/";
+    window.location.href = "https://chap.dhis2.org/chap-modeling-platform/";
 }
 </script>
 
