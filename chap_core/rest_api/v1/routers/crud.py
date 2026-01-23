@@ -16,11 +16,15 @@ Magic is used to make the returned objects camelCase while internal objects are 
 
 import json
 import logging
+import tempfile
+import zipfile
 from functools import partial
+from pathlib import Path as FilePath
 from typing import Annotated, List, Optional
 
 import numpy as np
 import pandas as pd
+import yaml
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
@@ -33,6 +37,7 @@ from chap_core.models.approved_templates import (
     get_git_ref,
     is_approved,
 )
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.model_template import ExternalModelTemplate
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.base_tables import DBModel
@@ -348,6 +353,7 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     user_options: Optional[dict] = None
     required_covariates: List[str] = []
     version: Optional[str] = None
+    source_url: Optional[str] = None
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead])
@@ -400,6 +406,52 @@ async def add_model_template(
     session_wrapper = SessionWrapper(session=session)
     template_id = session_wrapper.add_model_template_from_yaml_config(config)
     return session.get(ModelTemplateDB, template_id)
+
+
+@router.post("/model-templates/upload", response_model=ModelTemplateRead)
+async def upload_model_template(
+    zip_file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+):
+    """
+    Upload a model template as a zip file.
+    The zip must contain an MLproject file at the root level.
+    Skeleton implementation for frontend testing.
+    """
+    zip_content = await zip_file.read()
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = FilePath(temp_dir)
+        zip_path = temp_path / "upload.zip"
+
+        with open(zip_path, "wb") as f:
+            f.write(zip_content)
+
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(temp_path / "extracted")
+        except zipfile.BadZipFile:
+            raise HTTPException(status_code=400, detail="Invalid zip file")
+
+        extracted_path = temp_path / "extracted"
+        mlproject_path = extracted_path / "MLproject"
+        if not mlproject_path.exists():
+            raise HTTPException(status_code=400, detail="MLproject file not found at root of zip archive")
+
+        try:
+            with open(mlproject_path, "r") as f:
+                mlproject_content = yaml.safe_load(f)
+            config = ModelTemplateConfigV2.model_validate(mlproject_content)
+        except yaml.YAMLError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid YAML in MLproject: {e}")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid MLproject format: {e}")
+
+        config.source_url = f"upload://{zip_file.filename}"
+
+        session_wrapper = SessionWrapper(session=session)
+        template_id = session_wrapper.add_model_template_from_yaml_config(config)
+        return session.get(ModelTemplateDB, template_id)
 
 
 @router.delete("/model-templates/{modelTemplateId}")
