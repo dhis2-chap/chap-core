@@ -1,3 +1,15 @@
+"""
+Orchestrator for managing chapkit service registration and discovery.
+
+This module provides the Orchestrator class which handles:
+- Service registration with automatic ULID generation
+- Keepalive ping mechanism with TTL-based expiration
+- Service discovery and listing
+- Service deregistration
+
+Services are stored in Redis with automatic expiration.
+"""
+
 import json
 from datetime import datetime, timezone
 from typing import Any
@@ -18,26 +30,56 @@ KEY_PREFIX = "service:"
 
 
 class ServiceNotFoundError(Exception):
+    """Raised when a requested service is not found in the registry."""
+
     pass
 
 
 class Orchestrator:
+    """
+    Manages chapkit service registration and discovery using Redis.
+
+    Services register with the orchestrator and must send periodic pings
+    to maintain their registration. Services that fail to ping within
+    the TTL window are automatically expired by Redis.
+    """
+
     def __init__(self, redis_client: Redis, ttl_seconds: int = DEFAULT_TTL_SECONDS):
+        """
+        Initialize the Orchestrator.
+
+        Args:
+            redis_client: Redis client for storing service registrations.
+            ttl_seconds: Time-to-live for service registrations in seconds.
+                Services must ping within this interval to stay registered.
+        """
         self.redis = redis_client
         self.ttl_seconds = ttl_seconds
 
     def _make_key(self, service_id: str) -> str:
+        """Create a Redis key for the given service ID."""
         return f"{KEY_PREFIX}{service_id}"
 
     def _now_iso(self) -> str:
+        """Get current UTC timestamp in ISO format."""
         return datetime.now(timezone.utc).isoformat()
 
     def _compute_expires_at(self) -> str:
+        """Compute expiration timestamp based on current time and TTL."""
         from datetime import timedelta
 
         return (datetime.now(timezone.utc) + timedelta(seconds=self.ttl_seconds)).isoformat()
 
     def register(self, payload: RegistrationPayload) -> RegistrationResponse:
+        """
+        Register a new service with the orchestrator.
+
+        Args:
+            payload: Registration payload containing service URL and info.
+
+        Returns:
+            RegistrationResponse with the assigned service ID and ping URL.
+        """
         service_id = str(ULID())
         now = self._now_iso()
         expires_at = self._compute_expires_at()
@@ -65,6 +107,20 @@ class Orchestrator:
         )
 
     def ping(self, service_id: str) -> PingResponse:
+        """
+        Send a keepalive ping for a registered service.
+
+        Updates the service's last_ping_at timestamp and resets the TTL.
+
+        Args:
+            service_id: The ULID of the service to ping.
+
+        Returns:
+            PingResponse with updated timestamps.
+
+        Raises:
+            ServiceNotFoundError: If the service is not registered.
+        """
         key = self._make_key(service_id)
         data = self.redis.get(key)
 
@@ -89,6 +145,18 @@ class Orchestrator:
         )
 
     def deregister(self, service_id: str) -> bool:
+        """
+        Deregister a service from the orchestrator.
+
+        Args:
+            service_id: The ULID of the service to deregister.
+
+        Returns:
+            True if the service was successfully deregistered.
+
+        Raises:
+            ServiceNotFoundError: If the service is not registered.
+        """
         key = self._make_key(service_id)
         deleted = self.redis.delete(key)
         if deleted == 0:
@@ -96,6 +164,18 @@ class Orchestrator:
         return True
 
     def get(self, service_id: str) -> ServiceDetail:
+        """
+        Get details of a specific registered service.
+
+        Args:
+            service_id: The ULID of the service to retrieve.
+
+        Returns:
+            ServiceDetail containing the service's registration info.
+
+        Raises:
+            ServiceNotFoundError: If the service is not registered.
+        """
         key = self._make_key(service_id)
         data = self.redis.get(key)
 
@@ -106,6 +186,12 @@ class Orchestrator:
         return ServiceDetail(**service_data)
 
     def get_all(self) -> ServiceListResponse:
+        """
+        List all registered services.
+
+        Returns:
+            ServiceListResponse containing all currently registered services.
+        """
         pattern = f"{KEY_PREFIX}*"
         keys = list(self.redis.scan_iter(pattern))
 
