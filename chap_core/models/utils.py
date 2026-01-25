@@ -109,6 +109,15 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False, wor
     model_template = ModelTemplate(config, working_dir, ignore_env)
     return model_template
 
+def _abs_dir(p: Path | str) -> Path:
+    p = Path(p).expanduser()
+    if p.is_absolute():
+        return p
+    try:
+        return (Path.cwd() / p).resolve()
+    except FileNotFoundError:
+        return (Path.home() / p).resolve()
+
 
 def get_model_template_from_directory_or_github_url(
     model_template_path: str,
@@ -138,6 +147,8 @@ def get_model_template_from_directory_or_github_url(
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
 
+    base_working_dir = _abs_dir(base_working_dir)
+    
     if is_chapkit_model:
         logger.debug("Model is chapkit model")
         # ExternalChapkitModelTemplate now handles both URLs and directory paths.
