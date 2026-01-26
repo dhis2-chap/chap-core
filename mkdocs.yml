@@ -115,4 +115,3 @@ nav:
           - Docker Compose: webapi/docker-compose-doc.md
       - API Reference: api/index.md
       - Changelog: changelog.md
-      - try: "!import https://github.com/dhis2-chap/chap-core?branch=master"
