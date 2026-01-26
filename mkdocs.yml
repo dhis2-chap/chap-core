@@ -104,4 +104,3 @@ nav:
           - Docker Compose: webapi/docker-compose-doc.md
       - API Reference: api/index.md
       - Changelog: changelog.md
-      - "Chap Modeling Platform": "!import https://github.com/dhis2-chap/chap-core?branch=master"
