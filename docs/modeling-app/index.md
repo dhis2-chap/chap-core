@@ -11,3 +11,4 @@ This section provides documentation for setting up and using Chap Core with the 
 - [Installation](installation.md) - How to install and set up the system
 - [Server Deployment](running-chap-on-server.md) - Running Chap on a server
 - [Using the App](modeling-app.md) - Guide to using the Modeling App
+- [Managing Model Templates](managing-model-templates.md) - How to manage model templates
