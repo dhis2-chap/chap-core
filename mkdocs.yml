@@ -62,8 +62,8 @@ nav:
       - Installation: modeling-app/installation.md
       - Using the App: modeling-app/modeling-app.md
       - Server Deployment: modeling-app/running-chap-on-server.md
+      - Creating an evaluation: "../imported/using-the-modeling-app/creating-an-evaluation"
       - "Modeling App":
-          - Getting started: "../imported/using-the-modeling-app/getting-started"
           - Getting started: "../imported/using-the-modeling-app/getting-started"
   - Model Developers:
       - Overview: external_models/index.md
