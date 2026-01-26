@@ -1,5 +1,8 @@
 # Service Registration (v2 API)
 
+!!! warning "Experimental Feature"
+    This feature is a work in progress and considered experimental. The API may change in future releases without prior notice.
+
 The v2 API provides service registration endpoints that enable ML models built with [chapkit](https://github.com/dhis2-chap/chapkit) and [servicekit](https://github.com/winterop-com/servicekit) to register themselves with CHAP for automatic discovery.
 
 ## Overview
