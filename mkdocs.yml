@@ -64,6 +64,7 @@ nav:
       - Server Deployment: modeling-app/running-chap-on-server.md
       - "Modeling App":
           - Getting started: "../imported/using-the-modeling-app/getting-started"
+          - Getting started: "../imported/using-the-modeling-app/getting-started"
   - Model Developers:
       - Overview: external_models/index.md
       - Model developers:
