@@ -65,6 +65,7 @@ nav:
       - Creating an evaluation: "../imported/using-the-modeling-app/creating-an-evaluation"
       - "Modeling App":
           - Getting started: "../imported/using-the-modeling-app/getting-started"
+      - Managing models: modeling-app/managing-model-templates.md
   - Model Developers:
       - Overview: external_models/index.md
       - Model developers:
@@ -94,6 +95,7 @@ nav:
           - Setup: contributor/chap-contributor-setup.md
           - Windows Setup: contributor/windows_contributors.md
           - Code Overview: contributor/code_overview.md
+          - MLproject Configuration: contributor/mlproject_configuration.md
           - Vocabulary: contributor/vocabulary.md
           - Testing: contributor/testing.md
           - Database Migrations: contributor/database_migrations.md
