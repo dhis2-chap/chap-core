@@ -356,7 +356,7 @@ async def list_model_templates(session: Session = Depends(get_session)):
     Lists all non-archived model templates from the db.
     """
     model_templates = session.exec(
-        select(ModelTemplateDB).where(ModelTemplateDB.archived == False)  # noqa: E712
+        select(ModelTemplateDB)  # noqa: E712
     ).all()
     return model_templates
 
