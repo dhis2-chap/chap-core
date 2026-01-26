@@ -57,11 +57,10 @@ from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import CeleryPool
-from chap_core.rest_api.services.orchestrator import Orchestrator
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import BackTestCreate, BackTestRead, JobResponse
-from .dependencies import get_database_url, get_model_service, get_orchestrator, get_session, get_settings
+from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -474,18 +473,9 @@ async def delete_configured_model(
 
 
 @router.get("/models", response_model=list[ModelSpecRead])
-def list_models(
-    session: Session = Depends(get_session),
-    orchestrator: Orchestrator = Depends(get_orchestrator),
-) -> list[ModelSpecRead]:
-    """
-    List all available models.
-
-    Returns both static models from the database and dynamic models
-    from registered chapkit services. Dynamic models have negative IDs.
-    """
-    model_service = get_model_service(session=session, orchestrator=orchestrator)
-    return model_service.get_all_models()
+def list_models(session: Session = Depends(get_session)) -> list[ModelSpecRead]:
+    """List all available models (alias for configured-models)."""
+    return SessionWrapper(session=session).get_configured_models()
 
 
 @router.post("/models", response_model=ConfiguredModelDB)
