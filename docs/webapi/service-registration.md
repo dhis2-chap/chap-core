@@ -56,11 +56,14 @@ response = httpx.post(
 
 ### Error Responses
 
+When `SERVICEKIT_REGISTRATION_KEY` is configured on the server:
+
 | Scenario | Response |
 |----------|----------|
 | Missing header | 422 Unprocessable Entity |
 | Invalid key | 401 Unauthorized |
-| Key not configured on server | 503 Service Unavailable |
+
+If the environment variable is not set, authentication is skipped and registration proceeds without requiring a key.
 
 ## Registration Payload
 

@@ -19,20 +19,29 @@ def get_orchestrator():
     return Orchestrator(redis_client=get_redis())
 
 
-def verify_service_key(x_service_key: str = Header(alias=SERVICE_KEY_HEADER)) -> str:
+def verify_service_key(
+    x_service_key: str | None = Header(default=None, alias=SERVICE_KEY_HEADER),
+) -> str | None:
     """
     Verify the service registration API key.
 
+    If SERVICEKIT_REGISTRATION_KEY is not configured, authentication is skipped.
+
     Raises:
-        HTTPException 503: If CHAP_SERVICE_REGISTRATION_KEY is not configured
+        HTTPException 422: If key is configured but header is missing
         HTTPException 401: If the provided key doesn't match
     """
     expected_key = os.getenv(SERVICE_KEY_ENV_VAR)
 
+    # If no key configured on server, skip authentication
     if not expected_key:
+        return None
+
+    # Key is configured, so header is required
+    if not x_service_key:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service registration is not configured",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="X-Service-Key header is required",
         )
 
     if x_service_key != expected_key:

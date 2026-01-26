@@ -254,15 +254,15 @@ class TestServiceKeyAuthentication:
 
         assert response.status_code == 200
 
-    def test_register_without_env_var_returns_503(self, client_without_env_var, sample_registration):
+    def test_register_without_env_var_allows_registration(self, client_without_env_var, sample_registration):
         response = client_without_env_var.post(
             "/services/$register",
             json=sample_registration,
-            headers={"X-Service-Key": "any-key"},
         )
 
-        assert response.status_code == 503
-        assert response.json()["detail"] == "Service registration is not configured"
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "registered"
 
     def test_ping_without_key_returns_422(self, client, sample_registration, auth_headers):
         reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
