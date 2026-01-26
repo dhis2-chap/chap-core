@@ -1,12 +1,15 @@
-# Managing Model Templates
+# Getting new models into the modeling app
 
-A **Model tempplate** is the term we use for "unconfigured" models. A model template is a model code base that can be used to create **configured models**. A configured model is what we actually run train and predictions with.
+This document describes how new models can be added to the modeling app.
 
-Currently, chap comes with some model templates and configured models that will be seeded on startup. These are defined in `config/configured_models/default.yaml` a long with a description of how new model templates and configured models can be added.
+Note that when talking about adding a model to the modeling app, we are usually referring to adding a new **model template** (unconfigured model) that can then be used to create configured models (models that can be trained and used for predictions).
 
-Note that configured models can also be created directly through the modeling app (which uses the REST API of chap-core).
 
-We also plan a system for adding new model templates through the modeling app. Note that this functionality has not benn released yet, and is planned for a future release. This document describes how that system works.
+Currently, chap comes with some model templates and configured models that will be seeded on startup. These are defined in `config/configured_models/default.yaml` a long with a description of how new model templates and configured models can be added. Currently, in order to get a new model template available in the modeling app, someone with access to this configuration file on the server where chap is deployed will need to add the new model template there.
+
+Note that configured models can also be created directly through the modeling app (if the model template already exists).
+
+We are currently also working on a system for adding new model templates through the modeling app. Note that this functionality has not benn released yet, and is planned for a future release. The rest of this document describes how that system works.
 
 
 ## System for adding model templates through the modeling app
