@@ -39,7 +39,7 @@ def ping_service(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.get("", response_model=ServiceListResponse)
+@router.get("", response_model=ServiceListResponse, response_model_exclude_none=True)
 def list_services(
     orchestrator: Orchestrator = Depends(get_orchestrator),
 ) -> ServiceListResponse:
@@ -47,7 +47,7 @@ def list_services(
     return orchestrator.get_all()
 
 
-@router.get("/{service_id}", response_model=ServiceDetail)
+@router.get("/{service_id}", response_model=ServiceDetail, response_model_exclude_none=True)
 def get_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),

@@ -160,6 +160,16 @@ class TestListEndpoint:
         assert data["count"] == 2
         assert len(data["services"]) == 2
 
+    def test_list_excludes_null_values(self, client, sample_registration, auth_headers):
+        client.post("/services/$register", json=sample_registration, headers=auth_headers)
+
+        response = client.get("/services")
+
+        data = response.json()
+        service = data["services"][0]
+        model_metadata = service["info"]["model_metadata"]
+        assert None not in model_metadata.values()
+
 
 class TestGetEndpoint:
     def test_get_registered_service(self, client, sample_registration, auth_headers):

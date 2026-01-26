@@ -12,7 +12,7 @@ be replaced with imports from a shared chapkit data types package.
 import re
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, field_validator
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator
 
 SLUG_PATTERN = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 
@@ -100,8 +100,6 @@ class RegistrationResponse(BaseModel):
 
 class ServiceDetail(BaseModel):
     """Detailed information about a registered service."""
-
-    model_config = ConfigDict(exclude_none=True)
 
     id: str = Field(description="Unique service identifier (slug)")
     url: str = Field(description="Base URL of the chapkit service")
