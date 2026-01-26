@@ -65,8 +65,8 @@ nav:
 
       - "Using the modeling app":
           - Getting started: "using-the-modeling-app/getting-started"
-          - Creating an evaluation: "using-the-modeling-app/creating-an-evaluation"
-          - Creating a prediction: "using-the-modeling-app/creating-a-prediction"
+          - Creating an evaluation: "modeling-app/using-the-modeling-app/creating-an-evaluation"
+          - Creating a prediction: "modeling-app/using-the-modeling-app/creating-a-prediction"
   - Model Developers:
       - Overview: external_models/index.md
       - Model developers:
