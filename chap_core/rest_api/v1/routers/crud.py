@@ -348,6 +348,7 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     user_options: Optional[dict] = None
     required_covariates: List[str] = []
     version: Optional[str] = None
+    archived: bool = False
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead])
@@ -356,7 +357,7 @@ async def list_model_templates(session: Session = Depends(get_session)):
     Lists all non-archived model templates from the db.
     """
     model_templates = session.exec(
-        select(ModelTemplateDB).where(ModelTemplateDB.archived == False)  # noqa: E712
+        select(ModelTemplateDB)  # noqa: E712
     ).all()
     return model_templates
 
