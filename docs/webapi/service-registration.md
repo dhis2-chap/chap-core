@@ -11,8 +11,8 @@ Services register with the CHAP orchestrator and must send periodic keepalive pi
 
 Key features:
 
-- **Idempotent registration** - Re-registering a service with the same ID returns existing data
-- **Slug-based IDs** - Services provide their own unique identifier (lowercase, hyphens, numbers)
+- **Update on re-register** - Re-registering a service updates its data (latest wins)
+- **Slug-based IDs** - Services provide their own unique identifier (start with lowercase letter, then lowercase letters, numbers, and hyphens)
 - **TTL-based expiry** - Services must ping periodically to stay registered (default: 30 seconds)
 - **Redis/Valkey backend** - Service data stored with automatic expiration
 
@@ -42,7 +42,7 @@ export SERVICEKIT_REGISTRATION_KEY="your-secret-key"
 
 Include the key in requests to protected endpoints:
 
-```python
+```console
 import httpx
 
 headers = {"X-Service-Key": "your-secret-key"}
@@ -66,11 +66,11 @@ response = httpx.post(
 
 The registration payload contains the service URL and MLServiceInfo metadata:
 
-```python
+```json
 {
     "url": "http://my-model:8080",
     "info": {
-        "id": "my-model",  # Unique slug identifier
+        "id": "my-model",
         "display_name": "My ML Model",
         "version": "1.0.0",
         "description": "A predictive model for disease forecasting",
@@ -78,7 +78,7 @@ The registration payload contains the service URL and MLServiceInfo metadata:
             "author": "Your Name",
             "organization": "Your Org"
         },
-        "period_type": "monthly",  # or "weekly"
+        "period_type": "monthly",
         "min_prediction_periods": 1,
         "max_prediction_periods": 12
     }
@@ -87,7 +87,7 @@ The registration payload contains the service URL and MLServiceInfo metadata:
 
 ## Registration Response
 
-```python
+```json
 {
     "id": "my-model",
     "status": "registered",
@@ -102,7 +102,7 @@ The registration payload contains the service URL and MLServiceInfo metadata:
 
 Services must send periodic pings to maintain their registration:
 
-```python
+```console
 response = httpx.put(
     "http://chap-server/v2/services/my-model/$ping",
     headers={"X-Service-Key": "your-secret-key"},
@@ -115,7 +115,7 @@ The ping resets the TTL timer. If a service fails to ping within the TTL window 
 
 [Servicekit](https://github.com/winterop-com/servicekit) handles registration automatically. Configure your service with the registration URL and key:
 
-```python
+```console
 from servicekit import Service, ServiceInfo
 
 service = Service(
@@ -143,7 +143,7 @@ See the [servicekit documentation](https://github.com/winterop-com/servicekit) f
 
 [Chapkit](https://github.com/dhis2-chap/chapkit) extends servicekit with ML-specific functionality. The `MLServiceInfo` schema includes additional fields for model metadata:
 
-```python
+```console
 from chapkit import MLService, MLServiceInfo, ModelMetadata
 
 service = MLService(
