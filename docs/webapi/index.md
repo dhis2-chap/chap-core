@@ -4,3 +4,4 @@ This section provides documentation for the Chap REST API.
 
 - [Developer Guide](developer.md) - Guide for developers working with the API
 - [Docker Compose](docker-compose-doc.md) - Setting up the API with Docker Compose
+- [Service Registration](service-registration.md) - Registering ML models with the v2 API
