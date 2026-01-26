@@ -64,9 +64,9 @@ nav:
       - Server Deployment: modeling-app/running-chap-on-server.md
 
       - "Using the modeling app":
-          - Getting started: "modeling-app/using-the-modeling-app/getting-started"
-          - Creating an evaluation: "modeling-app/using-the-modeling-app/creating-an-evaluation"
-          - Creating a prediction: "modeling-app/using-the-modeling-app/creating-a-prediction"
+          - Getting started: "modeling-app/using-the-modeling-app/getting-started.md"
+          - Creating an evaluation: "modeling-app/using-the-modeling-app/creating-an-evaluation.md"
+          - Creating a prediction: "modeling-app/using-the-modeling-app/creating-a-prediction.md"
   - Model Developers:
       - Overview: external_models/index.md
       - Model developers:
