@@ -33,6 +33,8 @@ theme:
 
 plugins:
   - search
+  - multirepo:
+      cleanup: true
   - mkdocstrings:
       handlers:
         python:
@@ -89,6 +91,9 @@ nav:
           - Setup: chap-cli/chap-core-cli-setup.md
           - Evaluation Workflow: chap-cli/evaluation-workflow.md
           - evaluate2 Reference: chap-cli/evaluate2-reference.md
+
+  #- Modeling App:
+  #  - '!import https://github.com/dhis2-chap/chap-frontend?branch=main&docs_dir=apps/modeling-app/docs'
   - Contributors:
       - Overview: contributor/index.md
       - Contributors:
@@ -109,3 +114,4 @@ nav:
           - Docker Compose: webapi/docker-compose-doc.md
       - API Reference: api/index.md
       - Changelog: changelog.md
+      - try: "!import https://github.com/dhis2-chap/chap-core?branch=master"
