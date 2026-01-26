@@ -6,11 +6,14 @@ from chap_core.rest_api.services.orchestrator import (
     Orchestrator,
     ServiceNotFoundError,
 )
+from pydantic import ValidationError
+
 from chap_core.rest_api.services.schemas import (
     MLServiceInfo,
     ModelMetadata,
     PeriodType,
     RegistrationRequest,
+    ServiceInfo,
 )
 
 
@@ -156,3 +159,38 @@ class TestDeregister:
     def test_deregister_nonexistent_service_raises_error(self, orchestrator):
         with pytest.raises(ServiceNotFoundError):
             orchestrator.deregister("nonexistent-id")
+
+
+class TestServiceInfoSlugValidation:
+    @pytest.mark.parametrize(
+        "valid_id",
+        [
+            "my-service",
+            "chap-ewars",
+            "model1",
+            "a",
+            "abc123",
+            "test-model-v2",
+        ],
+    )
+    def test_valid_slug_ids(self, valid_id):
+        info = ServiceInfo(id=valid_id, display_name="Test")
+        assert info.id == valid_id
+
+    @pytest.mark.parametrize(
+        "invalid_id",
+        [
+            "Invalid-Slug",  # uppercase
+            "123-service",  # starts with number
+            "-my-service",  # starts with hyphen
+            "my-service-",  # ends with hyphen
+            "my--service",  # consecutive hyphens
+            "my_service",  # underscore not allowed
+            "my service",  # space not allowed
+            "MY-SERVICE",  # all uppercase
+            "",  # empty string
+        ],
+    )
+    def test_invalid_slug_ids(self, invalid_id):
+        with pytest.raises(ValidationError):
+            ServiceInfo(id=invalid_id, display_name="Test")
