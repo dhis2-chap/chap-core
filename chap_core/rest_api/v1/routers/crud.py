@@ -473,9 +473,9 @@ async def delete_configured_model(
 
 
 @router.get("/models", response_model=list[ModelSpecRead])
-def list_models(session: Session = Depends(get_session)) -> list[ModelSpecRead]:
-    """List all available models (alias for configured-models)."""
-    return SessionWrapper(session=session).get_configured_models()
+def list_models(session: Session = Depends(get_session)):
+    """List all models from the db (alias for configured models)"""
+    return list_configured_models(session)
 
 
 @router.post("/models", response_model=ConfiguredModelDB)

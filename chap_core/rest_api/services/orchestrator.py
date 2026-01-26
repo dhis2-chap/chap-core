@@ -71,10 +71,10 @@ class Orchestrator:
 
     def register(self, payload: RegistrationRequest) -> RegistrationResponse:
         """
-        Register a service with the orchestrator (idempotent).
+        Register a service with the orchestrator.
 
-        If a service with the same ID already exists, returns the existing
-        registration data. Otherwise, creates a new registration.
+        If a service with the same ID already exists, updates it with the
+        new data (latest wins). Otherwise, creates a new registration.
 
         Args:
             payload: Registration request containing service URL and info.
@@ -84,27 +84,23 @@ class Orchestrator:
         """
         service_id = payload.info.id
         key = self._make_key(service_id)
-
-        existing = self.redis.get(key)
-        if existing is not None:
-            service_data: dict[str, Any] = json.loads(existing)
-            return RegistrationResponse(
-                id=service_id,
-                status="registered",
-                service_url=service_data["url"],
-                message="Service already registered",
-                ttl_seconds=self.ttl_seconds,
-                ping_url=f"/v2/services/{service_id}/$ping",
-            )
-
         now = self._now_iso()
         expires_at = self._compute_expires_at()
 
-        service_data = {
+        existing = self.redis.get(key)
+        if existing is not None:
+            existing_data: dict[str, Any] = json.loads(existing)
+            registered_at = existing_data.get("registered_at", now)
+            message = "Service registration updated"
+        else:
+            registered_at = now
+            message = "Service registered successfully"
+
+        service_data: dict[str, Any] = {
             "id": service_id,
             "url": payload.url,
             "info": payload.info.model_dump(mode="json"),
-            "registered_at": now,
+            "registered_at": registered_at,
             "last_updated": now,
             "last_ping_at": now,
             "expires_at": expires_at,
@@ -116,7 +112,7 @@ class Orchestrator:
             id=service_id,
             status="registered",
             service_url=payload.url,
-            message="Service registered successfully",
+            message=message,
             ttl_seconds=self.ttl_seconds,
             ping_url=f"/v2/services/{service_id}/$ping",
         )

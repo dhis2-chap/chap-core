@@ -66,12 +66,28 @@ class TestRegister:
         key = f"service:{response.id}"
         assert fake_redis.exists(key)
 
-    def test_register_is_idempotent(self, orchestrator, sample_payload):
+    def test_reregister_updates_data(self, orchestrator, sample_payload):
         response1 = orchestrator.register(sample_payload)
         response2 = orchestrator.register(sample_payload)
 
         assert response1.id == response2.id
-        assert response2.message == "Service already registered"
+        assert response1.message == "Service registered successfully"
+        assert response2.message == "Service registration updated"
+
+    def test_reregister_with_new_url_updates_url(self, orchestrator):
+        payload1 = make_payload("my-service")
+        response1 = orchestrator.register(payload1)
+
+        # Re-register with different URL
+        payload2 = RegistrationRequest(
+            url="http://new-url:9090",
+            info=payload1.info,
+        )
+        response2 = orchestrator.register(payload2)
+
+        assert response2.service_url == "http://new-url:9090"
+        service = orchestrator.get("my-service")
+        assert service.url == "http://new-url:9090"
 
     def test_different_ids_create_separate_registrations(self, orchestrator):
         response1 = orchestrator.register(make_payload("service-one"))

@@ -68,6 +68,34 @@ class TestRegisterEndpoint:
 
         assert response.status_code == 422
 
+    def test_register_service_invalid_slug_uppercase(self, client, auth_headers):
+        payload = {
+            "url": "http://model-service:8080",
+            "info": {
+                "id": "Invalid-Slug",
+                "display_name": "Test",
+                "model_metadata": {"author": "Test"},
+                "period_type": "monthly",
+            },
+        }
+        response = client.post("/services/$register", json=payload, headers=auth_headers)
+
+        assert response.status_code == 422
+
+    def test_register_service_invalid_slug_starts_with_number(self, client, auth_headers):
+        payload = {
+            "url": "http://model-service:8080",
+            "info": {
+                "id": "123-service",
+                "display_name": "Test",
+                "model_metadata": {"author": "Test"},
+                "period_type": "monthly",
+            },
+        }
+        response = client.post("/services/$register", json=payload, headers=auth_headers)
+
+        assert response.status_code == 422
+
 
 class TestPingEndpoint:
     def test_ping_registered_service(self, client, sample_registration, auth_headers):

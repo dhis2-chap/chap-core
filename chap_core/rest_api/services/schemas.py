@@ -9,9 +9,12 @@ ServiceInfo, MLServiceInfo) are duplicated from chapkit. In the future, these wi
 be replaced with imports from a shared chapkit data types package.
 """
 
+import re
 from enum import StrEnum
 
-from pydantic import BaseModel, EmailStr, Field, HttpUrl
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator
+
+SLUG_PATTERN = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 
 
 class AssessedStatus(StrEnum):
@@ -52,6 +55,17 @@ class ServiceInfo(BaseModel):
     display_name: str
     version: str = "1.0.0"
     description: str | None = None
+
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, v: str) -> str:
+        """Validate service ID follows slug format."""
+        if not SLUG_PATTERN.match(v):
+            raise ValueError(
+                "Service ID must be slug format: lowercase letters, numbers, "
+                "and hyphens (e.g., 'my-service', 'chap-ewars')"
+            )
+        return v
 
 
 class MLServiceInfo(ServiceInfo):
