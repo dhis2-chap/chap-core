@@ -96,6 +96,13 @@ class TestRegisterEndpoint:
 
         assert response.status_code == 422
 
+    def test_register_returns_absolute_ping_url(self, client, sample_registration, auth_headers):
+        response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+
+        data = response.json()
+        assert data["ping_url"].startswith("http://")
+        assert data["ping_url"].endswith("/$ping")
+
 
 class TestPingEndpoint:
     def test_ping_registered_service(self, client, sample_registration, auth_headers):

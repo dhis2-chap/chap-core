@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import (
@@ -16,11 +16,14 @@ router = APIRouter(prefix="/services", tags=["services"])
 @router.post("/$register", response_model=RegistrationResponse)
 def register_service(
     payload: RegistrationRequest,
+    request: Request,
     orchestrator: Orchestrator = Depends(get_orchestrator),
     _: str = Depends(verify_service_key),
 ) -> RegistrationResponse:
     """Register a new service with the orchestrator."""
-    return orchestrator.register(payload)
+    response = orchestrator.register(payload)
+    response.ping_url = str(request.base_url).rstrip("/") + response.ping_url
+    return response
 
 
 @router.put("/{service_id}/$ping", response_model=PingResponse)
