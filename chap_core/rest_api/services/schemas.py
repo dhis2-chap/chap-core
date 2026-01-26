@@ -3,18 +3,76 @@ Pydantic schemas for the chapkit service registration API.
 
 These schemas define the request and response models for service
 registration, discovery, and keepalive operations.
+
+Note: The MLServiceInfo-related schemas (AssessedStatus, PeriodType, ModelMetadata,
+ServiceInfo, MLServiceInfo) are duplicated from chapkit. In the future, these will
+be replaced with imports from a shared chapkit data types package.
 """
 
-from typing import Any
+from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
+
+
+class AssessedStatus(StrEnum):
+    """Model assessment status levels."""
+
+    gray = "gray"
+    red = "red"
+    orange = "orange"
+    yellow = "yellow"
+    green = "green"
+
+
+class PeriodType(StrEnum):
+    """Supported time period types for model predictions."""
+
+    weekly = "weekly"
+    monthly = "monthly"
+
+
+class ModelMetadata(BaseModel):
+    """Metadata about the ML model author and documentation."""
+
+    author: str | None = None
+    author_note: str | None = None
+    author_assessed_status: AssessedStatus | None = None
+    contact_email: EmailStr | None = None
+    organization: str | None = None
+    organization_logo_url: HttpUrl | None = None
+    citation_info: str | None = None
+    repository_url: HttpUrl | None = None
+    documentation_url: HttpUrl | None = None
+
+
+class ServiceInfo(BaseModel):
+    """Base service information metadata."""
+
+    display_name: str
+    version: str = "1.0.0"
+    summary: str | None = None
+    description: str | None = None
+    contact: dict[str, str] | None = None
+    license_info: dict[str, str] | None = None
+
+
+class MLServiceInfo(ServiceInfo):
+    """ML service information extending base ServiceInfo with model-specific fields."""
+
+    model_metadata: ModelMetadata
+    period_type: PeriodType
+    min_prediction_periods: int = 0
+    max_prediction_periods: int = 100
+    allow_free_additional_continuous_covariates: bool = False
+    required_covariates: list[str] = Field(default_factory=list)
+    requires_geo: bool = False
 
 
 class RegistrationPayload(BaseModel):
     """Payload for registering a new chapkit service."""
 
     url: str = Field(description="Base URL of the chapkit service")
-    info: dict[str, Any] = Field(description="ServiceInfo metadata from chapkit")
+    info: MLServiceInfo = Field(description="MLServiceInfo metadata from chapkit")
 
 
 class RegistrationResponse(BaseModel):
@@ -33,7 +91,7 @@ class ServiceDetail(BaseModel):
 
     id: str = Field(description="Unique service identifier (ULID)")
     url: str = Field(description="Base URL of the chapkit service")
-    info: dict[str, Any] = Field(description="ServiceInfo metadata from chapkit")
+    info: MLServiceInfo = Field(description="MLServiceInfo metadata from chapkit")
     registered_at: str = Field(description="ISO timestamp when service was registered")
     last_updated: str = Field(description="ISO timestamp of last update")
     last_ping_at: str = Field(description="ISO timestamp of last keepalive ping")

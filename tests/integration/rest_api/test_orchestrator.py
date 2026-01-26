@@ -6,7 +6,12 @@ from chap_core.rest_api.services.orchestrator import (
     Orchestrator,
     ServiceNotFoundError,
 )
-from chap_core.rest_api.services.schemas import RegistrationPayload
+from chap_core.rest_api.services.schemas import (
+    MLServiceInfo,
+    ModelMetadata,
+    PeriodType,
+    RegistrationPayload,
+)
 
 
 @pytest.fixture
@@ -23,7 +28,11 @@ def orchestrator(fake_redis):
 def sample_payload():
     return RegistrationPayload(
         url="http://model-service:8080",
-        info={"name": "test-model", "version": "1.0.0"},
+        info=MLServiceInfo(
+            display_name="Test Model",
+            model_metadata=ModelMetadata(author="Test Author"),
+            period_type=PeriodType.monthly,
+        ),
     )
 
 

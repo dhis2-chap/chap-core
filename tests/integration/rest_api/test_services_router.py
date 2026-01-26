@@ -43,7 +43,11 @@ def auth_headers():
 def sample_registration():
     return {
         "url": "http://model-service:8080",
-        "info": {"name": "test-model", "version": "1.0.0"},
+        "info": {
+            "display_name": "Test Model",
+            "model_metadata": {"author": "Test Author"},
+            "period_type": "monthly",
+        },
     }
 
 
@@ -114,7 +118,8 @@ class TestGetEndpoint:
         data = response.json()
         assert data["id"] == service_id
         assert data["url"] == sample_registration["url"]
-        assert data["info"] == sample_registration["info"]
+        assert data["info"]["display_name"] == sample_registration["info"]["display_name"]
+        assert data["info"]["period_type"] == sample_registration["info"]["period_type"]
 
     def test_get_nonexistent_service(self, client):
         response = client.get("/services/nonexistent-id")

@@ -87,7 +87,7 @@ class Orchestrator:
         service_data = {
             "id": service_id,
             "url": payload.url,
-            "info": payload.info,
+            "info": payload.info.model_dump(mode="json"),
             "registered_at": now,
             "last_updated": now,
             "last_ping_at": now,

@@ -58,7 +58,11 @@ class TestParentApp:
     def test_v2_register_endpoint(self, client):
         payload = {
             "url": "http://model-service:8080",
-            "info": {"name": "test-model"},
+            "info": {
+                "display_name": "Test Model",
+                "model_metadata": {"author": "Test Author"},
+                "period_type": "monthly",
+            },
         }
 
         response = client.post(
