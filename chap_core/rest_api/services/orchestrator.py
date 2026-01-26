@@ -19,7 +19,7 @@ from ulid import ULID
 
 from chap_core.rest_api.services.schemas import (
     PingResponse,
-    RegistrationPayload,
+    RegistrationRequest,
     RegistrationResponse,
     ServiceDetail,
     ServiceListResponse,
@@ -70,7 +70,7 @@ class Orchestrator:
 
         return (datetime.now(timezone.utc) + timedelta(seconds=self.ttl_seconds)).isoformat()
 
-    def register(self, payload: RegistrationPayload) -> RegistrationResponse:
+    def register(self, payload: RegistrationRequest) -> RegistrationResponse:
         """
         Register a new service with the orchestrator.
 

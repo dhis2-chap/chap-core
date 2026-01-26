@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
 from chap_core.rest_api.services.schemas import (
     PingResponse,
-    RegistrationPayload,
+    RegistrationRequest,
     RegistrationResponse,
     ServiceDetail,
     ServiceListResponse,
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/services", tags=["services"])
 
 @router.post("/$register", response_model=RegistrationResponse)
 def register_service(
-    payload: RegistrationPayload,
+    payload: RegistrationRequest,
     orchestrator: Orchestrator = Depends(get_orchestrator),
     _: str = Depends(verify_service_key),
 ) -> RegistrationResponse:

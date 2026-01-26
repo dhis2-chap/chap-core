@@ -10,7 +10,7 @@ from chap_core.rest_api.services.schemas import (
     MLServiceInfo,
     ModelMetadata,
     PeriodType,
-    RegistrationPayload,
+    RegistrationRequest,
 )
 
 
@@ -26,7 +26,7 @@ def orchestrator(fake_redis):
 
 @pytest.fixture
 def sample_payload():
-    return RegistrationPayload(
+    return RegistrationRequest(
         url="http://model-service:8080",
         info=MLServiceInfo(
             display_name="Test Model",

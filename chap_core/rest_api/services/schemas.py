@@ -65,8 +65,8 @@ class MLServiceInfo(ServiceInfo):
     requires_geo: bool = False
 
 
-class RegistrationPayload(BaseModel):
-    """Payload for registering a new chapkit service."""
+class RegistrationRequest(BaseModel):
+    """Request body for registering a new chapkit service."""
 
     url: str = Field(description="Base URL of the chapkit service")
     info: MLServiceInfo = Field(description="MLServiceInfo metadata from chapkit")
