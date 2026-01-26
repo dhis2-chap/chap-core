@@ -28,6 +28,8 @@ services:
     expose:
       - "8000"
     working_dir: /app
+    volumes:
+      - chap-logs:/app/logs
     networks:
       - chap-network
 
@@ -49,6 +51,8 @@ services:
       - C_FORCE_ROOT=1 #TODO: Remove this when we have a proper user
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
+    volumes:
+      - chap-logs:/app/logs
     networks:
       - chap-network
     extra_hosts:
@@ -100,3 +104,4 @@ networks:
 
 volumes:
   chap-db: {}
+  chap-logs: {}
