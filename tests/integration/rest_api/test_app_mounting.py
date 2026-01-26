@@ -73,3 +73,21 @@ class TestParentApp:
 
         assert response.status_code == 200
         assert response.json()["status"] == "registered"
+
+    def test_docs_redirects_to_v1(self, client):
+        response = client.get("/docs", follow_redirects=False)
+
+        assert response.status_code == 307
+        assert response.headers["location"] == "/v1/docs"
+
+    def test_redoc_redirects_to_v1(self, client):
+        response = client.get("/redoc", follow_redirects=False)
+
+        assert response.status_code == 307
+        assert response.headers["location"] == "/v1/redoc"
+
+    def test_openapi_json_redirects_to_v1(self, client):
+        response = client.get("/openapi.json", follow_redirects=False)
+
+        assert response.status_code == 307
+        assert response.headers["location"] == "/v1/openapi.json"
