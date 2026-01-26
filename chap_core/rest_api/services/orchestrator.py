@@ -2,7 +2,7 @@
 Orchestrator for managing chapkit service registration and discovery.
 
 This module provides the Orchestrator class which handles:
-- Service registration with automatic ULID generation
+- Idempotent service registration using client-provided slug IDs
 - Keepalive ping mechanism with TTL-based expiration
 - Service discovery and listing
 - Service deregistration
@@ -15,7 +15,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from redis import Redis
-from ulid import ULID
 
 from chap_core.rest_api.services.schemas import (
     PingResponse,
@@ -72,15 +71,32 @@ class Orchestrator:
 
     def register(self, payload: RegistrationRequest) -> RegistrationResponse:
         """
-        Register a new service with the orchestrator.
+        Register a service with the orchestrator (idempotent).
+
+        If a service with the same ID already exists, returns the existing
+        registration data. Otherwise, creates a new registration.
 
         Args:
-            payload: Registration payload containing service URL and info.
+            payload: Registration request containing service URL and info.
 
         Returns:
-            RegistrationResponse with the assigned service ID and ping URL.
+            RegistrationResponse with the service ID and ping URL.
         """
-        service_id = str(ULID())
+        service_id = payload.info.id
+        key = self._make_key(service_id)
+
+        existing = self.redis.get(key)
+        if existing is not None:
+            service_data: dict[str, Any] = json.loads(existing)
+            return RegistrationResponse(
+                id=service_id,
+                status="registered",
+                service_url=service_data["url"],
+                message="Service already registered",
+                ttl_seconds=self.ttl_seconds,
+                ping_url=f"/v2/services/{service_id}/$ping",
+            )
+
         now = self._now_iso()
         expires_at = self._compute_expires_at()
 
@@ -94,7 +110,6 @@ class Orchestrator:
             "expires_at": expires_at,
         }
 
-        key = self._make_key(service_id)
         self.redis.setex(key, self.ttl_seconds, json.dumps(service_data))
 
         return RegistrationResponse(
@@ -113,7 +128,7 @@ class Orchestrator:
         Updates the service's last_ping_at timestamp and resets the TTL.
 
         Args:
-            service_id: The ULID of the service to ping.
+            service_id: The ID of the service to ping.
 
         Returns:
             PingResponse with updated timestamps.
@@ -149,7 +164,7 @@ class Orchestrator:
         Deregister a service from the orchestrator.
 
         Args:
-            service_id: The ULID of the service to deregister.
+            service_id: The ID of the service to deregister.
 
         Returns:
             True if the service was successfully deregistered.
@@ -168,7 +183,7 @@ class Orchestrator:
         Get details of a specific registered service.
 
         Args:
-            service_id: The ULID of the service to retrieve.
+            service_id: The ID of the service to retrieve.
 
         Returns:
             ServiceDetail containing the service's registration info.

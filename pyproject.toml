@@ -58,7 +58,6 @@ dependencies = [
     "alembic>=1.14.0",
     "chapkit>=0.14",
     "cryptography>=46.0.3",
-    "python-ulid>=3.0.0",
 ]
 
 [dependency-groups]

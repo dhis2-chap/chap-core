@@ -29,7 +29,21 @@ def sample_payload():
     return RegistrationRequest(
         url="http://model-service:8080",
         info=MLServiceInfo(
+            id="test-model",
             display_name="Test Model",
+            model_metadata=ModelMetadata(author="Test Author"),
+            period_type=PeriodType.monthly,
+        ),
+    )
+
+
+def make_payload(service_id: str) -> RegistrationRequest:
+    """Create a registration request with a specific service ID."""
+    return RegistrationRequest(
+        url=f"http://{service_id}:8080",
+        info=MLServiceInfo(
+            id=service_id,
+            display_name=f"Service {service_id}",
             model_metadata=ModelMetadata(author="Test Author"),
             period_type=PeriodType.monthly,
         ),
@@ -43,7 +57,7 @@ class TestRegister:
         assert response.status == "registered"
         assert response.service_url == sample_payload.url
         assert response.ttl_seconds == DEFAULT_TTL_SECONDS
-        assert response.id  # ULID should be generated
+        assert response.id == sample_payload.info.id
         assert "$ping" in response.ping_url
 
     def test_register_stores_service_in_redis(self, orchestrator, sample_payload, fake_redis):
@@ -52,9 +66,16 @@ class TestRegister:
         key = f"service:{response.id}"
         assert fake_redis.exists(key)
 
-    def test_multiple_registrations_create_unique_ids(self, orchestrator, sample_payload):
+    def test_register_is_idempotent(self, orchestrator, sample_payload):
         response1 = orchestrator.register(sample_payload)
         response2 = orchestrator.register(sample_payload)
+
+        assert response1.id == response2.id
+        assert response2.message == "Service already registered"
+
+    def test_different_ids_create_separate_registrations(self, orchestrator):
+        response1 = orchestrator.register(make_payload("service-one"))
+        response2 = orchestrator.register(make_payload("service-two"))
 
         assert response1.id != response2.id
 
@@ -96,9 +117,9 @@ class TestGetAll:
         assert response.count == 0
         assert response.services == []
 
-    def test_get_all_returns_registered_services(self, orchestrator, sample_payload):
-        orchestrator.register(sample_payload)
-        orchestrator.register(sample_payload)
+    def test_get_all_returns_registered_services(self, orchestrator):
+        orchestrator.register(make_payload("service-one"))
+        orchestrator.register(make_payload("service-two"))
 
         response = orchestrator.get_all()
 

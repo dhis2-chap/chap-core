@@ -44,6 +44,7 @@ def sample_registration():
     return {
         "url": "http://model-service:8080",
         "info": {
+            "id": "test-model",
             "display_name": "Test Model",
             "model_metadata": {"author": "Test Author"},
             "period_type": "monthly",
@@ -95,9 +96,27 @@ class TestListEndpoint:
         assert data["count"] == 0
         assert data["services"] == []
 
-    def test_list_registered_services(self, client, sample_registration, auth_headers):
-        client.post("/services/$register", json=sample_registration, headers=auth_headers)
-        client.post("/services/$register", json=sample_registration, headers=auth_headers)
+    def test_list_registered_services(self, client, auth_headers):
+        reg1 = {
+            "url": "http://service-one:8080",
+            "info": {
+                "id": "service-one",
+                "display_name": "Service One",
+                "model_metadata": {"author": "Author"},
+                "period_type": "monthly",
+            },
+        }
+        reg2 = {
+            "url": "http://service-two:8080",
+            "info": {
+                "id": "service-two",
+                "display_name": "Service Two",
+                "model_metadata": {"author": "Author"},
+                "period_type": "monthly",
+            },
+        }
+        client.post("/services/$register", json=reg1, headers=auth_headers)
+        client.post("/services/$register", json=reg2, headers=auth_headers)
 
         response = client.get("/services")
 

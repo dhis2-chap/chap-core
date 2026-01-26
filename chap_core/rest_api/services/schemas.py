@@ -48,6 +48,7 @@ class ModelMetadata(BaseModel):
 class ServiceInfo(BaseModel):
     """Base service information metadata."""
 
+    id: str = Field(description="Unique service identifier (slug format)")
     display_name: str
     version: str = "1.0.0"
     description: str | None = None
@@ -75,7 +76,7 @@ class RegistrationRequest(BaseModel):
 class RegistrationResponse(BaseModel):
     """Response returned after successful service registration."""
 
-    id: str = Field(description="Unique service identifier (ULID)")
+    id: str = Field(description="Unique service identifier (slug)")
     status: str = Field(description="Registration status, always 'registered'")
     service_url: str = Field(description="The registered service URL")
     message: str = Field(description="Human-readable status message")
@@ -86,7 +87,7 @@ class RegistrationResponse(BaseModel):
 class ServiceDetail(BaseModel):
     """Detailed information about a registered service."""
 
-    id: str = Field(description="Unique service identifier (ULID)")
+    id: str = Field(description="Unique service identifier (slug)")
     url: str = Field(description="Base URL of the chapkit service")
     info: MLServiceInfo = Field(description="MLServiceInfo metadata from chapkit")
     registered_at: str = Field(description="ISO timestamp when service was registered")

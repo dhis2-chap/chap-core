@@ -59,6 +59,7 @@ class TestParentApp:
         payload = {
             "url": "http://model-service:8080",
             "info": {
+                "id": "test-model",
                 "display_name": "Test Model",
                 "model_metadata": {"author": "Test Author"},
                 "period_type": "monthly",
