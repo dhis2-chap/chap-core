@@ -50,10 +50,7 @@ class ServiceInfo(BaseModel):
 
     display_name: str
     version: str = "1.0.0"
-    summary: str | None = None
     description: str | None = None
-    contact: dict[str, str] | None = None
-    license_info: dict[str, str] | None = None
 
 
 class MLServiceInfo(ServiceInfo):
