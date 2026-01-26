@@ -64,7 +64,7 @@ nav:
       - Server Deployment: modeling-app/running-chap-on-server.md
 
       - "Using the modeling app":
-          - Getting started: "using-the-modeling-app/getting-started"
+          - Getting started: "modeling-app/using-the-modeling-app/getting-started"
           - Creating an evaluation: "modeling-app/using-the-modeling-app/creating-an-evaluation"
           - Creating a prediction: "modeling-app/using-the-modeling-app/creating-a-prediction"
   - Model Developers:
