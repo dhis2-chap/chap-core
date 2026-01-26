@@ -63,8 +63,8 @@ nav:
       - Using the App: modeling-app/modeling-app.md
       - Server Deployment: modeling-app/running-chap-on-server.md
   - Model Developers:
+      - Overview: external_models/index.md
       - Model developers:
-          - Overview: external_models/index.md
           - Getting Started:
               - For Newcomers: external_models/newcomer.md
               - For Experienced Modellers: external_models/experienced_modeller.md
@@ -85,8 +85,8 @@ nav:
           - Evaluation Workflow: chap-cli/evaluation-workflow.md
           - evaluate2 Reference: chap-cli/evaluate2-reference.md
   - Contributors:
+      - Overview: contributor/index.md
       - Contributors:
-          - Overview: contributor/index.md
           - Getting Started: contributor/getting_started.md
           - Setup: contributor/chap-contributor-setup.md
           - Windows Setup: contributor/windows_contributors.md
