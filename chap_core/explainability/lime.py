@@ -3,6 +3,7 @@ import logging
 import os
 from pathlib import Path
 import random
+import re
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -141,20 +142,76 @@ def build_original_vector(
     return x0
 
 
+def linear_shift(
+    rng: random.Random,
+    feature_name: str,
+    lagged_dict: Dict[int, float]
+):
+    can_be_negative = (feature_name in ["temperature"])  # TODO: Shouldn't be hardcoded
+    new_vals = []
+    vals = [v for v in lagged_dict.values()]
+    avg_val = sum(vals)/len(vals)
+    shift = rng.uniform(-avg_val, avg_val)
+    for lag in sorted(lagged_dict.keys(), reverse=True):
+        new_val = lagged_dict[lag] + shift
+        if not can_be_negative:
+            new_val = max(0, new_val)
+        new_vals.append(new_val)
+    return new_vals
+
+def data_sample(
+    rng: random.Random,
+    dataset: DataSet,
+    feature_name: str,
+    lagged_dict: Dict[int, float]
+):
+    hist_df = dataset.to_pandas()
+    time_range = len(lagged_dict.keys())
+    locations = hist_df["location"].dropna().unique().tolist()
+
+    for _ in range(3): # Retries twice if selected window is too narrow
+        loc = rng.choice(locations)
+        loc_df = hist_df[hist_df["location"] == loc].copy()
+        if len(loc_df) < time_range:
+            continue
+        
+        max_start = len(loc_df) - time_range
+        if max_start < 0:
+            continue
+        start = rng.randrange(0, max_start + 1)
+        window = loc_df.iloc[start : start + time_range]
+
+        vals = window[feature_name].astype(float).tolist()
+        if any(pd.isna(v) for v in vals):
+            continue
+
+        return vals[::-1]
+    
+    # Fallback
+    lag_ints = sorted(lagged_dict.keys(), reverse=True)
+    return [float(lagged_dict[lag]) for lag in lag_ints]
+
+
+
 def perturb_vector(
+    dataset: DataSet,
     orig_vector: Dict,
     num_perturbations: int,
     mutation_rate: float,
     seed: int = None,
+    lagged_feature_strategy: str = "dataset_sample"  # TODO: Make enum? Also investigate effectiveness
 ) -> List[Dict]:
     """
     Perturb original vector to get local variations
 
     Args:
+        dataset (dict): Historical data of model
         orig_vector (dict): Dictionary of original features and values
         num_perturbations (int): Number of perturbed vectors to create
         mutation_rate (float): Probability of changing a particular value
-        seed: Seed for rng
+        seed (int): Seed for rng
+        lagged_feature_strategy (str): How to perturb lagged features. Can be one of
+                    [random, linear_shift, dataset_sample] (Default: dataset_sample)
 
     Return:
         List of perturbed vectors
@@ -164,15 +221,49 @@ def perturb_vector(
     # TODO: Should calculate distance and give weighting to get true LIME
     rng = random.Random(seed)
     perturbations = []
-
+    lagged_pattern = re.compile(r"^(?P<name>.+?)_t(?P<lag>-\d+)?$")
     for _ in range(num_perturbations):
         vec = {}
+        feature_groupings = {}
         for key, value in orig_vector.items():
-            if rng.random() < mutation_rate and isinstance(value, (int, float)):
-                new_val = rng.gauss(float(value), 1.0)  # TODO: Functionality to vary sampling?
-                vec[key] = new_val
+                m = lagged_pattern.match(key)
+                if not m:
+                    # Not lagged feature
+                    if (rng.random() < mutation_rate 
+                    and isinstance(value, (int, float))
+                    and not isinstance(value, bool)):  # TODO: Handle categorical?
+                        new_val = rng.gauss(float(value), 1.0)  # TODO: Functionality to vary sampling?
+                        vec[key] = new_val
+                    else:
+                        vec[key] = value
+                    continue
+                name = m.group("name")
+                lag_str = m.group("lag")
+                lag = 0 if lag_str is None else int(lag_str)
+                if name not in feature_groupings.keys():
+                    feature_groupings[name] = {}
+                feature_groupings[name][lag] = value
+
+        for name, series in feature_groupings.items():  # TODO: Is series always sorted
+            lag_ints = sorted(series.keys(), reverse=True)
+            if rng.random() < mutation_rate and any(isinstance(value, (int, float)) for value in series.values()):
+                match lagged_feature_strategy:
+                    case "random":
+                        raise NotImplementedError() #lagged_random(rng, name, series)
+                    case "linear_shift":
+                        new_vals = linear_shift(rng, name, series)
+                    case "dataset_sample":
+                        new_vals = data_sample(rng, dataset, name, series)
+                    case _:
+                        raise ValueError(f"Illegal lagged feature strategy: {lagged_feature_strategy}")
+                # TODO: Ensure order of new_vals is not altered compared to series
+                vec[f"{name}_t"] = new_vals[0]
+                for i in range(1, len(lag_ints)):
+                    vec[f"{name}_t{lag_ints[i]}"] = new_vals[i]
             else:
-                vec[key] = value
+                vec[f"{name}_t"] = series[lag_ints[0]]
+                for i in range(1, len(lag_ints)):
+                    vec[f"{name}_t{lag_ints[i]}"] = series[lag_ints[i]]
         perturbations.append(vec)
 
     return perturbations
@@ -209,7 +300,7 @@ def convert_vector_to_dataset(
 
     hist_df = dataset_hist.to_pandas().copy()
     fut_df = dataset_fut.to_pandas().copy()
-    hist_df = hist_df.sort_values("time_period").reset_index(drop=True)
+    hist_df = hist_df.sort_values("time_period").reset_index(drop=True)  # TODO: Are these values string? And therefore sorted wrong?
     fut_df = fut_df.sort_values("time_period").reset_index(drop=True)
 
     # TODO: Ensure dataset only contains "location"?
@@ -335,11 +426,35 @@ def produce_lime_dataset(
 def logit(p):
     return np.log(p / (1.0 - p))
 
+def lime_weights_from_X(
+    X: np.ndarray,
+    x0_row: np.ndarray,
+    kernel_width: float = 1.0,
+) -> np.ndarray:
+    """
+    RBF kernel weights based on distance to x0 in standardized space.
+
+    Args:
+        X (np.ndarray): Perturbed dataset
+        x0_row (np.ndarray): Original input vector
+        kernel_width (float): Width of the RBF kernel (default 1.0)
+    """
+    # Standardize for distance
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X)
+    x0s = scaler.transform(x0_row.reshape(1, -1))[0]
+
+    d = np.linalg.norm(Xs - x0s, axis=1)
+    w = np.exp(-(d**2) / (kernel_width**2))
+    return w
+
+
 
 ## TODO: Turn these into engine class methods rather than separate funcs
 def train_surrogate_prob(
     X: np.ndarray,
-    y: np.ndarray
+    y: np.ndarray,
+    weights: Optional[np.ndarray] = None
 ) -> Ridge:
     """
     Train and return surrogate model
@@ -347,6 +462,7 @@ def train_surrogate_prob(
     Args:
         X (np.ndarray): Input training data
         y (np.ndarray): Training targets
+        weights (optional np.ndarray): Kernel weights
 
     Returns:
         Model
@@ -358,14 +474,17 @@ def train_surrogate_prob(
     z = logit(y_clip)
 
     # TODO: Other models than linear
-    surrogate_pipeline = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
-    surrogate_pipeline.fit(X, z)
-    surrogate_model = surrogate_pipeline.named_steps["ridge"]
-    return surrogate_model
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X)
+
+    ridge = Ridge(alpha=1.0)
+    ridge.fit(Xs, z, sample_weight=weights)
+    return ridge, scaler
 
 def train_surrogate_lin(
     X: np.ndarray,
-    y: np.ndarray
+    y: np.ndarray,
+    weights: Optional[np.ndarray] = None
 ) -> Ridge:
     """
     Train and return surrogate model
@@ -373,15 +492,19 @@ def train_surrogate_lin(
     Args:
         X (np.ndarray): Input training data
         y (np.ndarray): Training targets
+        weights (optional np.ndarray): Kernel weights
 
     Returns:
         Model
     """
-    logger.info("Linear transform")
     z = np.log1p(y) # Log transform
-    surrogate_pipeline = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
-    surrogate_pipeline.fit(X, z)
-    return surrogate_pipeline.named_steps["ridge"]
+    
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X)
+
+    ridge = Ridge(alpha=1.0)
+    ridge.fit(Xs, z, sample_weight=weights)
+    return ridge, scaler
 
 
 
@@ -420,11 +543,11 @@ def explain(
     future_weather = climate_predictor.predict(prediction_range)
     
     # Isolate dataset to selected location
-    dataset = dataset.filter_locations([location])  # TODO: Just use dataset[location]?
+    dataset_loc = dataset.filter_locations([location])  # TODO: Just use dataset[location]?
     future_weather = future_weather.filter_locations([location])
 
     # Sort by dates, and extract feature names
-    hist_df = dataset.to_pandas().sort_values("time_period").reset_index(drop=True)
+    hist_df = dataset_loc.to_pandas().sort_values("time_period").reset_index(drop=True)
     future_df = future_weather.to_pandas().sort_values("time_period").reset_index(drop=True)
     assert len(future_df) >= horizon, f"Need at least {horizon} future steps, got {len(future_df)}"
     # Isolate data from last (granularity) time steps
@@ -432,7 +555,7 @@ def explain(
 
     features_hist = [
         fn 
-        for fn in dataset.field_names() 
+        for fn in dataset_loc.field_names() 
         if fn not in _non_feature_names
     ]
 
@@ -455,12 +578,12 @@ def explain(
 
     # Create perturbed variations
     # TODO: When, where and how to decide number of perturbations and mr?
-    perturbations = perturb_vector(x0, num_perturbations=10, mutation_rate=0.3)
+    perturbations = perturb_vector(dataset, x0, num_perturbations=100, mutation_rate=0.3)
     
     # Threshold picked arbitrarily in example
     X, y, feature_names = produce_lime_dataset(
         model, 
-        dataset,
+        dataset_loc,
         future_weather,
         perturbations,
         features_hist,
@@ -471,7 +594,15 @@ def explain(
         threshold
     )
 
-    surrogate = [train_surrogate_prob(X, y) if threshold is not None else train_surrogate_lin(X, y)][0]
+    x0_row = np.array([float(x0[f]) for f in feature_names], dtype=float)
+
+    weights = lime_weights_from_X(X, x0_row, kernel_width=1.0)
+
+    if threshold is not None:
+        surrogate, scaler = train_surrogate_prob(X, y, weights=weights)
+    else:
+        surrogate, scaler = train_surrogate_lin(X, y, weights=weights)
+
     coefs = surrogate.coef_
 
     logger.info("Coefficients:")
