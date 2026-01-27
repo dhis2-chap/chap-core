@@ -70,7 +70,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Health check to verify the API is responding
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/health').read()" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/v1/health').read()" || exit 1
 
 ENTRYPOINT ["/usr/bin/tini","--"]
 
@@ -87,7 +87,7 @@ effective_cpus() { \
 : ${FORWARDED_ALLOW_IPS:='*'}; \
 CPUS=$(effective_cpus); \
 : ${WORKERS:=$(( CPUS * 2 + 1 ))}; \
-exec gunicorn -c gunicorn.conf.py -k uvicorn.workers.UvicornWorker chap_core.rest_api.v1.rest_api:app \
+exec gunicorn -c gunicorn.conf.py -k uvicorn.workers.UvicornWorker chap_core.rest_api.app:app \
   --bind 0.0.0.0:${PORT} \
   #--workers ${WORKERS} \
   --workers 1 \
