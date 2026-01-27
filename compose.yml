@@ -41,14 +41,14 @@ services:
       context: .
       dockerfile: Dockerfile.worker
     environment:
-      - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
-      - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
-      - IS_IN_DOCKER=1
-      - CHAP_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - CELERY_BROKER=redis://redis:6379
-      - C_FORCE_ROOT=1 #TODO: Remove this when we have a proper user
-      - RENV_PATHS_ROOT=/tmp/renv
-      - UV_CACHE_DIR=/tmp/uv
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${GOOGLE_SERVICE_ACCOUNT_EMAIL}
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
+      IS_IN_DOCKER: 1
+      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CELERY_BROKER: redis://redis:6379
+      C_FORCE_ROOT: 1 #TODO: Remove this when we have a proper user
+      RENV_PATHS_ROOT: /data/renv
+      UV_CACHE_DIR: /data/uv
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
     extra_hosts:
@@ -67,6 +67,12 @@ services:
       - type: bind
         source: runs
         target: /app/runs
+      - type: volume
+        source: renv
+        target: /data/renv
+      - type: volume
+        source: uv
+        target: /data/uv
   redis:
     image: valkey/valkey:8
 
@@ -104,4 +110,6 @@ services:
 
 volumes:
   chap-db: {}
+  renv: {}
+  uv: {}
   runs:
