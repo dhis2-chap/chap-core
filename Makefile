@@ -55,7 +55,7 @@ test-timed: ## run tests showing timing for 20 slowest tests
 	uv run pytest -q --durations=20
 
 test-all: ## run comprehensive test suite with examples and coverage
-	mkdir -p target
+	mkdir -p target runs
 	./tests/test_docker_compose_integration_flow.sh
 	CHAP_DEBUG=true uv run chap evaluate --model-name https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --prediction-length 3
 	CHAP_DEBUG=true uv run chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml

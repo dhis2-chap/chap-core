@@ -1,11 +1,29 @@
 services:
-  redis:
-    image: valkey/valkey:8
-    container_name: redis
-    networks:
-      - chap-network
-
   chap:
+    build: .
+    environment:
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${GOOGLE_SERVICE_ACCOUNT_EMAIL}
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CELERY_BROKER: redis://redis:6379/0
+    # for now some of the tests uses hardcoded names so we need to set the container name
+    # TODO: Update the tests so they don't rely on hardcoded container names
+    container_name: chap
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: chap:chap
+    volumes:
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 1000000
+    ports:
+      - "8000:8000"
     depends_on:
       redis:
         condition: service_started
@@ -13,26 +31,8 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
-    container_name: chap
-    build: .
-    environment:
-      - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
-      - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CHAP_DATABASE_URL=postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
-      - CELERY_BROKER=redis://redis:6379/0
-      - IS_IN_DOCKER=1
-    ports:
-      - "8000:8000"
-    expose:
-      - "8000"
-    working_dir: /app
-    networks:
-      - chap-network
 
   worker:
-    container_name: worker
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,28 +41,49 @@ services:
       context: .
       dockerfile: Dockerfile.worker
     environment:
-      - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
-      - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
-      - IS_IN_DOCKER=1
-      - CHAP_DATABASE_URL=postgresql://root:thisisnotgoingtobeexposed@postgres:5432/chap_core
-      - CELERY_BROKER=redis://redis:6379
-      - C_FORCE_ROOT=1 #TODO: Remove this when we have a proper user
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${GOOGLE_SERVICE_ACCOUNT_EMAIL}
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
+      IS_IN_DOCKER: 1
+      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CELERY_BROKER: redis://redis:6379
+      C_FORCE_ROOT: 1 #TODO: Remove this when we have a proper user
+      RENV_PATHS_ROOT: /data/renv
+      UV_CACHE_DIR: /data/uv
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
-    networks:
-      - chap-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: chap:chap
+    volumes:
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 10000000000  # 10GB for caches etc
+      - type: bind
+        source: runs
+        target: /app/runs
+      - type: volume
+        source: renv
+        target: /data/renv
+      - type: volume
+        source: uv
+        target: /data/uv
+  redis:
+    image: valkey/valkey:8
 
   postgres:
     image: postgres:17
-    restart: always
     environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: thisisnotgoingtobeexposed
-      POSTGRES_DB: chap_core
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d chap_core"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d chap_core"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -71,8 +92,6 @@ services:
       - chap-db:/var/lib/postgresql/data
     expose:
       - "5432"
-    networks:
-      - chap-network
 
   # chtorch model (which uses chapkit)
 #  chtorch:
@@ -81,8 +100,6 @@ services:
 #    ports:
 #      - "5001:8000"
 #    restart: unless-stopped
-#    networks:
-#      - chap-network
 
   # ewars plus (uncomment to add ewars plus)
 #  ewars_plus:
@@ -90,13 +107,9 @@ services:
 #    container_name: ewars_plus
 #    ports:
 #      - "3288:3288"
-#    networks:
-#      - chap-network
-
-
-networks:
-  chap-network:
-    driver: bridge
 
 volumes:
   chap-db: {}
+  renv: {}
+  uv: {}
+  runs:

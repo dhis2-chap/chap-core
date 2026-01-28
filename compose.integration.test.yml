@@ -3,11 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.integrationtest
+    # for now some of the tests uses hardcoded names so we need to set the container name
     container_name: chap_frontend_emulator
     depends_on:
       - chap
-    networks:
-      - chap-network
     command: 
       #python docker_db_flow.py chap rwanda_random_forest;
       python docker_db_flow.py chap naive_model;

@@ -15,3 +15,10 @@ Information about how to contributre to the the Chap Modelling Platform: [https:
 ## Issues/Bugs
 
 If you find any bugs or issues when using this code base, we appreciate it if you file a bug report here: https://github.com/dhis2-chap/chap-core/issues/new
+
+## Launch development instance using Docker
+
+```shell
+cp .env.example .env
+docker compose up
+```
