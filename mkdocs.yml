@@ -33,8 +33,6 @@ theme:
 
 plugins:
   - search
-  - multirepo:
-      cleanup: true
   - mkdocstrings:
       handlers:
         python:
