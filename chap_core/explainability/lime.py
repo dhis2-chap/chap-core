@@ -1,7 +1,5 @@
 
 import logging
-import os
-from pathlib import Path
 import random
 import re
 from typing import Dict, List, Optional, Tuple
@@ -10,9 +8,9 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
-from sklearn.pipeline import Pipeline, make_pipeline
 from chap_core.climate_predictor import get_climate_predictor
 from chap_core.data.datasets import ISIMIP_dengue_harmonized
+from chap_core.explainability.surrogate import RidgeSurrogate, SurrogateModel, TreeSurrogate
 from chap_core.model_spec import _non_feature_names
 from chap_core.models.external_model import ExternalModel
 from chap_core.models.utils import get_model_from_directory_or_github_url
@@ -102,7 +100,6 @@ def build_original_vector(
     future: pd.DataFrame,
     features_hist: List[str],
     features_fut: List[str],
-    location: str,
     horizon: int,
     granularity: int
 ) -> Dict[str, float | str]:
@@ -114,7 +111,6 @@ def build_original_vector(
         window (pandas.DataFrame): Dataframe with future data within boundries of horizon
         features_hist (list(str)): List of feature names of historical dataset
         features_fut (list(str)): List of feature names of future dataset
-        location (str): Geographical location of data
         horizon (int): Number of time steps in future to include in vector
         granularity (int): Number of time steps in advance to include in vector
     
@@ -136,8 +132,6 @@ def build_original_vector(
             for i in range(horizon):
                 name_with_time_step = name + "_fut_" + str(i+1)
                 x0[name_with_time_step] = float(future[name].iloc[i])
-
-    x0["location"] = location # TODO: Do we need this?
 
     return x0
 
@@ -388,7 +382,7 @@ def produce_lime_dataset(
         features_fut (List[str]): The feature names of the future dataset
         horizon (int): The number of time steps in the past for which we want detailed explanations
         granularity (int): The number of time steps into the future for which we want an explanation
-        location (str): Geographical location of the data  # TODO: Is location necessary in all this?
+        location (str): Geographical location of the data
         threshold (Optional float): The threshold of disease cases above which counted as positive class. Optional, default None.
 
     Returns:
@@ -450,61 +444,14 @@ def lime_weights_from_X(
 
 
 
-## TODO: Turn these into engine class methods rather than separate funcs
-def train_surrogate_prob(
-    X: np.ndarray,
-    y: np.ndarray,
-    weights: Optional[np.ndarray] = None
-) -> Ridge:
-    """
-    Train and return surrogate model
-    
-    Args:
-        X (np.ndarray): Input training data
-        y (np.ndarray): Training targets
-        weights (optional np.ndarray): Kernel weights
-
-    Returns:
-        Model
-    """
-    # Target is probabilities in range [0, 1], but model is linear
-    # First transform target to domain [0, ->)
-    eps = 1e-4
-    y_clip = np.clip(y, eps, 1-eps)
-    z = logit(y_clip)
-
-    # TODO: Other models than linear
-    scaler = StandardScaler()
-    Xs = scaler.fit_transform(X)
-
-    ridge = Ridge(alpha=1.0)
-    ridge.fit(Xs, z, sample_weight=weights)
-    return ridge, scaler
-
-def train_surrogate_lin(
-    X: np.ndarray,
-    y: np.ndarray,
-    weights: Optional[np.ndarray] = None
-) -> Ridge:
-    """
-    Train and return surrogate model
-    
-    Args:
-        X (np.ndarray): Input training data
-        y (np.ndarray): Training targets
-        weights (optional np.ndarray): Kernel weights
-
-    Returns:
-        Model
-    """
-    z = np.log1p(y) # Log transform
-    
-    scaler = StandardScaler()
-    Xs = scaler.fit_transform(X)
-
-    ridge = Ridge(alpha=1.0)
-    ridge.fit(Xs, z, sample_weight=weights)
-    return ridge, scaler
+def instantiate_model(name: str):
+    match name.lower():
+        case "ridge":
+            return RidgeSurrogate()
+        case "tree":
+            return TreeSurrogate()
+        case _:
+            raise ValueError(f"Unknown surrogate model: {name}")
 
 
 
@@ -514,7 +461,8 @@ def explain(
     location: str,
     horizon: int,
     granularity: int = 4,
-    threshold: Optional[float] = None,
+    surrogate_name: str = "ridge",
+    threshold: Optional[float] = None
 ):
     """
     Model-agnostic function to supply variable contribution weighting for specific prediction
@@ -525,6 +473,7 @@ def explain(
         location (str): The location on which to explain
         horizon (int): The number of time steps into the future on which to explain
         granularity (int): Number of time steps in advance to find weighting on (default: 4)
+        surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "tree"] (Default ridge)
         threshold (Optional float): The threshold above which to count as positive observation
     """
     # Initial input safety checks
@@ -571,14 +520,13 @@ def explain(
         future_df, 
         features_hist, 
         features_fut, 
-        location, 
         horizon, 
         granularity
     )
 
     # Create perturbed variations
     # TODO: When, where and how to decide number of perturbations and mr?
-    perturbations = perturb_vector(dataset, x0, num_perturbations=100, mutation_rate=0.3)
+    perturbations = perturb_vector(dataset, x0, num_perturbations=15, mutation_rate=0.3)
     
     # Threshold picked arbitrarily in example
     X, y, feature_names = produce_lime_dataset(
@@ -598,22 +546,26 @@ def explain(
 
     weights = lime_weights_from_X(X, x0_row, kernel_width=1.0)
 
-    if threshold is not None:
-        surrogate, scaler = train_surrogate_prob(X, y, weights=weights)
+    if threshold is not None:  # Transform z based on target type
+        eps = 1e-4
+        y_clip = np.clip(y, eps, 1-eps)
+        z = logit(y_clip)
     else:
-        surrogate, scaler = train_surrogate_lin(X, y, weights=weights)
+        z = np.log1p(y) # Log transform
 
-    coefs = surrogate.coef_
+    surrogate_model = instantiate_model(surrogate_name)
+    surrogate_model.fit(X, z, weights)
+    results = surrogate_model.explain(feature_names)
 
     logger.info("Coefficients:")
-    for name, c in sorted(zip(feature_names, coefs), key=lambda t: -abs(t[1])):
+    for name, c in results.as_sorted():
         logger.info(f"{name:>12}: {c:+.4f}")
 
 
 
 
 if __name__ == "__main__":
-    model_name = 'https://github.com/chap-models/chap_auto_ewars'
+    model_name = 'https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6'#'https://github.com/chap-models/chap_auto_ewars'
     estimator = get_model_from_directory_or_github_url(model_name)
     dataset = ISIMIP_dengue_harmonized['vietnam']
     predictor = estimator.train(dataset)
