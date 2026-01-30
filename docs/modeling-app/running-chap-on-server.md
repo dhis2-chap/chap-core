@@ -1,4 +1,4 @@
-# Configure DHIS2 Modeling App and Chap Core to work together
+# Recommendation for server deployment of Chap Modeling Platform + DHIS2 Modeling App
 
 **Requirements:**
 
@@ -23,9 +23,9 @@ The Chap Core team has an example of a Chap Core LXC setup, which can be found a
 
 ## Clone the Chap Core repo into your LXC container
 
-Within your LXC container, you need to clone the Chap Core repo. Information about **how to get** and **start Chap Core**, is located at [https://github.com/dhis2-chap/chap-core/releases/](https://github.com/dhis2-chap/chap-core/releases/)
+Within your LXC container, you need to clone the Chap Core repo. Information about **how to install Chap Core**, is located in next session [Installing Chap Core for use with the Modeling app](/chap-core/modeling-app/installation.html)
 
-After you have started Chap Core, the Chap Core REST API will be available at port 8000.
+After you have started Chap Core, the Chap Core REST API will be available at port 8000, and you should continue this guide.
 
 ## Identify the Chap Core server private IP address and verify Chap Core is running properly
 
