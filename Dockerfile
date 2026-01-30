@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 WORKDIR /app
 
-COPY --chown=root:root ./pyproject.toml ./uv.lock ./.python-version ./gunicorn.conf.py ./alembic.ini README.md ./
+COPY --chown=root:root ./pyproject.toml ./uv.lock ./.python-version ./gunicorn.conf.py ./alembic.ini README.md ./hatch_build.py ./
 COPY --chown=root:root ./chap_core ./chap_core
 COPY --chown=root:root ./config ./config
 COPY --chown=root:root ./alembic ./alembic

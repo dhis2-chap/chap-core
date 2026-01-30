@@ -20,7 +20,7 @@ from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.time_period import Month, Week
 
-from .. import ModelTemplateInterface
+from ..models.model_template_interface import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel

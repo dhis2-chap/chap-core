@@ -23,7 +23,7 @@ ENV PATH="/root/.cargo/bin:$PATH"
 WORKDIR /app
 
 # Copy chap-core source files
-COPY --chown=chap:chap ./pyproject.toml ./uv.lock ./.python-version ./README.md ./
+COPY --chown=chap:chap ./pyproject.toml ./uv.lock ./.python-version ./README.md ./hatch_build.py ./
 COPY --chown=chap:chap ./chap_core ./chap_core
 COPY --chown=chap:chap ./config ./config
 COPY --chown=chap:chap ./alembic.ini ./alembic.ini

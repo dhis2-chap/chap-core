@@ -15,7 +15,7 @@ from chap_core.cli_endpoints import evaluate, forecast, init, preference_learn, 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-app = App()
+app = App(version_flags=["--version", "-v"])
 
 # Register commands from each module
 evaluate.register_commands(app)
