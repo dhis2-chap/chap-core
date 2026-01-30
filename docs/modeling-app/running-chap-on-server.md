@@ -23,7 +23,7 @@ The Chap Core team has an example of a Chap Core LXC setup, which can be found a
 
 ## Clone the Chap Core repo into your LXC container
 
-Within your LXC container, you need to clone the Chap Core repo. Information about **how to install Chap Core**, is located in next session [Installing Chap Core for use with the Modeling app](./installation)
+Within your LXC container, you need to clone the Chap Core repo. Information about **how to install Chap Core**, is located in next session [Installing Chap Core for use with the Modeling app](./installation.md)
 
 After you have started Chap Core, the Chap Core REST API will be available at port 8000, you should continue this guide.
 
