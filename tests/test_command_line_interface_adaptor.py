@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from pydantic import BaseModel
 
-from chap_core import ModelTemplateInterface
+from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.adaptors.command_line_interface import generate_template_app
 from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation, ModelConfiguration
 from chap_core.datatypes import Samples

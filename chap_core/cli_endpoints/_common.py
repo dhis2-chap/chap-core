@@ -4,21 +4,10 @@ import logging
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-import pandas as pd
-import yaml
-
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.datatypes import FullData
-from chap_core.geometry import Polygons
-from chap_core.models.model_template import ModelTemplate
-from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet, DataSetMetaData
-from chap_core.file_io.example_data_set import datasets
-
 logger = logging.getLogger(__name__)
 
 
-def append_to_csv(file_object, data_frame: pd.DataFrame):
+def append_to_csv(file_object, data_frame):
     data_frame.to_csv(file_object, mode="a", header=False)
 
 
@@ -29,6 +18,11 @@ def get_model(
     name,
     run_directory_type: Literal["latest", "timestamp", "use_existing"] | None,
 ) -> Any:
+    import yaml
+
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.models.model_template import ModelTemplate
+
     template = ModelTemplate.from_directory_or_github_url(
         name,
         base_working_dir=Path("./runs/"),
@@ -48,6 +42,8 @@ def get_model(
 
 
 def save_results(report_filename: str | None, results_dict: dict[Any, Any]):
+    import pandas as pd
+
     data = []
     full_data = {}
     first_model = True
@@ -110,7 +106,7 @@ def load_dataset_from_csv(
     csv_path: Path,
     geojson_path: Optional[Path] = None,
     column_mapping: Optional[dict[str, str]] = None,
-) -> DataSet:
+):
     """
     Load dataset from CSV file with optional GeoJSON polygons.
 
@@ -123,6 +119,12 @@ def load_dataset_from_csv(
     Returns:
         DataSet loaded from CSV with polygons if provided
     """
+    import pandas as pd
+
+    from chap_core.datatypes import FullData
+    from chap_core.geometry import Polygons
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet, DataSetMetaData
+
     logging.info(f"Loading dataset from {csv_path}")
 
     if column_mapping is not None:
@@ -150,7 +152,13 @@ def load_dataset(
     dataset_name: Any | None,
     polygons_id_field: str | None,
     polygons_json: Path | None,
-) -> DataSet:
+):
+    from chap_core.datatypes import FullData
+    from chap_core.geometry import Polygons
+    from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+    from chap_core.file_io.example_data_set import datasets
+
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
         logging.info(f"Loading dataset from {dataset_csv}")

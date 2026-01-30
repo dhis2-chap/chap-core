@@ -42,8 +42,8 @@ class TestPreferenceLearningParams:
 class TestPreferenceLearnCLI:
     @patch("chap_core.cli_endpoints.preference_learn._create_evaluation")
     @patch("chap_core.cli_endpoints.preference_learn._compute_metrics")
-    @patch("chap_core.cli_endpoints.preference_learn.load_dataset_from_csv")
-    @patch("chap_core.cli_endpoints.preference_learn.discover_geojson")
+    @patch("chap_core.cli_endpoints._common.load_dataset_from_csv")
+    @patch("chap_core.cli_endpoints._common.discover_geojson")
     def test_preference_learn_metric_mode(
         self,
         mock_discover_geojson,
@@ -114,8 +114,8 @@ learning_rate:
 
     @patch("chap_core.cli_endpoints.preference_learn._create_evaluation")
     @patch("chap_core.cli_endpoints.preference_learn._compute_metrics")
-    @patch("chap_core.cli_endpoints.preference_learn.load_dataset_from_csv")
-    @patch("chap_core.cli_endpoints.preference_learn.discover_geojson")
+    @patch("chap_core.cli_endpoints._common.load_dataset_from_csv")
+    @patch("chap_core.cli_endpoints._common.discover_geojson")
     def test_preference_learn_resumes_from_state(
         self,
         mock_discover_geojson,
@@ -174,9 +174,9 @@ learning_rate:
         dataset_csv = tmp_path / "test_data.csv"
         dataset_csv.write_text("location,time_period,disease_cases\nA,2020-01,10")
 
-        with patch("chap_core.cli_endpoints.preference_learn.discover_geojson") as mock_geojson:
-            with patch("chap_core.cli_endpoints.preference_learn.load_dataset_from_csv") as mock_load:
-                with patch("chap_core.cli_endpoints.preference_learn.ModelTemplate") as mock_template:
+        with patch("chap_core.cli_endpoints._common.discover_geojson") as mock_geojson:
+            with patch("chap_core.cli_endpoints._common.load_dataset_from_csv") as mock_load:
+                with patch("chap_core.models.model_template.ModelTemplate") as mock_template:
                     mock_geojson.return_value = None
                     mock_load.return_value = MagicMock()
 
