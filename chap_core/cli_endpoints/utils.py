@@ -4,7 +4,9 @@ import dataclasses
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
+
+from cyclopts import Parameter
 
 import numpy as np
 import pandas as pd
@@ -127,45 +129,48 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plo
     fig.show()
 
 
-def plot_backtest(input_file: Path, output_file: Path, plot_type: str = "backtest_plot_1"):
+def _get_plot_type_help() -> str:
+    """Generate help text listing available plot types from the registry."""
+    from chap_core.assessment.backtest_plots import list_backtest_plots
+
+    plots = list_backtest_plots()
+    plot_list = ", ".join(f'"{p["id"]}"' for p in plots)
+    return f"Type of plot to generate. Available: {plot_list}"
+
+
+def plot_backtest(
+    input_file: Annotated[
+        Path,
+        Parameter(help="Path to NetCDF file containing evaluation data (from evaluate2)"),
+    ],
+    output_file: Annotated[
+        Path,
+        Parameter(help="Path to output file (supports .html, .png, .svg, .pdf)"),
+    ],
+    plot_type: Annotated[
+        str,
+        Parameter(help=_get_plot_type_help()),
+    ] = "metrics_dashboard",
+):
     """
     Generate a backtest plot from evaluation data and save to file.
-
-    Args:
-        input_file: Path to NetCDF file containing evaluation data (from evaluate2)
-        output_file: Path to output file (supports .html, .png, .svg, .pdf)
-        plot_type: Type of plot to generate. Options: backtest_plot_1, evaluation_plot,
-                   ratio_of_samples_above_truth
     """
-    from chap_core.assessment.backtest_plots.backtest_plot_1 import BackTestPlot1
-    from chap_core.assessment.backtest_plots.sample_bias_plot import RatioOfSamplesAboveTruthBacktestPlot
+    from chap_core.assessment.backtest_plots import (
+        get_backtest_plots_registry,
+        create_plot_from_evaluation,
+    )
     from chap_core.assessment.evaluation import Evaluation
-    from chap_core.plotting.backtest_plot import EvaluationBackTestPlot
 
-    backtest_plots_registry = {
-        "backtest_plot_1": BackTestPlot1,
-        "evaluation_plot": EvaluationBackTestPlot,
-        "ratio_of_samples_above_truth": RatioOfSamplesAboveTruthBacktestPlot,
-    }
-
-    if plot_type not in backtest_plots_registry:
-        available = ", ".join(backtest_plots_registry.keys())
+    registry = get_backtest_plots_registry()
+    if plot_type not in registry:
+        available = ", ".join(registry.keys())
         raise ValueError(f"Unknown plot type: {plot_type}. Available: {available}")
 
     logger.info(f"Loading evaluation from {input_file}")
     evaluation = Evaluation.from_file(input_file)
 
     logger.info(f"Generating {plot_type} plot")
-    plot_class = backtest_plots_registry[plot_type]
-
-    # Use from_evaluation for EvaluationBackTestPlot to preserve historical observations
-    if plot_type == "evaluation_plot":
-        plotter = plot_class.from_evaluation(evaluation)
-    else:
-        backtest = evaluation.to_backtest()
-        plotter = plot_class.from_backtest(backtest)
-
-    chart = plotter.plot()
+    chart = create_plot_from_evaluation(plot_type, evaluation)
 
     output_path = Path(output_file)
     suffix = output_path.suffix.lower()
@@ -221,25 +226,23 @@ def export_metrics(
     Args:
         input_files: List of paths to NetCDF evaluation files
         output_file: Path to output CSV file
-        metric_ids: Optional list of metric IDs to compute. If None, all aggregate metrics are computed.
+        metric_ids: Optional list of metric IDs to compute. If None, all metrics are computed at AGGREGATE level.
     """
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.assessment.metrics import available_metrics
 
-    # Get list of aggregate metrics
-    aggregate_metric_ids = [
-        metric_id for metric_id, metric_cls in available_metrics.items() if metric_cls().is_full_aggregate()
-    ]
+    # All unified metrics support global aggregation
+    all_metric_ids = list(available_metrics.keys())
 
     # Filter to requested metrics (if specified)
     if metric_ids is not None:
-        invalid_ids = set(metric_ids) - set(aggregate_metric_ids)
+        invalid_ids = set(metric_ids) - set(all_metric_ids)
         if invalid_ids:
-            available = ", ".join(aggregate_metric_ids)
-            raise ValueError(f"Invalid metric IDs: {invalid_ids}. Available aggregate metrics: {available}")
+            available = ", ".join(all_metric_ids)
+            raise ValueError(f"Invalid metric IDs: {invalid_ids}. Available metrics: {available}")
         metrics_to_compute = metric_ids
     else:
-        metrics_to_compute = aggregate_metric_ids
+        metrics_to_compute = all_metric_ids
 
     results = []
 
@@ -265,7 +268,7 @@ def export_metrics(
         for metric_id in metrics_to_compute:
             metric_cls = available_metrics[metric_id]
             metric = metric_cls()
-            metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
+            metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
             if len(metric_df) == 1:
                 row[metric_id] = float(metric_df["metric"].iloc[0])
             else:

@@ -131,6 +131,8 @@ class SessionWrapper:
             for key, value in d.items():
                 if hasattr(existing_template, key):
                     setattr(existing_template, key, value)
+            # Unarchive if it was previously archived
+            existing_template.archived = False
             self.session.commit()
             return existing_template.id
 
@@ -188,10 +190,12 @@ class SessionWrapper:
     def get_configured_models(self) -> List[ModelSpecRead]:
         # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
 
-        # get configured models from db
-        # configured_models = SessionWrapper(session=session).list_all(ConfiguredModelDB)
+        # get configured models from db, excluding those with archived templates
         configured_models = self.session.exec(
-            select(ConfiguredModelDB).options(selectinload(ConfiguredModelDB.model_template))
+            select(ConfiguredModelDB)
+            .options(selectinload(ConfiguredModelDB.model_template))
+            .join(ModelTemplateDB)
+            .where(ModelTemplateDB.archived == False)  # noqa: E712
         ).all()
 
         # serialize to json and combine configured model with model template

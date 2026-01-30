@@ -5,8 +5,8 @@ from pathlib import Path
 # get root logger
 logger = logging.getLogger()
 
-# Centralized logs directory path
-LOGS_DIR = Path("logs")
+# Centralized logs directory path (configurable via CHAP_LOGS_DIR env var)
+CHAP_LOGS_DIR = Path(os.getenv("CHAP_LOGS_DIR", "logs/"))
 
 # Status logger name for user-facing logs (safe for API exposure)
 STATUS_LOGGER_NAME = "chap_status"
@@ -39,7 +39,7 @@ def initialize_logging(debug: bool = None, log_file: str = None):
         logger.setLevel(level=logging.INFO)
         logger.info("Level set to INFO")
 
-    Path("logs").mkdir(parents=True, exist_ok=True)  # keep this in as it might be required for celery tasks
+    Path("/tmp/chap/logs").mkdir(parents=True, exist_ok=True)  # keep this in as it might be required for celery tasks
 
     # check if environment variable CHAP_LOG_FILE is set, use that as handler
     # if os.getenv("CHAP_LOG_FILE") and log_file is None:

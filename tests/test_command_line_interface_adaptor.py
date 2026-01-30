@@ -50,9 +50,6 @@ class DummyModel(ConfiguredModel):
 class DummyModelTemplate(ModelTemplateInterface):
     model_template_info = ModelTemplateConfigCommon()
 
-    def get_config_class(self) -> type[ModelConfiguration]:
-        return DummyConfig
-
     def get_schema(self) -> ModelTemplateInformation:
         return DummyConfig.model_json_schema()["properties"]
 

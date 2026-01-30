@@ -2,10 +2,20 @@ import numpy as np
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 
-from chap_core.assessment.metrics.rmse import RMSE, RMSEAggregate, DetailedRMSE
-from chap_core.assessment.metrics.mae import MAE, MAEAggregate
+from chap_core.assessment.metrics import (
+    RMSEMetric,
+    MAEMetric,
+    CRPSMetric,
+    CRPSNormMetric,
+    RatioAboveTruthMetric,
+    Coverage10_90Metric,
+    Coverage25_75Metric,
+    SampleCountMetric,
+    ExampleMetric,
+    DataDimension,
+    compute_all_aggregated_metrics_from_backtest,
+)
 from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakPeriodLagMetric
-from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 import pytest
 import pandas as pd
@@ -13,6 +23,74 @@ import pandas as pd
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import BackTest
 from chap_core.datatypes import SamplesWithTruth
+
+
+# --- Parametrized tests for all metrics and all 3 methods ---
+
+ALL_METRIC_FACTORIES = [
+    RMSEMetric,
+    MAEMetric,
+    CRPSMetric,
+    CRPSNormMetric,
+    RatioAboveTruthMetric,
+    Coverage10_90Metric,
+    Coverage25_75Metric,
+    SampleCountMetric,
+    ExampleMetric,
+]
+
+
+@pytest.mark.parametrize("metric_factory", ALL_METRIC_FACTORIES)
+def test_get_global_metric_returns_single_row(metric_factory, flat_forecasts_multiple_samples, flat_observations):
+    """Test that get_global_metric() returns a single-row DataFrame for all metrics."""
+    metric = metric_factory()
+    result = metric.get_global_metric(flat_observations, flat_forecasts_multiple_samples)
+
+    assert isinstance(result, pd.DataFrame)
+    assert len(result) == 1
+    assert "metric" in result.columns
+    assert result.columns.tolist() == ["metric"]
+
+
+@pytest.mark.parametrize("metric_factory", ALL_METRIC_FACTORIES)
+def test_get_detailed_metric_returns_all_dimensions(metric_factory, flat_forecasts_multiple_samples, flat_observations):
+    """Test that get_detailed_metric() returns DataFrame with all output dimensions."""
+    metric = metric_factory()
+    result = metric.get_detailed_metric(flat_observations, flat_forecasts_multiple_samples)
+
+    assert isinstance(result, pd.DataFrame)
+    assert "metric" in result.columns
+    # Check that all output dimensions are present
+    for dim in metric.spec.output_dimensions:
+        assert dim.value in result.columns
+
+
+@pytest.mark.parametrize("metric_factory", ALL_METRIC_FACTORIES)
+def test_get_metric_with_location_dimension(metric_factory, flat_forecasts_multiple_samples, flat_observations):
+    """Test that get_metric() with location dimension returns per-location results."""
+    metric = metric_factory()
+    result = metric.get_metric(flat_observations, flat_forecasts_multiple_samples, dimensions=(DataDimension.location,))
+
+    assert isinstance(result, pd.DataFrame)
+    assert "metric" in result.columns
+    assert "location" in result.columns
+    assert result.columns.tolist() == ["location", "metric"]
+    # Should have one row per location
+    assert len(result) == flat_observations["location"].nunique()
+
+
+@pytest.mark.parametrize("metric_factory", ALL_METRIC_FACTORIES)
+def test_get_metric_with_horizon_dimension(metric_factory, flat_forecasts_multiple_samples, flat_observations):
+    """Test that get_metric() with horizon dimension returns per-horizon results."""
+    metric = metric_factory()
+    result = metric.get_metric(
+        flat_observations, flat_forecasts_multiple_samples, dimensions=(DataDimension.horizon_distance,)
+    )
+
+    assert isinstance(result, pd.DataFrame)
+    assert "metric" in result.columns
+    assert "horizon_distance" in result.columns
+    assert result.columns.tolist() == ["horizon_distance", "metric"]
 
 
 @pytest.fixture
@@ -28,9 +106,10 @@ def test_flat_observed_with_nan():
     )
 
 
-def test_rmse(flat_forecasts, flat_observations):
-    rmse = RMSE()
-    result = rmse.compute(flat_observations, flat_forecasts)
+def test_rmse_per_location(flat_forecasts, flat_observations):
+    """Test RMSEMetric with per-location dimension."""
+    rmse = RMSEMetric()
+    result = rmse.get_metric(flat_observations, flat_forecasts, dimensions=(DataDimension.location,))
 
     correct = pd.DataFrame({"location": ["loc1", "loc2"], "metric": [1.0, 2.0]})
 
@@ -40,8 +119,9 @@ def test_rmse(flat_forecasts, flat_observations):
 
 
 def test_rmse_detailed(flat_forecasts, flat_observations):
-    detailed_rmse = DetailedRMSE()
-    result = detailed_rmse.compute(flat_observations, flat_forecasts)
+    """Test RMSEMetric at detailed level using get_detailed_metric()."""
+    rmse = RMSEMetric()
+    result = rmse.get_detailed_metric(flat_observations, flat_forecasts)
 
     correct = pd.DataFrame(
         {
@@ -59,9 +139,9 @@ def test_rmse_detailed(flat_forecasts, flat_observations):
 
 
 def test_rmse_aggregate(flat_forecasts, flat_observations):
-    """Test RMSEAggregate computes a single value across all data."""
-    rmse_agg = RMSEAggregate()
-    result = rmse_agg.compute(flat_observations, flat_forecasts)
+    """Test RMSEMetric at global level computes a single value across all data."""
+    rmse = RMSEMetric()
+    result = rmse.get_global_metric(flat_observations, flat_forecasts)
 
     assert len(result) == 1
     assert "metric" in result.columns
@@ -73,9 +153,9 @@ def test_rmse_aggregate(flat_forecasts, flat_observations):
 
 
 def test_mae_aggregate(flat_forecasts, flat_observations):
-    """Test MAEAggregate computes a single value across all data."""
-    mae_agg = MAEAggregate()
-    result = mae_agg.compute(flat_observations, flat_forecasts)
+    """Test MAEMetric at global level computes a single value across all data."""
+    mae = MAEMetric()
+    result = mae.get_global_metric(flat_observations, flat_forecasts)
 
     assert len(result) == 1
     assert "metric" in result.columns
@@ -86,22 +166,11 @@ def test_mae_aggregate(flat_forecasts, flat_observations):
     np.testing.assert_almost_equal(result["metric"].iloc[0], expected_mae, decimal=5)
 
 
-def test_rmse_aggregate_is_full_aggregate():
-    """Test that RMSEAggregate.is_full_aggregate() returns True."""
-    rmse_agg = RMSEAggregate()
-    assert rmse_agg.is_full_aggregate() is True
-
-
-def test_mae_aggregate_is_full_aggregate():
-    """Test that MAEAggregate.is_full_aggregate() returns True."""
-    mae_agg = MAEAggregate()
-    assert mae_agg.is_full_aggregate() is True
-
-
 def test_get_all_aggregated_metrics_from_backtest(backtest_weeks):
-    # write to and from csv first
+    """Test compute_all_aggregated_metrics_from_backtest returns expected metrics."""
     metrics = compute_all_aggregated_metrics_from_backtest(backtest_weeks)
-    assert metrics["test_sample_count"] == 24.0
+    assert "sample_count" in metrics
+    assert metrics["sample_count"] == 24.0
 
 
 @pytest.fixture
@@ -112,9 +181,9 @@ def engine():
 
 
 def test_rmse_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
-    """Test that RMSE computes errors from median of samples, not per-sample."""
-    rmse = RMSE()
-    result = rmse.compute(flat_observations, flat_forecasts_multiple_samples)
+    """Test that RMSEMetric computes errors from median of samples, not per-sample."""
+    rmse = RMSEMetric()
+    result = rmse.get_metric(flat_observations, flat_forecasts_multiple_samples, dimensions=(DataDimension.location,))
 
     # Median forecasts: loc1=[10, 12], loc2=[21, 23]
     # Observations: loc1=[11, 13], loc2=[19, 21]
@@ -130,9 +199,9 @@ def test_rmse_uses_median_of_samples(flat_forecasts_multiple_samples, flat_obser
 
 
 def test_rmse_aggregate_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
-    """Test that RMSEAggregate computes errors from median of samples."""
-    rmse_agg = RMSEAggregate()
-    result = rmse_agg.compute(flat_observations, flat_forecasts_multiple_samples)
+    """Test that RMSEMetric at global level computes errors from median of samples."""
+    rmse = RMSEMetric()
+    result = rmse.get_global_metric(flat_observations, flat_forecasts_multiple_samples)
 
     # Median forecasts: [10, 12, 21, 23]
     # Observations: [11, 13, 19, 21]
@@ -145,9 +214,9 @@ def test_rmse_aggregate_uses_median_of_samples(flat_forecasts_multiple_samples, 
 
 
 def test_detailed_rmse_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
-    """Test that DetailedRMSE computes errors from median of samples."""
-    detailed_rmse = DetailedRMSE()
-    result = detailed_rmse.compute(flat_observations, flat_forecasts_multiple_samples)
+    """Test that RMSEMetric at detailed level computes errors from median of samples."""
+    rmse = RMSEMetric()
+    result = rmse.get_detailed_metric(flat_observations, flat_forecasts_multiple_samples)
 
     # Median forecasts per loc/time/horizon: [10, 12, 21, 23]
     # Observations: [11, 13, 19, 21]
@@ -169,17 +238,17 @@ def test_detailed_rmse_uses_median_of_samples(flat_forecasts_multiple_samples, f
 
 
 def test_mae_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
-    """Test that MAE computes errors from median of samples."""
-    mae = MAE()
-    result = mae.compute(flat_observations, flat_forecasts_multiple_samples)
+    """Test that MAEMetric computes errors from median of samples."""
+    mae = MAEMetric()
+    result = mae.get_detailed_metric(flat_observations, flat_forecasts_multiple_samples)
 
     # Median forecasts: loc1=[10, 12] (horizons 1, 2), loc2=[21, 23] (horizons 1, 2)
     # Observations: loc1=[11, 13], loc2=[19, 21]
     # Absolute errors: loc1=[1, 1], loc2=[2, 2]
-    # MAE per location/horizon: loc1/h1=1, loc1/h2=1, loc2/h1=2, loc2/h2=2
     correct = pd.DataFrame(
         {
             "location": ["loc1", "loc1", "loc2", "loc2"],
+            "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
             "horizon_distance": [1, 2, 1, 2],
             "metric": [1.0, 1.0, 2.0, 2.0],
         }
@@ -192,9 +261,9 @@ def test_mae_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observ
 
 
 def test_mae_aggregate_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
-    """Test that MAEAggregate computes errors from median of samples."""
-    mae_agg = MAEAggregate()
-    result = mae_agg.compute(flat_observations, flat_forecasts_multiple_samples)
+    """Test that MAEMetric at global level computes errors from median of samples."""
+    mae = MAEMetric()
+    result = mae.get_global_metric(flat_observations, flat_forecasts_multiple_samples)
 
     # Median forecasts: [10, 12, 21, 23]
     # Observations: [11, 13, 19, 21]
@@ -293,7 +362,7 @@ def test_peak_value_diff_metric_weekly(flat_observations_week, flat_forecasts_we
         => metric = 9 - 10 = -1
     """
     metric = PeakValueDiffMetric()
-    result = metric.compute(flat_observations_week, flat_forecasts_week)
+    result = metric.get_detailed_metric(flat_observations_week, flat_forecasts_week)
 
     result_sorted = result.sort_values(["location", "horizon_distance"]).reset_index(drop=True)
 
@@ -333,7 +402,7 @@ def test_peak_period_lag_metric_weekly(flat_observations_week, flat_forecasts_we
         => lag = index(W02) - index(W03) = -1
     """
     metric = PeakPeriodLagMetric()
-    result = metric.compute(flat_observations_week, flat_forecasts_week)
+    result = metric.get_detailed_metric(flat_observations_week, flat_forecasts_week)
 
     result_sorted = result.sort_values(["location", "horizon_distance"]).reset_index(drop=True)
 
@@ -429,7 +498,7 @@ def test_peak_value_diff_metric_monthly(flat_observations_monthly, flat_forecast
         => metric = 9 - 10 = -1
     """
     metric = PeakValueDiffMetric()
-    result = metric.compute(flat_observations_monthly, flat_forecasts_monthly)
+    result = metric.get_detailed_metric(flat_observations_monthly, flat_forecasts_monthly)
 
     result_sorted = result.sort_values(["location", "horizon_distance"]).reset_index(drop=True)
 
@@ -469,7 +538,7 @@ def test_peak_period_lag_metric_monthly(flat_observations_monthly, flat_forecast
         => lag = index(2023-02) - index(2023-03) = -1
     """
     metric = PeakPeriodLagMetric()
-    result = metric.compute(flat_observations_monthly, flat_forecasts_monthly)
+    result = metric.get_detailed_metric(flat_observations_monthly, flat_forecasts_monthly)
 
     result_sorted = result.sort_values(["location", "horizon_distance"]).reset_index(drop=True)
 

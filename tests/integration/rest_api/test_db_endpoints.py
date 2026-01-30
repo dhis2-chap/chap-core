@@ -545,3 +545,30 @@ def get_content(url):
     content = response.json()
     assert response.status_code == 200, content
     return content
+
+
+def test_all_backtest_plots_via_api(override_session, seeded_session):
+    """Test that all registered backtest plots can be generated via the REST API."""
+    # First, list all available backtest plot types
+    response = client.get("/v1/visualization/backtest-plots/")
+    assert response.status_code == 200, response.json()
+    plot_types = response.json()
+    assert len(plot_types) > 0, "No backtest plot types registered"
+
+    # Get a backtest ID from the seeded database
+    from chap_core.database.tables import BackTest
+    from sqlmodel import select
+
+    backtests = seeded_session.exec(select(BackTest)).all()
+    assert len(backtests) > 0, "No backtests in seeded database"
+    backtest_id = backtests[0].id
+
+    # Test each plot type
+    for plot_type in plot_types:
+        plot_id = plot_type["id"]
+        url = f"/v1/visualization/backtest-plots/{plot_id}/{backtest_id}"
+        response = client.get(url)
+        assert response.status_code == 200, f"Plot {plot_id} failed: {response.json()}"
+        # Verify the response is valid Vega JSON
+        vega_spec = response.json()
+        assert "$schema" in vega_spec or "data" in vega_spec, f"Plot {plot_id} returned invalid Vega spec"

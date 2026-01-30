@@ -1,6 +1,8 @@
 # Start from the existing worker image that has INLA and other dependencies
 FROM ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
 
+ENV MPLCONFIGDIR=/tmp
+
 # OCI labels for container metadata
 LABEL org.opencontainers.image.title="Chap Worker with INLA"
 LABEL org.opencontainers.image.description="Celery worker for Chap with INLA support"

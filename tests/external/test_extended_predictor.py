@@ -9,7 +9,7 @@ from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 
 class MockModel(ConfiguredModel):
-    """Mock model that returns simple predictions for testing"""
+    """Mock model that returns simple predictions for testing."""
 
     def __init__(self, min_pred_length=2, max_pred_length=4):
         self.model_information = ModelTemplateConfigV2(
@@ -20,28 +20,86 @@ class MockModel(ConfiguredModel):
 
     def train(self, train_data: DataSet, extra_args=None):
         self.trained = True
+        return self
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
-        """Returns predictions with sample_ columns
-
-        Creates predictable values based on time_period for testing coherence
-        """
+        """Returns predictions with sample_ columns."""
         self.predict_call_count += 1
         future_df = future_data.to_pandas()
         result_df = future_df.copy()
 
-        # Create sample predictions with predictable values based on row index
-        # This allows us to verify that the right predictions end up in the right places
         num_samples = 3
         for i in range(num_samples):
-            # Use a predictable formula: base value + sample_offset + row_index
             result_df[f"sample_{i}"] = [100.0 + i + idx for idx in range(len(result_df))]
 
         return DataSet.from_pandas(result_df)
 
 
+class TrackingMockModel(ConfiguredModel):
+    """Mock model that tracks inputs and produces verifiable outputs.
+
+    This model records every predict() call so tests can verify:
+    - What historic/future data was passed to each iteration
+    - That all locations receive correct predictions
+
+    Prediction values encode location and period indices for verification.
+    """
+
+    def __init__(self, locations, future_periods, min_pred_length=2, max_pred_length=3):
+        self.model_information = ModelTemplateConfigV2(
+            name="tracking_mock",
+            min_prediction_length=min_pred_length,
+            max_prediction_length=max_pred_length,
+        )
+        self.locations = locations
+        self.future_periods = future_periods
+        self.call_history = []
+
+    def train(self, train_data: DataSet, extra_args=None):
+        return self
+
+    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+        historic_df = historic_data.to_pandas()
+        future_df = future_data.to_pandas()
+
+        call_num = len(self.call_history)
+
+        self.call_history.append(
+            {
+                "call_num": call_num,
+                "historic_locations": set(historic_df["location"].unique()),
+                "historic_periods_per_loc": {
+                    loc: sorted(historic_df[historic_df["location"] == loc]["time_period"].tolist())
+                    for loc in historic_df["location"].unique()
+                },
+                "future_locations": set(future_df["location"].unique()),
+                "future_periods_per_loc": {
+                    loc: sorted(future_df[future_df["location"] == loc]["time_period"].tolist())
+                    for loc in future_df["location"].unique()
+                },
+            }
+        )
+
+        result_rows = []
+        for _, row in future_df.iterrows():
+            loc_idx = self.locations.index(row["location"])
+            period_str = str(row["time_period"])
+            period_idx = self.future_periods.index(period_str)
+            result_row = {
+                "time_period": row["time_period"],
+                "location": row["location"],
+                # Encode: call_num * 10000 + loc_idx * 100 + period_idx
+                "sample_0": call_num * 10000 + loc_idx * 100 + period_idx,
+                "sample_1": call_num * 10000 + loc_idx * 100 + period_idx + 0.1,
+                "sample_2": call_num * 10000 + loc_idx * 100 + period_idx + 0.2,
+            }
+            result_rows.append(result_row)
+
+        return DataSet.from_pandas(pd.DataFrame(result_rows))
+
+
 def create_test_dataset(num_periods=10, start_period="2020-01"):
-    """Helper function to create test datasets"""
+    """Helper function to create test datasets with a single location."""
     periods = pd.period_range(start=start_period, periods=num_periods, freq="M")
 
     data = {
@@ -56,8 +114,36 @@ def create_test_dataset(num_periods=10, start_period="2020-01"):
     return DataSet.from_pandas(df)
 
 
+def create_multi_location_data(num_locations=4, num_historic_periods=10, num_future_periods=8):
+    """Create deterministic test data with multiple locations."""
+    locations = [f"loc_{i}" for i in range(num_locations)]
+    all_periods = pd.period_range(start="2020-01", periods=num_historic_periods + num_future_periods, freq="M")
+    historic_periods = [str(p) for p in all_periods[:num_historic_periods]]
+    future_periods = [str(p) for p in all_periods[num_historic_periods:]]
+
+    historic_rows = []
+    for loc in locations:
+        for period in historic_periods:
+            historic_rows.append({"time_period": period, "location": loc, "disease_cases": 100, "rainfall": 50.0})
+    historic_data = DataSet.from_pandas(pd.DataFrame(historic_rows))
+
+    future_rows = []
+    for loc in locations:
+        for period in future_periods:
+            future_rows.append({"time_period": period, "location": loc, "rainfall": 60.0})
+    future_data = DataSet.from_pandas(pd.DataFrame(future_rows))
+
+    return {
+        "locations": locations,
+        "historic_periods": historic_periods,
+        "future_periods": future_periods,
+        "historic_data": historic_data,
+        "future_data": future_data,
+    }
+
+
 def test_extended_predictor_initialization():
-    """Test that ExtendedPredictor can be initialized properly"""
+    """Test that ExtendedPredictor can be initialized properly."""
     mock_model = MockModel()
     desired_scope = 6
 
@@ -68,247 +154,36 @@ def test_extended_predictor_initialization():
 
 
 def test_extended_predictor_train():
-    """Test that training is delegated to the underlying model"""
+    """Test that training is delegated to the underlying model and returns self."""
     mock_model = MockModel()
     extended_predictor = ExtendedPredictor(mock_model, 6)
 
     train_data = create_test_dataset(num_periods=20)
-    extended_predictor.train(train_data)
+    result = extended_predictor.train(train_data)
 
     assert mock_model.trained is True
-
-
-def test_extended_predictor_predict_within_max_length():
-    """Test prediction when desired_scope is within max_prediction_length"""
-    mock_model = MockModel(min_pred_length=2, max_pred_length=10)
-    desired_scope = 5
-    extended_predictor = ExtendedPredictor(mock_model, desired_scope)
-
-    historic_data = create_test_dataset(num_periods=20, start_period="2020-01")
-    future_data = create_test_dataset(num_periods=10, start_period="2021-09")
-
-    result = extended_predictor.predict(historic_data, future_data)
-    result_df = result.to_pandas()
-
-    # Check that we got predictions
-    assert len(result_df) > 0
-    # Check that sample columns were created by the mock model
-    sample_cols = [col for col in result_df.columns if col.startswith("sample_")]
-    assert len(sample_cols) > 0
-
-
-def test_extended_predictor_predict_exceeds_max_length():
-    """Test prediction when desired_scope exceeds max_prediction_length (iterative prediction)
-
-    This test verifies:
-    1. The correct number of predictions are generated to cover desired_scope
-    2. Multiple predict calls are made (iterative prediction happened)
-    3. Time periods are coherent and sequential
-    4. Prediction values are coherent across iterations
-    """
-    mock_model = MockModel(min_pred_length=2, max_pred_length=3)
-    desired_scope = 8  # This exceeds max_pred_length, should trigger iterative prediction
-    extended_predictor = ExtendedPredictor(mock_model, desired_scope)
-
-    historic_data = create_test_dataset(num_periods=20, start_period="2020-01")
-    future_data = create_test_dataset(num_periods=10, start_period="2021-09")
-
-    # Get the expected time periods from future_data
-    future_df = future_data.to_pandas()
-    expected_periods = future_df["time_period"].values
-
-    result = extended_predictor.predict(historic_data, future_data)
-    result_df = result.to_pandas()
-
-    # 1. Check that we got enough predictions to cover the desired scope
-    assert len(result_df) >= desired_scope, (
-        f"Expected at least {desired_scope} predictions to cover desired scope, got {len(result_df)}"
-    )
-
-    # 2. Verify that predict was called multiple times (iterative prediction happened)
-    # Since max_pred_length=3 and desired_scope=8, we expect at least 3 calls
-    expected_min_calls = (
-        desired_scope + mock_model.model_information.max_prediction_length - 1
-    ) // mock_model.model_information.max_prediction_length
-    assert mock_model.predict_call_count >= expected_min_calls, (
-        f"Expected at least {expected_min_calls} predict calls, got {mock_model.predict_call_count}"
-    )
-
-    # 3. Check that time periods are present and sequential
-    result_periods = result_df["time_period"].values
-    # The first desired_scope time periods should match the expected ones from future_data
-    for i in range(min(desired_scope, len(expected_periods))):
-        assert result_periods[i] == expected_periods[i], (
-            f"Time period mismatch at index {i}: expected {expected_periods[i]}, got {result_periods[i]}"
-        )
-
-    # 4. Verify that sample columns exist (indicating predictions were made)
-    sample_cols = [col for col in result_df.columns if col.startswith("sample_")]
-    assert len(sample_cols) > 0, "No sample columns found in predictions"
-
-    # 5. Verify that predictions have reasonable values (not NaN, not all zeros)
-    for col in sample_cols:
-        assert result_df[col].notna().all(), f"Found NaN values in {col}"
-        assert not (result_df[col] == 0).all(), f"All values are zero in {col}"
-
-
-def test_extended_predictor_update_historic_data():
-    """Test the update_historic_data method"""
-    mock_model = MockModel()
-    extended_predictor = ExtendedPredictor(mock_model, 6)
-
-    # Create historic data
-    historic_df = pd.DataFrame(
-        {
-            "time_period": ["2020-01", "2020-02"],
-            "location": ["location_1", "location_1"],
-            "disease_cases": [10, 15],
-            "rainfall": [50, 60],
-        }
-    )
-
-    # Create predictions with sample columns
-    predictions_df = pd.DataFrame(
-        {
-            "time_period": ["2020-03", "2020-04"],
-            "location": ["location_1", "location_1"],
-            "sample_0": [20, 25],
-            "sample_1": [21, 26],
-            "sample_2": [22, 27],
-            "rainfall": [70, 80],
-        }
-    )
-
-    num_predictions = 2
-    updated_historic = extended_predictor.update_historic_data(historic_df, predictions_df, num_predictions)
-
-    # Check that historic data was extended
-    assert len(updated_historic) == 4  # 2 original + 2 new
-    # Check that disease_cases column exists in new rows (averaged from samples)
-    assert "disease_cases" in updated_historic.columns
-    # Check that the last 2 rows have disease_cases values (averaged from samples)
-    assert updated_historic["disease_cases"].iloc[-2:].notna().all()
+    assert result is extended_predictor, "train() must return self for evaluate_model compatibility"
 
 
 def test_extended_predictor_scope_validation():
-    """Test that assertion fails when desired_scope is less than min_prediction_length"""
+    """Test that assertion fails when desired_scope is less than min_prediction_length."""
     mock_model = MockModel(min_pred_length=5, max_pred_length=10)
-    desired_scope = 3  # Less than min_prediction_length
+    desired_scope = 3
     extended_predictor = ExtendedPredictor(mock_model, desired_scope)
 
     historic_data = create_test_dataset(num_periods=20, start_period="2020-01")
     future_data = create_test_dataset(num_periods=10, start_period="2021-09")
 
-    # This should raise an AssertionError because desired_scope < min_prediction_length
     with pytest.raises(AssertionError):
         extended_predictor.predict(historic_data, future_data)
 
 
-def test_extended_predictor_prediction_coherence():
-    """Test that predictions maintain coherence across iterations
-
-    This test uses a deterministic mock model to verify that:
-    1. The correct number of predictions are generated to cover desired_scope
-    2. The iterative prediction mechanism works correctly
-    3. Historic data is properly updated between iterations
-    4. Predictions from multiple iterations are concatenated correctly
-    5. Each time period gets the correct predicted values (coherence check)
-    """
-
-    class DeterministicMockModel(ConfiguredModel):
-        """A mock model that returns values based on the time period index"""
-
-        def __init__(self):
-            self.model_information = ModelTemplateConfigV2(
-                name="deterministic_model", min_prediction_length=2, max_prediction_length=3
-            )
-            self.call_log = []  # Track what data was passed to each call
-
-        def train(self, train_data: DataSet, extra_args=None):
-            pass
-
-        def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
-            """Returns predictions where sample values encode the iteration number"""
-            future_df = future_data.to_pandas()
-            historic_df = historic_data.to_pandas()
-
-            # Log this call
-            iteration_num = len(self.call_log)
-            self.call_log.append(
-                {
-                    "iteration": iteration_num,
-                    "historic_length": len(historic_df),
-                    "future_length": len(future_df),
-                    "future_periods": future_df["time_period"].tolist(),
-                }
-            )
-
-            result_df = future_df.copy()
-
-            # Create predictions that encode the iteration number and row index
-            # Format: iteration*1000 + row_idx*10 + sample_index
-            for sample_idx in range(3):
-                result_df[f"sample_{sample_idx}"] = [
-                    iteration_num * 1000 + row_idx * 10 + sample_idx for row_idx in range(len(result_df))
-                ]
-
-            return DataSet.from_pandas(result_df)
-
-    mock_model = DeterministicMockModel()
-    desired_scope = 7
-    extended_predictor = ExtendedPredictor(mock_model, desired_scope)
-
-    historic_data = create_test_dataset(num_periods=20, start_period="2020-01")
-    future_data = create_test_dataset(num_periods=10, start_period="2021-09")
-
-    result = extended_predictor.predict(historic_data, future_data)
-    result_df = result.to_pandas()
-
-    # 1. Verify we got at least the desired scope
-    assert len(result_df) >= desired_scope, (
-        f"Expected at least {desired_scope} predictions to cover desired scope, got {len(result_df)}"
-    )
-
-    # 2. Verify multiple iterations occurred
-    assert len(mock_model.call_log) > 1, f"Expected multiple iterations, got {len(mock_model.call_log)}"
-
-    # 3. Verify that historic data was growing with each iteration
-    historic_lengths = [call["historic_length"] for call in mock_model.call_log]
-    for i in range(1, len(historic_lengths)):
-        assert historic_lengths[i] > historic_lengths[i - 1], (
-            f"Historic data should grow between iterations: {historic_lengths}"
-        )
-
-    # 4. Verify that sample columns have values from different iterations
-    # (this proves the results are concatenated correctly and coherent)
-    sample_0_values = result_df["sample_0"].values
-    # Check that we have values from iteration 0 and iteration 1+
-    has_iteration_0 = any(val < 1000 for val in sample_0_values)
-    has_iteration_1_plus = any(val >= 1000 for val in sample_0_values)
-    assert has_iteration_0 and has_iteration_1_plus, "Results should contain predictions from multiple iterations"
-
-    # 5. Verify the predictions are in the correct order by checking the first few values
-    # First prediction should be from iteration 0, row 0
-    assert sample_0_values[0] == 0, (
-        f"First prediction should be from iteration 0, row 0 (expected 0, got {sample_0_values[0]})"
-    )
-
-    # 6. Check that values are coherent: within each iteration, values should increment
-    # For iteration 0 (values < 1000), sample_0 should be 0, 10, 20, ...
-    iteration_0_values = [v for v in sample_0_values if v < 1000]
-    for i, val in enumerate(iteration_0_values):
-        expected_val = i * 10  # iteration=0, so 0*1000 + i*10 + 0 = i*10
-        assert val == expected_val, f"Iteration 0, position {i}: expected {expected_val}, got {val}"
-
-
 def test_extended_predictor_with_external_model_interface():
-    """Test that ExtendedPredictor works with ExternalModel-like interface"""
+    """Test that ExtendedPredictor works with ExternalModel-like interface."""
     from chap_core.models.external_model import ExternalModel
 
-    # Create a mock runner
     mock_runner = Mock()
 
-    # Create an ExternalModel with model_information
     external_model = ExternalModel(
         runner=mock_runner,
         name="test_model",
@@ -317,11 +192,354 @@ def test_extended_predictor_with_external_model_interface():
         ),
     )
 
-    # Wrap it in ExtendedPredictor
     extended_predictor = ExtendedPredictor(external_model, desired_scope=6)
 
-    # Just verify it initializes correctly
     assert extended_predictor._config_model == external_model
     assert extended_predictor._desired_scope == 6
     assert extended_predictor._config_model.model_information.min_prediction_length == 2
     assert extended_predictor._config_model.model_information.max_prediction_length == 4
+
+
+def test_update_historic_data_includes_all_locations():
+    """Test that update_historic_data adds predictions for all locations.
+
+    Regression test for bug where .head(num_predictions) only took rows
+    instead of time periods, missing data for other locations.
+    """
+    mock_model = MockModel()
+    extended_predictor = ExtendedPredictor(mock_model, 6)
+
+    historic_df = pd.DataFrame(
+        {
+            "time_period": ["2020-01", "2020-02", "2020-01", "2020-02"],
+            "location": ["loc_A", "loc_A", "loc_B", "loc_B"],
+            "disease_cases": [10, 15, 20, 25],
+            "rainfall": [50, 60, 55, 65],
+        }
+    )
+
+    predictions_df = pd.DataFrame(
+        {
+            "time_period": ["2020-03", "2020-04", "2020-03", "2020-04"],
+            "location": ["loc_A", "loc_A", "loc_B", "loc_B"],
+            "sample_0": [30, 35, 40, 45],
+            "sample_1": [31, 36, 41, 46],
+            "sample_2": [32, 37, 42, 47],
+            "rainfall": [70, 80, 75, 85],
+        }
+    )
+
+    num_predictions = 1
+    updated_historic = extended_predictor.update_historic_data(historic_df, predictions_df, num_predictions)
+
+    assert len(updated_historic) == 6, f"Expected 6 rows, got {len(updated_historic)}"
+
+    loc_a_rows = updated_historic[updated_historic["location"] == "loc_A"]
+    loc_b_rows = updated_historic[updated_historic["location"] == "loc_B"]
+    assert len(loc_a_rows) == 3
+    assert len(loc_b_rows) == 3
+
+    assert "2020-03" in loc_a_rows["time_period"].values
+    assert "2020-03" in loc_b_rows["time_period"].values
+
+
+def test_multi_location_all_locations_in_output():
+    """Verify all locations receive predictions in the output."""
+    data = create_multi_location_data(num_locations=4)
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=6)
+
+    result = extended_predictor.predict(data["historic_data"], data["future_data"])
+    result_df = result.to_pandas()
+
+    result_locations = set(result_df["location"].unique())
+    expected_locations = set(data["locations"])
+
+    assert result_locations == expected_locations
+
+
+def test_multi_location_correct_prediction_count():
+    """Each location should have exactly desired_scope predictions."""
+    desired_scope = 6
+    data = create_multi_location_data(num_locations=4)
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=desired_scope)
+
+    result = extended_predictor.predict(data["historic_data"], data["future_data"])
+    result_df = result.to_pandas()
+
+    for loc in data["locations"]:
+        loc_df = result_df[result_df["location"] == loc]
+        assert len(loc_df) == desired_scope, f"Location {loc} has {len(loc_df)} predictions, expected {desired_scope}"
+
+
+def test_multi_location_correct_time_periods():
+    """Each location should have predictions for the first desired_scope time periods."""
+    desired_scope = 6
+    data = create_multi_location_data(num_locations=4, num_future_periods=8)
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=desired_scope)
+
+    result = extended_predictor.predict(data["historic_data"], data["future_data"])
+    result_df = result.to_pandas()
+
+    expected_periods = set(data["future_periods"][:desired_scope])
+
+    for loc in data["locations"]:
+        loc_df = result_df[result_df["location"] == loc]
+        loc_periods = set(str(p) for p in loc_df["time_period"].tolist())
+        assert loc_periods == expected_periods, f"Location {loc} has periods {loc_periods}, expected {expected_periods}"
+
+
+def test_multi_location_requires_multiple_iterations():
+    """Verify multiple iterations are needed when desired_scope > max_pred_length."""
+    desired_scope = 6
+    max_pred_length = 3
+    data = create_multi_location_data(num_locations=4)
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+        max_pred_length=max_pred_length,
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=desired_scope)
+
+    extended_predictor.predict(data["historic_data"], data["future_data"])
+
+    assert len(mock_model.call_history) >= 2, (
+        f"Expected at least 2 prediction calls, got {len(mock_model.call_history)}"
+    )
+
+
+def test_multi_location_each_iteration_includes_all_locations():
+    """Each iteration should receive data for all locations."""
+    desired_scope = 6
+    data = create_multi_location_data(num_locations=4)
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=desired_scope)
+
+    extended_predictor.predict(data["historic_data"], data["future_data"])
+
+    expected_locations = set(data["locations"])
+    for i, call in enumerate(mock_model.call_history):
+        assert call["historic_locations"] == expected_locations, f"Call {i}: historic missing locations"
+        assert call["future_locations"] == expected_locations, f"Call {i}: future missing locations"
+
+
+def test_multi_location_historic_data_grows_between_iterations():
+    """Historic data should grow for all locations between iterations."""
+    desired_scope = 6
+    data = create_multi_location_data(num_locations=4)
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=desired_scope)
+
+    extended_predictor.predict(data["historic_data"], data["future_data"])
+
+    for i in range(1, len(mock_model.call_history)):
+        prev_call = mock_model.call_history[i - 1]
+        curr_call = mock_model.call_history[i]
+        for loc in data["locations"]:
+            prev_periods = len(prev_call["historic_periods_per_loc"][loc])
+            curr_periods = len(curr_call["historic_periods_per_loc"][loc])
+            assert curr_periods > prev_periods, f"Call {i}: Historic data for {loc} did not grow"
+
+
+def test_multi_location_no_data_mixing_between_locations():
+    """Verify predictions have correct encoded values (no location/period mixing)."""
+    desired_scope = 6
+    data = create_multi_location_data(num_locations=4)
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=desired_scope)
+
+    result = extended_predictor.predict(data["historic_data"], data["future_data"])
+    result_df = result.to_pandas()
+
+    for loc in data["locations"]:
+        loc_idx = data["locations"].index(loc)
+        loc_df = result_df[result_df["location"] == loc].sort_values("time_period")
+        for _, row in loc_df.iterrows():
+            period_str = str(row["time_period"])
+            period_idx = data["future_periods"].index(period_str)
+            sample_val = row["sample_0"]
+            decoded_loc_idx = int(sample_val % 10000) // 100
+            decoded_period_idx = int(sample_val % 100)
+            assert decoded_loc_idx == loc_idx, f"Location mismatch: expected {loc_idx}, got {decoded_loc_idx}"
+            assert decoded_period_idx == period_idx, (
+                f"Period mismatch for {loc}: expected {period_idx}, got {decoded_period_idx}"
+            )
+
+
+def test_single_iteration_when_scope_within_max():
+    """No multiple iterations needed when desired_scope <= max_pred_length."""
+    desired_scope = 3
+    max_pred_length = 4
+    data = create_multi_location_data(num_locations=2, num_future_periods=6)
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+        max_pred_length=max_pred_length,
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=desired_scope)
+
+    result = extended_predictor.predict(data["historic_data"], data["future_data"])
+    result_df = result.to_pandas()
+
+    assert len(mock_model.call_history) == 1, "Should only need 1 iteration"
+
+    for loc in data["locations"]:
+        loc_df = result_df[result_df["location"] == loc]
+        assert len(loc_df) == desired_scope
+
+
+def test_single_location_prediction():
+    """Verify single location predictions still work correctly."""
+    locations = ["single_loc"]
+    future_periods = ["2020-11", "2020-12", "2021-01", "2021-02", "2021-03", "2021-04"]
+
+    historic_rows = [
+        {"time_period": f"2020-{m:02d}", "location": "single_loc", "disease_cases": 100, "rainfall": 50.0}
+        for m in range(1, 11)
+    ]
+    historic_data = DataSet.from_pandas(pd.DataFrame(historic_rows))
+
+    future_rows = [{"time_period": p, "location": "single_loc", "rainfall": 60.0} for p in future_periods]
+    future_data = DataSet.from_pandas(pd.DataFrame(future_rows))
+
+    mock_model = TrackingMockModel(
+        locations=locations,
+        future_periods=future_periods,
+        max_pred_length=3,
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=5)
+
+    result = extended_predictor.predict(historic_data, future_data)
+    result_df = result.to_pandas()
+
+    assert len(result_df) == 5
+    assert set(result_df["location"].unique()) == {"single_loc"}
+    assert len(result_df["time_period"].unique()) == 5
+
+
+def test_update_historic_data_averages_samples():
+    """Verify disease_cases is computed as the mean of sample columns."""
+    mock_model = MockModel()
+    extended_predictor = ExtendedPredictor(mock_model, 6)
+
+    historic_df = pd.DataFrame(
+        {
+            "time_period": ["2020-01"],
+            "location": ["loc_A"],
+            "disease_cases": [10],
+            "rainfall": [50],
+        }
+    )
+
+    predictions_df = pd.DataFrame(
+        {
+            "time_period": ["2020-02"],
+            "location": ["loc_A"],
+            "sample_0": [100.0],
+            "sample_1": [200.0],
+            "sample_2": [300.0],
+            "rainfall": [60],
+        }
+    )
+
+    updated_historic = extended_predictor.update_historic_data(historic_df, predictions_df, num_predictions=1)
+
+    new_row = updated_historic[updated_historic["time_period"] == "2020-02"].iloc[0]
+    expected_mean = (100.0 + 200.0 + 300.0) / 3
+    assert new_row["disease_cases"] == expected_mean, (
+        f"Expected disease_cases={expected_mean}, got {new_row['disease_cases']}"
+    )
+    assert "sample_0" not in updated_historic.columns
+
+
+def test_overlap_handling_keeps_later_prediction():
+    """Test that overlapping predictions keep the later (shorter horizon) prediction.
+
+    With min=2, max=3, scope=5:
+    - Iteration 1 predicts periods [0, 1, 2]
+    - Iteration 2 predicts periods [2, 3, 4]
+    - Period 2 is predicted twice; should keep iteration 2's prediction.
+    """
+    desired_scope = 5
+    min_pred_length = 2
+    max_pred_length = 3
+    data = create_multi_location_data(num_locations=2, num_future_periods=6)
+
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+        min_pred_length=min_pred_length,
+        max_pred_length=max_pred_length,
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=desired_scope)
+
+    result = extended_predictor.predict(data["historic_data"], data["future_data"])
+    result_df = result.to_pandas()
+
+    assert len(mock_model.call_history) == 2, "Should have exactly 2 iterations"
+
+    # Verify iteration 1 predicted periods 0, 1, 2
+    iter1_periods = [str(p) for p in mock_model.call_history[0]["future_periods_per_loc"][data["locations"][0]]]
+    assert iter1_periods == data["future_periods"][:3], f"Iteration 1 should predict periods 0-2, got {iter1_periods}"
+
+    # Verify iteration 2 predicted periods 2, 3, 4
+    iter2_periods = [str(p) for p in mock_model.call_history[1]["future_periods_per_loc"][data["locations"][0]]]
+    assert iter2_periods == data["future_periods"][2:5], f"Iteration 2 should predict periods 2-4, got {iter2_periods}"
+
+    # Check that period 2 has the value from iteration 2 (call_num=1), not iteration 1
+    # Encoding: call_num * 10000 + loc_idx * 100 + period_idx
+    # Period 2 from iteration 2: 1 * 10000 + loc_idx * 100 + 2 = 10000 + loc_idx * 100 + 2
+    for loc in data["locations"]:
+        loc_idx = data["locations"].index(loc)
+        loc_df = result_df[result_df["location"] == loc]
+        period_2_row = loc_df[loc_df["time_period"].astype(str) == data["future_periods"][2]].iloc[0]
+        sample_val = period_2_row["sample_0"]
+
+        decoded_call_num = int(sample_val) // 10000
+        assert decoded_call_num == 1, (
+            f"Period 2 for {loc} should be from iteration 2 (call_num=1), but got call_num={decoded_call_num}"
+        )
+
+
+def test_overlap_correct_final_count():
+    """Test that overlapping predictions result in correct final count after deduplication."""
+    desired_scope = 5
+    data = create_multi_location_data(num_locations=3, num_future_periods=6)
+
+    mock_model = TrackingMockModel(
+        locations=data["locations"],
+        future_periods=data["future_periods"],
+        min_pred_length=2,
+        max_pred_length=3,
+    )
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=desired_scope)
+
+    result = extended_predictor.predict(data["historic_data"], data["future_data"])
+    result_df = result.to_pandas()
+
+    # Should have exactly desired_scope predictions per location after deduplication
+    for loc in data["locations"]:
+        loc_df = result_df[result_df["location"] == loc]
+        assert len(loc_df) == desired_scope, (
+            f"Location {loc} should have {desired_scope} predictions after deduplication, got {len(loc_df)}"
+        )

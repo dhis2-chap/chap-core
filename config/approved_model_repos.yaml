@@ -1,0 +1,6 @@
+# List of URLs to fetch approved model whitelists from
+# Backend fetches all of these and merges them
+# Each URL should point to a YAML file with the approved model template list
+- https://raw.githubusercontent.com/dhis2-chap/model-repositories/main/main.yaml
+# Can add more sources:
+# - https://raw.githubusercontent.com/my-org/my-models/main/approved.yaml

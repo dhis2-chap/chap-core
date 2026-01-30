@@ -1,0 +1,17 @@
+name: Trigger chap-site docs deploy
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  trigger-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger chap-site deploy
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CHAP_SITE_DEPLOY_TOKEN }}
+          repository: dhis2-chap/chap-site
+          event-type: trigger-deploy

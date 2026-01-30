@@ -15,7 +15,7 @@ from sqlalchemy import create_engine
 
 from ..database.database import SessionWrapper
 from ..worker.interface import ReturnType
-from ..log_config import LOGS_DIR, get_status_logger
+from ..log_config import CHAP_LOGS_DIR, get_status_logger
 from celery.utils.log import get_task_logger
 
 # We use get_task_logger to ensure we get the Celery-friendly logger
@@ -72,13 +72,16 @@ class TrackedTask(Task):
         # Extract the current task id
         task_id = self.request.id
 
+        # Ensure logs directory exists
+        CHAP_LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
         # Create debug log file handler (full debug logs, server access only)
-        debug_file_handler = logging.FileHandler(LOGS_DIR / f"task_{task_id}.debug.txt")
+        debug_file_handler = logging.FileHandler(CHAP_LOGS_DIR / f"task_{task_id}.debug.txt")
         debug_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
         debug_file_handler.setFormatter(debug_formatter)
 
         # Create status log file handler (user-facing progress, exposed via API)
-        status_file_handler = logging.FileHandler(LOGS_DIR / f"task_{task_id}.status.txt")
+        status_file_handler = logging.FileHandler(CHAP_LOGS_DIR / f"task_{task_id}.status.txt")
         status_formatter = logging.Formatter("%(asctime)s: %(message)s")
         status_file_handler.setFormatter(status_formatter)
 
@@ -272,7 +275,7 @@ class CeleryJob(Generic[ReturnType]):
         Returns the status logs which contain safe, user-facing progress messages.
         Debug logs with potentially sensitive information are not exposed via API.
         """
-        log_file = LOGS_DIR / f"task_{self._job.id}.status.txt"
+        log_file = CHAP_LOGS_DIR / f"task_{self._job.id}.status.txt"
         logger.info(f"Looking for log file at {log_file}")
         logger.info(f"Job id is: {self._job.id}")
         if log_file.exists():

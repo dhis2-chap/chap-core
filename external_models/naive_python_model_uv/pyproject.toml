@@ -4,10 +4,7 @@ version = "0.1.0"
 description = "Example CHAP model using uv for environment management"
 requires-python = ">=3.10"
 dependencies = [
-    "chap-core",
     "cyclopts",
+    "numpy",
+    "pandas",
 ]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"

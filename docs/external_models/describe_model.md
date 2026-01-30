@@ -115,6 +115,10 @@ This creates `renv.lock` with exact versions of all dependencies, ensuring repro
 
 See the [minimalist R model example](https://github.com/dhis2-chap/chap-core/tree/master/minimalist_example_renv) for a complete working example.
 
+## Specifying prediction length constraints
+
+Include `min_prediction_length` and `max_prediction_length` in your model configuration to define how many time periods your model can predict ahead. When users need predictions beyond your `max_prediction_length`, CHAP automatically uses ExtendedPredictor to make iterative predictions (see [supporting functionality](supporting_functionality.md)).
+
 ## Model Configuration Options
 
 You can define configurable parameters in your MLproject file using `user_options`. This allows users to customize model behavior when running your model, without modifying the model code itself.
@@ -124,7 +128,7 @@ You can define configurable parameters in your MLproject file using `user_option
 Each option in `user_options` has the following fields:
 
 - `title`: Display name for the parameter
-- `type`: One of `string`, `integer`, `float`, or `boolean`
+- `type`: One of `string`, `integer`, `number`, `boolean`, or `array`
 - `description`: What the parameter does
 - `default`: Optional default value. If omitted, the parameter is required
 
@@ -158,7 +162,7 @@ user_options:
     description: "Number of lag periods to include in the model"
   learning_rate:
     title: learning_rate
-    type: float
+    type: number
     description: "Learning rate for training (required)"
 ```
 

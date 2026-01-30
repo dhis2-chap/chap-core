@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from chap_core.external.external_model import ExternalModel
     from chap_core.runners.runner import TrainPredictRunner
 
-from pydantic import Field, ValidationError, create_model
 
 logger = logging.getLogger(__name__)
 
@@ -89,40 +88,6 @@ class ModelTemplate:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit (no-op for compatibility with ExternalChapkitModelTemplate)."""
         pass
-
-    def get_config_class(self) -> type[ModelConfiguration]:
-        """This will probably not be used"""
-
-        fields = {}
-        types = {"string": str, "integer": int, "float": float, "boolean": bool}
-        if self._model_template_config.allow_free_additional_continuous_covariates:
-            fields["additional_continuous_covariates"] = (list[str], [])
-        for name, user_option in self._model_template_config.user_options.items():
-            T = types[user_option["type"]]
-            if user_option.get("default", None) is not None:
-                fields[user_option["title"]] = (T, Field(default=T(user_option["default"])))
-            else:
-                fields[user_option["title"]] = (T, ...)
-
-        # Note that this actually creates a pydantic class dynamically. For instance, if the
-        # template has user_options to select a parameterX with default value 0, the class returned could be:
-        # class ModelConfiguration(BaseModel):
-        #    parameterX: int= Field(default=0)
-        # the advantage of creating a pydantic class is that we can get automatic validation and typing
-        # when configuring a model template into a model
-
-        return create_model("ModelConfiguration", **fields)
-
-    def get_model_configuration_from_yaml(self, yaml_file: Path) -> ModelConfiguration:
-        with open(yaml_file, "r") as file:
-            logger.error(f"Reading yaml file {yaml_file}")
-            config = yaml.load(file, Loader=yaml.FullLoader)
-            logger.info(config)
-            try:
-                return self.get_config_class().model_validate(config)
-            except ValidationError as e:
-                logging.error(config)
-                raise e
 
     def get_default_model(self) -> "ExternalModel":
         return self.get_model()

@@ -1,21 +1,27 @@
 """
 Sample bias plot for backtests.
 
-This module provides a BackTestPlotBase implementation that generates
-evaluation dashboards showing the ratio of forecast samples above truth
-by horizon distance and time period.
+This module provides a backtest plot that shows the ratio of forecast samples
+above truth by horizon distance and time period.
 """
 
+from typing import Optional
+
 import altair as alt
+import pandas as pd
 
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.database.tables import BackTest
-from chap_core.plotting.backtest_plot import BackTestPlotBase, text_chart
+from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
-from chap_core.assessment.metrics.above_truth import RatioOfSamplesAboveTruth
+from chap_core.assessment.metrics import RatioAboveTruthMetric
+from chap_core.plotting.backtest_plot import text_chart
 
 
-class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
+@backtest_plot(
+    id="ratio_of_samples_above_truth",
+    name="Sample Bias Plot",
+    description="Backtest plot showing forecast bias relative to observations.",
+)
+class SampleBiasPlot(BacktestPlotBase):
     """
     Backtest plot showing forecast bias relative to observations.
 
@@ -25,68 +31,36 @@ class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
     - Time period and location (when/where the observation occurred)
     """
 
-    name = "Sample Bias Plot"
-    description = "Backtest plot showing forecast bias relative to observations."
-
-    def __init__(
+    def plot(
         self,
-        flat_observations: FlatObserved,
-        flat_forecasts: FlatForecasts,
-        title: str = "Sample Bias Dashboard",
-    ):
-        """
-        Initialize the sample bias plot.
-
-        Parameters
-        ----------
-        flat_observations : FlatObserved
-            Observations in flat format
-        flat_forecasts : FlatForecasts
-            Forecasts in flat format
-        title : str, optional
-            Title for the dashboard
-        """
-        self._flat_observations = flat_observations
-        self._flat_forecasts = flat_forecasts
-        self._title = title
-
-    @classmethod
-    def from_backtest(
-        cls, backtest: BackTest, title: str = "Sample Bias Dashboard"
-    ) -> "RatioOfSamplesAboveTruthBacktestPlot":
-        """
-        Create a SampleBiasPlot from a BackTest object.
-
-        Parameters
-        ----------
-        backtest : BackTest
-            The backtest object containing forecast and observation data
-        title : str, optional
-            Title for the dashboard
-
-        Returns
-        -------
-        RatioOfSamplesAboveTruthBacktestPlot
-            An instance ready to generate the plot
-        """
-        # Use Evaluation abstraction to get flat representation
-        evaluation = Evaluation.from_backtest(backtest)
-        flat_data = evaluation.to_flat()
-
-        return cls(flat_data.observations, flat_data.forecasts, title=title)
-
-    def plot(self) -> alt.Chart:
+        observations: pd.DataFrame,
+        forecasts: pd.DataFrame,
+        historical_observations: Optional[pd.DataFrame] = None,
+    ) -> ChartType:
         """
         Generate and return the dashboard visualization.
 
+        Parameters
+        ----------
+        observations : pd.DataFrame
+            Observed values with columns: location, time_period, disease_cases
+        forecasts : pd.DataFrame
+            Forecast samples with columns: location, time_period, horizon_distance,
+            sample, forecast
+        historical_observations : pd.DataFrame, optional
+            Not used by this plot
+
         Returns
         -------
-        alt.Chart
+        ChartType
             Altair chart containing the complete evaluation dashboard
         """
+        flat_observations = FlatObserved(observations)
+        flat_forecasts = FlatForecasts(forecasts)
+
         # Compute the ratio of samples above truth metric
-        metric = RatioOfSamplesAboveTruth()
-        metric_df = metric.compute(self._flat_observations, self._flat_forecasts)
+        metric = RatioAboveTruthMetric()
+        metric_df = metric.get_detailed_metric(flat_observations, flat_forecasts)
 
         charts = []
 
@@ -94,7 +68,7 @@ class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
         charts.append(
             alt.Chart()
             .mark_text(align="left", fontSize=20, fontWeight="bold")
-            .encode(text=alt.value(self._title))
+            .encode(text=alt.value("Sample Bias Dashboard"))
             .properties(height=24)
         )
 
@@ -106,19 +80,6 @@ class RatioOfSamplesAboveTruthBacktestPlot(BackTestPlotBase):
                 line_length=50,
             )
         )
-        # # Explanatory text
-        # charts.append(
-        #     alt.Chart()
-        #     .mark_text(align="left", fontSize=12)
-        #     .encode(
-        #         text=alt.value(
-        #             "These plots show biases in the samples returned by the model, "
-        #             "\nspecifically whether the samples generally are over or under the true observation.\n"
-        #             "This can be used to assess model calibration and tendency to over- or under-predict."
-        #         )
-        #     )
-        #     .properties(height=18)
-        # )
 
         # By horizon: aggregate by horizon_distance (mean across locations and time periods)
         horizon_df = metric_df.groupby(["horizon_distance"]).agg({"metric": "mean"}).reset_index()

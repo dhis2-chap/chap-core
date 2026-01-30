@@ -1,0 +1,5 @@
+FROM python:3.12.0-slim
+
+COPY tests/docker_db_flow_r_model.py docker_db_flow_r_model.py
+COPY example_data example_data
+RUN pip install requests
