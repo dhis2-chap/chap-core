@@ -255,6 +255,20 @@ class IntegrationTest:
         if errors:
             raise Exception("One or more evaluation with data errors, for details see above logs")
 
+    def get_job_logs(self, job_id):
+        """Get logs for a job and verify they are returned correctly."""
+        job_url = self._chap_url + f"/v1/jobs/{job_id}"
+        try:
+            response = requests.get(job_url + "/logs")
+            assert response.status_code == 200, f"Failed to get logs: {response.status_code}"
+            logs = response.text
+            assert logs is not None, "Logs should not be None"
+            assert isinstance(logs, str), f"Logs should be a string, got {type(logs)}"
+            return logs
+        except Exception as e:
+            logger.error(f"Failed to get logs for job {job_id}: {e}")
+            raise
+
     def wait_for_db_id(self, job_id):
         for _ in range(3000):
             job_url = self._chap_url + f"/v1/jobs/{job_id}"
@@ -262,11 +276,18 @@ class IntegrationTest:
             logger.info(job_status)
             if job_status == "failure":
                 try:
-                    logs = self._get(job_url + "/logs")
+                    logs = self.get_job_logs(job_id)
                 except:
                     logs = "Could not get logs"
                 raise ValueError(f"Failed job: {logs}")
             if job_status == "success":
+                # Verify logs are available for successful jobs
+                logs = self.get_job_logs(job_id)
+                logger.info(f"Job {job_id} logs retrieved successfully ({len(logs)} chars)")
+                # Verify logs don't contain sensitive data (database credentials)
+                assert "postgresql://" not in logs.lower() or "@" not in logs, (
+                    "Logs should not contain database credentials"
+                )
                 return self._get(job_url + "/database_result/")["id"]
             time.sleep(1)
         raise TimeoutError("Job took too long")
