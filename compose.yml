@@ -8,7 +8,6 @@ services:
       REDIS_PORT: 6379
       CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       CELERY_BROKER: redis://redis:6379/0
-      CHAP_LOGS_DIR: /tmp/chap/logs
     # for now some of the tests uses hardcoded names so we need to set the container name
     # TODO: Update the tests so they don't rely on hardcoded container names
     container_name: chap
@@ -50,7 +49,7 @@ services:
       C_FORCE_ROOT: 1 #TODO: Remove this when we have a proper user
       RENV_PATHS_ROOT: /data/renv
       UV_CACHE_DIR: /data/uv
-      CHAP_LOGS_DIR: /tmp/chap/logs
+      CHAP_LOGS_DIR: /data/logs
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
     extra_hosts:
@@ -65,7 +64,7 @@ services:
       - type: tmpfs
         target: /tmp
         tmpfs:
-          size: 10000000000  # 10GB for caches etc
+          size: 10000000000 # 10GB for caches etc
       - type: bind
         source: runs
         target: /app/runs
@@ -75,6 +74,9 @@ services:
       - type: volume
         source: uv
         target: /data/uv
+      - type: volume
+        source: logs
+        target: /data/logs
   redis:
     image: valkey/valkey:8
 
@@ -103,7 +105,7 @@ services:
 #      - "5001:8000"
 #    restart: unless-stopped
 
-  # ewars plus (uncomment to add ewars plus)
+# ewars plus (uncomment to add ewars plus)
 #  ewars_plus:
 #    image: maquins/ewars_plus_api:Upload
 #    container_name: ewars_plus
@@ -112,6 +114,7 @@ services:
 
 volumes:
   chap-db: {}
+  logs: {}
   renv: {}
   uv: {}
   runs:
