@@ -2,7 +2,7 @@
 
 In this guide, you'll install the CHAP command-line tool. Once installed, you can run chap evaluate to test any model against real datasets — which you'll do in the next guide in this session.
 
-\*\*Reminer: Windows users, Use WSL (Windows Subsystem for Linux) as covered in [Prepare for installation](../external_models/prepare-for-installation.md).
+**Reminder:** Windows users, use WSL (Windows Subsystem for Linux) as covered in [Prepare for installation](../external_models/prepare-for-installation.md).
 
 ## Installing CHAP
 

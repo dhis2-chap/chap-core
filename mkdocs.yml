@@ -76,11 +76,16 @@ nav:
               - For Newcomers: external_models/newcomer.md
               - For Experienced Modellers: external_models/experienced_modeller.md
               - Learning Modelling: external_models/learn_modelling.md
-          - Building Models:
-              - Train and Predict: external_models/train_and_predict.md
+          - Installing Chap Core:
               - Prepare for installation: external_models/prepare-for-installation.md
-              - Installation: chap-cli/chap-core-cli-setup.md
+              - Install Chap Core: chap-cli/chap-core-cli-setup.md
+              - Run minimalist example: chap-cli/minimalist-example.md
+          - Make your model Chap compatible:
+              - Train and Predict: external_models/train_and_predict.md
               - Describe Your Model: external_models/describe_model.md
+              - Python-models: external_models/python_models.md
+              - R-models: external_models/r_models.md
+          - Evaluate models with Chap:
               - Evaluating Models: external_models/running_models_in_chap.md
           - Integration:
               - Chapkit: external_models/chapkit.md
