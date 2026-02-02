@@ -12,7 +12,7 @@ Follow these steps if you're installing Chap Core for the first time.
 
 ## 1. Clone the Chap Core Repository
 
-```bash
+```console
 git clone https://github.com/dhis2-chap/chap-core.git
 cd chap-core
 ```
@@ -36,7 +36,7 @@ For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](htt
 
 ## 3. Start Chap Core
 
-```bash
+```console
 docker compose up
 ```
 
@@ -59,13 +59,13 @@ You can verify that Chap Core is running correctly by:
 
 2. **Check the health endpoint**:
 
-```bash
+```console
 curl http://localhost:8000/health
 ```
 
 3. **View service logs**:
 
-```bash
+```console
 docker compose logs -f
 ```
 
@@ -77,7 +77,7 @@ docker compose logs -f
 
 To stop all services:
 
-```bash
+```console
 docker compose down
 ```
 
@@ -87,13 +87,13 @@ This preserves your database data. To start again, simply run `docker compose up
 
 To view logs from all services:
 
-```bash
+```console
 docker compose logs -f
 ```
 
 To view logs from a specific service:
 
-```bash
+```console
 docker compose logs -f chap
 docker compose logs -f worker
 docker compose logs -f postgres
