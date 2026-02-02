@@ -39,7 +39,7 @@ For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](htt
 
 ## 3. Upgrade Chap Core
 
-```bash
+```console
 # Stop all containers first
 docker compose down
 
@@ -49,7 +49,7 @@ docker compose up --build -d
 
 NOTE: There might be issues with cached images. If you encounter problems, try forcing a fresh pull of all images:
 
-```bash
+```console
 docker compose build --no-cache
 docker compose up -d
 ```
@@ -66,7 +66,7 @@ The database migration happens automatically - you do not need to run any manual
 
 Check that the upgrade was successful, by checking the health endpoint of chap locally:
 
-```bash
+```console
 curl http://localhost:8000/health
 ```
 
@@ -74,7 +74,7 @@ curl http://localhost:8000/health
 
 If you encounter issues and need to restore from your backup:
 
-```bash
+```console
 # Stop the services
 docker compose down
 
@@ -100,7 +100,7 @@ docker compose up --build
 
 To stop all services:
 
-```bash
+```console
 docker compose down
 ```
 
@@ -110,13 +110,13 @@ This preserves your database data. To start again, simply run `docker compose up
 
 To view logs from all services:
 
-```bash
+```console
 docker compose logs -f
 ```
 
 To view logs from a specific service:
 
-```bash
+```console
 docker compose logs -f chap
 docker compose logs -f worker
 docker compose logs -f postgres
