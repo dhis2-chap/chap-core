@@ -80,6 +80,8 @@ nav:
               - Chapkit: external_models/chapkit.md
               - Describe Your Model: external_models/describe_model.md
               - Train and Predict: external_models/train_and_predict.md
+              - Prepare for installation: external_models/prepare_for_installation.md
+              - Installation: chap-cli/chap-core-cli-setup.md
               - Running Models: external_models/running_models_in_chap.md
           - Integration:
               - DHIS2 Connection: external_models/chap-dhis2-connection.md
@@ -88,7 +90,6 @@ nav:
               - Side by Side Comparison: external_models/side_by_side_comparison.md
       - CLI:
           - Overview: chap-cli/index.md
-          - Setup: chap-cli/chap-core-cli-setup.md
           - Evaluation Workflow: chap-cli/evaluation-workflow.md
           - evaluate2 Reference: chap-cli/evaluate2-reference.md
 

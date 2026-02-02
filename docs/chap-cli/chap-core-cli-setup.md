@@ -1,45 +1,37 @@
-# Setting up CHAP Core CLI Tool
+# 1. Installing Chap for model developers
 
-If you want to use CHAP Core on the command line, develop custom models, or integrate external forecasting models with CHAP, you should install the `chap-core` Python package.
+In this guide, you'll install the CHAP command-line tool. Once installed, you can run chap evaluate to test any model against real datasets — which you'll do in the next guide in this session.
 
-**Important: This guide is for end-users who need a stable version of CHAP Core.** If you are a developer and want to make changes or contribute to the CHAP Core codebase, follow the [getting started guide for contributors](../contributor/getting_started.md) instead.
+## Prerequisites
 
-## Installation
+You should have `uv` installed from [Session 2](../session-2/virtual-environments.md). If not, install it first:
 
-We recommend using [uv](https://docs.astral.sh/uv/) for installation. If you don't have uv installed, you can install it with:
-
-```console
+```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-On Windows, use:
+**Windows users:** Use WSL (Windows Subsystem for Linux) as covered in [Session 2](../session-2/terminal.md).
 
-```console
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+## Installing CHAP
+
+Install CHAP as a global tool using uv:
+
+```bash
+uv tool install chap-core --python 3.13
 ```
 
-Then install `chap-core`:
+This installs the `chap` command-line tool globally, making it available from any directory.
 
-```console
-uv tool install chap-core
-```
+## Exercise
 
-To install a specific version (e.g., v1.0.1):
+### Verify your installation
 
-```console
-uv tool install chap-core==1.0.1
-```
-
-## Verify Installation
-
-To verify that the installation worked, check that the `chap` command is available:
+Run the following command:
 
 ```bash
 chap --help
 ```
 
-You should see output listing available commands including `evaluate2`, `plot-backtest`, and `export-metrics`.
+You should see output listing available commands including `evaluate`, `plot-backtest`, and `export-metrics`.
 
-## Next Steps
-
-- Follow the [Evaluation Workflow](evaluation-workflow.md) guide to evaluate and compare models
+**Verification:** If you see the help output with available commands, CHAP is installed correctly. You're ready for the next guide: [Implement your own model from a minimalist example](fork-example.md).
