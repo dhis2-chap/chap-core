@@ -4,9 +4,10 @@ import typing
 import numpy as np
 import pytest
 from pydantic_geojson import PointModel
+from pydantic_geojson._base import Coordinates
 from sqlmodel import select, Session
 
-from chap_core.api_types import FeatureCollectionModel
+from chap_core.api_types import FeatureCollectionModel, FeatureModel
 from chap_core.database.dataset_tables import DataSet, Observation, DataSource
 from chap_core.database.tables import Prediction, BackTest, BackTestForecast, BackTestMetric, PredictionSamplesEntry
 from chap_core.rest_api.v1.rest_api import app
@@ -43,7 +44,12 @@ def backtest_params():
 def geojson(org_units) -> FeatureCollectionModel:
     return FeatureCollectionModel(
         features=[
-            {"type": "Feature", "id": ou, "properties": {"name": ou}, "geometry": PointModel(coordinates=[0.0, 0.0])}
+            FeatureModel(
+                type="Feature",
+                id=ou,
+                properties={"name": ou},
+                geometry=PointModel(coordinates=Coordinates(0.0, 0.0)),
+            )
             for ou in org_units
         ]
     )
@@ -72,10 +78,12 @@ def dataset_observations(feature_names: list[str], org_units: list[str], seen_pe
 
 
 def _generate_observations(
-    feature_names: list[str], org_units: list[str], seen_periods: list[str]
+    feature_names: list[str], org_units: list[str], seen_periods: list[str], dataset_id: int = 1
 ) -> list[Observation]:
     observations = [
-        Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2))
+        Observation(
+            org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2), dataset_id=dataset_id
+        )
         for ou_id, ou in enumerate(org_units)
         for fn in (feature_names + ["disease_cases"])
         for t, tp in enumerate(seen_periods)
@@ -88,7 +96,7 @@ def dataset_observations_weekly(
     feature_names: list[str], org_units: list[str], seen_periods_weekly: list[str]
 ) -> list[Observation]:
     observations = [
-        Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 52) / 2))
+        Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 52) / 2), dataset_id=1)
         for ou_id, ou in enumerate(org_units)
         for fn in (feature_names + ["disease_cases"])
         for t, tp in enumerate(seen_periods_weekly)
@@ -111,6 +119,7 @@ def _make_dataset(
 ) -> DataSet:
     return DataSet(
         name=name,
+        type="evaluation",
         geojson=geojson.model_dump_json(),
         observations=dataset_observations,
         covariates=feature_names + ["disease_cases"],
@@ -148,7 +157,7 @@ def dataset_wo_meta_observations(
     feature_names: list[str], org_units: list[str], seen_periods: list[str]
 ) -> list[Observation]:
     observations = [
-        Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2))
+        Observation(org_unit=ou, feature_name=fn, period=tp, value=float(ou_id + np.sin(t % 12) / 2), dataset_id=1)
         for ou_id, ou in enumerate(org_units)
         for fn in (feature_names + ["disease_cases"])
         for t, tp in enumerate(seen_periods)
@@ -160,6 +169,7 @@ def dataset_wo_meta_observations(
 def dataset_wo_meta(org_units, feature_names, seen_periods, dataset_wo_meta_observations, geojson):
     return DataSet(
         name="incomplete_dataset",
+        type="evaluation",
         geojson=geojson.model_dump_json(),
         observations=dataset_wo_meta_observations,
         covariates=feature_names + ["disease_cases"],
@@ -172,7 +182,9 @@ def dataset_wo_meta(org_units, feature_names, seen_periods, dataset_wo_meta_obse
 @pytest.fixture
 def predictions(future_periods, org_units):
     return [
-        PredictionSamplesEntry(period=tp, org_unit=ou, values=[float(tp_id + 0.1 * s) for s in range(10)])
+        PredictionSamplesEntry(
+            period=tp, org_unit=ou, values=[float(tp_id + 0.1 * s) for s in range(10)], prediction_id=1
+        )
         for tp_id, tp in enumerate(future_periods)
         for ou in org_units
     ]
@@ -183,6 +195,7 @@ def prediction(dataset, predictions):
     return Prediction(
         model_id="naive_model",
         model_db_id=1,
+        dataset_id=1,
         n_periods=3,
         name="test prediction",
         created=datetime.datetime.now(),
@@ -204,7 +217,7 @@ def forecasts_2(seen_periods, org_units, backtest_params):
 
 
 def _generate_forecasts(
-    backtest_params: BackTestParams, org_units: list[str], seen_periods: list[str]
+    backtest_params: BackTestParams, org_units: list[str], seen_periods: list[str], backtest_id: int = 1
 ) -> list[typing.Any]:
     start_split = len(seen_periods) - backtest_params.n_splits - backtest_params.n_periods
     forecasts = []
@@ -217,6 +230,7 @@ def _generate_forecasts(
                     last_seen_period=seen_periods[start],
                     period=seen_periods[start + t],
                     values=[float(t + 0.1 * p) for p in range(10)],
+                    backtest_id=backtest_id,
                 )
                 for t in range(backtest_params.n_periods)
                 for ou in org_units
@@ -231,6 +245,7 @@ def _generate_forecasts(
 def backtest(dataset, forecasts):
     return BackTest(
         name="test backtest",
+        dataset_id=1,
         dataset=dataset,
         forecasts=forecasts,
         model_id="naive_model",
@@ -243,6 +258,7 @@ def backtest(dataset, forecasts):
 def backtest_with_nans(dataset_with_nans, forecasts_2):
     return BackTest(
         name="test_backtest_with_nans",
+        dataset_id=1,
         dataset=dataset_with_nans,
         forecasts=forecasts_2,
         model_id="naive_model",

@@ -144,3 +144,24 @@ python_files = "test_*.py"
 # Import mode to avoid other assertion rewriting issues
 # Ignore specific test files that should not run
 addopts = "--import-mode=importlib --ignore=tests/test_meteostat_wrapper"
+
+[tool.pyright]
+pythonVersion = "3.13"
+# Only check conftest files initially - expand this list over time
+include = [
+    "tests/conftest.py",
+    "tests/integration/conftest.py",
+    "tests/integration/rest_api/conftest.py",
+    "tests/evaluation/conftest.py",
+    "tests/external/conftest.py",
+]
+exclude = [
+    "**/.venv",
+    "runs",
+    "external_models",
+]
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
+reportPrivateUsage = false
+reportMissingImports = "warning"
+reportMissingTypeStubs = false
