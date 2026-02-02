@@ -1,27 +1,31 @@
-# Running models through Chap
+# Evaluating Models in Chap
 
-In order to run Chap, you should first follow our [guide for how to install Chap](../chap-cli/chap-core-cli-setup.md).  
+In order to run Chap, you should first follow our [guide for how to install Chap](../chap-cli/chap-core-cli-setup.md).
 
-# Running models through the Chap command-line interface
 Models that are compatible with CHAP can be used with the `chap evaluate` command.
 An external model can be provided to CHAP in two ways:
+
 - By specifying a path to a local code base:
+
 ```bash
 $ chap evaluate --model-name /path/to/your/model/directory --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil --report-filename report.pdf --ignore-environment  --debug
 ```
+
 - By specifying a github URL to a git repo (the url needs to start with https://github.com/):
+
 ```bash
 $ chap evaluate --model-name https://github.com/dhis2-chap/minimalist_example --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil --report-filename report.pdf --ignore-environment  --debug
 ```
 
-Note the `--ignore-environment` in the above commands. 
-This means that we don't ask CHAP to use Docker or a Python environment when running the model. 
+Note the `--ignore-environment` in the above commands.
+This means that we don't ask CHAP to use Docker or a Python environment when running the model.
 This can be useful when developing and testing custom models before deploying them to a production environment.
-Instead the model will be run directly using the current environment you are in. 
-This usually works fine when developing a model, but requires you to have both chap-core and the dependencies of your model available. 
+Instead the model will be run directly using the current environment you are in.
+This usually works fine when developing a model, but requires you to have both chap-core and the dependencies of your model available.
 
 As an example, the following command runs the chap_auto_ewars model on public ISMIP data for Brazil (this does not use --ignore-environment and will set up
 a docker container based on the specifications in the MLproject file of the model):
+
 ```bash
 $ chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
 ```
