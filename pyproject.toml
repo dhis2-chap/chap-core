@@ -184,6 +184,8 @@ include = [
     "tests/assessment/",
     "tests/predictor/",
     "tests/hpo/",
+    "tests/property_tests/",
+    "tests/preference_learning/",
 ]
 exclude = [
     "**/.venv",
