@@ -14,14 +14,14 @@ Follow these steps if you already have Chap Core installed and want to update to
 
 **Important:** Before upgrading, create a backup of your database to prevent data loss in case of issues.
 
-```bash
+```console
 # Create a backup of the PostgreSQL database
 docker compose exec -T postgres pg_dump -U root chap_core > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 ## 2. Update the Repository
 
-```bash
+```console
 # Navigate to your chap-core directory
 cd chap-core
 
