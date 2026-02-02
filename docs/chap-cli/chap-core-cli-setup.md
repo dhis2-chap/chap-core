@@ -4,13 +4,13 @@ In this guide, you'll install the CHAP command-line tool. Once installed, you ca
 
 ## Prerequisites
 
-You should have `uv` installed from [Session 2](../session-2/virtual-environments.md). If not, install it first:
+You should have `uv` installed from [Prepare for installation](../external_models/prepare-for-installation.md). If not, install it first:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-**Windows users:** Use WSL (Windows Subsystem for Linux) as covered in [Session 2](../session-2/terminal.md).
+**Windows users:** Use WSL (Windows Subsystem for Linux) as covered in [Prepare for installation](../external_models/prepare-for-installation.md).
 
 ## Installing CHAP
 
