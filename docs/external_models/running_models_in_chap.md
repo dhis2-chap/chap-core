@@ -1,6 +1,6 @@
 # Running models through Chap
 
-In order to run Chap, you should first follow our [guide for how to install Chap](https://dhis2-chap.github.io/chap-core/chap-cli/chap-core-cli-setup.html).  
+In order to run Chap, you should first follow our [guide for how to install Chap](../chap-cli/chap-core-cli-setup.md).  
 
 # Running models through the Chap command-line interface
 Models that are compatible with CHAP can be used with the `chap evaluate` command.
