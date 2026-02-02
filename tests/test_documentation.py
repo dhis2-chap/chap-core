@@ -28,6 +28,9 @@ SKIP_FILES = [
     "docs/external_models/surplus_after_refactoring.md",  # Requires gluonts, downloads data
     # Files with commands that can't be safely tested (would run full test suite, etc.)
     "docs/contributor/testing.md",  # Contains pytest, make test-all commands
+    # Slow bash tests moved to test_documentation_slow.py
+    "docs/feature_tutorials/extended_predictor.md",
+    "docs/chap-cli/evaluation-workflow.md",
 ]
 
 
