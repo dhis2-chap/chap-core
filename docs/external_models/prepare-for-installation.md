@@ -4,6 +4,32 @@ By the end of this guide, you will know how to use tools like **uv** (Python) or
 
 ---
 
+## Chap on Windows
+
+Chap Core requires **WSL2 (Windows Subsystem for Linux 2)** to run on Windows. Install Chap within your WSL2 Ubuntu environment, not on the Windows filesystem, as installing Chap on the WSL2 Ubuntu environment significantly improves performance.
+
+### Install and Open WSL2
+
+1. **Install WSL2:** Follow the [official WSL2 installation guide](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+2. Open the **WSL** terminal from your Windows Start Menu by searching for "WSL"
+
+3. On first launch, you'll be prompted to create a Unix username and password.
+
+4. Create a projects directory within Ubuntu/WSL2:
+
+```console
+mkdir -p ~/projects
+```
+
+5. Navigate to your projects folder:
+
+```console
+cd ~/projects
+```
+
+6. Within this folder, you will later clone and install chap-core. When referring to the _terminal_ later in this guide, please execute these commands within this folder using WSL2.
+
 ## What Are Virtual Environments?
 
 A **virtual environment** is an isolated space where your project's dependencies (packages and libraries) live separately from other projects. Without isolation, installing packages for one project can break another — for example, if Project A needs `pandas 1.5` but Project B needs `pandas 2.0`.
