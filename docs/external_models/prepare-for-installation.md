@@ -73,19 +73,11 @@ source .venv/bin/activate
 
 When activated, your terminal prompt changes (usually showing `(.venv)`) and `python` points to the virtual environment's interpreter.
 
-### Deactivate the environment
-
-```console
-deactivate
-```
-
-This returns you to your system Python.
-
 **Further reading:** [Python venv documentation](https://docs.python.org/3/library/venv.html)
 
 ---
 
-## 2. Install uv (Python users)
+## 2. Install uv
 
 **uv** is a fast, modern replacement for `venv` + `pip`. It creates virtual environments and manages packages automatically — no need to activate/deactivate manually. We recommend uv for CHAP projects.
 
@@ -101,7 +93,7 @@ brew install uv
 </details>
 
 <details markdown="1">
-<summary><strong>macOS / Linux / WSL (alternative)</strong></summary>
+<summary><strong>Linux / WSL (Ubuntu/Debian)</strong></summary>
 
 ```console
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -119,90 +111,3 @@ uv --version
 You should see something like `uv 0.9.0`.
 
 ---
-
-## 3. Install renv (R users)
-
-**Official guide:** [rstudio.github.io/renv](https://rstudio.github.io/renv/)
-
-### 1. Install R and RStudio
-
-You need to have R installed to use renv. RStudio is a popular IDE for R, but is optional.
-
-<details markdown="1">
-<summary><strong>macOS</strong></summary>
-
-```console
-brew install r
-```
-
-(Optional) Install RStudio:
-
-```console
-brew install --cask rstudio
-```
-
-</details>
-
-<details markdown="1">
-<summary><strong>Linux / WSL (Ubuntu/Debian)</strong></summary>
-
-```console
-sudo apt update
-sudo apt install r-base
-```
-
-(Optional) Install RStudio by downloading the `.deb` file and installing it:
-
-```console
-# Download the latest RStudio .deb from https://posit.co/download/rstudio-desktop/
-# Then install with:
-sudo apt install ./rstudio-*.deb
-```
-
-</details>
-
-### 2. Install renv
-
-In R or RStudio, run:
-
-```r
-install.packages("renv")
-```
-
-### 3. Verify
-
-```r
-library(renv)
-packageVersion("renv")
-```
-
-You should see a version number.
-
----
-
-## Quick Reference
-
-### venv (Python)
-
-| Task               | Command                     |
-| ------------------ | --------------------------- |
-| Create environment | `python -m venv .venv`      |
-| Activate           | `source .venv/bin/activate` |
-| Install a package  | `pip install <package>`     |
-| Deactivate         | `deactivate`                |
-
-### uv (Python)
-
-| Task                 | Command                   |
-| -------------------- | ------------------------- |
-| Install dependencies | `uv sync`                 |
-| Add a package        | `uv add <package>`        |
-| Run a script         | `uv run python script.py` |
-
-### renv (R)
-
-| Task                 | Command            |
-| -------------------- | ------------------ |
-| Restore dependencies | `renv::restore()`  |
-| Save new packages    | `renv::snapshot()` |
-| Check status         | `renv::status()`   |
