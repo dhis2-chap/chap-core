@@ -32,7 +32,9 @@ lint: ## check and fix code style with ruff, run type checking
 	uv run ruff check --fix
 	@echo "Formatting code..."
 	uv run ruff format
-	@echo "Type checking..."
+	@echo "Type checking (mypy)..."
+	uv run mypy
+	@echo "Type checking (pyright)..."
 	uv run pyright
 
 test: ## run tests quickly with minimal output

@@ -145,15 +145,43 @@ python_files = "test_*.py"
 # Ignore specific test files that should not run
 addopts = "--import-mode=importlib --ignore=tests/test_meteostat_wrapper"
 
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+check_untyped_defs = true
+no_implicit_optional = true
+strict_equality = true
+follow_imports = "skip"  # Workaround for pydantic_geojson bug
+files = [
+    "tests/conftest.py",
+    "tests/integration/conftest.py",
+    "tests/integration/rest_api/conftest.py",
+    "tests/evaluation/conftest.py",
+    "tests/external/conftest.py",
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
 [tool.pyright]
 pythonVersion = "3.13"
-# Only check conftest files initially - expand this list over time
+# Expand this list over time as more files are cleaned up
 include = [
     "tests/conftest.py",
     "tests/integration/conftest.py",
     "tests/integration/rest_api/conftest.py",
     "tests/evaluation/conftest.py",
     "tests/external/conftest.py",
+    # Quick wins (0 errors):
+    "tests/plotting/",
+    "tests/services/",
+    "tests/simulation/",
+    "tests/runners/",
+    "tests/spatio_temporal_data/",
+    "tests/api/",
+    "tests/assessment/",
 ]
 exclude = [
     "**/.venv",

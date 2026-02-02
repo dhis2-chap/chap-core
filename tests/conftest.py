@@ -18,7 +18,7 @@ from chap_core import util
 from chap_core.api_types import RequestV1
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import DataSet, ObservationBase
-from chap_core.datatypes import HealthPopulationData, SimpleClimateData
+from chap_core.datatypes import FullData, HealthPopulationData, SimpleClimateData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.data_models import FetchRequest
 from chap_core.rest_api.v1.routers.crud import DatasetCreate
