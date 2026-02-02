@@ -4,34 +4,9 @@ import logging
 from pathlib import Path
 from typing import Literal, Optional
 
-import yaml
-
 from pydantic import BaseModel
 
 from chap_core.api_types import BackTestParams, RunConfig
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.database.model_templates_and_config_tables import (
-    ConfiguredModelDB,
-    ModelConfiguration,
-    ModelTemplateDB,
-)
-from chap_core.hpo.base import load_search_space_from_config
-from chap_core.log_config import initialize_logging
-from chap_core.models.model_template import ModelTemplate
-from chap_core.preference_learning.decision_maker import (
-    DecisionMaker,
-    MetricDecisionMaker,
-    VisualDecisionMaker,
-)
-from chap_core.preference_learning.preference_learner import (
-    ModelCandidate,
-    TournamentPreferenceLearner,
-)
-
-from chap_core.cli_endpoints._common import (
-    discover_geojson,
-    load_dataset_from_csv,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +20,7 @@ class PreferenceLearningParams(BaseModel):
     lower_is_better: bool = True
 
 
-def _compute_metrics(evaluation: Evaluation) -> dict:
+def _compute_metrics(evaluation) -> dict:
     """
     Compute metrics from an evaluation.
 
@@ -76,11 +51,11 @@ def _compute_metrics(evaluation: Evaluation) -> dict:
 
 
 def _create_evaluation(
-    model_candidate: ModelCandidate,
+    model_candidate,
     dataset,
-    backtest_params: BackTestParams,
-    run_config: RunConfig,
-) -> Evaluation:
+    backtest_params,
+    run_config,
+):
     """
     Create an Evaluation for a model candidate.
 
@@ -93,6 +68,14 @@ def _create_evaluation(
     Returns:
         Evaluation object with backtest results
     """
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.database.model_templates_and_config_tables import (
+        ConfiguredModelDB,
+        ModelConfiguration,
+        ModelTemplateDB,
+    )
+    from chap_core.models.model_template import ModelTemplate
+
     logger.info(f"Loading model template from {model_candidate.model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_candidate.model_name,
@@ -163,6 +146,21 @@ def preference_learn(
         run_config: Model run environment configuration
         learning_params: Preference learning configuration
     """
+    import yaml
+
+    from chap_core.cli_endpoints._common import discover_geojson, load_dataset_from_csv
+    from chap_core.hpo.base import load_search_space_from_config
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.preference_learning.decision_maker import (
+        DecisionMaker,
+        MetricDecisionMaker,
+        VisualDecisionMaker,
+    )
+    from chap_core.preference_learning.preference_learner import (
+        TournamentPreferenceLearner,
+    )
+
     initialize_logging(run_config.debug, run_config.log_file)
 
     logger.info(f"Starting preference learning for model: {model_name}")

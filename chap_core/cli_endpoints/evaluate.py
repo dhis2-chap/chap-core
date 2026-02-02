@@ -4,99 +4,60 @@ import logging
 from pathlib import Path
 from typing import Annotated, Literal, Optional
 
-import pandas as pd
-import yaml
 from cyclopts import Parameter
 
 from chap_core.api_types import BackTestParams, RunConfig
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.datatypes import FullData
-from chap_core.exceptions import NoPredictionsError
-from chap_core.geometry import Polygons
-from chap_core.hpo.base import load_search_space_from_config
-from chap_core.hpo.hpoModel import HpoModel, Direction
-from chap_core.hpo.objective import Objective
-from chap_core.hpo.searcher import RandomSearcher
-from chap_core.log_config import initialize_logging
-from chap_core.models.external_model import ExternalModel
-from chap_core.models.model_template import ModelTemplate
-from chap_core.predictor import ModelType
-from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core import get_temp_dir
-from chap_core.file_io.example_data_set import datasets, DataSetType
-from chap_core.external.ExtendedPredictor import ExtendedPredictor
-
-from chap_core.cli_endpoints._common import (
-    create_model_lists,
-    discover_geojson,
-    get_model,
-    load_dataset,
-    load_dataset_from_csv,
-    save_results,
-)
 
 logger = logging.getLogger(__name__)
 
 
 def evaluate_hpo(
-    model_name: ModelType | str,
-    dataset_name: Optional[DataSetType] = None,
+    model_name: str,
+    dataset_name: Optional[str] = None,
     dataset_country: Optional[str] = None,
     dataset_csv: Optional[Path] = None,
     polygons_json: Optional[Path] = None,
     polygons_id_field: Optional[str] = "id",
     prediction_length: int = 3,
     n_splits: int = 7,
-    report_filename: Optional[str] = str(get_temp_dir() / "report.pdf"),
+    report_filename: Optional[str] = None,
     ignore_environment: bool = False,
     debug: bool = False,
     log_file: Optional[str] = None,
     run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
     model_configuration_yaml: Optional[str] = None,
     metric: Optional[str] = "MSE",
-    direction: Direction = "minimize",
+    direction: str = "minimize",
     do_hpo: Optional[bool] = True,
 ):
     """
     Same as evaluate, but has three added arguments and a if check on argument do_hpo.
     """
+    import pandas as pd
+    import yaml
+
+    from chap_core import get_temp_dir
+    from chap_core.assessment.prediction_evaluator import evaluate_model
+    from chap_core.cli_endpoints._common import create_model_lists, load_dataset
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.exceptions import NoPredictionsError
+    from chap_core.external.ExtendedPredictor import ExtendedPredictor
+    from chap_core.hpo.base import load_search_space_from_config
+    from chap_core.hpo.hpoModel import HpoModel
+    from chap_core.hpo.objective import Objective
+    from chap_core.hpo.searcher import RandomSearcher
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.model_template import ModelTemplate
+
     initialize_logging(debug, log_file)
-    if dataset_name is None:
-        assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
-        logging.info(f"Loading dataset from {dataset_csv}")
-        dataset = DataSet.from_csv(dataset_csv, FullData)
-        if polygons_json is not None:
-            logging.info(f"Loading polygons from {polygons_json}")
-            polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)
-            polygons.filter_locations(dataset.locations())
-            dataset.set_polygons(polygons.data)
-    else:
-        logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
 
-        dataset = datasets[dataset_name]
-        dataset = dataset.load()
+    if report_filename is None:
+        report_filename = str(get_temp_dir() / "report.pdf")
 
-        if isinstance(dataset, MultiCountryDataSet):
-            assert dataset_country is not None, "Must specify a country for multi country datasets"
-            assert dataset_country in dataset.countries, (
-                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
-            )
-            dataset = dataset[dataset_country]
+    dataset = load_dataset(dataset_country, dataset_csv, dataset_name, polygons_id_field, polygons_json)
+    logger.info(f"Evaluating model {model_name}")
 
-    if "," in model_name:
-        model_list = model_name.split(",")
-        model_configuration_yaml_list = [None for _ in model_list]
-        if model_configuration_yaml is not None:
-            model_configuration_yaml_list = model_configuration_yaml.split(",")
-            assert len(model_list) == len(model_configuration_yaml_list), (
-                "Number of model configurations does not match number of models"
-            )
-    else:
-        model_list = [model_name]
-        model_configuration_yaml_list = [model_configuration_yaml]
+    model_configuration_yaml_list, model_list = create_model_lists(model_configuration_yaml, model_name)
 
     logging.info(f"Model configuration: {model_configuration_yaml_list}")
 
@@ -181,15 +142,15 @@ def evaluate_hpo(
 
 
 def evaluate(
-    model_name: ModelType | str,
-    dataset_name: Optional[DataSetType] = None,
+    model_name: str,
+    dataset_name: Optional[str] = None,
     dataset_country: Optional[str] = None,
     dataset_csv: Optional[Path] = None,
     polygons_json: Optional[Path] = None,
     polygons_id_field: Optional[str] = "id",
     prediction_length: int = 6,
     n_splits: int = 7,
-    report_filename: Optional[str] = str(get_temp_dir() / "report.pdf"),
+    report_filename: Optional[str] = None,
     ignore_environment: bool = False,
     debug: bool = False,
     log_file: Optional[str] = None,
@@ -197,7 +158,23 @@ def evaluate(
     model_configuration_yaml: Optional[str] = None,
     is_chapkit_model: bool = False,
 ):
+    from chap_core import get_temp_dir
+    from chap_core.assessment.prediction_evaluator import evaluate_model
+    from chap_core.cli_endpoints._common import (
+        create_model_lists,
+        get_model,
+        load_dataset,
+        save_results,
+    )
+    from chap_core.exceptions import NoPredictionsError
+    from chap_core.external.ExtendedPredictor import ExtendedPredictor
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.external_model import ExternalModel
+
     initialize_logging(debug, log_file)
+
+    if report_filename is None:
+        report_filename = str(get_temp_dir() / "report.pdf")
     logger.info(f"Evaluating model {model_name}")
     dataset = load_dataset(dataset_country, dataset_csv, dataset_name, polygons_id_field, polygons_json)
     model_configuration_yaml_list, model_list = create_model_lists(model_configuration_yaml, model_name)
@@ -314,7 +291,18 @@ def evaluate2(
         chap evaluate2 --model-name ./my_model --dataset-csv ./data.csv \\
             --output-file ./eval.nc --data-source-mapping ./column_mapping.json
     """
-    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+    import yaml
+
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.cli_endpoints._common import discover_geojson, load_dataset_from_csv
+    from chap_core.database.model_templates_and_config_tables import (
+        ConfiguredModelDB,
+        ModelConfiguration,
+        ModelTemplateDB,
+    )
+    from chap_core.external.ExtendedPredictor import ExtendedPredictor
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.model_template import ModelTemplate
 
     logger.info(f"Evaluating model {model_name} with xarray/NetCDF output")
 
