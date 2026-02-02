@@ -33,7 +33,7 @@ Python includes a built-in module called `venv` for creating virtual environment
 
 ### Create a virtual environment
 
-```bash
+```console
 python -m venv .venv
 ```
 
@@ -41,7 +41,7 @@ This creates a `.venv` folder containing a copy of the Python interpreter and a 
 
 ### Activate the environment
 
-```bash
+```console
 source .venv/bin/activate
 ```
 
@@ -49,7 +49,7 @@ When activated, your terminal prompt changes (usually showing `(.venv)`) and `py
 
 ### Deactivate the environment
 
-```bash
+```console
 deactivate
 ```
 
@@ -68,7 +68,7 @@ This returns you to your system Python.
 <details markdown="1">
 <summary><strong>macOS</strong></summary>
 
-```bash
+```console
 brew install uv
 ```
 
@@ -77,7 +77,7 @@ brew install uv
 <details markdown="1">
 <summary><strong>macOS / Linux / WSL (alternative)</strong></summary>
 
-```bash
+```console
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 ```
@@ -86,7 +86,7 @@ source $HOME/.local/bin/env
 
 ### Verify
 
-```bash
+```console
 uv --version
 ```
 
@@ -105,13 +105,13 @@ You need to have R installed to use renv. RStudio is a popular IDE for R, but is
 <details markdown="1">
 <summary><strong>macOS</strong></summary>
 
-```bash
+```console
 brew install r
 ```
 
 (Optional) Install RStudio:
 
-```bash
+```console
 brew install --cask rstudio
 ```
 
@@ -120,14 +120,14 @@ brew install --cask rstudio
 <details markdown="1">
 <summary><strong>Linux / WSL (Ubuntu/Debian)</strong></summary>
 
-```bash
+```console
 sudo apt update
 sudo apt install r-base
 ```
 
 (Optional) Install RStudio by downloading the `.deb` file and installing it:
 
-```bash
+```console
 # Download the latest RStudio .deb from https://posit.co/download/rstudio-desktop/
 # Then install with:
 sudo apt install ./rstudio-*.deb
@@ -163,7 +163,7 @@ Install Docker if you plan to run CHAP models in containers or share reproducibl
 <details markdown="1">
 <summary><strong>macOS</strong></summary>
 
-```bash
+```console
 brew install --cask docker
 ```
 
@@ -183,7 +183,7 @@ Download [Docker Desktop for Windows](https://www.docker.com/products/docker-des
 <details markdown="1">
 <summary><strong>Linux (Ubuntu/Debian)</strong></summary>
 
-```bash
+```console
 sudo apt-get update
 sudo apt-get install docker.io
 sudo systemctl start docker
@@ -197,7 +197,7 @@ Then log out and log back in.
 
 ### Verify
 
-```bash
+```console
 docker --version
 ```
 
@@ -252,7 +252,7 @@ Choose either **Python** or **R** based on your preference.
 
 Create a virtual environment, install a package, and verify it works:
 
-```bash
+```console
 # Create a new directory and enter it
 mkdir venv-test
 cd venv-test
@@ -278,7 +278,7 @@ deactivate
 
 #### 2. Test uv
 
-```bash
+```console
 # Create a new directory and enter it
 mkdir uv-test
 cd uv-test
@@ -299,7 +299,7 @@ uv run python -c "import numpy; print(numpy.__version__)"
 
 Create a new directory and initialize an renv project:
 
-```bash
+```console
 # Create a new directory and enter it
 mkdir renv-test
 cd renv-test
