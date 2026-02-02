@@ -182,6 +182,8 @@ include = [
     "tests/spatio_temporal_data/",
     "tests/api/",
     "tests/assessment/",
+    "tests/predictor/",
+    "tests/hpo/",
 ]
 exclude = [
     "**/.venv",
