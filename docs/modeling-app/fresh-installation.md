@@ -21,7 +21,7 @@ cd chap-core
 
 Fetch the available versions and checkout the version you want to install. Check the releases on GitHub to see what the latest release is.
 
-```bash
+```console
 # Fetch all tags
 git fetch --tags
 
