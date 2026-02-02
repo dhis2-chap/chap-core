@@ -59,9 +59,11 @@ nav:
   - Getting Started: index.md
   - DHIS2 Implementers:
       - Overview: modeling-app/index.md
-      - Installation: modeling-app/installation.md
-      - Using the App: modeling-app/modeling-app.md
-      - Server Deployment: modeling-app/running-chap-on-server.md
+      - Installation:
+          - Installation overview: modeling-app/installation.md
+          - Recommendation for server deployment: modeling-app/running-chap-on-server.md
+          - First-time Setup: modeling-app/fresh-installation.md
+          - Updating to a New Version: modeling-app/upgrading-installation.md
       - "Using the modeling app":
           - Getting started: "modeling-app/using-the-modeling-app/getting-started"
           - Creating an evaluation: "modeling-app/using-the-modeling-app/creating-an-evaluation"
