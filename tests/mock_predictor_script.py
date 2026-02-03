@@ -8,11 +8,11 @@ from chap_core.datatypes import (
 from chap_core.predictor.naive_predictor import (
     MultiRegionNaivePredictor,
 )
-import typer
+from cyclopts import App
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-app = typer.Typer()
+app = App()
 
 
 @app.command()
