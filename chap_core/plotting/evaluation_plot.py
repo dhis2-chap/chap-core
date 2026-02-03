@@ -17,6 +17,8 @@ class MetricPlotV2(abc.ABC):
     Differnet plots can process this data in the way they want to produce a plot
     """
 
+    visualization_info: "VisualizationInfo"  # Declared by subclasses
+
     def __init__(self, metric_data: pd.DataFrame, geojson: Optional[dict] = None):
         self._metric_data = metric_data
 

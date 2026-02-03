@@ -82,6 +82,7 @@ class State(BaseModel):
     ready: bool
     status: str
     progress: float = 0
+    logs: str = ""
 
 
 internal_state = InternalState(Control({}), {})
@@ -92,8 +93,8 @@ state = State(ready=True, status="idle")
 worker: CeleryPool[Any] = CeleryPool()
 
 
-def set_cur_response(response):
-    state["response"] = response
+def set_cur_response(response: Any) -> None:
+    internal_state.current_job = SeededJob(result=response)
 
 
 @app.get("favicon.ico")

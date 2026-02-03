@@ -73,7 +73,7 @@ def make_dataset(
         ValidationError(reason="Missing polygon in geojson", orgUnit=location, feature_name="polygon", time_periods=[])
         for location in polygon_rejected
     )
-    imported_count = len(provided_data.locations())
+    imported_count = len(list(provided_data.locations()))
     if imported_count == 0:
         raise HTTPException(status_code=500, detail="Missing values. No data was imported.")
     request.type = "evaluation"
@@ -158,10 +158,10 @@ def get_compatible_backtests(
     ids = [id for id, o, s in res if set(o) & org_units and set(s) & split_periods]
     backtests = session.exec(
         select(BackTest)
-        .where(BackTest.id.in_(ids))
+        .where(BackTest.id.in_(ids))  # type: ignore[union-attr, attr-defined]
         .options(
-            selectinload(BackTest.dataset).defer(DataSetTable.geojson),
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+            selectinload(BackTest.dataset).defer(DataSetTable.geojson),  # type: ignore[arg-type]
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).all()
     return backtests
@@ -207,7 +207,7 @@ async def get_prediction_entry(
             period=forecast.period,
             orgUnit=forecast.org_unit,
             quantile=q,
-            value=np.quantile(forecast.values, q),
+            value=float(np.quantile(forecast.values, q)),
         )
         for forecast in prediction.forecasts
         for q in quantiles
@@ -248,21 +248,22 @@ async def get_evaluation_entries(
     if split_period:
         expr = expr.where(cls.last_seen_period == split_period)
     if org_units_set and not return_summed:
-        expr = expr.where(cls.org_unit.in_(org_units_set))
-    forecasts = session.exec(expr)
+        expr = expr.where(cls.org_unit.in_(org_units_set))  # type: ignore[attr-defined]
+    forecasts_result = session.exec(expr)
 
-    logger.info(forecasts)
+    logger.info(forecasts_result)
 
+    forecasts_list: list[BackTestForecast]
     if return_summed:
         # sum forecasts over all regions
-        summed_forecasts = {}
-        for forecast in forecasts:
+        summed_forecasts: dict[tuple[str, str], Any] = {}
+        for forecast in forecasts_result:
             key = (forecast.period, forecast.last_seen_period)
             if key not in summed_forecasts:
                 summed_forecasts[key] = np.array([0.0] * len(forecast.values))
             summed_forecasts[key] += np.array(forecast.values)
 
-        forecasts = [
+        forecasts_list = [
             BackTestForecast(
                 period=key[0],
                 org_unit="adm0",
@@ -271,6 +272,8 @@ async def get_evaluation_entries(
             )
             for key, values in summed_forecasts.items()
         ]
+    else:
+        forecasts_list = list(forecasts_result)
 
     return [
         EvaluationEntry(
@@ -278,9 +281,9 @@ async def get_evaluation_entries(
             orgUnit=forecast.org_unit,
             quantile=q,
             splitPeriod=forecast.last_seen_period,
-            value=np.quantile(forecast.values, q),
+            value=float(np.quantile(forecast.values, q)),
         )
-        for forecast in forecasts
+        for forecast in forecasts_list
         for q in quantiles
     ]
 
@@ -357,12 +360,11 @@ def get_prediction_entries(
         raise HTTPException(status_code=404, detail="Prediction not found")
     return [
         PredictionEntry(
-            period=forecast.period, orgUnit=forecast.org_unit, quantile=q, value=np.quantile(forecast.values, q)
+            period=forecast.period, orgUnit=forecast.org_unit, quantile=q, value=float(np.quantile(forecast.values, q))
         )
         for forecast in prediction.forecasts
         for q in quantiles
     ]
-    raise HTTPException(status_code=501, detail="Not implemented")
 
 
 @router.get("/actualCases/{backtestId}", response_model=DataList)
@@ -392,7 +394,7 @@ async def get_actual_cases(
     expr = select(Observation).where(Observation.dataset_id == dataset_id)
     if org_units is not None and not return_summed:
         org_units_set = set(org_units)
-        expr = expr.where(Observation.org_unit.in_(org_units_set))
+        expr = expr.where(Observation.org_unit.in_(org_units_set))  # type: ignore[attr-defined]
     observations = session.exec(expr).all()
     logger.info(f"Observations: {observations}")
     data_list = [
@@ -516,7 +518,7 @@ async def create_backtest_with_data(
         ValidationError(reason="Missing polygon in geojson", orgUnit=location, feature_name="polygon", time_periods=[])
         for location in polygon_rejected
     )
-    imported_count = len(provided_data_processed.locations())
+    imported_count = len(list(provided_data_processed.locations()))
     if dry_run:
         return ImportSummaryResponse(id=None, imported_count=imported_count, rejected=rejections)
 
@@ -530,7 +532,7 @@ async def create_backtest_with_data(
         )
 
     logger.info(
-        f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(provided_data_processed.locations())} locations"
+        f"Creating backtest with data: {request.name}, model_id: {request.model_id} on {len(list(provided_data_processed.locations()))} locations"
     )
     if request.data_to_be_fetched:
         raise HTTPException(

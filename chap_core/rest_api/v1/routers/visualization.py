@@ -1,6 +1,7 @@
 import json
 import logging
 from functools import partial
+from typing import Type
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
@@ -18,6 +19,7 @@ from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.evaluation_plot import (
     MetricByHorizonV2Mean,
     MetricMapV2,
+    MetricPlotV2,
     VisualizationInfo,
     make_plot_from_backtest_object,
 )
@@ -31,7 +33,11 @@ router = APIRouter(prefix="/visualization", tags=["Visualization"])
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 
-metric_plots_registry = {cls.visualization_info.id: cls for cls in [MetricByHorizonV2Mean, MetricMapV2]}
+# Type annotation for registry - concrete subclasses with visualization_info
+metric_plots_registry: dict[str, Type[MetricPlotV2]] = {
+    MetricByHorizonV2Mean.visualization_info.id: MetricByHorizonV2Mean,
+    MetricMapV2.visualization_info.id: MetricMapV2,
+}
 
 
 # List visualizations
@@ -77,7 +83,6 @@ def generate_visualization(
     visualization_name: str, backtest_id: int, metric_id: str, session: Session = Depends(get_session)
 ):
     backtest = session.get(BackTest, backtest_id)
-    geojson = json.loads(backtest.dataset.geojson)
     if not backtest:
         return {"error": "Backtest not found"}
 
@@ -87,6 +92,8 @@ def generate_visualization(
     if visualization_name not in metric_plots_registry:
         return {"error": f"Visualization {visualization_name} not found"}
 
+    geojson_str = backtest.dataset.geojson
+    geojson = json.loads(geojson_str) if geojson_str else None
     plot_class = metric_plots_registry[visualization_name]
     metric = available_metrics[metric_id]()
     plot_spec = make_plot_from_backtest_object(backtest, plot_class, metric, geojson)
@@ -95,7 +102,7 @@ def generate_visualization(
 
 @router.get("/dataset-plots/{visualization_name}/{dataset_id}")
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
-    plots = {
+    plots: dict[str, type[StandardizedFeaturePlot] | type[SeasonCorrelationBarPlot]] = {
         "standardized-feature-plot": StandardizedFeaturePlot,
         "seasonal-correlation-plot": SeasonCorrelationBarPlot,
     }
@@ -105,9 +112,7 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
     sw = SessionWrapper(session=session)
     dataset = sw.get_dataset(dataset_id)
     df = dataset.to_pandas()
-    plotter_cls = plots.get(visualization_name)
-    if plotter_cls is None:
-        return {"error": f"Visualization {visualization_name} not found"}
+    plotter_cls = plots[visualization_name]
     plotter = plotter_cls.from_pandas(df)
     chart = plotter.plot_spec()
     return JSONResponse(chart)
