@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 import time
-from typing import List, Optional
+from typing import List, Optional, cast
 
 import psycopg2
 import sqlalchemy
@@ -66,10 +66,16 @@ class SessionWrapper:
 
     def __init__(self, local_engine=None, session=None):
         self.engine = local_engine  #  or engine
-        self.session: Optional[Session] = session
+        self._session: Optional[Session] = session
+
+    @property
+    def session(self) -> Session:
+        """Get the session, asserting it's not None."""
+        assert self._session is not None, "Session not initialized - use context manager or pass session to __init__"
+        return self._session
 
     def __enter__(self):
-        self.session = Session(self.engine)
+        self._session = Session(self.engine)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -94,7 +100,7 @@ class SessionWrapper:
         ).first()
         if existing_template:
             logger.info(f"Model template with name {model_template.name} already exists. Returning existing id")
-            return existing_template.id
+            return cast(int, existing_template.id)
 
         # add db entry
         logger.info(f"Adding model template: {model_template}")
@@ -102,7 +108,7 @@ class SessionWrapper:
         self.session.commit()
 
         # return id
-        return model_template.id
+        return cast(int, model_template.id)
 
     def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
         """Sets the ModelSpecRead a yaml string.
@@ -129,14 +135,14 @@ class SessionWrapper:
             # Unarchive if it was previously archived
             existing_template.archived = False
             self.session.commit()
-            return existing_template.id
+            return cast(int, existing_template.id)
 
         # Create new template
         db_object = ModelTemplateDB(**d)
         logger.info(f"Adding model template: {db_object}")
         self.session.add(db_object)
         self.session.commit()
-        return db_object.id
+        return cast(int, db_object.id)
 
     def add_configured_model(
         self,
@@ -163,7 +169,7 @@ class SessionWrapper:
         existing_configured = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == name)).first()
         if existing_configured:
             logger.info(f"Configured model with name {name} already exists. Returning existing id")
-            return existing_configured.id
+            return cast(int, existing_configured.id)
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
@@ -180,7 +186,7 @@ class SessionWrapper:
         self.session.commit()
 
         # return id
-        return configured_model.id
+        return cast(int, configured_model.id)
 
     def get_configured_models(self) -> List[ModelSpecRead]:
         # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?

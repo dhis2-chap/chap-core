@@ -106,6 +106,8 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
     dataset = sw.get_dataset(dataset_id)
     df = dataset.to_pandas()
     plotter_cls = plots.get(visualization_name)
+    if plotter_cls is None:
+        return {"error": f"Visualization {visualization_name} not found"}
     plotter = plotter_cls.from_pandas(df)
     chart = plotter.plot_spec()
     return JSONResponse(chart)

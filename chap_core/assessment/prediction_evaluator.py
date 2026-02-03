@@ -255,7 +255,7 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
 
     # Build observations dict from test period observations
     observations = backtest.dataset.observations
-    obs_by_location = defaultdict(dict)
+    obs_by_location: defaultdict[str, dict[str, float]] = defaultdict(dict)
     for obs in observations:
         if obs.feature_name == "disease_cases" and obs.value is not None:
             obs_by_location[obs.org_unit][obs.period] = obs.value
@@ -270,7 +270,9 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
             if value is not None and not np.isnan(value):
                 obs_by_location[location][period] = value
 
-    forecasts_by_loc_split = defaultdict(lambda: defaultdict(list))
+    forecasts_by_loc_split: defaultdict[tuple[str, str], defaultdict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     for fc in backtest.forecasts:
         key = (fc.org_unit, fc.last_seen_period)
         forecasts_by_loc_split[key][fc.period] = fc.values

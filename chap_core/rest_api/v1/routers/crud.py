@@ -17,10 +17,9 @@ Magic is used to make the returned objects camelCase while internal objects are 
 import json
 import logging
 from functools import partial
-from typing import Annotated, List, Optional
+from typing import Annotated, Any, List, Optional
 
 import numpy as np
-import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
@@ -67,7 +66,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/crud", tags=["crud"])
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
-worker = CeleryPool()
+worker: CeleryPool[Any] = CeleryPool()
 
 
 ###########
@@ -112,7 +111,7 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
 
 
 class BackTestUpdate(DBModel):
-    name: str = None
+    name: str | None = None
 
 
 @router.post("/backtests", response_model=JobResponse)
@@ -300,8 +299,10 @@ async def create_dataset_csv(
     geojson_file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ) -> DataBaseResponse:
+    import io
+
     csv_content = await csv_file.read()
-    dataset = InMemoryDataSet.from_csv(pd.io.common.BytesIO(csv_content), dataclass=FullData)
+    dataset = InMemoryDataSet.from_csv(io.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
     dataset_id = SessionWrapper(session=session).add_dataset("csv_file", dataset, features.model_dump_json())
@@ -443,7 +444,7 @@ class ModelConfigurationCreate(DBModel):
 @router.post("/configured-models", response_model=ConfiguredModelDB)
 def add_configured_model(
     model_configuration: ModelConfigurationCreate,
-    session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
+    session: Session = Depends(get_session),
 ):
     """Add a configured model to the database"""
     session_wrapper = SessionWrapper(session=session)

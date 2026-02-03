@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, List
+from typing import Annotated, Any, List
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
@@ -39,7 +39,7 @@ from .dependencies import get_database_url, get_session, get_settings
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 logger = logging.getLogger(__name__)
-worker = CeleryPool()
+worker: CeleryPool[Any] = CeleryPool()
 
 
 class EvaluationEntryRequest(BaseModel):
@@ -238,16 +238,17 @@ async def get_evaluation_entries(
         backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
+    org_units_set: set[str] | None = None
     if org_units is not None:
-        org_units = set(org_units)
-        logger.info("Filtering evaluation entries to org_units: %s", org_units)
+        org_units_set = set(org_units)
+        logger.info("Filtering evaluation entries to org_units: %s", org_units_set)
 
     cls = BackTestForecast
     expr = select(cls).where(cls.backtest_id == backtest_id)
     if split_period:
         expr = expr.where(cls.last_seen_period == split_period)
-    if org_units and not return_summed:
-        expr = expr.where(cls.org_unit.in_(org_units))
+    if org_units_set and not return_summed:
+        expr = expr.where(cls.org_unit.in_(org_units_set))
     forecasts = session.exec(expr)
 
     logger.info(forecasts)
@@ -390,8 +391,8 @@ async def get_actual_cases(
         dataset_id = backtest_id
     expr = select(Observation).where(Observation.dataset_id == dataset_id)
     if org_units is not None and not return_summed:
-        org_units = set(org_units)
-        expr = expr.where(Observation.org_unit.in_(org_units))
+        org_units_set = set(org_units)
+        expr = expr.where(Observation.org_unit.in_(org_units_set))
     observations = session.exec(expr).all()
     logger.info(f"Observations: {observations}")
     data_list = [

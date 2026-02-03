@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional, cast
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -16,7 +16,7 @@ logger.info("Logging initialized")
 
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
-worker = CeleryPool()
+worker: CeleryPool[Any] = CeleryPool()
 
 
 @router.get("")
@@ -42,7 +42,7 @@ def list_jobs(
         status_filter_set = set(s.upper() for s in status)
         jobs_to_return = [job for job in jobs_to_return if job.status and job.status.upper() in status_filter_set]
 
-    return jobs_to_return
+    return cast(List[JobDescription], jobs_to_return)
 
 
 def _get_successful_job(job_id):
@@ -58,7 +58,7 @@ def _get_successful_job(job_id):
 
 @router.get("/{job_id}")
 def get_job_status(job_id: str) -> str:
-    status = worker.get_job(job_id).status
+    status: str = worker.get_job(job_id).status
     logger.info(f"status of job {job_id}: {status}")
     if status.lower() in ("failed", "failure"):
         print(worker.get_job(job_id).exception_info)
@@ -110,7 +110,7 @@ def cancel_job(job_id: str) -> dict:
 @router.get("/{job_id}/logs")
 def get_logs(job_id: str) -> str:
     job = worker.get_job(job_id)
-    logs = job.get_logs()
+    logs: str = job.get_logs()
     if logs is None:
         raise HTTPException(status_code=400, detail=f"Log file not found for job ID '{job_id}'")
     return logs
@@ -118,12 +118,12 @@ def get_logs(job_id: str) -> str:
 
 @router.get("/{job_id}/prediction_result")
 def get_prediction_result(job_id: str) -> FullPredictionResponse:
-    return _get_successful_job(job_id).result
+    return cast(FullPredictionResponse, _get_successful_job(job_id).result)
 
 
 @router.get("/{job_id}/evaluation_result")
 def get_evaluation_result(job_id: str) -> EvaluationResponse:
-    return _get_successful_job(job_id).result
+    return cast(EvaluationResponse, _get_successful_job(job_id).result)
 
 
 class DataBaseResponse(BaseModel):

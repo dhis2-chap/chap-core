@@ -2,7 +2,7 @@ import dataclasses
 import json
 import logging
 import os
-from typing import List, Tuple, Union
+from typing import List, Union, Optional
 
 import numpy as np
 import pandas as pd
@@ -40,7 +40,7 @@ class WorkerConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     is_test: bool = False
-    failing_services: Tuple[str] = ()
+    failing_services: tuple[str, ...] = ()
 
 
 def sample_dataset_to_prediction_response(predictions: DataSet[Samples], target_id: str) -> dict:
@@ -153,7 +153,7 @@ base_fetch_requests = (
 def harmonize_health_dataset(
     dataset,
     usecwd_for_credentials,
-    fetch_requests: List[FetchRequest] = None,
+    fetch_requests: Optional[List[FetchRequest]] = None,
     worker_config: WorkerConfig = WorkerConfig(),
 ):
     assert not fetch_requests, "Google earth engine no longer supported"

@@ -60,7 +60,7 @@ def validate_and_filter_dataset_for_evaluation(
 ) -> DataSet:
     evaluation_length = n_periods + (n_splits - 1) * stride
     new_data = {}
-    rejected = []
+    rejected: list[str] = []
     for location, data in dataset.items():
         if np.any(np.logical_not(np.isnan(getattr(data, target_name)[:-evaluation_length]))):
             new_data[location] = data
@@ -77,7 +77,7 @@ def run_backtest(
     n_periods: Optional[int] = None,
     n_splits: int = 10,
     stride: int = 1,
-    session: SessionWrapper = None,
+    session: Optional[SessionWrapper] = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     dataset = session.get_dataset(info.dataset_id)
@@ -200,7 +200,8 @@ def predict_pipeline_from_composite_dataset(
         dataset_info=dataset_create_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json()
     )
 
-    return run_prediction(prediction_params.model_id, dataset_id, prediction_params.n_periods, name, session)
+    result: int = run_prediction(prediction_params.model_id, dataset_id, prediction_params.n_periods, name, session)
+    return result
 
 
 @convert_dicts_to_models
@@ -220,10 +221,11 @@ def run_backtest_from_dataset(
     if ds.frequency == "W" and backtest_params.stride < 4:
         logging.warning("Setting stride to 4 since its weekly data")
         backtest_params.stride = 4
-    return run_backtest(
+    result: int = run_backtest(
         info=backtest_create_info,
         n_periods=backtest_params.n_periods,
         n_splits=backtest_params.n_splits,
         stride=backtest_params.stride,
         session=session,
     )
+    return result

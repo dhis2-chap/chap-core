@@ -1,5 +1,6 @@
 import dataclasses
 from collections import defaultdict
+from typing import Any
 
 import numpy as np
 from sklearn import linear_model
@@ -21,8 +22,8 @@ def get_climate_predictor(train_data: DataSet[ClimateData]):
 
 class MonthlyClimatePredictor:
     def __init__(self):
-        self._models = defaultdict(dict)
-        self._cls = None
+        self._models: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self._cls: type | None = None
 
     def _feature_matrix(self, time_period: PeriodRange):
         return time_period.month[:, None] == np.arange(1, 13)

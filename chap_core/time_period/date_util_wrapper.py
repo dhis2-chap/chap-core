@@ -284,7 +284,7 @@ class WeekNumbering:
 
 
 class Week(TimePeriod):
-    _used_attributes = []  # 'year']
+    _used_attributes: list[str] = []  # 'year']
     _extension = relativedelta(weeks=1)
     _week_numbering = WeekNumbering
     # Separators for id property (old format, backwards compatible)
