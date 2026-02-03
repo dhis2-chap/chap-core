@@ -39,7 +39,7 @@ class Objective:
         model_config = ModelConfiguration.model_validate(model_configs)
         logger.info("Validated model configuration")
 
-        model = self.model_template.get_model(model_config)
+        model = self.model_template.get_model(model_config)  # type: ignore[arg-type]
         model = model()
         try:
             # evaluate_model should handle CV/nested CV and return mean results

@@ -165,7 +165,7 @@ def get_model_from_directory_or_github_url(
     base_working_dir=Path("runs/"),
     ignore_env=False,
     run_dir_type: Literal["timestamp", "latest", "use_existing"] = "timestamp",
-    model_configuration_yaml: str = None,
+    model_configuration_yaml: str | None = None,
 ) -> "ExternalModel":
     """
     NOTE: This function is deprecated, can be removed in the future.
@@ -199,4 +199,4 @@ def get_model_from_directory_or_github_url(
             model_configuration = yaml.load(file, Loader=yaml.FullLoader)
             # model_configuration = config_class.model_validate(model_configuration)
 
-    return template.get_model(model_configuration=model_configuration)
+    return template.get_model(model_configuration=model_configuration)  # type: ignore[arg-type]
