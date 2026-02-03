@@ -2,7 +2,7 @@ import logging
 from numbers import Number
 import pickle
 from pathlib import Path
-from typing import Generic, Iterable, Tuple, Type, Callable, Optional
+from typing import IO, Generic, Iterable, Tuple, Type, Callable, Optional, Union
 from pathlib import PurePath
 import numpy as np
 import pandas as pd
@@ -448,7 +448,7 @@ class DataSet(Generic[FeaturesT]):
         return cls(data_dict)
 
     @classmethod
-    def from_csv(cls, file_name: str, dataclass: Type[FeaturesT] | None = None) -> "DataSet[FeaturesT]":
+    def from_csv(cls, file_name: Union[str, Path, IO[bytes]], dataclass: Type[FeaturesT] | None = None) -> "DataSet[FeaturesT]":
         csv = pd.read_csv(file_name)
         if dataclass is None:
             dataclass = create_tsdataclass(
