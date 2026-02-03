@@ -66,6 +66,7 @@ CLI_HELP_COMMANDS = [
     ["chap", "--help"],
     ["chap", "evaluate", "--help"],
     ["chap", "evaluate2", "--help"],
+    ["chap", "eval", "--help"],
     ["chap", "plot-backtest", "--help"],
     ["chap", "export-metrics", "--help"],
     ["chap", "forecast", "--help"],

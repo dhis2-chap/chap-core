@@ -1,11 +1,11 @@
-# evaluate2 Command Reference
+# eval Command Reference
 
-The `evaluate2` command runs a rolling-origin backtest evaluation on a disease prediction model and exports results in NetCDF format for analysis with scientific tools.
+The `eval` command runs a rolling-origin backtest evaluation on a disease prediction model and exports results in NetCDF format for analysis with scientific tools.
 
 ## Synopsis
 
 ```console
-chap evaluate2 --model-name <MODEL> --dataset-csv <CSV_FILE> --output-file <OUTPUT.nc> [OPTIONS]
+chap eval --model-name <MODEL> --dataset-csv <CSV_FILE> --output-file <OUTPUT.nc> [OPTIONS]
 ```
 
 ## Description
@@ -104,7 +104,7 @@ If your model expects a column named `rainfall` but your CSV has `precipitation_
 
 **Usage:**
 ```console
-chap evaluate2 \
+chap eval \
     --model-name ./my_model \
     --dataset-csv ./data.csv \
     --output-file ./eval.nc \
@@ -127,7 +127,7 @@ Models that follow the CHAP model specification can be loaded from:
 - **Local directory**: `/path/to/model` or `./model`
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name https://github.com/dhis2-chap/minimalist_example_r \
     --dataset-csv ./data/vietnam.csv \
     --output-file ./eval.nc
@@ -139,7 +139,7 @@ Chapkit models are REST API-based prediction services. Use `--run-config.is-chap
 
 **From a running service:**
 ```console
-chap evaluate2 \
+chap eval \
     --model-name http://localhost:8000 \
     --dataset-csv ./data/vietnam.csv \
     --output-file ./eval.nc \
@@ -148,7 +148,7 @@ chap evaluate2 \
 
 **From a local directory (auto-starts the service):**
 ```console
-chap evaluate2 \
+chap eval \
     --model-name /path/to/chapkit-model \
     --dataset-csv ./data/vietnam.csv \
     --output-file ./eval.nc \
@@ -208,7 +208,7 @@ Use `plot-backtest` to visualize and `export-metrics` to extract metrics from th
 ### Basic Evaluation
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name https://github.com/dhis2-chap/chap_auto_ewars \
     --dataset-csv ./example_data/laos_subset.csv \
     --output-file ./eval_ewars.nc
@@ -217,7 +217,7 @@ chap evaluate2 \
 ### Custom Backtest Parameters
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name ./my_model \
     --dataset-csv ./data.csv \
     --output-file ./eval.nc \
@@ -229,7 +229,7 @@ chap evaluate2 \
 ### With Model Configuration
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name https://github.com/dhis2-chap/minimalist_example_r \
     --dataset-csv ./data.csv \
     --output-file ./eval.nc \
@@ -239,7 +239,7 @@ chap evaluate2 \
 ### Debug Mode with Logging
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name ./my_model \
     --dataset-csv ./data.csv \
     --output-file ./eval.nc \
@@ -251,7 +251,7 @@ chap evaluate2 \
 
 ```console
 # Step 1: Evaluate the model
-chap evaluate2 \
+chap eval \
     --model-name https://github.com/dhis2-chap/chap_auto_ewars \
     --dataset-csv ./data/vietnam.csv \
     --output-file ./results/ewars_eval.nc \

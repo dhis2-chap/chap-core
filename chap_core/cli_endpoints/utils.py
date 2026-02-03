@@ -143,7 +143,7 @@ def _get_plot_type_help() -> str:
 def plot_backtest(
     input_file: Annotated[
         Path,
-        Parameter(help="Path to NetCDF file containing evaluation data (from evaluate2)"),
+        Parameter(help="Path to NetCDF file containing evaluation data (from eval)"),
     ],
     output_file: Annotated[
         Path,
@@ -199,7 +199,7 @@ def generate_pdf_report(input_file: Path, output_file: Path):
     showing historical observations and forecast distributions with quantiles.
 
     Args:
-        input_file: Path to NetCDF file containing evaluation data (from evaluate2)
+        input_file: Path to NetCDF file containing evaluation data (from eval)
         output_file: Path to output PDF file
     """
     from chap_core.assessment.evaluation import Evaluation
@@ -222,7 +222,7 @@ def export_metrics(
     """
     Export metrics from multiple backtest files to CSV.
 
-    Reads NetCDF evaluation files (from evaluate2) and computes aggregate metrics,
+    Reads NetCDF evaluation files (from eval) and computes aggregate metrics,
     outputting a CSV file with evaluations as rows and metrics as columns.
 
     Args:
