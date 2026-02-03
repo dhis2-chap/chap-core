@@ -2,7 +2,7 @@ import logging
 from numbers import Number
 import pickle
 from pathlib import Path
-from typing import IO, Generic, Iterable, Tuple, Type, Callable, Optional, Union
+from typing import IO, Generic, Iterable, Tuple, Type, Callable, Optional, Union, Protocol
 from pathlib import PurePath
 import numpy as np
 import pandas as pd
@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 
 from ..api_types import PeriodObservation, FeatureCollectionModel
 from ..datatypes import (
-    Location,
     add_field,
     remove_field,
     TimeSeriesArray,
@@ -26,7 +25,30 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-FeaturesT = TypeVar("FeaturesT")
+
+class TimeSeriesLike(Protocol):
+    """Protocol for time series data types."""
+
+    time_period: PeriodRange
+
+    def to_pandas(self) -> pd.DataFrame: ...
+    def to_pickle_dict(self) -> dict: ...
+    def interpolate(self, field_names: Optional[list[str]] = None) -> "TimeSeriesLike": ...
+    def fill_to_range(self, start_timestamp: TimeStamp, end_timestamp: TimeStamp) -> "TimeSeriesLike": ...
+    def join(self, other: "TimeSeriesLike") -> "TimeSeriesLike": ...
+
+    @classmethod
+    def from_pandas(cls, data: pd.DataFrame, fill_missing: bool = False) -> "TimeSeriesLike": ...
+    @classmethod
+    def from_pickle_dict(cls, data: dict) -> "TimeSeriesLike": ...
+
+    @property
+    def start_timestamp(self) -> TimeStamp: ...
+    @property
+    def end_timestamp(self) -> TimeStamp: ...
+
+
+FeaturesT = TypeVar("FeaturesT", bound=TimeSeriesLike)
 TemporalIndexType = slice
 
 
@@ -49,7 +71,7 @@ class TemporalDataclass(Generic[FeaturesT]):
             start = self._data.time_period.searchsorted(period_range.start)
         if period_range.stop is not None:
             stop = self._data.time_period.searchsorted(period_range.stop, side="right")
-        return self._data[start:stop]
+        return self._data[start:stop]  # type: ignore[index]
 
     def fill_to_endpoint(self, end_time_stamp: TimeStamp) -> "TemporalDataclass[FeaturesT]":
         if self.end_timestamp == end_time_stamp:
@@ -61,13 +83,13 @@ class TemporalDataclass(Generic[FeaturesT]):
         new_time_period = PeriodRange(old_time_period.start_timestamp, end_time_stamp, old_time_period.delta)
         d = {
             field.name: getattr(self._data, field.name)
-            for field in dataclasses.fields(self._data)
+            for field in dataclasses.fields(self._data)  # type: ignore[arg-type]
             if field.name != "time_period"
         }
 
         for name, data in d.items():
             d[name] = np.pad(data.astype(float), (0, n_missing), constant_values=np.nan)
-        return self._data.__class__(new_time_period, **d)
+        return self._data.__class__(new_time_period, **d)  # type: ignore[call-arg, return-value]
 
     def fill_to_range(self, start_timestamp, end_timestamp):
         if self.end_timestamp == end_timestamp and self.start_timestamp == start_timestamp:
@@ -84,19 +106,19 @@ class TemporalDataclass(Generic[FeaturesT]):
         new_time_period = PeriodRange(start_timestamp, end_timestamp, old_time_period.delta)
         d = {
             field.name: getattr(self._data, field.name)
-            for field in dataclasses.fields(self._data)
+            for field in dataclasses.fields(self._data)  # type: ignore[arg-type]
             if field.name != "time_period"
         }
 
         for name, data in d.items():
             d[name] = np.pad(data.astype(float), (n_missing_start, n_missing), constant_values=np.nan)
-        return self._data.__class__(new_time_period, **d)
+        return self._data.__class__(new_time_period, **d)  # type: ignore[call-arg]
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> "TemporalDataclass[FeaturesT]":
         assert isinstance(period_range, slice)
         assert period_range.step is None
         if hasattr(self._data.time_period, "searchsorted"):
-            return self._restrict_by_slice(period_range)
+            return self._restrict_by_slice(period_range)  # type: ignore[return-value, no-any-return]
 
         mask = np.full(len(self._data.time_period), True)
 
@@ -106,9 +128,9 @@ class TemporalDataclass(Generic[FeaturesT]):
         if period_range.stop is not None:
             mask = mask & (self._data.time_period <= period_range.stop)
 
-        return self._data[mask]
+        return self._data[mask]  # type: ignore[return-value, index, no-any-return]
 
-    def data(self) -> Iterable[FeaturesT]:
+    def data(self) -> FeaturesT:
         return self._data
 
     def to_pandas(self) -> pd.DataFrame:
@@ -119,11 +141,11 @@ class TemporalDataclass(Generic[FeaturesT]):
 
     @property
     def start_timestamp(self) -> TimeStamp:
-        return self._data.time_period[0].start_timestamp
+        return self._data.time_period[0].start_timestamp  # type: ignore[no-any-return]
 
     @property
     def end_timestamp(self) -> TimeStamp:
-        return self._data.time_period[-1].end_timestamp
+        return self._data.time_period[-1].end_timestamp  # type: ignore[no-any-return]
 
 
 class Polygon:
@@ -150,7 +172,7 @@ class DataSet(Generic[FeaturesT]):
     def field_names(self):
         return [
             field.name
-            for field in dataclasses.fields(next(iter(self._data_dict.values())))
+            for field in dataclasses.fields(next(iter(self._data_dict.values())))  # type: ignore[arg-type]
             if field.name not in ("time_period", "location")
         ]
 
@@ -166,17 +188,18 @@ class DataSet(Generic[FeaturesT]):
 
     def model_dump(self):
         return {
-            "data_dict": {loc: data.model_dump() for loc, data in self._data_dict.items()},
+            "data_dict": {loc: data.model_dump() for loc, data in self._data_dict.items()},  # type: ignore[attr-defined]
             "polygons": self._polygons and self._polygons.model_dump(),
         }
 
     @classmethod
-    def from_dict(cls, data: dict, dataclass: type[TemporalDataclass]):
-        data_dict = {loc: dataclass.from_dict(val) for loc, val in data["data_dict"].items()}
+    def from_dict(cls, data: dict, dataclass: type):  # type: ignore[type-arg]
+        data_dict = {loc: dataclass.from_dict(val) for loc, val in data["data_dict"].items()}  # type: ignore[attr-defined]
         return cls(data_dict, data["polygons"] and FeatureCollectionModel(**data["polygons"]))
 
-    def set_polygons(self, polygons: FeatureCollectionModel, ignore_validation=False) -> list[str]:
+    def set_polygons(self, polygons: FeatureCollectionModel, ignore_validation: bool = False) -> list[str]:
         polygon_ids = {feature.id for feature in polygons.features}
+        ignored_locations: set[str]
 
         if not ignore_validation:
             ignored_locations = set(self._data_dict.keys()) - polygon_ids
@@ -186,7 +209,7 @@ class DataSet(Generic[FeaturesT]):
                 )
             self._data_dict = {location: data for location, data in self._data_dict.items() if location in polygon_ids}
         else:
-            ignored_locations = {}
+            ignored_locations = set()
             # for location in self.locations():
             #     if location not in polygon_ids:
             #         logger.warning(f"Found a location {location} (type: {type(location)}) in dataset ({location}) that is not in the polygons. Polygons contains: {polygon_ids}.  ")
@@ -197,11 +220,12 @@ class DataSet(Generic[FeaturesT]):
 
     def get_parent_dict(self) -> Optional[dict[str, str]]:
         if not self._polygons:
-            return {location: "-" for location in self.locations()}
-        return Polygons(self._polygons).get_parent_dict()
+            return {str(location): "-" for location in self.locations()}
+        return Polygons(self._polygons).get_parent_dict()  # type: ignore[return-value, no-any-return]
 
-    def aggregate_to_parent(self, field_name: str = "disease_cases", nan_indicator="disease_cases"):
+    def aggregate_to_parent(self, field_name: str = "disease_cases", nan_indicator: str = "disease_cases"):
         parent_dict = self.get_parent_dict()
+        assert parent_dict is not None
         dataclass = create_tsdataclass([field_name])
         new_dict = {}
         period_range = self.period_range
@@ -258,22 +282,22 @@ class DataSet(Generic[FeaturesT]):
     def end_timestamp(self) -> TimeStamp:
         return max(data.end_timestamp for data in self.data())
 
-    def get_locations(self, location: Iterable[Location]) -> "DataSet[FeaturesT]":
+    def get_locations(self, location: Iterable[str]) -> "DataSet[FeaturesT]":
         return self.__class__({loc: self._data_dict[loc] for loc in location}, self._polygons)
 
-    def get_location(self, location: Location) -> FeaturesT:
+    def get_location(self, location: str) -> FeaturesT:
         return self._data_dict[location]
 
     def restrict_time_period(self, period_range: TemporalIndexType) -> "DataSet[FeaturesT]":
         return self.__class__(
-            {loc: TemporalDataclass(data).restrict_time_period(period_range) for loc, data in self._data_dict.items()},
+            {loc: TemporalDataclass(data).restrict_time_period(period_range) for loc, data in self._data_dict.items()},  # type: ignore[misc]
             self._polygons,
         )
 
     def filter_locations(self, locations: Iterable[str]) -> "DataSet[FeaturesT]":
         return self.__class__({loc: data for loc, data in self.items() if loc in locations})
 
-    def locations(self) -> Iterable[Location]:
+    def locations(self) -> Iterable[str]:
         return self._data_dict.keys()
 
     def data(self) -> Iterable[FeaturesT]:
@@ -301,23 +325,23 @@ class DataSet(Generic[FeaturesT]):
         except KeyError:
             logger.error(f"KeyError while looking up {self._data_dict.keys()} in {parent_dict}")
             raise
-        return pd.concat(tables)
+        return pd.concat(tables)  # type: ignore[return-value, no-any-return]
 
-    def interpolate(self, field_names=None):
-        return self.__class__({loc: data.interpolate(field_names) for loc, data in self.items()}, self._polygons)
+    def interpolate(self, field_names: Optional[list[str]] = None):
+        return self.__class__({loc: data.interpolate(field_names) for loc, data in self.items()}, self._polygons)  # type: ignore[misc]
 
     @classmethod
-    def _fill_missing(cls, data_dict: dict[str, TemporalDataclass[FeaturesT]]):
-        """Fill missing values in a dictionary of TemporalDataclasses"""
+    def _fill_missing(cls, data_dict: dict[str, FeaturesT]) -> dict[str, FeaturesT]:
+        """Fill missing values in a dictionary of FeaturesT"""
         end = max(data.end_timestamp for data in data_dict.values())
         start = min(data.start_timestamp for data in data_dict.values())
         for location, data in data_dict.items():
-            data_dict[location] = data.fill_to_range(start, end)
+            data_dict[location] = data.fill_to_range(start, end)  # type: ignore[assignment]
         return data_dict
 
     @classmethod
     def from_pandas(
-        cls, df: pd.DataFrame, dataclass: Type[FeaturesT] = None, fill_missing=False
+        cls, df: pd.DataFrame, dataclass: Type[FeaturesT] | None = None, fill_missing: bool = False
     ) -> "DataSet[FeaturesT]":
         """
         Create a SpatioTemporalDict from a pandas dataframe.
@@ -373,13 +397,13 @@ class DataSet(Generic[FeaturesT]):
                 # if time periods are string, clean them and convert to periods
                 data["time_period"] = data["time_period"].apply(clean_timestring)
 
-            data_dict[location] = dataclass.from_pandas(data.sort_values(by="time_period"), fill_missing)
-        data_dict = cls._fill_missing(data_dict)
+            data_dict[location] = dataclass.from_pandas(data.sort_values(by="time_period"), fill_missing)  # type: ignore[union-attr]
+        data_dict = cls._fill_missing(data_dict)  # type: ignore[arg-type, assignment]
 
         if non_string_locations:
             logging.warning(f"{len(non_string_locations)} location(s) are not strings, converting to strings")
 
-        return cls(data_dict)
+        return cls(data_dict)  # type: ignore[arg-type]
 
     def to_csv(self, file_name: str, mode="w"):
         self.to_pandas().to_csv(file_name, mode=mode)
@@ -393,7 +417,7 @@ class DataSet(Generic[FeaturesT]):
     def from_pickle(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
         with open(file_name, "rb") as f:
             data_dict = pickle.load(f)
-        return cls({loc: dataclass.from_pickle_dict(val) for loc, val in data_dict.items()})
+        return cls({loc: dataclass.from_pickle_dict(val) for loc, val in data_dict.items()})  # type: ignore[misc]
 
     @classmethod
     def from_file(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
@@ -407,7 +431,7 @@ class DataSet(Generic[FeaturesT]):
     def df_from_pydantic_observations(cls, observations: list[PeriodObservation]) -> TimeSeriesData:
         df = pd.DataFrame([obs.model_dump() for obs in observations])
         dataclass = TimeSeriesData.create_class_from_basemodel(type(observations[0]))
-        return dataclass.from_pandas(df)
+        return dataclass.from_pandas(df)  # type: ignore[return-value, no-any-return]
 
     @classmethod
     def from_period_observations(
@@ -445,7 +469,7 @@ class DataSet(Generic[FeaturesT]):
         data_dict = {}
         for location, observations in observation_dict.items():
             data_dict[location] = cls.df_from_pydantic_observations(observations)
-        return cls(data_dict)
+        return cls(data_dict)  # type: ignore[return-value, arg-type]
 
     @classmethod
     def from_csv(
@@ -474,15 +498,16 @@ class DataSet(Generic[FeaturesT]):
             obj.metadata = meta_data
         return obj
 
-    def join_on_time(self, other: "DataSet[FeaturesT]") -> "DataSet[Tuple[FeaturesT, FeaturesT]]":
+    def join_on_time(self, other: "DataSet[FeaturesT]") -> "DataSet[FeaturesT]":
         """Join two SpatioTemporalDicts on time. Returns a new SpatioTemporalDict.
         Assumes other is later in time.
         """
         return self.__class__(
-            {loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()}, self._polygons
+            {loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()},  # type: ignore[misc]
+            self._polygons,
         )
 
-    def add_fields(self, new_type, **kwargs: dict[str, Callable]):
+    def add_fields(self, new_type: type, **kwargs: Callable):
         return self.__class__(
             {
                 loc: add_field(
@@ -519,14 +544,14 @@ class DataSet(Generic[FeaturesT]):
         # for field, data in fields.items():
         #    assert set(data.keys()) == all_locations, (field, all_locations-set(data.keys()))
         for location in common_locations:
-            new_dict[location] = dataclass(
+            new_dict[location] = dataclass(  # type: ignore[call-arg]
                 period_range,
                 **{
-                    field: fields[field][location].fill_to_range(start_timestamp, end_timestamp).value
+                    field: fields[field][location].fill_to_range(start_timestamp, end_timestamp).value  # type: ignore[union-attr]
                     for field in field_names
                 },
             )
-        return cls(new_dict)
+        return cls(new_dict)  # type: ignore[arg-type]
 
     def merge(self, other_dataset: "DataSet", result_dataclass: type[TimeSeriesData]) -> "DataSet":
         polygons_in_merged = None
@@ -538,8 +563,8 @@ class DataSet(Generic[FeaturesT]):
             polygons_in_merged = self.polygons
         other_locations = set(other_dataset.locations())
         assert all(location in other_locations for location in self.locations()), (self.locations(), other_locations)
-        new_dataset = DataSet(
-            {location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()}
+        new_dataset: DataSet = DataSet(
+            {location: self[location].merge(other_dataset[location], result_dataclass) for location in self.locations()}  # type: ignore[misc, attr-defined]
         )
         if polygons_in_merged is not None:
             new_dataset.set_polygons(polygons_in_merged)
@@ -547,7 +572,7 @@ class DataSet(Generic[FeaturesT]):
 
     def plot(self):
         for location, value in self.items():
-            df = value.topandas()
+            df = value.to_pandas()
             df.plot(x="time_period", y="disease_cases")
             plt.title(location)
         return plt
@@ -557,7 +582,7 @@ class DataSet(Generic[FeaturesT]):
 
         total = np.zeros(len(self.period_range))
         for location, value in self.items():
-            total += np.where(np.isnan(value.disease_cases), 0, value.disease_cases)
+            total += np.where(np.isnan(getattr(value, "disease_cases")), 0, getattr(value, "disease_cases"))
         return px.line(x=self.period_range.tolist(), y=total)
 
     def to_report(self, pdf_filename: str):
@@ -572,5 +597,5 @@ class DataSet(Generic[FeaturesT]):
                 pdf.savefig()
                 plt.close()
 
-    def resample(self, freq):
-        return self.__class__({loc: data.resample(freq) for loc, data in self.items()}, self._polygons)
+    def resample(self, freq: str):
+        return self.__class__({loc: data.resample(freq) for loc, data in self.items()}, self._polygons)  # type: ignore[attr-defined, misc]

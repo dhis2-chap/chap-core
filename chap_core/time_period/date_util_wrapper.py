@@ -1,7 +1,7 @@
 import logging
 import functools
 from datetime import datetime
-from numbers import Number
+from numbers import Number  # Still needed for clean_timestring
 from typing import TYPE_CHECKING, Union, Iterable, Tuple, overload
 
 import dateutil
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def parse(date_string: str, default: datetime = None):
+def parse(date_string: str, default: datetime | None = None):
     if len(date_string) == 6 and date_string.isdigit():
         date_string = date_string[:4] + "-" + date_string[4:6]
     return _parse(date_string, default=default)
@@ -98,13 +98,17 @@ class TimeStamp(DateUtilWrapper):
 class TimePeriod:
     _used_attributes: tuple[str, ...] = ()
     _extension: relativedelta | None = None
+    _date: datetime
 
-    def __init__(self, date: datetime | Number, *args, **kwargs):
+    def __init__(self, date: datetime | int, *args: int, **kwargs: int):
+        converted_date: datetime
         if not isinstance(date, (datetime, TimeStamp)):
-            date = self.__date_from_numbers(date, *args, **kwargs)
-        if isinstance(date, TimeStamp):
-            date = date._date
-        self._date = date
+            converted_date = self.__date_from_numbers(int(date), *args, **kwargs)
+        elif isinstance(date, TimeStamp):
+            converted_date = date._date
+        else:
+            converted_date = date
+        self._date = converted_date
 
     @property
     def last_day(self):
@@ -189,6 +193,7 @@ class TimePeriod:
 
     @property
     def time_delta(self) -> "TimeDelta":
+        assert self._extension is not None
         return TimeDelta(self._extension)
 
     @classmethod
@@ -252,7 +257,7 @@ class TimePeriod:
 
 
 class Day(TimePeriod):
-    _used_attributes = ["year", "month", "day"]
+    _used_attributes = ("year", "month", "day")
     _extension = relativedelta(days=1)
 
     def __repr__(self):
@@ -284,7 +289,7 @@ class WeekNumbering:
 
 
 class Week(TimePeriod):
-    _used_attributes: list[str] = []  # 'year']
+    _used_attributes: tuple[str, ...] = ()  # 'year']
     _extension = relativedelta(weeks=1)
     _week_numbering = WeekNumbering
     # Separators for id property (old format, backwards compatible)
@@ -381,7 +386,7 @@ def clean_timestring(timestring: str):
 
 
 class Month(TimePeriod):
-    _used_attributes = ["year", "month"]
+    _used_attributes = ("year", "month")
     _extension = relativedelta(months=1)
 
     @property
@@ -399,7 +404,7 @@ class Month(TimePeriod):
 
 
 class Year(TimePeriod):
-    _used_attributes = ["year"]
+    _used_attributes = ("year",)
     _extension = relativedelta(years=1)
 
     @property
@@ -417,6 +422,8 @@ class Year(TimePeriod):
 
 
 class TimeDelta(DateUtilWrapper):
+    _date: datetime | None  # type: ignore[assignment]  # TimeDelta doesn't use _date
+
     def __init__(self, relative_delta: relativedelta):
         self._relative_delta = relative_delta
         self._date = None
@@ -446,10 +453,10 @@ class TimeDelta(DateUtilWrapper):
     def __rmul__(self, other: int):
         return self.__mul__(other)
 
-    def _n_months(self):
-        return self._relative_delta.months + 12 * self._relative_delta.years
+    def _n_months(self) -> int:
+        return int(self._relative_delta.months + 12 * self._relative_delta.years)
 
-    def __floordiv__(self, divident: "TimeDelta"):
+    def __floordiv__(self, divident: "TimeDelta") -> int:
         if divident._relative_delta.days != 0:
             for name in ("months", "years"):
                 assert not getattr(divident._relative_delta, name, 0) > 0, f"Cannot divide by {divident}"
@@ -566,7 +573,7 @@ class PeriodRange(BNPDataClass):
 
     def __getitem__(self, item: slice | int):
         """Slice by numeric index in the period range"""
-        if isinstance(item, Number):
+        if isinstance(item, int):
             if item < 0:
                 item += len(self)
             return self._period_class((self._start_timestamp + self._time_delta * item)._date)
