@@ -308,14 +308,14 @@ class CeleryPool(Generic[ReturnType]):
     #                            type=self._get_job_type(info))
     #             for status, host_dict in all_jobs.items() for hostname, jobs in host_dict.items() for info in jobs]
 
-    def list_jobs(self, status: str | None = None):
+    def list_jobs(self, status: str | None = None) -> list[JobDescription]:
         """List all tracked jobs stored by Redis. Optional filter by status: PENDING, STARTED, SUCCESS, FAILURE, REVOKED"""
-        keys = r.keys("job_meta:*")
-        jobs = []
+        keys: list[str] = r.keys("job_meta:*")  # type: ignore[assignment]
+        jobs: list[dict[str, str]] = []
 
         for key in keys:
             task_id = key.split(":")[1]
-            meta = r.hgetall(key)
+            meta: dict[str, str] = r.hgetall(key)  # type: ignore[assignment]
             meta["task_id"] = task_id
             if status is None or meta.get("status") == status:
                 jobs.append(meta)

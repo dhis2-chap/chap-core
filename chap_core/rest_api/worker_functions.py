@@ -2,7 +2,7 @@ import dataclasses
 import json
 import logging
 import os
-from typing import List, Union, Optional
+from typing import Any, List, Sequence, Union, Optional
 
 import numpy as np
 import pandas as pd
@@ -56,7 +56,7 @@ def dataset_to_datalist(dataset: DataSet[HealthData], target_id: str) -> DataLis
     element_list = [
         DataElement(pe=row.time_period.id, value=row.disease_cases, ou=location)
         for location, data in dataset.items()
-        for row in data
+        for row in data  # type: ignore[attr-defined]
     ]
     return DataList(dhis2Id=target_id, featureId="disease_cases", data=element_list)
 
@@ -72,7 +72,7 @@ def __clean_actual_cases(real_data: DataList) -> DataList:
         data=[
             DataElement(pe=row.time_period.id, ou=location, value=row.value if not np.isnan(row.value) else None)
             for location, ts_array in dataset.items()
-            for row in ts_array
+            for row in ts_array  # type: ignore[attr-defined]
         ],
     )
 
@@ -93,12 +93,12 @@ def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataL
     return EvaluationResponse(actualCases=real_data, predictions=evaluation_entries)  # .model_dump()
 
 
-def train_on_json_data(json_data: RequestV1, model_name, model_path, control=None):
+def train_on_json_data(json_data: str | bytes, model_name: str, model_path: str, control: Any = None):
     model_path = model_name
-    json_data = PredictionRequest.model_validate_json(json_data)
+    request = PredictionRequest.model_validate_json(json_data)
     target_name = "diseases"
-    target_id = get_target_id(json_data, target_name)
-    train_data = dataset_from_request_v1(json_data)
+    target_id = get_target_id(request, target_name)
+    train_data = dataset_from_request_v1(request)
 
     from chap_core.models.utils import get_model_from_directory_or_github_url
 
@@ -151,16 +151,16 @@ base_fetch_requests = (
 
 
 def harmonize_health_dataset(
-    dataset,
-    usecwd_for_credentials,
+    dataset: DataSet[FullData],
+    usecwd_for_credentials: bool,
     fetch_requests: Optional[List[FetchRequest]] = None,
     worker_config: WorkerConfig = WorkerConfig(),
-):
+) -> DataSet[FullData]:
     assert not fetch_requests, "Google earth engine no longer supported"
     return dataset
 
 
-def get_health_dataset(json_data: PredictionRequest, dataclass=None, colnames=("ou", "pe")):
+def get_health_dataset(json_data: RequestV1, dataclass: type | None = None, colnames: tuple[str, str] = ("ou", "pe")):
     if dataclass is None:
         dataclass = FullData if hasattr(json_data, "include_data") and json_data.include_data else HealthPopulationData
 
@@ -203,14 +203,14 @@ def load_forecasts(data_path):
     return climate_forecasts
 
 
-def predictions_to_datavalue(data: DataSet[HealthData], attribute_mapping: dict[str, str]):
-    entries = []
-    for location, data in data.items():
-        data = data.data()
-        for i, time_period in enumerate(data.time_period):
+def predictions_to_datavalue(dataset: DataSet[HealthData], attribute_mapping: dict[str, str]) -> list[DataValue]:
+    entries: list[DataValue] = []
+    for location, location_data in dataset.items():
+        data_obj = location_data.data()  # type: ignore[attr-defined]
+        for i, time_period in enumerate(data_obj.time_period):
             for from_name, to_name in attribute_mapping.items():
                 entry = DataValue(
-                    getattr(data, from_name)[i],
+                    getattr(data_obj, from_name)[i],
                     location,
                     to_name,
                     time_period.to_string().replace("-", ""),
@@ -221,7 +221,9 @@ def predictions_to_datavalue(data: DataSet[HealthData], attribute_mapping: dict[
 
 
 def v1_conversion(
-    data_list: list[Union[DataElement, DataElementV2]], fill_missing=False, colnames=("ou", "pe")
+    data_list: Sequence[Union[DataElement, DataElementV2]],
+    fill_missing: bool = False,
+    colnames: tuple[str, str] = ("ou", "pe"),
 ) -> DataSet[TimeSeriesArray]:
     """
     Convert a list of DataElement objects to a SpatioTemporalDict[TimeSeriesArray] object.
