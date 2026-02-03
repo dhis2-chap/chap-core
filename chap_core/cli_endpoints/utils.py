@@ -31,7 +31,7 @@ class AreaPolygons: ...
 
 
 def sanity_check_model(
-    model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str = None
+    model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str | None = None
 ):
     """
     Check that a model can be loaded, trained and used to make predictions
