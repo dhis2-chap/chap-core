@@ -58,13 +58,13 @@ def test_load_separated_data(
     separated_data: Annotated[Generator[StrDataset, None, None], pytest.fixture],
 ):
     assert isinstance(separated_data, StrDataset)
-    assert len(separated_data) == 3
-    assert tuple(separated_data.keys()) == (
+    assert len(separated_data) == 3  # type: ignore[reportArgumentType]
+    assert tuple(separated_data.keys()) == (  # type: ignore[reportAttributeAccessIssue]
         "separated_disease_data",
         "separated_rain_data",
         "separated_temp_data",
     )
-    assert separated_data["separated_disease_data"].startswith("periodname")
+    assert separated_data["separated_disease_data"].startswith("periodname")  # type: ignore[reportIndexIssue]
 
 
 @pytest.mark.skip(

@@ -21,7 +21,7 @@ def test_objective_calls_evaluate_model_and_returns_metric(monkeypatch):
 
     monkeypatch.setattr(obj_module, "evaluate_model", fake_eval, raising=True)
 
-    o = Objective(model_template=FakeTemplate(), metric="MSE", prediction_length=3, n_splits=2)
+    o = Objective(model_template=FakeTemplate(), metric="MSE", prediction_length=3, n_splits=2)  # type: ignore[reportArgumentType]
     score = o(config={"user_option_values": {"x": [1]}}, dataset="dummy")
     assert score == 0.42
 

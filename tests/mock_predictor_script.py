@@ -45,7 +45,7 @@ def predict_values(train_data_set: str, future_climate_data_set: str, output_fil
     predictor.train(train_data)
     predictions = predictor.predict(future_climate_data)
     print(predictions)
-    predictions.to_csv(output_file)
+    predictions.to_csv(output_file)  # type: ignore[reportAttributeAccessIssue]
 
 
 if __name__ == "__main__":

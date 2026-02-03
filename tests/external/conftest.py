@@ -23,7 +23,8 @@ def train_data(split_data):
 
 @pytest.fixture()
 def split_data(data):
-    return train_test_split_with_weather(data, Month(2013, 4))
+    # Month accepts positional args (year, month) via *args pattern
+    return train_test_split_with_weather(data, Month(2013, 4))  # pyright: ignore[reportArgumentType]
 
 
 @pytest.fixture()

@@ -32,7 +32,7 @@ class MockModel(ConfiguredModel):
         for i in range(num_samples):
             result_df[f"sample_{i}"] = [100.0 + i + idx for idx in range(len(result_df))]
 
-        return DataSet.from_pandas(result_df)
+        return DataSet.from_pandas(result_df)  # type: ignore[reportArgumentType]
 
 
 class TrackingMockModel(ConfiguredModel):
@@ -95,7 +95,7 @@ class TrackingMockModel(ConfiguredModel):
             }
             result_rows.append(result_row)
 
-        return DataSet.from_pandas(pd.DataFrame(result_rows))
+        return DataSet.from_pandas(pd.DataFrame(result_rows))  # type: ignore[reportArgumentType]
 
 
 def create_test_dataset(num_periods=10, start_period="2020-01"):
@@ -111,7 +111,7 @@ def create_test_dataset(num_periods=10, start_period="2020-01"):
     }
 
     df = pd.DataFrame(data)
-    return DataSet.from_pandas(df)
+    return DataSet.from_pandas(df)  # type: ignore[reportArgumentType]
 
 
 def create_multi_location_data(num_locations=4, num_historic_periods=10, num_future_periods=8):
@@ -125,13 +125,13 @@ def create_multi_location_data(num_locations=4, num_historic_periods=10, num_fut
     for loc in locations:
         for period in historic_periods:
             historic_rows.append({"time_period": period, "location": loc, "disease_cases": 100, "rainfall": 50.0})
-    historic_data = DataSet.from_pandas(pd.DataFrame(historic_rows))
+    historic_data = DataSet.from_pandas(pd.DataFrame(historic_rows))  # type: ignore[reportArgumentType]
 
     future_rows = []
     for loc in locations:
         for period in future_periods:
             future_rows.append({"time_period": period, "location": loc, "rainfall": 60.0})
-    future_data = DataSet.from_pandas(pd.DataFrame(future_rows))
+    future_data = DataSet.from_pandas(pd.DataFrame(future_rows))  # type: ignore[reportArgumentType]
 
     return {
         "locations": locations,
@@ -196,8 +196,8 @@ def test_extended_predictor_with_external_model_interface():
 
     assert extended_predictor._config_model == external_model
     assert extended_predictor._desired_scope == 6
-    assert extended_predictor._config_model.model_information.min_prediction_length == 2
-    assert extended_predictor._config_model.model_information.max_prediction_length == 4
+    assert extended_predictor._config_model.model_information.min_prediction_length == 2  # type: ignore[reportAttributeAccessIssue]
+    assert extended_predictor._config_model.model_information.max_prediction_length == 4  # type: ignore[reportAttributeAccessIssue]
 
 
 def test_update_historic_data_includes_all_locations():
@@ -417,10 +417,10 @@ def test_single_location_prediction():
         {"time_period": f"2020-{m:02d}", "location": "single_loc", "disease_cases": 100, "rainfall": 50.0}
         for m in range(1, 11)
     ]
-    historic_data = DataSet.from_pandas(pd.DataFrame(historic_rows))
+    historic_data = DataSet.from_pandas(pd.DataFrame(historic_rows))  # type: ignore[reportArgumentType]
 
     future_rows = [{"time_period": p, "location": "single_loc", "rainfall": 60.0} for p in future_periods]
-    future_data = DataSet.from_pandas(pd.DataFrame(future_rows))
+    future_data = DataSet.from_pandas(pd.DataFrame(future_rows))  # type: ignore[reportArgumentType]
 
     mock_model = TrackingMockModel(
         locations=locations,

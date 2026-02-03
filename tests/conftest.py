@@ -18,10 +18,11 @@ from chap_core import util
 from chap_core.api_types import RequestV1
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import DataSet, ObservationBase
-from chap_core.datatypes import HealthPopulationData, SimpleClimateData
+from chap_core.datatypes import FullData, HealthPopulationData, SimpleClimateData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.data_models import FetchRequest
-from chap_core.rest_api.v1.routers.crud import DatasetCreate, PredictionCreate
+from chap_core.rest_api.v1.routers.crud import DatasetCreate
+from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api.worker_functions import WorkerConfig
 
 from .data_fixtures import *
@@ -147,7 +148,7 @@ def dumped_weekly_data_paths(weekly_full_data, tmp_path):
     train, tests = train_test_generator(weekly_full_data, prediction_length=12)
     training_path = tmp_path / "training_data.csv"
     train.to_csv(training_path)
-    historic, masked, _ = next(tests)
+    historic, masked, _ = next(iter(tests))
     historic_path = tmp_path / "historic_data.csv"
     historic.to_csv(historic_path)
     future_path = tmp_path / "future_data.csv"
@@ -206,12 +207,12 @@ def dataset_create(big_request_json):
     return DatasetCreate(
         name="test",
         type="evaluation",
-        geojson=data.orgUnitsGeoJson.model_dump(),
+        geojson=data.orgUnitsGeoJson,
         observations=[
             ObservationBase(
                 feature_name=f.featureId if f.featureId != "diseases" else "disease_cases",
                 period=d.pe,
-                orgUnit=d.ou,
+                org_unit=d.ou,
                 value=d.value,
             )
             for f in data.features
@@ -227,7 +228,7 @@ def example_polygons(data_path):
 
 @pytest.fixture
 def make_prediction_request(dataset_create):
-    return PredictionCreate(model_id="naive_model", metaData={"test": "test2"}, **dataset_create.dict())
+    return MakePredictionRequest(model_id="naive_model", meta_data={"test": "test2"}, **dataset_create.model_dump())
 
 
 # @pytest.fixture
@@ -254,9 +255,10 @@ class GEEMock:
 
     def get_historical_era5(self, features, periodes, fetch_requests: Optional[List[FetchRequest]] = None):
         locations = [f["id"] for f in features["features"]]
+        # SimpleClimateData is a tsdataclass with dynamic fields that pyright doesn't recognize
         return DataSet(
             {
-                location: SimpleClimateData(periodes, np.random.rand(len(periodes)), np.random.rand(len(periodes)))
+                location: SimpleClimateData(periodes, np.random.rand(len(periodes)), np.random.rand(len(periodes)))  # pyright: ignore[reportCallIssue]
                 for location in locations
             }
         )
