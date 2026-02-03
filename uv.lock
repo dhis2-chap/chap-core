@@ -392,7 +392,6 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "ruff" },
-    { name = "typer" },
     { name = "wheel" },
 ]
 
@@ -467,7 +466,6 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "ruff", specifier = ">=0.13.3" },
-    { name = "typer", specifier = ">=0.19.2" },
     { name = "wheel", specifier = ">=0.45.1" },
 ]
 
