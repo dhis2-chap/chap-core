@@ -20,7 +20,6 @@ from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.time_period import Month, Week
 
-from .. import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
@@ -155,6 +154,7 @@ class SessionWrapper:
         model_template = self.session.exec(
             select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)
         ).first()
+        assert model_template is not None, f"Model template with id {model_template_id} not found"
         template_name = model_template.name
 
         # set configured name
@@ -194,7 +194,7 @@ class SessionWrapper:
         # get configured models from db, excluding those with archived templates
         configured_models = self.session.exec(
             select(ConfiguredModelDB)
-            .options(selectinload(ConfiguredModelDB.model_template))
+            .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
             .join(ModelTemplateDB)
             .where(ModelTemplateDB.archived == False)  # noqa: E712
         ).all()
@@ -305,8 +305,10 @@ class SessionWrapper:
     def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
         logger.info(f"Getting configured model with id {configured_model_id}")
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
+        if configured_model is None:
+            raise ValueError(f"Configured model with id {configured_model_id} not found")
         if configured_model.name == "naive_model":
-            return NaiveEstimator()
+            return NaiveEstimator()  # type: ignore[return-value]
         template_name = configured_model.model_template.name
         logger.info(f"Configured model: {configured_model}, template: {configured_model.model_template}")
         ignore_env = (
@@ -315,18 +317,22 @@ class SessionWrapper:
 
         if configured_model.uses_chapkit:
             logger.info(f"Assuming chapkit model at {configured_model.model_template.source_url}")
+            assert configured_model.model_template.source_url is not None
             template = ExternalChapkitModelTemplate(configured_model.model_template.source_url)
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")
-            return template.get_model(configured_model)
+            return template.get_model(configured_model)  # type: ignore[arg-type, return-value]
         else:
             logger.info(f"Assuming github model at {configured_model.model_template.source_url}")
-            return ModelTemplate.from_directory_or_github_url(
-                configured_model.model_template.source_url,
-                ignore_env=ignore_env,
-            ).get_model(configured_model)
+            return cast(
+                ConfiguredModel,
+                ModelTemplate.from_directory_or_github_url(
+                    configured_model.model_template.source_url,
+                    ignore_env=ignore_env,
+                ).get_model(configured_model),  # type: ignore[arg-type]
+            )
 
-    def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
+    def get_model_template(self, model_template_id: int) -> ModelTemplateDB:
         model_template = self.session.get(ModelTemplateDB, model_template_id)
         if model_template is None:
             raise ValueError(f"Model template with id {model_template_id} not found")
@@ -342,6 +348,7 @@ class SessionWrapper:
         entries = backtest.forecasts
         if entries is None or len(entries) == 0:
             raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
+        return backtest
 
     def add_backtest(self, backtest: BackTest) -> None:
         self.session.add(backtest)
@@ -434,8 +441,10 @@ class SessionWrapper:
         assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
         return dataset.id
 
-    def get_dataset(self, dataset_id, dataclass: type | None = None) -> _DataSet:
+    def get_dataset(self, dataset_id: int, dataclass: type | None = None) -> _DataSet:
         dataset = self.session.get(DataSet, dataset_id)
+        if dataset is None:
+            raise ValueError(f"Dataset with id {dataset_id} not found")
         if dataclass is None:
             logger.info(f"Getting dataset with covariates: {dataset.covariates} and name: {dataset.name}")
             field_names = dataset.covariates
@@ -447,7 +456,7 @@ class SessionWrapper:
             logger.info(f"Loading polygons from geojson for dataset id {dataset_id}")
             new_dataset.set_polygons(Polygons.from_geojson(json.loads(dataset.geojson), id_property="district").data)
 
-        return new_dataset
+        return cast(_DataSet, new_dataset)
 
     def get_dataset_by_name(self, dataset_name: str) -> Optional[DataSet]:
         dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()
