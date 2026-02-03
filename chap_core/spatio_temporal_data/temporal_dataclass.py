@@ -448,7 +448,9 @@ class DataSet(Generic[FeaturesT]):
         return cls(data_dict)
 
     @classmethod
-    def from_csv(cls, file_name: Union[str, Path, IO[bytes]], dataclass: Type[FeaturesT] | None = None) -> "DataSet[FeaturesT]":
+    def from_csv(
+        cls, file_name: Union[str, Path, IO[bytes]], dataclass: Type[FeaturesT] | None = None
+    ) -> "DataSet[FeaturesT]":
         csv = pd.read_csv(file_name)
         if dataclass is None:
             dataclass = create_tsdataclass(

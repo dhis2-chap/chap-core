@@ -305,7 +305,9 @@ async def create_dataset_csv(
     dataset = InMemoryDataSet.from_csv(io.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
-    dataset_id = SessionWrapper(session=session).add_dataset(DataSetCreateInfo(name="csv_file"), dataset, features.model_dump_json())
+    dataset_id = SessionWrapper(session=session).add_dataset(
+        DataSetCreateInfo(name="csv_file"), dataset, features.model_dump_json()
+    )
     return DataBaseResponse(id=dataset_id)
 
 
