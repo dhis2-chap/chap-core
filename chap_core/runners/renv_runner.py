@@ -42,7 +42,7 @@ class RenvRunner(Runner):
         logger.debug(f"Running command {command} in {self._working_dir}")
         return run_command(command, self._working_dir)
 
-    def store_file(self):
+    def store_file(self, file_path: str | None = None) -> None:
         pass
 
     def teardown(self):
