@@ -28,10 +28,15 @@ while remaining_time_periods > 0:
 
 ## Testing the Functionality
 
-To verify that `ExtendedPredictor` works correctly, run the following evaluation command:
+To verify that `ExtendedPredictor` works correctly, run an evaluation with a prediction length that exceeds the model's native maximum. The `eval` command automatically wraps models with `ExtendedPredictor` when needed:
 
 ```bash
-chap evaluate --model-name https://github.com/chap-models/Xiang_SVM --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
+chap eval --model-name https://github.com/chap-models/Xiang_SVM \
+    --dataset-csv ./your_data.csv \
+    --output-file ./eval.nc \
+    --backtest-params.n-periods 6
 ```
 
-This command evaluates the Xiang SVM model on the ISIMIP dengue dataset for Brazil, which triggers the extended prediction logic when the evaluation requires predictions beyond the model's native maximum prediction length.
+When the requested `n-periods` exceeds the model's `max_prediction_length`, CHAP automatically uses `ExtendedPredictor` to make iterative predictions.
+
+> **Note:** The legacy `chap evaluate` command is deprecated and will be removed in v2.0. Use `chap eval` instead.

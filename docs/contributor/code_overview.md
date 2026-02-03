@@ -5,7 +5,7 @@ The following is a very brief overview of the main modules and parts of the chap
 ## The chap command line interface
 
 - The entry point can be found in `cli.py`. Note that there is also a file called `chap_cli.py` which is an old entry point that is not being used.
-- The `cli.py` file defines commands like `chap evaluate` are defined.
+- The `cli.py` file defines commands like `chap eval` (for model evaluation).
 
 By looking at the code in the `cli.py` file, you can see how the different commands are implemented, and follow the function calls to see what code is being used.
 

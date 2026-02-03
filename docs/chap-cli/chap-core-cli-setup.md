@@ -1,6 +1,6 @@
 # 1. Installing Chap for model developers
 
-In this guide, you'll install the CHAP command-line tool. Once installed, you can run chap evaluate to test any model against real datasets — which you'll do in the next guide in this session.
+In this guide, you'll install the CHAP command-line tool. Once installed, you can run `chap eval` to test any model against real datasets — which you'll do in the next guide in this session.
 
 **Reminder:** Windows users, use WSL (Windows Subsystem for Linux) as covered in [Prepare for installation](../external_models/prepare-for-installation.md).
 
@@ -24,6 +24,6 @@ Run the following command:
 chap --help
 ```
 
-You should see output listing available commands including `evaluate`, `plot-backtest`, and `export-metrics`.
+You should see output listing available commands including `eval`, `plot-backtest`, and `export-metrics`.
 
 **Verification:** If you see the help output with available commands, CHAP is installed correctly. You're ready for the next guide: [Implement your own model from a minimalist example](fork-example.md).
