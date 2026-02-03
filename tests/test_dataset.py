@@ -17,7 +17,7 @@ def test_from_pandas():
             "disease_cases": [10, 20, 30, 40],
         }
     )
-    ds = DataSet.from_pandas(df)
+    ds = DataSet.from_pandas(df)  # type: ignore[reportArgumentType]
     print(ds)
 
 
@@ -30,7 +30,7 @@ def monthly_dataset():
             "disease_cases": [10, 20, 30, 40],
         }
     )
-    ds = DataSet.from_pandas(df)
+    ds = DataSet.from_pandas(df)  # type: ignore[reportArgumentType]
     return ds
 
 
@@ -43,7 +43,7 @@ def weekly_dataset():
             "disease_cases": [10, 20, 30, 40],
         }
     )
-    ds = DataSet.from_pandas(df)
+    ds = DataSet.from_pandas(df)  # type: ignore[reportArgumentType]
     return ds
 
 
