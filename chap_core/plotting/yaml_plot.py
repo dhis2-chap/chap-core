@@ -132,7 +132,7 @@ def _build_plot_component(comp: dict, context: dict):
                 line_length=60,
             )
 
-        required_cols = []
+        required_cols: list[str] = []
 
         missing = [c for c in required_cols if c not in metric_df.columns]
         if missing:

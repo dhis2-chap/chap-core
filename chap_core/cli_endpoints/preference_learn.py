@@ -63,10 +63,8 @@ def _compute_metrics(evaluation: Evaluation) -> dict:
     results = {}
     for metric_id, metric_cls in available_metrics.items():
         metric = metric_cls()
-        if not metric.is_full_aggregate():
-            continue
         try:
-            metric_df = metric.get_metric(flat_data.observations, flat_data.forecasts)
+            metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
             if len(metric_df) == 1:
                 results[metric_id] = float(metric_df["metric"].iloc[0])
         except Exception as e:
@@ -106,7 +104,7 @@ def _create_evaluation(
     if model_candidate.configuration:
         configuration = ModelConfiguration.model_validate(model_candidate.configuration)
 
-    model = template.get_model(configuration)
+    model = template.get_model(configuration)  # type: ignore[arg-type]
     estimator = model()
 
     model_template_db = ModelTemplateDB(

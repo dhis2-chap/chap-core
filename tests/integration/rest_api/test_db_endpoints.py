@@ -114,9 +114,9 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     assert response.status_code == 200, response.json()
     evaluation_entries = response.json()
     params = {} if not do_filter else {"orgUnits": org_units}
-    actual_cases = client.get(f"/v1/analytics/actualCases/{db_id}", params=params)
-    assert actual_cases.status_code == 200, actual_cases.json()
-    actual_cases = DataList.model_validate(actual_cases.json())
+    actual_cases_response = client.get(f"/v1/analytics/actualCases/{db_id}", params=params)
+    assert actual_cases_response.status_code == 200, actual_cases_response.json()
+    actual_cases = DataList.model_validate(actual_cases_response.json())
     for entry in evaluation_entries:
         assert "splitPeriod" in entry, f"splitPeriod not in entry: {entry.keys()}"
         entry = EvaluationEntry.model_validate(entry)
@@ -169,6 +169,7 @@ def test_list_models_alias(celery_session_worker, dependency_overrides):
     assert "chap_ewars_monthly" in (m.name for m in models)
     ewars_model = next(m for m in models if m.name == "chap_ewars_monthly")
     assert "population" in (f.name for f in ewars_model.covariates)
+    assert ewars_model.source_url is not None
     assert ewars_model.source_url.startswith("https:/")
 
 
@@ -187,6 +188,7 @@ def test_list_configured_models(celery_session_worker, dependency_overrides):
     assert "chap_ewars_monthly" in (m.name for m in models)
     ewars_model = next(m for m in models if m.name == "chap_ewars_monthly")
     assert "population" in (f.name for f in ewars_model.covariates)
+    assert ewars_model.source_url is not None
     assert ewars_model.source_url.startswith("https:/")
 
 
@@ -428,6 +430,7 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     assert len(response.json()) > 0
     p_infos = [PredictionInfo.model_validate(entry) for entry in response.json()]
     for p_info in p_infos:
+        assert p_info.configured_model is not None
         assert p_info.configured_model.name
         assert p_info.dataset.data_sources is not None
     print(p_infos)

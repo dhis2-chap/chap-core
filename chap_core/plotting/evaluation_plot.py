@@ -1,9 +1,9 @@
 import abc
-from typing import Optional
+from typing import Optional, Type, cast
 
 import altair as alt
+import pandas as pd
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.flat_representations import FlatMetric
 from chap_core.assessment.metrics.base import Metric
 from chap_core.database.base_tables import DBModel
 from chap_core.database.tables import BackTest
@@ -17,7 +17,9 @@ class MetricPlotV2(abc.ABC):
     Differnet plots can process this data in the way they want to produce a plot
     """
 
-    def __init__(self, metric_data: FlatMetric, geojson: Optional[dict] = None):
+    visualization_info: "VisualizationInfo"  # Declared by subclasses
+
+    def __init__(self, metric_data: pd.DataFrame, geojson: Optional[dict] = None):
         self._metric_data = metric_data
 
     def plot(self, title="Mean metric by horizon") -> alt.Chart:
@@ -45,11 +47,12 @@ class MetricByHorizonAndLocationMean(MetricPlotV2):
         description="Shows the aggregated metric by forecast horizon",
     )
 
-    def plot_from_df(self):
+    def plot_from_df(self, title: str = "Mean Metric by Horizon") -> alt.Chart:
         df = self._metric_data
         adf = df.groupby(["horizon_distance", "location"]).agg({"metric": "mean"}).reset_index()
         print(adf)
-        chart = (
+        chart = cast(
+            alt.Chart,
             alt.Chart(adf)
             .mark_bar(point=True)
             .encode(
@@ -57,7 +60,7 @@ class MetricByHorizonAndLocationMean(MetricPlotV2):
                 y=alt.Y("metric:Q", title="Mean Metric Value"),
                 tooltip=["horizon_distance", "location", "metric"],
             )
-            .properties(width=300, height=230, title="Mean Metric by Horizon")
+            .properties(width=300, height=230, title=title),
         )
 
         return chart
@@ -94,9 +97,10 @@ class MetricByHorizonV2Sum(MetricPlotV2):
         description="Sums metric across locations per forecast horizon",
     )
 
-    def plot_from_df(self):
+    def plot_from_df(self, title: str = "Samples above truth by horizon") -> alt.Chart:
         df = self._metric_data
-        chart = (
+        chart = cast(
+            alt.Chart,
             alt.Chart(df)
             .mark_bar()
             .encode(
@@ -107,7 +111,7 @@ class MetricByHorizonV2Sum(MetricPlotV2):
                     alt.Tooltip("sum(metric):Q", title="Count"),
                 ],
             )
-            .properties(width=300, height=230, title="Samples above truth by horizon")
+            .properties(width=300, height=230, title=title),
         )
 
         return chart
@@ -120,10 +124,11 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
         description="Shows the aggregated metric by time period (per location)",
     )
 
-    def plot_from_df(self, title="Mean metric by location and time period") -> alt.Chart:
+    def plot_from_df(self, title: str = "Mean metric by location and time period") -> alt.Chart:
         df = self._metric_data
         adf = df.groupby(["time_period", "location"]).agg({"metric": "mean"}).reset_index()
-        chart = (
+        chart = cast(
+            alt.Chart,
             alt.Chart(adf)
             .mark_line(point=True)
             .encode(
@@ -132,7 +137,7 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
                 color=alt.Color("location:N", title="Location"),
                 tooltip=["time_period", "location", "metric"],
             )
-            .properties(width=300, height=230, title=title)
+            .properties(width=300, height=230, title=title),
         )
 
         return chart
@@ -145,9 +150,10 @@ class MetricByTimePeriodV2Sum(MetricPlotV2):
         description="Sums metric across locations per forecast horizon",
     )
 
-    def plot_from_df(self):
+    def plot_from_df(self, title: str = "Samples above truth by time period") -> alt.Chart:
         df = self._metric_data
-        chart = (
+        chart = cast(
+            alt.Chart,
             alt.Chart(df)
             .mark_line()
             .encode(
@@ -159,7 +165,7 @@ class MetricByTimePeriodV2Sum(MetricPlotV2):
                     alt.Tooltip("sum(metric):Q", title="Count"),
                 ],
             )
-            .properties(width=300, height=230, title="Samples above truth by time period")
+            .properties(width=300, height=230, title=title),
         )
 
         return chart
@@ -197,11 +203,11 @@ class MetricMapV2(MetricPlotV2):
         id="metric_map", display_name="Map", description="Shows a map of aggregated metrics per org unit"
     )
 
-    def __init__(self, metric_data: FlatMetric, geojson: Optional[dict] = None):
+    def __init__(self, metric_data: pd.DataFrame, geojson: Optional[dict] = None):
         super().__init__(metric_data, geojson)
         self._geojson = geojson
 
-    def plot_from_df(self, title="Metric Map by location") -> alt.Chart:
+    def plot_from_df(self, title: str = "Metric Map by location") -> alt.Chart:
         # Get the metric data DataFrame
         df = self._metric_data
 
@@ -211,9 +217,12 @@ class MetricMapV2(MetricPlotV2):
 
         # Create map visualization with geojson
         geojson_data = self._geojson
+        if geojson_data is None:
+            raise ValueError("geojson is required for MetricMapV2")
 
         # Build Altair map chart
-        chart = (
+        chart = cast(
+            alt.Chart,
             alt.Chart(alt.Data(values=geojson_data["features"]))
             .mark_geoshape(stroke="black", strokeWidth=0.5)
             .encode(
@@ -225,14 +234,14 @@ class MetricMapV2(MetricPlotV2):
                 from_=alt.LookupData(agg_df, "org_unit", ["value"]),
             )
             .project(type="equirectangular")  # Use equirectangular projection for proper proportions
-            .properties(width=300, height=230, title=title)
+            .properties(width=300, height=230, title=title),
         )
         return chart
 
 
 def make_plot_from_backtest_object(
-    backtest: BackTest, plotting_class: MetricPlotV2, metric: Metric, geojson=None
-) -> alt.Chart:
+    backtest: BackTest, plotting_class: Type[MetricPlotV2], metric: Metric, geojson: Optional[dict] = None
+) -> dict:
     # Convert to flat representation using Evaluation abstraction
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()

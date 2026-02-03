@@ -20,7 +20,7 @@ class DockerRunner(Runner):
 
     def run_command(self, command):
         logger.debug(f"Running command {command} in docker container {self._docker_name} in {self._working_dir}")
-        return run_command_through_docker_container(self._docker_name, self._working_dir, command)
+        return run_command_through_docker_container(self._docker_name, str(self._working_dir), command)
 
     def teardown(self):
         # remove the docker image

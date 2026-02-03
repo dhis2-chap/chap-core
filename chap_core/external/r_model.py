@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import TypeVar, Generic
-from chap_core.assessment.dataset_splitting import IsTimeDelta
-from chap_core._legacy_dataset import IsSpatioTemporalDataSet
 from chap_core.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
+from chap_core.time_period.date_util_wrapper import TimeDelta
 
 
 class ExternalRModel:
@@ -25,7 +25,7 @@ class ExternalLaggedRModel(Generic[FeatureType]):
         script_file_name: str,
         data_type: type[FeatureType],
         tmp_dir: Path,
-        lag_period: IsTimeDelta,
+        lag_period: TimeDelta,
     ):
         self._script_file_name = script_file_name
         self._data_type = data_type
@@ -34,14 +34,14 @@ class ExternalLaggedRModel(Generic[FeatureType]):
         self._saved_state = None
         self._model_filename = self._tmp_dir / "model.rds"
 
-    def train(self, train_data: IsSpatioTemporalDataSet[FeatureType]):
+    def train(self, train_data: DataSet[FeatureType]):
         training_data_file = self._tmp_dir / "training_data.csv"
         train_data.to_csv(training_data_file)
         end_timestamp = train_data.end_timestamp
         self._saved_state = train_data.restrict_time_period(end_timestamp - self._lag_period, None)
         self._run_train_script(self._script_file_name, training_data_file, self._model_filename)
 
-    def predict(self, future_data: IsSpatioTemporalDataSet[FeatureType]) -> IsSpatioTemporalDataSet[FeatureType]:
+    def predict(self, future_data: DataSet[FeatureType]) -> DataSet[FeatureType]:
         full_data = self._join_state_and_future(future_data)
         full_data_path = self._tmp_dir / "full_data.csv"
         full_data.to_csv(full_data_path)

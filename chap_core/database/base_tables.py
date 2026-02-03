@@ -8,13 +8,13 @@ PeriodID = str
 class DBModel(SQLModel):
     """Simple wrapper that uses camelCase for the field names for the rest-api"""
 
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)  # type: ignore[assignment]
 
     @classmethod
     def get_read_class(cls):
         """Returns the read class for this model"""
 
-        class NewClass(cls):
+        class NewClass(cls):  # type: ignore[valid-type, misc]
             id: int
 
         NewClass.__name__ = f"{cls.__name__}Read"
@@ -27,5 +27,5 @@ class DBModel(SQLModel):
         # create
         fields = {name: (field.annotation, field.default) for name, field in cls.model_fields.items() if name != "id"}
 
-        NewModel = create_model(f"{cls.__name__}Create", **fields)
+        NewModel = create_model(f"{cls.__name__}Create", **fields)  # type: ignore[call-overload]
         return NewModel

@@ -17,7 +17,7 @@ def hydromet(filename):
         period = Month(group["year"], group["month"])
         tmax = group["tmax"].values
         tmin = group["tmin"].values
-        tmean = (tmax + tmin) / 2
+        tmean = (tmax + tmin) / 2  # type: ignore[operator]
         data_dict[name] = FullData(
             period,
             np.zeros_like(tmean),

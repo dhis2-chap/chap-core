@@ -27,7 +27,7 @@ class TimeSeriesData:
     time_period: PeriodRange
 
     def model_dump(self):
-        return {field.name: getattr(self, field.name).tolist() for field in dataclasses.fields(self)}
+        return {field.name: getattr(self, field.name).tolist() for field in dataclasses.fields(self)}  # type: ignore[arg-type]
 
     def __getstate__(self):
         return self.todict()
@@ -46,7 +46,7 @@ class TimeSeriesData:
         return self.from_pandas(df.reset_index())
 
     def topandas(self):
-        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
+        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}  # type: ignore[arg-type]
         for key, value in data_dict.items():
             if isinstance(value, np.ndarray) and value.ndim > 1:
                 data_dict[key] = value.tolist()
@@ -61,7 +61,7 @@ class TimeSeriesData:
         data.to_csv(csv_file, index=False, **kwargs)
 
     def to_pickle_dict(self):
-        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
+        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}  # type: ignore[arg-type]
         data_dict["time_period"] = self.time_period.tolist()
         return data_dict
 
@@ -73,11 +73,12 @@ class TimeSeriesData:
 
     @classmethod
     def create_class_from_basemodel(cls, dataclass: type[PeriodObservation]):
-        fields = dataclass.model_fields
-        fields = [
-            (name, field.annotation) if name != "time_period" else (name, PeriodRange) for name, field in fields.items()
+        model_fields = dataclass.model_fields
+        field_list = [
+            (name, field.annotation) if name != "time_period" else (name, PeriodRange)
+            for name, field in model_fields.items()
         ]
-        return dataclasses.make_dataclass(dataclass.__name__, fields, bases=(TimeSeriesData,))
+        return dataclasses.make_dataclass(dataclass.__name__, field_list, bases=(TimeSeriesData,))
 
     @staticmethod
     def _fill_missing(data, missing_indices):
@@ -108,10 +109,10 @@ class TimeSeriesData:
         else:
             missing_indices = []
         # time = parse_periods_strings(data.time_period.astype(str))
-        variable_names = [field.name for field in dataclasses.fields(cls) if field.name != "time_period"]
-        data = [cls._fill_missing(data[name].values, missing_indices) for name in variable_names]
-        assert all(len(d) == len(time) for d in data), f"{[len(d) for d in data]} != {len(time)}"
-        return cls(time, **dict(zip(variable_names, data)))
+        variable_names = [field.name for field in dataclasses.fields(cls) if field.name != "time_period"]  # type: ignore[arg-type]
+        data_values = [cls._fill_missing(data[name].values, missing_indices) for name in variable_names]
+        assert all(len(d) == len(time) for d in data_values), f"{[len(d) for d in data_values]} != {len(time)}"
+        return cls(time, **dict(zip(variable_names, data_values)))  # type: ignore[call-arg]
 
     @classmethod
     def from_csv(cls, csv_file: str, **kwargs):
@@ -120,7 +121,7 @@ class TimeSeriesData:
         return cls.from_pandas(data)
 
     def interpolate(self, field_names: Optional[List[str]] = None):
-        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
+        data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}  # type: ignore[arg-type]
         data_dict["time_period"] = self.time_period
         fields = {
             key: interpolate_nans(value)
@@ -129,19 +130,19 @@ class TimeSeriesData:
             for key, value in data_dict.items()
             if key != "time_period"
         }
-        return self.__class__(self.time_period, **fields)
+        return self.__class__(self.time_period, **fields)  # type: ignore[call-arg]
 
     @deprecated("Compatibility with old code")
     def data(self):
         return self
 
     @property
-    def start_timestamp(self) -> pd.Timestamp:
-        return self.time_period[0].start_timestamp
+    def start_timestamp(self) -> TimeStamp:
+        return self.time_period[0].start_timestamp  # type: ignore[no-any-return]
 
     @property
-    def end_timestamp(self) -> pd.Timestamp:
-        return self.time_period[-1].end_timestamp
+    def end_timestamp(self) -> TimeStamp:
+        return self.time_period[-1].end_timestamp  # type: ignore[no-any-return]
 
     def fill_to_endpoint(self, end_time_stamp: TimeStamp) -> "TimeSeriesData":
         if self.end_timestamp == end_time_stamp:
@@ -150,11 +151,11 @@ class TimeSeriesData:
         assert n_missing >= 0, (f"{n_missing} < 0", end_time_stamp, self.end_timestamp)
         old_time_period = self.time_period
         new_time_period = PeriodRange(old_time_period.start_timestamp, end_time_stamp, old_time_period.delta)
-        d = {field.name: getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"}
+        d = {field.name: getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"}  # type: ignore[arg-type]
 
         for name, data in d.items():
             d[name] = np.pad(data.astype(float), (0, n_missing), constant_values=np.nan)
-        return self.__class__(new_time_period, **d)
+        return self.__class__(new_time_period, **d)  # type: ignore[call-arg]
 
     def fill_to_range(self, start_timestamp, end_timestamp):
         if self.end_timestamp == end_timestamp and self.start_timestamp == start_timestamp:
@@ -171,19 +172,19 @@ class TimeSeriesData:
         )
         old_time_period = self.time_period
         new_time_period = PeriodRange(start_timestamp, end_timestamp, old_time_period.delta)
-        d = {field.name: getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"}
+        d = {field.name: getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"}  # type: ignore[arg-type]
 
         for name, data in d.items():
             d[name] = np.pad(data.astype(float), (n_missing_start, n_missing), constant_values=np.nan)
-        return self.__class__(new_time_period, **d)
+        return self.__class__(new_time_period, **d)  # type: ignore[call-arg]
 
     def to_array(self):
         return np.array(
-            [getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"]
+            [getattr(self, field.name) for field in dataclasses.fields(self) if field.name != "time_period"]  # type: ignore[arg-type]
         ).T
 
     def todict(self):
-        d = super().todict()
+        d = super().todict()  # type: ignore[misc]
         d["time_period"] = self.time_period.topandas()
         return d
 
@@ -197,7 +198,7 @@ class TimeSeriesData:
         data_dict = {}
         if len(self.time_period) != len(other.time_period) or np.any(self.time_period != other.time_period):
             raise ValueError(f"{self.time_period} != {other.time_period}")
-        for field in dataclasses.fields(result_class):
+        for field in dataclasses.fields(result_class):  # type: ignore[arg-type]
             field_name = field.name
             if field_name == "time_period":
                 continue
@@ -208,7 +209,7 @@ class TimeSeriesData:
                 data_dict[field_name] = getattr(other, field_name)
             else:
                 raise ValueError(f"Field {field_name} not in either data")
-        return result_class(self.time_period, **data_dict)
+        return result_class(self.time_period, **data_dict)  # type: ignore[call-arg]
 
 
 @tsdataclass
@@ -243,9 +244,9 @@ class ClimateHealthTimeSeries(TimeSeriesData):
 
     @classmethod
     def combine(
-        cls, health_data: HealthData, climate_data: ClimateData, fill_missing=False
+        cls, health_data: HealthData, climate_data: ClimateData, fill_missing: bool = False
     ) -> "ClimateHealthTimeSeries":
-        return ClimateHealthTimeSeries(
+        return ClimateHealthTimeSeries(  # type: ignore[call-arg]
             time_period=health_data.time_period,
             rainfall=climate_data.rainfall,
             mean_temperature=climate_data.mean_temperature,
@@ -261,15 +262,15 @@ class FullData(ClimateHealthData):
     population: int
 
     @classmethod
-    def combine(
+    def combine(  # type: ignore[override]
         cls, health_data: HealthData, climate_data: ClimateData, population: float
-    ) -> "ClimateHealthTimeSeries":
-        return cls(
+    ) -> "FullData":
+        return cls(  # type: ignore[call-arg]
             time_period=health_data.time_period,
             rainfall=climate_data.rainfall,
             mean_temperature=climate_data.mean_temperature,
             disease_cases=health_data.disease_cases,
-            population=np.full(len(health_data), population),
+            population=np.full(len(health_data), population),  # type: ignore[arg-type]
         )
 
 
@@ -323,29 +324,29 @@ class SummaryStatistics(TimeSeriesData):
 
 @tsdataclass
 class Samples(TimeSeriesData):
-    samples: float
+    samples: float  # Actually an np.ndarray at runtime
 
     def topandas(self):
-        n_samples = self.samples.shape[-1]
+        n_samples = self.samples.shape[-1]  # type: ignore[attr-defined]
         df = pd.DataFrame(
-            {"time_period": self.time_period.topandas()} | {f"sample_{i}": self.samples[:, i] for i in range(n_samples)}
+            {"time_period": self.time_period.topandas()} | {f"sample_{i}": self.samples[:, i] for i in range(n_samples)}  # type: ignore[index]
         )
         return df
 
     @classmethod
-    def from_pandas(cls, data: pd.DataFrame, fill_missing=False) -> "TimeSeriesData":
+    def from_pandas(cls, data: pd.DataFrame, fill_missing: bool = False) -> "Samples":
         ptime = PeriodRange.from_strings(data.time_period.astype(str), fill_missing=fill_missing)
         n_samples = sum(1 for col in data.columns if col.startswith("sample_"))
         samples = np.array([data[f"sample_{i}"].values for i in range(n_samples)], dtype=float).T
         if not np.isfinite(samples).all():
             raise ValueError(f"Samples are not finite: {samples}")
 
-        return cls(ptime, samples)
+        return cls(ptime, samples)  # type: ignore[call-arg]
 
     to_pandas = topandas
 
-    def summaries(self, q_low=0.25, q_high=0.75):
-        return SummaryStatistics(
+    def summaries(self, q_low: float = 0.25, q_high: float = 0.75):
+        return SummaryStatistics(  # type: ignore[call-arg]
             self.time_period,
             mean=np.mean(self.samples, axis=-1),
             median=np.median(self.samples, axis=-1),

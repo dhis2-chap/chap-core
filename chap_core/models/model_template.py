@@ -92,7 +92,7 @@ class ModelTemplate:
     def get_default_model(self) -> "ExternalModel":
         return self.get_model()
 
-    def get_model(self, model_configuration: ModelConfiguration = None) -> "ExternalModel":
+    def get_model(self, model_configuration: ModelConfiguration | None = None) -> "ExternalModel":
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default
@@ -132,7 +132,7 @@ class ModelTemplate:
             )
 
         runner = get_train_predict_runner_from_model_template_config(
-            self._model_template_config, self._working_dir, self._ignore_env, model_configuration
+            self._model_template_config, Path(self._working_dir), self._ignore_env, model_configuration
         )
 
         config = self._model_template_config
@@ -145,7 +145,7 @@ class ModelTemplate:
             adapters=adapters,
             data_type=data_type,
             working_dir=self._working_dir,
-            configuration=config_passed_to_model,
+            configuration=config_passed_to_model,  # type: ignore[arg-type]
             model_information=self._model_template_config,
         )
 

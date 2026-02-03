@@ -32,7 +32,7 @@ class EwarsParamSpec(ParameterSpec):
     alpha: float
 
 
-EmptyParameterSpec = {}
+EmptyParameterSpec: dict[str, object] = {}
 
 
 # TODO: Move to db spec

@@ -9,7 +9,7 @@ class Runner:
 
     def run_command(self, command): ...
 
-    def store_file(self, file_path):
+    def store_file(self, file_path: str | None = None) -> None:
         ...
         # not used for anything now
 

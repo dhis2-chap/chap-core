@@ -37,5 +37,5 @@ class RatioAboveTruthMetric(ProbabilisticMetric):
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
         """Compute ratio of samples above the observation."""
-        above_count = np.sum(samples > observed)
+        above_count: int = int(np.sum(samples > observed))
         return float(above_count / len(samples))

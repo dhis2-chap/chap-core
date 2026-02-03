@@ -87,7 +87,8 @@ class TestTournamentPreferenceLearnerState:
 
         assert len(state.candidates) == 1
         assert state.current_iteration == 5
-        assert state.best_candidate.model_name == "model_a"  # type: ignore[reportOptionalMemberAccess]
+        assert state.best_candidate is not None
+        assert state.best_candidate.model_name == "model_a"
 
     def test_state_roundtrip(self):
         c1 = ModelCandidate(model_name="model_a")
@@ -172,7 +173,8 @@ class TestTournamentPreferenceLearner:
         )
 
         assert learner.current_iteration == 1
-        assert learner.get_best_candidate() == next_candidates[0]  # type: ignore[reportOptionalSubscript]
+        assert next_candidates is not None
+        assert learner.get_best_candidate() == next_candidates[0]
 
     def test_max_iterations(self):
         search_space = {"param_a": [1, 2]}
@@ -234,7 +236,8 @@ class TestTournamentPreferenceLearner:
 
         history = learner.get_comparison_history()
         assert len(history) == 1
-        assert history[0].preferred == next_candidates[1]  # type: ignore[reportOptionalSubscript]
+        assert next_candidates is not None
+        assert history[0].preferred == next_candidates[1]
         assert history[0].metrics[0]["mae"] == 0.8
         assert history[0].metrics[1]["mae"] == 0.5
 

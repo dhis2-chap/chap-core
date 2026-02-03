@@ -21,19 +21,19 @@ class DummyConfig(BaseModel):
 class DummyModel(ConfiguredModel):
     covariate_names: list[str] = ["rainfall", "mean_temperature", "population"]
 
-    def __init__(self, config: dict):
+    def __init__(self, config: ModelConfiguration):
         self._config = DummyConfig.model_validate(config.user_option_values)
 
-    def save(self, filepath):
+    def save(self, filepath: str) -> None:
         with open(filepath, "w") as f:
             f.write(self._config.model_dump_json())
 
     @classmethod
-    def load_predictor(cls, filepath):
+    def load_predictor(cls, filepath: str) -> "DummyModel":
         with open(filepath, "r") as f:
             return cls(ModelConfiguration.model_validate_json(f.read()))
 
-    def train(self, train_data: DataSet):
+    def train(self, train_data: DataSet) -> "DummyModel":  # type: ignore[override]
         logger.info(f"Training with {self._config}")
         return self
 
@@ -53,7 +53,8 @@ class DummyModelTemplate(ModelTemplateInterface):
     def get_schema(self) -> ModelTemplateInformation:
         return DummyConfig.model_json_schema()["properties"]
 
-    def get_model(self, model_configuration: ModelConfiguration = None) -> ConfiguredModel:
+    def get_model(self, model_configuration: ModelConfiguration | None = None) -> ConfiguredModel:  # type: ignore[override]
+        assert model_configuration is not None
         return DummyModel(model_configuration)
 
 

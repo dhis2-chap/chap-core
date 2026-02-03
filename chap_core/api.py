@@ -36,16 +36,16 @@ class AreaPolygons:
 
 @dataclasses.dataclass
 class PredictionData:
-    area_polygons: AreaPolygons = None
-    health_data: DataSet[HealthData] = None
-    climate_data: DataSet[ClimateData] = None
-    population_data: DataSet[HealthPopulationData] = None
+    area_polygons: AreaPolygons | None = None
+    health_data: DataSet[HealthData] | None = None
+    climate_data: DataSet[ClimateData] | None = None
+    population_data: DataSet[HealthPopulationData] | None = None
     disease_id: Optional[str] = None
-    features: List[object] = None
+    features: List[object] | None = None
 
 
 def extract_disease_name(health_data: dict) -> str:
-    return health_data["rows"][0][0]
+    return str(health_data["rows"][0][0])
 
 
 def forecast(
@@ -60,8 +60,10 @@ def forecast(
     if model_name == "external":
         model = get_model_from_directory_or_github_url(model_path)
     else:
-        model = get_model(model_name)
-        model = model()
+        model_class = get_model(model_name)  # type: ignore[arg-type]
+        if model_class is None:
+            raise ValueError(f"Model {model_name} not found")
+        model = model_class()
 
     # model = get_model(model_name)()
     predictions = do_forecast(model, dataset, n_months * delta_month)
