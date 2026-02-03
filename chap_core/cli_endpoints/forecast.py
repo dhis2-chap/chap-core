@@ -19,7 +19,7 @@ def forecast(
     dataset_name: DataSetType,
     n_months: int,
     model_path: Optional[str] = None,
-    out_path: Optional[str] = Path("./"),
+    out_path: str = "./",
 ):
     """
     Forecast n_months ahead using the given model and dataset
@@ -29,7 +29,7 @@ def forecast(
         dataset_name: Name of the dataset to use, e.g. hydromet_5_filtered
         n_months: int: Number of months to forecast ahead
         model_path: Optional[str]: Path to the model if model_name is external. Can ge a github repo url starting with https://github.com and ending with .git or a path to a local directory.
-        out_path: Optional[str]: Path to save the output file, default is the current directory
+        out_path: Path to save the output file, default is the current directory
     """
 
     out_file = Path(out_path) / f"{model_name}_{dataset_name}_forecast_results_{n_months}.html"

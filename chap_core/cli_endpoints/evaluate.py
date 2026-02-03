@@ -76,21 +76,22 @@ def evaluate_hpo(
     else:
         logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
 
-        dataset = datasets[dataset_name]
-        dataset = dataset.load()
+        example_ds = datasets[dataset_name]
+        dataset = example_ds.load()
 
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
             assert dataset_country in dataset.countries, (
                 f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
             )
-            dataset = dataset[dataset_country]
+            dataset = dataset[dataset_country]  # type: ignore[assignment]
 
+    model_configuration_yaml_list: list[str | None]
     if "," in model_name:
         model_list = model_name.split(",")
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
-            model_configuration_yaml_list = model_configuration_yaml.split(",")
+            model_configuration_yaml_list = list(model_configuration_yaml.split(","))
             assert len(model_list) == len(model_configuration_yaml_list), (
                 "Number of model configurations does not match number of models"
             )
@@ -110,12 +111,13 @@ def evaluate_hpo(
         )
         logging.info(f"Model template loaded: {template}")
         if not do_hpo:
+            model_config: ModelConfiguration | None = None
             if configuration is not None:
                 logger.info(f"Loading model configuration from yaml file {configuration}")
-                configuration = ModelConfiguration.model_validate(yaml.safe_load(open(configuration)))
-                logger.info(f"Loaded model configuration from yaml file: {configuration}")
+                model_config = ModelConfiguration.model_validate(yaml.safe_load(open(configuration)))
+                logger.info(f"Loaded model configuration from yaml file: {model_config}")
 
-            model = template.get_model(configuration)
+            model = template.get_model(model_config)  # type: ignore[arg-type]
             model = model()
         else:
             if configuration is not None:
@@ -129,6 +131,7 @@ def evaluate_hpo(
                 configs = template.model_template_config.hpo_search_space
 
             configs = load_search_space_from_config(configs)
+            assert metric is not None, "metric must be specified for HPO"
             objective = Objective(template, metric, prediction_length, n_splits)
             model = HpoModel(RandomSearcher(2), objective, direction, configs)
 
@@ -172,6 +175,7 @@ def evaluate_hpo(
             first_model = False
         data.append(row)
     dataframe = pd.DataFrame(data)
+    assert report_filename is not None
     csvname = Path(report_filename).with_suffix(".csv")
 
     dataframe.to_csv(csvname, index=False, header=False)
@@ -233,6 +237,7 @@ def evaluate(
             return
         results_dict[name] = results
 
+    assert report_filename is not None
     save_results(report_filename, results_dict)
 
     return results_dict
@@ -346,7 +351,7 @@ def evaluate2(
     )
 
     with template:
-        model = template.get_model(configuration)
+        model = template.get_model(configuration)  # type: ignore[arg-type]
         estimator = model()
 
         model_info = estimator.model_information

@@ -51,7 +51,7 @@ def sanity_check_model(
         model_config = None
     try:
         model_template = get_model_template_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
-        model = model_template.get_model(model_config)
+        model = model_template.get_model(model_config)  # type: ignore[arg-type]
         estimator = model()
     except Exception as e:
         logger.error(f"Error while creating model: {e}")
