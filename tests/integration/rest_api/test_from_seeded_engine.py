@@ -29,6 +29,7 @@ client = DirectClient(app)
 
 def test_dataset(seeded_session: Session):
     dataset = seeded_session.exec(select(DataSet)).all()
+    assert dataset[0].data_sources is not None
     assert dataset[0].data_sources[0].covariate == "mean_temperature"
     assert dataset[0].period_type == "month"
     assert len(dataset) == 3
@@ -61,6 +62,7 @@ def test_get_prediction_entries(override_session):
 def test_get_backtest(override_session):
     backtest: BackTestRead = client.get_obj("/v1/crud/backtests/1/info", __model__=BackTestRead)
     dataset = backtest.dataset
+    assert dataset.data_sources is not None
     assert dataset.data_sources[0].covariate == "mean_temperature"
     assert len(dataset.org_units) == 3, dataset.org_units
     assert dataset.first_period

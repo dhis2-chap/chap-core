@@ -90,6 +90,7 @@ class TestDeleteModelTemplate:
     def test_delete_existing_template(self, override_session, p_seeded_engine):
         with Session(p_seeded_engine) as session:
             template = session.exec(select(ModelTemplateDB)).first()
+            assert template is not None
             template_id = template.id
 
         response = client.delete(f"/v1/crud/model-templates/{template_id}")
@@ -109,6 +110,7 @@ class TestDeleteModelTemplate:
     def test_deleted_templates_have_archived_flag_set(self, override_session, p_seeded_engine):
         with Session(p_seeded_engine) as session:
             template = session.exec(select(ModelTemplateDB)).first()
+            assert template is not None
             template_id = template.id
 
         response = client.delete(f"/v1/crud/model-templates/{template_id}")
