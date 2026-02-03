@@ -86,7 +86,7 @@ def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool
     """
     Start CHAP as a backend server
     """
-    from chap_core.rest_api_src.v1.rest_api import main_backend
+    from chap_core.rest_api.v1.rest_api import main_backend
 
     logger.info("Running chap serve")
 
@@ -102,7 +102,7 @@ def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
     """
-    from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
+    from chap_core.rest_api.v1.rest_api import get_openapi_schema
 
     schema = get_openapi_schema()
     with open(out_path, "w") as f:

@@ -80,6 +80,13 @@ dev = [
     "pyright>=1.1.408",
     "pandas-stubs>=2.3.3.260113",
     "fakeredis>=2.26.0",
+    "types-pyyaml>=6.0.12.20250915",
+    "types-requests>=2.31.0.6",
+    "types-python-dateutil>=2.9.0.20260124",
+    "types-jsonschema>=4.26.0.20260202",
+    "types-psycopg2>=2.9.21.20251012",
+    "types-shapely>=2.1.0.20250917",
+    "types-geopandas>=1.1.2.20260120",
 ]
 
 [project.urls]
@@ -152,7 +159,7 @@ check_untyped_defs = true
 no_implicit_optional = true
 strict_equality = true
 follow_imports = "skip"  # Workaround for pydantic_geojson bug
-files = ["tests/"]  # All test files (expanded from 5 conftest files)
+files = ["chap_core/", "tests/"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -172,9 +179,59 @@ disable_error_code = [
     "no-any-return",
 ]
 
+# Ignore missing stubs for third-party libraries without type hints
+[[tool.mypy.overrides]]
+module = "sklearn.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "docker.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "bionumpy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pooch.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "topojson.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "libpysal.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "celery.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "plotly.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "gluonts.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "npstructures.*"
+ignore_missing_imports = true
+
+# Missing internal modules (likely dead code to be cleaned up)
+[[tool.mypy.overrides]]
+module = "chap_core._legacy_dataset"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "chap_core.rest_api_src.*"
+ignore_missing_imports = true
+
 [tool.pyright]
 pythonVersion = "3.13"
-include = ["tests/"]  # All test files (simplified from explicit list)
+include = ["chap_core/", "tests/"]
 exclude = [
     "**/.venv",
     "runs",
