@@ -158,7 +158,7 @@ warn_unused_configs = true
 check_untyped_defs = true
 no_implicit_optional = true
 strict_equality = true
-follow_imports = "skip"  # Workaround for pydantic_geojson bug
+follow_imports = "normal"
 files = ["chap_core/", "tests/"]
 
 [[tool.mypy.overrides]]

@@ -1,4 +1,4 @@
-from typing import Iterable, Protocol, Optional, Type
+from typing import Iterable, Iterator, Protocol, Optional, Type
 
 from chap_core.climate_predictor import FutureWeatherFetcher
 from chap_core.datatypes import ClimateData
@@ -53,7 +53,7 @@ def train_test_generator(
     n_test_sets: int = 1,
     stride: int = 1,
     future_weather_provider: Optional[FutureWeatherFetcher] = None,
-) -> tuple[DataSet, Iterable[tuple[DataSet, DataSet, DataSet]]]:
+) -> tuple[DataSet, Iterator[tuple[DataSet, DataSet, DataSet]]]:
     """
     Genereate a train set along with an iterator of test data that contains tuples of full data up until a
     split point and data without target variables for the remaining steps
@@ -98,7 +98,7 @@ def train_test_generator(
             for (hd, fd) in zip(historic_data, future_data)
         ]
     else:
-        masked_future_data = (dataset.remove_field("disease_cases") for dataset in future_data)
+        masked_future_data = [dataset.remove_field("disease_cases") for dataset in future_data]
     train_set.metadata = dataset.metadata.model_copy()
     train_set.metadata.name += "_train_set"
     return train_set, zip(historic_data, masked_future_data, future_data)
@@ -127,6 +127,6 @@ def get_split_points_for_data_set(data_set: DataSet, max_splits: int, start_offs
     return get_split_points_for_period_range(max_splits, periods, start_offset)
 
 
-def get_split_points_for_period_range(max_splits, periods, start_offset):
+def get_split_points_for_period_range(max_splits: int, periods, start_offset: int) -> list[TimePeriod]:
     delta = (len(periods) - 1 - start_offset) // (max_splits + 1)
     return list(periods)[start_offset + delta :: delta][:max_splits]
