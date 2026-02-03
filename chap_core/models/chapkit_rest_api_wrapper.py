@@ -9,7 +9,7 @@ NOTE: Written by ai as a prototype, TODO: refactor and cleanup once working
 import logging
 import chapkit
 import time
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, cast
 import numpy as np
 import pandas as pd
 import httpx
@@ -83,7 +83,7 @@ class CHAPKitRestAPIWrapper:
             Dict with status field ('healthy')
         """
         response = self._request("GET", "/health")
-        return response.json()
+        return cast(Dict[str, str], response.json())
 
     def info(self) -> Dict[str, Any]:
         """
@@ -93,7 +93,7 @@ class CHAPKitRestAPIWrapper:
             System info including name, version, description, etc.
         """
         response = self._request("GET", "/api/v1/info")
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     # Configuration management endpoints
 
@@ -105,7 +105,7 @@ class CHAPKitRestAPIWrapper:
             List of model configuration objects
         """
         response = self._request("GET", "/api/v1/configs")
-        return response.json()
+        return cast(List[Dict[str, Any]], response.json())
 
     def create_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -118,7 +118,7 @@ class CHAPKitRestAPIWrapper:
             Created configuration with ID
         """
         response = self._request("POST", "/api/v1/configs", json=config)
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def get_config_schema(self) -> Dict[str, Any]:
         """
@@ -128,7 +128,7 @@ class CHAPKitRestAPIWrapper:
             JSON Schema for configuration model
         """
         response = self._request("GET", "/api/v1/configs/$schema")
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def get_config(self, config_id: str) -> Dict[str, Any]:
         """
@@ -141,7 +141,7 @@ class CHAPKitRestAPIWrapper:
             Configuration object
         """
         response = self._request("GET", f"/api/v1/configs/{config_id}")
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def update_config(self, config_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -155,7 +155,7 @@ class CHAPKitRestAPIWrapper:
             Updated configuration
         """
         response = self._request("PUT", f"/api/v1/configs/{config_id}", json=config)
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def delete_config(self, config_id: str) -> None:
         """
@@ -180,7 +180,7 @@ class CHAPKitRestAPIWrapper:
         response = self._request(
             "POST", f"/api/v1/configs/{config_id}/$link-artifact", json={"artifact_id": artifact_id}
         )
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def unlink_artifact_from_config(self, config_id: str, artifact_id: str) -> Dict[str, Any]:
         """
@@ -196,7 +196,7 @@ class CHAPKitRestAPIWrapper:
         response = self._request(
             "POST", f"/api/v1/configs/{config_id}/$unlink-artifact", json={"artifact_id": artifact_id}
         )
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def get_config_artifacts(self, config_id: str) -> List[Dict[str, Any]]:
         """
@@ -209,7 +209,7 @@ class CHAPKitRestAPIWrapper:
             List of artifact objects linked to the configuration
         """
         response = self._request("GET", f"/api/v1/configs/{config_id}/$artifacts")
-        return response.json()
+        return cast(List[Dict[str, Any]], response.json())
 
     # Job management endpoints
 
@@ -225,7 +225,7 @@ class CHAPKitRestAPIWrapper:
         """
         params = {"status": status} if status else {}
         response = self._request("GET", "/api/v1/jobs", params=params)
-        return response.json()
+        return cast(List[Dict[str, Any]], response.json())
 
     def get_job(self, job_id: str) -> Dict[str, Any]:
         """
@@ -238,7 +238,7 @@ class CHAPKitRestAPIWrapper:
             Job record with status, times, error info, etc.
         """
         response = self._request("GET", f"/api/v1/jobs/{job_id}")
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def delete_job(self, job_id: str) -> None:
         """
@@ -262,7 +262,7 @@ class CHAPKitRestAPIWrapper:
             List of artifact info objects
         """
         response = self._request("GET", f"/api/v1/artifacts/config/{config_id}")
-        return response.json()
+        return cast(List[Dict[str, Any]], response.json())
 
     def get_artifact(self, artifact_id: str) -> Dict[str, Any]:
         """
@@ -275,7 +275,7 @@ class CHAPKitRestAPIWrapper:
             Artifact info object
         """
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}")
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def get_prediction_artifact_dataframe(self, artifact_id: str) -> chapkit.data.DataFrame:
         """
@@ -312,7 +312,7 @@ class CHAPKitRestAPIWrapper:
             Expanded artifact object
         """
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$expand")
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def get_artifact_tree_by_id(self, artifact_id: str) -> Dict[str, Any]:
         """
@@ -325,7 +325,7 @@ class CHAPKitRestAPIWrapper:
             Artifact tree with nested children
         """
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$tree")
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     def get_artifact_config(self, artifact_id: str) -> Dict[str, Any]:
         """
@@ -338,7 +338,7 @@ class CHAPKitRestAPIWrapper:
             Configuration object linked to the artifact
         """
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$config")
-        return response.json()
+        return cast(Dict[str, Any], response.json())
 
     # CHAP operation endpoints
 
