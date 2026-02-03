@@ -22,6 +22,7 @@ from typing import Annotated, List, Optional
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from starlette.responses import StreamingResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -319,6 +320,21 @@ async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], se
     # Convert time_period column to strings for proper serialization
     df["time_period"] = df["time_period"].astype(str)
     return df.to_dict(orient="records")
+
+
+@router.get("/datasets/{datasetId}/csv")
+async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    sw = SessionWrapper(session=session)
+    in_memory_dataset = sw.get_dataset(dataset_id)
+    df = in_memory_dataset.to_pandas()
+    df["time_period"] = df["time_period"].astype(str)
+
+    csv_content = df.to_csv(index=False)
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=dataset_{dataset_id}.csv"},
+    )
 
 
 @router.delete("/datasets/{datasetId}")
