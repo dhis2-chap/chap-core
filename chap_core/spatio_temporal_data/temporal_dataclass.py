@@ -118,11 +118,11 @@ class TemporalDataclass(Generic[FeaturesT]):
         return np.concatenate([self._data, other._data])
 
     @property
-    def start_timestamp(self) -> pd.Timestamp:
+    def start_timestamp(self) -> TimeStamp:
         return self._data.time_period[0].start_timestamp
 
     @property
-    def end_timestamp(self) -> pd.Timestamp:
+    def end_timestamp(self) -> TimeStamp:
         return self._data.time_period[-1].end_timestamp
 
 
@@ -251,11 +251,11 @@ class DataSet(Generic[FeaturesT]):
         return first_period_range
 
     @property
-    def start_timestamp(self) -> pd.Timestamp:
+    def start_timestamp(self) -> TimeStamp:
         return min(data.start_timestamp for data in self.data())
 
     @property
-    def end_timestamp(self) -> pd.Timestamp:
+    def end_timestamp(self) -> TimeStamp:
         return max(data.end_timestamp for data in self.data())
 
     def get_locations(self, location: Iterable[Location]) -> "DataSet[FeaturesT]":

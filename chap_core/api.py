@@ -60,8 +60,10 @@ def forecast(
     if model_name == "external":
         model = get_model_from_directory_or_github_url(model_path)
     else:
-        model = get_model(model_name)
-        model = model()
+        model_class = get_model(model_name)  # type: ignore[arg-type]
+        if model_class is None:
+            raise ValueError(f"Model {model_name} not found")
+        model = model_class()
 
     # model = get_model(model_name)()
     predictions = do_forecast(model, dataset, n_months * delta_month)

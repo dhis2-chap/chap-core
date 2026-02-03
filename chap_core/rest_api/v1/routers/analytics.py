@@ -3,7 +3,7 @@ from typing import Annotated, List
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from pydantic import BaseModel, confloat
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -44,7 +44,7 @@ worker = CeleryPool()
 
 class EvaluationEntryRequest(BaseModel):
     backtest_id: int
-    quantiles: List[confloat(ge=0, le=1)]
+    quantiles: List[Annotated[float, Field(ge=0, le=1)]]
 
 
 class MetaDataEntry(BaseModel):

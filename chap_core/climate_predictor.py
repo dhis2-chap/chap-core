@@ -46,6 +46,7 @@ class MonthlyClimatePredictor:
     def predict(self, time_period: PeriodRange):
         x = self._feature_matrix(time_period)
         prediction_dict = {}
+        assert self._cls is not None, "Model not trained - call train() first"
         for location, models in self._models.items():
             prediction_dict[location] = self._cls(
                 time_period,

@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Literal
 
+from typing_extensions import TypeAlias
+
 from chap_core.datatypes import ClimateHealthTimeSeries, FullData
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
@@ -46,7 +48,15 @@ local_datasets = ["laos_full_data", "uganda_data"]
 remote_datasets = {
     "ISIMIP_dengue_harmonized": "https://github.com/dhis2/chap-core/raw/dev/example_data/full_data.tar.gz"
 }
-DataSetType = Literal[tuple(dataset_names) + tuple(local_datasets) + tuple(remote_datasets.keys())]
+DataSetType: TypeAlias = Literal[
+    "hydro_met_subset",
+    "hydromet_clean",
+    "hydromet_10",
+    "hydromet_5_filtered",
+    "laos_full_data",
+    "uganda_data",
+    "ISIMIP_dengue_harmonized",
+]
 datasets: dict[str, ExampleDataSet] = {
     name: ExampleDataSet(name) if name != "hydromet_5_filtered" else ExampleDataSet(name, FullData)
     for name in dataset_names

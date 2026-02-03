@@ -45,11 +45,11 @@ class CRPSNormMetric(ProbabilisticMetric):
         # Calculate normalization factor based on range of all observed values
         obs_values = observations["disease_cases"].values
         obs_min, obs_max = obs_values.min(), obs_values.max()
-        obs_range = obs_max - obs_min
+        obs_range = obs_max - obs_min  # type: ignore[operator]
 
         # Normalize CRPS by the range (avoid division by zero)
-        if obs_range > 0:
-            detailed_crps["metric"] = detailed_crps["metric"] / obs_range
+        if obs_range > 0:  # type: ignore[operator]
+            detailed_crps["metric"] = detailed_crps["metric"] / obs_range  # type: ignore[operator]
 
         return detailed_crps
 

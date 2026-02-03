@@ -115,18 +115,3 @@ class EvaluationResponse(BaseModel):
 
 class PeriodObservation(BaseModel):
     time_period: str
-
-
-# class Geometry:
-#     type: str
-#     coordinates: list[list[float]]
-#
-#
-# class GeoJSONObject(BaseModel):
-#     id: str
-#     geometry: dict
-#
-#
-# class GeoJSON(BaseModel):
-#     type: str
-#     features: list[dict]

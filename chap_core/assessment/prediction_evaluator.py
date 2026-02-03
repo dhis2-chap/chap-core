@@ -27,15 +27,11 @@ logger = logging.getLogger(__name__)
 FetureType = TypeVar("FeatureType", bound=TimeSeriesData)
 
 
-def without_disease(t):
-    return t
-
-
 class Predictor(Protocol):
     def predict(
         self,
         historic_data: DataSet[FetureType],
-        future_data: DataSet[without_disease(FetureType)],
+        future_data: DataSet[TimeSeriesData],
     ) -> Samples: ...
 
 

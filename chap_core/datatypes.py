@@ -136,11 +136,11 @@ class TimeSeriesData:
         return self
 
     @property
-    def start_timestamp(self) -> pd.Timestamp:
+    def start_timestamp(self) -> TimeStamp:
         return self.time_period[0].start_timestamp
 
     @property
-    def end_timestamp(self) -> pd.Timestamp:
+    def end_timestamp(self) -> TimeStamp:
         return self.time_period[-1].end_timestamp
 
     def fill_to_endpoint(self, end_time_stamp: TimeStamp) -> "TimeSeriesData":

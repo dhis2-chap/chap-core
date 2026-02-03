@@ -1,6 +1,3 @@
-from typing import List
-
-import pydantic
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
@@ -28,12 +25,11 @@ def generate_app(estimator, working_dir: str):
     )
 
     dc = get_dataclass(estimator)
-    model = pydantic.create_model("TrainingData", **dc.__annotations__)
     training_data_filename = f"{working_dir}/training_data.csv"
     model_path = f"{working_dir}/model"
 
     @app.command()
-    def train(training_data: List[model]):
+    def train(training_data: list):  # type: ignore[valid-type]
         """
         Train a model using historic data
 

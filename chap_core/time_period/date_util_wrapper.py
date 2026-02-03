@@ -2,10 +2,11 @@ import logging
 import functools
 from datetime import datetime
 from numbers import Number
-from typing import Union, Iterable, Tuple
+from typing import TYPE_CHECKING, Union, Iterable, Tuple, overload
 
 import dateutil
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
 from dateutil.parser import parse as _parse
@@ -13,6 +14,9 @@ from dateutil.relativedelta import relativedelta
 from pytz import utc
 
 from chap_core.exceptions import InvalidDateError
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
@@ -71,18 +75,29 @@ class TimeStamp(DateUtilWrapper):
     def __eq__(self, other):
         return self._date == other._date
 
-    def __sub__(self, other: "TimeStamp"):
-        if not isinstance(other, TimeStamp):
+    @overload
+    def __sub__(self, other: "TimeStamp") -> "TimeDelta": ...
+    @overload
+    def __sub__(self, other: "TimeDelta") -> "Self": ...
+    def __sub__(self, other: "TimeStamp | TimeDelta") -> "TimeDelta | Self":
+        if isinstance(other, TimeStamp):
+            return TimeDelta(relativedelta(self._date, other._date))
+        if isinstance(other, TimeDelta):
+            return self.__class__(self._date - other._relative_delta)
+        return NotImplemented
+
+    def __add__(self, other: "TimeDelta") -> "Self":
+        if not isinstance(other, TimeDelta):
             return NotImplemented
-        return TimeDelta(relativedelta(self._date, other._date))
+        return self.__class__(self._date + other._relative_delta)
 
     def _comparison(self, other: "TimeStamp", func_name: str):
         return getattr(self._date.replace(tzinfo=utc), func_name)(other._date.replace(tzinfo=utc))
 
 
 class TimePeriod:
-    _used_attributes = ()
-    _extension = None
+    _used_attributes: tuple[str, ...] = ()
+    _extension: relativedelta | None = None
 
     def __init__(self, date: datetime | Number, *args, **kwargs):
         if not isinstance(date, (datetime, TimeStamp)):
@@ -162,7 +177,8 @@ class TimePeriod:
         assert self._extension == other._extension
         return TimeDelta(relativedelta(self._date, other._date))
 
-    def _exclusive_end(self):
+    def _exclusive_end(self) -> datetime:
+        assert self._extension is not None
         return self._date + self._extension
 
     def __getattr__(self, item):
@@ -308,11 +324,14 @@ class Week(TimePeriod):
             self._day_nr = day
             self._date = date
 
-    def __sub__(self, other: "TimePeriod"):
+    def __sub__(self, other: "TimePeriod") -> "TimeDelta":
         if not isinstance(other, TimePeriod):
-            return NotImplemented
+            return NotImplemented  # type: ignore[return-value]
         assert self._extension == other._extension
-        return TimeDelta(self._date - other._date)
+        assert isinstance(self._date, datetime) and isinstance(other._date, datetime)
+        # Use timedelta for weeks (produces days-only delta) rather than relativedelta
+        td = self._date - other._date
+        return TimeDelta(relativedelta(days=td.days))
 
     def __str__(self):
         return f"{self.year}{self._id_sep_strings[self._day_nr]}{self.week:02d}"
@@ -449,7 +468,7 @@ class TimeDelta(DateUtilWrapper):
     def __repr__(self):
         return f"TimeDelta({self._relative_delta})"
 
-    def n_periods(self, start_stamp: TimeStamp, end_stamp: TimeStamp):
+    def n_periods(self, start_stamp: TimeStamp, end_stamp: TimeStamp) -> int:
         assert sum(bool(getattr(self._relative_delta, name, 0)) for name in ("days", "months", "years")) == 1, (
             f"Cannot get number of periods for {self}"
         )
@@ -459,8 +478,8 @@ class TimeDelta(DateUtilWrapper):
         if self._relative_delta.weeks != 0:
             n_days_diff = (end_stamp.date - start_stamp.date).days
             return n_days_diff // (self._relative_delta.weeks * 7)
-        if self._relative_delta.months != 0 or self._relative_delta.years != 0:
-            return (end_stamp - start_stamp) // self
+        # months or years
+        return (end_stamp - start_stamp) // self
 
 
 class PeriodRange(BNPDataClass):
@@ -511,17 +530,17 @@ class PeriodRange(BNPDataClass):
         delta = relativedelta(self._end_timestamp._date, self._start_timestamp._date)
         return TimeDelta(delta) // self._time_delta
 
-    def __eq__(self, other: TimePeriod) -> np.ndarray[bool]:
+    def __eq__(self, other: TimePeriod) -> NDArray[np.bool_]:  # type: ignore[override]
         """Check each period in the range for equality to the given period"""
         return self._vectorize("__eq__", other)
 
-    def _vectorize(self, funcname: str, other: TimePeriod):
+    def _vectorize(self, funcname: str, other: TimePeriod) -> NDArray[np.bool_]:
         if isinstance(other, PeriodRange):
             assert len(self) == len(other), (len(self), len(other), self, other)
             return np.array([getattr(period, funcname)(other_period) for period, other_period in zip(self, other)])
         return np.array([getattr(period, funcname)(other) for period in self])
 
-    def __ne__(self, other: TimePeriod) -> np.ndarray[bool]:
+    def __ne__(self, other: TimePeriod) -> NDArray[np.bool_]:  # type: ignore[override]
         """Check each period in the range for inequality to the given period"""
         return self._vectorize("__ne__", other)
 
