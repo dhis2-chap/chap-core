@@ -108,7 +108,7 @@ class ExternalWebModel(ExternalModelBase):
                 logger.info(f"{job_type} job {job_id} status: {status}")
 
                 if status == "completed":
-                    return job_info
+                    return job_info  # type: ignore[no-any-return]
                 elif status == "failed":
                     error_msg = job_info.get("error_message", "Unknown error")
                     raise ModelFailedException(f"{job_type} job failed: {error_msg}")
@@ -153,7 +153,7 @@ class ExternalWebModel(ExternalModelBase):
         # Add configuration if present
         if self._configuration:
             config_yaml = yaml.dump(self._configuration)
-            files["config"] = ("config.yaml", config_yaml, "text/yaml")
+            files["config"] = ("config.yaml", config_yaml, "text/yaml")  # type: ignore[assignment]
 
         # Generate unique model name for this training session
         self._trained_model_name = f"{self._name}_{uuid.uuid4().hex[:8]}"

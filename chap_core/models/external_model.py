@@ -56,12 +56,12 @@ class ExternalModelBase(ConfiguredModel):
     """
     A base class for external models that provides some utility methods"""
 
-    def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency="ME"):  # type: ignore[attr-defined]
-        if self._location_mapping is not None:
-            data["location"] = data["location"].apply(self._location_mapping.name_to_index)
-        if self._adapters is None:
+    def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency="ME"):
+        if self._location_mapping is not None:  # type: ignore[attr-defined]
+            data["location"] = data["location"].apply(self._location_mapping.name_to_index)  # type: ignore[attr-defined]
+        if self._adapters is None:  # type: ignore[attr-defined]
             return data
-        adapters = self._adapters
+        adapters = self._adapters  # type: ignore[attr-defined]
         logger.info(f"Adapting data with columns {data.columns.tolist()} using adapters {adapters}")
         if inverse:
             adapters = {v: k for k, v in adapters.items()}
@@ -147,7 +147,7 @@ class ExternalModel(ExternalModelBase):
         self._name = name
         self._polygons_file_name: Path | None = None
         self._configuration: dict[str, object] = (
-            configuration or {}
+            configuration or {}  # type: ignore[assignment]
         )  # configuration passed from the user to the model, e.g. about covariates or parameters
         # self._config_filename = "model_config.yaml"
         self._model_information = model_information
@@ -161,16 +161,8 @@ class ExternalModel(ExternalModelBase):
         return self._configuration
 
     @property
-    def required_fields(self):
-        return self._required_fields
-
-    @property
     def model_information(self):
         return self._model_information
-
-    @property
-    def optional_fields(self):
-        return self._optional_fields
 
     def train(self, train_data: DataSet, extra_args=None):
         """

@@ -25,14 +25,16 @@ class ForecastAdaptor:
     @staticmethod
     def from_samples(samples: Samples) -> SampleForecast:
         start_period = samples.time_period[0].topandas()
-        return SampleForecast(samples.samples.T, start_period)
+        return SampleForecast(samples.samples.T, start_period)  # type: ignore[attr-defined]
 
 
 class DataSetAdaptor:
     @staticmethod
     def _from_single_gluonts_series(series: dict, dataclass: type[T]) -> T:
         field_names = [
-            field.name for field in dataclasses.fields(dataclass) if field.name not in ["disease_cases", "time_period"]
+            field.name
+            for field in dataclasses.fields(dataclass)  # type: ignore[arg-type]
+            if field.name not in ["disease_cases", "time_period"]
         ]
         field_dict = {name: series["feat_dynamic_real"].T[:, i] for i, name in enumerate(field_names)}
         field_dict["disease_cases"] = series["target"]

@@ -76,7 +76,7 @@ class PeakValueDiffMetric(Metric):
         fc_mean = (
             forecasts.groupby(["location", "time_period", "horizon_distance"], as_index=False)["forecast"]
             .mean()
-            .rename(columns={"forecast": "forecast_mean"})
+            .rename(columns={"forecast": "forecast_mean"})  # type: ignore[call-overload]
         )
 
         obs = observations[["location", "time_period", "disease_cases"]].copy()
@@ -135,7 +135,7 @@ class PeakPeriodLagMetric(Metric):
         fc_mean = (
             forecasts.groupby(["location", "time_period", "horizon_distance"], as_index=False)["forecast"]
             .mean()
-            .rename(columns={"forecast": "forecast_mean"})
+            .rename(columns={"forecast": "forecast_mean"})  # type: ignore[call-overload]
         )
         obs = observations[["location", "time_period", "disease_cases"]].copy()
 
