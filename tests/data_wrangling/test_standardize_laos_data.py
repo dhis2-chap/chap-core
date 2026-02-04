@@ -6,7 +6,9 @@ import pytest
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.datatypes import HealthData, ClimateHealthData
 from chap_core.time_period import Month
-from chap_core.time_period.period_range import period_range
+
+# Commented out: module does not exist
+# from chap_core.time_period.period_range import period_range
 from tests.mocks import ClimateDataBaseMock
 
 
@@ -63,15 +65,16 @@ def get_data(filename: Path):
     return data
 
 
-def messy_standardization_function(filename: Path, geolocator):
-    data = get_data(filename)
-    month = [get_month(s) for s in data["period_string"]]
-    print(month[0].month, month[-1].month)
-    time_period = period_range(month[0], month[-1], exclusive_end=False)  # type: ignore[reportCallIssue]
-    data_dict = {get_city_name(c): HealthData(time_period, data[c]) for c in data.columns[1:]}  # type: ignore[reportCallIssue]
-    from chap_core._legacy_dataset import SpatioTemporalDict
-
-    return SpatioTemporalDict(data_dict)
+# Commented out: imports modules that no longer exist (period_range, _legacy_dataset)
+# def messy_standardization_function(filename: Path, geolocator):
+#     data = get_data(filename)
+#     month = [get_month(s) for s in data["period_string"]]
+#     print(month[0].month, month[-1].month)
+#     time_period = period_range(month[0], month[-1], exclusive_end=False)
+#     data_dict = {get_city_name(c): HealthData(time_period, data[c]) for c in data.columns[1:]}
+#     from chap_core._legacy_dataset import SpatioTemporalDict
+#
+#     return SpatioTemporalDict(data_dict)
 
 
 def link_up_geo_data(data: DataSet[HealthData], geolocator):
@@ -92,12 +95,13 @@ def laos_data_path(data_path):
     return data_path / "obfuscated_laos_data.tsv"
 
 
-@pytest.mark.xfail
-def test_standardize_laos_data(laos_data_path, geolocator):
-    true_standardized = messy_standardization_function(laos_data_path, geolocator)
-    print(true_standardized)
-    full_data = link_up_geo_data(true_standardized, geolocator)
-    print(full_data)
-    schema = {}
-    our_standardized = standardize_data(laos_data_path, schema)  # type: ignore[reportUndefinedVariable]
-    assert true_standardized == our_standardized
+# Commented out: depends on messy_standardization_function which uses removed modules
+# @pytest.mark.xfail
+# def test_standardize_laos_data(laos_data_path, geolocator):
+#     true_standardized = messy_standardization_function(laos_data_path, geolocator)
+#     print(true_standardized)
+#     full_data = link_up_geo_data(true_standardized, geolocator)
+#     print(full_data)
+#     schema = {}
+#     our_standardized = standardize_data(laos_data_path, schema)
+#     assert true_standardized == our_standardized
