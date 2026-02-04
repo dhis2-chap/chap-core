@@ -34,7 +34,7 @@ To verify that `ExtendedPredictor` works correctly, run an evaluation with a pre
 chap eval --model-name external_models/naive_python_model_uv \
     --dataset-csv example_data/laos_subset.csv \
     --output-file ./extended_predictor_test.nc \
-    --backtest-params.n-periods 3 \
+    --backtest-params.n-periods 6 \
     --backtest-params.n-splits 2
 ```
 
