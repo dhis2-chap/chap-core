@@ -80,6 +80,7 @@
 - url: https://github.com/dhis2-chap/rwanda_sarimax
   versions:
     v1: "@dev"
+    uv: "@1fa5f69c1904117012f5754839be35befb1f5789"
 
 - url: https://github.com/dhis2-chap/rwanda_random_forest
   versions:
