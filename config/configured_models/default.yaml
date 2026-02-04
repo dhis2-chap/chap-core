@@ -84,6 +84,7 @@
 - url: https://github.com/dhis2-chap/rwanda_random_forest
   versions:
     v1: "@chap"
+    uv: "@2efbf3a870a5070b3570e3091ca25271d09d373a"
 
 - url: https://github.com/dhis2-chap/chap_pymc
   versions:
