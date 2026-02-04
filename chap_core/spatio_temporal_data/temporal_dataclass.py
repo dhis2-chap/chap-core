@@ -67,18 +67,18 @@ class TemporalDataclass(Generic[FeaturesT]):
         assert period_range.step is None
         start, stop = (None, None)
         if period_range.start is not None:
-            start = self._data.time_period.searchsorted(period_range.start)
+            start = self._data.time_period.searchsorted(period_range.start)  # type: ignore[attr-defined]
         if period_range.stop is not None:
-            stop = self._data.time_period.searchsorted(period_range.stop, side="right")
+            stop = self._data.time_period.searchsorted(period_range.stop, side="right")  # type: ignore[attr-defined]
         return self._data[start:stop]  # type: ignore[index]
 
     def fill_to_endpoint(self, end_time_stamp: TimeStamp) -> "TemporalDataclass[FeaturesT]":
         if self.end_timestamp == end_time_stamp:
             return self
-        n_missing = self._data.time_period.delta.n_periods(self.end_timestamp, end_time_stamp)
+        n_missing = self._data.time_period.delta.n_periods(self.end_timestamp, end_time_stamp)  # type: ignore[attr-defined]
         # n_missing = (end_time_stamp - self.end_timestamp) // self._data.time_period.delta
         assert n_missing >= 0, (f"{n_missing} < 0", end_time_stamp, self.end_timestamp)
-        old_time_period = self._data.time_period
+        old_time_period = self._data.time_period  # type: ignore[attr-defined]
         new_time_period = PeriodRange(old_time_period.start_timestamp, end_time_stamp, old_time_period.delta)
         d = {
             field.name: getattr(self._data, field.name)
@@ -93,15 +93,15 @@ class TemporalDataclass(Generic[FeaturesT]):
     def fill_to_range(self, start_timestamp, end_timestamp):
         if self.end_timestamp == end_timestamp and self.start_timestamp == start_timestamp:
             return self
-        n_missing_start = self._data.time_period.delta.n_periods(start_timestamp, self.start_timestamp)
-        n_missing = self._data.time_period.delta.n_periods(self.end_timestamp, end_timestamp)
+        n_missing_start = self._data.time_period.delta.n_periods(start_timestamp, self.start_timestamp)  # type: ignore[attr-defined]
+        n_missing = self._data.time_period.delta.n_periods(self.end_timestamp, end_timestamp)  # type: ignore[attr-defined]
         assert n_missing >= 0, (f"{n_missing} < 0", end_timestamp, self.end_timestamp)
         assert n_missing_start >= 0, (
             f"{n_missing} < 0",
             end_timestamp,
             self.end_timestamp,
         )
-        old_time_period = self._data.time_period
+        old_time_period = self._data.time_period  # type: ignore[attr-defined]
         new_time_period = PeriodRange(start_timestamp, end_timestamp, old_time_period.delta)
         d = {
             field.name: getattr(self._data, field.name)
@@ -116,16 +116,16 @@ class TemporalDataclass(Generic[FeaturesT]):
     def restrict_time_period(self, period_range: TemporalIndexType) -> "TemporalDataclass[FeaturesT]":
         assert isinstance(period_range, slice)
         assert period_range.step is None
-        if hasattr(self._data.time_period, "searchsorted"):
+        if hasattr(self._data.time_period, "searchsorted"):  # type: ignore[attr-defined]
             return self._restrict_by_slice(period_range)  # type: ignore[return-value, no-any-return]
 
-        mask = np.full(len(self._data.time_period), True)
+        mask = np.full(len(self._data.time_period), True)  # type: ignore[attr-defined]
 
         if period_range.start is not None:
-            mask = mask & (self._data.time_period >= period_range.start)
+            mask = mask & (self._data.time_period >= period_range.start)  # type: ignore[attr-defined]
 
         if period_range.stop is not None:
-            mask = mask & (self._data.time_period <= period_range.stop)
+            mask = mask & (self._data.time_period <= period_range.stop)  # type: ignore[attr-defined]
 
         return self._data[mask]  # type: ignore[return-value, index, no-any-return]
 
@@ -133,18 +133,18 @@ class TemporalDataclass(Generic[FeaturesT]):
         return self._data
 
     def to_pandas(self) -> pd.DataFrame:
-        return self._data.to_pandas()
+        return self._data.to_pandas()  # type: ignore[attr-defined, no-any-return]
 
     def join(self, other):
         return np.concatenate([self._data, other._data])
 
     @property
     def start_timestamp(self) -> TimeStamp:
-        return self._data.time_period[0].start_timestamp  # type: ignore[no-any-return]
+        return self._data.time_period[0].start_timestamp  # type: ignore[attr-defined, no-any-return]
 
     @property
     def end_timestamp(self) -> TimeStamp:
-        return self._data.time_period[-1].end_timestamp  # type: ignore[no-any-return]
+        return self._data.time_period[-1].end_timestamp  # type: ignore[attr-defined, no-any-return]
 
 
 class Polygon:
@@ -265,21 +265,21 @@ class DataSet(Generic[FeaturesT]):
     @property
     def period_range(self) -> PeriodRange:
         try:
-            first_period_range = self._data_dict[next(iter(self._data_dict))].time_period
+            first_period_range = self._data_dict[next(iter(self._data_dict))].time_period  # type: ignore[attr-defined]
         except StopIteration:
             raise ValueError(f"No data in dataset {self}")
 
         assert first_period_range.start_timestamp == first_period_range.start_timestamp
         assert first_period_range.end_timestamp == first_period_range.end_timestamp
-        return first_period_range
+        return first_period_range  # type: ignore[no-any-return]
 
     @property
     def start_timestamp(self) -> TimeStamp:
-        return min(data.start_timestamp for data in self.data())
+        return min(data.start_timestamp for data in self.data())  # type: ignore[attr-defined, no-any-return]
 
     @property
     def end_timestamp(self) -> TimeStamp:
-        return max(data.end_timestamp for data in self.data())
+        return max(data.end_timestamp for data in self.data())  # type: ignore[attr-defined, no-any-return]
 
     def get_locations(self, location: Iterable[str]) -> "DataSet[FeaturesT]":
         return self.__class__({loc: self._data_dict[loc] for loc in location}, self._polygons)
@@ -318,7 +318,7 @@ class DataSet(Generic[FeaturesT]):
 
         try:
             tables = [
-                self._add_location_info_to_dataframe(data.to_pandas(), location, parent_dict)
+                self._add_location_info_to_dataframe(data.to_pandas(), location, parent_dict)  # type: ignore[attr-defined]
                 for location, data in self._data_dict.items()
             ]
         except KeyError:
@@ -327,15 +327,15 @@ class DataSet(Generic[FeaturesT]):
         return pd.concat(tables)  # type: ignore[return-value, no-any-return]
 
     def interpolate(self, field_names: Optional[list[str]] = None):
-        return self.__class__({loc: data.interpolate(field_names) for loc, data in self.items()}, self._polygons)  # type: ignore[misc]
+        return self.__class__({loc: data.interpolate(field_names) for loc, data in self.items()}, self._polygons)  # type: ignore[attr-defined, misc]
 
     @classmethod
     def _fill_missing(cls, data_dict: dict[str, FeaturesT]) -> dict[str, FeaturesT]:
         """Fill missing values in a dictionary of FeaturesT"""
-        end = max(data.end_timestamp for data in data_dict.values())
-        start = min(data.start_timestamp for data in data_dict.values())
+        end = max(data.end_timestamp for data in data_dict.values())  # type: ignore[attr-defined]
+        start = min(data.start_timestamp for data in data_dict.values())  # type: ignore[attr-defined]
         for location, data in data_dict.items():
-            data_dict[location] = data.fill_to_range(start, end)  # type: ignore[assignment]
+            data_dict[location] = data.fill_to_range(start, end)  # type: ignore[attr-defined, assignment]
         return data_dict
 
     @classmethod
@@ -408,7 +408,7 @@ class DataSet(Generic[FeaturesT]):
         self.to_pandas().to_csv(file_name, mode=mode)
 
     def to_pickle(self, file_name: str):
-        data_dict = {loc: data.to_pickle_dict() for loc, data in self.items()}
+        data_dict = {loc: data.to_pickle_dict() for loc, data in self.items()}  # type: ignore[attr-defined]
         with open(file_name, "wb") as f:
             pickle.dump(data_dict, f)
 
@@ -416,7 +416,7 @@ class DataSet(Generic[FeaturesT]):
     def from_pickle(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
         with open(file_name, "rb") as f:
             data_dict = pickle.load(f)
-        return cls({loc: dataclass.from_pickle_dict(val) for loc, val in data_dict.items()})  # type: ignore[misc]
+        return cls({loc: dataclass.from_pickle_dict(val) for loc, val in data_dict.items()})  # type: ignore[attr-defined, misc]
 
     @classmethod
     def from_file(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
@@ -502,7 +502,7 @@ class DataSet(Generic[FeaturesT]):
         Assumes other is later in time.
         """
         return self.__class__(
-            {loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()},  # type: ignore[misc]
+            {loc: self._data_dict[loc].join(other._data_dict[loc]) for loc in self.locations()},  # type: ignore[attr-defined, misc]
             self._polygons,
         )
 
@@ -571,7 +571,7 @@ class DataSet(Generic[FeaturesT]):
 
     def plot(self):
         for location, value in self.items():
-            df = value.to_pandas()
+            df = value.to_pandas()  # type: ignore[attr-defined]
             df.plot(x="time_period", y="disease_cases")
             plt.title(location)
         return plt
@@ -589,7 +589,7 @@ class DataSet(Generic[FeaturesT]):
 
         with PdfPages(pdf_filename) as pdf:
             for location, value in self.items():
-                df = value.to_pandas()
+                df = value.to_pandas()  # type: ignore[attr-defined]
                 df.plot(x="time_period", y="disease_cases")
                 df.plot(x="time_period", y="population")
                 plt.title(location)

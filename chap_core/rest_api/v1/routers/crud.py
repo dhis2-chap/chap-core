@@ -21,9 +21,9 @@ from typing import Annotated, Any, List, Optional
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
-from starlette.responses import StreamingResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
+from starlette.responses import StreamingResponse
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
