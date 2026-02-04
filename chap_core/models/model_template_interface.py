@@ -22,8 +22,7 @@ class ConfiguredModel(abc.ABC):
 
 class ModelTemplateInterface(abc.ABC):
     @abc.abstractmethod
-    def get_schema(self) -> ModelTemplateInformation:
-        return self.model_template_info
+    def get_schema(self) -> ModelTemplateInformation: ...
 
     @abc.abstractmethod
     def get_model(self, model_configuration: ModelConfiguration | None = None) -> "ConfiguredModel":

@@ -31,6 +31,7 @@ class Simulator(abc.ABC):
     def __init__(self, params: SimulationParams):
         self._params = params
 
+    @abc.abstractmethod
     def simulate(self, data_dims: DatasetDimensions) -> DataSet: ...
 
 

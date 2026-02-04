@@ -7,7 +7,7 @@ from chap_core.time_period import TimePeriod
 def horizon_diff(period: str, period2: str) -> int:
     tp = TimePeriod.parse(period)
     tp2 = TimePeriod.parse(period2)
-    return (tp - tp2) // tp.time_delta
+    return int((tp - tp2) // tp.time_delta)
 
 
 def create_metric_table(metrics: list[BackTestMetric]):

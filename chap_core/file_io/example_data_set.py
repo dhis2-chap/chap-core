@@ -31,7 +31,7 @@ class RemoteExampleDataSet:
         self._url = url
 
     def load(self) -> DataSet:
-        return MultiCountryDataSet.from_tar(self._url)
+        return MultiCountryDataSet.from_tar(self._url)  # type: ignore[no-any-return]
 
 
 class LocalDataSet(ExampleDataSet):
@@ -62,4 +62,4 @@ datasets: dict[str, ExampleDataSet] = {
     for name in dataset_names
 } | {name: LocalDataSet(name, FullData) for name in local_datasets}
 for name, url in remote_datasets.items():
-    datasets[name] = RemoteExampleDataSet(url)
+    datasets[name] = RemoteExampleDataSet(url)  # type: ignore[assignment]

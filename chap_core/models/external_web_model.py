@@ -61,11 +61,11 @@ class ExternalWebModel(ExternalModelBase):
         self._timeout = timeout
         self._poll_interval = poll_interval
         self._configuration = configuration or {}
-        self._trained_model_name = None
+        self._trained_model_name: str | None = None
         self._adapters = adapters
         self._working_dir = Path(working_dir)
         self._location_mapping = None
-        self._polygons_file_name = None
+        self._polygons_file_name: Path | None = None
 
     @property
     def name(self):

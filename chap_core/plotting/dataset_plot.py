@@ -135,7 +135,7 @@ class StandardizedFeaturePlot(DatasetPlot):
     This shows how different features correlate over time and location.
     """
 
-    def _standardize(self, col: np.array) -> np.array:
+    def _standardize(self, col: np.ndarray) -> np.ndarray:
         # Handle NaN values properly
         mean_val = np.nanmean(col)
         std_val = np.nanstd(col)

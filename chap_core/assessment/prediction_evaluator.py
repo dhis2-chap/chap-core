@@ -22,13 +22,13 @@ plt.set_loglevel(level="warning")
 logger = logging.getLogger(__name__)
 
 
-FetureType = TypeVar("FeatureType", bound=TimeSeriesData)
+FeatureType = TypeVar("FeatureType", bound=TimeSeriesData)
 
 
 class Predictor(Protocol):
     def predict(
         self,
-        historic_data: DataSet[FetureType],
+        historic_data: DataSet[FeatureType],
         future_data: DataSet[TimeSeriesData],
     ) -> Samples: ...
 
