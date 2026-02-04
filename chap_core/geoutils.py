@@ -218,4 +218,4 @@ def simplify_topology(polygons: Polygons, threshold=None) -> Polygons:
     geoj = topo.__geo_interface__
 
     # return new Polygons object
-    return Polygons.from_geojson(geoj)
+    return Polygons.from_geojson(geoj)  # type: ignore[no-any-return]

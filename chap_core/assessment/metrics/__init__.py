@@ -9,7 +9,6 @@ adds them to the registry based on their spec.metric_id.
 """
 
 import logging
-from typing import Callable
 
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
@@ -104,7 +103,7 @@ from chap_core.assessment.metrics.rmse import RMSEMetric  # noqa: E402
 from chap_core.assessment.metrics.test_metrics import SampleCountMetric  # noqa: E402
 
 # Backward compatibility alias
-available_metrics: dict[str, Callable[[], Metric]] = _metrics_registry
+available_metrics: dict[str, type[Metric]] = _metrics_registry
 
 __all__ = [
     # Base classes

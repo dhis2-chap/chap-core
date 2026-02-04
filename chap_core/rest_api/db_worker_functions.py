@@ -127,7 +127,7 @@ def run_prediction(
     session: SessionWrapper,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
-    dataset = session.get_dataset(dataset_id)
+    dataset = session.get_dataset(int(dataset_id))
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
     configured_model = session.get_configured_model_by_name(model_id)

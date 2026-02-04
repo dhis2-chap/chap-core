@@ -157,7 +157,7 @@ def get_country_data(country, admin_level) -> PFeatureCollectionModel:
 
 
 def get_all_data():
-    return ((country, get_country_data(country)) for country in country_codes.keys())
+    return ((country, get_country_data(country, admin_level=1)) for country in country_codes.keys())
 
 
 class Polygons:
@@ -198,7 +198,7 @@ class Polygons:
     def to_file(self, filename):
         json.dump(self.to_geojson(), open(filename, "w"))
 
-    def id_to_name_tuple_dict(self) -> Dict[str, Tuple[str]]:
+    def id_to_name_tuple_dict(self) -> Dict[str, Tuple[str, str]]:
         """Returns a dictionary with the id as key and a tuple with the name and parent as value"""
         lookup = {}
         for feat in self.feature_collection().features:
@@ -215,14 +215,14 @@ class Polygons:
         }
 
     def get_predecessors_map(self, predecessors: list[str]):
-        predecessors = set(predecessors)
+        predecessors_set = set(predecessors)
         map = {}
         for feature in self._polygons.features:
             if feature.properties is None:
                 raise ValueError(f"Feature {feature.id} has no properties")
             if "parentGraph" not in feature.properties:
                 raise ValueError(f"Feature {feature.id} has no parentGraph property")
-            possible_parents = [p for p in feature.properties["parentGraph"].split("/") if p in predecessors]
+            possible_parents = [p for p in feature.properties["parentGraph"].split("/") if p in predecessors_set]
             if len(possible_parents) == 0:
                 raise ValueError(f"Feature {feature.id} has no parent in predecessors")
             if len(possible_parents) > 1:
@@ -240,8 +240,12 @@ class Polygons:
     @classmethod
     def _add_ids(cls, features: DFeatureCollectionModel, id_property: str):
         for feature in features.features:
+            if feature.id:
+                continue
+            if feature.properties is None:
+                raise ValueError("Feature has no properties and no id")
             try:
-                feature.id = feature.id or unidecode(str(feature.properties[id_property]))
+                feature.id = unidecode(str(feature.properties[id_property]))
             except AttributeError:
                 logging.error(f"{feature.properties[id_property]}")
                 raise
@@ -268,11 +272,11 @@ class Polygons:
             logger.warning(f"Skipped {errors} geojson features due to failed validation")
 
         # create pydantic feature collection and add ids
-        features = DFeatureCollectionModel(features=features)
-        features = cls._add_ids(features, id_property)
+        feature_collection = DFeatureCollectionModel(features=features)
+        feature_collection = cls._add_ids(feature_collection, id_property)
 
         # init class object
-        return cls(features)
+        return cls(feature_collection)
 
     def to_geojson(self):
         return self._polygons.model_dump()
