@@ -129,7 +129,12 @@ def _validate_full_dataset(
             new_data[location] = data
     if not new_data:
         raise HTTPException(
-            status_code=500, detail=f"All regions regjected due to missing values. Rejected: {str(rejected_list)}"
+            status_code=400,
+            detail={
+                "message": "All regions rejected due to missing values",
+                "imported_count": 0,
+                "rejected": [r.model_dump() for r in rejected_list]
+            }
         )
     else:
         print(new_data.keys())
