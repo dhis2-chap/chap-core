@@ -84,7 +84,7 @@ def add_id(feature, admin_level=1, lookup_dict=None):
     return DFeatureModel(**feature.model_dump(), id=id)
 
 
-def get_area_polygons(country: str, regions: list[str] = None, admin_level: int = 1) -> FeatureCollectionModel:
+def get_area_polygons(country: str, regions: list[str] | None = None, admin_level: int = 1) -> FeatureCollectionModel:
     """
     Get the polygons for the specified regions in the specified country (only ADMIN1 supported)
     Returns only the regions that are found in the data

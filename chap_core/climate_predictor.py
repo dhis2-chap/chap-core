@@ -65,14 +65,16 @@ class WeeklyClimatePredictor(MonthlyClimatePredictor):
 
 
 class FutureWeatherFetcher:
-    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]: ...
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
+        raise NotImplementedError()
 
 
 class SeasonalForecastFetcher:
     def __init__(self, folder_path):
         self.folder_path = folder_path
 
-    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]: ...
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
+        raise NotImplementedError()
 
 
 class QuickForecastFetcher:

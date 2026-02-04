@@ -247,7 +247,7 @@ class EvaluationPlot(BacktestPlotBase):
         full_layer = error1 + error2 + line + observations_layer
 
         # Facet the combined layer
-        return (
+        return (  # type: ignore[no-any-return]
             full_layer.facet(column="split_period:O", row="location:N")
             .resolve_scale(y="independent")
             .properties(title="BackTest Forecasts with Observations")

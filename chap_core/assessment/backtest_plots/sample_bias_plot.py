@@ -137,4 +137,4 @@ class SampleBiasPlot(BacktestPlotBase):
             view={"stroke": None},
         )
 
-        return dashboard
+        return dashboard  # type: ignore[no-any-return]

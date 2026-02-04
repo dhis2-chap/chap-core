@@ -58,7 +58,7 @@ class ModelSpec(ModelSpecBase, table=True):
 def get_available_models_from_config_dir(config_dir: str, base_covariates) -> List[ModelSpec]:
     #  Reads from config dir, creates ModelSpec objects by reading from github_urls,
     # and returns a list of ModelSpec objects by calling ModelSpec.from_model_spec_read()
-    pass
+    raise NotImplementedError()
 
 
 # todo: check if can be removed

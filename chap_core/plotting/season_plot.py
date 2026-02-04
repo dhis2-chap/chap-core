@@ -24,9 +24,9 @@ class SeasonPlot(DatasetPlot):
         df["season_idx"] = df["season_idx"] - df["season_idx"].min()
         return df
 
-    def plot(self) -> alt.FacetChart:
+    def plot(self) -> alt.FacetChart:  # type: ignore[override]
         df = self.data()
-        return (
+        return (  # type: ignore[no-any-return]
             alt.Chart(df)
             .mark_line(point=False, strokeWidth=2)
             .encode(
@@ -100,9 +100,9 @@ class SeasonCorrelationBarPlot(SeasonCorrelationPlot):
 
         return pd.DataFrame(correlations)
 
-    def plot(self) -> alt.FacetChart:
+    def plot(self) -> alt.FacetChart:  # type: ignore[override]
         df = self.data()
-        return (
+        return (  # type: ignore[no-any-return]
             alt.Chart(df)
             .mark_bar()
             .encode(

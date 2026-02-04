@@ -31,7 +31,9 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             possible_extra = {
                 "model_config": str(self.model_configuration_filename) if self.model_configuration_filename else None,
             }
-            keys.update({key: val for key, val in possible_extra.items() if key in self.extra_params})
+            keys.update(
+                {key: val for key, val in possible_extra.items() if key in self.extra_params and val is not None}
+            )
             return mlflow.projects.run(
                 str(self.model_path),
                 entry_point="train",
@@ -61,7 +63,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
         extra_params = {
             "model_config": str(self.model_configuration_filename) if self.model_configuration_filename else None,
         }
-        params.update({key: val for key, val in extra_params.items() if key in self.extra_params})
+        params.update({key: val for key, val in extra_params.items() if key in self.extra_params and val is not None})
         return mlflow.projects.run(
             str(self.model_path),
             entry_point="predict",

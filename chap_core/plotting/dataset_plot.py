@@ -206,7 +206,7 @@ class StandardizedFeaturePlot(DatasetPlot):
             .facet(facet=alt.Facet("location:N", title="Location"), columns=3)
             .resolve_scale(y="shared")
         )
-        return (
+        return (  # type: ignore[no-any-return]
             alt.hconcat(legend_chart, main_chart)
             .resolve_legend(color="independent")
             .properties(title="Multiple Feature Selection (Click legend items to toggle)")
