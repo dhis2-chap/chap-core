@@ -4,7 +4,7 @@ import pandas as pd
 
 from .dataset_plot import DatasetPlot
 
-alt.renderers.default = "browser"
+alt.renderers.enable("browser")
 
 
 class SeasonPlot(DatasetPlot):

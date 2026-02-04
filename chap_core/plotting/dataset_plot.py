@@ -50,16 +50,18 @@ class DatasetPlot(ABC):
     def _get_feature_names(self) -> list:
         return [name for name in self._get_colnames() if name not in ("log1p", "log1p", "population")]
 
-    def _get_colnames(self) -> filter:
-        colnames = filter(
-            lambda name: name not in ("disease_cases", "location", "time_period") and not name.startswith("Unnamed"),
-            self._df.columns,
-        )
-        colnames = filter(
-            lambda name: self._df[name].dtype.name in ("float64", "int64", "bool", "int32", "float32"), colnames
+    def _get_colnames(self) -> list[str]:
+        colnames = list(
+            filter(
+                lambda name: self._df[name].dtype.name in ("float64", "int64", "bool", "int32", "float32"),
+                filter(
+                    lambda name: name not in ("disease_cases", "location", "time_period")
+                    and not name.startswith("Unnamed"),
+                    self._df.columns,
+                ),
+            )
         )
         print(self._df.columns)
-        colnames = list(colnames)
         print(colnames)
         return colnames
 

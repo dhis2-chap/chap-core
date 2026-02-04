@@ -45,11 +45,11 @@ class Objective:
             # stratified fold/splits
             results = evaluate_model(
                 model,
-                dataset,
+                dataset,  # type: ignore[arg-type]
                 prediction_length=self.prediction_length,
                 n_test_sets=self.n_splits,
             )
         except NoPredictionsError as e:
             logger.error(f"No predictions were made: {e}")
             return float("inf")
-        return results[0][self.metric]
+        return float(results[0][self.metric])

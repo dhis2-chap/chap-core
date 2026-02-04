@@ -22,7 +22,7 @@ class PFeatureModel(FeatureModel):
 
 
 class PFeatureCollectionModel(FeatureCollectionModel):
-    features: list[PFeatureModel]
+    features: list[PFeatureModel]  # type: ignore[assignment]
 
 
 data_path = "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_{country_code}_{level}.json.zip"
@@ -180,7 +180,7 @@ class Polygons:
 
     @property
     def data(self) -> FeatureCollectionModel:
-        return self._polygons
+        return self._polygons  # type: ignore[no-any-return]
 
     @property
     def bbox(self):

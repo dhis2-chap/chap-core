@@ -32,7 +32,7 @@ class RedisJob(Generic[ReturnType]):
         return self._job.get_status()
 
     @property
-    def exception_info(self) -> str:
+    def exception_info(self) -> str | None:
         return self._job.exc_info
 
     @property
@@ -45,7 +45,9 @@ class RedisJob(Generic[ReturnType]):
         return 0
 
     def get_logs(self) -> str:
-        return self._job.meta.get("stdout", "") + "\n" + self._job.meta.get("stderr", "")
+        stdout: str = self._job.meta.get("stdout", "")
+        stderr: str = self._job.meta.get("stderr", "")
+        return stdout + "\n" + stderr
 
     def cancel(self):
         self._job.cancel()
