@@ -30,12 +30,16 @@ while remaining_time_periods > 0:
 
 To verify that `ExtendedPredictor` works correctly, run an evaluation with a prediction length that exceeds the model's native maximum. The `eval` command automatically wraps models with `ExtendedPredictor` when needed:
 
-<!-- Cannot test: requires user-provided data file -->
-```console
-chap eval --model-name https://github.com/chap-models/Xiang_SVM \
-    --dataset-csv ./your_data.csv \
-    --output-file ./eval.nc \
-    --backtest-params.n-periods 6
+```bash
+chap eval --model-name external_models/naive_python_model_uv \
+    --dataset-csv example_data/laos_subset.csv \
+    --output-file ./extended_predictor_test.nc \
+    --backtest-params.n-periods 3 \
+    --backtest-params.n-splits 2
+```
+
+```bash
+rm -f ./extended_predictor_test.nc
 ```
 
 When the requested `n-periods` exceeds the model's `max_prediction_length`, CHAP automatically uses `ExtendedPredictor` to make iterative predictions.
