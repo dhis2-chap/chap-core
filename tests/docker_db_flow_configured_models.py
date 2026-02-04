@@ -21,9 +21,10 @@ logging.basicConfig(level=logging.INFO)
 AVAILABLE_COVARIATES = {"rainfall", "mean_temperature", "population", "disease_cases"}
 
 
-def load_monthly_backtest_data():
+def load_monthly_backtest_data(filename=None):
     """Load the base backtest data from the example file."""
-    filename = "example_data/create-backtest-with-data.json"
+    if filename is None:
+        filename = "example_data/create-backtest-with-data.json"
     return json.load(open(filename))
 
 
@@ -266,12 +267,12 @@ class ConfiguredModelsIntegrationTest:
         logger.info(f"SUCCESS: Integration test for {model_name} completed. Backtest ID: {backtest_id}")
         return True
 
-    def run_all_tests(self, model_filter=None, monthly_only=False):
+    def run_all_tests(self, model_filter=None, monthly_only=False, data_file=None):
         """Run integration tests for all testable models."""
         logger.info("Starting integration tests for configured models")
 
         self.ensure_up()
-        self._base_data = load_monthly_backtest_data()
+        self._base_data = load_monthly_backtest_data(data_file)
 
         all_models = self.get_configured_models()
 
@@ -334,10 +335,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Only test models that support monthly data.",
     )
+    parser.add_argument(
+        "--data-file",
+        type=str,
+        default=None,
+        help="Path to custom backtest data JSON file.",
+    )
 
     args = parser.parse_args()
     logger.info(args)
 
     chap_url = f"http://{args.host}:8000"
     test = ConfiguredModelsIntegrationTest(chap_url)
-    test.run_all_tests(model_filter=args.model, monthly_only=args.monthly_only)
+    test.run_all_tests(model_filter=args.model, monthly_only=args.monthly_only, data_file=args.data_file)
