@@ -13,5 +13,5 @@ def test_forecast_schema_acceptance():
         }
     )
 
-    data = FlatForecasts(data)
-    print(data)
+    forecasts = FlatForecasts(data)
+    print(forecasts)

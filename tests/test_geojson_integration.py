@@ -110,7 +110,7 @@ def test2(data_path):
     # data = data[data["province_name"].isin(province_name_to_keep)]
     data = add_time_periods_to_data(data)
     logger.error(data["time_period"])
-    data = DataSet.from_pandas(data, FullData)
+    data = DataSet.from_pandas(data, FullData)  # type: ignore[assignment]
     logger.error(data.to_pandas()["time_period"])
     from pathlib import Path
 

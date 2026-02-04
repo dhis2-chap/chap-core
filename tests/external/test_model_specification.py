@@ -15,7 +15,7 @@ def test_parse_model_template_specification(example_specification):
 
     parsed = ModelTemplateConfigV2.model_validate(config)
 
-    assert parsed.entry_points.train.command != ""  # type: ignore[reportOptionalMemberAccess]
+    assert parsed.entry_points.train.command != ""  # type: ignore[union-attr]
     assert parsed.allow_free_additional_continuous_covariates == True
     print(parsed)
 
