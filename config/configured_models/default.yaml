@@ -24,6 +24,7 @@
   versions:
     nightly_build: "@master"
     stable: "@5d630df4f43542093f095c7378d47f8053f9f4fa"
+    uv: "@fab91107fc972b17c1f71c60f8c0cfa9f94c6560"
 
 - url: https://github.com/knutdrand/weekly_ar_model
   versions:
@@ -31,6 +32,7 @@
     nightly_build: "@master"
     stable: "@8ec1eb6ea854022350ad86c9e12a6d63638fbdbe"
     v2: "efda30f574bb41d179b6ff2d4199ca5a92a95c5d"
+    uv: "@8ecbad861fa86579b977c552667ac7f16b3fd320"
 
 - url: https://github.com/dhis2-chap/ewars_template
   versions:
@@ -50,6 +52,7 @@
   versions:
     v1: "@12374124aca159c8511042c99ec3e03ee4b72686"
     v2: "@master"
+    v3: "@88f59a28b6af85c697262880d27faae652dcf172"
   configurations:
     medium:
       user_option_values:
