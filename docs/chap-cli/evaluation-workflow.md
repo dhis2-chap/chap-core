@@ -6,7 +6,7 @@ This guide walks through the complete workflow for evaluating models, visualizin
 
 The workflow consists of three main steps:
 
-1. **evaluate2**: Run a backtest and export results to NetCDF format
+1. **eval**: Run a backtest and export results to NetCDF format
 2. **plot-backtest**: Generate visualizations from evaluation results
 3. **export-metrics**: Compare metrics across multiple evaluations in CSV format
 
@@ -21,7 +21,7 @@ The workflow consists of three main steps:
 Before starting, verify that the CLI tools are installed correctly:
 
 ```bash
-chap evaluate2 --help
+chap eval --help
 ```
 
 ```bash
@@ -43,14 +43,14 @@ This dataset contains 108 rows with rainfall, temperature, disease cases, and po
 
 ## Step 1: Create an Evaluation
 
-Use `evaluate2` to run a backtest on a model and export results to NetCDF format.
+Use `eval` to run a backtest on a model and export results to NetCDF format.
 
 ### Standard Models (GitHub URL or Local Directory)
 
 For models hosted on GitHub or cloned locally:
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name https://github.com/dhis2-chap/minimalist_example_r \
     --dataset-csv ./data/vietnam_data.csv \
     --output-file ./results/model_a_eval.nc \
@@ -61,7 +61,7 @@ chap evaluate2 \
 Or using a local directory:
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name /path/to/minimalist_example_r \
     --dataset-csv ./data/vietnam_data.csv \
     --output-file ./results/model_a_eval.nc \
@@ -76,7 +76,7 @@ Chapkit models are REST API-based models that follow the chapkit specification. 
 **From a running chapkit service (URL):**
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name http://localhost:8000 \
     --dataset-csv ./data/vietnam_data.csv \
     --output-file ./results/chapkit_eval.nc \
@@ -95,7 +95,7 @@ When you provide a directory path with `--run-config.is-chapkit-model`, CHAP aut
 4. Stops the service when complete
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name /path/to/your/chapkit/model \
     --dataset-csv ./data/vietnam_data.csv \
     --output-file ./results/chapkit_eval.nc \
@@ -122,7 +122,7 @@ chap evaluate2 \
 | `--historical-context-years` | Years of historical data for plot context | 6 |
 | `--data-source-mapping` | JSON file mapping model covariate names to CSV columns | None |
 
-For detailed parameter descriptions and examples, see the [evaluate2 Reference](evaluate2-reference.md).
+For detailed parameter descriptions and examples, see the [eval Reference](eval-reference.md).
 
 ### GeoJSON Auto-Discovery
 
@@ -162,7 +162,7 @@ The output format is determined by file extension:
 Run the same process with a different model for comparison:
 
 ```console
-chap evaluate2 \
+chap eval \
     --model-name https://github.com/dhis2-chap/chap_auto_ewars_weekly \
     --dataset-csv ./data/vietnam_data.csv \
     --output-file ./results/model_b_eval.nc \
@@ -230,7 +230,7 @@ Here's a complete workflow using the included example dataset (`example_data/lao
 
 ```bash
 # Step 1: Evaluate model
-chap evaluate2 \
+chap eval \
     --model-name external_models/naive_python_model_uv \
     --dataset-csv example_data/laos_subset.csv \
     --output-file ./eval_doctest.nc \
@@ -275,7 +275,7 @@ Then run the evaluation:
 
 ```console
 # Evaluate the chapkit model
-chap evaluate2 \
+chap eval \
     --model-name http://localhost:8000 \
     --dataset-csv ./example_data/laos_subset.csv \
     --output-file ./eval_chapkit.nc \
@@ -297,7 +297,7 @@ If you have a chapkit model in a local directory, CHAP can automatically start a
 git clone https://github.com/your-org/your-chapkit-model /path/to/chapkit-model
 
 # Evaluate with auto-start (CHAP starts the service automatically)
-chap evaluate2 \
+chap eval \
     --model-name /path/to/chapkit-model \
     --dataset-csv ./example_data/laos_subset.csv \
     --output-file ./eval_local_chapkit.nc \
@@ -316,14 +316,14 @@ You can compare chapkit models with standard models using export-metrics:
 
 ```console
 # Evaluate a standard model
-chap evaluate2 \
+chap eval \
     --model-name https://github.com/dhis2-chap/minimalist_example_r \
     --dataset-csv ./example_data/laos_subset.csv \
     --output-file ./eval_standard.nc \
     --backtest-params.n-splits 3
 
 # Evaluate a chapkit model
-chap evaluate2 \
+chap eval \
     --model-name /path/to/chapkit-model \
     --dataset-csv ./example_data/laos_subset.csv \
     --output-file ./eval_chapkit.nc \

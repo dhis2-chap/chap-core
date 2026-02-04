@@ -81,7 +81,7 @@ make test-docs-all
     ````markdown
     <!-- Cannot test: requires running Docker daemon -->
     ```console
-    chap evaluate --model docker://my-model ...
+    chap eval --model-name docker://my-model --dataset-csv data.csv --output-file eval.nc
     ```
     ````
 

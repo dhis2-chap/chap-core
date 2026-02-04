@@ -260,11 +260,11 @@ The `flat_observations` and `flat_forecasts` fixtures are defined in `tests/eval
 
 ### Generating Plots with the CLI
 
-Once your plot is registered, you can generate it from the command line using evaluation data from `chap evaluate2`:
+Once your plot is registered, you can generate it from the command line using evaluation data from `chap eval`:
 
 ```console
 # First, run an evaluation to generate the .nc file
-chap evaluate2 my_model data.csv evaluation.nc
+chap eval my_model data.csv evaluation.nc
 
 # Then generate your custom plot
 chap plot-backtest evaluation.nc my_plot.html --plot-type my_custom_plot

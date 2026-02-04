@@ -2,6 +2,8 @@
 
 In order to run Chap, you should first follow our [guide for how to install Chap](../chap-cli/chap-core-cli-setup.md).
 
+> **Deprecation Notice:** The `chap evaluate` command shown below is deprecated and will be removed in v2.0. For new evaluations, use `chap eval` instead. See the [eval Reference](../chap-cli/eval-reference.md) and [Evaluation Workflow](../chap-cli/evaluation-workflow.md) for the recommended approach.
+
 Models that are compatible with CHAP can be used with the `chap evaluate` command.
 An external model can be provided to CHAP in two ways:
 

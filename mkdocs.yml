@@ -95,7 +95,7 @@ nav:
       - CLI:
           - Overview: chap-cli/index.md
           - Evaluation Workflow: chap-cli/evaluation-workflow.md
-          - evaluate2 Reference: chap-cli/evaluate2-reference.md
+          - eval Reference: chap-cli/eval-reference.md
 
   #- Modeling App:
   #  - '!import https://github.com/dhis2-chap/chap-frontend?branch=main&docs_dir=apps/modeling-app/docs'

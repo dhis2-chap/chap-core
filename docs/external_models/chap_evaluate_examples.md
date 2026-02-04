@@ -1,5 +1,7 @@
 # Examples of chap evaluate commands
 
+> **Deprecation Notice:** The `chap evaluate` command is deprecated and will be removed in v2.0. For new evaluations, use `chap eval` instead. See the [eval Reference](../chap-cli/eval-reference.md) for the recommended evaluation workflow.
+
 The following are examples of running various chap-integrated models on various datasets:
 
 * minimalist_example_r: 

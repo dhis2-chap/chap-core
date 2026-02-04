@@ -1,5 +1,7 @@
 # Integrating External Models with DHIS2 through CHAP
 
+> **Deprecation Notice:** The `chap evaluate` command examples shown in this document are deprecated and will be removed in v2.0. For new evaluations, use `chap eval` instead. See the [Evaluation Workflow](../chap-cli/evaluation-workflow.md) for the recommended approach.
+
 Assuming you have CHAP running on a server with DHIS2 ([see this guide](../modeling-app/running-chap-on-server.md)), it is possible to
 make new external models available.
 

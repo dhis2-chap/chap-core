@@ -255,14 +255,14 @@ def test_init_model_runs_through_evaluate(tmp_path):
 
     model_dir = tmp_path / "eval_test_model"
 
-    # 2. Run chap evaluate2 with example data (uv run handles dependencies automatically)
+    # 2. Run chap eval with example data (uv run handles dependencies automatically)
     example_data = Path("example_data/laos_subset.csv").resolve()
     output_file = tmp_path / "eval.nc"
 
     result = subprocess.run(
         [
             "chap",
-            "evaluate2",
+            "eval",
             "--model-name",
             str(model_dir),
             "--dataset-csv",
@@ -277,5 +277,5 @@ def test_init_model_runs_through_evaluate(tmp_path):
         capture_output=True,
         timeout=300,
     )
-    assert result.returncode == 0, f"evaluate2 failed: {result.stderr.decode()}"
+    assert result.returncode == 0, f"eval failed: {result.stderr.decode()}"
     assert output_file.exists()

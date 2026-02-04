@@ -180,10 +180,10 @@ user_options:
 
 ### Providing configuration values
 
-Configuration values can be provided via the `--model-configuration-yaml` CLI flag when running `evaluate2` or other commands:
+Configuration values can be provided via the `--model-configuration-yaml` CLI flag when running `eval` or other commands:
 
 ```console
-chap evaluate2 my_model data.csv results.nc --model-configuration-yaml config.yaml
+chap eval my_model data.csv results.nc --model-configuration-yaml config.yaml
 ```
 
 The configuration YAML file should contain the parameter values:
