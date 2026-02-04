@@ -1,0 +1,22 @@
+# Docker Compose overlay for optional services
+# Copy this file to compose.override.yml to enable optional services.
+# Docker Compose automatically merges compose.override.yml with compose.yml.
+#
+# Usage:
+#   cp compose.override.yml.example compose.override.yml
+#   docker compose up -d
+
+services:
+  # chtorch model (which uses chapkit)
+  chtorch:
+    image: ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3
+    ports:
+      - "5001:8000"
+    restart: unless-stopped
+
+  # ewars plus
+  ewars_plus:
+    image: maquins/ewars_plus_api:Upload
+    container_name: ewars_plus
+    ports:
+      - "3288:3288"

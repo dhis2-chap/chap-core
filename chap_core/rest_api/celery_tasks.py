@@ -3,7 +3,6 @@ import json
 import logging
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Callable, Generic, TypeVar, cast
 
 import celery
@@ -16,6 +15,7 @@ from redis import Redis
 from sqlalchemy import create_engine
 
 from ..database.database import SessionWrapper
+from ..log_config import CHAP_LOGS_DIR, get_status_logger
 
 ReturnType = TypeVar("ReturnType")
 
@@ -73,25 +73,40 @@ class TrackedTask(Task):
         # Extract the current task id
         task_id = self.request.id
 
-        # Create a file handler for this task's logs
-        log_dir = Path("/tmp/chap/logs")
-        log_dir.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(log_dir / f"task_{task_id}.txt")
-        file_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-        file_handler.setFormatter(file_formatter)
+        # Ensure logs directory exists
+        CHAP_LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Remember old handlers so we can restore them later
+        # Create debug log file handler (full debug logs, server access only)
+        debug_file_handler = logging.FileHandler(CHAP_LOGS_DIR / f"task_{task_id}.debug.txt")
+        debug_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+        debug_file_handler.setFormatter(debug_formatter)
+
+        # Create status log file handler (user-facing progress, exposed via API)
+        status_file_handler = logging.FileHandler(CHAP_LOGS_DIR / f"task_{task_id}.status.txt")
+        status_formatter = logging.Formatter("%(asctime)s: %(message)s")
+        status_file_handler.setFormatter(status_formatter)
+
+        # Remember old handlers so we can restore them later.
+        # Note: We use handler replacement rather than a dedicated child logger because
+        # log calls throughout the codebase use this module's logger directly. The
+        # try/finally pattern ensures handlers are always restored even if the task fails.
         old_handlers = logger.handlers[:]
 
-        # also add this handler to the root-logger, so that logging done by other packages is also logged
+        # Also add debug handler to the root-logger, so that logging done by other packages is also logged
         root_logger = logging.getLogger()
         old_root_handlers = root_logger.handlers[:]
-        root_logger.addHandler(file_handler)
+        root_logger.addHandler(debug_file_handler)
 
-        # Replace the logger handlers with our per-task file handler
-        logger.handlers = [file_handler]
-        # also add stdout handler
+        # Replace the logger handlers with our per-task debug file handler
+        logger.handlers = [debug_file_handler]
+        # Also add stdout handler so logs appear in container logs (docker logs) for debugging
         logger.addHandler(logging.StreamHandler())
+
+        # Configure status logger for this task
+        status_logger = get_status_logger()
+        old_status_handlers = status_logger.handlers[:]
+        status_logger.handlers = [status_file_handler]
+        status_logger.setLevel(logging.INFO)
 
         try:
             # Mark as started when the task is actually executing
@@ -106,10 +121,13 @@ class TrackedTask(Task):
             return super().__call__(*args, **kwargs)
 
         finally:
-            # Close the file handler and restore old handlers after the task is done
-            file_handler.close()
+            # Close the file handlers and restore old handlers after the task is done.
+            # This cleanup runs even if the task raises an exception.
+            debug_file_handler.close()
+            status_file_handler.close()
             logger.handlers = old_handlers
             root_logger.handlers = old_root_handlers
+            status_logger.handlers = old_status_handlers
 
     def apply_async(self, args=None, kwargs=None, **options):
         # print('apply async', args, kwargs, options)
@@ -257,17 +275,22 @@ class CeleryJob(Generic[ReturnType]):
         return str(self._result.traceback or "")
 
     def get_logs(self) -> str:
-        log_file = Path("/tmp/chap/logs") / f"task_{self._job.id}.txt"
+        """Get user-facing status logs for this job.
+
+        Returns the status logs which contain safe, user-facing progress messages.
+        Debug logs with potentially sensitive information are not exposed via API.
+        """
+        log_file = CHAP_LOGS_DIR / f"task_{self._job.id}.status.txt"
         logger.info(f"Looking for log file at {log_file}")
         logger.info(f"Job id is: {self._job.id}")
         if log_file.exists():
             logs = log_file.read_text()
             job_meta = get_job_meta(self.id)
-            if job_meta["status"] == "FAILURE":
-                logs += "\n" + job_meta["traceback"]
+            if job_meta and job_meta.get("status") == "FAILURE":
+                logs += "\n" + job_meta.get("traceback", "")
             return logs
         else:
-            # fallback to traceback if log file not found
+            # Fallback to traceback if log file not found
             return self.exception_info
 
 

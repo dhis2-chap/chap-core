@@ -41,8 +41,6 @@ def sanity_check_model(
         dataset = DataSet.from_csv(dataset_path, FullData)
     train, tests = train_test_generator(dataset, 3, n_test_sets=2)
     context, future, truth = next(tests)
-    logger.info("Dataset: ")
-    logger.info(dataset.to_pandas())
 
     if model_config_path is not None:
         model_config = ModelConfiguration.model_validate(yaml.safe_load(open(model_config_path)))

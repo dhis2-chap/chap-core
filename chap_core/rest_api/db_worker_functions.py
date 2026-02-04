@@ -15,6 +15,7 @@ from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
+from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BackTestCreate, FetchRequest, PredictionParams
 
 # from chap_core.rest_api.v1.routers.crud import BackTestCreate
@@ -23,6 +24,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 
 logger = logging.getLogger(__name__)
+status_logger = get_status_logger()
 
 
 def convert_dicts_to_models(func):
@@ -80,6 +82,8 @@ def run_backtest(
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     assert session is not None, "session is required"
+    status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
+
     dataset = session.get_dataset(info.dataset_id)
 
     configured_model = session.get_configured_model_by_name(info.model_id)
@@ -93,6 +97,7 @@ def run_backtest(
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
 
+    status_logger.info(f"Validating dataset with {len(list(dataset.locations()))} locations")
     dataset = validate_and_filter_dataset_for_evaluation(
         dataset,
         target_name="disease_cases",
@@ -100,6 +105,8 @@ def run_backtest(
         n_splits=n_splits,
         stride=stride,
     )
+
+    status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id)
     predictions_list = _backtest(
@@ -116,6 +123,7 @@ def run_backtest(
     session.add_backtest(backtest)
     db_id = backtest.id
     assert db_id is not None
+    status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
     return db_id
 
 
@@ -127,15 +135,20 @@ def run_prediction(
     session: SessionWrapper,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
+    status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
+
     dataset = session.get_dataset(int(dataset_id))
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
+
+    status_logger.info(f"Training model and generating {n_periods} period forecast")
     configured_model = session.get_configured_model_by_name(model_id)
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id)
     predictions = forecast_ahead(estimator, dataset, n_periods)
     db_id = session.add_predictions(predictions, dataset_id, model_id, name)
     assert db_id is not None
+    status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     return db_id
 
 
@@ -146,11 +159,13 @@ def debug(session: SessionWrapper):
 def harmonize_and_add_health_dataset(
     health_dataset: dict, name: str, session: SessionWrapper, worker_config: WorkerConfig = WorkerConfig()
 ) -> int:
+    status_logger.info(f"Processing and adding dataset '{name}'")
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)  # type: ignore[arg-type]
     dataset = harmonize_health_dataset(dataset_obj, usecwd_for_credentials=False, worker_config=worker_config)
     db_id: int = session.add_dataset(
         DataSetCreateInfo(name=name), dataset, polygons=dataset_obj.polygons.model_dump_json()
     )
+    status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id
 
 
@@ -163,6 +178,7 @@ def harmonize_and_add_dataset(
     session: SessionWrapper,
     worker_config: WorkerConfig = WorkerConfig(),
 ) -> int:
+    status_logger.info(f"Processing and adding dataset '{name}' of type '{ds_type}'")
     provided_dataclass = create_tsdataclass(provided_field_names)
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, provided_dataclass)
     if len(data_to_be_fetched):
@@ -173,6 +189,7 @@ def harmonize_and_add_dataset(
         full_dataset = dataset_obj
     info = DataSetCreateInfo(name=name, type=ds_type)
     db_id: int = session.add_dataset(info, full_dataset, polygons=dataset_obj.polygons.model_dump_json())
+    status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id
 
 

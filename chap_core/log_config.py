@@ -5,6 +5,12 @@ from pathlib import Path
 # get root logger
 logger = logging.getLogger()
 
+# Centralized logs directory path (configurable via CHAP_LOGS_DIR env var)
+CHAP_LOGS_DIR = Path(os.getenv("CHAP_LOGS_DIR", "logs/"))
+
+# Status logger name for user-facing logs (safe for API exposure)
+STATUS_LOGGER_NAME = "chap_status"
+
 
 def is_debug_mode() -> bool:
     """Check if CHAP_DEBUG environment variable is set to enable debug mode.
@@ -64,3 +70,18 @@ def initialize_logging(debug: bool | None = None, log_file: str | None = None):
 #     if _global_log_file is not None:
 #         with open(_global_log_file, "r") as f:
 #             return f.read()
+
+
+def get_status_logger() -> logging.Logger:
+    """Get the status logger for user-facing progress messages.
+
+    The status logger is separate from the root logger and should only be used
+    for safe, user-facing progress messages. It does not propagate to the root
+    logger to prevent leaking sensitive debug information.
+
+    Returns:
+        logging.Logger: The status logger instance.
+    """
+    status_logger = logging.getLogger(STATUS_LOGGER_NAME)
+    status_logger.propagate = False
+    return status_logger

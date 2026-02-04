@@ -1,14 +1,14 @@
 # Start from the existing worker image that has INLA and other dependencies
 FROM ghcr.io/dhis2-chap/chap-worker-with-inla@sha256:634bb3e61e66f9c1c2d499c495d294cd5f287078ae7b54629114066f8ec75aab
 
+# Compile Python bytecode for faster startup (.venv only)
+ENV UV_COMPILE_BYTECODE=1
+# Use copy mode to avoid issues with file permissions in mixed environments
+ENV UV_LINK_MODE=copy
+# Prevent Python from writing .pyc files at runtime
+ENV PYTHONDONTWRITEBYTECODE=1
 ENV MPLCONFIGDIR=/tmp
-
-# OCI labels for container metadata
-LABEL org.opencontainers.image.title="Chap Worker with INLA"
-LABEL org.opencontainers.image.description="Celery worker for Chap with INLA support"
-LABEL org.opencontainers.image.vendor="DHIS2"
-LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
-LABEL org.opencontainers.image.source="https://github.com/dhis2-chap/chap-core"
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Install uv if not already present
 USER root
@@ -29,17 +29,15 @@ COPY --chown=chap:chap ./config ./config
 COPY --chown=chap:chap ./alembic.ini ./alembic.ini
 COPY --chown=chap:chap ./alembic ./alembic
 
-# Set uv environment variables
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
-ENV UV_PROJECT_ENVIRONMENT=/app/.venv
-
 # Install chap-core dependencies in the existing virtual environment
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --no-dev && \
+    python -m compileall -q chap_core/
 
-# Ensure virtual environment is first in PATH
-ENV PATH="/app/.venv/bin:$PATH"
+# Create data directories and set ownership for the chap user
+# Each directory is owned explicitly rather than recursively owning /data
+RUN mkdir -p /data/logs /data/uv /data/renv \
+  && chown chap:chap /data/logs /data/uv /data/renv
 
 USER chap
 
