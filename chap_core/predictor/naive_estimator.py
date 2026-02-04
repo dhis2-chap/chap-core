@@ -27,7 +27,7 @@ class NaivePredictor:
                         self.mean_dict[location] if not np.isnan(self.mean_dict[location]) else 0,
                         len(future_data[location]) * num_samples,
                     ).reshape(-1, num_samples),
-                )
+                )  # type: ignore[call-arg]
                 for location in future_data.keys()
             }
         )

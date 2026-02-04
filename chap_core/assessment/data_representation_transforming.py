@@ -24,7 +24,7 @@ def convert_to_multi_location_forecast(backTestList: List[BackTestForecast]) -> 
     backTestList = sorted(backTestList, key=lambda x: x.last_seen_period)
     for last_seen_period, forecast_list in itertools.groupby(backTestList, key=lambda x: x.last_seen_period):
         all_splitpoint_timeseries[last_seen_period] = convert_single_splitpoint_to_multi_location_forecast(
-            forecast_list
+            list(forecast_list)
         )
     return all_splitpoint_timeseries
 

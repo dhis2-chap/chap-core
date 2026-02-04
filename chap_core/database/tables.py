@@ -37,7 +37,7 @@ class _BackTestRead(BackTestBase):
 
 
 class BackTest(_BackTestRead, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
+    id: Optional[int] = Field(primary_key=True, default=None)  # type: ignore[assignment]
     dataset: DataSet = Relationship()
     forecasts: List["BackTestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
     metrics: List["BackTestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)
