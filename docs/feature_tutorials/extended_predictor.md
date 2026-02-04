@@ -30,7 +30,8 @@ while remaining_time_periods > 0:
 
 To verify that `ExtendedPredictor` works correctly, run an evaluation with a prediction length that exceeds the model's native maximum. The `eval` command automatically wraps models with `ExtendedPredictor` when needed:
 
-```bash
+<!-- Cannot test: requires user-provided data file -->
+```console
 chap eval --model-name https://github.com/chap-models/Xiang_SVM \
     --dataset-csv ./your_data.csv \
     --output-file ./eval.nc \
