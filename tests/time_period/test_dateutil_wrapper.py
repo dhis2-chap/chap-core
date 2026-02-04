@@ -332,3 +332,29 @@ def test_from_start_and_n_periods():
     period_range = PeriodRange.from_start_and_n_periods(start_period, n_periods)
     assert len(period_range) == n_periods
     assert period_range[0] == TimePeriod.from_pandas(start_period)
+
+
+def test_period_range_getitem_with_numpy_integer():
+    """Test that PeriodRange.__getitem__ works with numpy integer types.
+
+    This is important because np.flatnonzero returns numpy.int64 values,
+    which are commonly used for indexing when finding positions of non-zero
+    elements in arrays.
+    """
+    pr = PeriodRange.from_time_periods(Month(2020, 1), Month(2020, 12))
+
+    # Test with numpy.int64 (most common from np.flatnonzero)
+    idx_np = np.int64(5)
+    result_np = pr[idx_np]
+
+    # Test with regular Python int for comparison
+    idx_py = 5
+    result_py = pr[idx_py]
+
+    assert result_np == result_py
+    assert result_np == Month(2020, 6)
+
+    # Also test negative indexing with numpy integer
+    idx_np_neg = np.int64(-1)
+    result_np_neg = pr[idx_np_neg]
+    assert result_np_neg == Month(2020, 12)

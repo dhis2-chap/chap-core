@@ -573,7 +573,7 @@ class PeriodRange(BNPDataClass):
 
     def __getitem__(self, item: slice | int):
         """Slice by numeric index in the period range"""
-        if isinstance(item, int):
+        if isinstance(item, (int, np.integer)):
             if item < 0:
                 item += len(self)
             return self._period_class((self._start_timestamp + self._time_delta * item)._date)
