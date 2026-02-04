@@ -46,7 +46,7 @@ def backtest(
     predictor = estimator.train(train)
     for historic_data, future_data, future_truth in test_generator:
         r = predictor.predict(historic_data, future_data)
-        samples_with_truth = future_truth.merge(r, result_dataclass=SamplesWithTruth)
+        samples_with_truth = future_truth.merge(r, result_dataclass=SamplesWithTruth)  # type: ignore[arg-type]
         yield samples_with_truth
 
 
@@ -152,7 +152,7 @@ def _get_forecast_generators(
     forecast_list = []
     for historic_data, future_data, _ in test_generator:
         forecasts = predictor.predict(historic_data, future_data)
-        for location, samples in forecasts.items():
+        for location, samples in forecasts.items():  # type: ignore[attr-defined]
             forecast = ForecastAdaptor.from_samples(samples)
             t = truth_data[location]
             tss.append(t)
@@ -169,7 +169,7 @@ def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[S
             f"Future data must have at least one period {historic_data.period_range}, {future_data.period_range}"
         )
         forecasts = predictor.predict(historic_data, future_data)
-        for location, samples in forecasts.items():
+        for location, samples in forecasts.items():  # type: ignore[attr-defined]
             forecast_dict[location].append(ForecastAdaptor.from_samples(samples))
     return forecast_dict
 

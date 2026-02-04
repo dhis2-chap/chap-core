@@ -15,7 +15,7 @@ from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
 
 if TYPE_CHECKING:
-    from chap_core.external.external_model import ExternalModel
+    from chap_core.external.external_model import ExternalModel  # type: ignore[attr-defined]
     from chap_core.runners.runner import TrainPredictRunner
 
 
@@ -61,7 +61,7 @@ class ModelTemplate:
         """
         from .utils import get_model_template_from_directory_or_github_url
 
-        return get_model_template_from_directory_or_github_url(
+        return get_model_template_from_directory_or_github_url(  # type: ignore[return-value]
             model_template_path,
             base_working_dir=base_working_dir,
             ignore_env=ignore_env,
@@ -129,7 +129,7 @@ class ModelTemplate:
                 self._model_template_config.name,
                 7200,
                 5,
-                model_configuration,
+                model_configuration,  # type: ignore[arg-type]
                 self._model_template_config.adapters,
                 self._working_dir,
             )
@@ -178,4 +178,4 @@ class ExternalModelTemplate(ModelTemplateInterface):
     def from_model_template_config(
         cls, model_template_config: ModelTemplateConfigV2, working_dir: str, ignore_env=False
     ):
-        return cls(ModelTemplate(model_template_config, working_dir, ignore_env))
+        return cls(ModelTemplate(model_template_config, working_dir, ignore_env))  # type: ignore[call-arg, arg-type]

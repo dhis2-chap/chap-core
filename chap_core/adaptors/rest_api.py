@@ -29,7 +29,7 @@ def generate_app(estimator, working_dir: str):
     training_data_filename = f"{working_dir}/training_data.csv"
     model_path = f"{working_dir}/model"
 
-    @app.command()
+    @app.command()  # type: ignore[attr-defined]
     def train(training_data: list):  # type: ignore[valid-type]
         """
         Train a model using historic data
@@ -42,11 +42,11 @@ def generate_app(estimator, working_dir: str):
             The path to save the trained model
         """
         logger.info(f"Loading data from {training_data_filename} as {dc}")
-        dataset = DataSet.df_from_pydantic_observations()
+        dataset = DataSet.df_from_pydantic_observations()  # type: ignore[call-arg]
         predictor = estimator.train(dataset)
         predictor.save(model_path)
 
-    @app.command()
+    @app.command()  # type: ignore[attr-defined]
     def predict(model_filename: str, historic_data_filename: str, future_data_filename: str, output_filename: str):
         """
         Predict using a trained model

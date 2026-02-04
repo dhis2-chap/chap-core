@@ -21,7 +21,7 @@ def prediction_plot(
 ) -> Figure:
     for i in range(n_samples):
         new_observed = predicition_sampler.sample(climate_data)
-        plt.plot(new_observed, label="predicted", color="grey")
+        plt.plot(new_observed, label="predicted", color="grey")  # type: ignore[arg-type]
     plt.plot(true_data.disease_cases, label="real", color="blue")
     plt.legend()
     plt.title("Prdicted path using estimated parameters vs real path")
@@ -59,7 +59,7 @@ def plot_forecast(quantiles: np.ndarray, true_data: HealthData, x_pred=None) -> 
         x_pred = [str(p) for p in x_pred]
     df = pd.DataFrame({"x": x_pred, "10th": quantiles[0], "50th": quantiles[1], "90th": quantiles[2]})
     true_df = pd.DataFrame({"x": x_true, "real": true_data.disease_cases})
-    true_df.x = true_df.x.astype(str)
+    true_df.x = true_df.x.astype(str)  # type: ignore[attr-defined]
     return plot_forecasts_from_data_frame(df, true_df)
 
 

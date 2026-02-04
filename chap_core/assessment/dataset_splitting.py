@@ -94,7 +94,7 @@ def train_test_generator(
     ]
     if future_weather_provider is not None:
         masked_future_data = [
-            future_weather_provider(hd).get_future_weather(fd.period_range)
+            future_weather_provider(hd).get_future_weather(fd.period_range)  # type: ignore[operator]
             for (hd, fd) in zip(historic_data, future_data)
         ]
     else:

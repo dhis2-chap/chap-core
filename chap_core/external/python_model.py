@@ -4,7 +4,7 @@ from chap_core.time_period import Month
 
 from ..datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 from ..spatio_temporal_data.temporal_dataclass import DataSet
-from .external_model import run_command
+from .external_model import run_command  # type: ignore[attr-defined]
 
 
 class ExternalPythonModel:

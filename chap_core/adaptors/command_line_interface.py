@@ -130,7 +130,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
         estimator = model_template.get_model(model_config)
         dc = _get_dataclass(estimator)
         future_dc = remove_field(dc, "disease_cases")
-        predictor = estimator.load_predictor(model_filename)
+        predictor = estimator.load_predictor(model_filename)  # type: ignore[attr-defined]
 
         dataset = DataSet.from_csv(historic_data_filename, dc)
         future_data = DataSet.from_csv(future_data_filename, future_dc)

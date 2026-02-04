@@ -34,7 +34,7 @@ class MonthlyClimatePredictor:
         for location, data in train_data.items():
             self._cls = data.__class__
             x = self._feature_matrix(data.time_period)
-            for field in dataclasses.fields(data):
+            for field in dataclasses.fields(data):  # type: ignore[arg-type]
                 if field.name in ("time_period"):
                     continue
                 y = getattr(data, field.name)
@@ -79,7 +79,7 @@ class SeasonalForecastFetcher:
 
 class QuickForecastFetcher:
     def __init__(self, historical_data: DataSet[SimpleClimateData]):
-        self._climate_predictor = get_climate_predictor(historical_data)
+        self._climate_predictor = get_climate_predictor(historical_data)  # type: ignore[arg-type]
 
     def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
         return self._climate_predictor.predict(period_range)  # type: ignore[no-any-return]
@@ -97,7 +97,7 @@ class FetcherNd:
                 period_range,
                 **{
                     field.name: getattr(data, field.name)[-len(period_range) :]
-                    for field in dataclasses.fields(data)
+                    for field in dataclasses.fields(data)  # type: ignore[arg-type]
                     if field.name not in ("time_period",)
                 },
             )

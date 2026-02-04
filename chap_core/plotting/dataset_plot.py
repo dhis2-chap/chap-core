@@ -161,7 +161,7 @@ class StandardizedFeaturePlot(DatasetPlot):
         for colname in colnames:
             if colname in df.columns:
                 new_df = base_df.copy()
-                new_df["value"] = self._standardize(df[colname].values)
+                new_df["value"] = self._standardize(df[colname].values)  # type: ignore[arg-type]
                 new_df["feature"] = colname
                 dfs.append(new_df)
 
@@ -171,7 +171,7 @@ class StandardizedFeaturePlot(DatasetPlot):
             # Return empty dataframe with correct structure
             return pd.DataFrame(columns=["time_period", "location", "value", "feature"])
 
-    def plot(self) -> HConcatChart:
+    def plot(self) -> HConcatChart:  # type: ignore[override]
         data = self.data()
 
         # Filter data based on selected features if specified

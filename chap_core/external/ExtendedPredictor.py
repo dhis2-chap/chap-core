@@ -25,7 +25,7 @@ class ExtendedPredictor(ConfiguredModel):
         if "parent" in future_df.columns:
             future_df = future_df.drop(columns=["parent"])
 
-        model_information = self._config_model.model_information
+        model_information = self._config_model.model_information  # type: ignore[attr-defined]
 
         assert model_information is not None
 

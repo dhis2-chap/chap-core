@@ -13,7 +13,8 @@ class ExternalRModel:
         self.lead_time = lead_time
         self.adaptors = adaptors
 
-    def get_predictions(self, train_data: ClimateHealthTimeSeries, future_climate_data: ClimateData) -> HealthData: ...
+    def get_predictions(self, train_data: ClimateHealthTimeSeries, future_climate_data: ClimateData) -> HealthData:  # type: ignore[empty-body]
+        ...
 
 
 FeatureType = TypeVar("FeatureType")
@@ -34,17 +35,17 @@ class ExternalLaggedRModel(Generic[FeatureType]):
         self._saved_state = None
         self._model_filename = self._tmp_dir / "model.rds"
 
-    def train(self, train_data: DataSet[FeatureType]):
+    def train(self, train_data: DataSet[FeatureType]):  # type: ignore[type-var]
         training_data_file = self._tmp_dir / "training_data.csv"
-        train_data.to_csv(training_data_file)
+        train_data.to_csv(training_data_file)  # type: ignore[arg-type]
         end_timestamp = train_data.end_timestamp
-        self._saved_state = train_data.restrict_time_period(end_timestamp - self._lag_period, None)
-        self._run_train_script(self._script_file_name, training_data_file, self._model_filename)
+        self._saved_state = train_data.restrict_time_period(end_timestamp - self._lag_period, None)  # type: ignore[call-arg, arg-type, assignment]
+        self._run_train_script(self._script_file_name, training_data_file, self._model_filename)  # type: ignore[attr-defined]
 
-    def predict(self, future_data: DataSet[FeatureType]) -> DataSet[FeatureType]:
-        full_data = self._join_state_and_future(future_data)
+    def predict(self, future_data: DataSet[FeatureType]) -> DataSet[FeatureType]:  # type: ignore[type-var]
+        full_data = self._join_state_and_future(future_data)  # type: ignore[attr-defined]
         full_data_path = self._tmp_dir / "full_data.csv"
         full_data.to_csv(full_data_path)
         output_file = self._tmp_dir / "output.csv"
-        self._run_predict_script(self._script_file_name, self._model_filename, full_data_path, output_file)
-        return self._read_output(output_file)
+        self._run_predict_script(self._script_file_name, self._model_filename, full_data_path, output_file)  # type: ignore[attr-defined]
+        return self._read_output(output_file)  # type: ignore[attr-defined, no-any-return]

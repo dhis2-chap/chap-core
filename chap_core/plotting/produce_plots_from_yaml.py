@@ -92,7 +92,7 @@ def _build_plot_component(backtest, comp: dict, context: dict):
         fcst = context.get("flat_forecasts")
 
         metric = metric_cls()
-        metric_df = metric.get_metric(obs, fcst)
+        metric_df = metric.get_metric(obs, fcst)  # type: ignore[arg-type]
 
         print("=== METRIC:", metric_name, "PLOT_TYPE:", plot_type, "===")
         print(metric_df.head())
@@ -105,7 +105,7 @@ def _build_plot_component(backtest, comp: dict, context: dict):
                 f"Unknown plot_type '{plot_type}' for metric '{metric_name}'.",
                 line_length=60,
             )
-        plotter = plot_class(metric_df)
+        plotter = plot_class(metric_df)  # type: ignore[abstract]
         return plotter.plot()
 
     return text_chart(f"Unknown plot kind: {type}", line_length=60)

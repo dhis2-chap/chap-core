@@ -81,7 +81,7 @@ class MetricsDashboard(BacktestPlotBase):
         for plotting_class in plotting_classes:
             metrics_to_show = [Coverage25_75Metric, RMSEMetric, CRPSNormMetric]
             for metric_factory in metrics_to_show:
-                metric = metric_factory()
+                metric = metric_factory()  # type: ignore[abstract]
                 name = metric.get_name()
                 description = metric.get_description()
                 title_plot = title_chart(name)
