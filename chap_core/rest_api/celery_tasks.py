@@ -86,7 +86,10 @@ class TrackedTask(Task):
         status_formatter = logging.Formatter("%(asctime)s: %(message)s")
         status_file_handler.setFormatter(status_formatter)
 
-        # Remember old handlers so we can restore them later
+        # Remember old handlers so we can restore them later.
+        # Note: We use handler replacement rather than a dedicated child logger because
+        # log calls throughout the codebase use this module's logger directly. The
+        # try/finally pattern ensures handlers are always restored even if the task fails.
         old_handlers = logger.handlers[:]
 
         # Also add debug handler to the root-logger, so that logging done by other packages is also logged
@@ -96,7 +99,7 @@ class TrackedTask(Task):
 
         # Replace the logger handlers with our per-task debug file handler
         logger.handlers = [debug_file_handler]
-        # Also add stdout handler
+        # Also add stdout handler so logs appear in container logs (docker logs) for debugging
         logger.addHandler(logging.StreamHandler())
 
         # Configure status logger for this task
@@ -118,7 +121,8 @@ class TrackedTask(Task):
             return super().__call__(*args, **kwargs)
 
         finally:
-            # Close the file handlers and restore old handlers after the task is done
+            # Close the file handlers and restore old handlers after the task is done.
+            # This cleanup runs even if the task raises an exception.
             debug_file_handler.close()
             status_file_handler.close()
             logger.handlers = old_handlers

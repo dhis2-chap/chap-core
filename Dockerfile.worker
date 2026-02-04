@@ -34,9 +34,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev && \
     python -m compileall -q chap_core/
 
-# TODO this is probably not correct way to do this
+# Create data directories and set ownership for the chap user
+# Each directory is owned explicitly rather than recursively owning /data
 RUN mkdir -p /data/logs /data/uv /data/renv \
-  && chown -R chap:chap /data
+  && chown chap:chap /data/logs /data/uv /data/renv
 
 USER chap
 

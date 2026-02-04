@@ -284,7 +284,8 @@ class IntegrationTest:
                 # Verify logs are available for successful jobs
                 logs = self.get_job_logs(job_id)
                 logger.info(f"Job {job_id} logs retrieved successfully ({len(logs)} chars)")
-                # Verify logs don't contain sensitive data (database credentials)
+                # Verify logs don't contain sensitive data (database credentials).
+                # Note: assert is appropriate here as this is test code, not production code.
                 assert "postgresql://" not in logs.lower() or "@" not in logs, (
                     "Logs should not contain database credentials"
                 )
