@@ -50,4 +50,4 @@ if __name__ == "__main__":
     import pathlib
 
     data_path = pathlib.Path(__file__).parent.parent / "example_data"
-    test_simplify_polygons(data_path)
+    test_simplify_polygons(data_path)  # type: ignore[reportCallIssue]

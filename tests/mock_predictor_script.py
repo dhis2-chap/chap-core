@@ -8,11 +8,11 @@ from chap_core.datatypes import (
 from chap_core.predictor.naive_predictor import (
     MultiRegionNaivePredictor,
 )
-import typer
+from cyclopts import App
 
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-app = typer.Typer()
+app = App()
 
 
 @app.command()
@@ -45,7 +45,7 @@ def predict_values(train_data_set: str, future_climate_data_set: str, output_fil
     predictor.train(train_data)
     predictions = predictor.predict(future_climate_data)
     print(predictions)
-    predictions.to_csv(output_file)
+    predictions.to_csv(output_file)  # type: ignore[reportAttributeAccessIssue]
 
 
 if __name__ == "__main__":

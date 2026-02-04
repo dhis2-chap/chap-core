@@ -87,6 +87,7 @@ class TestTournamentPreferenceLearnerState:
 
         assert len(state.candidates) == 1
         assert state.current_iteration == 5
+        assert state.best_candidate is not None
         assert state.best_candidate.model_name == "model_a"
 
     def test_state_roundtrip(self):
@@ -166,12 +167,13 @@ class TestTournamentPreferenceLearner:
 
         next_candidates = learner.get_next_candidates()
         learner.report_preference(
-            candidates=next_candidates,
+            candidates=next_candidates,  # type: ignore[reportArgumentType]
             preferred_index=0,
             metrics=[{"mae": 0.5}, {"mae": 0.7}],
         )
 
         assert learner.current_iteration == 1
+        assert next_candidates is not None
         assert learner.get_best_candidate() == next_candidates[0]
 
     def test_max_iterations(self):
@@ -205,7 +207,7 @@ class TestTournamentPreferenceLearner:
         )
         next_candidates = learner.get_next_candidates()
         learner.report_preference(
-            candidates=next_candidates,
+            candidates=next_candidates,  # type: ignore[reportArgumentType]
             preferred_index=0,
             metrics=[{"mae": 0.5}, {"mae": 0.7}],
         )
@@ -227,13 +229,14 @@ class TestTournamentPreferenceLearner:
 
         next_candidates = learner.get_next_candidates()
         learner.report_preference(
-            candidates=next_candidates,
+            candidates=next_candidates,  # type: ignore[reportArgumentType]
             preferred_index=1,
             metrics=[{"mae": 0.8, "rmse": 1.0}, {"mae": 0.5, "rmse": 0.7}],
         )
 
         history = learner.get_comparison_history()
         assert len(history) == 1
+        assert next_candidates is not None
         assert history[0].preferred == next_candidates[1]
         assert history[0].metrics[0]["mae"] == 0.8
         assert history[0].metrics[1]["mae"] == 0.5

@@ -1,5 +1,6 @@
 import logging
 import traceback
+from typing import Any, cast
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,6 +82,7 @@ class State(BaseModel):
     ready: bool
     status: str
     progress: float = 0
+    logs: str = ""
 
 
 internal_state = InternalState(Control({}), {})
@@ -88,11 +90,11 @@ internal_state = InternalState(Control({}), {})
 state = State(ready=True, status="idle")
 
 
-worker = CeleryPool()
+worker: CeleryPool[Any] = CeleryPool()
 
 
-def set_cur_response(response):
-    state["response"] = response
+def set_cur_response(response: Any) -> None:
+    internal_state.current_job = SeededJob(result=response)
 
 
 @app.get("favicon.ico")
@@ -132,13 +134,14 @@ async def get_results() -> FullPredictionResponse:
     Retrieve results made by the model
     """
     cur_job = internal_state.current_job
+    if cur_job is None:
+        raise HTTPException(status_code=400, detail="No job available")
     if cur_job.status == "failed":
         raise HTTPException(status_code=400, detail="Job failed. Check the exception endpoint for more information")
 
-    if not (cur_job and cur_job.is_finished):
+    if not cur_job.is_finished:
         raise HTTPException(status_code=400, detail="No response available")
-    result = cur_job.result
-    return result
+    return cast(FullPredictionResponse, cur_job.result)
 
 
 @app.get("/get-evaluation-results")
@@ -147,12 +150,14 @@ async def get_evaluation_results() -> EvaluationResponse:
     Retrieve evaluation results made by the model
     """
     cur_job = internal_state.current_job
+    if cur_job is None:
+        raise HTTPException(status_code=400, detail="No job available")
     if cur_job.status == "failed":
         raise HTTPException(status_code=400, detail="Job failed. Check the exception endpoint for more information")
 
-    if not (cur_job and cur_job.is_finished):
+    if not cur_job.is_finished:
         raise HTTPException(status_code=400, detail="No response available")
-    return cur_job.result
+    return cast(EvaluationResponse, cur_job.result)
 
 
 @app.get("/get-exception")
@@ -161,6 +166,8 @@ async def get_exception() -> str:
     Retrieve exception information if the job failed
     """
     cur_job = internal_state.current_job
+    if cur_job is None:
+        return ""
     return cur_job.exception_info or ""
 
 
@@ -182,10 +189,12 @@ async def get_status() -> State:
     if internal_state.is_ready():
         return State(ready=True, status="idle")
 
+    cur_job = internal_state.current_job
+    assert cur_job is not None  # is_ready() returns True if current_job is None
     return State(
         ready=False,
-        status=internal_state.current_job.status,
-        progress=internal_state.current_job.progress,
+        status=cur_job.status,
+        progress=cur_job.progress,
         logs="",  # get_logs() # todo: fix
     )
 

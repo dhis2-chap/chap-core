@@ -13,4 +13,4 @@ class OutbreakParameters(BaseModel):
 
 
 def outbreak_prediction(parameters: OutbreakParameters, case_samples: Iterable[float]) -> bool:
-    return np.mean()
+    return bool(np.mean(list(case_samples)) > parameters.endemic_factor * parameters.probability_threshold)

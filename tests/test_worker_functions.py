@@ -45,7 +45,7 @@ def test_get_health_dataset():
                 FeatureModel(
                     id="location1",
                     properties={"name": "location1"},
-                    geometry=PointModel(coordinates=[0, 0]),
+                    geometry=PointModel(coordinates=[0, 0]),  # type: ignore[reportArgumentType]
                     type="Point",
                 )
             ]
@@ -103,7 +103,10 @@ def combined_dataset():
     geojson = FeatureCollectionModel(
         features=[
             FeatureModel(
-                id=location, properties={"name": location}, geometry=PointModel(coordinates=[0, 0]), type="Point"
+                id=location,
+                properties={"name": location},
+                geometry=PointModel(coordinates=[0, 0]),  # type: ignore[reportArgumentType]
+                type="Point",
             )
             for location in locations
         ]

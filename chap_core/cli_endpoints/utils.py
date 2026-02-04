@@ -31,7 +31,7 @@ class AreaPolygons: ...
 
 
 def sanity_check_model(
-    model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str = None
+    model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str | None = None
 ):
     """
     Check that a model can be loaded, trained and used to make predictions
@@ -49,7 +49,7 @@ def sanity_check_model(
         model_config = None
     try:
         model_template = get_model_template_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
-        model = model_template.get_model(model_config)
+        model = model_template.get_model(model_config)  # type: ignore[arg-type]
         estimator = model()
     except Exception as e:
         logger.error(f"Error while creating model: {e}")
@@ -84,7 +84,7 @@ def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool
     """
     Start CHAP as a backend server
     """
-    from chap_core.rest_api_src.v1.rest_api import main_backend
+    from chap_core.rest_api.v1.rest_api import main_backend
 
     logger.info("Running chap serve")
 
@@ -100,7 +100,7 @@ def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
     """
-    from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
+    from chap_core.rest_api.v1.rest_api import get_openapi_schema
 
     schema = get_openapi_schema()
     with open(out_path, "w") as f:

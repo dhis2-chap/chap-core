@@ -43,7 +43,7 @@ class MultiRegionNaivePredictor:
         self._average_cases = {location: self._get_mean(data) for location, data in data.items()}
         # self._buffer = next(iter(data.values())).time_period[-1]
 
-    def predict(self, future_weather: DataSet[ClimateData]) -> HealthData:
+    def predict(self, future_weather: DataSet[ClimateData]) -> DataSet[HealthData]:
         prediction_dict = {
             location: HealthData(entry.time_period[:1], np.full(1, self._average_cases[location]))
             for location, entry in future_weather.items()

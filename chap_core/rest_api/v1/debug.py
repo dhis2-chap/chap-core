@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,7 +14,7 @@ from .routers.dependencies import get_database_url, get_settings
 router = APIRouter(prefix="/debug", tags=["debug"])
 logger = logging.getLogger(__name__)
 cur_job = None
-celery_pool = CeleryPool()
+celery_pool: CeleryPool[Any] = CeleryPool()
 
 
 @router.get("/add-numbers")
@@ -38,7 +38,10 @@ def trigger_exception(database_url: str = Depends(get_database_url), worker_sett
 @router.get("/get-status")
 def get_status(task_id: Optional[str] = None) -> dict:
     """Get the status and result of a task."""
-    task_id = task_id or cur_job.id
+    if task_id is None:
+        if cur_job is None:
+            raise HTTPException(status_code=400, detail="No task_id provided and no current job exists")
+        task_id = cur_job.id
     task_result = AsyncResult(task_id, app=celery)
 
     # Check if task is in a valid state

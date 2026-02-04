@@ -1,5 +1,7 @@
+from typing import Any
+
 model_names = ["ewars_Plus"]
-models = {}
+models: dict[str, Any] = {}
 # for name in model_names:
 #     config_path = models_path / name / "config.yml"
 #     if not config_path.exists():

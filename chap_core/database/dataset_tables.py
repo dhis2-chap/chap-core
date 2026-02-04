@@ -13,7 +13,7 @@ from pydantic_geojson import (
 
 
 class FeatureCollectionModel(_FeatureCollectionModel):
-    features: list[FeatureModel]
+    features: list[FeatureModel]  # type: ignore[assignment]
 
 
 class PydanticListType(TypeDecorator):

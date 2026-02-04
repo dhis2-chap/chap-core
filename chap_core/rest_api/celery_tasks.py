@@ -1,7 +1,7 @@
 import inspect
 import os
 from datetime import datetime
-from typing import Callable, Generic
+from typing import Callable, Generic, TypeVar, cast
 import logging
 from celery import Celery, shared_task, Task
 from celery.result import AsyncResult
@@ -14,9 +14,10 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine
 
 from ..database.database import SessionWrapper
-from ..worker.interface import ReturnType
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
 from celery.utils.log import get_task_logger
+
+ReturnType = TypeVar("ReturnType")
 
 # We use get_task_logger to ensure we get the Celery-friendly logger
 # but you could also just use logging.getLogger(__name__) if you prefer.
@@ -235,11 +236,11 @@ class CeleryJob(Generic[ReturnType]):
 
     @property
     def status(self) -> str:
-        return self._result.state
+        return cast(str, self._result.state)
 
     @property
     def result(self) -> ReturnType:
-        return self._result.result
+        return cast(ReturnType, self._result.result)
 
     @property
     def progress(self) -> float:
@@ -326,14 +327,14 @@ class CeleryPool(Generic[ReturnType]):
     #                            type=self._get_job_type(info))
     #             for status, host_dict in all_jobs.items() for hostname, jobs in host_dict.items() for info in jobs]
 
-    def list_jobs(self, status: str = None):
+    def list_jobs(self, status: str | None = None) -> list[JobDescription]:
         """List all tracked jobs stored by Redis. Optional filter by status: PENDING, STARTED, SUCCESS, FAILURE, REVOKED"""
-        keys = r.keys("job_meta:*")
-        jobs = []
+        keys: list[str] = r.keys("job_meta:*")  # type: ignore[assignment]
+        jobs: list[dict[str, str]] = []
 
         for key in keys:
             task_id = key.split(":")[1]
-            meta = r.hgetall(key)
+            meta: dict[str, str] = r.hgetall(key)  # type: ignore[assignment]
             meta["task_id"] = task_id
             if status is None or meta.get("status") == status:
                 jobs.append(meta)

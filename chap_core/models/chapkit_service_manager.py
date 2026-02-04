@@ -116,6 +116,7 @@ class ChapkitServiceManager:
         health_url = f"{self._url}/health"
 
         while time.time() - start_time < self.startup_timeout:
+            assert self._process is not None
             if self._process.poll() is not None:
                 stdout, stderr = self._process.communicate()
                 raise ChapkitServiceStartupError(

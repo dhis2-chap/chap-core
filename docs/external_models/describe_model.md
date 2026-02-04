@@ -2,6 +2,7 @@
 
 To make your model chap-compatible, you need your train and predict endpoints (as discussed [here](train_and_predict.md)) need to be formally defined in a [YAML format](https://en.wikipedia.org/wiki/YAML) that follows the popular [MLflow standard](https://www.mlflow.org/docs/latest/projects.html#project-format).
 Your codebase need to contain a file named `MLproject` that defines the following:
+
 - An entry point in the MLproject file called `train` with parameters `train_data` and `model`
 - An entry point in the MLproject file called `predict` with parameters `historic_data`, `future_data`, `model` and `out_file`
 
@@ -15,20 +16,26 @@ An example of this is the [MLproject file](https://github.com/dhis2-chap/minimal
 ## Environment options
 
 ### Docker environment
+
 Use `docker_env` to specify a Docker image:
+
 ```yaml
 docker_env:
   image: python:3.11
 ```
 
 ### MLflow/Conda environment
+
 Use `python_env` to specify a conda/pip environment file (uses MLflow to manage):
+
 ```yaml
 python_env: python_env.yml
 ```
 
 ### uv environment
+
 Use `uv_env` to specify a pyproject.toml for uv-managed environments. This is useful for models that use [uv](https://docs.astral.sh/uv/) for dependency management:
+
 ```yaml
 uv_env: pyproject.toml
 ```
@@ -36,6 +43,7 @@ uv_env: pyproject.toml
 Commands will be executed via `uv run`, which automatically handles the virtual environment. Make sure your model directory contains a valid `pyproject.toml` with dependencies specified. See the [example uv model](https://github.com/dhis2-chap/chap-core/tree/master/external_models/naive_python_model_uv) for a complete example.
 
 Example MLproject file with uv:
+
 ```yaml
 name: my_model
 uv_env: pyproject.toml
@@ -57,6 +65,7 @@ entry_points:
 ### renv environment (for R models)
 
 Use `renv_env` to specify an renv.lock file for R models that use [renv](https://rstudio.github.io/renv/) for dependency management:
+
 ```yaml
 renv_env: renv.lock
 ```
@@ -74,6 +83,7 @@ Your model directory should contain:
 - `.Rprofile` - Auto-activates renv when R starts (typically contains `source("renv/activate.R")`)
 
 Example MLproject file with renv:
+
 ```yaml
 name: my_r_model
 renv_env: renv.lock
@@ -95,11 +105,13 @@ entry_points:
 #### Setting up renv for your R model
 
 1. Initialize renv in your R project:
+
    ```r
    renv::init()
    ```
 
 2. Install your required packages:
+
    ```r
    renv::install("dplyr")
    renv::install("argparser")

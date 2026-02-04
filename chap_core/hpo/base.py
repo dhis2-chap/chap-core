@@ -93,8 +93,8 @@ def load_search_space_from_config(config: dict) -> dict[str, Any]:
         if (type_ or "").lower() == "float" or type_ is None:
             if log and step is not None:
                 raise ValueError(f"'{name}': log-float requires step==None")
-            step_val = None if step is None else float(step)
-            space[name] = Float(low=float(low), high=float(high), step=step_val, log=log)
+            float_step: float | None = None if step is None else float(step)
+            space[name] = Float(low=float(low), high=float(high), step=float_step, log=log)
             continue
 
         raise ValueError(f"'{name}': unknown spec type '{type_}'")

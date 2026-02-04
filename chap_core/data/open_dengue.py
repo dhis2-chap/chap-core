@@ -37,8 +37,8 @@ class OpenDengueDataSet:
             subset = subset[mask]
             subset["time_period"] = [Week(parse(date)).id for date in subset["calendar_start_date"]]
         elif temporal_resolution == "Month":
-            dates = [parse(date).strftime("%Y-%m") for date in subset["calendar_start_date"]]
-            subset["time_period"] = dates
+            date_strings = [parse(date).strftime("%Y-%m") for date in subset["calendar_start_date"]]
+            subset["time_period"] = date_strings
         if spatial_resolution == "Admin1":
             location_column = "adm_1_name"
         else:

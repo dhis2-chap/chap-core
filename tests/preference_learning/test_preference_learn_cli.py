@@ -140,7 +140,7 @@ learning_rate:
             max_iterations=3,
         )
         candidates = learner.get_next_candidates()
-        learner.report_preference(candidates, 0, [{"mae": 0.5}, {"mae": 0.6}])
+        learner.report_preference(candidates, 0, [{"mae": 0.5}, {"mae": 0.6}])  # type: ignore[reportArgumentType]
 
         state_file = tmp_path / "state.json"
         learner.save(state_file)

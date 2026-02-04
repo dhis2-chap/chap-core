@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Union
 
 import git
 from chap_core.exceptions import InvalidModelException
@@ -16,6 +16,8 @@ from pathlib import Path
 
 if TYPE_CHECKING:
     from chap_core.models.external_model import ExternalModel
+
+ModelTemplateType = Union[ModelTemplate, ExternalChapkitModelTemplate]
 
 
 def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
@@ -106,12 +108,12 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False, wor
 
 
 def get_model_template_from_directory_or_github_url(
-    model_template_path,
-    base_working_dir=Path("runs/"),
-    ignore_env=False,
-    run_dir_type="timestamp",
+    model_template_path: str,
+    base_working_dir: Path = Path("runs/"),
+    ignore_env: bool = False,
+    run_dir_type: str = "timestamp",
     is_chapkit_model: bool = False,
-) -> ModelTemplate:
+) -> ModelTemplateType:
     """
     Note: Preferably use ModelTemplate.from_directory_or_github_url instead of
     using this function directly. This function may be depcrecated in the future.
@@ -156,8 +158,8 @@ def get_model_template_from_directory_or_github_url(
     if not (working_dir / "MLproject").exists():
         raise InvalidModelException("No MLproject file found in model directory")
 
-    template = get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
-    return template
+    model_template = get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
+    return model_template
 
 
 def get_model_from_directory_or_github_url(
@@ -165,7 +167,7 @@ def get_model_from_directory_or_github_url(
     base_working_dir=Path("runs/"),
     ignore_env=False,
     run_dir_type: Literal["timestamp", "latest", "use_existing"] = "timestamp",
-    model_configuration_yaml: str = None,
+    model_configuration_yaml: str | None = None,
 ) -> "ExternalModel":
     """
     NOTE: This function is deprecated, can be removed in the future.
@@ -199,4 +201,4 @@ def get_model_from_directory_or_github_url(
             model_configuration = yaml.load(file, Loader=yaml.FullLoader)
             # model_configuration = config_class.model_validate(model_configuration)
 
-    return template.get_model(model_configuration=model_configuration)
+    return template.get_model(model_configuration=model_configuration)  # type: ignore[arg-type, return-value]

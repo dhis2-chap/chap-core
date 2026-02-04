@@ -63,7 +63,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
     app = App()
 
     @app.command()
-    def train(training_data_filename: str, model_path: str, model_config_path: str = None):
+    def train(training_data_filename: str, model_path: str, model_config_path: str | None = None):
         """
         Train a model using historic data
 
@@ -107,7 +107,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
         historic_data_filename: str,
         future_data_filename: str,
         output_filename: str,
-        model_config_path: str = None,
+        model_config_path: str | None = None,
     ):
         """
         Predict using a trained model

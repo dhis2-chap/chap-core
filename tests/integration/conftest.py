@@ -28,6 +28,7 @@ def dataset_make_request(feature_names, seen_periods, backtest_params, org_units
 
     return DatasetMakeRequest(
         name="testing dataset",
+        type="evaluation",
         geojson=geojson,
         provided_data=observations,
         data_to_be_fetched=[],
@@ -46,6 +47,7 @@ def dataset_make_request_weekly(
 
     return DatasetMakeRequest(
         name="testing dataset weekly",
+        type="evaluation",
         geojson=geojson,
         provided_data=observations,
         data_to_be_fetched=[],

@@ -21,7 +21,7 @@ def is_debug_mode() -> bool:
     return os.getenv("CHAP_DEBUG", "false").lower() in ("true", "1", "yes")
 
 
-def initialize_logging(debug: bool = None, log_file: str = None):
+def initialize_logging(debug: bool | None = None, log_file: str | None = None):
     """Initialize logging configuration.
 
     Args:

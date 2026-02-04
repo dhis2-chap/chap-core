@@ -27,11 +27,15 @@ clean: ## remove all build, test, coverage and Python artifacts
 	@rm -rf site/
 	@rm -rf .cache
 
-lint: ## check and fix code style with ruff
+lint: ## check and fix code style with ruff, run type checking
 	@echo "Linting code..."
 	uv run ruff check --fix
 	@echo "Formatting code..."
 	uv run ruff format
+	@echo "Type checking (mypy)..."
+	uv run mypy
+	@echo "Type checking (pyright)..."
+	uv run pyright
 
 test: ## run tests quickly with minimal output
 	uv run pytest -q

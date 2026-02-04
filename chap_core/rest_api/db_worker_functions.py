@@ -14,7 +14,7 @@ from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSetCreateInfo
-from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
+from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BackTestCreate, FetchRequest
 from chap_core.rest_api.data_models import PredictionParams
@@ -62,7 +62,7 @@ def validate_and_filter_dataset_for_evaluation(
 ) -> DataSet:
     evaluation_length = n_periods + (n_splits - 1) * stride
     new_data = {}
-    rejected = []
+    rejected: list[str] = []
     for location, data in dataset.items():
         if np.any(np.logical_not(np.isnan(getattr(data, target_name)[:-evaluation_length]))):
             new_data[location] = data
@@ -79,9 +79,10 @@ def run_backtest(
     n_periods: Optional[int] = None,
     n_splits: int = 10,
     stride: int = 1,
-    session: SessionWrapper = None,
+    session: Optional[SessionWrapper] = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
+    assert session is not None, "session is required"
     status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
 
     dataset = session.get_dataset(info.dataset_id)
@@ -107,6 +108,7 @@ def run_backtest(
     )
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
+    assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id)
     predictions_list = _backtest(
         estimator,
@@ -142,6 +144,7 @@ def run_prediction(
 
     status_logger.info(f"Training model and generating {n_periods} period forecast")
     configured_model = session.get_configured_model_by_name(model_id)
+    assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id)
     predictions = forecast_ahead(estimator, dataset, n_periods)
     db_id = session.add_predictions(predictions, dataset_id, model_id, name)
@@ -155,13 +158,13 @@ def debug(session: SessionWrapper):
 
 
 def harmonize_and_add_health_dataset(
-    health_dataset: FullData, name: str, session: SessionWrapper, worker_config=WorkerConfig()
-) -> FullData:
+    health_dataset: dict, name: str, session: SessionWrapper, worker_config: WorkerConfig = WorkerConfig()
+) -> int:
     status_logger.info(f"Processing and adding dataset '{name}'")
-    health_dataset = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)
-    dataset = harmonize_health_dataset(health_dataset, usecwd_for_credentials=False, worker_config=worker_config)
-    db_id = session.add_dataset(
-        DataSetCreateInfo(name=name), dataset, polygons=health_dataset.polygons.model_dump_json()
+    dataset_obj = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)  # type: ignore[arg-type]
+    dataset = harmonize_health_dataset(dataset_obj, usecwd_for_credentials=False, worker_config=worker_config)
+    db_id: int = session.add_dataset(
+        DataSetCreateInfo(name=name), dataset, polygons=dataset_obj.polygons.model_dump_json()
     )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id
@@ -170,23 +173,23 @@ def harmonize_and_add_health_dataset(
 def harmonize_and_add_dataset(
     provided_field_names: list[str],
     data_to_be_fetched: list[FetchRequest],
-    health_dataset: InMemoryDataSet,
+    health_dataset: dict,
     name: str,
     ds_type: str,
     session: SessionWrapper,
-    worker_config=WorkerConfig(),
-) -> FullData:
+    worker_config: WorkerConfig = WorkerConfig(),
+) -> int:
     status_logger.info(f"Processing and adding dataset '{name}' of type '{ds_type}'")
     provided_dataclass = create_tsdataclass(provided_field_names)
-    health_dataset = InMemoryDataSet.from_dict(health_dataset, provided_dataclass)
+    dataset_obj = InMemoryDataSet.from_dict(health_dataset, provided_dataclass)
     if len(data_to_be_fetched):
         full_dataset = harmonize_health_dataset(
-            health_dataset, fetch_requests=data_to_be_fetched, usecwd_for_credentials=False, worker_config=worker_config
+            dataset_obj, fetch_requests=data_to_be_fetched, usecwd_for_credentials=False, worker_config=worker_config
         )
     else:
-        full_dataset = health_dataset
+        full_dataset = dataset_obj
     info = DataSetCreateInfo(name=name, type=ds_type)
-    db_id = session.add_dataset(info, full_dataset, polygons=health_dataset.polygons.model_dump_json())
+    db_id: int = session.add_dataset(info, full_dataset, polygons=dataset_obj.polygons.model_dump_json())
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id
 
@@ -217,7 +220,8 @@ def predict_pipeline_from_composite_dataset(
         dataset_info=dataset_create_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json()
     )
 
-    return run_prediction(prediction_params.model_id, dataset_id, prediction_params.n_periods, name, session)
+    result: int = run_prediction(prediction_params.model_id, dataset_id, prediction_params.n_periods, name, session)
+    return result
 
 
 @convert_dicts_to_models
@@ -237,10 +241,11 @@ def run_backtest_from_dataset(
     if ds.frequency == "W" and backtest_params.stride < 4:
         logging.warning("Setting stride to 4 since its weekly data")
         backtest_params.stride = 4
-    return run_backtest(
+    result: int = run_backtest(
         info=backtest_create_info,
         n_periods=backtest_params.n_periods,
         n_splits=backtest_params.n_splits,
         stride=backtest_params.stride,
         session=session,
     )
+    return result

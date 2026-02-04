@@ -4,6 +4,32 @@ By the end of this guide, you will know how to use tools like **uv** (Python) or
 
 ---
 
+## Chap on Windows
+
+Chap Core requires **WSL2 (Windows Subsystem for Linux 2)** to run on Windows. Install Chap within your WSL2 Ubuntu environment, not on the Windows filesystem, as installing Chap on the WSL2 Ubuntu environment significantly improves performance.
+
+### Install and Open WSL2
+
+1. **Install WSL2:** Follow the [official WSL2 installation guide](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+2. Open the **WSL** terminal from your Windows Start Menu by searching for "WSL"
+
+3. On first launch, you'll be prompted to create a Unix username and password.
+
+4. Create a projects directory within Ubuntu/WSL2:
+
+```console
+mkdir -p ~/projects
+```
+
+5. Navigate to your projects folder:
+
+```console
+cd ~/projects
+```
+
+6. Within this folder, you will later clone and install chap-core. When referring to the _terminal_ later in this guide, please execute these commands within this folder using WSL2.
+
 ## What Are Virtual Environments?
 
 A **virtual environment** is an isolated space where your project's dependencies (packages and libraries) live separately from other projects. Without isolation, installing packages for one project can break another — for example, if Project A needs `pandas 1.5` but Project B needs `pandas 2.0`.
@@ -47,19 +73,11 @@ source .venv/bin/activate
 
 When activated, your terminal prompt changes (usually showing `(.venv)`) and `python` points to the virtual environment's interpreter.
 
-### Deactivate the environment
-
-```console
-deactivate
-```
-
-This returns you to your system Python.
-
 **Further reading:** [Python venv documentation](https://docs.python.org/3/library/venv.html)
 
 ---
 
-## 2. Install uv (Python users)
+## 2. Install uv
 
 **uv** is a fast, modern replacement for `venv` + `pip`. It creates virtual environments and manages packages automatically — no need to activate/deactivate manually. We recommend uv for CHAP projects.
 
@@ -75,7 +93,7 @@ brew install uv
 </details>
 
 <details markdown="1">
-<summary><strong>macOS / Linux / WSL (alternative)</strong></summary>
+<summary><strong>Linux / WSL (Ubuntu/Debian)</strong></summary>
 
 ```console
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -93,235 +111,3 @@ uv --version
 You should see something like `uv 0.9.0`.
 
 ---
-
-## 3. Install renv (R users)
-
-**Official guide:** [rstudio.github.io/renv](https://rstudio.github.io/renv/)
-
-### 1. Install R and RStudio
-
-You need to have R installed to use renv. RStudio is a popular IDE for R, but is optional.
-
-<details markdown="1">
-<summary><strong>macOS</strong></summary>
-
-```console
-brew install r
-```
-
-(Optional) Install RStudio:
-
-```console
-brew install --cask rstudio
-```
-
-</details>
-
-<details markdown="1">
-<summary><strong>Linux / WSL (Ubuntu/Debian)</strong></summary>
-
-```console
-sudo apt update
-sudo apt install r-base
-```
-
-(Optional) Install RStudio by downloading the `.deb` file and installing it:
-
-```console
-# Download the latest RStudio .deb from https://posit.co/download/rstudio-desktop/
-# Then install with:
-sudo apt install ./rstudio-*.deb
-```
-
-</details>
-
-### 2. Install renv
-
-In R or RStudio, run:
-
-```r
-install.packages("renv")
-```
-
-### 3. Verify
-
-```r
-library(renv)
-packageVersion("renv")
-```
-
-You should see a version number.
-
----
-
-## 4. Install Docker (Optional)
-
-Install Docker if you plan to run CHAP models in containers or share reproducible environments.
-
-**Official guide:** [docs.docker.com/get-docker](https://docs.docker.com/get-docker/)
-
-<details markdown="1">
-<summary><strong>macOS</strong></summary>
-
-```console
-brew install --cask docker
-```
-
-Then open Docker from Applications.
-
-Or download [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/) directly.
-
-</details>
-
-<details markdown="1">
-<summary><strong>Windows</strong></summary>
-
-Download [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/), run the installer, and restart if prompted.
-
-</details>
-
-<details markdown="1">
-<summary><strong>Linux (Ubuntu/Debian)</strong></summary>
-
-```console
-sudo apt-get update
-sudo apt-get install docker.io
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -aG docker $USER
-```
-
-Then log out and log back in.
-
-</details>
-
-### Verify
-
-```console
-docker --version
-```
-
-You should see something like `Docker version 29.0.0`.
-
----
-
-## Quick Reference
-
-### venv (Python)
-
-| Task               | Command                     |
-| ------------------ | --------------------------- |
-| Create environment | `python -m venv .venv`      |
-| Activate           | `source .venv/bin/activate` |
-| Install a package  | `pip install <package>`     |
-| Deactivate         | `deactivate`                |
-
-### uv (Python)
-
-| Task                 | Command                   |
-| -------------------- | ------------------------- |
-| Install dependencies | `uv sync`                 |
-| Add a package        | `uv add <package>`        |
-| Run a script         | `uv run python script.py` |
-
-### renv (R)
-
-| Task                 | Command            |
-| -------------------- | ------------------ |
-| Restore dependencies | `renv::restore()`  |
-| Save new packages    | `renv::snapshot()` |
-| Check status         | `renv::status()`   |
-
-### Docker
-
-| Task                  | Command                    |
-| --------------------- | -------------------------- |
-| Run a container       | `docker run <image>`       |
-| Build from Dockerfile | `docker build -t <name> .` |
-| List containers       | `docker ps`                |
-
----
-
-## Exercise
-
-Choose either **Python** or **R** based on your preference.
-
-### Python
-
-#### 1. Try Python virtual environments (venv)
-
-Create a virtual environment, install a package, and verify it works:
-
-```console
-# Create a new directory and enter it
-mkdir venv-test
-cd venv-test
-
-# Create a virtual environment
-python -m venv .venv
-
-# Activate it
-source .venv/bin/activate
-
-# Check which Python you're using (should point to .venv)
-which python
-
-# Install a package
-pip install numpy
-
-# Verify the package works
-python -c "import numpy; print(numpy.__version__)"
-
-# Deactivate when done
-deactivate
-```
-
-#### 2. Test uv
-
-```console
-# Create a new directory and enter it
-mkdir uv-test
-cd uv-test
-
-# Initialize a new uv project
-uv init
-
-# Add a package
-uv add numpy
-
-# Verify the package works
-uv run python -c "import numpy; print(numpy.__version__)"
-```
-
-### R
-
-#### Test renv
-
-Create a new directory and initialize an renv project:
-
-```console
-# Create a new directory and enter it
-mkdir renv-test
-cd renv-test
-```
-
-Then in R:
-
-```r
-# Initialize renv in this project
-renv::init()
-
-# Install a package
-install.packages("jsonlite")
-
-# Save the installed packages to the lockfile
-renv::snapshot()
-
-# Verify the package works
-library(jsonlite)
-packageVersion("jsonlite")
-```
-
----
-
-If these commands complete without errors, your environment is ready.

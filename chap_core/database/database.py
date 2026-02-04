@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 import time
-from typing import List, Optional
+from typing import List, Optional, cast
 
 import psycopg2
 import sqlalchemy
@@ -20,7 +20,6 @@ from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 from chap_core.time_period import Month, Week
 
-from .. import ModelTemplateInterface
 from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
@@ -71,10 +70,16 @@ class SessionWrapper:
 
     def __init__(self, local_engine=None, session=None):
         self.engine = local_engine  #  or engine
-        self.session: Optional[Session] = session
+        self._session: Optional[Session] = session
+
+    @property
+    def session(self) -> Session:
+        """Get the session, asserting it's not None."""
+        assert self._session is not None, "Session not initialized - use context manager or pass session to __init__"
+        return self._session
 
     def __enter__(self):
-        self.session = Session(self.engine)
+        self._session = Session(self.engine)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -99,7 +104,7 @@ class SessionWrapper:
         ).first()
         if existing_template:
             logger.info(f"Model template with name {model_template.name} already exists. Returning existing id")
-            return existing_template.id
+            return cast(int, existing_template.id)
 
         # add db entry
         logger.info(f"Adding model template: {model_template}")
@@ -107,7 +112,7 @@ class SessionWrapper:
         self.session.commit()
 
         # return id
-        return model_template.id
+        return cast(int, model_template.id)
 
     def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
         """Sets the ModelSpecRead a yaml string.
@@ -134,14 +139,14 @@ class SessionWrapper:
             # Unarchive if it was previously archived
             existing_template.archived = False
             self.session.commit()
-            return existing_template.id
+            return cast(int, existing_template.id)
 
         # Create new template
         db_object = ModelTemplateDB(**d)
         logger.info(f"Adding model template: {db_object}")
         self.session.add(db_object)
         self.session.commit()
-        return db_object.id
+        return cast(int, db_object.id)
 
     def add_configured_model(
         self,
@@ -154,6 +159,7 @@ class SessionWrapper:
         model_template = self.session.exec(
             select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)
         ).first()
+        assert model_template is not None, f"Model template with id {model_template_id} not found"
         template_name = model_template.name
 
         # set configured name
@@ -168,7 +174,7 @@ class SessionWrapper:
         existing_configured = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == name)).first()
         if existing_configured:
             logger.info(f"Configured model with name {name} already exists. Returning existing id")
-            return existing_configured.id
+            return cast(int, existing_configured.id)
 
         # create and add db entry
         configured_model = ConfiguredModelDB(
@@ -185,7 +191,7 @@ class SessionWrapper:
         self.session.commit()
 
         # return id
-        return configured_model.id
+        return cast(int, configured_model.id)
 
     def get_configured_models(self) -> List[ModelSpecRead]:
         # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
@@ -193,7 +199,7 @@ class SessionWrapper:
         # get configured models from db, excluding those with archived templates
         configured_models = self.session.exec(
             select(ConfiguredModelDB)
-            .options(selectinload(ConfiguredModelDB.model_template))
+            .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
             .join(ModelTemplateDB)
             .where(ModelTemplateDB.archived == False)  # noqa: E712
         ).all()
@@ -304,8 +310,10 @@ class SessionWrapper:
     def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
         logger.info(f"Getting configured model with id {configured_model_id}")
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
+        if configured_model is None:
+            raise ValueError(f"Configured model with id {configured_model_id} not found")
         if configured_model.name == "naive_model":
-            return NaiveEstimator()
+            return NaiveEstimator()  # type: ignore[return-value]
         template_name = configured_model.model_template.name
         logger.info(f"Configured model: {configured_model}, template: {configured_model.model_template}")
         ignore_env = (
@@ -314,18 +322,22 @@ class SessionWrapper:
 
         if configured_model.uses_chapkit:
             logger.info(f"Assuming chapkit model at {configured_model.model_template.source_url}")
+            assert configured_model.model_template.source_url is not None
             template = ExternalChapkitModelTemplate(configured_model.model_template.source_url)
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")
-            return template.get_model(configured_model)
+            return template.get_model(configured_model)  # type: ignore[arg-type, return-value]
         else:
             logger.info(f"Assuming github model at {configured_model.model_template.source_url}")
-            return ModelTemplate.from_directory_or_github_url(
-                configured_model.model_template.source_url,
-                ignore_env=ignore_env,
-            ).get_model(configured_model)
+            return cast(
+                ConfiguredModel,
+                ModelTemplate.from_directory_or_github_url(
+                    configured_model.model_template.source_url,
+                    ignore_env=ignore_env,
+                ).get_model(configured_model),  # type: ignore[arg-type]
+            )
 
-    def get_model_template(self, model_template_id: int) -> ModelTemplateInterface:
+    def get_model_template(self, model_template_id: int) -> ModelTemplateDB:
         model_template = self.session.get(ModelTemplateDB, model_template_id)
         if model_template is None:
             raise ValueError(f"Model template with id {model_template_id} not found")
@@ -341,6 +353,7 @@ class SessionWrapper:
         entries = backtest.forecasts
         if entries is None or len(entries) == 0:
             raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
+        return backtest
 
     def add_backtest(self, backtest: BackTest) -> None:
         self.session.add(backtest)
@@ -433,8 +446,10 @@ class SessionWrapper:
         assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
         return dataset.id
 
-    def get_dataset(self, dataset_id, dataclass: type | None = None) -> _DataSet:
+    def get_dataset(self, dataset_id: int, dataclass: type | None = None) -> _DataSet:
         dataset = self.session.get(DataSet, dataset_id)
+        if dataset is None:
+            raise ValueError(f"Dataset with id {dataset_id} not found")
         if dataclass is None:
             logger.info(f"Getting dataset with covariates: {dataset.covariates} and name: {dataset.name}")
             field_names = dataset.covariates
@@ -446,7 +461,7 @@ class SessionWrapper:
             logger.info(f"Loading polygons from geojson for dataset id {dataset_id}")
             new_dataset.set_polygons(Polygons.from_geojson(json.loads(dataset.geojson), id_property="district").data)
 
-        return new_dataset
+        return cast(_DataSet, new_dataset)
 
     def get_dataset_by_name(self, dataset_name: str) -> Optional[DataSet]:
         dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()

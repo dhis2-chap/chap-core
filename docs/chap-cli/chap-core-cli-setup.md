@@ -2,15 +2,7 @@
 
 In this guide, you'll install the CHAP command-line tool. Once installed, you can run chap evaluate to test any model against real datasets — which you'll do in the next guide in this session.
 
-## Prerequisites
-
-You should have `uv` installed from [Session 2](../session-2/virtual-environments.md). If not, install it first:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**Windows users:** Use WSL (Windows Subsystem for Linux) as covered in [Session 2](../session-2/terminal.md).
+**Reminder:** Windows users, use WSL (Windows Subsystem for Linux) as covered in [Prepare for installation](../external_models/prepare-for-installation.md).
 
 ## Installing CHAP
 

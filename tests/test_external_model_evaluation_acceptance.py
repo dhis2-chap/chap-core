@@ -23,12 +23,12 @@ def dataset_name():
 
 @pytest.fixture()
 def r_script_filename() -> str:
-    return EXAMPLE_DATA_PATH / "example_r_script.r"
+    return EXAMPLE_DATA_PATH / "example_r_script.r"  # type: ignore[reportReturnType]
 
 
 @pytest.fixture()
 def python_script_filename() -> str:
-    return TEST_PATH / "mock_predictor_script.py predict-values "
+    return TEST_PATH / "mock_predictor_script.py predict-values "  # type: ignore[reportReturnType]
 
 
 @pytest.fixture()

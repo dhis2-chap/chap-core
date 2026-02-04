@@ -145,7 +145,7 @@ class ExternalModel(ExternalModelBase):
         self._data_type = data_type
         self._name = name
         self._polygons_file_name = None
-        self._configuration = (
+        self._configuration: dict[str, object] = (
             configuration or {}
         )  # configuration passed from the user to the model, e.g. about covariates or parameters
         # self._config_filename = "model_config.yaml"

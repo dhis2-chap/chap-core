@@ -7,6 +7,7 @@ def previous(period: TimePeriod) -> TimePeriod:
     elif period.__class__.__name__ == "Year":
         return Year(period.year - 1)
     elif period.__class__.__name__ == "Week":
-        return period - delta_week
+        result: TimePeriod = period - delta_week
+        return result
 
     raise NotImplementedError(f"previous not implemented for {type(period)}")

@@ -51,18 +51,18 @@ class ComparisonResult:
 SearchSpaceValue = Any  # Int, Float, or list of values
 
 
-def _search_space_to_serializable(search_space: dict[str, SearchSpaceValue]) -> dict:
+def _search_space_to_serializable(search_space: dict[str, SearchSpaceValue]) -> dict[str, Any]:
     """Convert parsed search space to JSON-serializable format."""
     from chap_core.hpo.base import Int, Float
 
-    result = {}
+    result: dict[str, Any] = {}
     for name, spec in search_space.items():
         if isinstance(spec, list):
             result[name] = {"values": spec}
         elif isinstance(spec, Int):
             result[name] = {"low": spec.low, "high": spec.high, "step": spec.step, "log": spec.log, "type": "int"}
         elif isinstance(spec, Float):
-            entry = {"low": spec.low, "high": spec.high, "log": spec.log, "type": "float"}
+            entry: dict[str, Any] = {"low": spec.low, "high": spec.high, "log": spec.log, "type": "float"}
             if spec.step is not None:
                 entry["step"] = spec.step
             result[name] = entry

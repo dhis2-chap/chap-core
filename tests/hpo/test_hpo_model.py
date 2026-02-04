@@ -42,10 +42,10 @@ def test_hpo_model_train_selects_best_and_returns_trained(monkeypatch):
 
     base_cfg = {"user_option_values": {"x": [1, 2]}}
     model = HpoModel(
-        searcher=FakeSearcher(),
-        objective=FakeObjective(),
+        searcher=FakeSearcher(),  # type: ignore[reportArgumentType]
+        objective=FakeObjective(),  # type: ignore[reportArgumentType]
         direction="minimize",
-        model_configuration=base_cfg,
+        model_configuration=base_cfg,  # type: ignore[reportArgumentType]
     )
     out = model.train(dataset="dummy-dataset")
     assert out == "trained-model"

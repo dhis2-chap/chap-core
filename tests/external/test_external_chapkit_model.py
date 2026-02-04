@@ -40,7 +40,7 @@ def service_available():
 @pytest.mark.skip(reason="Needs a running chapkit model service")
 def test_external_chapkit_model_basic(service_available, dataset):
     train, test = train_test_generator(dataset, 3, 2)
-    historic, future, truth = next(test)
+    historic, future, truth = next(test)  # type: ignore[reportArgumentType]
 
     template = ExternalChapkitModelTemplate(service_available)
     # model = template.get_model({"user_option_values": {"max_epochs": 2}})
