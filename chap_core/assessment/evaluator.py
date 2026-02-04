@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 
 from chap_core.assessment.representations import (
-    MultiLocationDiseaseTimeSeries,
-    MultiLocationForecast,
-    MultiLocationErrorTimeSeries,
-    ErrorTimeSeries,
     Error,
+    ErrorTimeSeries,
+    MultiLocationDiseaseTimeSeries,
+    MultiLocationErrorTimeSeries,
+    MultiLocationForecast,
 )
 
 

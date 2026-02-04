@@ -26,22 +26,15 @@ from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
-from chap_core.models.approved_templates import (
-    ApprovedTemplate,
-    get_approved_templates,
-    get_git_ref,
-    is_approved,
-)
-from chap_core.models.model_template import ExternalModelTemplate
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import (
     DataSet,
+    DataSetCreateInfo,
+    DataSetInfo,
     DataSetWithObservations,
     ObservationBase,
-    DataSetInfo,
-    DataSetCreateInfo,
 )
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
@@ -55,6 +48,13 @@ from chap_core.database.model_templates_and_config_tables import (
 from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
+from chap_core.models.approved_templates import (
+    ApprovedTemplate,
+    get_approved_templates,
+    get_git_ref,
+    is_approved,
+)
+from chap_core.models.model_template import ExternalModelTemplate
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 

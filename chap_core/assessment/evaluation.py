@@ -10,7 +10,7 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Iterable, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable, List, Optional, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -19,19 +19,19 @@ import xarray as xr
 if TYPE_CHECKING:
     from chap_core.api_types import BackTestParams
 
-from chap_core.data import DataSet as _DataSet
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
     FlatObserved,
     convert_backtest_observations_to_flat_observations,
     convert_backtest_to_flat_forecasts,
 )
+from chap_core.data import DataSet as _DataSet
+from chap_core.database.dataset_tables import DataSet, Observation, ObservationBase
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chap_core.database.tables import BackTest, BackTestForecast
 from chap_core.datatypes import SamplesWithTruth
 from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.time_period import TimePeriod
-from chap_core.database.tables import BackTest, BackTestForecast
-from chap_core.database.dataset_tables import DataSet, Observation
 
 try:
     from chap_core import __version__ as CHAP_VERSION
@@ -50,8 +50,8 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
     Returns:
         xarray.Dataset with dimensions (location, time_period, horizon_distance, sample)
     """
-    forecasts_df = pd.DataFrame(flat_data.forecasts).copy()
-    observations_df = pd.DataFrame(flat_data.observations).copy()
+    forecasts_df = pd.DataFrame(cast(pd.DataFrame, flat_data.forecasts)).copy()
+    observations_df = pd.DataFrame(cast(pd.DataFrame, flat_data.observations)).copy()
 
     # Set multi-index for forecasts: location, time_period, horizon_distance, sample
     forecasts_indexed = forecasts_df.set_index(["location", "time_period", "horizon_distance", "sample"])
@@ -71,7 +71,7 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
 
     # Add historical observations if present
     if flat_data.historical_observations is not None:
-        historical_df = pd.DataFrame(flat_data.historical_observations).copy()
+        historical_df = pd.DataFrame(cast(pd.DataFrame, flat_data.historical_observations)).copy()
         if not historical_df.empty:
             # Use different dimension name to avoid conflicts with test period observations
             historical_indexed = historical_df.set_index(["location", "time_period"])
@@ -236,6 +236,7 @@ class EvaluationBase(ABC):
         evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
         last_train_period: TimePeriod,
         configured_model: ConfiguredModelDB,
+        info: "BackTestCreate",
     ) -> "EvaluationBase": ...
 
 
@@ -289,7 +290,7 @@ class Evaluation(EvaluationBase):
         info: BackTestCreate,
         historical_observations: Optional[List[Observation]] = None,
         historical_context_periods: int = 0,
-    ):
+    ) -> "Evaluation":
         info.created = datetime.datetime.now()
         backtest = BackTest(
             **info.model_dump()
@@ -305,7 +306,7 @@ class Evaluation(EvaluationBase):
             for location, samples_with_truth in eval_result.items():
                 # NOTE: samples_with_truth is class datatypes.SamplesWithTruth
                 org_units.add(location)
-                for period, sample_values, disease_cases in zip(
+                for period, sample_values, disease_cases in zip(  # type: ignore[call-overload]
                     eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases
                 ):
                     # add forecast series for this period
@@ -543,12 +544,16 @@ class Evaluation(EvaluationBase):
         """
         if self._flat_data_cache is None:
             forecasts_df = convert_backtest_to_flat_forecasts(self._backtest.forecasts)
-            observations_df = convert_backtest_observations_to_flat_observations(self._backtest.dataset.observations)
+            observations_df = convert_backtest_observations_to_flat_observations(
+                cast(List[ObservationBase], self._backtest.dataset.observations)
+            )
 
             # Convert historical observations if present
             historical_observations = None
             if self._historical_observations:
-                historical_df = convert_backtest_observations_to_flat_observations(self._historical_observations)
+                historical_df = convert_backtest_observations_to_flat_observations(
+                    cast(List[ObservationBase], self._historical_observations)
+                )
                 if not historical_df.empty:
                     historical_observations = FlatObserved(historical_df)
 
@@ -636,15 +641,15 @@ class Evaluation(EvaluationBase):
             dataset_id=0,
         )
 
-        forecasts_df = pd.DataFrame(flat_data.forecasts)
+        forecasts_df = pd.DataFrame(cast(pd.DataFrame, flat_data.forecasts))
 
         # Group by (location, time_period, horizon_distance) to create BackTestForecast objects
         for (location, time_period, horizon_distance), group in forecasts_df.groupby(
             ["location", "time_period", "horizon_distance"]
         ):
             # Calculate last_seen_period from horizon_distance
-            period = TimePeriod.parse(time_period)
-            last_seen_period = period - (int(horizon_distance) * period.time_delta)
+            period = TimePeriod.parse(str(time_period))
+            last_seen_period = period - (int(str(horizon_distance)) * period.time_delta)
 
             # Get all sample values for this forecast, sorted by sample number
             values = group.sort_values("sample")["forecast"].tolist()
@@ -659,7 +664,7 @@ class Evaluation(EvaluationBase):
             backtest.forecasts.append(forecast)
 
         # Create observations from flat data
-        observations_df = pd.DataFrame(flat_data.observations)
+        observations_df = pd.DataFrame(cast(pd.DataFrame, flat_data.observations))
         observations = []
         for _, row in observations_df.iterrows():
             observation = Observation(
@@ -679,7 +684,7 @@ class Evaluation(EvaluationBase):
         # Load historical observations if present
         historical_observations = []
         if flat_data.historical_observations is not None:
-            historical_df = pd.DataFrame(flat_data.historical_observations)
+            historical_df = pd.DataFrame(cast(pd.DataFrame, flat_data.historical_observations))
             for _, row in historical_df.iterrows():
                 observation = Observation(
                     period=row["time_period"],

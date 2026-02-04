@@ -5,9 +5,10 @@ This module provides utility functions used by backtest visualizations.
 The actual plot implementations are in chap_core.assessment.backtest_plots.
 """
 
-import pandas as pd
-import altair as alt
 import textwrap
+
+import altair as alt
+import pandas as pd
 
 alt.data_transformers.enable("vegafusion")
 

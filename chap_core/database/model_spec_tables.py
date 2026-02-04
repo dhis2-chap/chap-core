@@ -1,13 +1,13 @@
 import logging
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy import JSON, Column
+from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import DBModel
 from chap_core.database.feature_tables import FeatureType, ModelFeatureLink
 from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
 from chap_core.model_spec import PeriodType
-from sqlmodel import Field, Relationship
 
 logger = logging.getLogger(__name__)
 

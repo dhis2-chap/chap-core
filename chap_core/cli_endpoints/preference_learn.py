@@ -5,11 +5,14 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import yaml
-
 from pydantic import BaseModel
 
 from chap_core.api_types import BackTestParams, RunConfig
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.cli_endpoints._common import (
+    discover_geojson,
+    load_dataset_from_csv,
+)
 from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
     ModelConfiguration,
@@ -26,11 +29,6 @@ from chap_core.preference_learning.decision_maker import (
 from chap_core.preference_learning.preference_learner import (
     ModelCandidate,
     TournamentPreferenceLearner,
-)
-
-from chap_core.cli_endpoints._common import (
-    discover_geojson,
-    load_dataset_from_csv,
 )
 
 logger = logging.getLogger(__name__)

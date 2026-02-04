@@ -5,8 +5,8 @@ import logging
 
 # CHeck if CHAP_DATABASE_URL is set in the environment
 import os
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import List, Optional, cast
 
 import psycopg2
@@ -26,7 +26,7 @@ from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
-from .dataset_tables import DataSet, Observation, DataSetCreateInfo, DataSetInfo
+from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
 from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
@@ -480,8 +480,9 @@ def _run_alembic_migrations(engine):
     Run Alembic migrations programmatically.
     This is called after the custom migration system to apply any Alembic-managed schema changes.
     """
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
 
     logger.info("Running Alembic migrations")
 

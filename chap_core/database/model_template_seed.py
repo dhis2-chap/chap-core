@@ -4,10 +4,10 @@ from chap_core.model_spec import PeriodType
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.local_configuration import parse_local_model_config_from_directory
 
-from .database import SessionWrapper
-from .model_templates_and_config_tables import ModelTemplateDB, ModelConfiguration
 from ..file_io.file_paths import get_config_path
 from ..models.model_template import ExternalModelTemplate
+from .database import SessionWrapper
+from .model_templates_and_config_tables import ModelConfiguration, ModelTemplateDB
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

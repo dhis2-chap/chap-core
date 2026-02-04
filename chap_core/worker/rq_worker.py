@@ -3,17 +3,17 @@ This needs a redis db and a redis queue worker running
 $ rq worker --with-scheduler
 """
 
+import logging
+import os
 from typing import Callable, Generic
 
+from dotenv import find_dotenv, load_dotenv
+from redis import Redis
 from rq import Queue
 from rq.job import Job
-from redis import Redis
-import os
-from dotenv import load_dotenv, find_dotenv
 
 import chap_core.log_config
 from chap_core.worker.interface import ReturnType
-import logging
 
 logger = logging.getLogger(__name__)
 chap_core.log_config.initialize_logging()

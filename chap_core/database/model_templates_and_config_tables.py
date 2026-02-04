@@ -1,14 +1,13 @@
-from typing import Optional, List
+import logging
 from enum import Enum
+from typing import List, Optional
 
 import jsonschema
-from sqlalchemy import Column, JSON
-from sqlmodel import SQLModel, Field, Relationship
-
+from sqlalchemy import JSON, Column
+from sqlmodel import Field, Relationship, SQLModel
 
 from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
-import logging
 
 logger = logging.getLogger(__name__)
 

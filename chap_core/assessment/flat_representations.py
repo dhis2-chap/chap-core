@@ -1,15 +1,16 @@
 from __future__ import annotations
+
 from enum import Enum
-from typing import Mapping, List
+from typing import List, Mapping
 
 import numpy as np
 import pandas as pd
-from pandera import Check
 import pandera.pandas as pa
+from pandera import Check
 from pandera.pandas import DataFrameModel
 
-from chap_core.database.tables import BackTestForecast
 from chap_core.database.dataset_tables import ObservationBase
+from chap_core.database.tables import BackTestForecast
 from chap_core.time_period import TimePeriod
 
 

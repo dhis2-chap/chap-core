@@ -1,12 +1,11 @@
+import logging
 from typing import Literal, Optional
 
-from chap_core.models.model_template import ModelTemplate
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.assessment.prediction_evaluator import evaluate_model
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.exceptions import NoPredictionsError
 from chap_core.file_io.example_data_set import DataSetType
-
-import logging
+from chap_core.models.model_template import ModelTemplate
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

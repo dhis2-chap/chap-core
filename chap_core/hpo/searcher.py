@@ -1,9 +1,11 @@
-from typing import Any, Iterator, Optional
 import itertools
-import random
-import optuna
 import math
-from .base import Int, Float
+import random
+from typing import Any, Iterator, Optional
+
+import optuna
+
+from .base import Float, Int
 
 _TRIAL_ID_KEY = "_trial_id"  # reserved key we inject into params
 

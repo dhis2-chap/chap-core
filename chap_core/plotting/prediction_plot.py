@@ -5,9 +5,9 @@ used in several places. is being used to create forecast plots.
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 from matplotlib import pyplot as plt
 from plotly.graph_objs import Figure
-import plotly.graph_objects as go
 
 from chap_core.datatypes import ClimateData, HealthData, SummaryStatistics
 from chap_core.predictor.protocol import IsSampler

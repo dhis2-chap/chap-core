@@ -1,24 +1,22 @@
+import logging
 from collections import defaultdict
-from typing import Protocol, TypeVar, Iterable, Dict
-from gluonts.model import SampleForecast
-from gluonts.evaluation import Evaluator
-from gluonts.model import Forecast
-from matplotlib import pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
+from typing import Dict, Iterable, Protocol, TypeVar
+
 import numpy as np
 import pandas as pd
+from gluonts.evaluation import Evaluator
+from gluonts.model import Forecast, SampleForecast
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 from chap_core import get_temp_dir
 from chap_core.assessment.dataset_splitting import (
     train_test_generator,
 )
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
-from chap_core.datatypes import TimeSeriesData, Samples, SamplesWithTruth
-import logging
-
+from chap_core.datatypes import Samples, SamplesWithTruth, TimeSeriesData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
-
 
 plt.set_loglevel(level="warning")
 logger = logging.getLogger(__name__)
@@ -120,8 +118,7 @@ def create_multiloc_timeseries(truth_data):
 
     multi_location_disease_time_series = MultiLocationDiseaseTimeSeries()
     for location, df in truth_data.items():
-        from chap_core.assessment.representations import DiseaseTimeSeries
-        from chap_core.assessment.representations import DiseaseObservation
+        from chap_core.assessment.representations import DiseaseObservation, DiseaseTimeSeries
 
         disease_time_series = DiseaseTimeSeries(
             observations=[

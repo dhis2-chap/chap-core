@@ -1,15 +1,14 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
-from pydantic_geojson import FeatureModel
-from sqlalchemy import JSON, Column, TypeDecorator
-
-from sqlmodel import Field, Relationship
-
-from chap_core.database.base_tables import DBModel, PeriodID
 from pydantic_geojson import (
     FeatureCollectionModel as _FeatureCollectionModel,
 )
+from pydantic_geojson import FeatureModel
+from sqlalchemy import JSON, Column, TypeDecorator
+from sqlmodel import Field, Relationship
+
+from chap_core.database.base_tables import DBModel, PeriodID
 
 
 class FeatureCollectionModel(_FeatureCollectionModel):

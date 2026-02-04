@@ -19,10 +19,9 @@ model_url = "http://localhost:8003"
 @pytest.fixture
 def dataset():
     dataset_name = "ISIMIP_dengue_harmonized"
-    dataset = datasets[dataset_name]
-    dataset = dataset.load()
-    dataset = dataset["brazil"]
-    return dataset
+    example_dataset = datasets[dataset_name]
+    loaded_dataset = example_dataset.load()
+    return loaded_dataset["brazil"]
 
 
 @pytest.fixture
@@ -49,10 +48,10 @@ def test_external_chapkit_model_basic(service_available, dataset):
     prediction = model.predict(historic, future)
     print("PREDICTION")
     print(prediction)
-    prediction = prediction.to_pandas()
+    prediction_df = prediction.to_pandas()
 
-    print(prediction)
-    assert len(prediction) == len(future.to_pandas())
+    print(prediction_df)
+    assert len(prediction_df) == len(future.to_pandas())
 
 
 @pytest.mark.skip(reason="Needs a running chapkit model service")

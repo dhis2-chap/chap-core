@@ -1,27 +1,26 @@
+import dataclasses
 import logging
-from numbers import Number
 import pickle
-from pathlib import Path
-from typing import IO, Generic, Iterable, Tuple, Type, Callable, Optional, Union, Protocol
-from pathlib import PurePath
+from numbers import Number
+from pathlib import Path, PurePath
+from typing import IO, Callable, Generic, Iterable, Optional, Protocol, Tuple, Type, TypeVar, Union
+
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from pydantic import BaseModel
 
-from ..api_types import PeriodObservation, FeatureCollectionModel
+from ..api_types import FeatureCollectionModel, PeriodObservation
 from ..datatypes import (
-    add_field,
-    remove_field,
     TimeSeriesArray,
     TimeSeriesData,
+    add_field,
     create_tsdataclass,
+    remove_field,
 )
 from ..geometry import Polygons
-from ..time_period import PeriodRange, Month
-from ..time_period.date_util_wrapper import TimeStamp, clean_timestring, Week
-import dataclasses
-from typing import TypeVar
-from pydantic import BaseModel
+from ..time_period import Month, PeriodRange
+from ..time_period.date_util_wrapper import TimeStamp, Week, clean_timestring
 
 logger = logging.getLogger(__name__)
 

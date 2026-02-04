@@ -5,13 +5,13 @@ Normalized Continuous Ranked Probability Score (CRPS) metric.
 import numpy as np
 import pandas as pd
 
+from chap_core.assessment.metrics import metric
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticMetric,
     MetricSpec,
+    ProbabilisticMetric,
 )
 from chap_core.assessment.metrics.crps import CRPSMetric
-from chap_core.assessment.metrics import metric
 
 
 @metric()

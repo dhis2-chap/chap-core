@@ -4,10 +4,10 @@ Utility functions for working with geometries.
 
 import io
 
-from .geometry import Polygons
-from .api_types import FeatureModel, FeatureCollectionModel
-
 from shapely.geometry import shape
+
+from .api_types import FeatureCollectionModel, FeatureModel
+from .geometry import Polygons
 
 
 def feature_bbox(feature: FeatureModel):

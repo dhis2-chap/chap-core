@@ -1,13 +1,11 @@
-from typing import Optional, List
+import dataclasses
+from typing import List, Optional
 
 import bionumpy as bnp
 import numpy as np
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
-
 from pydantic import BaseModel, ConfigDict, field_validator
-import dataclasses
-
 from typing_extensions import deprecated
 
 from .api_types import PeriodObservation

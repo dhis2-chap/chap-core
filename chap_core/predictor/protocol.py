@@ -1,6 +1,7 @@
 from typing import Protocol
 
 from chap_core.data import DataSet
+
 from ..datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 
 

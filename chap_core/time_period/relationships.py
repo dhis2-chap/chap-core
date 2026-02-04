@@ -1,4 +1,4 @@
-from . import TimePeriod, Month, delta_week, Year
+from . import Month, TimePeriod, Year, delta_week
 
 
 def previous(period: TimePeriod) -> TimePeriod:

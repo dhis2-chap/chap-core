@@ -1,16 +1,16 @@
-import logging
 import functools
+import logging
 from datetime import datetime
 from numbers import Number  # Still needed for clean_timestring
-from typing import TYPE_CHECKING, Union, Iterable, Tuple, overload
+from typing import TYPE_CHECKING, Iterable, Tuple, Union, overload
 
 import dateutil
 import numpy as np
-from numpy.typing import NDArray
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
 from dateutil.parser import parse as _parse
 from dateutil.relativedelta import relativedelta
+from numpy.typing import NDArray
 from pytz import utc
 
 from chap_core.exceptions import InvalidDateError

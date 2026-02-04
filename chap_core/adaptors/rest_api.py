@@ -1,10 +1,11 @@
+import logging
+
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from chap_core.datatypes import remove_field
 from chap_core.model_spec import get_dataclass
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-import logging
 
 logger = logging.getLogger(__name__)
 

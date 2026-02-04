@@ -1,16 +1,18 @@
 from __future__ import annotations
+
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
-import logging
+
 from chap_core.datatypes import HealthData
+from chap_core.external.github import fetch_mlproject_content
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.configured_model import ModelConfiguration
+from chap_core.models.external_web_model import ExternalWebModel
 from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
-from chap_core.external.github import fetch_mlproject_content
-from chap_core.models.external_web_model import ExternalWebModel
 
 if TYPE_CHECKING:
     from chap_core.external.external_model import ExternalModel
@@ -114,6 +116,7 @@ class ModelTemplate:
 
         # config = ModelTemplateConfig.model_validate(model_configuration)
         from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config
+
         from .external_model import ExternalModel
 
         data_type = HealthData

@@ -3,11 +3,11 @@ import dataclasses
 import numpy as np
 from sklearn import linear_model
 
+from chap_core.datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 from chap_core.spatio_temporal_data.temporal_dataclass import (
     DataSet,
     TemporalDataclass,
 )
-from chap_core.datatypes import HealthData, ClimateHealthTimeSeries, ClimateData
 
 
 class NaivePredictor:

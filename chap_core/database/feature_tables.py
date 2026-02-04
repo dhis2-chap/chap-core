@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from sqlalchemy import Column, JSON
+from sqlalchemy import JSON, Column
 from sqlmodel import Field
 
 from chap_core.database.base_tables import DBModel

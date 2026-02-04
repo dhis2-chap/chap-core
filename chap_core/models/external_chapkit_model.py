@@ -61,9 +61,9 @@ class ExternalChapkitModelTemplate:
         self._is_url_mode = is_url(path_or_url)
 
         if self._is_url_mode:
-            self.rest_api_url = path_or_url
-            self.client = CHAPKitRestAPIWrapper(path_or_url)
-            self._service_manager: Optional[ChapkitServiceManager] = None
+            self.rest_api_url: str | None = path_or_url
+            self.client: CHAPKitRestAPIWrapper | None = CHAPKitRestAPIWrapper(path_or_url)
+            self._service_manager: ChapkitServiceManager | None = None
         else:
             self.rest_api_url = None
             self.client = None
@@ -87,6 +87,7 @@ class ExternalChapkitModelTemplate:
         if self._is_url_mode:
             return self
 
+        assert self._service_manager is not None
         self._service_manager.__enter__()
         self.rest_api_url = self._service_manager.url
         self.client = CHAPKitRestAPIWrapper(self.rest_api_url)
@@ -115,6 +116,7 @@ class ExternalChapkitModelTemplate:
 
     def is_healthy(self) -> bool:
         self._ensure_initialized()
+        assert self.client is not None
         try:
             response = self.client.health()
             return response["status"] == "healthy"
@@ -130,6 +132,8 @@ class ExternalChapkitModelTemplate:
         This returns a configuration id back that we can use to identify the model.
         """
         self._ensure_initialized()
+        assert self.client is not None
+        assert self.rest_api_url is not None
         import time
 
         if model_configuration is None:
@@ -177,6 +181,7 @@ class ExternalChapkitModelTemplate:
         This returns a unique name for the model. In the future, this might be some sort of id given by the model
         """
         self._ensure_initialized()
+        assert self.client is not None
         info = self.client.info()
         if "name" in info:
             # name not supported in current chapkit version, might be supported in the future
@@ -197,6 +202,7 @@ class ExternalChapkitModelTemplate:
         ModelTemplateConfigV2 is needed to store info about a ModelTemplate in the database.
         """
         self._ensure_initialized()
+        assert self.client is not None
         model_info = self.client.info()
 
         # Get user options from config schema

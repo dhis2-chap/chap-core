@@ -3,7 +3,9 @@ Peak-related metrics for comparing predicted and observed peaks.
 """
 
 import re
+
 import pandas as pd
+
 from chap_core.assessment.metrics.base import (
     AggregationOp,
     Metric,

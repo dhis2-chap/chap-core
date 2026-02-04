@@ -4,12 +4,12 @@ Percentile coverage metrics for evaluating forecast calibration.
 
 import numpy as np
 
+from chap_core.assessment.metrics import metric
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticMetric,
     MetricSpec,
+    ProbabilisticMetric,
 )
-from chap_core.assessment.metrics import metric
 
 
 class PercentileCoverageMetric(ProbabilisticMetric):

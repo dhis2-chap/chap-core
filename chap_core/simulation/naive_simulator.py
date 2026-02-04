@@ -7,8 +7,8 @@ todo: Can maybe be moved to tests/
 import abc
 from typing import Any
 
-import pydantic
 import numpy as np
+import pydantic
 from numpy.random import normal, poisson
 
 from chap_core.database.dataset_tables import DataSet, Observation

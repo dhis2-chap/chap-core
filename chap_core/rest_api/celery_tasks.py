@@ -1,21 +1,21 @@
 import inspect
+import json
+import logging
 import os
 from datetime import datetime
 from typing import Callable, Generic, TypeVar, cast
-import logging
-from celery import Celery, shared_task, Task
-from celery.result import AsyncResult
-from redis import Redis
-from dotenv import find_dotenv, load_dotenv
-import json
 
 import celery
+from celery import Celery, Task, shared_task
+from celery.result import AsyncResult
+from celery.utils.log import get_task_logger
+from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel
+from redis import Redis
 from sqlalchemy import create_engine
 
 from ..database.database import SessionWrapper
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
-from celery.utils.log import get_task_logger
 
 ReturnType = TypeVar("ReturnType")
 

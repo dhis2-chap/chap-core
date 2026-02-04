@@ -1,5 +1,5 @@
-from chap_core.model_spec import ModelSpec
 import chap_core.predictor.feature_spec as fs
+from chap_core.model_spec import ModelSpec
 
 
 class ExternalModelSpec(ModelSpec):

@@ -1,10 +1,10 @@
-from .external_model import run_command
-from ..datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
-
-from chap_core.time_period import Month
 import tempfile
 
+from chap_core.time_period import Month
+
+from ..datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 from ..spatio_temporal_data.temporal_dataclass import DataSet
+from .external_model import run_command
 
 
 class ExternalPythonModel:

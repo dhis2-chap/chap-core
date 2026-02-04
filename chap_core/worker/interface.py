@@ -1,5 +1,5 @@
 import dataclasses
-from typing import TypeVar, Generic, Callable, Protocol, Any
+from typing import Any, Callable, Generic, Protocol, TypeVar
 
 ReturnType_co = TypeVar("ReturnType_co", covariant=True)
 ReturnType = TypeVar("ReturnType")

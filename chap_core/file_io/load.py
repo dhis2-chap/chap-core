@@ -1,5 +1,5 @@
-from .external_file import fetch_and_clean
 from ..spatio_temporal_data.temporal_dataclass import DataSet
+from .external_file import fetch_and_clean
 
 
 def load_data_set(data_set_filename: str) -> DataSet:
