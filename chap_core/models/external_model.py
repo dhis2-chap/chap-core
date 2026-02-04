@@ -126,12 +126,12 @@ class ExternalModel(ExternalModelBase):
     def __init__(
         self,
         runner,
-        name: str = None,
+        name: str | None = None,
         adapters=None,
         working_dir=None,
         data_type=HealthData,
         configuration: ModelConfiguration | None = None,
-        model_information: ModelTemplateConfigV2 = None,
+        model_information: ModelTemplateConfigV2 | None = None,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path

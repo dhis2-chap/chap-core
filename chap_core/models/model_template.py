@@ -78,7 +78,7 @@ class ModelTemplate:
         return self._model_template_config
 
     def get_train_predict_runner(self) -> TrainPredictRunner:
-        pass
+        raise NotImplementedError()
 
     def __str__(self):
         return f"ModelTemplate: {self._model_template_config}"

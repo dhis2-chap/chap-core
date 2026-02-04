@@ -29,7 +29,7 @@ class ExternalWebModel(ExternalModelBase):
     def __init__(
         self,
         api_url: str,
-        name: str = None,
+        name: str | None = None,
         timeout: int = 3600,
         poll_interval: int = 5,
         configuration: Optional[dict] = None,

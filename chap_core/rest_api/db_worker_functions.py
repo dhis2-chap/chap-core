@@ -137,7 +137,7 @@ def run_prediction(
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
 
-    dataset = session.get_dataset(dataset_id)
+    dataset = session.get_dataset(int(dataset_id))
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
 
