@@ -47,7 +47,7 @@ class TimeSeriesLike(Protocol):
     def end_timestamp(self) -> TimeStamp: ...
 
 
-FeaturesT = TypeVar("FeaturesT", bound=TimeSeriesLike)
+FeaturesT = TypeVar("FeaturesT")
 TemporalIndexType = slice
 
 
