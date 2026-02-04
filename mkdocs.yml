@@ -118,5 +118,6 @@ nav:
           - Overview: webapi/index.md
           - Developer Guide: webapi/developer.md
           - Docker Compose: webapi/docker-compose-doc.md
+          - Service Registration: webapi/service-registration.md
       - API Reference: api/index.md
       - Changelog: changelog.md
