@@ -1,10 +1,10 @@
 from typing import Literal, Optional
-from typing_extensions import TypeAlias
 
-from .naive_predictor import MultiRegionPoissonModel, MultiRegionNaivePredictor
+from typing_extensions import TypeAlias
 
 # from ..external.models import models as external_models
 from ..external.r_models import models as r_models
+from .naive_predictor import MultiRegionNaivePredictor, MultiRegionPoissonModel
 
 __all__ = ["MultiRegionPoissonModel", "MultiRegionNaivePredictor"]
 models = __all__

@@ -1,6 +1,7 @@
+import altair as alt
 import numpy as np
 import pandas as pd
-import altair as alt
+
 from .dataset_plot import DatasetPlot
 
 alt.renderers.default = "browser"

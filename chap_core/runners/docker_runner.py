@@ -1,11 +1,12 @@
+import logging
 from pathlib import Path
 
 from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
+
 from ..docker_helper_functions import (
     run_command_through_docker_container,
 )
 from .runner import Runner
-import logging
 
 logger = logging.getLogger(__name__)
 

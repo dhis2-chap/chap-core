@@ -1,11 +1,11 @@
 # from dataclasses import dataclass, field
 # from typing import Any, Dict, Optional, List, Protocol, runtime_checkable
 # import time
-import yaml
 import json
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Any, Optional
 
+import yaml
 
 """
 Constraints on non-categorical hyperparameter values:   

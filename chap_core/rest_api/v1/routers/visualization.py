@@ -8,10 +8,11 @@ from sqlmodel import Session
 from starlette.responses import JSONResponse
 
 from chap_core.assessment.backtest_plots import (
+    create_plot_from_backtest,
     get_backtest_plots_registry,
     list_backtest_plots,
-    create_plot_from_backtest,
 )
+from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import BackTest
@@ -25,7 +26,6 @@ from chap_core.plotting.evaluation_plot import (
 )
 from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.rest_api.v1.routers.dependencies import get_session
-from chap_core.assessment.metrics import available_metrics
 
 logger = logging.getLogger(__name__)
 

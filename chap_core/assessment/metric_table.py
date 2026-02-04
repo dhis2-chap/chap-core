@@ -1,6 +1,6 @@
-from chap_core.database.tables import BackTestMetric
 import pandas as pd
 
+from chap_core.database.tables import BackTestMetric
 from chap_core.time_period import TimePeriod
 
 

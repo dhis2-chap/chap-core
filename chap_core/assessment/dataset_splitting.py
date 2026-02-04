@@ -1,4 +1,4 @@
-from typing import Iterable, Iterator, Protocol, Optional, Type
+from typing import Iterable, Iterator, Optional, Protocol, Type
 
 from chap_core.climate_predictor import FutureWeatherFetcher
 from chap_core.datatypes import ClimateData

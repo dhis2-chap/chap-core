@@ -1,9 +1,11 @@
-from chap_core.exceptions import ModelFailedException
-from chap_core.runners.runner import TrainPredictRunner
+import logging
+
 import mlflow.exceptions
 import mlflow.projects
 from mlflow.utils.process import ShellCommandException
-import logging
+
+from chap_core.exceptions import ModelFailedException
+from chap_core.runners.runner import TrainPredictRunner
 
 logger = logging.getLogger(__name__)
 

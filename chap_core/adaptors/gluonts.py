@@ -1,12 +1,14 @@
-from gluonts.model.estimator import Estimator
+from dataclasses import dataclass
+from pathlib import Path
+
 from gluonts.dataset.common import ListDataset
+from gluonts.model.estimator import Estimator
 from gluonts.model.predictor import Predictor
+
 from ..data import DataSet
 from ..data.gluonts_adaptor.dataset import DataSetAdaptor
 from ..datatypes import Samples
 from ..time_period import PeriodRange
-from pathlib import Path
-from dataclasses import dataclass
 
 
 @dataclass

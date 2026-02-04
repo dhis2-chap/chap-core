@@ -6,22 +6,21 @@ import logging
 from pathlib import Path
 from typing import Annotated, Optional
 
-from cyclopts import Parameter
-
 import numpy as np
 import pandas as pd
 import xarray as xr
 import yaml
+from cyclopts import Parameter
 
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
+from chap_core.file_io.example_data_set import datasets
 from chap_core.log_config import initialize_logging
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.file_io.example_data_set import datasets
 
 logger = logging.getLogger(__name__)
 
@@ -158,8 +157,8 @@ def plot_backtest(
     Generate a backtest plot from evaluation data and save to file.
     """
     from chap_core.assessment.backtest_plots import (
-        get_backtest_plots_registry,
         create_plot_from_evaluation,
+        get_backtest_plots_registry,
     )
     from chap_core.assessment.evaluation import Evaluation
 

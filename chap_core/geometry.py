@@ -1,13 +1,16 @@
 import json
 import logging
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 import pooch
 import pycountry
-from pydantic_geojson import FeatureModel, FeatureCollectionModel
+from pydantic_geojson import FeatureCollectionModel, FeatureModel
 from unidecode import unidecode
+
 from .api_types import (
     FeatureCollectionModel as DFeatureCollectionModel,
+)
+from .api_types import (
     FeatureModel as DFeatureModel,
 )
 

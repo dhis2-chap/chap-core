@@ -2,7 +2,7 @@ import dataclasses
 import json
 import logging
 import os
-from typing import Any, List, Sequence, Union, Optional
+from typing import Any, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd

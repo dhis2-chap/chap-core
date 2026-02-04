@@ -1,14 +1,15 @@
+import logging
+
 import yaml
 from cyclopts import App
 
 # from chap_core.models.model_template_interface import ModelConfiguration
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.datatypes import remove_field, create_tsdataclass
-from chap_core.external.model_configuration import RunnerConfig, EntryPointConfig, CommandConfig
+from chap_core.datatypes import create_tsdataclass, remove_field
+from chap_core.external.model_configuration import CommandConfig, EntryPointConfig, RunnerConfig
 from chap_core.model_spec import get_dataclass
 from chap_core.models.model_template_interface import InternalModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-import logging
 
 logger = logging.getLogger(__name__)
 

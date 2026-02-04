@@ -1,5 +1,6 @@
-from ..model_spec import PeriodType, ModelSpec
 import logging
+
+from ..model_spec import ModelSpec, PeriodType
 
 logger = logging.getLogger(__name__)
 

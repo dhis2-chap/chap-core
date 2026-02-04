@@ -1,18 +1,19 @@
+import logging
+import os
+import shutil
+import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Union
 
 import git
+import yaml
+
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.model_template import ModelTemplate
-import shutil
-import uuid
-import yaml
-import logging
-import os
-from pathlib import Path
 
 if TYPE_CHECKING:
     from chap_core.models.external_model import ExternalModel

@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner, run_command
+
 from .runner import Runner
 
 logger = logging.getLogger(__name__)

@@ -53,7 +53,7 @@ SearchSpaceValue = Any  # Int, Float, or list of values
 
 def _search_space_to_serializable(search_space: dict[str, SearchSpaceValue]) -> dict[str, Any]:
     """Convert parsed search space to JSON-serializable format."""
-    from chap_core.hpo.base import Int, Float
+    from chap_core.hpo.base import Float, Int
 
     result: dict[str, Any] = {}
     for name, spec in search_space.items():
@@ -276,7 +276,7 @@ class TournamentPreferenceLearner(PreferenceLearnerBase):
         Returns:
             New TournamentPreferenceLearner instance
         """
-        from chap_core.hpo.base import Int, Float
+        from chap_core.hpo.base import Float, Int
 
         # Extract categorical values and sample from continuous ranges
         param_values: dict[str, list] = {}

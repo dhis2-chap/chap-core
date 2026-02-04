@@ -9,6 +9,7 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 import pandera.pandas as pa
+
 from chap_core.assessment.flat_representations import (
     DIM_REGISTRY,
     DataDimension,

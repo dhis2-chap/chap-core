@@ -1,6 +1,7 @@
 import logging
 import subprocess
 from pathlib import Path
+
 from chap_core.exceptions import CommandLineException, ModelConfigurationException
 from chap_core.runners.runner import Runner, TrainPredictRunner
 

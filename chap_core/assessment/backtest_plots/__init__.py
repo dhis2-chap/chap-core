@@ -47,10 +47,11 @@ Data schemas:
         - disease_cases: float - Historical observed disease cases
 """
 
-from typing import Dict, Type, Optional, Union
 from abc import ABC, abstractmethod
-import pandas as pd
+from typing import Dict, Optional, Type, Union
+
 import altair as alt
+import pandas as pd
 
 from chap_core.database.tables import BackTest
 
@@ -305,9 +306,9 @@ def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
 def _discover_plots():
     """Import all plot modules to trigger decorator registration."""
     from chap_core.assessment.backtest_plots import (  # noqa: F401
+        evaluation_plot,
         metrics_dashboard,
         sample_bias_plot,
-        evaluation_plot,
     )
 
 

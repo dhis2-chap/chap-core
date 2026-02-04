@@ -7,12 +7,13 @@ NOTE: Written by ai as a prototype, TODO: refactor and cleanup once working
 """
 
 import logging
-import chapkit
 import time
-from typing import Optional, Dict, Any, List, cast
+from typing import Any, Dict, List, Optional, cast
+
+import chapkit
+import httpx
 import numpy as np
 import pandas as pd
-import httpx
 from pydantic import BaseModel, Field
 
 from chap_core.time_period.date_util_wrapper import pandas_period_to_string

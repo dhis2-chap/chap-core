@@ -1,6 +1,7 @@
 from pathlib import Path
-from typing import TypeVar, Generic
-from chap_core.datatypes import ClimateHealthTimeSeries, HealthData, ClimateData
+from typing import Generic, TypeVar
+
+from chap_core.datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
 from chap_core.time_period.date_util_wrapper import TimeDelta

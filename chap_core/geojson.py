@@ -1,8 +1,8 @@
-from typing import IO
 from pathlib import Path
-from libpysal.weights import Queen
+from typing import IO
 
 import geopandas as gpd
+from libpysal.weights import Queen
 
 
 def geojson_to_shape(geojson_filename: str, shape_filename: str | Path):

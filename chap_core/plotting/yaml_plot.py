@@ -1,20 +1,20 @@
 # --- dependencies ---
+import textwrap
+
 import altair as alt
 import pandas as pd
-import textwrap
 import yaml
 
-from chap_core.database.tables import BackTest
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import available_metrics
-
+from chap_core.database.tables import BackTest
 from chap_core.plotting.evaluation_plot import (
+    MetricByHorizonAndLocationMean,
     MetricByHorizonV2Mean,
     MetricByHorizonV2Sum,
-    MetricByHorizonAndLocationMean,
+    MetricByTimePeriodAndLocationV2Mean,
     MetricByTimePeriodV2Mean,
     MetricByTimePeriodV2Sum,
-    MetricByTimePeriodAndLocationV2Mean,
     MetricMapV2,
 )
 

@@ -9,11 +9,11 @@ import yaml
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
+from chap_core.file_io.example_data_set import datasets
 from chap_core.geometry import Polygons
 from chap_core.models.model_template import ModelTemplate
 from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet, DataSetMetaData
-from chap_core.file_io.example_data_set import datasets
 
 logger = logging.getLogger(__name__)
 

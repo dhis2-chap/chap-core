@@ -1,6 +1,5 @@
 import abc
 
-
 from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
 from chap_core.models.configured_model import ModelConfiguration
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet

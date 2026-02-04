@@ -1,5 +1,5 @@
-import logging
 import inspect
+import logging
 from functools import wraps
 from typing import Optional, get_type_hints
 
@@ -15,8 +15,7 @@ from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
-from chap_core.rest_api.data_models import BackTestCreate, FetchRequest
-from chap_core.rest_api.data_models import PredictionParams
+from chap_core.rest_api.data_models import BackTestCreate, FetchRequest, PredictionParams
 
 # from chap_core.rest_api.v1.routers.crud import BackTestCreate
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset

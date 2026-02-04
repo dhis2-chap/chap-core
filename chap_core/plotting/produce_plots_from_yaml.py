@@ -1,20 +1,22 @@
 # --- dependencies you already use ---
-import altair as alt
-import pandas as pd
-import numpy as np
 import textwrap
-import yaml
 from collections.abc import Mapping
 from datetime import datetime
-from chap_core.assessment.metrics import available_metrics
+
+import altair as alt
+import numpy as np
+import pandas as pd
+import yaml
+
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metrics import available_metrics
 from chap_core.plotting.evaluation_plot import (
+    MetricByHorizonAndLocationMean,
     MetricByHorizonV2Mean,
     MetricByHorizonV2Sum,
-    MetricByHorizonAndLocationMean,
+    MetricByTimePeriodAndLocationV2Mean,
     MetricByTimePeriodV2Mean,
     MetricByTimePeriodV2Sum,
-    MetricByTimePeriodAndLocationV2Mean,
     MetricMapV2,
 )
 

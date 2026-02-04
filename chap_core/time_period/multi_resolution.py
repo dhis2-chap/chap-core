@@ -1,7 +1,7 @@
 import numpy as np
+from npstructures import RaggedArray
 
 from chap_core.time_period import Month
-from npstructures import RaggedArray
 
 
 def pack_to_period(time_period, data, goal_period):

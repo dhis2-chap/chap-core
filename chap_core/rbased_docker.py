@@ -1,6 +1,7 @@
-import tempfile
-import docker
 import os
+import tempfile
+
+import docker
 
 
 def create_image(r_packages, image_name="r-custom-image"):

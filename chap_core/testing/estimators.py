@@ -1,6 +1,6 @@
-from ..data.datasets import ISIMIP_dengue_harmonized
-from ..data import DataSet
 from ..assessment.dataset_splitting import train_test_generator
+from ..data import DataSet
+from ..data.datasets import ISIMIP_dengue_harmonized
 
 
 def sanity_check_estimator(estimator):

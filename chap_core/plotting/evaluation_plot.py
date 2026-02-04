@@ -3,6 +3,7 @@ from typing import Optional, Type, cast
 
 import altair as alt
 import pandas as pd
+
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics.base import Metric
 from chap_core.database.base_tables import DBModel

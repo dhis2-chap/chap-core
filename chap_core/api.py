@@ -1,21 +1,19 @@
+import dataclasses
 import logging
+from typing import List, Optional
 
 from .assessment.forecast import forecast as do_forecast
-from typing import Optional, List
 from .datatypes import (
-    HealthData,
     ClimateData,
+    HealthData,
     HealthPopulationData,
 )
-from .models.utils import get_model_from_directory_or_github_url
 from .file_io.example_data_set import DataSetType, datasets
+from .models.utils import get_model_from_directory_or_github_url
 from .plotting.prediction_plot import plot_forecast_from_summaries
 from .predictor import get_model
 from .spatio_temporal_data.temporal_dataclass import DataSet
-import dataclasses
-
 from .time_period.date_util_wrapper import delta_month
-
 
 logger = logging.getLogger(__name__)
 

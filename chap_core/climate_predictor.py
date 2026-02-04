@@ -5,9 +5,10 @@ from typing import Any
 import numpy as np
 from sklearn import linear_model
 
-from .datatypes import ClimateData, SimpleClimateData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period import PeriodRange, Month, Week
+from chap_core.time_period import Month, PeriodRange, Week
+
+from .datatypes import ClimateData, SimpleClimateData
 
 
 def get_climate_predictor(train_data: DataSet[ClimateData]):

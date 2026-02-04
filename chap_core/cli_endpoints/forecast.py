@@ -4,11 +4,11 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from chap_core import api
 from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
+from chap_core.file_io.example_data_set import DataSetType, datasets
 from chap_core.models.utils import get_model_from_directory_or_github_url
 from chap_core.plotting.prediction_plot import plot_forecast_from_summaries
-from chap_core import api
-from chap_core.file_io.example_data_set import datasets, DataSetType
 from chap_core.time_period.date_util_wrapper import delta_month
 
 logger = logging.getLogger(__name__)

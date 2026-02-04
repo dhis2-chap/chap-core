@@ -1,10 +1,10 @@
-from typing import Literal
 from collections import Counter
+from typing import Literal
 
 import numpy as np
-from dateutil.parser import parse
 import pandas as pd
 import pooch
+from dateutil.parser import parse
 
 from chap_core.time_period import Week
 
