@@ -13,8 +13,7 @@ class ExternalRModel:
         self.lead_time = lead_time
         self.adaptors = adaptors
 
-    def get_predictions(self, train_data: ClimateHealthTimeSeries, future_climate_data: ClimateData) -> HealthData:
-        pass
+    def get_predictions(self, train_data: ClimateHealthTimeSeries, future_climate_data: ClimateData) -> HealthData: ...
 
 
 FeatureType = TypeVar("FeatureType")

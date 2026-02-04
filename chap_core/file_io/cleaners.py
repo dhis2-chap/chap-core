@@ -18,7 +18,7 @@ def hydromet(filename):
         tmax = group["tmax"].values
         tmin = group["tmin"].values
         tmean = (tmax + tmin) / 2  # type: ignore[operator]
-        data_dict[name] = FullData(
+        data_dict[name] = FullData(  # type: ignore[call-arg]
             period,
             np.zeros_like(tmean),
             tmean,
@@ -47,4 +47,4 @@ def laos_data(filename):
     periods = [convert_time_period_string(str(row)) for row in df["periodid"]]
     print(periods)
     period_range = PeriodRange.from_strings(periods)
-    return DataSet({colname: HealthData(period_range, df[colname].values) for colname in df.columns[4:]})
+    return DataSet({colname: HealthData(period_range, df[colname].values) for colname in df.columns[4:]})  # type: ignore[call-arg]

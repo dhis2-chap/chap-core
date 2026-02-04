@@ -291,7 +291,7 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
             samples_matrix = np.array([period_forecasts[p] for p in sorted_periods])
 
             forecast = ForecastAdaptor.from_samples(
-                Samples(
+                Samples(  # type: ignore[call-arg]
                     samples=samples_matrix,
                     time_period=PeriodRange.from_strings(sorted_periods),
                 )

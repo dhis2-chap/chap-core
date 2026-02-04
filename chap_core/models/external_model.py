@@ -56,7 +56,7 @@ class ExternalModelBase(ConfiguredModel):
     """
     A base class for external models that provides some utility methods"""
 
-    def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency="ME"):
+    def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency="ME"):  # type: ignore[attr-defined]
         if self._location_mapping is not None:
             data["location"] = data["location"].apply(self._location_mapping.name_to_index)
         if self._adapters is None:

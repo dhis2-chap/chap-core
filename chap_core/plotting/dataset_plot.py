@@ -140,8 +140,8 @@ class StandardizedFeaturePlot(DatasetPlot):
         mean_val = np.nanmean(col)
         std_val = np.nanstd(col)
         if std_val == 0:
-            return col - mean_val  # Return zero-centered values when std is 0
-        return (col - mean_val) / std_val
+            return col - mean_val  # type: ignore[no-any-return]
+        return (col - mean_val) / std_val  # type: ignore[no-any-return]
 
     def data(self) -> pd.DataFrame:
         df = self._df.copy()

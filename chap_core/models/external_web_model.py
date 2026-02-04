@@ -146,7 +146,7 @@ class ExternalWebModel(ExternalModelBase):
         if train_data.polygons is not None:
             self._polygons_file_name = self._working_dir / "polygons.geojson"
             self._write_polygons_to_geojson(train_data, self._polygons_file_name)
-            polygons_json = Polygons(train_data.polygons).to_json()
+            polygons_json = Polygons(train_data.polygons).to_geojson()
             files["polygons"] = ("polygons.geojson", polygons_json, "application/geo+json")
             logger.info("Will pass polygons file to train and predict commands")
 
@@ -219,13 +219,13 @@ class ExternalWebModel(ExternalModelBase):
         # Add polygons if present (reuse from training if available)
         if self._polygons_file_name is not None:
             # Use existing polygons from training
-            polygons_json = Polygons(future_data.polygons).to_json()
+            polygons_json = Polygons(future_data.polygons).to_geojson()
             files["polygons"] = ("polygons.geojson", polygons_json, "application/geo+json")
         elif future_data.polygons is not None:
             # Write new polygons if not already written during training
             self._polygons_file_name = self._working_dir / "polygons.geojson"
             self._write_polygons_to_geojson(future_data, self._polygons_file_name)
-            polygons_json = Polygons(future_data.polygons).to_json()
+            polygons_json = Polygons(future_data.polygons).to_geojson()
             files["polygons"] = ("polygons.geojson", polygons_json, "application/geo+json")
 
         data = {

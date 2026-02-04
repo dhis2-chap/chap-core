@@ -82,7 +82,7 @@ class QuickForecastFetcher:
         self._climate_predictor = get_climate_predictor(historical_data)
 
     def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
-        return self._climate_predictor.predict(period_range)
+        return self._climate_predictor.predict(period_range)  # type: ignore[no-any-return]
 
 
 class FetcherNd:
@@ -93,7 +93,7 @@ class FetcherNd:
     def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
         prediction_dict = {}
         for location, data in self.historical_data.items():
-            prediction_dict[location] = self._cls(
+            prediction_dict[location] = self._cls(  # type: ignore[call-arg]
                 period_range,
                 **{
                     field.name: getattr(data, field.name)[-len(period_range) :]
