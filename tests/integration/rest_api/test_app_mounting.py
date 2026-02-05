@@ -92,3 +92,13 @@ class TestParentApp:
 
         assert response.status_code == 307
         assert response.headers["location"] == "/v1/openapi.json"
+
+    def test_v1_docs_accessible(self, client):
+        response = client.get("/v1/docs")
+
+        assert response.status_code == 200
+
+    def test_v2_docs_accessible(self, client):
+        response = client.get("/v2/docs")
+
+        assert response.status_code == 200
