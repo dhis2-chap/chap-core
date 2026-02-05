@@ -121,6 +121,7 @@ nav:
       - API Reference: api/index.md
       - Changelog: changelog.md
   - Kigali Workshop:
+      - Overview: kigali-workshop/index.md
       - Modeling Webinar Series:
           - "Overview": kigali-workshop/kigali-webinar-series/index.md
           - "Session 1": kigali-workshop/kigali-webinar-series/session-1/index.md
