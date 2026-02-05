@@ -9,19 +9,18 @@ adds them to the registry based on their spec.metric_id.
 """
 
 import logging
-from typing import Callable
 
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved, DataDimension
-from chap_core.database.tables import BackTest
+from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
 from chap_core.assessment.metrics.base import (
+    DEFAULT_OUTPUT_DIMENSIONS,
     AggregationOp,
+    DeterministicMetric,
     Metric,
     MetricSpec,
-    DeterministicMetric,
     ProbabilisticMetric,
-    DEFAULT_OUTPUT_DIMENSIONS,
 )
+from chap_core.database.tables import BackTest
 
 logger = logging.getLogger(__name__)
 
@@ -73,36 +72,38 @@ def list_metrics() -> list[dict]:
 def _discover_metrics():
     """Import all metric modules to trigger registration."""
     # Import each module to trigger @metric() decorators
-    from chap_core.assessment.metrics import rmse  # noqa: F401
-    from chap_core.assessment.metrics import mae  # noqa: F401
-    from chap_core.assessment.metrics import crps  # noqa: F401
-    from chap_core.assessment.metrics import crps_norm  # noqa: F401
-    from chap_core.assessment.metrics import above_truth  # noqa: F401
-    from chap_core.assessment.metrics import percentile_coverage  # noqa: F401
-    from chap_core.assessment.metrics import test_metrics  # noqa: F401
-    from chap_core.assessment.metrics import example_metric  # noqa: F401
+    from chap_core.assessment.metrics import (
+        above_truth,  # noqa: F401
+        crps,  # noqa: F401
+        crps_norm,  # noqa: F401
+        example_metric,  # noqa: F401
+        mae,  # noqa: F401
+        percentile_coverage,  # noqa: F401
+        rmse,  # noqa: F401
+        test_metrics,  # noqa: F401
+    )
 
 
 # Discover metrics at module load
 _discover_metrics()
 
 # Import metric classes for backwards compatibility in exports
-from chap_core.assessment.metrics.rmse import RMSEMetric  # noqa: E402
-from chap_core.assessment.metrics.mae import MAEMetric  # noqa: E402
+from chap_core.assessment.metrics.above_truth import RatioAboveTruthMetric  # noqa: E402
 from chap_core.assessment.metrics.crps import CRPSMetric  # noqa: E402
 from chap_core.assessment.metrics.crps_norm import CRPSNormMetric  # noqa: E402
-from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakPeriodLagMetric  # noqa: E402
-from chap_core.assessment.metrics.above_truth import RatioAboveTruthMetric  # noqa: E402
+from chap_core.assessment.metrics.example_metric import ExampleMetric  # noqa: E402
+from chap_core.assessment.metrics.mae import MAEMetric  # noqa: E402
+from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric  # noqa: E402
 from chap_core.assessment.metrics.percentile_coverage import (  # noqa: E402
-    PercentileCoverageMetric,
     Coverage10_90Metric,
     Coverage25_75Metric,
+    PercentileCoverageMetric,
 )
+from chap_core.assessment.metrics.rmse import RMSEMetric  # noqa: E402
 from chap_core.assessment.metrics.test_metrics import SampleCountMetric  # noqa: E402
-from chap_core.assessment.metrics.example_metric import ExampleMetric  # noqa: E402
 
 # Backward compatibility alias
-available_metrics: dict[str, Callable[[], Metric]] = _metrics_registry
+available_metrics: dict[str, type[Metric]] = _metrics_registry
 
 __all__ = [
     # Base classes

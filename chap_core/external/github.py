@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 
 import requests
 
@@ -40,7 +40,7 @@ def fetch_mlproject_content(github_url: str) -> str:
         )
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching MLProject file: {e}")
-        return None
+        return ""
     # TODO
     yaml_string = fetched.content
-    return yaml_string
+    return yaml_string.decode("utf-8")

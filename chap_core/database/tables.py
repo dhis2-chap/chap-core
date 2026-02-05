@@ -3,15 +3,15 @@ todo: comment this file, make it clear which classes are central and being used
 """
 
 import datetime
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 import numpy as np
-from sqlalchemy import Column, JSON
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship
 
-from chap_core.database.base_tables import PeriodID, DBModel
+from chap_core.database.base_tables import DBModel, PeriodID
 from chap_core.database.dataset_tables import DataSet, DataSetInfo
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB, ModelConfiguration
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 
 
 class BackTestBase(DBModel):
@@ -37,7 +37,7 @@ class _BackTestRead(BackTestBase):
 
 
 class BackTest(_BackTestRead, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
+    id: Optional[int] = Field(primary_key=True, default=None)  # type: ignore[assignment]
     dataset: DataSet = Relationship()
     forecasts: List["BackTestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
     metrics: List["BackTestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)

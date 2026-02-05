@@ -17,32 +17,25 @@ Magic is used to make the returned objects camelCase while internal objects are 
 import json
 import logging
 from functools import partial
-from typing import Annotated, List, Optional
+from typing import Annotated, Any, List, Optional
 
 import numpy as np
-import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
+from starlette.responses import StreamingResponse
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
-from chap_core.models.approved_templates import (
-    ApprovedTemplate,
-    get_approved_templates,
-    get_git_ref,
-    is_approved,
-)
-from chap_core.models.model_template import ExternalModelTemplate
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import (
     DataSet,
+    DataSetCreateInfo,
+    DataSetInfo,
     DataSetWithObservations,
     ObservationBase,
-    DataSetInfo,
-    DataSetCreateInfo,
 )
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
@@ -56,6 +49,13 @@ from chap_core.database.model_templates_and_config_tables import (
 from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
+from chap_core.models.approved_templates import (
+    ApprovedTemplate,
+    get_approved_templates,
+    get_git_ref,
+    is_approved,
+)
+from chap_core.models.model_template import ExternalModelTemplate
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/crud", tags=["crud"])
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
-worker = CeleryPool()
+worker: CeleryPool[Any] = CeleryPool()
 
 
 ###########
@@ -81,8 +81,8 @@ async def get_backtests(session: Session = Depends(get_session)):
     """
     backtests = session.exec(
         select(BackTest).options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).all()
     return backtests
@@ -102,8 +102,8 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
         select(BackTest)
         .where(BackTest.id == backtest_id)
         .options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).first()
     if backtest is None:
@@ -112,7 +112,7 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
 
 
 class BackTestUpdate(DBModel):
-    name: str = None
+    name: str | None = None
 
 
 @router.post("/backtests", response_model=JobResponse)
@@ -156,8 +156,8 @@ async def update_backtest(
         select(BackTest)
         .where(BackTest.id == backtest_id)
         .options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),
+            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).first()
     return db_backtest
@@ -267,14 +267,14 @@ async def get_datasets(session: Session = Depends(get_session)):
 async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
     assert len(dataset.observations) > 0
     for obs in dataset.observations:
         try:
             obs.value = obs.value if obs.value is None or np.isfinite(obs.value) else None
         except:
             raise
-    if dataset is None:
-        raise HTTPException(status_code=404, detail="Dataset not found")
     return dataset
 
 
@@ -300,11 +300,15 @@ async def create_dataset_csv(
     geojson_file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ) -> DataBaseResponse:
+    import io
+
     csv_content = await csv_file.read()
-    dataset = InMemoryDataSet.from_csv(pd.io.common.BytesIO(csv_content), dataclass=FullData)
+    dataset = InMemoryDataSet.from_csv(io.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
-    dataset_id = SessionWrapper(session=session).add_dataset("csv_file", dataset, features.model_dump_json())
+    dataset_id = SessionWrapper(session=session).add_dataset(
+        DataSetCreateInfo(name="csv_file"), dataset, features.model_dump_json()
+    )
     return DataBaseResponse(id=dataset_id)
 
 
@@ -319,6 +323,21 @@ async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], se
     # Convert time_period column to strings for proper serialization
     df["time_period"] = df["time_period"].astype(str)
     return df.to_dict(orient="records")
+
+
+@router.get("/datasets/{datasetId}/csv")
+async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    sw = SessionWrapper(session=session)
+    in_memory_dataset = sw.get_dataset(dataset_id)
+    df = in_memory_dataset.to_pandas()
+    df["time_period"] = df["time_period"].astype(str)
+
+    csv_content = df.to_csv(index=False)
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=dataset_{dataset_id}.csv"},
+    )
 
 
 @router.delete("/datasets/{datasetId}")
@@ -443,7 +462,7 @@ class ModelConfigurationCreate(DBModel):
 @router.post("/configured-models", response_model=ConfiguredModelDB)
 def add_configured_model(
     model_configuration: ModelConfigurationCreate,
-    session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
+    session: Session = Depends(get_session),
 ):
     """Add a configured model to the database"""
     session_wrapper = SessionWrapper(session=session)
@@ -482,7 +501,7 @@ def list_models(session: Session = Depends(get_session)):
 @router.post("/models", response_model=ConfiguredModelDB)
 def add_model(
     model_configuration: ModelConfigurationCreate,
-    session: SessionWrapper = Depends(get_session),  # type: ignore[call-arg]
+    session: Session = Depends(get_session),
 ):
     """Add a model to the database (alias for configured models)"""
     return add_configured_model(model_configuration, session)

@@ -1,8 +1,8 @@
-from typing import IO
 from pathlib import Path
-from libpysal.weights import Queen
+from typing import IO
 
 import geopandas as gpd
+from libpysal.weights import Queen
 
 
 def geojson_to_shape(geojson_filename: str, shape_filename: str | Path):
@@ -11,7 +11,7 @@ def geojson_to_shape(geojson_filename: str, shape_filename: str | Path):
 
 
 def geojson_to_graph(geojson_filename: str | IO, graph_filename: str | Path):  # , graph_filename: str|Path):
-    NeighbourGraph.from_geojson_file(geojson_filename).to_graph_file(graph_filename)
+    NeighbourGraph.from_geojson_file(geojson_filename).to_graph_file(graph_filename)  # type: ignore[arg-type]
 
 
 class LocationMapping:

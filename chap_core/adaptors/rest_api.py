@@ -1,13 +1,11 @@
-from typing import List
+import logging
 
-import pydantic
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from chap_core.datatypes import remove_field
 from chap_core.model_spec import get_dataclass
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +26,11 @@ def generate_app(estimator, working_dir: str):
     )
 
     dc = get_dataclass(estimator)
-    model = pydantic.create_model("TrainingData", **dc.__annotations__)
     training_data_filename = f"{working_dir}/training_data.csv"
     model_path = f"{working_dir}/model"
 
-    @app.command()
-    def train(training_data: List[model]):
+    @app.command()  # type: ignore[attr-defined]
+    def train(training_data: list):  # type: ignore[valid-type]
         """
         Train a model using historic data
 
@@ -45,11 +42,11 @@ def generate_app(estimator, working_dir: str):
             The path to save the trained model
         """
         logger.info(f"Loading data from {training_data_filename} as {dc}")
-        dataset = DataSet.df_from_pydantic_observations()
+        dataset = DataSet.df_from_pydantic_observations()  # type: ignore[call-arg]
         predictor = estimator.train(dataset)
         predictor.save(model_path)
 
-    @app.command()
+    @app.command()  # type: ignore[attr-defined]
     def predict(model_filename: str, historic_data_filename: str, future_data_filename: str, output_filename: str):
         """
         Predict using a trained model

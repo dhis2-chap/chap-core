@@ -17,21 +17,25 @@ help:
 
 clean: ## remove all build, test, coverage and Python artifacts
 	@echo ">>> Cleaning up"
-	@find . -type f -name "*.pyc" -delete
-	@find . -type d -name "__pycache__" -exec rm -rf {} +
-	@find . -type d -name ".pytest_cache" -exec rm -rf {} +
-	@find . -type d -name ".ruff_cache" -exec rm -rf {} +
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	@rm -rf .coverage coverage.xml htmlcov/
 	@rm -rf dist/
 	@rm -rf target/
 	@rm -rf site/
 	@rm -rf .cache
 
-lint: ## check and fix code style with ruff
+lint: ## check and fix code style with ruff, run type checking
 	@echo "Linting code..."
 	uv run ruff check --fix
 	@echo "Formatting code..."
 	uv run ruff format
+	@echo "Type checking (mypy)..."
+	uv run mypy
+	@echo "Type checking (pyright)..."
+	uv run pyright
 
 test: ## run tests quickly with minimal output
 	uv run pytest -q

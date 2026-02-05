@@ -3,11 +3,12 @@ Utility functions for working with geometries.
 """
 
 import io
-
-from .geometry import Polygons
-from .api_types import FeatureModel, FeatureCollectionModel
+from typing import Any
 
 from shapely.geometry import shape
+
+from .api_types import FeatureCollectionModel, FeatureModel
+from .geometry import Polygons
 
 
 def feature_bbox(feature: FeatureModel):
@@ -27,7 +28,7 @@ def feature_bbox(feature: FeatureModel):
     geom = feature.geometry
 
     geotype = geom.type
-    coords = geom.coordinates
+    coords: Any = geom.coordinates
 
     if geotype == "Point":
         x, y = coords
@@ -36,16 +37,16 @@ def feature_bbox(feature: FeatureModel):
         xs, ys = zip(*coords)
         bbox = [min(xs), min(ys), max(xs), max(ys)]
     elif geotype == "MultiLineString":
-        xs = [x for line in coords for x, y in line]
-        ys = [y for line in coords for x, y in line]
+        xs = [x for line in coords for x, y in line]  # type: ignore[assignment]
+        ys = [y for line in coords for x, y in line]  # type: ignore[assignment]
         bbox = [min(xs), min(ys), max(xs), max(ys)]
     elif geotype == "Polygon":
         exterior = coords[0]
         xs, ys = zip(*exterior)
         bbox = [min(xs), min(ys), max(xs), max(ys)]
     elif geotype == "MultiPolygon":
-        xs = [x for poly in coords for x, y in poly[0]]
-        ys = [y for poly in coords for x, y in poly[0]]
+        xs = [x for poly in coords for x, y in poly[0]]  # type: ignore[assignment]
+        ys = [y for poly in coords for x, y in poly[0]]  # type: ignore[assignment]
         bbox = [min(xs), min(ys), max(xs), max(ys)]
     return bbox
 
@@ -218,4 +219,4 @@ def simplify_topology(polygons: Polygons, threshold=None) -> Polygons:
     geoj = topo.__geo_interface__
 
     # return new Polygons object
-    return Polygons.from_geojson(geoj)
+    return Polygons.from_geojson(geoj)  # type: ignore[no-any-return]

@@ -3,17 +3,17 @@ This needs a redis db and a redis queue worker running
 $ rq worker --with-scheduler
 """
 
+import logging
+import os
 from typing import Callable, Generic
 
+from dotenv import find_dotenv, load_dotenv
+from redis import Redis
 from rq import Queue
 from rq.job import Job
-from redis import Redis
-import os
-from dotenv import load_dotenv, find_dotenv
 
 import chap_core.log_config
 from chap_core.worker.interface import ReturnType
-import logging
 
 logger = logging.getLogger(__name__)
 chap_core.log_config.initialize_logging()
@@ -32,7 +32,7 @@ class RedisJob(Generic[ReturnType]):
         return self._job.get_status()
 
     @property
-    def exception_info(self) -> str:
+    def exception_info(self) -> str | None:
         return self._job.exc_info
 
     @property
@@ -45,7 +45,9 @@ class RedisJob(Generic[ReturnType]):
         return 0
 
     def get_logs(self) -> str:
-        return self._job.meta.get("stdout", "") + "\n" + self._job.meta.get("stderr", "")
+        stdout: str = self._job.meta.get("stdout", "")
+        stderr: str = self._job.meta.get("stderr", "")
+        return stdout + "\n" + stderr
 
     def cancel(self):
         self._job.cancel()

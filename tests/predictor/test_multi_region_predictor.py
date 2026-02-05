@@ -9,10 +9,10 @@ from ..data_fixtures import full_data
 
 def test_naive_predictor(full_data):
     naive_predictor = MultiRegionNaivePredictor()
-    test_start = Month(2012, 7)
+    test_start = Month(2012, 7)  # type: ignore[reportArgumentType]
     train_data, test_data = train_test_split(full_data, test_start)
     naive_predictor.train(train_data)
     predictions = naive_predictor.predict(test_data)
-    for loc, data in predictions.items():
+    for loc, data in predictions.items():  # type: ignore[reportAttributeAccessIssue]
         assert len(data) == 1
     # assert predictions == test_data

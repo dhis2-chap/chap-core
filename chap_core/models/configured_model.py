@@ -1,6 +1,8 @@
-from pydantic import BaseModel
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 import abc
+
+from pydantic import BaseModel
+
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class ConfiguredModel(abc.ABC):

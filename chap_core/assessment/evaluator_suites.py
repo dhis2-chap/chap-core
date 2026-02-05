@@ -1,6 +1,6 @@
-from chap_core.assessment.evaluator import ComponentBasedEvaluator
-
 import math
+
+from chap_core.assessment.evaluator import ComponentBasedEvaluator
 
 
 def mae_error(truth: float, predictions: list[float]):

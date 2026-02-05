@@ -19,11 +19,11 @@ def test_forecast_ahead():
     model = NaiveEstimator()
     dataset = ISIMIP_dengue_harmonized["vietnam"]
     prediction_length = 3
-    forecast_ahead(model, dataset, prediction_length)
+    forecast_ahead(model, dataset, prediction_length)  # type: ignore[reportArgumentType]
 
 
 def test_forecast_with_predicted_weather():
     model = NaiveEstimator()
     dataset = ISIMIP_dengue_harmonized["vietnam"]
     prediction_length = 3
-    forecast_ahead(model, dataset, prediction_length)
+    forecast_ahead(model, dataset, prediction_length)  # type: ignore[reportArgumentType]

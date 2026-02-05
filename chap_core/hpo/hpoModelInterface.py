@@ -1,7 +1,8 @@
-from chap_core.models.configured_model import ConfiguredModel
 import abc
-from typing import Optional, Any
+from typing import Any, Optional
+
 from chap_core.file_io.example_data_set import DataSetType
+from chap_core.models.configured_model import ConfiguredModel
 
 
 class HpoModelInterface(ConfiguredModel):

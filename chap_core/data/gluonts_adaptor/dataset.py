@@ -1,4 +1,5 @@
 import dataclasses
+import logging
 from pathlib import Path
 from typing import Iterable, TypeVar
 
@@ -6,14 +7,13 @@ import numpy as np
 from gluonts.model import SampleForecast
 
 from chap_core.assessment.dataset_splitting import train_test_split
+from chap_core.datatypes import Samples, TimeSeriesData, remove_field
 from chap_core.file_io.example_data_set import datasets
-from chap_core.datatypes import TimeSeriesData, remove_field, Samples
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.spatio_temporal_data.multi_country_dataset import (
     MultiCountryDataSet,
 )
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
-import logging
 
 logger = logging.getLogger(__name__)
 GlunTSDataSet = Iterable[dict]
@@ -25,14 +25,16 @@ class ForecastAdaptor:
     @staticmethod
     def from_samples(samples: Samples) -> SampleForecast:
         start_period = samples.time_period[0].topandas()
-        return SampleForecast(samples.samples.T, start_period)
+        return SampleForecast(samples.samples.T, start_period)  # type: ignore[attr-defined]
 
 
 class DataSetAdaptor:
     @staticmethod
     def _from_single_gluonts_series(series: dict, dataclass: type[T]) -> T:
         field_names = [
-            field.name for field in dataclasses.fields(dataclass) if field.name not in ["disease_cases", "time_period"]
+            field.name
+            for field in dataclasses.fields(dataclass)  # type: ignore[arg-type]
+            if field.name not in ["disease_cases", "time_period"]
         ]
         field_dict = {name: series["feat_dynamic_real"].T[:, i] for i, name in enumerate(field_names)}
         field_dict["disease_cases"] = series["target"]

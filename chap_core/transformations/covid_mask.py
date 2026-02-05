@@ -19,7 +19,7 @@ def mask_covid_data(
         mask_1 = ts.time_period >= start_date
         mask_2 = ts.time_period <= end_date
         mask = mask_1 & mask_2
-        disease_cases = np.where(~mask, ts.disease_cases, np.nan)
+        disease_cases = np.where(~mask, ts.disease_cases, np.nan)  # type: ignore[attr-defined]
         return replace(ts, disease_cases=disease_cases)
 
     new_dict = DataSet({location: insert_nans(data) for location, data in data.items()})

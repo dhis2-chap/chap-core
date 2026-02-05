@@ -1,10 +1,10 @@
-from typing import Literal
 from collections import Counter
+from typing import Literal
 
 import numpy as np
-from dateutil.parser import parse
 import pandas as pd
 import pooch
+from dateutil.parser import parse
 
 from chap_core.time_period import Week
 
@@ -37,8 +37,8 @@ class OpenDengueDataSet:
             subset = subset[mask]
             subset["time_period"] = [Week(parse(date)).id for date in subset["calendar_start_date"]]
         elif temporal_resolution == "Month":
-            dates = [parse(date).strftime("%Y-%m") for date in subset["calendar_start_date"]]
-            subset["time_period"] = dates
+            date_strings = [parse(date).strftime("%Y-%m") for date in subset["calendar_start_date"]]
+            subset["time_period"] = date_strings
         if spatial_resolution == "Admin1":
             location_column = "adm_1_name"
         else:

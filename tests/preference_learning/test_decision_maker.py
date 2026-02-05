@@ -22,7 +22,7 @@ class TestDecisionMakerInterface:
         )
 
         mock_evaluations = [MagicMock(), MagicMock()]
-        result = decision_maker.decide(mock_evaluations)
+        result = decision_maker.decide(mock_evaluations)  # type: ignore[reportArgumentType]
 
         assert isinstance(result, int)
         assert 0 <= result < len(mock_evaluations)
@@ -39,7 +39,7 @@ class TestMetricDecisionMaker:
         )
 
         mock_evaluations = [MagicMock(), MagicMock()]
-        preferred_index = decision_maker.decide(mock_evaluations)
+        preferred_index = decision_maker.decide(mock_evaluations)  # type: ignore[reportArgumentType]
 
         assert preferred_index == 1  # Second model has lower MAE
 
@@ -53,7 +53,7 @@ class TestMetricDecisionMaker:
         )
 
         mock_evaluations = [MagicMock(), MagicMock()]
-        preferred_index = decision_maker.decide(mock_evaluations)
+        preferred_index = decision_maker.decide(mock_evaluations)  # type: ignore[reportArgumentType]
 
         assert preferred_index == 0  # First model has higher accuracy
 
@@ -67,7 +67,7 @@ class TestMetricDecisionMaker:
         )
 
         mock_evaluations = [MagicMock(), MagicMock()]
-        preferred_index = decision_maker.decide(mock_evaluations)
+        preferred_index = decision_maker.decide(mock_evaluations)  # type: ignore[reportArgumentType]
 
         assert preferred_index == 0
 
@@ -81,7 +81,7 @@ class TestMetricDecisionMaker:
         )
 
         mock_evaluations = [MagicMock(), MagicMock(), MagicMock()]
-        preferred_index = decision_maker.decide(mock_evaluations)
+        preferred_index = decision_maker.decide(mock_evaluations)  # type: ignore[reportArgumentType]
 
         assert preferred_index == 1  # Second model has lowest MAE
 
@@ -97,7 +97,7 @@ class TestMetricDecisionMaker:
         mock_evaluations = [MagicMock(), MagicMock()]  # 2 evaluations
 
         with pytest.raises(ValueError, match="Expected 2 metrics"):
-            decision_maker.decide(mock_evaluations)
+            decision_maker.decide(mock_evaluations)  # type: ignore[reportArgumentType]
 
     def test_fallback_to_common_metric(self):
         """Test fallback when requested metric not available."""
@@ -109,7 +109,7 @@ class TestMetricDecisionMaker:
         )
 
         mock_evaluations = [MagicMock(), MagicMock()]
-        preferred_index = decision_maker.decide(mock_evaluations)
+        preferred_index = decision_maker.decide(mock_evaluations)  # type: ignore[reportArgumentType]
 
         # Should fall back to rmse and pick second model
         assert preferred_index == 1
@@ -124,7 +124,7 @@ class TestMetricDecisionMaker:
         )
 
         mock_evaluations = [MagicMock(), MagicMock()]
-        preferred_index = decision_maker.decide(mock_evaluations)
+        preferred_index = decision_maker.decide(mock_evaluations)  # type: ignore[reportArgumentType]
 
         # Should use mae, second model has lower mae
         assert preferred_index == 1

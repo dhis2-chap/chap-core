@@ -1,6 +1,7 @@
 import logging
 import subprocess
 from pathlib import Path
+
 from chap_core.exceptions import CommandLineException, ModelConfigurationException
 from chap_core.runners.runner import Runner, TrainPredictRunner
 
@@ -14,7 +15,7 @@ class CommandLineRunner(Runner):
     def run_command(self, command):
         return run_command(command, self._working_dir)
 
-    def store_file(self):
+    def store_file(self, file_path: str | None = None) -> None:
         pass
 
 
@@ -73,7 +74,7 @@ def run_command(command: str, working_directory=Path("."), env: dict | None = No
 class CommandLineTrainPredictRunner(TrainPredictRunner):
     def __init__(
         self,
-        runner: CommandLineRunner,
+        runner: Runner,
         train_command: str,
         predict_command: str,
         model_configuration_filename: str | None = None,

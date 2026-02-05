@@ -2,12 +2,12 @@
 Example metric for demonstration purposes.
 """
 
+from chap_core.assessment.metrics import metric
 from chap_core.assessment.metrics.base import (
     AggregationOp,
     DeterministicMetric,
     MetricSpec,
 )
-from chap_core.assessment.metrics import metric
 
 
 @metric()

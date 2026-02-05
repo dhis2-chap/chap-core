@@ -14,18 +14,18 @@ def hydromet(filename):
 
     data_dict = {}
     for name, group in grouped:
-        period = Month(group["year"], group["month"])
+        period = Month(group["year"], group["month"])  # type: ignore[arg-type]
         tmax = group["tmax"].values
         tmin = group["tmin"].values
-        tmean = (tmax + tmin) / 2
-        data_dict[name] = FullData(
+        tmean = (tmax + tmin) / 2  # type: ignore[operator]
+        data_dict[name] = FullData(  # type: ignore[call-arg]
             period,
             np.zeros_like(tmean),
             tmean,
             group["dengue_cases"].values,
             group["population"].values,
         )
-    return DataSet(data_dict)
+    return DataSet(data_dict)  # type: ignore[arg-type]
 
 
 def rwanda_data(filename):
@@ -34,7 +34,7 @@ def rwanda_data(filename):
     df.to_csv("/home/knut/Downloads/data/malaria_cases.csv")
     case_names = "Under5_F	Under5_M	5-19_F	5-19_M	20 +_F	20 +_M".split("\t")
     case_names = [name.strip() for name in case_names]
-    cases = sum([df[name].values for name in case_names])
+    cases = sum([df[name].values for name in case_names])  # type: ignore[misc]
     period = [pd.Period(f"{year}-{month}") for year, month in zip(df["Year"], df["Period"])]
     clean_df = pd.DataFrame({"location": df["Sector"], "time_period": period, "disease_cases": cases})
     clean_df.to_csv("/home/knut/Downloads/data/malaria_clean.csv")
@@ -47,4 +47,4 @@ def laos_data(filename):
     periods = [convert_time_period_string(str(row)) for row in df["periodid"]]
     print(periods)
     period_range = PeriodRange.from_strings(periods)
-    return DataSet({colname: HealthData(period_range, df[colname].values) for colname in df.columns[4:]})
+    return DataSet({colname: HealthData(period_range, df[colname].values) for colname in df.columns[4:]})  # type: ignore[call-arg]

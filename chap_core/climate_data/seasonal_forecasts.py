@@ -35,4 +35,4 @@ class SeasonalForecast:
         assert all(period.id in data for period in period_range), (
             f"Not all periods found in data {data.keys(), org_unit}"
         )
-        return TimeSeriesArray(period_range, [data[period.id] for period in period_range])
+        return TimeSeriesArray(period_range, [data[period.id] for period in period_range])  # type: ignore[call-arg]

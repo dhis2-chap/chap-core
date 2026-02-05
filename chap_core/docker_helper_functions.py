@@ -1,7 +1,8 @@
+import logging
 import os
 from pathlib import Path
+
 import docker
-import logging
 
 logger = logging.getLogger(__name__)
 

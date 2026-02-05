@@ -29,7 +29,7 @@ class ExternalWebModel(ExternalModelBase):
     def __init__(
         self,
         api_url: str,
-        name: str = None,
+        name: str | None = None,
         timeout: int = 3600,
         poll_interval: int = 5,
         configuration: Optional[dict] = None,
@@ -61,11 +61,11 @@ class ExternalWebModel(ExternalModelBase):
         self._timeout = timeout
         self._poll_interval = poll_interval
         self._configuration = configuration or {}
-        self._trained_model_name = None
+        self._trained_model_name: str | None = None
         self._adapters = adapters
         self._working_dir = Path(working_dir)
         self._location_mapping = None
-        self._polygons_file_name = None
+        self._polygons_file_name: Path | None = None
 
     @property
     def name(self):
@@ -108,7 +108,7 @@ class ExternalWebModel(ExternalModelBase):
                 logger.info(f"{job_type} job {job_id} status: {status}")
 
                 if status == "completed":
-                    return job_info
+                    return job_info  # type: ignore[no-any-return]
                 elif status == "failed":
                     error_msg = job_info.get("error_message", "Unknown error")
                     raise ModelFailedException(f"{job_type} job failed: {error_msg}")
@@ -146,14 +146,14 @@ class ExternalWebModel(ExternalModelBase):
         if train_data.polygons is not None:
             self._polygons_file_name = self._working_dir / "polygons.geojson"
             self._write_polygons_to_geojson(train_data, self._polygons_file_name)
-            polygons_json = Polygons(train_data.polygons).to_json()
+            polygons_json = Polygons(train_data.polygons).to_geojson()
             files["polygons"] = ("polygons.geojson", polygons_json, "application/geo+json")
             logger.info("Will pass polygons file to train and predict commands")
 
         # Add configuration if present
         if self._configuration:
             config_yaml = yaml.dump(self._configuration)
-            files["config"] = ("config.yaml", config_yaml, "text/yaml")
+            files["config"] = ("config.yaml", config_yaml, "text/yaml")  # type: ignore[assignment]
 
         # Generate unique model name for this training session
         self._trained_model_name = f"{self._name}_{uuid.uuid4().hex[:8]}"
@@ -219,13 +219,13 @@ class ExternalWebModel(ExternalModelBase):
         # Add polygons if present (reuse from training if available)
         if self._polygons_file_name is not None:
             # Use existing polygons from training
-            polygons_json = Polygons(future_data.polygons).to_json()
+            polygons_json = Polygons(future_data.polygons).to_geojson()
             files["polygons"] = ("polygons.geojson", polygons_json, "application/geo+json")
         elif future_data.polygons is not None:
             # Write new polygons if not already written during training
             self._polygons_file_name = self._working_dir / "polygons.geojson"
             self._write_polygons_to_geojson(future_data, self._polygons_file_name)
-            polygons_json = Polygons(future_data.polygons).to_json()
+            polygons_json = Polygons(future_data.polygons).to_geojson()
             files["polygons"] = ("polygons.geojson", polygons_json, "application/geo+json")
 
         data = {

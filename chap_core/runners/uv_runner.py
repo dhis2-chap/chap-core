@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner, run_command
+
 from .runner import Runner
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ class UvRunner(Runner):
         env["UV_PROJECT_ENVIRONMENT"] = str(self._working_dir / ".venv")
         return run_command(uv_command, self._working_dir, env=env)
 
-    def store_file(self):
+    def store_file(self, file_path: str | None = None) -> None:
         pass
 
     def teardown(self):

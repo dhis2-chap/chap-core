@@ -89,7 +89,7 @@ class Orchestrator:
 
         existing = self.redis.get(key)
         if existing is not None:
-            existing_data: dict[str, Any] = json.loads(existing)
+            existing_data: dict[str, Any] = json.loads(existing)  # type: ignore[arg-type]
             registered_at = existing_data.get("registered_at", now)
             message = "Service registration updated"
         else:
@@ -138,7 +138,7 @@ class Orchestrator:
         if data is None:
             raise ServiceNotFoundError(f"Service {service_id} not found")
 
-        service_data: dict[str, Any] = json.loads(data)
+        service_data: dict[str, Any] = json.loads(data)  # type: ignore[arg-type]
         now = self._now_iso()
         expires_at = self._compute_expires_at()
 
@@ -193,7 +193,7 @@ class Orchestrator:
         if data is None:
             raise ServiceNotFoundError(f"Service {service_id} not found")
 
-        service_data: dict[str, Any] = json.loads(data)
+        service_data: dict[str, Any] = json.loads(data)  # type: ignore[arg-type]
         return ServiceDetail(**service_data)
 
     def get_all(self) -> ServiceListResponse:
@@ -210,7 +210,7 @@ class Orchestrator:
         for key in keys:
             data = self.redis.get(key)
             if data is not None:
-                service_data: dict[str, Any] = json.loads(data)
+                service_data: dict[str, Any] = json.loads(data)  # type: ignore[arg-type]
                 services.append(ServiceDetail(**service_data))
 
         return ServiceListResponse(count=len(services), services=services)

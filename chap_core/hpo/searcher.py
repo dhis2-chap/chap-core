@@ -1,9 +1,11 @@
-from typing import Any, Optional
 import itertools
-import random
-import optuna
 import math
-from .base import Int, Float
+import random
+from typing import Any, Iterator, Optional
+
+import optuna
+
+from .base import Float, Int
 
 _TRIAL_ID_KEY = "_trial_id"  # reserved key we inject into params
 
@@ -23,8 +25,9 @@ class Searcher:
 
 
 class GridSearcher(Searcher):
-    def __init__(self):
-        self._iterator: dict[str, Any] = None
+    def __init__(self) -> None:
+        self._iterator: Iterator[tuple[Any, ...]] | None = None
+        self.keys: list[str] = []
 
     def reset(self, search_space: dict[str, list]) -> None:
         self.keys = list(search_space.keys())
@@ -34,7 +37,7 @@ class GridSearcher(Searcher):
         if self._iterator is None:
             raise RuntimeError("GridSearch not initialized. Call reset(params).")
         try:
-            ne = next(self._iterator)
+            ne: tuple[Any, ...] = next(self._iterator)
             print(f"SEARCHER params: {dict(zip(self.keys, ne))}")
             return dict(zip(self.keys, ne))
         except StopIteration:
@@ -177,6 +180,7 @@ class TPESearcher(Searcher):
         if trial is None:
             raise KeyError(f"No pending trial with id {trial_id}")
 
+        assert self._study is not None
         self._study.tell(trial, result)
 
 

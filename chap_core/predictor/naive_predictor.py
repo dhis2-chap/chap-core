@@ -3,11 +3,11 @@ import dataclasses
 import numpy as np
 from sklearn import linear_model
 
+from chap_core.datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 from chap_core.spatio_temporal_data.temporal_dataclass import (
     DataSet,
     TemporalDataclass,
 )
-from chap_core.datatypes import HealthData, ClimateHealthTimeSeries, ClimateData
 
 
 class NaivePredictor:
@@ -17,12 +17,12 @@ class NaivePredictor:
         self._average_cases = None
 
     def train(self, data: ClimateHealthTimeSeries):
-        self._average_cases = data.disease_cases.mean()
+        self._average_cases = data.disease_cases.mean()  # type: ignore[attr-defined]
 
     def predict(self, future_climate_data: ClimateData) -> HealthData:
-        return HealthData(
+        return HealthData(  # type: ignore[call-arg]
             future_climate_data.time_period,
-            np.full(len(future_climate_data), self._average_cases),
+            np.full(len(future_climate_data), self._average_cases),  # type: ignore[arg-type]
         )
 
 
@@ -43,9 +43,9 @@ class MultiRegionNaivePredictor:
         self._average_cases = {location: self._get_mean(data) for location, data in data.items()}
         # self._buffer = next(iter(data.values())).time_period[-1]
 
-    def predict(self, future_weather: DataSet[ClimateData]) -> HealthData:
+    def predict(self, future_weather: DataSet[ClimateData]) -> DataSet[HealthData]:
         prediction_dict = {
-            location: HealthData(entry.time_period[:1], np.full(1, self._average_cases[location]))
+            location: HealthData(entry.time_period[:1], np.full(1, self._average_cases[location]))  # type: ignore[call-arg, index]
             for location, entry in future_weather.items()
         }
         return DataSet(prediction_dict)
@@ -58,7 +58,7 @@ class MultiRegionPoissonModel:
         self._saved_state = {}
 
     def _create_feature_matrix(self, data: ClimateHealthTimeSeries):
-        lagged_values = data.disease_cases[:-1, None]
+        lagged_values = data.disease_cases[:-1, None]  # type: ignore[index]
         month = np.array([period.month for period in data.time_period])
         season = month[1:, None] == np.arange(1, 13)
         return np.hstack([lagged_values, season])
@@ -66,7 +66,7 @@ class MultiRegionPoissonModel:
     def train(self, data: DataSet[ClimateHealthTimeSeries]):
         for location, location_data in data.items():
             X = self._create_feature_matrix(location_data)
-            y = location_data.disease_cases[1:]
+            y = location_data.disease_cases[1:]  # type: ignore[index]
             mask = ~np.isnan(X).any(axis=1) & ~np.isnan(y)
             assert mask[-1]
             X = X[mask]
@@ -75,7 +75,7 @@ class MultiRegionPoissonModel:
             model.fit(X, y)
             self._models[location] = model
 
-            saved_data = location_data[-1:]
+            saved_data = location_data[-1:]  # type: ignore[index]
             assert not np.any(np.isnan(saved_data.disease_cases)), f"{saved_data.disease_cases}"
             self._saved_state[location] = TemporalDataclass(saved_data)
 
@@ -84,19 +84,19 @@ class MultiRegionPoissonModel:
         for location, location_data in data.items():
             state_values = self._saved_state[location]
             # state_values = TemporalDataclass(location_data.data().__class__(**{field.name: getattr(state_values.data(), field.name) for field in dataclasses.fields(location_data.data())}))
-            location_data = TemporalDataclass(
+            location_data = TemporalDataclass(  # type: ignore[assignment]
                 state_values.data().__class__(
                     **{
                         field.name: getattr(location_data.data(), field.name)
-                        for field in dataclasses.fields(location_data)
+                        for field in dataclasses.fields(location_data)  # type: ignore[arg-type]
                     }
-                    | {"disease_cases": np.full(len(location_data), 0)}
+                    | {"disease_cases": np.full(len(location_data), 0)}  # type: ignore[arg-type]
                 )
             )
             # location_data.data().disease_cases = np.full(len(location_data.data()), np.nan)
             X = self._create_feature_matrix(state_values.join(location_data))
             prediction = self._models[location].predict(X[-1:])
-            prediction_dict[location] = HealthData(location_data.time_period[:1], np.atleast_1d(prediction))
+            prediction_dict[location] = HealthData(location_data.time_period[:1], np.atleast_1d(prediction))  # type: ignore[call-arg]
 
         return DataSet(prediction_dict)
 
@@ -107,11 +107,11 @@ class NaiveForecastSampler:
         self._case_std = None
 
     def train(self, time_series: ClimateHealthTimeSeries):
-        self._case_average = time_series.disease_cases.mean()
-        self._case_std = time_series.disease_cases.std()
+        self._case_average = time_series.disease_cases.mean()  # type: ignore[attr-defined]
+        self._case_std = time_series.disease_cases.std()  # type: ignore[attr-defined]
 
     def sample(self, weather_data: ClimateData, n_samples: int = 1) -> HealthData:
-        return HealthData(
+        return HealthData(  # type: ignore[call-arg]
             weather_data.time_period,
-            np.random.normal(self._case_average, self._case_std, n_samples),
+            np.random.normal(self._case_average, self._case_std, n_samples),  # type: ignore[arg-type]
         )

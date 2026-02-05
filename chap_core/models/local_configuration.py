@@ -1,8 +1,8 @@
 # Module for parsing local configuration of models, i.e. files that are put in config/models directory.
 import logging
-from pydantic import BaseModel, TypeAdapter
 
 import yaml
+from pydantic import BaseModel, TypeAdapter
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 

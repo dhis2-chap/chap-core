@@ -6,22 +6,21 @@ import logging
 from pathlib import Path
 from typing import Annotated, Optional
 
-from cyclopts import Parameter
-
 import numpy as np
 import pandas as pd
 import xarray as xr
 import yaml
+from cyclopts import Parameter
 
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
+from chap_core.file_io.example_data_set import datasets
 from chap_core.log_config import initialize_logging
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
 from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
 from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.file_io.example_data_set import datasets
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class AreaPolygons: ...
 
 
 def sanity_check_model(
-    model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str = None
+    model_url: str, use_local_environement: bool = False, dataset_path=None, model_config_path: str | None = None
 ):
     """
     Check that a model can be loaded, trained and used to make predictions
@@ -42,8 +41,6 @@ def sanity_check_model(
         dataset = DataSet.from_csv(dataset_path, FullData)
     train, tests = train_test_generator(dataset, 3, n_test_sets=2)
     context, future, truth = next(tests)
-    logger.info("Dataset: ")
-    logger.info(dataset.to_pandas())
 
     if model_config_path is not None:
         model_config = ModelConfiguration.model_validate(yaml.safe_load(open(model_config_path)))
@@ -51,7 +48,7 @@ def sanity_check_model(
         model_config = None
     try:
         model_template = get_model_template_from_directory_or_github_url(model_url, ignore_env=use_local_environement)
-        model = model_template.get_model(model_config)
+        model = model_template.get_model(model_config)  # type: ignore[arg-type]
         estimator = model()
     except Exception as e:
         logger.error(f"Error while creating model: {e}")
@@ -86,7 +83,7 @@ def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool
     """
     Start CHAP as a backend server
     """
-    from chap_core.rest_api_src.v1.rest_api import main_backend
+    from chap_core.rest_api.v1.rest_api import main_backend
 
     logger.info("Running chap serve")
 
@@ -102,7 +99,7 @@ def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
     """
-    from chap_core.rest_api_src.v1.rest_api import get_openapi_schema
+    from chap_core.rest_api.v1.rest_api import get_openapi_schema
 
     schema = get_openapi_schema()
     with open(out_path, "w") as f:
@@ -143,7 +140,7 @@ def _get_plot_type_help() -> str:
 def plot_backtest(
     input_file: Annotated[
         Path,
-        Parameter(help="Path to NetCDF file containing evaluation data (from evaluate2)"),
+        Parameter(help="Path to NetCDF file containing evaluation data (from eval)"),
     ],
     output_file: Annotated[
         Path,
@@ -158,8 +155,8 @@ def plot_backtest(
     Generate a backtest plot from evaluation data and save to file.
     """
     from chap_core.assessment.backtest_plots import (
-        get_backtest_plots_registry,
         create_plot_from_evaluation,
+        get_backtest_plots_registry,
     )
     from chap_core.assessment.evaluation import Evaluation
 
@@ -199,7 +196,7 @@ def generate_pdf_report(input_file: Path, output_file: Path):
     showing historical observations and forecast distributions with quantiles.
 
     Args:
-        input_file: Path to NetCDF file containing evaluation data (from evaluate2)
+        input_file: Path to NetCDF file containing evaluation data (from eval)
         output_file: Path to output PDF file
     """
     from chap_core.assessment.evaluation import Evaluation
@@ -222,7 +219,7 @@ def export_metrics(
     """
     Export metrics from multiple backtest files to CSV.
 
-    Reads NetCDF evaluation files (from evaluate2) and computes aggregate metrics,
+    Reads NetCDF evaluation files (from eval) and computes aggregate metrics,
     outputting a CSV file with evaluations as rows and metrics as columns.
 
     Args:

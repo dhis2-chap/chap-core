@@ -111,7 +111,9 @@ Along with the data, CHAP sends a `run_info` object containing runtime parameter
 | `additional_continuous_covariates` | List of additional covariate columns in the data |
 
 
-## How to run a chapkit model from the command line with chap evaluate
+## How to run a chapkit model from the command line
+
+> **Deprecation Notice:** The `chap evaluate` command shown below is deprecated and will be removed in v2.0. For chapkit model evaluation, use `chap eval` with `--run-config.is-chapkit-model` instead. See the [Evaluation Workflow](../chap-cli/evaluation-workflow.md#chapkit-models) for examples.
 
 To test that the model is working with chap, you can use the `chap evaluate` command. Instead of a github url or model name, you simply specify the REST API url to the model and add --is-chapkit-model to the command to tell chap that the model is a chapkit model.
 

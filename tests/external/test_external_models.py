@@ -19,10 +19,9 @@ def test_python_model_from_folder_with_mlproject_file(models_path):
 @pytest.fixture
 def dataset():
     dataset_name = "ISIMIP_dengue_harmonized"
-    dataset = datasets[dataset_name]
-    dataset = dataset.load()
-    dataset = dataset["brazil"]
-    return dataset
+    example_dataset = datasets[dataset_name]
+    loaded_dataset = example_dataset.load()
+    return loaded_dataset["brazil"]
 
 
 def test_python_model_from_folder_with_mlproject_file_that_fails(models_path, dataset):

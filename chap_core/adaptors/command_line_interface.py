@@ -1,14 +1,15 @@
+import logging
+
 import yaml
 from cyclopts import App
 
 # from chap_core.models.model_template_interface import ModelConfiguration
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.datatypes import remove_field, create_tsdataclass
-from chap_core.external.model_configuration import RunnerConfig, EntryPointConfig, CommandConfig
+from chap_core.datatypes import create_tsdataclass, remove_field
+from chap_core.external.model_configuration import CommandConfig, EntryPointConfig, RunnerConfig
 from chap_core.model_spec import get_dataclass
 from chap_core.models.model_template_interface import InternalModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
     app = App()
 
     @app.command()
-    def train(training_data_filename: str, model_path: str, model_config_path: str = None):
+    def train(training_data_filename: str, model_path: str, model_config_path: str | None = None):
         """
         Train a model using historic data
 
@@ -107,7 +108,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
         historic_data_filename: str,
         future_data_filename: str,
         output_filename: str,
-        model_config_path: str = None,
+        model_config_path: str | None = None,
     ):
         """
         Predict using a trained model
@@ -129,7 +130,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
         estimator = model_template.get_model(model_config)
         dc = _get_dataclass(estimator)
         future_dc = remove_field(dc, "disease_cases")
-        predictor = estimator.load_predictor(model_filename)
+        predictor = estimator.load_predictor(model_filename)  # type: ignore[attr-defined]
 
         dataset = DataSet.from_csv(historic_data_filename, dc)
         future_data = DataSet.from_csv(future_data_filename, future_dc)

@@ -10,13 +10,13 @@ from typing import Optional
 import altair as alt
 import pandas as pd
 
-from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
+from chap_core.assessment.backtest_plots import BacktestPlotBase, ChartType, backtest_plot
+from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 from chap_core.assessment.metrics import (
-    RMSEMetric,
-    CRPSNormMetric,
     Coverage25_75Metric,
+    CRPSNormMetric,
+    RMSEMetric,
 )
-from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 from chap_core.plotting.backtest_plot import text_chart, title_chart
 from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricByTimePeriodV2Mean
 
@@ -81,7 +81,7 @@ class MetricsDashboard(BacktestPlotBase):
         for plotting_class in plotting_classes:
             metrics_to_show = [Coverage25_75Metric, RMSEMetric, CRPSNormMetric]
             for metric_factory in metrics_to_show:
-                metric = metric_factory()
+                metric = metric_factory()  # type: ignore[abstract]
                 name = metric.get_name()
                 description = metric.get_description()
                 title_plot = title_chart(name)
@@ -99,4 +99,4 @@ class MetricsDashboard(BacktestPlotBase):
             view={"stroke": None},
         )
 
-        return dashboard
+        return dashboard  # type: ignore[no-any-return]

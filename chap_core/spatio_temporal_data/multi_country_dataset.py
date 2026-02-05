@@ -63,7 +63,16 @@ class LazyMultiCountryDataSet:
     def __getitem__(self, item):
         with tarfile.open(self._file_name(), "r:gz") as tar_file:
             members = tar_file.getmembers()
-            extracted_file = next(tar_file.extractfile(member) for member in members if Path(member.name).stem == item)
+            extracted_file = next(
+                (
+                    ef
+                    for member in members
+                    if Path(member.name).stem == item and (ef := tar_file.extractfile(member)) is not None
+                ),
+                None,
+            )
+            if extracted_file is None:
+                raise KeyError(f"Item {item} not found in tar file")
             return DataSet.from_csv(extracted_file, self.dataclass)
 
     def items(self):

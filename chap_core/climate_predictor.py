@@ -1,12 +1,14 @@
 import dataclasses
 from collections import defaultdict
+from typing import Any
 
 import numpy as np
 from sklearn import linear_model
 
-from .datatypes import ClimateData, SimpleClimateData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period import PeriodRange, Month, Week
+from chap_core.time_period import Month, PeriodRange, Week
+
+from .datatypes import ClimateData, SimpleClimateData
 
 
 def get_climate_predictor(train_data: DataSet[ClimateData]):
@@ -21,8 +23,8 @@ def get_climate_predictor(train_data: DataSet[ClimateData]):
 
 class MonthlyClimatePredictor:
     def __init__(self):
-        self._models = defaultdict(dict)
-        self._cls = None
+        self._models: defaultdict[str, dict[str, Any]] = defaultdict(dict)
+        self._cls: type | None = None
 
     def _feature_matrix(self, time_period: PeriodRange):
         return time_period.month[:, None] == np.arange(1, 13)
@@ -32,7 +34,7 @@ class MonthlyClimatePredictor:
         for location, data in train_data.items():
             self._cls = data.__class__
             x = self._feature_matrix(data.time_period)
-            for field in dataclasses.fields(data):
+            for field in dataclasses.fields(data):  # type: ignore[arg-type]
                 if field.name in ("time_period"):
                     continue
                 y = getattr(data, field.name)
@@ -46,6 +48,7 @@ class MonthlyClimatePredictor:
     def predict(self, time_period: PeriodRange):
         x = self._feature_matrix(time_period)
         prediction_dict = {}
+        assert self._cls is not None, "Model not trained - call train() first"
         for location, models in self._models.items():
             prediction_dict[location] = self._cls(
                 time_period,
@@ -62,22 +65,24 @@ class WeeklyClimatePredictor(MonthlyClimatePredictor):
 
 
 class FutureWeatherFetcher:
-    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]: ...
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
+        raise NotImplementedError()
 
 
 class SeasonalForecastFetcher:
     def __init__(self, folder_path):
         self.folder_path = folder_path
 
-    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]: ...
+    def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
+        raise NotImplementedError()
 
 
 class QuickForecastFetcher:
     def __init__(self, historical_data: DataSet[SimpleClimateData]):
-        self._climate_predictor = get_climate_predictor(historical_data)
+        self._climate_predictor = get_climate_predictor(historical_data)  # type: ignore[arg-type]
 
     def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
-        return self._climate_predictor.predict(period_range)
+        return self._climate_predictor.predict(period_range)  # type: ignore[no-any-return]
 
 
 class FetcherNd:
@@ -88,11 +93,11 @@ class FetcherNd:
     def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
         prediction_dict = {}
         for location, data in self.historical_data.items():
-            prediction_dict[location] = self._cls(
+            prediction_dict[location] = self._cls(  # type: ignore[call-arg]
                 period_range,
                 **{
                     field.name: getattr(data, field.name)[-len(period_range) :]
-                    for field in dataclasses.fields(data)
+                    for field in dataclasses.fields(data)  # type: ignore[arg-type]
                     if field.name not in ("time_period",)
                 },
             )

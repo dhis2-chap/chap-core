@@ -149,9 +149,9 @@ class MetricDecisionMaker(DecisionMaker):
             logger.info(f"Model {i + 1}: {metric_name}={v}")
 
         if self._lower_is_better:
-            best_idx = min(range(len(values)), key=lambda idx: values[idx])
+            best_idx = min(range(len(values)), key=lambda idx: values[idx])  # type: ignore[arg-type, return-value]
         else:
-            best_idx = max(range(len(values)), key=lambda idx: values[idx])
+            best_idx = max(range(len(values)), key=lambda idx: values[idx])  # type: ignore[arg-type, return-value]
 
         logger.info(f"Preferred: Model {best_idx + 1} (based on {metric_name})")
 

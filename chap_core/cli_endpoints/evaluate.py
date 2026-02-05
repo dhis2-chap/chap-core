@@ -1,6 +1,7 @@
 """Evaluation commands for CHAP CLI."""
 
 import logging
+import warnings
 from pathlib import Path
 from typing import Annotated, Literal, Optional
 
@@ -8,27 +9,10 @@ import pandas as pd
 import yaml
 from cyclopts import Parameter
 
+from chap_core import get_temp_dir
 from chap_core.api_types import BackTestParams, RunConfig
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.datatypes import FullData
-from chap_core.exceptions import NoPredictionsError
-from chap_core.geometry import Polygons
-from chap_core.hpo.base import load_search_space_from_config
-from chap_core.hpo.hpoModel import HpoModel, Direction
-from chap_core.hpo.objective import Objective
-from chap_core.hpo.searcher import RandomSearcher
-from chap_core.log_config import initialize_logging
-from chap_core.models.external_model import ExternalModel
-from chap_core.models.model_template import ModelTemplate
-from chap_core.predictor import ModelType
-from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core import get_temp_dir
-from chap_core.file_io.example_data_set import datasets, DataSetType
-from chap_core.external.ExtendedPredictor import ExtendedPredictor
-
 from chap_core.cli_endpoints._common import (
     create_model_lists,
     discover_geojson,
@@ -37,6 +21,22 @@ from chap_core.cli_endpoints._common import (
     load_dataset_from_csv,
     save_results,
 )
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+from chap_core.datatypes import FullData
+from chap_core.exceptions import NoPredictionsError
+from chap_core.external.ExtendedPredictor import ExtendedPredictor
+from chap_core.file_io.example_data_set import DataSetType, datasets
+from chap_core.geometry import Polygons
+from chap_core.hpo.base import load_search_space_from_config
+from chap_core.hpo.hpoModel import Direction, HpoModel
+from chap_core.hpo.objective import Objective
+from chap_core.hpo.searcher import RandomSearcher
+from chap_core.log_config import initialize_logging
+from chap_core.models.external_model import ExternalModel
+from chap_core.models.model_template import ModelTemplate
+from chap_core.predictor import ModelType
+from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
 
@@ -76,21 +76,22 @@ def evaluate_hpo(
     else:
         logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
 
-        dataset = datasets[dataset_name]
-        dataset = dataset.load()
+        example_ds = datasets[dataset_name]
+        dataset = example_ds.load()
 
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
             assert dataset_country in dataset.countries, (
                 f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
             )
-            dataset = dataset[dataset_country]
+            dataset = dataset[dataset_country]  # type: ignore[assignment]
 
+    model_configuration_yaml_list: list[str | None]
     if "," in model_name:
         model_list = model_name.split(",")
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
-            model_configuration_yaml_list = model_configuration_yaml.split(",")
+            model_configuration_yaml_list = list(model_configuration_yaml.split(","))
             assert len(model_list) == len(model_configuration_yaml_list), (
                 "Number of model configurations does not match number of models"
             )
@@ -110,12 +111,13 @@ def evaluate_hpo(
         )
         logging.info(f"Model template loaded: {template}")
         if not do_hpo:
+            model_config: ModelConfiguration | None = None
             if configuration is not None:
                 logger.info(f"Loading model configuration from yaml file {configuration}")
-                configuration = ModelConfiguration.model_validate(yaml.safe_load(open(configuration)))
-                logger.info(f"Loaded model configuration from yaml file: {configuration}")
+                model_config = ModelConfiguration.model_validate(yaml.safe_load(open(configuration)))
+                logger.info(f"Loaded model configuration from yaml file: {model_config}")
 
-            model = template.get_model(configuration)
+            model = template.get_model(model_config)  # type: ignore[arg-type]
             model = model()
         else:
             if configuration is not None:
@@ -129,6 +131,7 @@ def evaluate_hpo(
                 configs = template.model_template_config.hpo_search_space
 
             configs = load_search_space_from_config(configs)
+            assert metric is not None, "metric must be specified for HPO"
             objective = Objective(template, metric, prediction_length, n_splits)
             model = HpoModel(RandomSearcher(2), objective, direction, configs)
 
@@ -172,6 +175,7 @@ def evaluate_hpo(
             first_model = False
         data.append(row)
     dataframe = pd.DataFrame(data)
+    assert report_filename is not None
     csvname = Path(report_filename).with_suffix(".csv")
 
     dataframe.to_csv(csvname, index=False, header=False)
@@ -197,6 +201,12 @@ def evaluate(
     model_configuration_yaml: Optional[str] = None,
     is_chapkit_model: bool = False,
 ):
+    """Deprecated: Use `eval` instead. Will be removed in v2.0."""
+    warnings.warn(
+        "The 'evaluate' command is deprecated and will be removed in v2.0. Use 'eval' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     initialize_logging(debug, log_file)
     logger.info(f"Evaluating model {model_name}")
     dataset = load_dataset(dataset_country, dataset_csv, dataset_name, polygons_id_field, polygons_json)
@@ -233,12 +243,13 @@ def evaluate(
             return
         results_dict[name] = results
 
+    assert report_filename is not None
     save_results(report_filename, results_dict)
 
     return results_dict
 
 
-def evaluate2(
+def eval_cmd(
     model_name: Annotated[
         str,
         Parameter(
@@ -303,15 +314,15 @@ def evaluate2(
 
     Examples:
         # Evaluate a GitHub-hosted model
-        chap evaluate2 --model-name https://github.com/dhis2-chap/minimalist_example_r \\
+        chap eval --model-name https://github.com/dhis2-chap/minimalist_example_r \\
             --dataset-csv ./data/vietnam.csv --output-file ./results/eval.nc
 
         # Evaluate a chapkit model (REST API)
-        chap evaluate2 --model-name http://localhost:8000 --run-config.is-chapkit-model \\
+        chap eval --model-name http://localhost:8000 --run-config.is-chapkit-model \\
             --dataset-csv ./data/vietnam.csv --output-file ./results/eval.nc
 
         # Use column name mapping when CSV columns don't match model expectations
-        chap evaluate2 --model-name ./my_model --dataset-csv ./data.csv \\
+        chap eval --model-name ./my_model --dataset-csv ./data.csv \\
             --output-file ./eval.nc --data-source-mapping ./column_mapping.json
     """
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
@@ -346,7 +357,7 @@ def evaluate2(
     )
 
     with template:
-        model = template.get_model(configuration)
+        model = template.get_model(configuration)  # type: ignore[arg-type]
         estimator = model()
 
         model_info = estimator.model_information
@@ -400,8 +411,80 @@ def evaluate2(
         logger.info(f"Evaluation complete. Results saved to {output_file}")
 
 
+def evaluate2(
+    model_name: Annotated[
+        str,
+        Parameter(
+            help="Model path (local directory), GitHub URL, or chapkit service URL. "
+            "Examples: /path/to/model, https://github.com/org/model, http://localhost:8000"
+        ),
+    ],
+    dataset_csv: Annotated[
+        Path,
+        Parameter(
+            help="Path to CSV file containing disease data with columns: time_period, "
+            "location, disease_cases, and climate covariates (rainfall, temperature, etc.)"
+        ),
+    ],
+    output_file: Annotated[
+        Path,
+        Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
+    ],
+    backtest_params: Annotated[
+        BackTestParams,
+        Parameter(
+            help="Backtest configuration. Use --backtest-params.n-periods for forecast horizon, "
+            "--backtest-params.n-splits for number of train/test splits, "
+            "--backtest-params.stride for step size between splits"
+        ),
+    ] = BackTestParams(n_periods=3, n_splits=7, stride=1),
+    run_config: Annotated[
+        RunConfig,
+        Parameter(
+            help="Model execution configuration. Use --run-config.is-chapkit-model for chapkit models, "
+            "--run-config.debug for verbose logging, --run-config.ignore-environment to skip env setup"
+        ),
+    ] = RunConfig(),
+    model_configuration_yaml: Annotated[
+        Optional[Path],
+        Parameter(help="Path to YAML file with model-specific configuration parameters"),
+    ] = None,
+    historical_context_years: Annotated[
+        int,
+        Parameter(
+            help="Years of historical data to include for plotting context. "
+            "Calculated as periods based on dataset frequency (e.g., 6 years = 312 weeks or 72 months)"
+        ),
+    ] = 6,
+    data_source_mapping: Annotated[
+        Optional[Path],
+        Parameter(
+            help="Path to JSON file mapping model covariate names to CSV column names. "
+            'Format: {"model_name": "csv_column"}. Example: {"rainfall": "precipitation_mm"}'
+        ),
+    ] = None,
+):
+    """Deprecated: Use `eval` instead. Will be removed in v2.0."""
+    warnings.warn(
+        "The 'evaluate2' command is deprecated and will be removed in v2.0. Use 'eval' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return eval_cmd(
+        model_name=model_name,
+        dataset_csv=dataset_csv,
+        output_file=output_file,
+        backtest_params=backtest_params,
+        run_config=run_config,
+        model_configuration_yaml=model_configuration_yaml,
+        historical_context_years=historical_context_years,
+        data_source_mapping=data_source_mapping,
+    )
+
+
 def register_commands(app):
     """Register evaluate commands with the CLI app."""
     app.command()(evaluate_hpo)
     app.command()(evaluate)
     app.command()(evaluate2)
+    app.command(name="eval")(eval_cmd)

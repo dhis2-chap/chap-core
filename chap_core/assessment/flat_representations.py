@@ -1,15 +1,16 @@
 from __future__ import annotations
+
 from enum import Enum
-from typing import Mapping, List
+from typing import List, Mapping
 
 import numpy as np
 import pandas as pd
-from pandera import Check
 import pandera.pandas as pa
+from pandera import Check
 from pandera.pandas import DataFrameModel
 
-from chap_core.database.tables import BackTestForecast
 from chap_core.database.dataset_tables import ObservationBase
+from chap_core.database.tables import BackTestForecast
 from chap_core.time_period import TimePeriod
 
 
@@ -52,7 +53,7 @@ def horizon_diff(period: str, period2: str) -> int:
     """Calculate the difference between two time periods in terms of time units."""
     tp = TimePeriod.parse(period)
     tp2 = TimePeriod.parse(period2)
-    return (tp - tp2) // tp.time_delta
+    return int((tp - tp2) // tp.time_delta)
 
 
 def _convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast]) -> pd.DataFrame:
@@ -102,7 +103,7 @@ def _convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecas
     # Validate against schema
     # FlatForecasts.validate(df)
 
-    return df
+    return pd.DataFrame(df)
 
 
 def _create_df(forecast: BackTestForecast, horizon_distance: int):
@@ -216,10 +217,9 @@ def group_flat_forecast_by_horizon(flat_forecast_df: pd.DataFrame, aggregate_sam
         grouped = flat_forecast_df.groupby(["location", "time_period", "horizon_distance"], as_index=False)[
             "forecast"
         ].mean()
+        return pd.DataFrame(grouped)
     else:
-        grouped = flat_forecast_df
-
-    return grouped
+        return flat_forecast_df
 
 
 class DataDimension(str, Enum):

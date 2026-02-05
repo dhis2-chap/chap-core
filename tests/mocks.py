@@ -15,7 +15,7 @@ class ClimateDataBaseMock:
         w = 365.24 if hasattr(start_period, "day") else 12
         temperature = 20 + 5 * np.sin(2 * np.pi * period.month / w)
         rainfall = 100 + 50 * np.sin(2 * np.pi * period.month / w)
-        return ClimateData(period, rainfall, temperature, temperature)
+        return ClimateData(period, rainfall, temperature, temperature)  # type: ignore[reportCallIssue]
 
 
 @pytest.fixture

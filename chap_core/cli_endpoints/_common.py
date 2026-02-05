@@ -9,11 +9,11 @@ import yaml
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
+from chap_core.file_io.example_data_set import datasets
 from chap_core.geometry import Polygons
 from chap_core.models.model_template import ModelTemplate
 from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet, DataSetMetaData
-from chap_core.file_io.example_data_set import datasets
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +23,10 @@ def append_to_csv(file_object, data_frame: pd.DataFrame):
 
 
 def get_model(
-    configuration: str,
+    configuration: str | None,
     ignore_environment: bool,
     is_chapkit_model: bool,
-    name,
+    name: str,
     run_directory_type: Literal["latest", "timestamp", "use_existing"] | None,
 ) -> Any:
     template = ModelTemplate.from_directory_or_github_url(
@@ -37,23 +37,24 @@ def get_model(
         is_chapkit_model=is_chapkit_model,
     )
     logger.info(f"Model template loaded: {template}")
+    model_config: ModelConfiguration | None = None
     if configuration is not None:
         logger.info(f"Loading model configuration from yaml file {configuration}")
-        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(configuration)))
-        logger.info(f"Loaded model configuration from yaml file: {configuration}")
+        model_config = ModelConfiguration.model_validate(yaml.safe_load(open(configuration)))
+        logger.info(f"Loaded model configuration from yaml file: {model_config}")
 
-    model = template.get_model(configuration)
+    model = template.get_model(model_config)  # type: ignore[arg-type]
     model = model()
     return model
 
 
-def save_results(report_filename: str | None, results_dict: dict[Any, Any]):
-    data = []
-    full_data = {}
+def save_results(report_filename: str, results_dict: dict[Any, Any]) -> None:
+    data: list[list[Any]] = []
+    full_data: dict[Any, pd.DataFrame] = {}
     first_model = True
     for key, value in results_dict.items():
         aggregate_metric_dist = value[0]
-        row = [key]
+        row: list[Any] = [key]
         for k, v in aggregate_metric_dist.items():
             row.append(v)
         if first_model:
@@ -73,12 +74,13 @@ def save_results(report_filename: str | None, results_dict: dict[Any, Any]):
     logger.info(f"Evaluation complete. Results saved to {csvname}")
 
 
-def create_model_lists(model_configuration_yaml: str | None, model_name) -> tuple[list[str], Any]:
+def create_model_lists(model_configuration_yaml: str | None, model_name: str) -> tuple[list[str | None], list[str]]:
+    model_configuration_yaml_list: list[str | None]
     if "," in model_name:
         model_list = model_name.split(",")
         model_configuration_yaml_list = [None for _ in model_list]
         if model_configuration_yaml is not None:
-            model_configuration_yaml_list = model_configuration_yaml.split(",")
+            model_configuration_yaml_list = list(model_configuration_yaml.split(","))
             assert len(model_list) == len(model_configuration_yaml_list), (
                 "Number of model configurations does not match number of models"
             )
@@ -162,13 +164,13 @@ def load_dataset(
             dataset.set_polygons(polygons.data)
     else:
         logger.info(f"Evaluating model on dataset {dataset_name}")
-        dataset = datasets[dataset_name]
-        dataset = dataset.load()
+        example_ds = datasets[dataset_name]
+        dataset = example_ds.load()
 
         if isinstance(dataset, MultiCountryDataSet):
             assert dataset_country is not None, "Must specify a country for multi country datasets"
             assert dataset_country in dataset.countries, (
                 f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
             )
-            dataset = dataset[dataset_country]
+            dataset = dataset[dataset_country]  # type: ignore[assignment]
     return dataset

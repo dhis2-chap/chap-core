@@ -276,8 +276,8 @@ def test_mae_aggregate_uses_median_of_samples(flat_forecasts_multiple_samples, f
 @pytest.mark.skip(reason="Only for testing")
 def test_read_example_weekly_predictions(data_path):
     data = pd.read_csv(data_path / "example_weekly_predictions.csv")
-    data = SamplesWithTruth.from_pandas(data)
-    print(type(data.time_period))
+    samples = SamplesWithTruth.from_pandas(data)
+    print(type(samples.time_period))
 
 
 # --- Peak diff metric tests ---

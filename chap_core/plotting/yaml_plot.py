@@ -1,20 +1,20 @@
 # --- dependencies ---
+import textwrap
+
 import altair as alt
 import pandas as pd
-import textwrap
 import yaml
 
-from chap_core.database.tables import BackTest
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import available_metrics
-
+from chap_core.database.tables import BackTest
 from chap_core.plotting.evaluation_plot import (
+    MetricByHorizonAndLocationMean,
     MetricByHorizonV2Mean,
     MetricByHorizonV2Sum,
-    MetricByHorizonAndLocationMean,
+    MetricByTimePeriodAndLocationV2Mean,
     MetricByTimePeriodV2Mean,
     MetricByTimePeriodV2Sum,
-    MetricByTimePeriodAndLocationV2Mean,
     MetricMapV2,
 )
 
@@ -122,7 +122,10 @@ def _build_plot_component(comp: dict, context: dict):
 
         metric = metric_class()
 
-        metric_df = metric.compute(flat_obs, flat_fcst)
+        metric_df = metric.get_detailed_metric(flat_obs, flat_fcst)
+
+        if not plot_type:
+            return text_chart(f"Missing plot_type for metric '{metric_name}'.", line_length=60)
 
         plot_class = METRIC_PLOT_TYPES.get(plot_type)
         if plot_class is None:
@@ -132,7 +135,7 @@ def _build_plot_component(comp: dict, context: dict):
                 line_length=60,
             )
 
-        required_cols = []
+        required_cols: list[str] = []
 
         missing = [c for c in required_cols if c not in metric_df.columns]
         if missing:
@@ -142,7 +145,7 @@ def _build_plot_component(comp: dict, context: dict):
                 line_length=80,
             )
 
-        plotter = plot_class(metric_df)
+        plotter = plot_class(metric_df)  # type: ignore[abstract]
         return plotter.plot()
 
     return text_chart(f"Unknown plot kind: {comp_type}", line_length=60)

@@ -1,19 +1,21 @@
 from __future__ import annotations
+
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
-import logging
+
 from chap_core.datatypes import HealthData
+from chap_core.external.github import fetch_mlproject_content
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.configured_model import ModelConfiguration
+from chap_core.models.external_web_model import ExternalWebModel
 from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
-from chap_core.external.github import fetch_mlproject_content
-from chap_core.models.external_web_model import ExternalWebModel
 
 if TYPE_CHECKING:
-    from chap_core.external.external_model import ExternalModel
+    from chap_core.external.external_model import ExternalModel  # type: ignore[attr-defined]
     from chap_core.runners.runner import TrainPredictRunner
 
 
@@ -59,7 +61,7 @@ class ModelTemplate:
         """
         from .utils import get_model_template_from_directory_or_github_url
 
-        return get_model_template_from_directory_or_github_url(
+        return get_model_template_from_directory_or_github_url(  # type: ignore[return-value]
             model_template_path,
             base_working_dir=base_working_dir,
             ignore_env=ignore_env,
@@ -76,7 +78,7 @@ class ModelTemplate:
         return self._model_template_config
 
     def get_train_predict_runner(self) -> TrainPredictRunner:
-        pass
+        raise NotImplementedError()
 
     def __str__(self):
         return f"ModelTemplate: {self._model_template_config}"
@@ -92,7 +94,7 @@ class ModelTemplate:
     def get_default_model(self) -> "ExternalModel":
         return self.get_model()
 
-    def get_model(self, model_configuration: ModelConfiguration = None) -> "ExternalModel":
+    def get_model(self, model_configuration: ModelConfiguration | None = None) -> "ExternalModel":
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default
@@ -114,6 +116,7 @@ class ModelTemplate:
 
         # config = ModelTemplateConfig.model_validate(model_configuration)
         from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config
+
         from .external_model import ExternalModel
 
         data_type = HealthData
@@ -126,13 +129,13 @@ class ModelTemplate:
                 self._model_template_config.name,
                 7200,
                 5,
-                model_configuration,
+                model_configuration,  # type: ignore[arg-type]
                 self._model_template_config.adapters,
                 self._working_dir,
             )
 
         runner = get_train_predict_runner_from_model_template_config(
-            self._model_template_config, self._working_dir, self._ignore_env, model_configuration
+            self._model_template_config, Path(self._working_dir), self._ignore_env, model_configuration
         )
 
         config = self._model_template_config
@@ -145,7 +148,7 @@ class ModelTemplate:
             adapters=adapters,
             data_type=data_type,
             working_dir=self._working_dir,
-            configuration=config_passed_to_model,
+            configuration=config_passed_to_model,  # type: ignore[arg-type]
             model_information=self._model_template_config,
         )
 
@@ -175,4 +178,4 @@ class ExternalModelTemplate(ModelTemplateInterface):
     def from_model_template_config(
         cls, model_template_config: ModelTemplateConfigV2, working_dir: str, ignore_env=False
     ):
-        return cls(ModelTemplate(model_template_config, working_dir, ignore_env))
+        return cls(ModelTemplate(model_template_config, working_dir, ignore_env))  # type: ignore[call-arg, arg-type]

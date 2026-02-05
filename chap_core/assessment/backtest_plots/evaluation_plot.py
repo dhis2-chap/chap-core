@@ -10,7 +10,7 @@ from typing import Optional
 import altair as alt
 import pandas as pd
 
-from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
+from chap_core.assessment.backtest_plots import BacktestPlotBase, ChartType, backtest_plot
 from chap_core.plotting.backtest_plot import clean_time
 
 
@@ -247,7 +247,7 @@ class EvaluationPlot(BacktestPlotBase):
         full_layer = error1 + error2 + line + observations_layer
 
         # Facet the combined layer
-        return (
+        return (  # type: ignore[no-any-return]
             full_layer.facet(column="split_period:O", row="location:N")
             .resolve_scale(y="independent")
             .properties(title="BackTest Forecasts with Observations")

@@ -1,12 +1,12 @@
+import logging
+
 from chap_core.assessment.dataset_splitting import train_test_split_with_weather
 from chap_core.assessment.prediction_evaluator import Estimator, Predictor
 from chap_core.climate_predictor import (
     get_climate_predictor,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period.date_util_wrapper import TimeDelta, Month, PeriodRange
-import logging
-
+from chap_core.time_period.date_util_wrapper import Month, PeriodRange, TimeDelta
 from chap_core.validators import validate_training_data
 
 logger = logging.getLogger(__name__)

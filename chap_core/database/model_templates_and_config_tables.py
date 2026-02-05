@@ -1,14 +1,13 @@
-from typing import Optional, List
+import logging
 from enum import Enum
+from typing import List, Optional
 
 import jsonschema
-from sqlalchemy import Column, JSON
-from sqlmodel import SQLModel, Field, Relationship
-
+from sqlalchemy import JSON, Column
+from sqlmodel import Field, Relationship, SQLModel
 
 from chap_core.database.base_tables import DBModel
 from chap_core.model_spec import PeriodType
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +73,9 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
 
     @classmethod
     def _validate_model_configuration(cls, user_options, user_option_values):
-        logger.info("Validating model configuration")
-        logger.info(user_options)
-        logger.info(user_option_values)
+        logger.debug("Validating model configuration")
+        logger.debug(f"User options keys: {list(user_options.keys()) if user_options else []}")
+        logger.debug(f"User option values keys: {list(user_option_values.keys()) if user_option_values else []}")
         schema = {
             "type": "object",
             "properties": user_options,
@@ -86,9 +85,9 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
         jsonschema.validate(instance=user_option_values, schema=schema)
 
     # @model_validator(mode='after')
-    def validate_user_options(cls, model):
+    def validate_user_options(self, model):
         try:
-            cls._validate_model_configuration(model.model_template.user_options, model.user_option_values)
+            self._validate_model_configuration(model.model_template.user_options, model.user_option_values)
         except jsonschema.ValidationError as e:
             logger.error(f"Validation error in model configuration: {e}")
             raise ValueError(f"Invalid user options: {e.message}")

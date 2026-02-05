@@ -7,8 +7,8 @@ todo: Can maybe be moved to tests/
 import abc
 from typing import Any
 
-import pydantic
 import numpy as np
+import pydantic
 from numpy.random import normal, poisson
 
 from chap_core.database.dataset_tables import DataSet, Observation
@@ -31,6 +31,7 @@ class Simulator(abc.ABC):
     def __init__(self, params: SimulationParams):
         self._params = params
 
+    @abc.abstractmethod
     def simulate(self, data_dims: DatasetDimensions) -> DataSet: ...
 
 
@@ -45,7 +46,7 @@ class AdditiveSimulator(Simulator):
         mu = location_offsets[:, None] + time_pattern[None, :]
         with_noise = normal(mu, 0.1)
         values = with_noise * self._params.scale + self._params.loc
-        return values
+        return values  # type: ignore[no-any-return]
 
     def simulate(self, data_dims: DatasetDimensions) -> DataSet:
         feature_names = data_dims.features + [data_dims.target]
@@ -101,6 +102,7 @@ class BacktestSimulator:
             if observation.period not in periods:
                 continue
 
+            assert observation.value is not None
             rate = normal(observation.value, observation.value, size=self._params.n_samples)
             rate = np.maximum(rate, 0)
             samples = poisson(rate).astype(float)

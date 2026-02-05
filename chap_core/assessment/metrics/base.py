@@ -9,6 +9,7 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 import pandera.pandas as pa
+
 from chap_core.assessment.flat_representations import (
     DIM_REGISTRY,
     DataDimension,
@@ -111,11 +112,11 @@ class Metric(ABC):
             DataFrame with metric values at the specified level
         """
         # Filter out null observations
-        null_mask = observations.disease_cases.isnull()
-        observations = observations[~null_mask]
+        null_mask = observations.disease_cases.isnull()  # type: ignore[attr-defined]
+        observations = observations[~null_mask]  # type: ignore[index]
 
         # Compute at detailed level first
-        detailed = self.compute_detailed(observations, forecasts)
+        detailed = self.compute_detailed(observations, forecasts)  # type: ignore[arg-type]
 
         # Aggregate to requested level
         result = self._aggregate_to_dimensions(detailed, dimensions)
@@ -170,14 +171,14 @@ class Metric(ABC):
         """Apply aggregation operation to grouped data."""
         op = self.spec.aggregation_op
         if op == AggregationOp.MEAN:
-            return grouped.mean()
+            return pd.DataFrame(grouped.mean())
         elif op == AggregationOp.SUM:
-            return grouped.sum()
+            return pd.DataFrame(grouped.sum())
         elif op == AggregationOp.ROOT_MEAN_SQUARE:
             # For grouped RMS, we need to compute sqrt(mean(x^2)) per group
             # Use agg with a custom function to avoid column renaming issues
             result = grouped.agg(lambda x: np.sqrt((x**2).mean()))
-            return result
+            return pd.DataFrame(result)
         else:
             raise ValueError(f"Unknown aggregation operation: {op}")
 
@@ -242,7 +243,7 @@ class DeterministicMetric(Metric):
             lambda row: self.compute_point_metric(row["forecast"], row["disease_cases"]), axis=1
         )
 
-        return merged[["location", "time_period", "horizon_distance", "metric"]]
+        return pd.DataFrame(merged[["location", "time_period", "horizon_distance", "metric"]])
 
     @abstractmethod
     def compute_point_metric(self, forecast: float, observed: float) -> float:
@@ -283,7 +284,7 @@ class ProbabilisticMetric(Metric):
             obs_value = group["disease_cases"].iloc[0]
 
             # Compute the metric
-            metric_value = self.compute_sample_metric(sample_values, obs_value)
+            metric_value = self.compute_sample_metric(np.asarray(sample_values), obs_value)
 
             results.append(
                 {"location": location, "time_period": time_period, "horizon_distance": horizon, "metric": metric_value}

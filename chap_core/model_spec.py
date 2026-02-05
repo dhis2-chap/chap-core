@@ -32,7 +32,7 @@ class EwarsParamSpec(ParameterSpec):
     alpha: float
 
 
-EmptyParameterSpec = {}
+EmptyParameterSpec: dict[str, object] = {}
 
 
 # TODO: Move to db spec
@@ -46,9 +46,9 @@ class ModelSpec(BaseModel):
     targets: str = "disease_cases"
 
 
-def get_dataclass(model_class) -> type[TimeSeriesData]:
+def get_dataclass(model_class) -> type[TimeSeriesData] | None:
     param_type = list(inspect.get_annotations(model_class.train).values())[0]
     if not hasattr(param_type, "__args__"):
         return None
-    return param_type.__args__[0]
+    return param_type.__args__[0]  # type: ignore[no-any-return]
     # return param_type

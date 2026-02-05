@@ -7,7 +7,7 @@ from datetime import datetime
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
@@ -114,9 +114,9 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     assert response.status_code == 200, response.json()
     evaluation_entries = response.json()
     params = {} if not do_filter else {"orgUnits": org_units}
-    actual_cases = client.get(f"/v1/analytics/actualCases/{db_id}", params=params)
-    assert actual_cases.status_code == 200, actual_cases.json()
-    actual_cases = DataList.model_validate(actual_cases.json())
+    actual_cases_response = client.get(f"/v1/analytics/actualCases/{db_id}", params=params)
+    assert actual_cases_response.status_code == 200, actual_cases_response.json()
+    actual_cases = DataList.model_validate(actual_cases_response.json())
     for entry in evaluation_entries:
         assert "splitPeriod" in entry, f"splitPeriod not in entry: {entry.keys()}"
         entry = EvaluationEntry.model_validate(entry)
@@ -169,6 +169,7 @@ def test_list_models_alias(celery_session_worker, dependency_overrides):
     assert "chap_ewars_monthly" in (m.name for m in models)
     ewars_model = next(m for m in models if m.name == "chap_ewars_monthly")
     assert "population" in (f.name for f in ewars_model.covariates)
+    assert ewars_model.source_url is not None
     assert ewars_model.source_url.startswith("https:/")
 
 
@@ -187,6 +188,7 @@ def test_list_configured_models(celery_session_worker, dependency_overrides):
     assert "chap_ewars_monthly" in (m.name for m in models)
     ewars_model = next(m for m in models if m.name == "chap_ewars_monthly")
     assert "population" in (f.name for f in ewars_model.covariates)
+    assert ewars_model.source_url is not None
     assert ewars_model.source_url.startswith("https:/")
 
 
@@ -428,6 +430,7 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     assert len(response.json()) > 0
     p_infos = [PredictionInfo.model_validate(entry) for entry in response.json()]
     for p_info in p_infos:
+        assert p_info.configured_model is not None
         assert p_info.configured_model.name
         assert p_info.dataset.data_sources is not None
     print(p_infos)
@@ -572,3 +575,22 @@ def test_all_backtest_plots_via_api(override_session, seeded_session):
         # Verify the response is valid Vega JSON
         vega_spec = response.json()
         assert "$schema" in vega_spec or "data" in vega_spec, f"Plot {plot_id} returned invalid Vega spec"
+
+
+def test_get_dataset_csv(override_session, seeded_session):
+    """Test that dataset can be downloaded as CSV."""
+    datasets = seeded_session.exec(select(DataSet)).all()
+    assert len(datasets) > 0, "No datasets in seeded database"
+    dataset_id = datasets[0].id
+
+    response = client.get(f"/v1/crud/datasets/{dataset_id}/csv")
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "text/csv; charset=utf-8"
+    assert "Content-Disposition" in response.headers
+    assert f"filename=dataset_{dataset_id}.csv" in response.headers["Content-Disposition"]
+
+    csv_content = response.text
+    lines = csv_content.strip().split("\n")
+    assert len(lines) > 1, "CSV should have header and data rows"
+    header = lines[0]
+    assert "time_period" in header, f"Expected time_period in header, got: {header}"

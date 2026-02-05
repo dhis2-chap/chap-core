@@ -1,7 +1,8 @@
+import pandas as pd
+
+from chap_core.datatypes import Samples
 from chap_core.models.configured_model import ConfiguredModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.datatypes import Samples
-import pandas as pd
 
 
 class ExtendedPredictor(ConfiguredModel):
@@ -24,7 +25,7 @@ class ExtendedPredictor(ConfiguredModel):
         if "parent" in future_df.columns:
             future_df = future_df.drop(columns=["parent"])
 
-        model_information = self._config_model.model_information
+        model_information = self._config_model.model_information  # type: ignore[attr-defined]
 
         assert model_information is not None
 

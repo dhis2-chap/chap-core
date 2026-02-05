@@ -8,6 +8,7 @@ services:
       REDIS_PORT: 6379
       CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       CELERY_BROKER: redis://redis:6379/0
+      CHAP_LOGS_DIR: /data/logs
     # for now some of the tests uses hardcoded names so we need to set the container name
     # TODO: Update the tests so they don't rely on hardcoded container names
     container_name: chap
@@ -22,6 +23,9 @@ services:
         target: /tmp
         tmpfs:
           size: 1000000
+      - type: volume
+        source: logs
+        target: /data/logs
     ports:
       - "8000:8000"
     depends_on:
@@ -46,9 +50,9 @@ services:
       IS_IN_DOCKER: 1
       CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       CELERY_BROKER: redis://redis:6379
-      C_FORCE_ROOT: 1 #TODO: Remove this when we have a proper user
       RENV_PATHS_ROOT: /data/renv
       UV_CACHE_DIR: /data/uv
+      CHAP_LOGS_DIR: /data/logs
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
     extra_hosts:
@@ -63,7 +67,7 @@ services:
       - type: tmpfs
         target: /tmp
         tmpfs:
-          size: 10000000000  # 10GB for caches etc
+          size: 2000000000 # 2GB for runtime temp files (model execution)
       - type: bind
         source: runs
         target: /app/runs
@@ -73,6 +77,9 @@ services:
       - type: volume
         source: uv
         target: /data/uv
+      - type: volume
+        source: logs
+        target: /data/logs
   redis:
     image: valkey/valkey:8
 
@@ -93,23 +100,12 @@ services:
     expose:
       - "5432"
 
-  # chtorch model (which uses chapkit)
-#  chtorch:
-#    #image: ghcr.io/dhis2-chap/chtorch:chapkit2-1aa43a0
-#    image: ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3
-#    ports:
-#      - "5001:8000"
-#    restart: unless-stopped
-
-  # ewars plus (uncomment to add ewars plus)
-#  ewars_plus:
-#    image: maquins/ewars_plus_api:Upload
-#    container_name: ewars_plus
-#    ports:
-#      - "3288:3288"
+  # Optional services (chtorch, ewars_plus) can be enabled using a Docker Compose overlay.
+  # See compose.override.yml.example for how to enable these services.
 
 volumes:
   chap-db: {}
+  logs: {}
   renv: {}
   uv: {}
   runs:

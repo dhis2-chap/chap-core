@@ -35,7 +35,7 @@ class TestEvaluationBase:
     def test_evaluation_base_is_abstract(self):
         """Test that EvaluationBase cannot be instantiated directly."""
         with pytest.raises(TypeError):
-            EvaluationBase()
+            EvaluationBase()  # type: ignore[abstract]
 
     def test_evaluation_base_requires_abstract_methods(self):
         """Test that EvaluationBase subclasses must implement abstract methods."""
@@ -45,7 +45,7 @@ class TestEvaluationBase:
             pass
 
         with pytest.raises(TypeError):
-            IncompleteEvaluation()
+            IncompleteEvaluation()  # type: ignore[abstract]
 
 
 class TestEvaluation:

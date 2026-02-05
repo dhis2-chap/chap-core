@@ -1,41 +1,35 @@
+import logging
 from collections import defaultdict
-from typing import Protocol, TypeVar, Iterable, Dict
-from gluonts.model import SampleForecast
-from gluonts.evaluation import Evaluator
-from gluonts.model import Forecast
-from matplotlib import pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
+from typing import Dict, Iterable, Protocol, TypeVar
+
 import numpy as np
 import pandas as pd
+from gluonts.evaluation import Evaluator
+from gluonts.model import Forecast, SampleForecast
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 from chap_core import get_temp_dir
 from chap_core.assessment.dataset_splitting import (
     train_test_generator,
 )
 from chap_core.data.gluonts_adaptor.dataset import ForecastAdaptor
-from chap_core.datatypes import TimeSeriesData, Samples, SamplesWithTruth
-import logging
-
+from chap_core.datatypes import Samples, SamplesWithTruth, TimeSeriesData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
-
 
 plt.set_loglevel(level="warning")
 logger = logging.getLogger(__name__)
 
 
-FetureType = TypeVar("FeatureType", bound=TimeSeriesData)
-
-
-def without_disease(t):
-    return t
+FeatureType = TypeVar("FeatureType", bound=TimeSeriesData)
 
 
 class Predictor(Protocol):
     def predict(
         self,
-        historic_data: DataSet[FetureType],
-        future_data: DataSet[without_disease(FetureType)],
+        historic_data: DataSet[FeatureType],
+        future_data: DataSet[TimeSeriesData],
     ) -> Samples: ...
 
 
@@ -52,7 +46,7 @@ def backtest(
     predictor = estimator.train(train)
     for historic_data, future_data, future_truth in test_generator:
         r = predictor.predict(historic_data, future_data)
-        samples_with_truth = future_truth.merge(r, result_dataclass=SamplesWithTruth)
+        samples_with_truth = future_truth.merge(r, result_dataclass=SamplesWithTruth)  # type: ignore[arg-type]
         yield samples_with_truth
 
 
@@ -124,8 +118,7 @@ def create_multiloc_timeseries(truth_data):
 
     multi_location_disease_time_series = MultiLocationDiseaseTimeSeries()
     for location, df in truth_data.items():
-        from chap_core.assessment.representations import DiseaseTimeSeries
-        from chap_core.assessment.representations import DiseaseObservation
+        from chap_core.assessment.representations import DiseaseObservation, DiseaseTimeSeries
 
         disease_time_series = DiseaseTimeSeries(
             observations=[
@@ -159,7 +152,7 @@ def _get_forecast_generators(
     forecast_list = []
     for historic_data, future_data, _ in test_generator:
         forecasts = predictor.predict(historic_data, future_data)
-        for location, samples in forecasts.items():
+        for location, samples in forecasts.items():  # type: ignore[attr-defined]
             forecast = ForecastAdaptor.from_samples(samples)
             t = truth_data[location]
             tss.append(t)
@@ -176,7 +169,7 @@ def _get_forecast_dict(predictor: Predictor, test_generator) -> dict[str, list[S
             f"Future data must have at least one period {historic_data.period_range}, {future_data.period_range}"
         )
         forecasts = predictor.predict(historic_data, future_data)
-        for location, samples in forecasts.items():
+        for location, samples in forecasts.items():  # type: ignore[attr-defined]
             forecast_dict[location].append(ForecastAdaptor.from_samples(samples))
     return forecast_dict
 
@@ -259,7 +252,7 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
 
     # Build observations dict from test period observations
     observations = backtest.dataset.observations
-    obs_by_location = defaultdict(dict)
+    obs_by_location: defaultdict[str, dict[str, float]] = defaultdict(dict)
     for obs in observations:
         if obs.feature_name == "disease_cases" and obs.value is not None:
             obs_by_location[obs.org_unit][obs.period] = obs.value
@@ -274,7 +267,9 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
             if value is not None and not np.isnan(value):
                 obs_by_location[location][period] = value
 
-    forecasts_by_loc_split = defaultdict(lambda: defaultdict(list))
+    forecasts_by_loc_split: defaultdict[tuple[str, str], defaultdict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     for fc in backtest.forecasts:
         key = (fc.org_unit, fc.last_seen_period)
         forecasts_by_loc_split[key][fc.period] = fc.values
@@ -296,7 +291,7 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
             samples_matrix = np.array([period_forecasts[p] for p in sorted_periods])
 
             forecast = ForecastAdaptor.from_samples(
-                Samples(
+                Samples(  # type: ignore[call-arg]
                     samples=samples_matrix,
                     time_period=PeriodRange.from_strings(sorted_periods),
                 )

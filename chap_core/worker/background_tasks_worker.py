@@ -3,9 +3,9 @@ from typing import Generic
 
 from fastapi import BackgroundTasks
 
-from .interface import ReturnType
-from ..internal_state import InternalState, Control
+from ..internal_state import Control, InternalState
 from ..training_control import TrainingControl
+from .interface import ReturnType
 
 
 class BGTaskJob(Generic[ReturnType]):

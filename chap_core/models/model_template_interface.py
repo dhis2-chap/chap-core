@@ -1,6 +1,5 @@
 import abc
 
-
 from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
 from chap_core.models.configured_model import ModelConfiguration
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -23,8 +22,7 @@ class ConfiguredModel(abc.ABC):
 
 class ModelTemplateInterface(abc.ABC):
     @abc.abstractmethod
-    def get_schema(self) -> ModelTemplateInformation:
-        return self.model_template_info
+    def get_schema(self) -> ModelTemplateInformation: ...
 
     @abc.abstractmethod
     def get_model(self, model_configuration: ModelConfiguration | None = None) -> "ConfiguredModel":

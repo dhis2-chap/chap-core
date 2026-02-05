@@ -4,12 +4,12 @@ Metrics for measuring forecast bias (samples above truth).
 
 import numpy as np
 
+from chap_core.assessment.metrics import metric
 from chap_core.assessment.metrics.base import (
     AggregationOp,
-    ProbabilisticMetric,
     MetricSpec,
+    ProbabilisticMetric,
 )
-from chap_core.assessment.metrics import metric
 
 
 @metric()
@@ -37,5 +37,5 @@ class RatioAboveTruthMetric(ProbabilisticMetric):
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
         """Compute ratio of samples above the observation."""
-        above_count = np.sum(samples > observed)
+        above_count: int = int(np.sum(samples > observed))
         return float(above_count / len(samples))

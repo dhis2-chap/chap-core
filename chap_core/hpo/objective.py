@@ -1,12 +1,11 @@
+import logging
 from typing import Literal, Optional
 
-from chap_core.models.model_template import ModelTemplate
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.assessment.prediction_evaluator import evaluate_model
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.exceptions import NoPredictionsError
 from chap_core.file_io.example_data_set import DataSetType
-
-import logging
+from chap_core.models.model_template import ModelTemplate
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -39,18 +38,18 @@ class Objective:
         model_config = ModelConfiguration.model_validate(model_configs)
         logger.info("Validated model configuration")
 
-        model = self.model_template.get_model(model_config)
+        model = self.model_template.get_model(model_config)  # type: ignore[arg-type]
         model = model()
         try:
             # evaluate_model should handle CV/nested CV and return mean results
             # stratified fold/splits
             results = evaluate_model(
                 model,
-                dataset,
+                dataset,  # type: ignore[arg-type]
                 prediction_length=self.prediction_length,
                 n_test_sets=self.n_splits,
             )
         except NoPredictionsError as e:
             logger.error(f"No predictions were made: {e}")
-            return  # maybe return float("inf") here?
-        return results[0][self.metric]
+            return float("inf")
+        return float(results[0][self.metric])

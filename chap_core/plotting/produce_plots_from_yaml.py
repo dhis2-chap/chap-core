@@ -1,20 +1,22 @@
 # --- dependencies you already use ---
-import altair as alt
-import pandas as pd
-import numpy as np
 import textwrap
-import yaml
 from collections.abc import Mapping
 from datetime import datetime
-from chap_core.assessment.metrics import available_metrics
+
+import altair as alt
+import numpy as np
+import pandas as pd
+import yaml
+
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metrics import available_metrics
 from chap_core.plotting.evaluation_plot import (
+    MetricByHorizonAndLocationMean,
     MetricByHorizonV2Mean,
     MetricByHorizonV2Sum,
-    MetricByHorizonAndLocationMean,
+    MetricByTimePeriodAndLocationV2Mean,
     MetricByTimePeriodV2Mean,
     MetricByTimePeriodV2Sum,
-    MetricByTimePeriodAndLocationV2Mean,
     MetricMapV2,
 )
 
@@ -90,7 +92,7 @@ def _build_plot_component(backtest, comp: dict, context: dict):
         fcst = context.get("flat_forecasts")
 
         metric = metric_cls()
-        metric_df = metric.get_metric(obs, fcst)
+        metric_df = metric.get_metric(obs, fcst)  # type: ignore[arg-type]
 
         print("=== METRIC:", metric_name, "PLOT_TYPE:", plot_type, "===")
         print(metric_df.head())
@@ -103,7 +105,7 @@ def _build_plot_component(backtest, comp: dict, context: dict):
                 f"Unknown plot_type '{plot_type}' for metric '{metric_name}'.",
                 line_length=60,
             )
-        plotter = plot_class(metric_df)
+        plotter = plot_class(metric_df)  # type: ignore[abstract]
         return plotter.plot()
 
     return text_chart(f"Unknown plot kind: {type}", line_length=60)

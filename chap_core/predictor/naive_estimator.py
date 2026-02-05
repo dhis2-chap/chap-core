@@ -1,10 +1,11 @@
-import numpy as np
-import json
 import dataclasses
+import json
+
+import numpy as np
 
 from chap_core import get_temp_dir
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.datatypes import Samples
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 @dataclasses.dataclass
@@ -26,7 +27,7 @@ class NaivePredictor:
                         self.mean_dict[location] if not np.isnan(self.mean_dict[location]) else 0,
                         len(future_data[location]) * num_samples,
                     ).reshape(-1, num_samples),
-                )
+                )  # type: ignore[call-arg]
                 for location in future_data.keys()
             }
         )

@@ -1,14 +1,14 @@
 import logging
-from typing import Literal, Optional, Any, Tuple
+from typing import Any, Literal, Optional, cast
 
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.file_io.example_data_set import DataSetType
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
+from .base import write_yaml
 from .hpoModelInterface import HpoModelInterface
 from .objective import Objective
 from .searcher import Searcher
-from .base import write_yaml
 
 Direction = Literal["maximize", "minimize"]
 
@@ -32,11 +32,11 @@ class HpoModel(HpoModelInterface):
         self._objective = objective
         self._direction = direction
         self.base_configs = model_configuration
-        self._best_config: dict[str, dict[str, Any]] = None
+        self._best_config: dict[str, dict[str, Any]] | None = None
         self._leaderboard: list[dict[str, Any]] = []
-        self._predictor = None
+        self._predictor: Any = None
 
-    def train(self, dataset: Optional[DataSetType]) -> Tuple[str, dict[str, Any]]:
+    def train(self, dataset: Optional[DataSetType]) -> Any:  # type: ignore[override]
         """
         Calls get_leaderboard to find the optimal configuration.
         Then trains the tuned model on the whole input dataset (train + validation).
@@ -53,12 +53,13 @@ class HpoModel(HpoModelInterface):
             logger.info(f"Validated best model configuration: {config}")
         else:
             raise ValueError("No best configuration found. Have you run get_leaderboard()?")
-        estimator = template.get_model(config)
+        estimator = template.get_model(config)  # type: ignore[arg-type]
         self._predictor = estimator.train(dataset)
         return self._predictor
 
-    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
-        return self._predictor.predict(historic_data, future_data)
+    def predict(self, historic_data: DataSet[Any], future_data: DataSet[Any]) -> DataSet[Any]:
+        assert self._predictor is not None, "Model not trained yet"
+        return cast(DataSet[Any], self._predictor.predict(historic_data, future_data))
 
     def get_leaderboard(self, dataset: Optional[DataSetType]) -> list[dict[str, Any]]:
         """

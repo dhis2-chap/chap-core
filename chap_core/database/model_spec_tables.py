@@ -1,13 +1,13 @@
 import logging
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy import JSON, Column
+from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import DBModel
 from chap_core.database.feature_tables import FeatureType, ModelFeatureLink
 from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
 from chap_core.model_spec import PeriodType
-from sqlmodel import Field, Relationship
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class ModelSpec(ModelSpecBase, table=True):
 def get_available_models_from_config_dir(config_dir: str, base_covariates) -> List[ModelSpec]:
     #  Reads from config dir, creates ModelSpec objects by reading from github_urls,
     # and returns a list of ModelSpec objects by calling ModelSpec.from_model_spec_read()
-    pass
+    raise NotImplementedError()
 
 
 # todo: check if can be removed

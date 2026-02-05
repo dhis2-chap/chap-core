@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+
 import pandas as pd
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -9,7 +10,7 @@ from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.geometry import Polygons
 from chap_core.models.configured_model import ConfiguredModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-from chap_core.time_period.date_util_wrapper import TimePeriod, Month
+from chap_core.time_period.date_util_wrapper import Month, TimePeriod
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +57,11 @@ class ExternalModelBase(ConfiguredModel):
     A base class for external models that provides some utility methods"""
 
     def _adapt_data(self, data: pd.DataFrame, inverse=False, frequency="ME"):
-        if self._location_mapping is not None:
-            data["location"] = data["location"].apply(self._location_mapping.name_to_index)
-        if self._adapters is None:
+        if self._location_mapping is not None:  # type: ignore[attr-defined]
+            data["location"] = data["location"].apply(self._location_mapping.name_to_index)  # type: ignore[attr-defined]
+        if self._adapters is None:  # type: ignore[attr-defined]
             return data
-        adapters = self._adapters
+        adapters = self._adapters  # type: ignore[attr-defined]
         logger.info(f"Adapting data with columns {data.columns.tolist()} using adapters {adapters}")
         if inverse:
             adapters = {v: k for k, v in adapters.items()}
@@ -125,12 +126,12 @@ class ExternalModel(ExternalModelBase):
     def __init__(
         self,
         runner,
-        name: str = None,
+        name: str | None = None,
         adapters=None,
         working_dir=None,
         data_type=HealthData,
         configuration: ModelConfiguration | None = None,
-        model_information: ModelTemplateConfigV2 = None,
+        model_information: ModelTemplateConfigV2 | None = None,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
@@ -144,9 +145,9 @@ class ExternalModel(ExternalModelBase):
         self._model_file_name = "model"
         self._data_type = data_type
         self._name = name
-        self._polygons_file_name = None
-        self._configuration = (
-            configuration or {}
+        self._polygons_file_name: Path | None = None
+        self._configuration: dict[str, object] = (
+            configuration or {}  # type: ignore[assignment]
         )  # configuration passed from the user to the model, e.g. about covariates or parameters
         # self._config_filename = "model_config.yaml"
         self._model_information = model_information
@@ -160,16 +161,8 @@ class ExternalModel(ExternalModelBase):
         return self._configuration
 
     @property
-    def required_fields(self):
-        return self._required_fields
-
-    @property
     def model_information(self):
         return self._model_information
-
-    @property
-    def optional_fields(self):
-        return self._optional_fields
 
     def train(self, train_data: DataSet, extra_args=None):
         """
