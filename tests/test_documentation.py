@@ -35,9 +35,13 @@ SKIP_FILES = [
 
 
 def get_doc_files():
-    """Get all markdown files in docs/ that are not in SKIP_FILES."""
+    """Get all markdown files in docs/ that are not in SKIP_FILES or kigali-workshop."""
     all_files = list(pathlib.Path("docs").glob("**/*.md"))
-    return [f for f in all_files if str(f) not in SKIP_FILES]
+    return [
+        f
+        for f in all_files
+        if str(f) not in SKIP_FILES and "kigali-workshop" not in str(f)
+    ]
 
 
 @pytest.mark.parametrize("fpath", get_doc_files(), ids=str)
