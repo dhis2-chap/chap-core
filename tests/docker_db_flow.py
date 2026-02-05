@@ -259,11 +259,18 @@ class IntegrationTest:
         """Get logs for a job and verify they are returned correctly."""
         job_url = self._chap_url + f"/v1/jobs/{job_id}"
         try:
-            response = requests.get(job_url + "/logs")
-            assert response.status_code == 200, f"Failed to get logs: {response.status_code}"
-            logs = response.text
-            assert logs is not None, "Logs should not be None"
-            assert isinstance(logs, str), f"Logs should be a string, got {type(logs)}"
+            logs = None
+            for _ in range(10):
+                response = requests.get(job_url + "/logs")
+                assert response.status_code == 200, f"Failed to get logs: {response.status_code}"
+                logs = response.text
+                assert logs is not None, "Logs should not be None"
+                assert isinstance(logs, str), f"Logs should be a string, got {type(logs)}"
+                if logs:
+                    break
+                logger.info(f"Logs for job {job_id} are empty, retrying...")
+                time.sleep(1)
+            assert logs.strip().strip('"'), "Logs should contain actual content after 10 seconds of retries"
             return logs
         except Exception as e:
             logger.error(f"Failed to get logs for job {job_id}: {e}")
@@ -284,6 +291,7 @@ class IntegrationTest:
                 # Verify logs are available for successful jobs
                 logs = self.get_job_logs(job_id)
                 logger.info(f"Job {job_id} logs retrieved successfully ({len(logs)} chars)")
+                assert logs.strip().strip('"'), "Logs should contain actual content"
                 # Verify logs don't contain sensitive data (database credentials).
                 # Note: assert is appropriate here as this is test code, not production code.
                 assert "postgresql://" not in logs.lower() or "@" not in logs, (
