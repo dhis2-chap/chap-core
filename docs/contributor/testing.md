@@ -77,6 +77,47 @@ To see what is actually being run, you can see what is specified under `test-all
 - In the future, we should ideally use the pytest framework for this integration test
 
 
+## Integration tests for configured models
+
+The file `tests/docker_db_flow_configured_models.py` tests all configured (seeded) models by running backtest evaluations against the REST API. This requires the Docker Compose stack to be running.
+
+Start the stack:
+
+```console
+docker compose up --build -d
+```
+
+Run the test against all testable seeded models:
+
+```console
+uv run python tests/docker_db_flow_configured_models.py
+```
+
+Test a single model by name:
+
+```console
+uv run python tests/docker_db_flow_configured_models.py --model "torch-deep:medium"
+```
+
+Skip weekly models:
+
+```console
+uv run python tests/docker_db_flow_configured_models.py --monthly-only
+```
+
+By default the test uses `example_data/create-backtest-with-data.json` (1 location, 2 years). Some models need more data to avoid errors (e.g. sklearn GroupKFold needs at least 5 location groups, deep learning models need enough time periods for their context length). Use the extended dataset for these:
+
+```console
+uv run python tests/docker_db_flow_configured_models.py --data-file example_data/create-backtest-with-data-extended.json
+```
+
+The extended dataset (5 locations, 3 years) can be regenerated with:
+
+```console
+uv run scripts/generate_extended_test_data.py
+```
+
+
 ## Documentation testing
 
 We automatically test code blocks in our documentation to ensure examples stay up-to-date and work correctly. This uses [mktestdocs](https://github.com/koaning/mktestdocs) to extract and execute code blocks from markdown files.
