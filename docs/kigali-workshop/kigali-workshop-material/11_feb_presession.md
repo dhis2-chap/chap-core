@@ -38,6 +38,29 @@ If you have CHAP connected to a DHIS2 instance via the Modeling App, you can cre
 
 The downloaded CSV will already be in CHAP-compatible format.
 
+## Converting a Modeling App request to CSV and GeoJSON
+
+If you have a JSON request payload from the DHIS2 Modeling App (the `create-backtest-with-data` format), you can convert it directly to a CHAP-compatible CSV and GeoJSON file pair using `chap convert-request`:
+
+```bash
+chap convert-request example_data/create-backtest-with-data.json /tmp/chap_convert_doctest
+```
+
+This reads the JSON file and produces two files:
+
+- `/tmp/chap_convert_doctest.csv` -- a pivoted CSV with `time_period`, `location`, and feature columns
+- `/tmp/chap_convert_doctest.geojson` -- the region boundaries extracted from the request
+
+You can then validate the result:
+
+```bash
+chap validate --dataset-csv /tmp/chap_convert_doctest.csv
+```
+
+```bash
+rm -f /tmp/chap_convert_doctest.csv /tmp/chap_convert_doctest.geojson
+```
+
 ## Transforming data from other sources
 
 If your data comes from a source other than DHIS2, you need to make sure it matches the CHAP format.
