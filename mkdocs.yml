@@ -87,6 +87,7 @@ nav:
           - Evaluating Models: external_models/running_models_in_chap.md
       - Integration:
           - Chapkit: external_models/chapkit.md
+          - Data Formats: external_models/data_formats.md
           - DHIS2 Connection: external_models/chap-dhis2-connection.md
           - Supporting Functionality: external_models/supporting_functionality.md
           - Evaluation Examples: external_models/chap_evaluate_examples.md
