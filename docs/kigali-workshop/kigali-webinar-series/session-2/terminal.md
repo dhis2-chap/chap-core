@@ -69,7 +69,7 @@ If you don't have Homebrew installed, install it by running:
 
 Run:
 
-```bash
+```console
 brew --version
 ```
 

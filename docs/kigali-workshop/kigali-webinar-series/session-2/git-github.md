@@ -73,7 +73,7 @@ Git is a **command-line tool** that works with GitHub. While GitHub is the websi
 <details markdown="1">
 <summary>Show command</summary>
 
-```bash
+```console
 brew install git
 ```
 
@@ -84,7 +84,7 @@ brew install git
 <details markdown="1">
 <summary>Show command</summary>
 
-```bash
+```console
 sudo apt update
 sudo apt install git
 ```
@@ -111,7 +111,7 @@ macOS:
 <details markdown="1">
 <summary>Show command</summary>
 
-```bash
+```console
 brew install gh
 ```
 
@@ -122,7 +122,7 @@ Linux (Ubuntu/Debian) / WSL:
 <details markdown="1">
 <summary>Show command</summary>
 
-```bash
+```console
 (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
 && sudo mkdir -p -m 755 /etc/apt/keyrings \
 && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
@@ -267,7 +267,7 @@ macOS:
 <details markdown="1">
 <summary>Show command</summary>
 
-```bash
+```console
 brew install gh
 ```
 
@@ -278,7 +278,7 @@ Linux (Ubuntu/Debian) / WSL:
 <details markdown="1">
 <summary>Show command</summary>
 
-```bash
+```console
 (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
 && sudo mkdir -p -m 755 /etc/apt/keyrings \
 && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \

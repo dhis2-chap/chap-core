@@ -35,13 +35,13 @@ You should choose one based on your preferred programming language (either R or 
 Clone the repository to your local machine. Replace `YOUR-USERNAME` with your GitHub username:
 
 **Python:**
-```bash
+```console
 git clone https://github.com/YOUR-USERNAME/minimalist_example_uv.git
 cd minimalist_example_uv
 ```
 
 **R:**
-```bash
+```console
 git clone https://github.com/YOUR-USERNAME/minimalist_example_r.git
 cd minimalist_example_r
 ```
