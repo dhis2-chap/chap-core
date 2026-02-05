@@ -31,13 +31,15 @@ SKIP_FILES = [
     # Slow bash tests moved to test_documentation_slow.py
     "docs/feature_tutorials/extended_predictor.md",
     "docs/chap-cli/evaluation-workflow.md",
+    # Workshop tutorials (instructional content, not testable code)
+    "docs/kigali-workshop",
 ]
 
 
 def get_doc_files():
     """Get all markdown files in docs/ that are not in SKIP_FILES."""
     all_files = list(pathlib.Path("docs").glob("**/*.md"))
-    return [f for f in all_files if str(f) not in SKIP_FILES]
+    return [f for f in all_files if not any(str(f).startswith(skip) for skip in SKIP_FILES)]
 
 
 @pytest.mark.parametrize("fpath", get_doc_files(), ids=str)
