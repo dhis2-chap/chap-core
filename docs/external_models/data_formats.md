@@ -132,8 +132,8 @@ chap validate \
 
 If your CSV uses non-standard column names, supply a mapping file with `--data-source-mapping`:
 
-```console
-chap validate --dataset-csv ./my_data.csv \
-    --model-name https://github.com/dhis2-chap/minimalist_example_r \
-    --data-source-mapping ./column_mapping.json
+```bash
+chap validate \
+    --dataset-csv example_data/faulty_datasets/custom_column_names.csv \
+    --data-source-mapping example_data/faulty_datasets/custom_column_names_mapping.json
 ```
