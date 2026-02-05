@@ -32,6 +32,7 @@ SKIP_FILES = [
     "docs/feature_tutorials/extended_predictor.md",
     "docs/chap-cli/evaluation-workflow.md",
     # Workshop tutorials (instructional content, not testable code)
+    # Note: 11_feb_presession.md is tested in test_documentation_slow.py
     "docs/kigali-workshop",
 ]
 
