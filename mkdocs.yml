@@ -120,34 +120,32 @@ nav:
           - Service Registration: webapi/service-registration.md
       - API Reference: api/index.md
       - Changelog: changelog.md
-  - Kigali Workshop:
-      - Overview: kigali-workshop/index.md
-      - Modeling Webinar Series:
-          - "Overview": kigali-workshop/kigali-webinar-series/index.md
-          - "Session 1": kigali-workshop/kigali-webinar-series/session-1/index.md
-          - "Session 2":
-              - kigali-workshop/kigali-webinar-series/session-2/index.md
-              - kigali-workshop/kigali-webinar-series/session-2/terminal.md
-              - kigali-workshop/kigali-webinar-series/session-2/git-github.md
-              - kigali-workshop/kigali-webinar-series/session-2/virtual-environments.md
-              - kigali-workshop/kigali-webinar-series/session-2/homework.md
-          - "Session 3":
-              - kigali-workshop/kigali-webinar-series/session-3/index.md
-              - kigali-workshop/kigali-webinar-series/session-3/install-chap.md
-              - kigali-workshop/kigali-webinar-series/session-3/fork-example.md
-              - kigali-workshop/kigali-webinar-series/session-3/homework.md
-          - "Session 4": kigali-workshop/kigali-webinar-series/session-4/index.md
-          - "Session 5": kigali-workshop/kigali-webinar-series/session-5/index.md
-          - "Session 6": kigali-workshop/kigali-webinar-series/session-6/index.md
-      - Kigali Workshop Material:
-          - Overview: kigali-workshop-material/index.md
-          - Monday Morning 23 Feb: kigali-workshop-material/monday-morning.md
-          - Monday Afternoon 23 Feb: kigali-workshop-material/monday-afternoon.md
-          - Tuesday Morning 24 Feb: kigali-workshop-material/tuesday-morning.md
-          - Tuesday Afternoon 24 Feb: kigali-workshop-material/tuesday-afternoon.md
-          - Wednesday Morning 25 Feb: kigali-workshop-material/wednesday-morning.md
-          - Wednesday Afternoon 25 Feb: kigali-workshop-material/wednesday-afternoon.md
-          - Thursday Morning 26 Feb: kigali-workshop-material/thursday-morning.md
-          - Thursday Afternoon 26 Feb: kigali-workshop-material/thursday-afternoon.md
-          - Friday Morning 27 Feb: kigali-workshop-material/friday-morning.md
-          - Friday Afternoon 27 Feb: kigali-workshop-material/friday-afternoon.md
+  - Modeling Webinar Series:
+      - "Overview": kigali-workshop/kigali-webinar-series/index.md
+      - "Session 1": kigali-workshop/kigali-webinar-series/session-1/index.md
+      - "Session 2":
+          - kigali-workshop/kigali-webinar-series/session-2/index.md
+          - kigali-workshop/kigali-webinar-series/session-2/terminal.md
+          - kigali-workshop/kigali-webinar-series/session-2/git-github.md
+          - kigali-workshop/kigali-webinar-series/session-2/virtual-environments.md
+          - kigali-workshop/kigali-webinar-series/session-2/homework.md
+      - "Session 3":
+          - kigali-workshop/kigali-webinar-series/session-3/index.md
+          - kigali-workshop/kigali-webinar-series/session-3/install-chap.md
+          - kigali-workshop/kigali-webinar-series/session-3/fork-example.md
+          - kigali-workshop/kigali-webinar-series/session-3/homework.md
+      - "Session 4": kigali-workshop/kigali-webinar-series/session-4/index.md
+      - "Session 5": kigali-workshop/kigali-webinar-series/session-5/index.md
+      - "Session 6": kigali-workshop/kigali-webinar-series/session-6/index.md
+  - Kigali Workshop Material:
+      - Overview: kigali-workshop-material/index.md
+      - Monday Morning 23 Feb: kigali-workshop-material/monday-morning.md
+      - Monday Afternoon 23 Feb: kigali-workshop-material/monday-afternoon.md
+      - Tuesday Morning 24 Feb: kigali-workshop-material/tuesday-morning.md
+      - Tuesday Afternoon 24 Feb: kigali-workshop-material/tuesday-afternoon.md
+      - Wednesday Morning 25 Feb: kigali-workshop-material/wednesday-morning.md
+      - Wednesday Afternoon 25 Feb: kigali-workshop-material/wednesday-afternoon.md
+      - Thursday Morning 26 Feb: kigali-workshop-material/thursday-morning.md
+      - Thursday Afternoon 26 Feb: kigali-workshop-material/thursday-afternoon.md
+      - Friday Morning 27 Feb: kigali-workshop-material/friday-morning.md
+      - Friday Afternoon 27 Feb: kigali-workshop-material/friday-afternoon.md
