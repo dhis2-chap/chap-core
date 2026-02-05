@@ -112,6 +112,7 @@ nav:
           - Database Migrations: contributor/database_migrations.md
           - Documentation: contributor/writing_building_documentation.md
           - Development Tools: contributor/development_tools.md
+          - Evaluation Pipeline: contributor/evaluation_pipeline.md
           - Evaluation Abstraction: contributor/evaluation_abstraction.md
           - Preference Learning: contributor/preference_learning.md
       - Web API:

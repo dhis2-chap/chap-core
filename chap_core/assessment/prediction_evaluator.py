@@ -1,3 +1,11 @@
+"""Model evaluation through backtesting.
+
+Provides functions for training a model and evaluating its predictions against
+held-out test data using expanding window cross-validation. The main entry
+points are ``backtest`` (yields per-split prediction results) and
+``evaluate_model`` (runs a full evaluation with GluonTS metrics).
+"""
+
 import logging
 from collections import defaultdict
 from typing import Dict, Iterable, Protocol, TypeVar
@@ -40,6 +48,33 @@ class Estimator(Protocol):
 def backtest(
     estimator: Estimator, data: DataSet, prediction_length, n_test_sets, stride=1, weather_provider=None
 ) -> Iterable[DataSet]:
+    """Train a model once and generate predictions for each test split.
+
+    Uses ``train_test_generator`` to create an expanding window split of the
+    data. The estimator is trained on the initial training set, then the
+    trained predictor generates forecasts for each successive test window.
+
+    Parameters
+    ----------
+    estimator
+        Model estimator with a ``train`` method.
+    data
+        Full dataset to split and evaluate on.
+    prediction_length
+        Number of periods to predict per test window.
+    n_test_sets
+        Number of expanding window test splits.
+    stride
+        Periods to advance between successive splits.
+    weather_provider
+        Optional future weather data provider.
+
+    Yields
+    ------
+    DataSet[SamplesWithTruth]
+        For each test split, a dataset mapping locations to
+        ``SamplesWithTruth`` (predicted samples merged with observed values).
+    """
     train, test_generator = train_test_generator(
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
