@@ -38,6 +38,29 @@ If you have CHAP connected to a DHIS2 instance via the Modeling App, you can cre
 
 The downloaded CSV will already be in CHAP-compatible format.
 
+## Converting a Modeling App request to CSV and GeoJSON
+
+If you have a JSON request payload from the DHIS2 Modeling App (the `create-backtest-with-data` format), you can convert it directly to a CHAP-compatible CSV and GeoJSON file pair using `chap convert-request`:
+
+```bash
+chap convert-request example_data/create-backtest-with-data.json /tmp/chap_convert_doctest
+```
+
+This reads the JSON file and produces two files:
+
+- `/tmp/chap_convert_doctest.csv` -- a pivoted CSV with `time_period`, `location`, and feature columns
+- `/tmp/chap_convert_doctest.geojson` -- the region boundaries extracted from the request
+
+You can then validate the result:
+
+```bash
+chap validate --dataset-csv /tmp/chap_convert_doctest.csv
+```
+
+```bash
+rm -f /tmp/chap_convert_doctest.csv /tmp/chap_convert_doctest.geojson
+```
+
 ## Transforming data from other sources
 
 If your data comes from a source other than DHIS2, you need to make sure it matches the CHAP format.
@@ -99,8 +122,8 @@ Use the `chap validate` command to check that your CSV is CHAP-compatible before
 
 ### Basic validation
 
-```console
-chap validate --dataset-csv my_data.csv
+```bash
+chap validate --dataset-csv example_data/laos_subset.csv
 ```
 
 This checks for:
@@ -113,10 +136,10 @@ This checks for:
 
 You can also validate that your dataset has the covariates a specific model requires:
 
-```console
+```bash
 chap validate \
-    --dataset-csv my_data.csv \
-    --model-name https://github.com/dhis2-chap/minimalist_example_r
+    --dataset-csv example_data/laos_subset.csv \
+    --model-name external_models/naive_python_model_uv
 ```
 
 This additionally checks that all required covariates for the model are present in the dataset, and that the time period type (weekly/monthly) matches what the model supports.
@@ -125,23 +148,16 @@ This additionally checks that all required covariates for the model are present 
 
 If your CSV uses different column names than what the model expects, provide a mapping file:
 
-```console
+```bash
 chap validate \
-    --dataset-csv my_data.csv \
-    --model-name https://github.com/dhis2-chap/minimalist_example_r \
-    --data-source-mapping mapping.json
+    --dataset-csv example_data/laos_subset_custom_columns.csv \
+    --data-source-mapping example_data/column_mapping.json
 ```
 
-Where `mapping.json` maps model covariate names to your CSV column names:
+Where `column_mapping.json` maps model covariate names to your CSV column names:
 
 ```json
 {"rainfall": "rain_mm", "mean_temperature": "temp_avg"}
-```
-
-### Example: validating the bundled dataset
-
-```bash
-chap validate --dataset-csv example_data/laos_subset.csv
 ```
 
 ## Running an evaluation
