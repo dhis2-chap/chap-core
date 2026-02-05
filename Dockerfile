@@ -34,7 +34,7 @@ HEALTHCHECK CMD curl --fail http://localhost:${PORT}/health || exit 1
 USER chap
 
 CMD [ \
-    "gunicorn", "-c", "gunicorn.conf.py", "-k", "uvicorn.workers.UvicornWorker", "chap_core.rest_api.app:app", \
+    "gunicorn", "-c", "gunicorn.conf.py", "-k", "uvicorn.workers.UvicornWorker", "chap_core.rest_api.v1.rest_api:app", \
       "--bind 0.0.0.0:${PORT}", \
       "--workers 1" \
   ]

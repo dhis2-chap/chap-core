@@ -1,0 +1,13 @@
+time_period,precipitation,temp_avg,disease_cases,population,location
+2010-01,37.965,20.04,1.0,75049.56,Bokeo
+2010-02,8.527,22.22,1.0,75049.56,Bokeo
+2010-03,23.591,24.59,2.0,75049.56,Bokeo
+2010-04,101.176,27.52,0.0,75049.56,Bokeo
+2010-05,106.366,27.23,1.0,75049.56,Bokeo
+2010-06,235.044,26.01,5.0,75049.56,Bokeo
+2010-01,99.579,22.4,110.0,558527.43,Vientiane[prefecture]
+2010-02,4.529,25.48,93.0,558527.43,Vientiane[prefecture]
+2010-03,4.093,27.4,68.0,558527.43,Vientiane[prefecture]
+2010-04,66.746,29.71,87.0,558527.43,Vientiane[prefecture]
+2010-05,252.105,28.47,116.0,558527.43,Vientiane[prefecture]
+2010-06,316.23,27.41,193.0,558527.43,Vientiane[prefecture]
