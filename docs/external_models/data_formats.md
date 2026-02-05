@@ -42,7 +42,23 @@ The `time_period` column uses:
 - `YYYY-MM` format for monthly data (e.g., `2023-01`)
 - `YYYY-Wnn` format for weekly data (e.g., `2023-W01`)
 
-All time periods in a dataset must use the same format (do not mix monthly and weekly).
+All time periods in a dataset must use the same frequency (do not mix monthly and weekly).
+
+### Missing values
+
+Different columns have different rules for missing (NaN) values:
+
+| Column | NaN allowed? | Notes |
+|--------|-------------|-------|
+| `time_period` | No | Every row must have a valid period |
+| `location` | No | Every row must have a location |
+| `disease_cases` | Yes | Surveillance data may have gaps; CHAP tolerates NaN in the target |
+| Covariates | No | Climate/environmental columns must be fully observed |
+| `population` | Yes | Missing values are forward-filled by interpolation when present |
+
+CHAP does not perform imputation on covariates. If your data pipeline produces NaN values in covariate columns, those must be resolved before passing the CSV to CHAP. Locations with missing covariate values will be rejected during dataset validation.
+
+Every `(location, time_period)` combination in the dataset must be present as a row. Missing rows are not allowed -- if a location covers 12 months, it must have all 12 rows. CHAP will raise an error if any location has fewer time periods than others.
 
 ### Requirement for Periods to be consecutive
 
