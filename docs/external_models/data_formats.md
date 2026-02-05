@@ -93,3 +93,47 @@ time_period,rainfall,mean_temperature,disease_cases,location
 2023-W01,12,28,45,loc1
 2023-W02,8,29,52,loc1
 ```
+
+### Validating your dataset
+
+Use the `chap validate` command to check that a CSV file meets all the requirements described above before running an evaluation.
+
+The command checks for:
+
+- Missing or NaN values in covariate columns
+- Consecutive time periods (no gaps)
+- Location completeness (every location covers the same time periods)
+
+The command exits with code 0 when no errors are found, or code 1 if any errors are detected.
+
+#### Validating a correct dataset
+
+```bash
+chap validate --dataset-csv example_data/laos_subset.csv
+```
+
+#### Detecting missing covariate values
+
+```bash
+chap validate --dataset-csv example_data/faulty_datasets/missing_covariate_values.csv || true
+```
+
+#### Validating against a model
+
+To also verify that the dataset has the covariates and period type required by a specific model, pass `--model-name`:
+
+```bash
+chap validate \
+    --dataset-csv example_data/laos_subset.csv \
+    --model-name external_models/naive_python_model_uv
+```
+
+#### Mapping custom column names
+
+If your CSV uses non-standard column names, supply a mapping file with `--data-source-mapping`:
+
+```console
+chap validate --dataset-csv ./my_data.csv \
+    --model-name https://github.com/dhis2-chap/minimalist_example_r \
+    --data-source-mapping ./column_mapping.json
+```
