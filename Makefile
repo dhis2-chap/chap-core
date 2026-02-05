@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose
+.PHONY: clean coverage dist docs docs-with-plots generate-doc-assets help install lint lint/flake8 test-chapkit-compose
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -26,6 +26,7 @@ clean: ## remove all build, test, coverage and Python artifacts
 	@rm -rf target/
 	@rm -rf site/
 	@rm -rf .cache
+	@rm -f comparison_doctest.csv comparison_specific_doctest.csv eval_doctest.nc plot_doctest.html metrics_doctest.csv
 
 lint: ## check and fix code style with ruff, run type checking
 	@echo "Linting code..."
@@ -76,9 +77,17 @@ coverage: ## run tests with coverage reporting
 	@uv run coverage xml
 	@echo "Coverage report: htmlcov/index.html"
 
+generate-doc-assets: ## generate plots for documentation (slow, runs model evaluation)
+	uv run pytest tests/test_documentation_slow.py::TestSlowDocumentationBash -v --run-slow
+	@mkdir -p docs/generated
+	@cp -f plot_doctest.html docs/generated/ 2>/dev/null || true
+	@rm -f comparison_doctest.csv comparison_specific_doctest.csv eval_doctest.nc plot_doctest.html metrics_doctest.csv
+
 docs: ## generate MkDocs HTML documentation
 	uv run mkdocs build
 	@echo "Docs: site/index.html"
+
+docs-with-plots: generate-doc-assets docs ## generate documentation with embedded plots
 
 dist: clean ## build source and wheel package
 	uv build

@@ -181,10 +181,6 @@ chap export-metrics \
     --output-file ./comparison_doctest.csv
 ```
 
-```bash
-rm -f ./comparison_doctest.csv
-```
-
 ### Output Format
 
 The CSV contains one row per evaluation with metadata and metric columns:
@@ -220,10 +216,6 @@ chap export-metrics \
     --metric-ids crps
 ```
 
-```bash
-rm -f ./comparison_specific_doctest.csv
-```
-
 ## Complete Example: Standard Models
 
 Here's a complete workflow using the included example dataset (`example_data/laos_subset.csv`) with a minimal model for fast testing:
@@ -245,16 +237,13 @@ chap plot-backtest \
     --output-file ./plot_doctest.html
 ```
 
+<iframe src="../generated/plot_doctest.html" width="100%" height="500px" frameborder="0"></iframe>
+
 ```bash
 # Step 3: Export metrics
 chap export-metrics \
     --input-files ./eval_doctest.nc \
     --output-file ./metrics_doctest.csv
-```
-
-```bash
-# Cleanup
-rm -f ./eval_doctest.nc ./plot_doctest.html ./metrics_doctest.csv
 ```
 
 The GeoJSON file `example_data/laos_subset.geojson` is automatically discovered since it has the same base name as the CSV.

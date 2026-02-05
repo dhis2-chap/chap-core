@@ -104,3 +104,46 @@ SKIP_FILES = [
 
 - `tests/test_documentation.py` - Fast documentation tests
 - `tests/test_documentation_slow.py` - Slow documentation tests (marked with `@pytest.mark.slow`)
+
+
+## Embedding CLI-generated plots
+
+Some documentation pages include bash blocks that generate plot files (e.g., `chap plot-backtest`). These plots can be embedded inline in the rendered docs so readers see the actual output of the shown commands.
+
+### How it works
+
+1. Bash blocks in documentation run via mktestdocs during slow tests, generating output files (e.g., `.html` plots) in the project root.
+2. `make generate-doc-assets` runs these tests and copies the generated plot files to `docs/generated/`.
+3. An `<iframe>` tag in the markdown references the copied file, and `mkdocs build` includes it in the site.
+
+The result is that the plot shown in the docs is the exact output of the CLI command displayed above it.
+
+### Adding a new embedded plot
+
+1. Add your `chap plot-backtest` bash block to the documentation as usual. The bash block will be tested by mktestdocs.
+
+2. After the bash block, add an iframe pointing to `docs/generated/`:
+
+    ```html
+    <iframe src="../generated/my_plot.html" width="100%" height="500px" frameborder="0"></iframe>
+    ```
+
+    Adjust the `src` path relative to the markdown file's location in `docs/`.
+
+3. Update the `generate-doc-assets` target in the `Makefile` to copy the new file:
+
+    ```makefile
+    @cp -f my_plot.html docs/generated/ 2>/dev/null || true
+    ```
+
+4. Add the filename to the cleanup line in both the `generate-doc-assets` and `clean` targets.
+
+### Building docs with plots
+
+```console
+# Build docs without plots (fast)
+make docs
+
+# Build docs with embedded plots (slow, runs model evaluation)
+make docs-with-plots
+```
