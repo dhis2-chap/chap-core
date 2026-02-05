@@ -122,8 +122,8 @@ Use the `chap validate` command to check that your CSV is CHAP-compatible before
 
 ### Basic validation
 
-```console
-chap validate --dataset-csv my_data.csv
+```bash
+chap validate --dataset-csv example_data/laos_subset.csv
 ```
 
 This checks for:
@@ -136,10 +136,10 @@ This checks for:
 
 You can also validate that your dataset has the covariates a specific model requires:
 
-```console
+```bash
 chap validate \
-    --dataset-csv my_data.csv \
-    --model-name https://github.com/dhis2-chap/minimalist_example_r
+    --dataset-csv example_data/laos_subset.csv \
+    --model-name external_models/naive_python_model_uv
 ```
 
 This additionally checks that all required covariates for the model are present in the dataset, and that the time period type (weekly/monthly) matches what the model supports.
@@ -148,23 +148,16 @@ This additionally checks that all required covariates for the model are present 
 
 If your CSV uses different column names than what the model expects, provide a mapping file:
 
-```console
+```bash
 chap validate \
-    --dataset-csv my_data.csv \
-    --model-name https://github.com/dhis2-chap/minimalist_example_r \
-    --data-source-mapping mapping.json
+    --dataset-csv example_data/laos_subset_custom_columns.csv \
+    --data-source-mapping example_data/column_mapping.json
 ```
 
-Where `mapping.json` maps model covariate names to your CSV column names:
+Where `column_mapping.json` maps model covariate names to your CSV column names:
 
 ```json
 {"rainfall": "rain_mm", "mean_temperature": "temp_avg"}
-```
-
-### Example: validating the bundled dataset
-
-```bash
-chap validate --dataset-csv example_data/laos_subset.csv
 ```
 
 ## Running an evaluation
