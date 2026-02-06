@@ -31,7 +31,7 @@ class FeatureModel(_FeatureModel):
         PolygonModel,
         MultiPolygonModel,
         None
-    ]
+    ] = None
 
 
 class FeatureCollectionModel(_FeatureCollectionModel):
