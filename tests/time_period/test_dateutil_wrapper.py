@@ -212,6 +212,11 @@ def test_weekly_to_pandas(weekly_period_range):
     assert all(pr == weekly_period_range)
 
 
+def test_period_range_str(period_range):
+    result = str(period_range)
+    assert result == f"PeriodRange({period_range[0]}..{period_range[-1]})"
+
+
 def test_period_range(period_range):
     assert len(period_range) == 14
 

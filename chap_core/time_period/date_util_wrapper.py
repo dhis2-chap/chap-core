@@ -709,6 +709,11 @@ class PeriodRange(BNPDataClass):
     def __repr__(self):
         return f"PeriodRange({self._start_timestamp}, {self._end_timestamp}, {self._time_delta})"
 
+    def __str__(self):
+        if len(self) == 0:
+            return "PeriodRange(empty)"
+        return f"PeriodRange({self[0]}..{self[-1]})"
+
     def searchsorted(self, period: TimePeriod, side="left"):
         """Find the index where the period would be inserted to maintain order"""
         if side not in ("left", "right"):
