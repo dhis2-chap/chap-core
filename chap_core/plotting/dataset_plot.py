@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import altair as alt
 import numpy as np
@@ -14,6 +15,9 @@ alt.data_transformers.enable("vegafusion")
 
 # alt.renderers.enable('notebook')
 
+# Global registry for dataset plots
+_dataset_plots_registry: dict[str, type["DatasetPlot"]] = {}
+
 
 def temperature_transform(x):
     """
@@ -28,6 +32,10 @@ def temperature_transform(x):
 
 
 class DatasetPlot(ABC):
+    id: str = ""
+    name: str = ""
+    description: str = ""
+
     def __init__(self, df: pd.DataFrame, geojson=None):
         self._df = df
         self._geojson = geojson
@@ -75,6 +83,51 @@ class DatasetPlot(ABC):
     def data(self): ...
 
 
+def dataset_plot(id: str, name: str, description: str = ""):
+    """Decorator to register a dataset plot class."""
+
+    def decorator(cls: type[DatasetPlot]) -> type[DatasetPlot]:
+        cls.id = id
+        cls.name = name
+        cls.description = description
+        _dataset_plots_registry[id] = cls
+        return cls
+
+    return decorator
+
+
+def get_dataset_plots_registry() -> dict[str, type[DatasetPlot]]:
+    """Get the registry of all registered dataset plots."""
+    return _dataset_plots_registry.copy()
+
+
+def get_dataset_plot(plot_id: str) -> Optional[type[DatasetPlot]]:
+    """Get a specific dataset plot class by ID."""
+    return _dataset_plots_registry.get(plot_id)
+
+
+def list_dataset_plots() -> list[dict]:
+    """List all registered dataset plots with their metadata."""
+    return [
+        {"id": cls.id, "name": cls.name, "description": cls.description} for cls in _dataset_plots_registry.values()
+    ]
+
+
+def create_plot_from_dataset(plot_id: str, dataset):
+    """Create a plot spec from a dataset model using the registry."""
+    plot_cls = get_dataset_plot(plot_id)
+    if plot_cls is None:
+        available = ", ".join(_dataset_plots_registry.keys())
+        raise ValueError(f"Unknown plot type: {plot_id}. Available: {available}")
+    plotter = plot_cls.from_dataset_model(dataset)
+    return plotter.plot_spec()
+
+
+@dataset_plot(
+    id="disease-cases-map",
+    name="Disease Cases Map",
+    description="Choropleth map showing mean disease cases or incidence rate by location.",
+)
 class DiseaseCasesMap(DatasetPlot):
     plot_variable: str = "disease_cases"
 
@@ -128,6 +181,11 @@ class DiseaseCasesMap(DatasetPlot):
         return chart
 
 
+@dataset_plot(
+    id="standardized-feature-plot",
+    name="Standardized Feature Plot",
+    description="Standardized features over time for different locations with interactive selection.",
+)
 class StandardizedFeaturePlot(DatasetPlot):
     """
     This plot shows standardized(zero mean, unit variance) features over time for different locations.
@@ -250,3 +308,11 @@ def test_temperature_transform():
     )
     chart.save("temperature_transform.html")
     chart.save("temperature_transform.png")
+
+
+def _discover_plots():
+    """Import plot modules to trigger decorator registration."""
+    from chap_core.plotting import season_plot  # noqa: F401
+
+
+_discover_plots()
