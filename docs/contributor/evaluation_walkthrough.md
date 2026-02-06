@@ -14,7 +14,7 @@ For the conceptual overview and architecture diagrams, see
 A `DataSet` is the central data structure in CHAP. It maps location names to
 typed time-series arrays. Load one from CSV:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above"
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 dataset = DataSet.from_csv("example_data/laos_subset.csv")
@@ -22,7 +22,7 @@ dataset = DataSet.from_csv("example_data/laos_subset.csv")
 
 Inspect locations, time range, and available fields:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above" result="text"
 import dataclasses
 
 print(list(dataset.keys()))
@@ -43,7 +43,7 @@ The `train_test_generator` function implements expanding-window cross-validation
 It returns a training set and an iterator of `(historic, masked_future, future_truth)`
 tuples.
 
-```python
+```python exec="on" session="eval-walkthrough" source="above"
 from chap_core.assessment.dataset_splitting import train_test_generator
 
 train_set, splits = train_test_generator(
@@ -54,7 +54,7 @@ splits = list(splits)
 
 The training set covers the earliest portion of the data:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above" result="text"
 print(train_set.period_range)
 print(len(train_set.period_range))
 ```
@@ -65,7 +65,7 @@ Each split provides three datasets per location:
 - **masked_future_data** -- future covariates *without* `disease_cases`
 - **future_data** -- full future data including `disease_cases` (ground truth)
 
-```python
+```python exec="on" session="eval-walkthrough" source="above" result="text"
 for i, (historic, masked_future, future_truth) in enumerate(splits):
     print(
         f"Split {i}: historic periods={len(historic.period_range)}, "
@@ -78,7 +78,7 @@ for i, (historic, masked_future, future_truth) in enumerate(splits):
 The historic window expands by `stride` periods with each successive split, while
 the future window slides forward:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above" result="text"
 for i, (historic, masked_future, future_truth) in enumerate(splits):
     print(
         f"Split {i}: historic={len(historic.period_range)} periods, "
@@ -89,7 +89,7 @@ for i, (historic, masked_future, future_truth) in enumerate(splits):
 The masked future data has climate features but no `disease_cases`, which is
 exactly what a model receives at prediction time:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above" result="text"
 location = list(splits[0][1].keys())[0]
 masked_fields = [f.name for f in dataclasses.fields(splits[0][1][location])]
 print(masked_fields)
@@ -100,7 +100,7 @@ print(masked_fields)
 Train the `NaiveEstimator` (which predicts Poisson samples around each location's
 historical mean) and predict on one split:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above"
 from chap_core.predictor.naive_estimator import NaiveEstimator
 
 estimator = NaiveEstimator()
@@ -113,7 +113,7 @@ predictions = predictor.predict(historic, masked_future)
 The result is a `DataSet[Samples]` -- each location holds a 2D array of shape
 `(n_periods, n_samples)`:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above" result="text"
 location = list(predictions.keys())[0]
 print(predictions[location].samples.shape)
 ```
@@ -122,7 +122,7 @@ print(predictions[location].samples.shape)
 
 Merge predictions with ground truth using `DataSet.merge`:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above" result="text"
 from chap_core.datatypes import SamplesWithTruth
 import numpy as np
 
@@ -141,7 +141,7 @@ predicted `samples` array, enabling metric computation.
 The `backtest` function ties sections 2-5 together: it splits the data, trains
 the model once, predicts for each split, and merges with ground truth.
 
-```python
+```python exec="on" session="eval-walkthrough" source="above" result="text"
 from chap_core.assessment.prediction_evaluator import backtest
 
 results = list(backtest(estimator, dataset, prediction_length=3, n_test_sets=4, stride=1))
@@ -164,7 +164,7 @@ attributes with the model metadata needed by the evaluation:
 
 Run the evaluation:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above"
 from chap_core.api_types import BackTestParams
 from chap_core.assessment.evaluation import Evaluation
 
@@ -174,23 +174,20 @@ evaluation = Evaluation.create(estimator.configured_model_db, estimator, dataset
 
 Export to flat DataFrames for inspection:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above"
 import pandas as pd
 
 flat = evaluation.to_flat()
 
 forecasts_df = pd.DataFrame(flat.forecasts)
-print(forecasts_df.columns.tolist())
-print(forecasts_df.shape)
-
 observations_df = pd.DataFrame(flat.observations)
-print(observations_df.columns.tolist())
-print(observations_df.shape)
+
+print(forecasts_df.head().to_markdown())
 ```
 
 Export to a NetCDF file for sharing or later analysis:
 
-```python
+```python exec="on" session="eval-walkthrough" source="above" result="text"
 import tempfile
 
 with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:

@@ -87,6 +87,8 @@ make test-docs-all
 
 4. **Avoid inline test data**: Use existing fixtures from `conftest.py` files when possible rather than creating new test data inline.
 
+5. **Render code output with markdown-exec**: To show code output in the built docs, add `exec="on" session="<name>" source="above"` to a Python code block. Blocks sharing the same `session` share state (imports, variables), similar to mktestdocs `memory=True`. Use `result="text"` for plain-text output (wraps in a code block), or omit it when the block prints markdown (e.g. `to_markdown()` tables) so it renders natively. Note: mktestdocs skips `exec="on"` blocks since the language tag is no longer plain `python`.
+
 ### Skipping files from testing
 
 Some documentation files cannot be tested (e.g., they require Docker, external services, or would run destructive commands). To skip a file, add it to `SKIP_FILES` in `tests/test_documentation.py` with a comment explaining why:
