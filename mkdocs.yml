@@ -32,6 +32,7 @@ theme:
 
 plugins:
   - search
+  - markdown-exec
   - mkdocstrings:
       handlers:
         python:
