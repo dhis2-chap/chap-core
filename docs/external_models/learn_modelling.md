@@ -14,12 +14,12 @@ If you are already experienced in spatiotemporal modelling, and just want to int
 
 - Programming: you must know some programming, in either Python or R, to be able to follow our exercises and tutorials. 
 - Data science: You should know basic data science and statistics or machine learning. However, very little is presumed as it can be learnt underway, but one should know the most basic concepts and terminology.
-- GitHub: Central to our approach is that you follow various practical tutorials along the way. These tutorials are available at GitHub, so you need to know at least the absolute basics of how to get code from GitHub to your local machine - if not please ask us for tips on Github tutorials.
+- GitHub: Central to our approach is that you follow various practical tutorials along the way. These tutorials are available on GitHub, so you need to know the basics of how to get code from GitHub to your local machine. To get started with GitHub, follow our tutorial [here](../kigali-workshop/kigali-webinar-series/session-2/git-github.md)
 
 # Background
 Climate change is rapidly reshaping the patterns and spread of disease, posing urgent challenges for health systems. To effectively respond, the health systems must become more adaptive and data-driven. Early warning and response systems (EWS) that leverage disease incidence forecasting offer a promising way to prioritize interventions where and when they are most needed.
 
-At the core of early warning is forecasting of disease incidence forward in time. This is based on learning a statistical/machine learning model of how disease progresses ahead in time based on various available data. 
+At the core of early warning is forecasting of disease incidence forward in time. This is based on training a statistical/machine learning model of how disease progresses ahead in time based on various available data.
 
 If you have limited prior experience with statistics or machine learning, please read our brief intro in the expandable box below:
 
@@ -150,7 +150,7 @@ Disease forecasting is a type of problem within what is known as spatiotemporal 
 Before going into the many challenges of spatiotemporal modelling, we recommend that you get the technical setup in place to allow efficient development and learning for the remainder of this tutorial. Although this can be a bit of a technical nuisance just now, it allows you to run your model on a variety of data inputs with rich evaluation now already, and it allows you to progress efficiently with very few technical wrinkles as the statistical and ML aspects become more advanced. To do this, please follow our minimalist example tutorial, which introduces an extremely oversimplified statistical model (linear regression of immediate climate effects on disease only), but shows you how to get this running in Chap. 
 This minimalist tutorial is available both as Python and as R code:
 
-- [Minimalist Example (Python)](https://github.com/dhis2-chap/minimalist_example) 
+- [Minimalist Example (Python)](https://github.com/dhis2-chap/minimalist_example_uv)
 - [Minimalist Example (R)](https://github.com/dhis2-chap/minimalist_example_r) 
 
 
