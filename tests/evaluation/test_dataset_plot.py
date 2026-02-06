@@ -1,7 +1,14 @@
 import pytest
 import altair as alt
 
-from chap_core.plotting.dataset_plot import StandardizedFeaturePlot, DiseaseCasesMap
+from chap_core.plotting.dataset_plot import (
+    DatasetPlot,
+    DiseaseCasesMap,
+    StandardizedFeaturePlot,
+    create_plot_from_dataset,
+    get_dataset_plots_registry,
+    list_dataset_plots,
+)
 from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 
 
@@ -17,6 +24,29 @@ def default_transformer():
 def test_standardized_feautre_plot(simulated_dataset, plt_cls, default_transformer):
     plotter = plt_cls.from_dataset_model(simulated_dataset)
     chart = plotter.plot()
+
+
+def test_dataset_plot_registry():
+    registry = get_dataset_plots_registry()
+    expected_ids = {"disease-cases-map", "standardized-feature-plot", "seasonal-correlation-plot"}
+    assert expected_ids.issubset(registry.keys())
+    for cls in registry.values():
+        assert issubclass(cls, DatasetPlot)
+
+
+def test_list_dataset_plots():
+    plots = list_dataset_plots()
+    assert len(plots) >= 3
+    for plot in plots:
+        assert "id" in plot
+        assert "name" in plot
+        assert "description" in plot
+
+
+@pytest.mark.parametrize("plot_id", list(get_dataset_plots_registry().keys()))
+def test_create_plot_from_dataset(simulated_dataset, plot_id, default_transformer):
+    spec = create_plot_from_dataset(plot_id, simulated_dataset)
+    assert isinstance(spec, dict)
 
 
 @pytest.mark.skip(reason="Gives a lot of plots")

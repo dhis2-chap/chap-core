@@ -14,9 +14,9 @@ from chap_core.assessment.backtest_plots import (
 )
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
-from chap_core.database.database import SessionWrapper
+from chap_core.database.dataset_tables import DataSet
 from chap_core.database.tables import BackTest
-from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
+from chap_core.plotting.dataset_plot import create_plot_from_dataset, get_dataset_plots_registry, list_dataset_plots
 from chap_core.plotting.evaluation_plot import (
     MetricByHorizonV2Mean,
     MetricMapV2,
@@ -24,7 +24,6 @@ from chap_core.plotting.evaluation_plot import (
     VisualizationInfo,
     make_plot_from_backtest_object,
 )
-from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
 logger = logging.getLogger(__name__)
@@ -100,21 +99,32 @@ def generate_visualization(
     return JSONResponse(plot_spec)
 
 
+class DatasetPlotType(DBModel):
+    id: str
+    display_name: str
+    description: str = ""
+
+
+@router.get("/dataset-plots/", response_model=list[DatasetPlotType])
+def list_dataset_plot_types():
+    plots = list_dataset_plots()
+    return [
+        DatasetPlotType(id=plot["id"], display_name=plot["name"], description=plot["description"]) for plot in plots
+    ]
+
+
 @router.get("/dataset-plots/{visualization_name}/{dataset_id}")
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
-    plots: dict[str, type[StandardizedFeaturePlot] | type[SeasonCorrelationBarPlot]] = {
-        "standardized-feature-plot": StandardizedFeaturePlot,
-        "seasonal-correlation-plot": SeasonCorrelationBarPlot,
-    }
-    if visualization_name not in plots:
-        return {"error": f"Visualization {visualization_name} not found"}
+    registry = get_dataset_plots_registry()
+    if visualization_name not in registry:
+        available = ", ".join(registry.keys())
+        return {"error": f"Visualization {visualization_name} not found. Available: {available}"}
 
-    sw = SessionWrapper(session=session)
-    dataset = sw.get_dataset(dataset_id)
-    df = dataset.to_pandas()
-    plotter_cls = plots[visualization_name]
-    plotter = plotter_cls.from_pandas(df)
-    chart = plotter.plot_spec()
+    dataset = session.get(DataSet, dataset_id)
+    if not dataset:
+        return {"error": "Dataset not found"}
+
+    chart = create_plot_from_dataset(visualization_name, dataset)
     return JSONResponse(chart)
 
 

@@ -2,7 +2,7 @@ import altair as alt
 import numpy as np
 import pandas as pd
 
-from .dataset_plot import DatasetPlot
+from .dataset_plot import DatasetPlot, dataset_plot
 
 alt.renderers.enable("browser")
 
@@ -69,6 +69,11 @@ class SeasonCorrelationPlot(DatasetPlot):
         )
 
 
+@dataset_plot(
+    id="seasonal-correlation-plot",
+    name="Seasonal Correlation Bar Plot",
+    description="Bar plot showing correlation between seasonal disease outcomes and climate features.",
+)
 class SeasonCorrelationBarPlot(SeasonCorrelationPlot):
     feature_name = "mean_temperature"  # Example feature to correlate with season_mean
 

@@ -18,8 +18,7 @@ from chap_core.datatypes import FullData
 from chap_core.file_io.example_data_set import datasets
 from chap_core.log_config import initialize_logging
 from chap_core.models.utils import get_model_template_from_directory_or_github_url
-from chap_core.plotting.dataset_plot import StandardizedFeaturePlot
-from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
+from chap_core.plotting.dataset_plot import get_dataset_plots_registry
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
@@ -116,12 +115,12 @@ def test(**base_kwargs):
     logger.info("Info message")
 
 
-def plot_dataset(data_filename: Path, plot_name: str = "standardized_feature_plot"):
-    dataset_plot_registry = {
-        "standardized_feature_plot": StandardizedFeaturePlot,
-        "season_plot": SeasonCorrelationBarPlot,
-    }
-    plot_cls = dataset_plot_registry.get(plot_name, StandardizedFeaturePlot)
+def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plot"):
+    registry = get_dataset_plots_registry()
+    if plot_name not in registry:
+        available = ", ".join(registry.keys())
+        raise ValueError(f"Unknown plot type: {plot_name}. Available: {available}")
+    plot_cls = registry[plot_name]
     df = pd.read_csv(data_filename)
     plotter = plot_cls(df)
     fig = plotter.plot()
