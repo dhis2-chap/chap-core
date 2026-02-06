@@ -1,9 +1,10 @@
 # Evaluation Walkthrough
 
-This walkthrough demonstrates every step of the evaluation pipeline, from loading
-a dataset to producing an `Evaluation` object with exportable results. Each Python
-code block is executable and shares state with subsequent blocks (tested via
-mktestdocs with `memory=True`).
+This walkthrough is for educational purposes. It breaks the evaluation pipeline
+into individual steps so you can see what happens at each stage. In practice,
+use the higher-level `Evaluation.create` (section 7) or the CLI `chap evaluate`
+command rather than calling the lower-level splitting and prediction functions
+directly.
 
 For the conceptual overview and architecture diagrams, see
 [Evaluation Pipeline](evaluation_pipeline.md).
@@ -158,31 +159,17 @@ test window.
 `Evaluation.create` wraps the full backtest workflow and produces an object that
 supports export to flat DataFrames and NetCDF files.
 
-First, create in-memory model metadata (no database required):
+The `NaiveEstimator` provides `model_template_db` and `configured_model_db` class
+attributes with the model metadata needed by the evaluation:
 
-```python
-from chap_core.database.model_templates_and_config_tables import (
-    ModelTemplateDB,
-    ConfiguredModelDB,
-)
-
-model_template_db = ModelTemplateDB(id=1, name="naive_model", version="1.0")
-configured_model_db = ConfiguredModelDB(
-    id="cli_eval",
-    name="naive_configured",
-    model_template_id=1,
-    model_template=model_template_db,
-)
-```
-
-Then run the evaluation:
+Run the evaluation:
 
 ```python
 from chap_core.api_types import BackTestParams
 from chap_core.assessment.evaluation import Evaluation
 
 backtest_params = BackTestParams(n_periods=3, n_splits=4, stride=1)
-evaluation = Evaluation.create(configured_model_db, estimator, dataset, backtest_params)
+evaluation = Evaluation.create(estimator.configured_model_db, estimator, dataset, backtest_params)
 ```
 
 Export to flat DataFrames for inspection:
