@@ -1,5 +1,19 @@
 # Tuesday Afternoon - 24 Feb
 
+Walkthroughs for this session:
+
+- [Progressive Effects Walkthrough](progressive_effects_walkthrough.md) --
+  building a model with location offsets, seasonal patterns, climate
+  covariates, and lagged disease cases
+- [Multi-Region Strategies Walkthrough](multi_region_walkthrough.md) --
+  comparing global, per-region, and hybrid approaches
+- [Location Specificity Overview](location_specificity_overview.md) --
+  how common model classes handle region-specific effects
+- [Interaction Effects](interaction_effects.md) -- when and how to use
+  interaction terms
+
+---
+
 ## Design Document: CLIM-442 - Prepare Tuesday Afternoon Session
 
 ### Context
