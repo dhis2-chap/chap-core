@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 
 from chap_core.api_types import FeatureCollectionModel
@@ -19,6 +21,9 @@ def dataset_model_to_dataset(dataset: DataSet):
     dataclass = create_tsdataclass(dataset.covariates)
     ds = observations_to_dataset(dataclass, dataset.observations)
     if dataset.geojson is not None:
-        polygons = FeatureCollectionModel.model_validate(dataset.geojson)
+        geojson = dataset.geojson
+        if isinstance(geojson, str):
+            geojson = json.loads(geojson)
+        polygons = FeatureCollectionModel.model_validate(geojson)
         ds.set_polygons(polygons)
     return ds
