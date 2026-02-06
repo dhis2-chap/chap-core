@@ -3,11 +3,18 @@ from typing import Any, Literal, Optional, Union
 import numpy as np
 from pydantic import BaseModel, Field
 from pydantic_geojson import (
-    FeatureCollectionModel as _FeatureCollectionModel, PointModel, MultiPointModel, LineStringModel,
-    MultiLineStringModel, PolygonModel, MultiPolygonModel,
+    FeatureCollectionModel as _FeatureCollectionModel,
 )
 from pydantic_geojson import (
     FeatureModel as _FeatureModel,
+)
+from pydantic_geojson import (
+    LineStringModel,
+    MultiLineStringModel,
+    MultiPointModel,
+    MultiPolygonModel,
+    PointModel,
+    PolygonModel,
 )
 
 from chap_core.database.base_tables import DBModel
