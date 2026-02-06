@@ -133,7 +133,7 @@ def _validate_full_dataset(
             detail={
                 "message": "All regions rejected due to missing values",
                 "imported_count": 0,
-                "rejected": [r.model_dump() for r in rejected_list],
+                "rejected": [r.model_dump(by_alias=True) for r in rejected_list],
             },
         )
     else:
