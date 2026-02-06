@@ -54,6 +54,13 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
 This keeps each walkthrough step focused on the modeling idea (what features to
 extract) rather than boilerplate.
 
+Implementation details:
+
+- Uses sklearn `LinearRegression` internally
+- Produces a single sample per time period (no stochastic sampling) -- predictions
+  are deterministic point estimates stored as `Samples` with shape `(n_periods, 1)`
+- Uses `example_data/laos_subset.csv` as the dataset for all walkthroughs
+
 `BasicEstimator` should follow the same two-phase pattern as `NaiveEstimator`:
 - `train(data: DataSet) -> BasicPredictor` -- fits a model using extracted features
 - `BasicPredictor.predict(historic_data, future_data) -> DataSet[Samples]`
@@ -133,15 +140,16 @@ Write a conceptual section explaining:
   and flexible ML models (which can learn interactions implicitly)
 - Practical examples showing when explicit interactions are needed vs not
 
-### Open Questions
+### Resolved Decisions
 
-- What example dataset to use -- `laos_subset.csv` has multiple regions and is
-  already used in the evaluation walkthrough.
-- What underlying model should `BasicEstimator` use internally -- plain
-  scikit-learn `LinearRegression`, or something with built-in uncertainty
-  (e.g. Bayesian linear regression)?
-- How to handle the noise model in `BasicEstimator` for generating `Samples` --
-  Poisson (like `NaiveEstimator`), normal residuals, or negative binomial?
+- **Dataset:** `example_data/laos_subset.csv` (multiple regions, already used in
+  evaluation walkthrough)
+- **Underlying model:** sklearn `LinearRegression` -- simple, familiar, no extra
+  dependencies
+- **Samples:** Single sample only (deterministic point estimate). Keeps the focus
+  on feature engineering rather than uncertainty modeling. Stored as
+  `Samples` with shape `(n_periods, 1)` for compatibility with the evaluation
+  pipeline.
 
 ### Dependencies
 
