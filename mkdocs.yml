@@ -93,6 +93,7 @@ nav:
           - Supporting Functionality: external_models/supporting_functionality.md
           - Evaluation Examples: external_models/chap_evaluate_examples.md
           - Side by Side Comparison: external_models/side_by_side_comparison.md
+          - Model Explainability: external_models/model_explainability.md
       - CLI:
           - Overview: chap-cli/index.md
           - Evaluation Workflow: chap-cli/evaluation-workflow.md
