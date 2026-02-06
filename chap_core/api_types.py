@@ -1,9 +1,10 @@
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 from pydantic import BaseModel, Field
 from pydantic_geojson import (
-    FeatureCollectionModel as _FeatureCollectionModel,
+    FeatureCollectionModel as _FeatureCollectionModel, PointModel, MultiPointModel, LineStringModel,
+    MultiLineStringModel, PolygonModel, MultiPolygonModel,
 )
 from pydantic_geojson import (
     FeatureModel as _FeatureModel,
@@ -15,6 +16,15 @@ from chap_core.database.base_tables import DBModel
 class FeatureModel(_FeatureModel):
     id: Optional[str] = None
     properties: Optional[dict[str, Any]] = Field(default_factory=dict)  # type: ignore[assignment]
+    geometry: Union[
+        PointModel,
+        MultiPointModel,
+        LineStringModel,
+        MultiLineStringModel,
+        PolygonModel,
+        MultiPolygonModel,
+        None
+    ]
 
 
 class FeatureCollectionModel(_FeatureCollectionModel):
