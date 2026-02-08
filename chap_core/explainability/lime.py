@@ -2,7 +2,7 @@
 import logging
 import random
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Type
 
 import numpy as np
 import pandas as pd
@@ -155,17 +155,29 @@ def linear_shift(
 
 def data_sample(
     rng: random.Random,
-    dataset: DataSet,
+    hist_df: pd.DataFrame,
     feature_name: str,
     lagged_dict: Dict[int, float]
 ):
-    hist_df = dataset.to_pandas()
+    """
+    Perturbs lagged features by sampling randomly from existing dataset
+
+    Args:
+        rng (random Random): RNG object to preserve seed
+        hist_df (pandas DataFrame): Dataframe of original historical data
+        feature_name (str): The lagged feature of which to sample
+        lagged_dict (dict(int, float)): Original time keys and values of lagged feature
+
+    Return:
+        List of perturbed vectors
+    """
+
     time_range = len(lagged_dict.keys())
     locations = hist_df["location"].dropna().unique().tolist()
 
     for _ in range(3): # Retries twice if selected window is too narrow
         loc = rng.choice(locations)
-        loc_df = hist_df[hist_df["location"] == loc].copy()
+        loc_df = hist_df[hist_df["location"] == loc].copy()  # TODO: Currently only one location in df
         if len(loc_df) < time_range:
             continue
         
@@ -188,7 +200,7 @@ def data_sample(
 
 
 def perturb_vector(
-    dataset: DataSet,
+    dataset: pd.DataFrame,
     orig_vector: Dict,
     num_perturbations: int,
     mutation_rate: float,
@@ -199,7 +211,7 @@ def perturb_vector(
     Perturb original vector to get local variations
 
     Args:
-        dataset (dict): Historical data of model
+        dataset (pandas DataFrame): Historical data of model
         orig_vector (dict): Dictionary of original features and values
         num_perturbations (int): Number of perturbed vectors to create
         mutation_rate (float): Probability of changing a particular value
@@ -210,9 +222,6 @@ def perturb_vector(
     Return:
         List of perturbed vectors
     """
-    # TODO: Shift needs to respect relationship in time
-    # TODO: Shift must be physically realistic (no negative rain) 
-    # TODO: Should calculate distance and give weighting to get true LIME
     rng = random.Random(seed)
     perturbations = []
     lagged_pattern = re.compile(r"^(?P<name>.+?)_t(?P<lag>-\d+)?$")
@@ -266,37 +275,34 @@ def perturb_vector(
 
 def convert_vector_to_dataset(
     perturbation: Dict, 
-    dataset_hist: DataSet, 
-    dataset_fut: DataSet,
+    hist_df: pd.DataFrame, 
+    fut_df: pd.DataFrame,
     features_hist: List[str],
     features_fut: List[str],
     horizon: int,
     granularity: int,
-    location: str
+    hist_type: Type,
+    fut_type: Type,
 ) -> Tuple[DataSet, DataSet]:
     """
     Convert interpretable vector back into full dataset
     
     Args:
         perturbation (dict): The perturbed interpretable vector
-        dataset_hist (DataSet): The original historic dataset
-        dataset_fut (DataSet): The future weather datset
+        hist_df (pandas DataFrame): The original historic dataset
+        fut_df (pandas DataFrame): The future weather datset
         features_hist (list(str)): List of feature names of historical dataset
         features_fut (list(str)): List of feature names of future dataset
         horizon (int): Number of future time steps the vector encompasses
         granularity (int): Number of historic time steps the vector encompasses
-        location (str): Geographical location of data
+        location (str): Geographical location of data,
+        hist_type (type): Dataclass of historical data
+        fut_type (type): Dataclass of future data
         
     Return:
         Historic dataset with perturbed values inserted
         Future dataset with perturbed values inserted
     """
-
-    hist_df = dataset_hist.to_pandas().copy()
-    fut_df = dataset_fut.to_pandas().copy()
-    hist_df = hist_df.sort_values("time_period").reset_index(drop=True)  # TODO: Are these values string? And therefore sorted wrong?
-    fut_df = fut_df.sort_values("time_period").reset_index(drop=True)
-
     # TODO: Ensure dataset only contains "location"?
     # Historic data insertions
     hist_idx0 = len(hist_df) - granularity
@@ -327,9 +333,6 @@ def convert_vector_to_dataset(
         else:
             if feat in perturbation and feat in fut_df.columns:
                 fut_df.loc[: horizon - 1, feat] = float(perturbation[feat])
-    
-    hist_type = dataset_hist[location].__class__
-    fut_type = dataset_fut[location].__class__
 
     new_hist = DataSet.from_pandas(hist_df, dataclass=hist_type)
     new_fut = DataSet.from_pandas(fut_df, dataclass=fut_type)
@@ -360,36 +363,47 @@ def build_X_y(
 
 def produce_lime_dataset(
     model: ExternalModel, 
-    dataset: DataSet,
-    future_weather: DataSet,
+    dataset: pd.DataFrame,
+    future_weather: pd.DataFrame,
     perturbations: List[Dict],
     features_hist: List[str],
     features_fut: List[str],
     horizon: int,
     granularity: int,
     location: str,
-    threshold: Optional[float] = None
+    threshold: Optional[float] = None,
+    hist_type: Type = None,
+    fut_type: Type = None,
 ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
     """
     Produce training input and target dataset for LIME linear surrogate model
     
     Args:
         model (ExternalModel): Model used for producing target values
-        dataset (DataSet): Dataset of historic data to perturb
-        future_weather (Dataset): Dataset of future weather to perturb
+        dataset (pandas DataFrame): Dataset of historic data to perturb
+        future_weather (pandas DataFrame): Dataset of future weather to perturb
         perturbations (List[Dict]): List of perturbed input vectors
         features_hist (List[str]): The feature names in the historic dataset
         features_fut (List[str]): The feature names of the future dataset
         horizon (int): The number of time steps in the past for which we want detailed explanations
         granularity (int): The number of time steps into the future for which we want an explanation
         location (str): Geographical location of the data
-        threshold (Optional float): The threshold of disease cases above which counted as positive class. Optional, default None.
+        threshold (Optional float): The threshold of disease cases above which counted as positive class (Default None)
+        hist_type (type): Dataclass of historical data (Default None)
+        fut_type (type): Dataclass of future data (Default None)
 
     Returns:
         Tuple of numpy arrays and feature name list
     """
     results = []
-    for pb in perturbations:
+    # Batch prediction is quicker than individual predictions
+    # Key different perturbations by pseudo-location, then batch predict
+    full_hist_dict = {}
+    full_fut_dict = {}
+    pert_map = {}
+    for i, pb in enumerate(perturbations):
+        loc_id = f"pb_{i}"
+        pert_map[loc_id] = pb
         # TODO: Should refactor external_model a bit, avoid reduplication on adapt especially
         new_hist, new_fut = convert_vector_to_dataset(
             pb, 
@@ -399,18 +413,30 @@ def produce_lime_dataset(
             features_fut, 
             horizon, 
             granularity, 
-            location
+            hist_type,
+            fut_type
         )
-        pred_v = model.predict(new_hist, new_fut)
-        if threshold is not None:  # TODO: Should probably be a class eventually
-            vals = prob_thresh(pred_v, threshold=threshold)
-        else:
-            vals = avg_samples(pred_v)
-        # Extract most recent "prob" as horizon value
-        latest = max(vals.keys())
-        latest_prob = vals[latest]
-        results.append((pb, latest_prob))
+        full_hist_dict[loc_id] = new_hist.get_location(location)
+        full_fut_dict[loc_id] = new_fut.get_location(location)
+
+    hist_combined = DataSet(full_hist_dict, polygons=None) 
+    fut_combined = DataSet(full_fut_dict, polygons=None)
     
+    pred_v = model.predict(hist_combined, fut_combined)
+
+    for ds in pred_v.iter_locations():
+        loc_name = next(iter(ds.locations()))
+        if loc_name in pert_map:
+            pb_vec = pert_map[loc_name]
+            if threshold is not None:  # TODO: Should probably be a class eventually
+                vals = prob_thresh(ds, threshold=threshold)
+            else:
+                vals = avg_samples(ds)
+            # Extract most recent "prob" as horizon value
+            latest = max(vals.keys())
+            latest_prob = vals[latest]
+            results.append((pb_vec, latest_prob))
+
     # TODO: This is brittle, especially as regards pairing it up with coefficients later
     feature_names = [k for k in perturbations[0].keys() if k not in _non_feature_names]
     X, y = build_X_y(results, feature_names)
@@ -461,6 +487,7 @@ def explain(
     location: str,
     horizon: int,
     granularity: int = 4,
+    num_perturbations: int = 40,  # TODO: Include in endpoint
     surrogate_name: str = "ridge",
     threshold: Optional[float] = None
 ):
@@ -473,8 +500,9 @@ def explain(
         location (str): The location on which to explain
         horizon (int): The number of time steps into the future on which to explain
         granularity (int): Number of time steps in advance to find weighting on (default: 4)
-        surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "tree"] (Default ridge)
-        threshold (Optional float): The threshold above which to count as positive observation
+        num_perturbations (int): Number of generated perturbed variations of input vector (default 200)
+        surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "tree"] (default ridge)
+        threshold (Optional float): The threshold above which to count as positive observation (default None)
     """
     # Initial input safety checks
     assert horizon > 0, f"Horizon must be positive; received horizon={horizon}"
@@ -494,6 +522,8 @@ def explain(
     # Isolate dataset to selected location
     dataset_loc = dataset.filter_locations([location])  # TODO: Just use dataset[location]?
     future_weather = future_weather.filter_locations([location])
+    hist_type = dataset_loc[location].__class__
+    fut_type = future_weather[location].__class__
 
     # Sort by dates, and extract feature names
     hist_df = dataset_loc.to_pandas().sort_values("time_period").reset_index(drop=True)
@@ -526,20 +556,22 @@ def explain(
 
     # Create perturbed variations
     # TODO: When, where and how to decide number of perturbations and mr?
-    perturbations = perturb_vector(dataset, x0, num_perturbations=15, mutation_rate=0.3)
+    perturbations = perturb_vector(hist_df, x0, num_perturbations=num_perturbations, mutation_rate=0.3)
     
     # Threshold picked arbitrarily in example
     X, y, feature_names = produce_lime_dataset(
         model, 
-        dataset_loc,
-        future_weather,
+        hist_df,
+        future_df,
         perturbations,
         features_hist,
         features_fut,
         horizon,
         granularity,
         location,
-        threshold
+        threshold,
+        hist_type,
+        fut_type
     )
 
     x0_row = np.array([float(x0[f]) for f in feature_names], dtype=float)

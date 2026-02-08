@@ -253,6 +253,35 @@ class DataSet[FeaturesT]:
 
     def __getitem__(self, location: str) -> FeaturesT:
         return self._data_dict[location]
+    
+    def __add__(self, other: "DataSet") -> "DataSet":
+        if not isinstance(other, DataSet):
+            return NotImplemented
+        
+        # Location data on right overwrites left
+        new_data_dict = self._data_dict | other._data_dict
+        # TODO: Handle polygons?
+
+        return DataSet(new_data_dict)
+    
+    def rename_location(self, old_name: str, new_name: str) -> "DataSet":
+        if old_name not in self._data_dict:
+            raise ValueError(f"Location {old_name} not found.")
+            
+        new_dict = self._data_dict.copy()
+        new_dict[new_name] = new_dict.pop(old_name)
+        
+        return self.__class__(new_dict, self._polygons, self.metadata)
+    
+    def iter_locations(self) -> Iterator["DataSet[FeaturesT]"]:
+        for location, data in self.items():
+            single_loc_dict = {location: data}
+            
+            yield self.__class__(
+                single_loc_dict, 
+                polygons=self._polygons, 
+                metadata=self.metadata
+            )
 
     def keys(self) -> Iterable[str]:
         return self._data_dict.keys()
