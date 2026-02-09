@@ -52,7 +52,7 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
     def predict(self, model_file_name, historic_data, future_data, output_file, polygons_file_name=None):
         logging.debug("Running predict with output to %s" % output_file)
         if self.model_configuration_filename is not None:
-            ("Model configuration not supported for MLflow runner")
+            logger.warning("Model configuration not supported for MLflow runner")
         params = {
             "historic_data": str(historic_data),
             "future_data": str(future_data),

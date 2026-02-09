@@ -16,18 +16,15 @@ def create_docker_image(dockerfile_directory: Path | str):
     logging.info(f"Creating docker image {name} from Dockerfile in {dockerfile_directory}")
     dockerfile = Path(dockerfile_directory) / "Dockerfile"
     logging.info(f"Looking for dockerfile {dockerfile}")
-    fileobject = open(dockerfile, "rb")
-    return docker_image_from_fo(fileobject, name)
+    with open(dockerfile, "rb") as fileobject:
+        return docker_image_from_fo(fileobject, name)
 
 
 def docker_image_from_fo(fileobject, name):
     client = docker.from_env()
     response = client.api.build(fileobj=fileobject, tag=name, decode=True)
-    for line in response:
-        if "stream" in line:
-            print(line["stream"])  # .encode("utf-8"))
-        else:
-            print(line)
+    for _ in response:
+        pass
     return name
 
 
@@ -57,9 +54,6 @@ def run_command_through_docker_container(
         detach=True,
     )
 
-    output = container.attach(stdout=True, stream=False, logs=True)
-    # get logs from container
-    print(output)
     result = container.wait()
     exit_code = result["StatusCode"]
     log_output = container.logs().decode("utf-8")

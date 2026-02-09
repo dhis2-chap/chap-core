@@ -64,7 +64,6 @@ def dataset_to_datalist(dataset: DataSet[HealthData], target_id: str) -> DataLis
 def __clean_actual_cases(real_data: DataList) -> DataList:
     """Temporary function to clean time period names and fill nan valuse to a datalist of real cases"""
     df = pd.DataFrame([{"time_period": row.pe, "location": row.ou, "value": row.value} for row in real_data.data])
-    print(df["time_period"])
     dataset = DataSet.from_pandas(df, TimeSeriesArray, fill_missing=True)
     return DataList(
         featureId=real_data.featureId,

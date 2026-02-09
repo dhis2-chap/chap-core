@@ -136,8 +136,6 @@ def _validate_full_dataset(
                 "rejected": [r.model_dump(by_alias=True) for r in rejected_list],
             },
         )
-    else:
-        print(new_data.keys())
 
     new_dataset = provided_data.__class__(new_data, polygons=provided_data.polygons, metadata=provided_data.metadata)
     logger.info(

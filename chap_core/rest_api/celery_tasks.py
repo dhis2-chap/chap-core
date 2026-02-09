@@ -143,10 +143,9 @@ class TrackedTask(Task):
         return result
 
     def on_success(self, retval, task_id, args, kwargs):
-        print("success!")
+        logger.info("Task %s succeeded", task_id)
         # start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
         # duration = time.time() - start
-        print(retval)
         try:
             retval = json.dumps(retval)
         except TypeError:
@@ -174,7 +173,7 @@ class TrackedTask(Task):
         )
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        print("failure!")
+        logger.error("Task %s failed: %s", task_id, exc)
         # start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
         # duration = time.time() - start
 
