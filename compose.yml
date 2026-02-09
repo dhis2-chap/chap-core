@@ -53,6 +53,7 @@ services:
       RENV_PATHS_ROOT: /data/renv
       UV_CACHE_DIR: /data/uv
       CHAP_LOGS_DIR: /data/logs
+      PYTENSOR_FLAGS: "base_compiledir=/data/pytensor"
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
     working_dir: /app
     extra_hosts:
@@ -80,6 +81,9 @@ services:
       - type: volume
         source: logs
         target: /data/logs
+      - type: volume
+        source: pytensor
+        target: /data/pytensor
   redis:
     image: valkey/valkey:8
 
@@ -108,4 +112,5 @@ volumes:
   logs: {}
   renv: {}
   uv: {}
+  pytensor: {}
   runs:
