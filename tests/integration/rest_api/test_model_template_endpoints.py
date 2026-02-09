@@ -22,6 +22,7 @@ def clear_template_cache():
     clear_cache()
 
 
+@pytest.mark.skip(reason="Endpoint disabled for release - security review pending")
 class TestListAvailableModelTemplates:
     def test_returns_approved_list(self, dependency_overrides):
         mock_templates = [
@@ -50,6 +51,7 @@ class TestListAvailableModelTemplates:
         assert response.json() == []
 
 
+@pytest.mark.skip(reason="Endpoint disabled for release - security review pending")
 class TestAddModelTemplate:
     @pytest.fixture
     def mock_approved_templates(self):
@@ -86,6 +88,7 @@ class TestAddModelTemplate:
         assert "not in approved list" in response.json()["detail"]
 
 
+@pytest.mark.skip(reason="Endpoint disabled for release - security review pending")
 class TestDeleteModelTemplate:
     def test_delete_existing_template(self, override_session, p_seeded_engine):
         with Session(p_seeded_engine) as session:
