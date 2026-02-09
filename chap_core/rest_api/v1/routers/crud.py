@@ -381,7 +381,8 @@ async def list_model_templates(session: Session = Depends(get_session)):
     return model_templates
 
 
-@router.get("/model-templates/available", response_model=list[ApprovedTemplate])
+# Disabled for release - security review pending
+# @router.get("/model-templates/available", response_model=list[ApprovedTemplate])
 async def list_available_model_templates():
     """
     Lists whitelisted model templates that can be added.
@@ -395,7 +396,8 @@ class ModelTemplateCreate(DBModel):
     version: str
 
 
-@router.post("/model-templates", response_model=ModelTemplateRead)
+# Disabled for release - security review pending
+# @router.post("/model-templates", response_model=ModelTemplateRead)
 async def add_model_template(
     model_template_create: ModelTemplateCreate,
     session: Session = Depends(get_session),
@@ -422,7 +424,8 @@ async def add_model_template(
     return session.get(ModelTemplateDB, template_id)
 
 
-@router.delete("/model-templates/{modelTemplateId}")
+# Disabled for release - security review pending
+# @router.delete("/model-templates/{modelTemplateId}")
 async def delete_model_template(
     model_template_id: Annotated[int, Path(alias="modelTemplateId")],
     session: Session = Depends(get_session),
