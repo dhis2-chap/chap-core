@@ -110,8 +110,6 @@ def get_area_polygons(country: str, regions: list[str] | None = None, admin_leve
 
     data = get_country_data(country, admin_level=admin_level)
     feature_dict = {normalize_name(feature.properties[f"NAME_{admin_level}"]): feature for feature in data.features}
-    for f in feature_dict.values():
-        print(f.properties)
     logger.info(f"Polygon data available for regions: {list(feature_dict.keys())}")
     if regions:
         logger.info(f"Filtering to requested regions: {[normalize_name(region) for region in regions]}")
@@ -132,7 +130,6 @@ def get_area_polygons(country: str, regions: list[str] | None = None, admin_leve
 
 def get_country_data_file(country: str, level=1):
     real_name = country.capitalize()
-    print(real_name)
     country_code = pycountry.countries.get(name=real_name).alpha_3
     # country_code = country_codes[country.lower()]
     return get_data_file(country_code, level)

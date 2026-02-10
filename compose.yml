@@ -22,7 +22,7 @@ services:
       - type: tmpfs
         target: /tmp
         tmpfs:
-          size: 1000000
+          size: 2000000000 # 2GB for runtime temp files (API service)
       - type: volume
         source: logs
         target: /data/logs

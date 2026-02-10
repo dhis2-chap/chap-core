@@ -24,13 +24,7 @@ class FeatureModel(_FeatureModel):
     id: Optional[str] = None
     properties: Optional[dict[str, Any]] = Field(default_factory=dict)  # type: ignore[assignment]
     geometry: Union[
-        PointModel,
-        MultiPointModel,
-        LineStringModel,
-        MultiLineStringModel,
-        PolygonModel,
-        MultiPolygonModel,
-        None
+        PointModel, MultiPointModel, LineStringModel, MultiLineStringModel, PolygonModel, MultiPolygonModel, None
     ] = None
 
 

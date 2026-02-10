@@ -271,10 +271,7 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
         raise HTTPException(status_code=404, detail="Dataset not found")
     assert len(dataset.observations) > 0
     for obs in dataset.observations:
-        try:
-            obs.value = obs.value if obs.value is None or np.isfinite(obs.value) else None
-        except:
-            raise
+        obs.value = obs.value if obs.value is None or np.isfinite(obs.value) else None
     return dataset
 
 
@@ -373,7 +370,7 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
 @router.get("/model-templates", response_model=list[ModelTemplateRead])
 async def list_model_templates(session: Session = Depends(get_session)):
     """
-    Lists all non-archived model templates from the db.
+    Lists all model templates from the db, including archived.
     """
     model_templates = session.exec(
         select(ModelTemplateDB)  # noqa: E712

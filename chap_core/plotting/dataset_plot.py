@@ -56,7 +56,7 @@ class DatasetPlot(ABC):
         return cls(df, geojson=geojson)
 
     def _get_feature_names(self) -> list:
-        return [name for name in self._get_colnames() if name not in ("log1p", "log1p", "population")]
+        return [name for name in self._get_colnames() if name not in ("log1p", "population")]
 
     def _get_colnames(self) -> list[str]:
         colnames = list(
@@ -69,8 +69,6 @@ class DatasetPlot(ABC):
                 ),
             )
         )
-        print(self._df.columns)
-        print(colnames)
         return colnames
 
     def plot_spec(self):
