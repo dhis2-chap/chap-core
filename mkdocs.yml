@@ -84,6 +84,7 @@ nav:
           - Describe Your Model: external_models/describe_model.md
           - Python-models: external_models/python_models.md
           - R-models: external_models/r_models.md
+          - Additional Configuration: external_models/additional_configuration.md
       - Evaluate models with Chap:
           - Evaluating Models: external_models/running_models_in_chap.md
       - Integration:
