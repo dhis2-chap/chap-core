@@ -40,7 +40,7 @@ After importing the data, run analytics in DHIS2.
 
 ### 3. Open the Modelling App
 
-Open the Modelling App and confirm you are using the latest version.
+Open the Modelling App and confirm you are using version **4.0.0** or later.
 
 ### 4. Create a model
 
@@ -50,19 +50,19 @@ Go to Models, click New model, and select **CHAP-EWARS Model**. This model suppo
 
 Add all covariates you imported via the Climate App by typing their names and using underscores instead of spaces (for example `NDVI` or `relative_humidity`). Save the model when finished.
 
-### 6. Create an evaluation and configure datasets
+### 6. Open "Create an evaluation form"
 
-Go to Evaluate and create a new evaluation. Select the period type, date range, organisation units, and the model you just created. Open Dataset Configuration and map each covariate to its corresponding data element. Also map the disease data and population data. Save the configuration.
+Go to "Overview" and click "New evaluation. Select the period type, date range, organisation units, and the model you just created. Open "Dataset Configuration" and map each covariate to its corresponding data element you just imported data to. Save the configuration.
 
 ### 7. Run a dry run
 
-Click Start dry run to verify that the data and configuration are accepted. Continue only if the dry run succeeds.
+Click "Start dry run" to verify that the data and configuration are accepted. Continue only if the dry run succeeds.
 
 ### 8. Download the payload
 
-Click **Download request** to save the modelling payload to your computer.
+Click **Download request** to save the modelling payload to your computer as JSON-file.
 
-<img src="https://chap.dhis2.org/chap-modeling-platform/kigali-workshop/kigali-workshop-material/assets/download-button.png" alt="Download request button">
+<img src="../assets/download-button.png" alt="Download request button">
 
 ## Converting a Modeling App request to CSV and GeoJSON
 
