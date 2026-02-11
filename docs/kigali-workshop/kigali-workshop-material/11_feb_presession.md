@@ -142,6 +142,8 @@ df = df.drop(columns=["date"])
 df = df[["time_period", "rainfall", "disease_cases", "location"]]
 ```
 
+An example of how to do this with climate tools is here https://climate-tools.dhis2.org/guides/import-chap/harmonize-to-chap/
+
 ## Validating your dataset
 
 Use the `chap validate` command to check that your CSV is CHAP-compatible before running an evaluation.
