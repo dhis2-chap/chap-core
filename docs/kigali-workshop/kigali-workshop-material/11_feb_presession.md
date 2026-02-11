@@ -62,7 +62,7 @@ Click Start dry run to verify that the data and configuration are accepted. Cont
 
 Click **Download request** to save the modelling payload to your computer.
 
-<img src="./assets/download-button.png" alt="Download request button">
+<img src="https://chap.dhis2.org/chap-modeling-platform/kigali-workshop/kigali-workshop-material/assets/download-button.png" alt="Download request button">
 
 ## Converting a Modeling App request to CSV and GeoJSON
 
