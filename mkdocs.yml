@@ -69,10 +69,10 @@ nav:
           - Creating an evaluation: "modeling-app/using-the-modeling-app/creating-an-evaluation"
           - Creating a prediction: "modeling-app/using-the-modeling-app/creating-a-prediction"
       - Managing models: modeling-app/managing-model-templates.md
+  - For Newcomers: external_models/newcomer.md
   - Model Developers:
       - Overview: external_models/index.md
       - Getting Started:
-          - For Newcomers: external_models/newcomer.md
           - For Experienced Modellers: external_models/experienced_modeller.md
           - Learning Modelling: external_models/learn_modelling.md
       - Installing Chap Core:
