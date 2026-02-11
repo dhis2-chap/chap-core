@@ -104,7 +104,7 @@ def _print_issue(issue: ValidationIssue):
     if issue.location:
         parts.append(f"    Location: {issue.location}")
     if issue.time_periods:
-        parts.append(f"    Time periods: {', '.join(issue.time_periods)}")
+        parts.append(f"    Time periods: {_format_period_ranges(issue.time_periods)}")
     print("\n".join(parts))
 
 

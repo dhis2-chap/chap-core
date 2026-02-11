@@ -65,9 +65,11 @@ def _check_nan_covariates(dataset: DataSet) -> list[ValidationIssue]:
             if field_name == "disease_cases":
                 continue
             values = getattr(data, field_name)
+            if not np.issubdtype(values.dtype, np.floating):
+                continue
             isnan = np.isnan(values)
             if np.any(isnan):
-                nan_periods = [data.time_period[i].id for i in np.flatnonzero(isnan)]
+                nan_periods = [data.time_period[i].to_string() for i in np.flatnonzero(isnan)]
                 issues.append(
                     ValidationIssue(
                         level="error",
