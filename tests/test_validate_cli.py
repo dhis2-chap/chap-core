@@ -7,6 +7,7 @@ import pytest
 
 from chap_core.datatypes import FullData
 from chap_core.external.model_configuration import ModelTemplateConfigV2
+from chap_core.cli_endpoints.validate import _format_period_ranges, _report_period_gaps
 from chap_core.services.dataset_validation import ValidationIssue, validate_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -40,6 +41,26 @@ def test_validate_non_consecutive_periods():
     csv_path = FAULTY_DATA / "non_consecutive_periods.csv"
     with pytest.raises(ValueError, match="consecutive"):
         DataSet.from_csv(csv_path, FullData)
+
+
+def test_report_period_gaps(capsys):
+    csv_path = FAULTY_DATA / "non_consecutive_periods.csv"
+    raw_df = pd.read_csv(csv_path)
+    _report_period_gaps(raw_df)
+    output = capsys.readouterr().out
+    assert "missing" in output
+
+
+def test_format_period_ranges_groups_consecutive():
+    assert _format_period_ranges(["2008-01"]) == "2008-01"
+    result = _format_period_ranges(["2008-01", "2008-02", "2008-03"])
+    assert "2008-01 to 2008-03 (3 periods)" in result
+
+
+def test_format_period_ranges_splits_non_consecutive():
+    result = _format_period_ranges(["2008-01", "2008-02", "2008-06"])
+    assert "2008-01 to 2008-02 (2 periods)" in result
+    assert "2008-06" in result
 
 
 def test_validate_incomplete_locations():

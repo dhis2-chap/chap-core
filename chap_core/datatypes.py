@@ -97,7 +97,6 @@ class TimeSeriesData:
             assert len(time_strings) == len(set(time_strings)), f"{time_strings} has duplicates"
             time = PeriodRange.from_strings(time_strings, fill_missing=fill_missing)
         except Exception:
-            print("Error in time period: ", data.time_period)
             raise
 
         if fill_missing:

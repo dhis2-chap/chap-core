@@ -70,6 +70,7 @@ def validate_cmd(
         dataset = load_dataset_from_csv(dataset_csv, geojson_path, column_mapping)
     except ValueError as e:
         print(f"Error loading dataset: {e}")
+        _report_period_gaps(raw_df)
         sys.exit(1)
 
     model_template_config = None
@@ -105,6 +106,72 @@ def _print_issue(issue: ValidationIssue):
     if issue.time_periods:
         parts.append(f"    Time periods: {', '.join(issue.time_periods)}")
     print("\n".join(parts))
+
+
+def _format_period_ranges(periods: list[str]) -> str:
+    """Group consecutive periods into ranges for compact display."""
+    if not periods:
+        return ""
+    if len(periods) == 1:
+        return periods[0]
+
+    ranges = []
+    range_start = 0
+    for i in range(1, len(periods)):
+        if not _is_adjacent(periods[i - 1], periods[i]):
+            ranges.append((range_start, i - 1))
+            range_start = i
+    ranges.append((range_start, len(periods) - 1))
+
+    parts = []
+    for start_idx, end_idx in ranges:
+        if start_idx == end_idx:
+            parts.append(periods[start_idx])
+        else:
+            count = end_idx - start_idx + 1
+            parts.append(f"{periods[start_idx]} to {periods[end_idx]} ({count} periods)")
+    return ", ".join(parts)
+
+
+def _is_adjacent(a: str, b: str) -> bool:
+    """Check if two period strings are adjacent (e.g. 2008-01 and 2008-02)."""
+    from chap_core.time_period import TimePeriod
+
+    try:
+        pa = TimePeriod.parse(a)
+        pb = TimePeriod.parse(b)
+        return bool(pb == pa + pa.time_delta)
+    except Exception:
+        return False
+
+
+def _report_period_gaps(raw_df: pd.DataFrame):
+    """Analyze and report per-location period gaps when dataset loading fails."""
+    from chap_core.time_period import TimePeriod
+
+    for location in sorted(raw_df["location"].unique()):
+        loc_periods = sorted(raw_df[raw_df["location"] == location]["time_period"].unique())
+        if len(loc_periods) < 2:
+            continue
+
+        try:
+            parsed = [TimePeriod.parse(p) for p in loc_periods]
+        except Exception:
+            continue
+
+        delta = parsed[0].time_delta
+        missing = []
+        for p1, p2 in zip(parsed, parsed[1:]):
+            expected = p1 + delta
+            while expected != p2:
+                missing.append(expected.to_string())
+                expected = expected + delta
+                if len(missing) > 1000:
+                    break
+
+        if missing:
+            formatted = _format_period_ranges(missing)
+            print(f"  Location '{location}': missing {formatted}")
 
 
 def register_commands(app):
