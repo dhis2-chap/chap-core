@@ -8,11 +8,11 @@ CHAP models are designed to be interchangeable: any model that follows the CHAP 
 
 The required columns are:
 
-| Column | Description |
-|--------|-------------|
-| `time_period` | Time period in `YYYY-MM` (monthly) or `YYYY-Wnn` (weekly) format |
-| `location` | Location identifier matching the GeoJSON features |
-| `disease_cases` | Observed case counts |
+| Column          | Description                                                      |
+| --------------- | ---------------------------------------------------------------- |
+| `time_period`   | Time period in `YYYY-MM` (monthly) or `YYYY-Wnn` (weekly) format |
+| `location`      | Location identifier matching the GeoJSON features                |
+| `disease_cases` | Observed case counts                                             |
 
 Additional columns (e.g. `rainfall`, `mean_temperature`, `population`) are used as covariates by models that need them. A matching GeoJSON file with region polygons is optional but recommended for spatial visualizations.
 
@@ -26,17 +26,43 @@ time_period,rainfall,mean_temperature,disease_cases,population,location
 2023-02,12.1,26.8,22,120000,Region_B
 ```
 
-## Creating and downloading a dataset from the Modeling App
+## Extracting Climate & Environmental Data for Modelling in DHIS2
 
-If you have CHAP connected to a DHIS2 instance via the Modeling App, you can create and download datasets directly:
+This short guide describes how to import climate and environmental data, configure a model in the DHIS2 Modelling App, and extract the modelling payload.
 
-1. Open the DHIS2 Modeling App
-2. Navigate to **Evaluation** and select your disease, indicator, and regions of interest
-3. Configure the time period range
-4. Run the evaluation -- the app will pull data from DHIS2 and climate sources
-5. Download the resulting dataset as a CSV file from the app
+### 1. Import data using the Climate App
 
-The downloaded CSV will already be in CHAP-compatible format.
+Use the Climate App to import climate and environmental indicators at the **same organisational level and period type** (weekly or monthly) as your disease data. Indicators of interest include air temperature, CHIRPS precipitation (or ERA5-Land precipitation if you know this performs better), relative humidity, NDVI (vegetation), and urban/built-up areas. You may also include other disease-relevant indicators such as soil moisture, surface water, land surface temperature, or elevation. Ensure all imported data are available as data elements.
+
+### 2. Run analytics
+
+After importing the data, run analytics in DHIS2.
+
+### 3. Open the Modelling App
+
+Open the Modelling App and confirm you are using the latest version.
+
+### 4. Create a model
+
+Go to Models, click New model, and select **CHAP-EWARS Model**. This model supports additional covariates. Give the model a clear name such as `extract_data`. Leave n_lags, precision, and regional seasonal settings unchanged.
+
+### 5. Add covariates
+
+Add all additional covariates you imported via the Climate App by typing their names and using underscores instead of spaces (for example `NDVI` or `relative_humidity`). Also add precipitation or mean temperature. Save the model when finished.
+
+### 6. Create an evaluation and configure datasets
+
+Go to Evaluate and create a new evaluation. Select the period type, date range, organisation units, and the model you just created. Open Dataset Configuration and map each covariate to its corresponding data element. Also map the disease data and population data. Save the configuration.
+
+### 7. Run a dry run
+
+Click Start dry run to verify that the data and configuration are accepted. Continue only if the dry run succeeds.
+
+### 8. Download the payload
+
+Click **Download request** to save the modelling payload to your computer. Upload this file to the Google Drive folder.
+
+<img src="assets/download-button.png" alt="Download request button">
 
 ## Converting a Modeling App request to CSV and GeoJSON
 
@@ -157,7 +183,7 @@ chap validate \
 Where `column_mapping.json` maps model covariate names to your CSV column names:
 
 ```json
-{"rainfall": "rain_mm", "mean_temperature": "temp_avg"}
+{ "rainfall": "rain_mm", "mean_temperature": "temp_avg" }
 ```
 
 ## Running an evaluation
