@@ -22,8 +22,8 @@ def default_transformer():
 
 @pytest.mark.parametrize("plt_cls", [DiseaseCasesMap, StandardizedFeaturePlot, SeasonCorrelationBarPlot])
 def test_standardized_feautre_plot(simulated_dataset, plt_cls, default_transformer):
-    plotter = plt_cls.from_dataset_model(simulated_dataset)
-    chart = plotter.plot()
+    plotter = plt_cls()
+    chart = plotter.plot_from_dataset_model(simulated_dataset)
 
 
 def test_dataset_plot_registry():

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Union
 
 import altair as alt
 import numpy as np
@@ -10,10 +10,8 @@ from pydantic import BaseModel
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
 
 alt.data_transformers.enable("vegafusion")
-# alt.renderers.enable("browser")
 
-
-# alt.renderers.enable('notebook')
+ChartType = Union[alt.Chart, alt.VConcatChart, alt.FacetChart, alt.LayerChart, alt.HConcatChart]
 
 # Global registry for dataset plots
 _dataset_plots_registry: dict[str, type["DatasetPlot"]] = {}
@@ -36,51 +34,46 @@ class DatasetPlot(ABC):
     name: str = ""
     description: str = ""
 
-    def __init__(self, df: pd.DataFrame, geojson=None):
-        self._df = df
-        self._geojson = geojson
-
-    @classmethod
-    def from_dataset_model(cls, dataset_model):
-        ds = dataset_model_to_dataset(dataset_model)
-        df = ds.to_pandas()
-        geojson = ds.polygons
-        if isinstance(geojson, BaseModel):
-            geojson = geojson.model_dump()
-        return cls.from_pandas(df, geojson=geojson)
-
-    @classmethod
-    def from_pandas(cls, df: pd.DataFrame, geojson=None):
+    @staticmethod
+    def _prepare_df(df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
         df["time_period"] = df["time_period"].astype(str)
-        return cls(df, geojson=geojson)
+        return df
 
-    def _get_feature_names(self) -> list:
-        return [name for name in self._get_colnames() if name not in ("log1p", "log1p", "population")]
+    def plot_from_dataset_model(self, dataset_model) -> ChartType:
+        """Create a plot from a DB DataSet model."""
+        ds = dataset_model_to_dataset(dataset_model)
+        return self.plot_from_dataset(ds)
 
-    def _get_colnames(self) -> list[str]:
+    def plot_from_dataset(self, dataset) -> ChartType:
+        """Create a plot from an in-memory DataSet object."""
+        df = self._prepare_df(dataset.to_pandas())
+        geojson = dataset.polygons
+        if isinstance(geojson, BaseModel):
+            geojson = geojson.model_dump()
+        return self.plot(df, geojson=geojson)
+
+    def _get_feature_names(self, df: pd.DataFrame) -> list:
+        return [name for name in self._get_colnames(df) if name not in ("log1p", "log1p", "population")]
+
+    def _get_colnames(self, df: pd.DataFrame) -> list[str]:
         colnames = list(
             filter(
-                lambda name: self._df[name].dtype.name in ("float64", "int64", "bool", "int32", "float32"),
+                lambda name: df[name].dtype.name in ("float64", "int64", "bool", "int32", "float32"),
                 filter(
                     lambda name: name not in ("disease_cases", "location", "time_period")
                     and not name.startswith("Unnamed"),
-                    self._df.columns,
+                    df.columns,
                 ),
             )
         )
-        print(self._df.columns)
-        print(colnames)
         return colnames
 
-    def plot_spec(self):
-        return self.plot().to_dict(format="vega")
+    def plot_spec(self, df: pd.DataFrame, geojson=None):
+        return self.plot(df, geojson=geojson).to_dict(format="vega")
 
     @abstractmethod
-    def plot(self) -> alt.Chart: ...
-
-    @abstractmethod
-    def data(self): ...
+    def plot(self, df: pd.DataFrame, geojson=None) -> ChartType: ...
 
 
 def dataset_plot(id: str, name: str, description: str = ""):
@@ -119,8 +112,9 @@ def create_plot_from_dataset(plot_id: str, dataset):
     if plot_cls is None:
         available = ", ".join(_dataset_plots_registry.keys())
         raise ValueError(f"Unknown plot type: {plot_id}. Available: {available}")
-    plotter = plot_cls.from_dataset_model(dataset)
-    return plotter.plot_spec()
+    plotter = plot_cls()
+    chart = plotter.plot_from_dataset_model(dataset)
+    return chart.to_dict(format="vega")
 
 
 @dataset_plot(
@@ -129,43 +123,36 @@ def create_plot_from_dataset(plot_id: str, dataset):
     description="Choropleth map showing mean disease cases or incidence rate by location.",
 )
 class DiseaseCasesMap(DatasetPlot):
-    plot_variable: str = "disease_cases"
-
-    def data(self):
-        df = self._df.copy()
+    def plot(self, df: pd.DataFrame, geojson=None) -> alt.Chart:  # type: ignore[override]
+        plot_variable = "disease_cases"
+        df = df.copy()
         if "population" in df.columns:
             df["incidence_rate"] = df["disease_cases"] / df["population"]
-            self.plot_variable = "incidence_rate"
-        agg = df.groupby("location").agg({self.plot_variable: "mean"}).reset_index()
-        return agg
+            plot_variable = "incidence_rate"
+        agg = df.groupby("location").agg({plot_variable: "mean"}).reset_index()
 
-    def plot(self):
-        data = self.data()
-
-        if self._geojson is None:
+        if geojson is None:
             raise ValueError("GeoJSON data is required for DiseaseCasesMap")
 
-        # Prepare the GeoJSON data
-        geojson_data = alt.Data(values=self._geojson["features"])
+        geojson_data = alt.Data(values=geojson["features"])
 
-        # Create the choropleth map
         chart = (
             alt.Chart(geojson_data)
             .mark_geoshape(stroke="white", strokeWidth=0.5)
-            .transform_lookup(lookup="id", from_=alt.LookupData(data, "location", [self.plot_variable]))
+            .transform_lookup(lookup="id", from_=alt.LookupData(agg, "location", [plot_variable]))
             .encode(
                 color=alt.Color(
-                    f"{self.plot_variable}:Q",
+                    f"{plot_variable}:Q",
                     scale=alt.Scale(scheme="oranges"),
                     legend=alt.Legend(
-                        title="Mean Disease Cases" if self.plot_variable == "disease_cases" else "Mean Incidence Rate"
+                        title="Mean Disease Cases" if plot_variable == "disease_cases" else "Mean Incidence Rate"
                     ),
                 ),
                 tooltip=[
                     alt.Tooltip("id:N", title="Location"),
                     alt.Tooltip(
-                        f"{self.plot_variable}:Q",
-                        title="Mean Disease Cases" if self.plot_variable == "disease_cases" else "Mean Incidence Rate",
+                        f"{plot_variable}:Q",
+                        title="Mean Disease Cases" if plot_variable == "disease_cases" else "Mean Incidence Rate",
                         format=".2f",
                     ),
                 ],
@@ -174,11 +161,11 @@ class DiseaseCasesMap(DatasetPlot):
             .properties(
                 width=600,
                 height=400,
-                title="Disease Cases Map" if self.plot_variable == "disease_cases" else "Disease Incidence Rate Map",
+                title="Disease Cases Map" if plot_variable == "disease_cases" else "Disease Incidence Rate Map",
             )
         )
 
-        return chart
+        return chart  # type: ignore[no-any-return]
 
 
 @dataset_plot(
@@ -201,17 +188,15 @@ class StandardizedFeaturePlot(DatasetPlot):
             return col - mean_val  # type: ignore[no-any-return]
         return (col - mean_val) / std_val  # type: ignore[no-any-return]
 
-    def data(self) -> pd.DataFrame:
-        df = self._df.copy()
-        colnames = list(self._get_colnames())
+    def data(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        colnames = list(self._get_colnames(df))
         base_df = df[["time_period", "location"]].copy()
 
-        # Add log1p of disease incidence rate if population column exists
         if "population" in df.columns:
             df["log1p"] = np.log1p(df["disease_cases"] / df["population"])
             colnames.append("log1p")
         else:
-            # Fallback to just log1p of disease cases
             df["log1p"] = np.log1p(df["disease_cases"])
             colnames.append("log1p")
 
@@ -226,19 +211,15 @@ class StandardizedFeaturePlot(DatasetPlot):
         if dfs:
             return pd.concat(dfs, ignore_index=True)
         else:
-            # Return empty dataframe with correct structure
             return pd.DataFrame(columns=["time_period", "location", "value", "feature"])
 
-    def plot(self) -> HConcatChart:  # type: ignore[override]
-        data = self.data()
+    def plot(self, df: pd.DataFrame, geojson=None) -> HConcatChart:  # type: ignore[override]
+        data = self.data(df)
 
-        # Filter data based on selected features if specified
-        # Convert time_period to proper datetime format
         data["date"] = pd.to_datetime(data["time_period"] + "-01")
 
         checkbox_selection = alt.selection_point(fields=["feature"], toggle="true")
 
-        # Create legend that acts as checkboxes
         legend_chart = (
             alt.Chart(data)
             .mark_circle(size=100)
@@ -251,7 +232,6 @@ class StandardizedFeaturePlot(DatasetPlot):
             .properties(width=100, title="Click to select/deselect")
         )
 
-        # Main chart with filtering
         main_chart = (
             alt.Chart(data)
             .add_params(alt.selection_interval(bind="scales", encodings=["x"]))
@@ -271,43 +251,6 @@ class StandardizedFeaturePlot(DatasetPlot):
             .resolve_legend(color="independent")
             .properties(title="Multiple Feature Selection (Click legend items to toggle)")
         )
-
-
-def test_standardized_feature_plot(df: pd.DataFrame):
-    df["ideal_temperature"] = (df["mean_temperature"] > 25) & (
-        df["mean_temperature"] <= 30
-    )  # Assuming mean_temperature is the predictor
-    df["ideal_temperature"] = df["ideal_temperature"].astype(int)
-    # Convert boolean to int for plotting
-    plotter = StandardizedFeaturePlot(df)
-
-    data = plotter.data()
-    print(data.head())
-    print(f"Data shape: {data.shape}")
-    print(f"Features: {data['feature'].unique()}")
-    assert "value" in data.columns
-    assert "feature" in data.columns
-    assert "location" in data.columns
-    assert "time_period" in data.columns
-
-    chart = plotter.plot()
-    chart.save("standardized_feature_plot.html")
-    chart.save("standardized_feature_plot.png")
-    print("Chart saved to standardized_feature_plot.html and standardized_feature_plot.png")
-
-
-def test_temperature_transform():
-    temps = np.arange(35)
-    transformed = temperature_transform(temps)
-    df = pd.DataFrame({"mean_temperature": temps, "ideal_temperature": transformed})
-    chart = (
-        alt.Chart(df)
-        .mark_line()
-        .encode(x="mean_temperature", y="ideal_temperature")
-        .properties(title="Temperature Transformation")
-    )
-    chart.save("temperature_transform.html")
-    chart.save("temperature_transform.png")
 
 
 def _discover_plots():
