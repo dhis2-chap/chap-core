@@ -50,7 +50,7 @@ Go to Models, click New model, and select **CHAP-EWARS Model**. This model suppo
 
 Add all covariates you imported via the Climate App by typing their names and using underscores instead of spaces (for example `NDVI` or `relative_humidity`). Save the model when finished.
 
-### 6. Open "Create an evaluation form"
+### 6. Open "New evaluation" form
 
 Go to "Overview" and click "New evaluation. Select the period type, date range, organisation units, and the model you just created. Open "Dataset Configuration" and map each covariate to its corresponding data element you just imported data to. Save the configuration.
 
