@@ -26,7 +26,7 @@ time_period,rainfall,mean_temperature,disease_cases,population,location
 2023-02,12.1,26.8,22,120000,Region_B
 ```
 
-## Extracting Climate & Environmental Data for Modelling in DHIS2
+## Optional: Extracting Climate & Environmental Data for Modelling in DHIS2
 
 This short guide describes how to import climate and environmental data, configure a model in the DHIS2 Modelling App, and extract the modelling payload.
 
@@ -48,7 +48,7 @@ Go to Models, click New model, and select **CHAP-EWARS Model**. This model suppo
 
 ### 5. Add covariates
 
-Add all additional covariates you imported via the Climate App by typing their names and using underscores instead of spaces (for example `NDVI` or `relative_humidity`). Also add precipitation or mean temperature. Save the model when finished.
+Add all covariates you imported via the Climate App by typing their names and using underscores instead of spaces (for example `NDVI` or `relative_humidity`). Save the model when finished.
 
 ### 6. Create an evaluation and configure datasets
 
@@ -60,9 +60,9 @@ Click Start dry run to verify that the data and configuration are accepted. Cont
 
 ### 8. Download the payload
 
-Click **Download request** to save the modelling payload to your computer. Upload this file to the Google Drive folder.
+Click **Download request** to save the modelling payload to your computer.
 
-<img src="assets/download-button.png" alt="Download request button">
+<img src="./assets/download-button.png" alt="Download request button">
 
 ## Converting a Modeling App request to CSV and GeoJSON
 
