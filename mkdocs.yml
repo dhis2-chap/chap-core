@@ -69,12 +69,14 @@ nav:
           - Creating an evaluation: "modeling-app/using-the-modeling-app/creating-an-evaluation"
           - Creating a prediction: "modeling-app/using-the-modeling-app/creating-a-prediction"
       - Managing models: modeling-app/managing-model-templates.md
-  - For Newcomers: external_models/newcomer.md
+  - For Newcomers:
+      - For newcomers: external_models/newcomer.md
+      - Learning Modelling: external_models/learn_modelling.md
   - Model Developers:
       - Overview: external_models/index.md
       - Getting Started:
           - For Experienced Modellers: external_models/experienced_modeller.md
-          - Learning Modelling: external_models/learn_modelling.md
+
       - Installing Chap Core:
           - Prepare for installation: external_models/prepare-for-installation.md
           - Install Chap Core: chap-cli/chap-core-cli-setup.md
