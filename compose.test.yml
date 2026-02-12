@@ -3,7 +3,7 @@ services:
     build:
         context: .
         dockerfile: Dockerfile.test
-
+    init: true
     # multine command
     depends_on:
         -  worker

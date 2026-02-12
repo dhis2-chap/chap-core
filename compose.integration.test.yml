@@ -1,5 +1,6 @@
 services:
   chap_frontend_emulator:
+    init: true
     build:
       context: .
       dockerfile: Dockerfile.integrationtest
