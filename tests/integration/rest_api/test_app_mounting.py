@@ -82,6 +82,19 @@ class TestCommonEndpoints:
         assert response.json() == {"status": "success"}
 
 
+class TestV1BackwardCompat:
+    """Verify common endpoints are accessible under /v1/ prefix for backward compat."""
+
+    def test_common_endpoint_at_v1_prefix(self, client):
+        response = client.get("/v1/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "success", "message": "healthy"}
+
+    def test_common_status_at_v1_prefix(self, client):
+        response = client.get("/v1/status")
+        assert response.status_code == 200
+
+
 class TestV2Mounting:
     def test_v2_services_endpoint(self, client):
         response = client.get("/v2/services")

@@ -50,6 +50,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 app.include_router(common_router)
-app.include_router(common_router, prefix="/v1", include_in_schema=False)
 app.include_router(v1_router, prefix="/v1")
 app.include_router(v2_router, prefix="/v2")
+
+# Backward-compatible /v1 prefix for common routes: the DHIS2 frontend
+# currently uses OpenAPI.BASE='/v1', so common endpoints like /status and
+# /health are requested at /v1/status and /v1/health. This duplicate mount
+# ensures those requests still work. Hidden from the OpenAPI schema.
+app.include_router(common_router, prefix="/v1", include_in_schema=False)
