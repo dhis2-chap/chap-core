@@ -9,26 +9,26 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
+from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.jobs import NaiveWorker
-from chap_core.rest_api.v1.rest_api import app
 from chap_core.rest_api.v1.routers.dependencies import get_settings
 from chap_core.rest_api.worker_functions import WorkerConfig
 from chap_core.util import redis_available
 
 client = TestClient(app)
 
-# paths
+# paths - common endpoints are at root, v1-specific endpoints under /v1/
 set_model_path_path = "/v1/set-model-path"
-get_status_path = "/v1/status"
+get_status_path = "/status"
 post_zip_file_path = "/v1/zip-file"
-list_models_path = "/v1/list-models"
-list_features_path = "/v1/list-features"
-get_result_path = "/v1/get-results"
-get_exception_info = "/v1/get-exception"
+list_models_path = "/list-models"
+list_features_path = "/list-features"
+get_result_path = "/get-results"
+get_exception_info = "/get-exception"
 predict_on_json_path = "/v1/predict-from-json"
 predict_path = "/v1/predict"
 evaluate_path = "/v1/evaluate"
-evaluation_result_path = "/v1/get-evaluation-results"
+evaluation_result_path = "/get-evaluation-results"
 
 
 @pytest.fixture(scope="session")
@@ -86,7 +86,7 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
     big_request_json = json.loads(big_request_json)
     big_request_json["model_id"] = "chap_ewars_monthly"
     big_request_json = json.dumps(big_request_json)
-    monkeypatch.setattr("chap_core.rest_api.v1.rest_api.worker", NaiveWorker())
+    monkeypatch.setattr("chap_core.common_routes.worker", NaiveWorker())
     # check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
     exception_info = run_job_that_should_fail_and_get_exception_info(
         big_request_json, evaluate_path, evaluation_result_path
@@ -112,7 +112,7 @@ def test_evaluate(big_request_json, celery_session_worker, dependency_overrides)
 @pytest.mark.skip("predict endpoint removed")
 def test_model_that_does_not_exist(big_request_json, monkeypatch, dependency_overrides):
     # patch worker in rest_api to be NaiveWorker
-    monkeypatch.setattr("chap_core.rest_api.v1.rest_api.worker", NaiveWorker())
+    monkeypatch.setattr("chap_core.common_routes.worker", NaiveWorker())
     request_json = big_request_json
     request_json = json.loads(request_json)
     request_json["estimator_id"] = "does_not_exist"
@@ -182,7 +182,7 @@ def test_list_models():
 
 
 def test_health_check_success(dependency_overrides):
-    response = client.get("/v1/health")
+    response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "success"
 
@@ -201,7 +201,7 @@ def test_common_api_get_endpoints_do_not_fail(dependency_overrides):
 @pytest.mark.skip(reason="No longer requireing GEE authentication")
 def test_health_check_fail(dependency_overrides):
     app.dependency_overrides[get_settings] = lambda: WorkerConfig(is_test=True, failing_services=("gee",))
-    response = client.get("/v1/health")
+    response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {
         "message": "GEE authentication might not be set up properly: " + "Intentional fail of gee service",

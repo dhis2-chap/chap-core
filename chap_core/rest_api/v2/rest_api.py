@@ -1,7 +1,6 @@
-from fastapi import FastAPI
-from fastapi.responses import ORJSONResponse
+from fastapi import APIRouter
 
 from chap_core.rest_api.v2.routers import services
 
-app = FastAPI(root_path="/v2", default_response_class=ORJSONResponse)
-app.include_router(services.router)
+router = APIRouter()
+router.include_router(services.router)

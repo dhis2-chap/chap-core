@@ -7,7 +7,7 @@ from chap_core.rest_api.v2.dependencies import (
     SERVICE_KEY_ENV_VAR,
     get_orchestrator,
 )
-from chap_core.rest_api.v2.rest_api import app
+from chap_core.rest_api.app import app
 
 TEST_SERVICE_KEY = "test-service-key"
 
@@ -54,7 +54,7 @@ def sample_registration():
 
 class TestRegisterEndpoint:
     def test_register_service_returns_200(self, client, sample_registration, auth_headers):
-        response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -64,7 +64,7 @@ class TestRegisterEndpoint:
         assert "ping_url" in data
 
     def test_register_service_invalid_payload(self, client, auth_headers):
-        response = client.post("/services/$register", json={}, headers=auth_headers)
+        response = client.post("/v2/services/$register", json={}, headers=auth_headers)
 
         assert response.status_code == 422
 
@@ -78,7 +78,7 @@ class TestRegisterEndpoint:
                 "period_type": "monthly",
             },
         }
-        response = client.post("/services/$register", json=payload, headers=auth_headers)
+        response = client.post("/v2/services/$register", json=payload, headers=auth_headers)
 
         assert response.status_code == 422
 
@@ -92,12 +92,12 @@ class TestRegisterEndpoint:
                 "period_type": "monthly",
             },
         }
-        response = client.post("/services/$register", json=payload, headers=auth_headers)
+        response = client.post("/v2/services/$register", json=payload, headers=auth_headers)
 
         assert response.status_code == 422
 
     def test_register_returns_absolute_ping_url(self, client, sample_registration, auth_headers):
-        response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
 
         data = response.json()
         assert data["ping_url"].startswith("http://")
@@ -106,10 +106,10 @@ class TestRegisterEndpoint:
 
 class TestPingEndpoint:
     def test_ping_registered_service(self, client, sample_registration, auth_headers):
-        reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
-        response = client.put(f"/services/{service_id}/$ping", headers=auth_headers)
+        response = client.put(f"/v2/services/{service_id}/$ping", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
@@ -117,14 +117,14 @@ class TestPingEndpoint:
         assert data["id"] == service_id
 
     def test_ping_nonexistent_service(self, client, auth_headers):
-        response = client.put("/services/nonexistent-id/$ping", headers=auth_headers)
+        response = client.put("/v2/services/nonexistent-id/$ping", headers=auth_headers)
 
         assert response.status_code == 404
 
 
 class TestListEndpoint:
     def test_list_empty_services(self, client):
-        response = client.get("/services")
+        response = client.get("/v2/services")
 
         assert response.status_code == 200
         data = response.json()
@@ -150,10 +150,10 @@ class TestListEndpoint:
                 "period_type": "monthly",
             },
         }
-        client.post("/services/$register", json=reg1, headers=auth_headers)
-        client.post("/services/$register", json=reg2, headers=auth_headers)
+        client.post("/v2/services/$register", json=reg1, headers=auth_headers)
+        client.post("/v2/services/$register", json=reg2, headers=auth_headers)
 
-        response = client.get("/services")
+        response = client.get("/v2/services")
 
         assert response.status_code == 200
         data = response.json()
@@ -161,9 +161,9 @@ class TestListEndpoint:
         assert len(data["services"]) == 2
 
     def test_list_excludes_null_values(self, client, sample_registration, auth_headers):
-        client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
 
-        response = client.get("/services")
+        response = client.get("/v2/services")
 
         data = response.json()
         service = data["services"][0]
@@ -173,10 +173,10 @@ class TestListEndpoint:
 
 class TestGetEndpoint:
     def test_get_registered_service(self, client, sample_registration, auth_headers):
-        reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
-        response = client.get(f"/services/{service_id}")
+        response = client.get(f"/v2/services/{service_id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -186,26 +186,26 @@ class TestGetEndpoint:
         assert data["info"]["period_type"] == sample_registration["info"]["period_type"]
 
     def test_get_nonexistent_service(self, client):
-        response = client.get("/services/nonexistent-id")
+        response = client.get("/v2/services/nonexistent-id")
 
         assert response.status_code == 404
 
 
 class TestDeregisterEndpoint:
     def test_deregister_service(self, client, sample_registration, auth_headers):
-        reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
-        response = client.delete(f"/services/{service_id}", headers=auth_headers)
+        response = client.delete(f"/v2/services/{service_id}", headers=auth_headers)
 
         assert response.status_code == 204
 
         # Verify service is gone
-        get_response = client.get(f"/services/{service_id}")
+        get_response = client.get(f"/v2/services/{service_id}")
         assert get_response.status_code == 404
 
     def test_deregister_nonexistent_service(self, client, auth_headers):
-        response = client.delete("/services/nonexistent-id", headers=auth_headers)
+        response = client.delete("/v2/services/nonexistent-id", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -213,29 +213,29 @@ class TestDeregisterEndpoint:
 class TestFullRegistrationFlow:
     def test_complete_lifecycle(self, client, sample_registration, auth_headers):
         # Register
-        reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         assert reg_response.status_code == 200
         service_id = reg_response.json()["id"]
 
         # Verify in list
-        list_response = client.get("/services")
+        list_response = client.get("/v2/services")
         assert list_response.json()["count"] == 1
 
         # Ping to keep alive
-        ping_response = client.put(f"/services/{service_id}/$ping", headers=auth_headers)
+        ping_response = client.put(f"/v2/services/{service_id}/$ping", headers=auth_headers)
         assert ping_response.status_code == 200
 
         # Get details
-        get_response = client.get(f"/services/{service_id}")
+        get_response = client.get(f"/v2/services/{service_id}")
         assert get_response.status_code == 200
         assert get_response.json()["url"] == sample_registration["url"]
 
         # Deregister
-        del_response = client.delete(f"/services/{service_id}", headers=auth_headers)
+        del_response = client.delete(f"/v2/services/{service_id}", headers=auth_headers)
         assert del_response.status_code == 204
 
         # Verify removed
-        final_list = client.get("/services")
+        final_list = client.get("/v2/services")
         assert final_list.json()["count"] == 0
 
 
@@ -252,13 +252,13 @@ class TestServiceKeyAuthentication:
         app.dependency_overrides.clear()
 
     def test_register_without_key_returns_422(self, client, sample_registration):
-        response = client.post("/services/$register", json=sample_registration)
+        response = client.post("/v2/services/$register", json=sample_registration)
 
         assert response.status_code == 422
 
     def test_register_with_invalid_key_returns_401(self, client, sample_registration):
         response = client.post(
-            "/services/$register",
+            "/v2/services/$register",
             json=sample_registration,
             headers={"X-Service-Key": "wrong-key"},
         )
@@ -267,13 +267,13 @@ class TestServiceKeyAuthentication:
         assert response.json()["detail"] == "Invalid service key"
 
     def test_register_with_valid_key_succeeds(self, client, sample_registration, auth_headers):
-        response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
 
         assert response.status_code == 200
 
     def test_register_without_env_var_allows_registration(self, client_without_env_var, sample_registration):
         response = client_without_env_var.post(
-            "/services/$register",
+            "/v2/services/$register",
             json=sample_registration,
         )
 
@@ -282,46 +282,46 @@ class TestServiceKeyAuthentication:
         assert data["status"] == "registered"
 
     def test_ping_without_key_returns_422(self, client, sample_registration, auth_headers):
-        reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
-        response = client.put(f"/services/{service_id}/$ping")
+        response = client.put(f"/v2/services/{service_id}/$ping")
 
         assert response.status_code == 422
 
     def test_ping_with_invalid_key_returns_401(self, client, sample_registration, auth_headers):
-        reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
-        response = client.put(f"/services/{service_id}/$ping", headers={"X-Service-Key": "wrong-key"})
+        response = client.put(f"/v2/services/{service_id}/$ping", headers={"X-Service-Key": "wrong-key"})
 
         assert response.status_code == 401
 
     def test_deregister_without_key_returns_422(self, client, sample_registration, auth_headers):
-        reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
-        response = client.delete(f"/services/{service_id}")
+        response = client.delete(f"/v2/services/{service_id}")
 
         assert response.status_code == 422
 
     def test_deregister_with_invalid_key_returns_401(self, client, sample_registration, auth_headers):
-        reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
-        response = client.delete(f"/services/{service_id}", headers={"X-Service-Key": "wrong-key"})
+        response = client.delete(f"/v2/services/{service_id}", headers={"X-Service-Key": "wrong-key"})
 
         assert response.status_code == 401
 
     def test_list_does_not_require_auth(self, client):
-        response = client.get("/services")
+        response = client.get("/v2/services")
 
         assert response.status_code == 200
 
     def test_get_does_not_require_auth(self, client, sample_registration, auth_headers):
-        reg_response = client.post("/services/$register", json=sample_registration, headers=auth_headers)
+        reg_response = client.post("/v2/services/$register", json=sample_registration, headers=auth_headers)
         service_id = reg_response.json()["id"]
 
-        response = client.get(f"/services/{service_id}")
+        response = client.get(f"/v2/services/{service_id}")
 
         assert response.status_code == 200

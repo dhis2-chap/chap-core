@@ -16,7 +16,7 @@ from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import BackTest, PredictionInfo, PredictionRead, BackTestRead
 from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, FetchRequest
-from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api.v1.routers.crud import DatasetCreate, ModelConfigurationCreate, ModelTemplateRead
 

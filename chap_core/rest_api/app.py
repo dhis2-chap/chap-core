@@ -1,11 +1,21 @@
-from fastapi import FastAPI
+import logging
+import traceback
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, ORJSONResponse
+from packaging.version import InvalidVersion
 
-from chap_core.rest_api.v1.rest_api import app as v1_app
-from chap_core.rest_api.v2.rest_api import app as v2_app
+from chap_core.common_routes import router as common_router
+from chap_core.rest_api.v1.rest_api import router as v1_router
+from chap_core.rest_api.v2.rest_api import router as v2_router
 
-app = FastAPI(title="CHAP Core API", docs_url=None, redoc_url=None, openapi_url=None)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="CHAP Core API",
+    default_response_class=ORJSONResponse,
+)
 
 origins = [
     "*",
@@ -21,25 +31,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/v1", v1_app)
-app.mount("/v2", v2_app)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions and log full traceback"""
+    if isinstance(exc, InvalidVersion):
+        logger.warning(f"Invalid version string on {request.method} {request.url.path}: {str(exc)}")
+    else:
+        logger.error(f"Unhandled exception on {request.method} {request.url.path}")
+        logger.error(f"Exception type: {type(exc).__name__}")
+        logger.error(f"Exception message: {str(exc)}")
+        logger.error("Full traceback:")
+        logger.error(traceback.format_exc())
+
+    return JSONResponse(
+        status_code=500, content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__}
+    )
 
 
-@app.get("/health")
-async def root_health():
-    return {"status": "healthy"}
-
-
-@app.get("/docs", include_in_schema=False)
-async def docs_redirect():
-    return RedirectResponse(url="/v1/docs")
-
-
-@app.get("/redoc", include_in_schema=False)
-async def redoc_redirect():
-    return RedirectResponse(url="/v1/redoc")
-
-
-@app.get("/openapi.json", include_in_schema=False)
-async def openapi_redirect():
-    return RedirectResponse(url="/v1/openapi.json")
+app.include_router(common_router)
+app.include_router(common_router, prefix="/v1", include_in_schema=False)
+app.include_router(v1_router, prefix="/v1")
+app.include_router(v2_router, prefix="/v2")
