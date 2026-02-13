@@ -8,8 +8,10 @@ job results retrieval, and compatibility checks.
 import logging
 from typing import Any, cast
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from packaging.version import Version
 from pydantic import BaseModel
 
@@ -199,9 +201,17 @@ async def list_features() -> list[Feature]:
 # -- Static assets --
 
 
+@router.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/docs")
+
+
 @router.get("/favicon.ico", include_in_schema=False)
-async def favicon() -> FileResponse:
-    return FileResponse("chap_icon.jpeg")
+async def favicon():
+    path = Path("chap_icon.jpeg")
+    if not path.is_file():
+        return Response(status_code=204)
+    return FileResponse(path)
 
 
 # --- Helpers ---
