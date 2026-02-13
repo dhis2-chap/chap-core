@@ -37,6 +37,13 @@ git checkout [VERSION] #Replace with your desired version, e.g. v1.0.18
 
 For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](https://github.com/dhis2-chap/chap-core/releases)
 
+!!! note "New in v1.1.5: Environment file required"
+    Starting from version 1.1.5, a `.env` file is required. If you don't already have one, copy it from the example:
+
+        cp .env.example .env
+
+    For production deployments, edit `.env` to set secure values for `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`.
+
 ## 3. Upgrade Chap Core
 
 ```console
