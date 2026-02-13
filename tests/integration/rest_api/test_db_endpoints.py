@@ -141,7 +141,7 @@ def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_ov
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
     data = dataset_create.model_dump_json()
     print(json.dumps(data, indent=2))
-    response = client.post("/v1/crud/datasets", data=data)
+    response = client.post("/v1/crud/datasets", content=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get(f"/v1/crud/datasets/{db_id}")
@@ -224,7 +224,7 @@ def make_prediction_request(make_dataset_request):
 
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
     data = make_prediction_request.model_dump_json()
-    response = client.post("/v1/analytics/make-prediction", data=data)
+    response = client.post("/v1/analytics/make-prediction", content=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get(f"/v1/crud/predictions/{db_id}")
@@ -368,7 +368,7 @@ def _make_dataset(
     expected_rejections=None,
 ):
     data = make_dataset_request.model_dump_json()
-    response = client.post("/v1/analytics/make-dataset", data=data)
+    response = client.post("/v1/analytics/make-dataset", content=data)
     content = response.json()
     _check_rejected_org_units(content, expected_rejections)
 
@@ -420,9 +420,9 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     data_source = next(ds for ds in data_sources if fetched_feature in ds["supportedFeatures"])
     fetch_request = []  # [FetchRequest(feature_name=fetched_feature, data_source_name=data_source["name"])]
     request = create_make_data_request(example_polygons, fetch_request, provided_features)
-    request = MakePredictionRequest(model_id=model.name, **request.dict())
+    request = MakePredictionRequest(model_id=model.name, **request.model_dump())
     data = request.model_dump_json()
-    response = client.post("/v1/analytics/make-prediction", data=data)
+    response = client.post("/v1/analytics/make-prediction", content=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get("/v1/crud/predictions")

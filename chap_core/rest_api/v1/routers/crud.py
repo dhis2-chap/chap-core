@@ -469,7 +469,7 @@ def add_configured_model(
     model_template_id = model_configuration.model_template_id
     configuration_name = model_configuration.name
     db_id = session_wrapper.add_configured_model(
-        model_template_id, ModelConfiguration(**model_configuration.dict()), configuration_name
+        model_template_id, ModelConfiguration(**model_configuration.model_dump()), configuration_name
     )
     return session.get(ConfiguredModelDB, db_id)
 
