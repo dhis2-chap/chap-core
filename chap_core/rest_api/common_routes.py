@@ -45,7 +45,7 @@ class SystemInfoResponse(BaseModel):
 
 # --- Router ---
 
-router = APIRouter()
+router = APIRouter(tags=["System"])
 
 
 # -- Health and info endpoints --

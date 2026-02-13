@@ -12,9 +12,23 @@ from chap_core.rest_api.v2.rest_api import router as v2_router
 
 logger = logging.getLogger(__name__)
 
+openapi_tags = [
+    {"name": "System", "description": "Health checks, version, and compatibility"},
+    {"name": "Backtests", "description": "Create, manage, and query backtests and evaluation results"},
+    {"name": "Predictions", "description": "Create, manage, and query predictions"},
+    {"name": "Datasets", "description": "Create, manage, and export datasets"},
+    {"name": "Models", "description": "Model templates and configured models"},
+    {"name": "Visualizations", "description": "Generate plots and charts"},
+    {"name": "Jobs", "description": "Monitor and manage async jobs"},
+    {"name": "Debug", "description": "Debug and diagnostic endpoints"},
+    {"name": "Legacy", "description": "Deprecated single-job endpoints (use Jobs instead)"},
+    {"name": "Services", "description": "Service registry (v2)"},
+]
+
 app = FastAPI(
     title="CHAP Core API",
     default_response_class=ORJSONResponse,
+    openapi_tags=openapi_tags,
 )
 
 origins = [

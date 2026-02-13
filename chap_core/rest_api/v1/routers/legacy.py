@@ -28,7 +28,7 @@ class State(BaseModel):
 internal_state = InternalState(Control({}), {})
 worker: CeleryPool[Any] = CeleryPool()
 
-router = APIRouter()
+router = APIRouter(tags=["Legacy"])
 
 
 @router.get("/status")

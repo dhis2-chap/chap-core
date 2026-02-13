@@ -118,6 +118,39 @@ class TestV2Mounting:
         assert response.json()["status"] == "registered"
 
 
+class TestOpenAPITags:
+    def test_openapi_tags_present_and_ordered(self, client):
+        response = client.get("/openapi.json")
+        assert response.status_code == 200
+        schema = response.json()
+        tag_names = [tag["name"] for tag in schema["tags"]]
+        expected = [
+            "System",
+            "Backtests",
+            "Predictions",
+            "Datasets",
+            "Models",
+            "Visualizations",
+            "Jobs",
+            "Debug",
+            "Legacy",
+            "Services",
+        ]
+        assert tag_names == expected
+
+    def test_no_untagged_endpoints(self, client):
+        response = client.get("/openapi.json")
+        schema = response.json()
+        defined_tags = {tag["name"] for tag in schema["tags"]}
+        for path, methods in schema["paths"].items():
+            for method, details in methods.items():
+                if method in ("get", "post", "put", "patch", "delete"):
+                    endpoint_tags = details.get("tags", [])
+                    assert endpoint_tags, f"{method.upper()} {path} has no tags"
+                    for tag in endpoint_tags:
+                        assert tag in defined_tags, f"{method.upper()} {path} uses undefined tag '{tag}'"
+
+
 class TestDocs:
     def test_docs_accessible(self, client):
         response = client.get("/docs")
