@@ -28,9 +28,9 @@ def get_openapi_schema():
 def main_backend(seed_data=None, auto_reload=False):
     import uvicorn
 
-    from chap_core.common_routes import seed
     from chap_core.database.database import create_db_and_tables
     from chap_core.rest_api.app import app
+    from chap_core.rest_api.common_routes import seed
 
     create_db_and_tables()
 

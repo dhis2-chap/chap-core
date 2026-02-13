@@ -21,8 +21,6 @@ client = TestClient(app)
 set_model_path_path = "/v1/set-model-path"
 get_status_path = "/status"
 post_zip_file_path = "/v1/zip-file"
-list_models_path = "/list-models"
-list_features_path = "/list-features"
 get_result_path = "/get-results"
 get_exception_info = "/get-exception"
 predict_on_json_path = "/v1/predict-from-json"
@@ -86,7 +84,7 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
     big_request_json = json.loads(big_request_json)
     big_request_json["model_id"] = "chap_ewars_monthly"
     big_request_json = json.dumps(big_request_json)
-    monkeypatch.setattr("chap_core.common_routes.worker", NaiveWorker())
+    monkeypatch.setattr("chap_core.rest_api.common_routes.worker", NaiveWorker())
     # check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
     exception_info = run_job_that_should_fail_and_get_exception_info(
         big_request_json, evaluate_path, evaluation_result_path
@@ -112,7 +110,7 @@ def test_evaluate(big_request_json, celery_session_worker, dependency_overrides)
 @pytest.mark.skip("predict endpoint removed")
 def test_model_that_does_not_exist(big_request_json, monkeypatch, dependency_overrides):
     # patch worker in rest_api to be NaiveWorker
-    monkeypatch.setattr("chap_core.common_routes.worker", NaiveWorker())
+    monkeypatch.setattr("chap_core.rest_api.common_routes.worker", NaiveWorker())
     request_json = big_request_json
     request_json = json.loads(request_json)
     request_json["estimator_id"] = "does_not_exist"
@@ -167,18 +165,6 @@ def test_get_status():
     response = client.get(get_status_path)
     assert response.status_code == 200
     assert response.json()["ready"] == False
-
-
-@pytest.mark.skipif(not redis_available(), reason="Redis not available")
-@pytest.mark.skip("endpoint removed")
-def test_list_models():
-    response = client.get(list_models_path)
-    assert response.status_code == 200
-    spec_names = {spec["name"] for spec in response.json()}
-    assert "chap_ewars_monthly" in spec_names
-    assert "chap_ewars_weekly" in spec_names
-    spec = next(spec for spec in response.json() if spec["name"] == "chap_ewars_monthly")
-    assert "population" in (feature["id"] for feature in spec["features"])
 
 
 def test_health_check_success(dependency_overrides):

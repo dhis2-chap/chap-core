@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
 from packaging.version import InvalidVersion
 
-from chap_core.common_routes import router as common_router
+from chap_core.rest_api.common_routes import router as common_router
 from chap_core.rest_api.v1.rest_api import router as v1_router
 from chap_core.rest_api.v2.rest_api import router as v2_router
 

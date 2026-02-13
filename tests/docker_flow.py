@@ -25,24 +25,7 @@ chap_url = "http://%s:8000" % hostname
 
 
 def main():
-    model_url = chap_url + "/v1/list-models"
     ensure_up(chap_url)
-    try:
-        models = requests.get(model_url)
-    except:
-        print("Failed to connect to %s" % chap_url)
-        logger.error("Failed when fetching models")
-        print("----------------Exception info----------------")
-        exception_info = requests.get(chap_url + "/v1/get-exception").json()
-        print(exception_info)
-        logger.error(exception_info)
-        logger.error("Failed to connect to %s" % chap_url)
-        raise
-
-    model_list = models.json()
-
-    for model in model_list:
-        evaluate_model(chap_url, dataset(), model)
 
 
 def ensure_up(chap_url):

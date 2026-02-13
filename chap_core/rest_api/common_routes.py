@@ -16,8 +16,6 @@ from pydantic import BaseModel
 
 from chap_core.api_types import EvaluationResponse
 from chap_core.internal_state import Control, InternalState
-from chap_core.model_spec import ModelSpec
-from chap_core.predictor.feature_spec import Feature
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.rest_api.data_models import FullPredictionResponse
 from chap_core.rest_api.v1.routers.dependencies import get_settings
@@ -180,21 +178,6 @@ async def cancel() -> dict:
     if internal_state.control is not None:
         internal_state.control.cancel()
     return {"status": "success"}
-
-
-# -- Deprecated endpoints --
-
-
-@router.get("/list-models", deprecated=True)
-async def list_models() -> list[ModelSpec]:
-    """List available models. Deprecated: use /v1/crud/model-templates instead."""
-    return []
-
-
-@router.get("/list-features", deprecated=True)
-async def list_features() -> list[Feature]:
-    """List available features. Deprecated: use model template features instead."""
-    return []
 
 
 # -- Static assets --
