@@ -67,7 +67,7 @@ def celery_session_worker(redis_available, celery_session_worker):
 
 @pytest.fixture(scope="session")
 def celery_worker_pool():
-    return "prefork"
+    return "solo"
 
 
 # if not IS_WINDOWS:
