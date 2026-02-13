@@ -118,7 +118,8 @@ def test_evaluate2_deprecation_warning(tmp_path):
             backtest_params=backtest_params,
             run_config=run_config,
         )
-        assert len(w) == 1
-        assert issubclass(w[0].category, DeprecationWarning)
-        assert "evaluate2" in str(w[0].message)
-        assert "eval" in str(w[0].message)
+        deprecation_warnings = [
+            x for x in w if issubclass(x.category, DeprecationWarning) and "evaluate2" in str(x.message)
+        ]
+        assert len(deprecation_warnings) == 1
+        assert "eval" in str(deprecation_warnings[0].message)
