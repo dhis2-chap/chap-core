@@ -6,12 +6,11 @@ job results retrieval, and compatibility checks.
 """
 
 import logging
+from pathlib import Path
 from typing import Any, cast
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, Response
 from packaging.version import Version
 from pydantic import BaseModel
 
@@ -199,11 +198,6 @@ async def list_features() -> list[Feature]:
 
 
 # -- Static assets --
-
-
-@router.get("/", include_in_schema=False)
-async def root():
-    return RedirectResponse(url="/docs")
 
 
 @router.get("/favicon.ico", include_in_schema=False)
