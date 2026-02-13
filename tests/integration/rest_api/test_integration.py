@@ -19,14 +19,14 @@ client = TestClient(app)
 
 # paths - common endpoints are at root, v1-specific endpoints under /v1/
 set_model_path_path = "/v1/set-model-path"
-get_status_path = "/status"
+get_status_path = "/v1/status"
 post_zip_file_path = "/v1/zip-file"
-get_result_path = "/get-results"
-get_exception_info = "/get-exception"
+get_result_path = "/v1/get-results"
+get_exception_info = "/v1/get-exception"
 predict_on_json_path = "/v1/predict-from-json"
 predict_path = "/v1/predict"
 evaluate_path = "/v1/evaluate"
-evaluation_result_path = "/get-evaluation-results"
+evaluation_result_path = "/v1/get-evaluation-results"
 
 
 @pytest.fixture(scope="session")
@@ -84,7 +84,7 @@ def test_evaluate_gives_correct_error_message(big_request_json, rq_worker_proces
     big_request_json = json.loads(big_request_json)
     big_request_json["model_id"] = "chap_ewars_monthly"
     big_request_json = json.dumps(big_request_json)
-    monkeypatch.setattr("chap_core.rest_api.common_routes.worker", NaiveWorker())
+    monkeypatch.setattr("chap_core.rest_api.v1.routers.legacy.worker", NaiveWorker())
     # check_job_endpoint(big_request_json, evaluate_path, evaluation_result_path)
     exception_info = run_job_that_should_fail_and_get_exception_info(
         big_request_json, evaluate_path, evaluation_result_path
@@ -110,7 +110,7 @@ def test_evaluate(big_request_json, celery_session_worker, dependency_overrides)
 @pytest.mark.skip("predict endpoint removed")
 def test_model_that_does_not_exist(big_request_json, monkeypatch, dependency_overrides):
     # patch worker in rest_api to be NaiveWorker
-    monkeypatch.setattr("chap_core.rest_api.common_routes.worker", NaiveWorker())
+    monkeypatch.setattr("chap_core.rest_api.v1.routers.legacy.worker", NaiveWorker())
     request_json = big_request_json
     request_json = json.loads(request_json)
     request_json["estimator_id"] = "does_not_exist"

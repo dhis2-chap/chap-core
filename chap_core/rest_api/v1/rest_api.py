@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter
 
 from chap_core.log_config import initialize_logging
-from chap_core.rest_api.v1.routers import analytics, crud, visualization
+from chap_core.rest_api.v1.routers import analytics, crud, legacy, visualization
 
 from . import debug, jobs
 
@@ -16,6 +16,7 @@ router.include_router(crud.router)
 router.include_router(analytics.router)
 router.include_router(debug.router)
 router.include_router(jobs.router)
+router.include_router(legacy.router)
 router.include_router(visualization.router)
 
 
@@ -30,7 +31,7 @@ def main_backend(seed_data=None, auto_reload=False):
 
     from chap_core.database.database import create_db_and_tables
     from chap_core.rest_api.app import app
-    from chap_core.rest_api.common_routes import seed
+    from chap_core.rest_api.v1.routers.legacy import seed
 
     create_db_and_tables()
 

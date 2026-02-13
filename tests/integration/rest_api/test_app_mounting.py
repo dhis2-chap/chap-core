@@ -45,14 +45,6 @@ class TestCommonEndpoints:
         data = response.json()
         assert "version" in data
 
-    def test_root_status_endpoint(self, client):
-        response = client.get("/status")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["ready"] is True
-        assert data["status"] == "idle"
-
     def test_root_is_compatible_endpoint(self, client):
         response = client.get("/is-compatible?modelling_app_version=999.0.0")
 
@@ -69,18 +61,6 @@ class TestCommonEndpoints:
         assert "python_version" in data
         assert "os" in data
 
-    def test_root_get_exception_endpoint(self, client):
-        response = client.get("/get-exception")
-
-        assert response.status_code == 200
-        assert response.json() == ""
-
-    def test_root_cancel_endpoint(self, client):
-        response = client.post("/cancel")
-
-        assert response.status_code == 200
-        assert response.json() == {"status": "success"}
-
 
 class TestV1BackwardCompat:
     """Verify common endpoints are accessible under /v1/ prefix for backward compat."""
@@ -90,9 +70,22 @@ class TestV1BackwardCompat:
         assert response.status_code == 200
         assert response.json() == {"status": "success", "message": "healthy"}
 
-    def test_common_status_at_v1_prefix(self, client):
+    def test_v1_status_endpoint(self, client):
         response = client.get("/v1/status")
         assert response.status_code == 200
+        data = response.json()
+        assert data["ready"] is True
+        assert data["status"] == "idle"
+
+    def test_v1_get_exception_endpoint(self, client):
+        response = client.get("/v1/get-exception")
+        assert response.status_code == 200
+        assert response.json() == ""
+
+    def test_v1_cancel_endpoint(self, client):
+        response = client.post("/v1/cancel")
+        assert response.status_code == 200
+        assert response.json() == {"status": "success"}
 
 
 class TestV2Mounting:
