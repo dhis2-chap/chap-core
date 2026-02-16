@@ -12,7 +12,7 @@ from chap_core.assessment.backtest_plots import (
     create_plot_from_evaluation,
     BacktestPlotBase,
 )
-from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot
+from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods
 from chap_core.assessment.backtest_plots.metrics_dashboard import MetricsDashboard
 from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
@@ -86,6 +86,45 @@ def test_metrics_dashboard_directly(flat_observations, flat_forecasts, default_t
     """Test the metrics dashboard with flat data."""
     plot = MetricsDashboard()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts))
+    assert chart is not None
+
+
+def test_infer_split_periods_monthly_format():
+    """Test that _infer_split_periods produces date strings, not repr strings like 'Month(2022-1)'."""
+    df = pd.DataFrame(
+        {
+            "location": ["loc1", "loc1"],
+            "time_period": ["2022-01", "2022-02"],
+            "horizon_distance": [1, 2],
+            "q_50": [10.0, 12.0],
+        }
+    )
+    result = _infer_split_periods(df)
+    for split_period in result["split_period"]:
+        assert "Month(" not in split_period, f"Got repr string: {split_period}"
+        assert split_period.startswith("20"), f"Unexpected format: {split_period}"
+
+
+def test_evaluation_plot_monthly_data(default_transformer):
+    """Test that evaluation plot works with monthly time periods."""
+    forecasts = pd.DataFrame(
+        {
+            "location": ["loc1"] * 4 + ["loc2"] * 4,
+            "time_period": ["2022-01", "2022-02"] * 2 + ["2022-01", "2022-02"] * 2,
+            "horizon_distance": [1, 2, 1, 2, 1, 2, 1, 2],
+            "sample": [0, 0, 1, 1, 0, 0, 1, 1],
+            "forecast": [10.0, 12.0, 11.0, 13.0, 20.0, 22.0, 21.0, 23.0],
+        }
+    )
+    observations = pd.DataFrame(
+        {
+            "location": ["loc1", "loc1", "loc2", "loc2"],
+            "time_period": ["2022-01", "2022-02", "2022-01", "2022-02"],
+            "disease_cases": [11.0, 13.0, 19.0, 21.0],
+        }
+    )
+    plot = EvaluationPlot()
+    chart = plot.plot(observations, forecasts)
     assert chart is not None
 
 
