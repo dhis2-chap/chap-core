@@ -644,12 +644,6 @@ class PeriodRange(BNPDataClass):
                 mask[indices] = False
                 return np.flatnonzero(mask)
 
-            print(f"Periods {time_periods}")
-            mask = ~np.array(list(is_consec))
-            print(mask)
-            for wrong in np.flatnonzero(mask):
-                print(f"Wrong period {time_periods[wrong], time_periods[wrong + 1]} with time delta {time_delta}")
-                print(time_periods[wrong] + time_delta, time_periods[wrong + 1])
             raise ValueError("Periods must be consecutive.")
         return []
 

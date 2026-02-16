@@ -56,18 +56,34 @@ def validate_dataset(
     return issues
 
 
+RESERVED_FIELDS = {"time_period", "location", "location_name", "disease_cases"}
+
+
 def _check_nan_covariates(dataset: DataSet) -> list[ValidationIssue]:
     """Check for NaN values in covariate columns (excluding disease_cases)."""
     issues: list[ValidationIssue] = []
     field_names = dataset.field_names()
+    non_numeric_warned: set[str] = set()
     for location, data in dataset.items():
         for field_name in field_names:
-            if field_name == "disease_cases":
+            if field_name in RESERVED_FIELDS:
                 continue
             values = getattr(data, field_name)
+            if not np.issubdtype(values.dtype, np.number):
+                if field_name not in non_numeric_warned:
+                    non_numeric_warned.add(field_name)
+                    issues.append(
+                        ValidationIssue(
+                            level="warning",
+                            message=f"Column '{field_name}' is non-numeric and will be ignored by models",
+                        )
+                    )
+                continue
+            if not np.issubdtype(values.dtype, np.floating):
+                continue
             isnan = np.isnan(values)
             if np.any(isnan):
-                nan_periods = [data.time_period[i].id for i in np.flatnonzero(isnan)]
+                nan_periods = [data.time_period[i].to_string() for i in np.flatnonzero(isnan)]
                 issues.append(
                     ValidationIssue(
                         level="error",

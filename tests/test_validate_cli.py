@@ -7,6 +7,7 @@ import pytest
 
 from chap_core.datatypes import FullData
 from chap_core.external.model_configuration import ModelTemplateConfigV2
+from chap_core.cli_endpoints.validate import _format_period_ranges, _report_period_gaps
 from chap_core.services.dataset_validation import ValidationIssue, validate_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -40,6 +41,26 @@ def test_validate_non_consecutive_periods():
     csv_path = FAULTY_DATA / "non_consecutive_periods.csv"
     with pytest.raises(ValueError, match="consecutive"):
         DataSet.from_csv(csv_path, FullData)
+
+
+def test_report_period_gaps(capsys):
+    csv_path = FAULTY_DATA / "non_consecutive_periods.csv"
+    raw_df = pd.read_csv(csv_path)
+    _report_period_gaps(raw_df)
+    output = capsys.readouterr().out
+    assert "missing" in output
+
+
+def test_format_period_ranges_groups_consecutive():
+    assert _format_period_ranges(["2008-01"]) == "2008-01"
+    result = _format_period_ranges(["2008-01", "2008-02", "2008-03"])
+    assert "2008-01 to 2008-03 (3 periods)" in result
+
+
+def test_format_period_ranges_splits_non_consecutive():
+    result = _format_period_ranges(["2008-01", "2008-02", "2008-06"])
+    assert "2008-01 to 2008-02 (2 periods)" in result
+    assert "2008-06" in result
 
 
 def test_validate_incomplete_locations():
@@ -98,6 +119,37 @@ def test_validate_incomplete_locations_weekly():
     assert len(errors) > 0
     location_issues = [e for e in errors if e.location == "boaco"]
     assert len(location_issues) > 0
+
+
+def test_validate_warns_on_non_numeric_field(tmp_path):
+    raw_df = pd.read_csv(LAOS_SUBSET)
+    raw_df["notes"] = "some text"
+    csv_path = tmp_path / "with_string_col.csv"
+    raw_df.to_csv(csv_path, index=False)
+    dataset = DataSet.from_csv(csv_path)
+    issues = validate_dataset(dataset)
+    warnings = [i for i in issues if i.level == "warning"]
+    assert any("notes" in w.message and "non-numeric" in w.message for w in warnings)
+
+
+def test_validate_accepts_integer_columns(tmp_path):
+    raw_df = pd.read_csv(LAOS_SUBSET)
+    raw_df["population"] = 100000
+    csv_path = tmp_path / "with_int_col.csv"
+    raw_df.to_csv(csv_path, index=False)
+    dataset = DataSet.from_csv(csv_path)
+    issues = validate_dataset(dataset)
+    assert not any("population" in i.message for i in issues)
+
+
+def test_validate_skips_location_name_field(tmp_path):
+    raw_df = pd.read_csv(LAOS_SUBSET)
+    raw_df["location_name"] = "Some Name"
+    csv_path = tmp_path / "with_location_name.csv"
+    raw_df.to_csv(csv_path, index=False)
+    dataset = DataSet.from_csv(csv_path)
+    issues = validate_dataset(dataset)
+    assert not any("location_name" in i.message for i in issues)
 
 
 def test_validate_weekly_data_against_monthly_model():
