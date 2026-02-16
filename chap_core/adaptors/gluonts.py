@@ -22,7 +22,7 @@ class GluonTSPredictor:
         forecasts = self.gluonts_predictor.predict(gluonts_dataset, num_samples=num_samples)
         data = {
             location: Samples(PeriodRange.from_pandas(forecast.index), forecast.samples.T)  # type: ignore[call-arg]
-            for location, forecast in zip(history.keys(), forecasts)
+            for location, forecast in zip(history.keys(), forecasts, strict=False)
         }
         return DataSet(data)
 

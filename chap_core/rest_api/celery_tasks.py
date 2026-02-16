@@ -4,7 +4,7 @@ import logging
 import os
 from collections.abc import Callable
 from datetime import datetime
-from typing import Generic, TypeVar, cast
+from typing import TypeVar, cast
 
 import celery
 from celery import Celery, Task, shared_task
@@ -161,7 +161,7 @@ class TrackedTask(Task):
                     "end_time": datetime.now().isoformat(),
                 },
             )
-            raise Exception("Could not serialize return value to JSON. Return value is:" + str(retval))
+            raise Exception("Could not serialize return value to JSON. Return value is:" + str(retval)) from None
 
         r.hmset(
             f"job_meta:{task_id}",

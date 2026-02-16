@@ -5,8 +5,6 @@ This module provides a backtest plot that shows truth vs predictions over time,
 with uncertainty bands and optional historical observations for context.
 """
 
-from typing import Optional
-
 import altair as alt
 import pandas as pd
 

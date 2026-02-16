@@ -44,7 +44,7 @@ def get_avilable_metric_plots(backtest_id: int):
     """
     List available visualizations
     """
-    return list(cls.visualization_info for cls in metric_plots_registry.values())
+    return [cls.visualization_info for cls in metric_plots_registry.values()]
 
 
 class VisualizationParams(DBModel):

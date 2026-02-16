@@ -35,7 +35,7 @@ def rwanda_data(filename):
     case_names = "Under5_F	Under5_M	5-19_F	5-19_M	20 +_F	20 +_M".split("\t")
     case_names = [name.strip() for name in case_names]
     cases = sum([df[name].values for name in case_names])  # type: ignore[misc]
-    period = [pd.Period(f"{year}-{month}") for year, month in zip(df["Year"], df["Period"])]
+    period = [pd.Period(f"{year}-{month}") for year, month in zip(df["Year"], df["Period"], strict=False)]
     clean_df = pd.DataFrame({"location": df["Sector"], "time_period": period, "disease_cases": cases})
     clean_df.to_csv("/home/knut/Downloads/data/malaria_clean.csv")
     return DataSet.from_pandas(clean_df, dataclass=HealthData)

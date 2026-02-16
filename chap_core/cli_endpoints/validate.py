@@ -1,10 +1,11 @@
 """Validate commands for CHAP CLI."""
 
+import itertools
 import json
 import logging
 import sys
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import pandas as pd
 from cyclopts import Parameter
@@ -161,7 +162,7 @@ def _report_period_gaps(raw_df: pd.DataFrame):
 
         delta = parsed[0].time_delta
         missing = []
-        for p1, p2 in zip(parsed, parsed[1:]):
+        for p1, p2 in itertools.pairwise(parsed):
             expected = p1 + delta
             while expected != p2:
                 missing.append(expected.to_string())

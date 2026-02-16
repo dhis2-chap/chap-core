@@ -11,7 +11,6 @@ This module provides functionality to:
 import logging
 import time
 from pathlib import Path
-from typing import Optional
 
 import requests
 import yaml

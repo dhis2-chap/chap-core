@@ -42,7 +42,7 @@ class MultiCountryDataSet:
 
     @property
     def period_range(self):
-        return list(self._data.values())[0].period_range
+        return next(iter(self._data.values())).period_range
 
     def restrict_time_period(self, time_period):
         return MultiCountryDataSet({name: data.restrict_time_period(time_period) for name, data in self._data.items()})

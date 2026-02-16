@@ -164,7 +164,7 @@ class DataSet[FeaturesT]:
     """
 
     def __init__(self, data_dict: dict[str, FeaturesT], polygons=None, metadata=DataSetMetaData()):
-        self._data_dict = {loc: data for loc, data in data_dict.items()}
+        self._data_dict = dict(data_dict.items())
         self._polygons = polygons
         self._parent_dict = None
         self.metadata = metadata
@@ -268,7 +268,7 @@ class DataSet[FeaturesT]:
         try:
             first_period_range = self._data_dict[next(iter(self._data_dict))].time_period  # type: ignore[attr-defined]
         except StopIteration:
-            raise ValueError(f"No data in dataset {self}")
+            raise ValueError(f"No data in dataset {self}") from None
 
         assert first_period_range.start_timestamp == first_period_range.start_timestamp
         assert first_period_range.end_timestamp == first_period_range.end_timestamp
@@ -581,8 +581,8 @@ class DataSet[FeaturesT]:
         import plotly.express as px
 
         total = np.zeros(len(self.period_range))
-        for location, value in self.items():
-            total += np.where(np.isnan(getattr(value, "disease_cases")), 0, getattr(value, "disease_cases"))
+        for value in self.values():
+            total += np.where(np.isnan(value.disease_cases), 0, value.disease_cases)  # type: ignore[attr-defined]
         return px.line(x=self.period_range.tolist(), y=total)
 
     def to_report(self, pdf_filename: str):

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from sqlmodel import Field
 
 from chap_core.database.base_tables import DBModel

@@ -11,7 +11,7 @@ Services are stored in Redis with automatic expiration.
 """
 
 import json
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from redis import Redis
@@ -30,8 +30,6 @@ KEY_PREFIX = "service:"
 
 class ServiceNotFoundError(Exception):
     """Raised when a requested service is not found in the registry."""
-
-    pass
 
 
 class Orchestrator:

@@ -89,5 +89,5 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
             self._validate_model_configuration(model.model_template.user_options, model.user_option_values)
         except jsonschema.ValidationError as e:
             logger.error(f"Validation error in model configuration: {e}")
-            raise ValueError(f"Invalid user options: {e.message}")
+            raise ValueError(f"Invalid user options: {e.message}") from e
         return model

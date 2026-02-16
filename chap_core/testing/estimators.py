@@ -11,6 +11,6 @@ def sanity_check_estimator(estimator):
     predictor = estimator.train(train)
     samples = predictor.predict(historic, future)
     assert isinstance(samples, DataSet)
-    for location, s in samples.items():
+    for s in samples.values():
         assert len(s) == prediction_length
         assert s.samples.shape == (prediction_length, 100)

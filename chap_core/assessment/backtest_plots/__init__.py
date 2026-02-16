@@ -108,7 +108,6 @@ class BacktestPlotBase(ABC):
         ChartType
             Altair chart specification (Chart, VConcatChart, FacetChart, etc.)
         """
-        pass
 
 
 def backtest_plot(
@@ -306,7 +305,7 @@ def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
 # Each plot file uses the @backtest_plot decorator which registers it
 def _discover_plots():
     """Import all plot modules to trigger decorator registration."""
-    from chap_core.assessment.backtest_plots import (  # noqa: F401
+    from chap_core.assessment.backtest_plots import (
         evaluation_plot,
         metrics_dashboard,
         sample_bias_plot,

@@ -39,7 +39,7 @@ def list_jobs(
         jobs_to_return = [job for job in jobs_to_return if job.type and job.type.upper() == type_upper]
 
     if status:
-        status_filter_set = set(s.upper() for s in status)
+        status_filter_set = {s.upper() for s in status}
         jobs_to_return = [job for job in jobs_to_return if job.status and job.status.upper() in status_filter_set]
 
     return cast(list[JobDescription], jobs_to_return)

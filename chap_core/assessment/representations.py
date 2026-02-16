@@ -72,11 +72,11 @@ class MultiLocationErrorTimeSeries:
 
     def get_the_only_location(self):
         assert len(self.timeseries_dict) == 1
-        return list(self.timeseries_dict.keys())[0]
+        return next(iter(self.timeseries_dict.keys()))
 
     def get_the_only_timeseries(self):
         assert len(self.timeseries_dict) == 1
-        return list(self.timeseries_dict.values())[0]
+        return next(iter(self.timeseries_dict.values()))
 
     def get_all_timeperiods(self):
         timeperiods = None
@@ -95,7 +95,7 @@ class MultiLocationErrorTimeSeries:
 
     def locationvalues_per_timepoint(self) -> list[dict[str, Error]]:
         return [
-            dict([(location, timeseries.observations[i]) for location, timeseries in self.timeseries_dict.items()])
+            {location: timeseries.observations[i] for location, timeseries in self.timeseries_dict.items()}
             for i in range(self.timeseries_length())
         ]
 

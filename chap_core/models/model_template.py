@@ -89,7 +89,6 @@ class ModelTemplate:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit (no-op for compatibility with ExternalChapkitModelTemplate)."""
-        pass
 
     def get_default_model(self) -> ExternalModel:
         return self.get_model()

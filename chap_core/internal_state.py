@@ -1,6 +1,5 @@
 import dataclasses
 from asyncio import CancelledError
-from typing import Optional
 
 from chap_core.worker.interface import Job
 

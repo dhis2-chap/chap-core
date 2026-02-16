@@ -116,18 +116,16 @@ def _check_location_completeness(raw_df: pd.DataFrame) -> list[ValidationIssue]:
 
 def _check_required_covariates(dataset: DataSet, config: ModelTemplateConfigV2) -> list[ValidationIssue]:
     """Check that all required covariates from the model config are present."""
-    issues: list[ValidationIssue] = []
     dataset_fields = set(dataset.field_names())
-    for covariate in config.required_covariates:
-        if covariate not in dataset_fields:
-            issues.append(
-                ValidationIssue(
-                    level="error",
-                    message=f"Required covariate '{covariate}' not found in dataset. "
-                    f"Available fields: {sorted(dataset_fields)}",
-                )
-            )
-    return issues
+    return [
+        ValidationIssue(
+            level="error",
+            message=f"Required covariate '{covariate}' not found in dataset. "
+            f"Available fields: {sorted(dataset_fields)}",
+        )
+        for covariate in config.required_covariates
+        if covariate not in dataset_fields
+    ]
 
 
 def _check_period_type(dataset: DataSet, config: ModelTemplateConfigV2) -> list[ValidationIssue]:

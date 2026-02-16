@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, TypeAlias
+from typing import Literal
 
 from chap_core.datatypes import ClimateHealthTimeSeries, FullData
 from chap_core.spatio_temporal_data.multi_country_dataset import (

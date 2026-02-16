@@ -185,9 +185,9 @@ def seed_with_session_wrapper(session_wrapper, get_models_func=get_available_mod
         target_type,
     ]
 
-    db_models = []
-    for feature_type in seeded_feature_types:
-        db_models.append(session_wrapper.create_if_not_exists(feature_type, id_name="name"))
+    db_models = [
+        session_wrapper.create_if_not_exists(feature_type, id_name="name") for feature_type in seeded_feature_types
+    ]
 
     base_covariates = [db_models[0], db_models[1], db_models[2]]
 

@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from chap_core.datatypes import Samples
 from chap_core.external.model_configuration import ModelTemplateConfigV2

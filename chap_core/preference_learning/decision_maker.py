@@ -35,7 +35,6 @@ class DecisionMaker(ABC):
         Returns:
             Index of the preferred evaluation (0-based)
         """
-        pass
 
 
 class VisualDecisionMaker(DecisionMaker):

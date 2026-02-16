@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation, ModelTemplateMetaData

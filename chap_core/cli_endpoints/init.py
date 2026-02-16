@@ -417,7 +417,7 @@ def _check_r_and_renv_available():
             check=True,
         )
     except FileNotFoundError:
-        raise RuntimeError("R is not installed or not in PATH. Please install R first.")
+        raise RuntimeError("R is not installed or not in PATH. Please install R first.") from None
 
     # Check if renv is available
     result = subprocess.run(

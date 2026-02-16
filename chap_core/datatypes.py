@@ -108,7 +108,7 @@ class TimeSeriesData:
         variable_names = [field.name for field in dataclasses.fields(cls) if field.name != "time_period"]  # type: ignore[arg-type]
         data_values = [cls._fill_missing(data[name].values, missing_indices) for name in variable_names]
         assert all(len(d) == len(time) for d in data_values), f"{[len(d) for d in data_values]} != {len(time)}"
-        return cls(time, **dict(zip(variable_names, data_values)))  # type: ignore[call-arg]
+        return cls(time, **dict(zip(variable_names, data_values, strict=False)))  # type: ignore[call-arg]
 
     @classmethod
     def from_csv(cls, csv_file: str, **kwargs):
@@ -121,7 +121,7 @@ class TimeSeriesData:
         data_dict["time_period"] = self.time_period
         fields = {
             key: interpolate_nans(value)
-            if ((field_names is None) or (key in field_names) and not np.all(np.isnan(value)))
+            if ((field_names is None) or ((key in field_names) and not np.all(np.isnan(value))))
             else value
             for key, value in data_dict.items()
             if key != "time_period"

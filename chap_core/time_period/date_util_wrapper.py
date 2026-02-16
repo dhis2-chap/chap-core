@@ -1,4 +1,5 @@
 import functools
+import itertools
 import logging
 from collections.abc import Iterable
 from datetime import datetime
@@ -545,7 +546,9 @@ class PeriodRange(BNPDataClass):
     def _vectorize(self, funcname: str, other: TimePeriod) -> NDArray[np.bool_]:
         if isinstance(other, PeriodRange):
             assert len(self) == len(other), (len(self), len(other), self, other)
-            return np.array([getattr(period, funcname)(other_period) for period, other_period in zip(self, other)])
+            return np.array(
+                [getattr(period, funcname)(other_period) for period, other_period in zip(self, other, strict=False)]
+            )
         return np.array([getattr(period, funcname)(other) for period in self])
 
     def __ne__(self, other: TimePeriod) -> NDArray[np.bool_]:  # type: ignore[override]
@@ -637,7 +640,7 @@ class PeriodRange(BNPDataClass):
     def _check_consequtive(cls, time_delta, time_periods, fill_missing=False):
         # if time_delta == delta_week:
         # return cls._check_consequtive_weeks(time_periods, fill_missing)
-        is_consec = [p2 == p1 + time_delta for p1, p2 in zip(time_periods, time_periods[1:])]
+        is_consec = [p2 == p1 + time_delta for p1, p2 in itertools.pairwise(time_periods)]
         if not all(is_consec):
             if fill_missing:
                 indices = [(p - time_periods[0]) // time_delta for p in time_periods][:-1]

@@ -192,7 +192,6 @@ class EvaluationBase(ABC):
         Returns:
             FlatEvaluationData containing FlatForecasts and FlatObserved objects
         """
-        pass
 
     @abstractmethod
     def get_org_units(self) -> list[str]:
@@ -202,7 +201,6 @@ class EvaluationBase(ABC):
         Returns:
             List of location identifiers (org_units)
         """
-        pass
 
     @abstractmethod
     def get_split_periods(self) -> list[str]:
@@ -212,7 +210,6 @@ class EvaluationBase(ABC):
         Returns:
             List of period identifiers (e.g., ["2024-01", "2024-02"])
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -228,7 +225,6 @@ class EvaluationBase(ABC):
         Returns:
             Evaluation instance
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -297,8 +293,8 @@ class Evaluation(EvaluationBase):
             **info.model_dump()
             | {"model_db_id": configured_model.id, "model_template_version": configured_model.model_template.version}
         )
-        org_units = set([])
-        split_points = set([])
+        org_units = set()
+        split_points = set()
         observations = []
 
         for eval_result in evaluation_results:
@@ -308,7 +304,7 @@ class Evaluation(EvaluationBase):
                 # NOTE: samples_with_truth is class datatypes.SamplesWithTruth
                 org_units.add(location)
                 for period, sample_values, disease_cases in zip(  # type: ignore[call-overload]
-                    eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases
+                    eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases, strict=False
                 ):
                     # add forecast series for this period
                     forecast = BackTestForecast(

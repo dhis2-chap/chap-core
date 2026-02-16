@@ -15,8 +15,7 @@ class GithubUrl:
 
 def parse_github_url(github_url) -> GithubUrl:
     # trim trailing slash
-    if github_url.endswith("/"):
-        github_url = github_url[:-1]
+    github_url = github_url.removesuffix("/")
     splitted_url = github_url.split("/")
     owner = splitted_url[3]
     repo_name = splitted_url[4]

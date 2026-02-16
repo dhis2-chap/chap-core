@@ -50,7 +50,6 @@ from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.models.approved_templates import (
-    ApprovedTemplate,
     get_approved_templates,
     get_git_ref,
     is_approved,
@@ -188,7 +187,7 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
         except ValueError:
             raise HTTPException(
                 status_code=400, detail=f"Invalid ID format: '{stripped_id_str}' is not a valid integer in '{ids}'."
-            )
+            ) from None
 
     for backtest_id in backtest_ids_list:
         backtest = session.get(BackTest, backtest_id)
@@ -372,9 +371,7 @@ async def list_model_templates(session: Session = Depends(get_session)):
     """
     Lists all model templates from the db, including archived.
     """
-    model_templates = session.exec(
-        select(ModelTemplateDB)  # noqa: E712
-    ).all()
+    model_templates = session.exec(select(ModelTemplateDB)).all()
     return model_templates
 
 
@@ -412,7 +409,7 @@ async def add_model_template(
     try:
         config = ExternalModelTemplate.fetch_config_from_github_url(full_url)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to fetch from GitHub: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to fetch from GitHub: {e}") from e
 
     config.version = model_template_create.version
 
