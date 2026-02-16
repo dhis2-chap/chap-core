@@ -3,7 +3,7 @@ todo: comment this file, make it clear which classes are central and being used
 """
 
 import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 
 import numpy as np
 from sqlalchemy import JSON, Column
@@ -17,9 +17,9 @@ from chap_core.database.model_templates_and_config_tables import ConfiguredModel
 class BackTestBase(DBModel):
     dataset_id: int = Field(foreign_key="dataset.id")
     model_id: str
-    name: Optional[str] = None
-    created: Optional[datetime.datetime] = None
-    model_template_version: Optional[str] = (
+    name: str | None = None
+    created: datetime.datetime | None = None
+    model_template_version: str | None = (
         None  # This is the version of the model template in the moment the backtest was created (version at model template object can change later)
     )
 
@@ -32,16 +32,16 @@ class DataSetMeta(DataSetInfo):
 
 class _BackTestRead(BackTestBase):
     id: int
-    org_units: List[str] = Field(default_factory=list, sa_column=Column(JSON))
-    split_periods: List[PeriodID] = Field(default_factory=list, sa_column=Column(JSON))
+    org_units: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    split_periods: list[PeriodID] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class BackTest(_BackTestRead, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)  # type: ignore[assignment]
+    id: int | None = Field(primary_key=True, default=None)  # type: ignore[assignment]
     dataset: DataSet = Relationship()
-    forecasts: List["BackTestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
-    metrics: List["BackTestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)
-    aggregate_metrics: Dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    forecasts: list["BackTestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
+    metrics: list["BackTestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)
+    aggregate_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
 
@@ -57,16 +57,16 @@ OldBackTestRead = _BackTestRead
 
 class BackTestRead(_BackTestRead):
     dataset: DataSetMeta
-    aggregate_metrics: Dict[str, float]
-    configured_model: Optional[ConfiguredModelRead]
+    aggregate_metrics: dict[str, float]
+    configured_model: ConfiguredModelRead | None
 
 
 class ForecastBase(DBModel):
     period: PeriodID
     org_unit: str
-    values: List[float] = Field(default_factory=list, sa_type=JSON)
+    values: list[float] = Field(default_factory=list, sa_type=JSON)
 
-    def get_quantiles(self, quantiles: List[float]) -> np.ndarray:
+    def get_quantiles(self, quantiles: list[float]) -> np.ndarray:
         return np.quantile(self.values, quantiles).astype(float)
 
 
@@ -80,12 +80,12 @@ class PredictionBase(DBModel):
     name: str
     created: datetime.datetime
     meta_data: dict = Field(default_factory=dict, sa_column=Column(JSON))
-    org_units: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    org_units: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class Prediction(PredictionBase, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
-    forecasts: List["PredictionSamplesEntry"] = Relationship(back_populates="prediction", cascade_delete=True)
+    id: int | None = Field(primary_key=True, default=None)
+    forecasts: list["PredictionSamplesEntry"] = Relationship(back_populates="prediction", cascade_delete=True)
     dataset: DataSet = Relationship()
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
@@ -93,7 +93,7 @@ class Prediction(PredictionBase, table=True):
 
 class PredictionInfo(PredictionBase):
     id: int
-    configured_model: Optional[ConfiguredModelDB]
+    configured_model: ConfiguredModelDB | None
     dataset: DataSetMeta
 
 
@@ -101,17 +101,17 @@ class PredictionInfo(PredictionBase):
 
 
 class PredictionRead(PredictionInfo):
-    forecasts: List[ForecastRead]
+    forecasts: list[ForecastRead]
 
 
 class PredictionSamplesEntry(ForecastBase, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
+    id: int | None = Field(primary_key=True, default=None)
     prediction_id: int = Field(foreign_key="prediction.id")
     prediction: "Prediction" = Relationship(back_populates="forecasts")
 
 
 class BackTestForecast(ForecastBase, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
+    id: int | None = Field(primary_key=True, default=None)
     backtest_id: int = Field(foreign_key="backtest.id")
     last_train_period: PeriodID
     last_seen_period: PeriodID
@@ -125,7 +125,7 @@ class BackTestMetric(DBModel, table=True):
     Can be removed when no references left to this class.
     """
 
-    id: Optional[int] = Field(primary_key=True, default=None)
+    id: int | None = Field(primary_key=True, default=None)
     backtest_id: int = Field(foreign_key="backtest.id")
     metric_id: str
     period: PeriodID  # Should this be optional and be null for aggregate metrics?

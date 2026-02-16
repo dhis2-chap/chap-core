@@ -110,7 +110,7 @@ include = ["chap_core/**/*.py", "tests/**/*.py"]
 exclude = ["external_models/**"]
 
 [tool.ruff.lint]
-select = ["I"]
+select = ["I", "UP"]
 fixable = ["ALL"]
 
 # Disable all linting in tests, but still allow formatting there.

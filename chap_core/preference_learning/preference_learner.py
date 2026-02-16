@@ -135,7 +135,7 @@ class PreferenceLearnerBase(ABC):
         pass
 
     @abstractmethod
-    def get_next_candidates(self) -> Optional[list[ModelCandidate]]:
+    def get_next_candidates(self) -> list[ModelCandidate] | None:
         """
         Get the next set of model candidates to compare.
 
@@ -169,7 +169,7 @@ class PreferenceLearnerBase(ABC):
         pass
 
     @abstractmethod
-    def get_best_candidate(self) -> Optional[ModelCandidate]:
+    def get_best_candidate(self) -> ModelCandidate | None:
         """Get the current best candidate based on comparison history."""
         pass
 
@@ -195,7 +195,7 @@ class TournamentPreferenceLearnerState:
     comparison_history: list[ComparisonResult] = field(default_factory=list)
     current_iteration: int = 0
     max_iterations: int = 10
-    best_candidate: Optional[ModelCandidate] = None
+    best_candidate: ModelCandidate | None = None
 
     def to_dict(self) -> dict:
         """Convert state to dictionary for JSON serialization."""
@@ -334,13 +334,13 @@ class TournamentPreferenceLearner(PreferenceLearnerBase):
     @classmethod
     def load(cls, filepath: Path) -> "TournamentPreferenceLearner":
         """Load a TournamentPreferenceLearner from a file."""
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
         state = TournamentPreferenceLearnerState.from_dict(data)
         logger.info(f"Loaded state from {filepath}, iteration {state.current_iteration}")
         return cls(state)
 
-    def get_next_candidates(self) -> Optional[list[ModelCandidate]]:
+    def get_next_candidates(self) -> list[ModelCandidate] | None:
         """
         Get the next pair of models to compare.
 
@@ -426,7 +426,7 @@ class TournamentPreferenceLearner(PreferenceLearnerBase):
         """Check if learning is complete."""
         return self._state.current_iteration >= self._state.max_iterations or self.get_next_candidates() is None
 
-    def get_best_candidate(self) -> Optional[ModelCandidate]:
+    def get_best_candidate(self) -> ModelCandidate | None:
         """Get the current best candidate based on comparison history."""
         return self._state.best_candidate
 

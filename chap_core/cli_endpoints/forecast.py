@@ -18,7 +18,7 @@ def forecast(
     model_name: str,
     dataset_name: DataSetType,
     n_months: int,
-    model_path: Optional[str] = None,
+    model_path: str | None = None,
     out_path: str = "./",
 ):
     """

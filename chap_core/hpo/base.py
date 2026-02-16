@@ -31,7 +31,7 @@ class Int:
 class Float:
     low: float
     high: float
-    step: Optional[float] = None
+    step: float | None = None
     log: bool = False
 
 

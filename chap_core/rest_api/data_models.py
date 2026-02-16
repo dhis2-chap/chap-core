@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel
 
 from chap_core.api_types import FeatureCollectionModel
@@ -24,7 +22,7 @@ class PredictionSamplResponse(PredictionBase):
 
 class FullPredictionResponse(BaseModel):
     diseaseId: str
-    dataValues: List[PredictionResponse]
+    dataValues: list[PredictionResponse]
 
 
 class FetchRequest(DBModel):
@@ -34,8 +32,8 @@ class FetchRequest(DBModel):
 
 class DatasetMakeRequest(DataSetCreateInfo):
     geojson: FeatureCollectionModel
-    provided_data: List[ObservationBase]
-    data_to_be_fetched: List[FetchRequest]
+    provided_data: list[ObservationBase]
+    data_to_be_fetched: list[FetchRequest]
 
 
 class JobResponse(BaseModel):
@@ -51,7 +49,7 @@ class ValidationError(DBModel):
     reason: str
     org_unit: str
     feature_name: str
-    time_periods: List[str]
+    time_periods: list[str]
 
 
 class ImportSummaryResponse(DBModel):

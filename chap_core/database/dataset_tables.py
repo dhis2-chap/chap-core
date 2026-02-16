@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic_geojson import (
     FeatureCollectionModel as _FeatureCollectionModel,
@@ -45,12 +44,12 @@ class PydanticListType(TypeDecorator):
 class ObservationBase(DBModel):
     period: PeriodID
     org_unit: str
-    value: Optional[float]
-    feature_name: Optional[str]
+    value: float | None
+    feature_name: str | None
 
 
 class Observation(ObservationBase, table=True):
-    id: Optional[int] = Field(primary_key=True, default=None)
+    id: int | None = Field(primary_key=True, default=None)
     dataset_id: int = Field(foreign_key="dataset.id")
     dataset: "DataSet" = Relationship(back_populates="observations")
 
@@ -63,34 +62,34 @@ class DataSource(DBModel):
 class DataSetCreateInfo(DBModel):
     name: str = Field(description="Name of dataset")
 
-    data_sources: Optional[List[DataSource]] = Field(
+    data_sources: list[DataSource] | None = Field(
         default_factory=list,
         sa_column=Column(PydanticListType(DataSource)),
         description="A mapping of covariate names to data element IDs from which to source the data",
     )
-    type: Optional[str] = Field(None, description="Purpose of dataset, e.g., 'forecasting' or 'backtesting'")
+    type: str | None = Field(None, description="Purpose of dataset, e.g., 'forecasting' or 'backtesting'")
 
 
 class DataSetInfo(DataSetCreateInfo):
-    id: Optional[int] = Field(primary_key=True, default=None)
-    covariates: List["str"] = Field(default_factory=list, sa_column=Column(JSON))
-    first_period: Optional[PeriodID] = Field(default=None)
-    last_period: Optional[PeriodID] = Field(default=None)
-    org_units: Optional[List["str"]] = Field(default_factory=list, sa_column=Column(JSON))
-    created: Optional[datetime] = None
+    id: int | None = Field(primary_key=True, default=None)
+    covariates: list["str"] = Field(default_factory=list, sa_column=Column(JSON))
+    first_period: PeriodID | None = Field(default=None)
+    last_period: PeriodID | None = Field(default=None)
+    org_units: list["str"] | None = Field(default_factory=list, sa_column=Column(JSON))
+    created: datetime | None = None
 
-    period_type: Optional[str] = None
+    period_type: str | None = None
 
 
 class DataSetBase(DataSetInfo):
-    geojson: Optional[str] = None
+    geojson: str | None = None
 
 
 class DataSet(DataSetBase, table=True):
-    observations: List[Observation] = Relationship(back_populates="dataset", cascade_delete=True)
+    observations: list[Observation] = Relationship(back_populates="dataset", cascade_delete=True)
 
 
 class DataSetWithObservations(DataSetBase):
     id: int
-    observations: List[ObservationBase]
-    created: Optional[datetime]
+    observations: list[ObservationBase]
+    created: datetime | None

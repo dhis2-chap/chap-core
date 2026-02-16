@@ -89,7 +89,7 @@ def create_model_lists(model_configuration_yaml: str | None, model_name: str) ->
     return model_configuration_yaml_list, model_list
 
 
-def discover_geojson(csv_path: Path) -> Optional[Path]:
+def discover_geojson(csv_path: Path) -> Path | None:
     """
     Discover GeoJSON file alongside CSV file.
 
@@ -109,8 +109,8 @@ def discover_geojson(csv_path: Path) -> Optional[Path]:
 
 def load_dataset_from_csv(
     csv_path: Path,
-    geojson_path: Optional[Path] = None,
-    column_mapping: Optional[dict[str, str]] = None,
+    geojson_path: Path | None = None,
+    column_mapping: dict[str, str] | None = None,
 ) -> DataSet:
     """
     Load dataset from CSV file with optional GeoJSON polygons.

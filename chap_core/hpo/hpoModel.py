@@ -23,7 +23,7 @@ class HpoModel(HpoModelInterface):
         searcher: Searcher,
         objective: Objective,
         direction: Direction = "minimize",
-        model_configuration: Optional[dict[str, list]] = None,
+        model_configuration: dict[str, list] | None = None,
     ):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
@@ -36,7 +36,7 @@ class HpoModel(HpoModelInterface):
         self._leaderboard: list[dict[str, Any]] = []
         self._predictor: Any = None
 
-    def train(self, dataset: Optional[DataSetType]) -> Any:  # type: ignore[override]
+    def train(self, dataset: DataSetType | None) -> Any:  # type: ignore[override]
         """
         Calls get_leaderboard to find the optimal configuration.
         Then trains the tuned model on the whole input dataset (train + validation).
@@ -61,7 +61,7 @@ class HpoModel(HpoModelInterface):
         assert self._predictor is not None, "Model not trained yet"
         return cast(DataSet[Any], self._predictor.predict(historic_data, future_data))
 
-    def get_leaderboard(self, dataset: Optional[DataSetType]) -> list[dict[str, Any]]:
+    def get_leaderboard(self, dataset: DataSetType | None) -> list[dict[str, Any]]:
         """
         Runs hyperparameter optimization over the search space.
         Returns a sorted list of configurations together with their score.

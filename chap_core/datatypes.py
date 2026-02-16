@@ -1,12 +1,11 @@
 import dataclasses
-from typing import List, Optional
+from warnings import deprecated
 
 import bionumpy as bnp
 import numpy as np
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
 from pydantic import BaseModel, ConfigDict, field_validator
-from typing_extensions import deprecated
 
 from .api_types import PeriodObservation
 from .time_period import PeriodRange
@@ -117,7 +116,7 @@ class TimeSeriesData:
         data = pd.read_csv(csv_file, **kwargs)
         return cls.from_pandas(data)
 
-    def interpolate(self, field_names: Optional[List[str]] = None):
+    def interpolate(self, field_names: list[str] | None = None):
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}  # type: ignore[arg-type]
         data_dict["time_period"] = self.time_period
         fields = {

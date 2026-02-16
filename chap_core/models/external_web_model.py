@@ -32,8 +32,8 @@ class ExternalWebModel(ExternalModelBase):
         name: str | None = None,
         timeout: int = 3600,
         poll_interval: int = 5,
-        configuration: Optional[dict] = None,
-        adapters: Optional[dict] = None,
+        configuration: dict | None = None,
+        adapters: dict | None = None,
         working_dir: str = "./",
     ):
         """

@@ -39,7 +39,7 @@ class ExternalChapkitModelTemplate:
     def __init__(
         self,
         path_or_url: str,
-        port: Optional[int] = None,
+        port: int | None = None,
         host: str = "127.0.0.1",
         startup_timeout: int = 60,
     ):

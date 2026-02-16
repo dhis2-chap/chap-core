@@ -93,7 +93,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
 
     def _read_model_config(model_config_path):
         if model_config_path is not None:
-            with open(model_config_path, "r") as file:
+            with open(model_config_path) as file:
                 model_config = yaml.safe_load(file)
             # model_config = model_template.get_config_class().parse_file(model_config_path)
         else:

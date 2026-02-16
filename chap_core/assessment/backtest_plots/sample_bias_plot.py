@@ -35,7 +35,7 @@ class SampleBiasPlot(BacktestPlotBase):
         self,
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
-        historical_observations: Optional[pd.DataFrame] = None,
+        historical_observations: pd.DataFrame | None = None,
     ) -> ChartType:
         """
         Generate and return the dashboard visualization.

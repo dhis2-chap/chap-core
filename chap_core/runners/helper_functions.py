@@ -116,7 +116,7 @@ def get_train_predict_runner(
         working_dir = mlproject_file.parent
 
         # read yaml file into a dict
-        with open(mlproject_file, "r") as file:
+        with open(mlproject_file) as file:
             data = yaml.load(file, Loader=yaml.FullLoader)
 
         train_command = data["entry_points"]["train"]["command"]

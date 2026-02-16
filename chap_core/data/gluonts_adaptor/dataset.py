@@ -1,7 +1,8 @@
 import dataclasses
 import logging
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, TypeVar
+from typing import TypeVar
 
 import numpy as np
 from gluonts.model import SampleForecast

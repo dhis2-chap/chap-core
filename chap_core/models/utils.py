@@ -4,7 +4,7 @@ import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Union
+from typing import TYPE_CHECKING, Literal
 
 import git
 import yaml
@@ -18,7 +18,7 @@ from chap_core.models.model_template import ModelTemplate
 if TYPE_CHECKING:
     from chap_core.models.external_model import ExternalModel
 
-ModelTemplateType = Union[ModelTemplate, ExternalChapkitModelTemplate]
+ModelTemplateType = ModelTemplate | ExternalChapkitModelTemplate
 
 
 def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
@@ -100,7 +100,7 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False, wor
     else:
         working_dir = Path(working_dir)
 
-    with open(mlproject_file, "r") as file:
+    with open(mlproject_file) as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
     config = ModelTemplateConfigV2.model_validate(config)
 
@@ -197,7 +197,7 @@ def get_model_from_directory_or_github_url(
     model_configuration = None
     # config_class = template.get_config_class()
     if model_configuration_yaml:
-        with open(model_configuration_yaml, "r") as file:
+        with open(model_configuration_yaml) as file:
             model_configuration = yaml.load(file, Loader=yaml.FullLoader)
             # model_configuration = config_class.model_validate(model_configuration)
 

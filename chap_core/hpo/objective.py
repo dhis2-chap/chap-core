@@ -20,15 +20,15 @@ class Objective:
         n_splits: int = 4,
         ignore_environment: bool = False,
         debug: bool = False,
-        log_file: Optional[str] = None,
-        run_directory_type: Optional[Literal["latest", "timestamp", "use_existing"]] = "timestamp",
+        log_file: str | None = None,
+        run_directory_type: Literal["latest", "timestamp", "use_existing"] | None = "timestamp",
     ):
         self.model_template = model_template
         self.metric = metric
         self.prediction_length = prediction_length
         self.n_splits = n_splits
 
-    def __call__(self, config, dataset: Optional[DataSetType] = None) -> float:
+    def __call__(self, config, dataset: DataSetType | None = None) -> float:
         """
         This method takes a concrete configuration produced by a Searcher,
         runs model evaluation, and returns a scalar score of the selected metric.

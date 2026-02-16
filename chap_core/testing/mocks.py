@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 import numpy as np
 
 from chap_core.datatypes import create_tsdataclass
@@ -14,7 +12,7 @@ class GEEMock:
             raise GEEError("Intentional fail of gee service")
         self._worker_config = worker_config
 
-    def get_historical_era5(self, features, periodes, fetch_requests: Optional[List[FetchRequest]] = None):
+    def get_historical_era5(self, features, periodes, fetch_requests: list[FetchRequest] | None = None):
         if fetch_requests is None:
             feature_names = ["rainfall", "mean_temperature"]
         else:

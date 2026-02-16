@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from enum import Enum
-from typing import List, Mapping
+from collections.abc import Mapping
+from enum import StrEnum
 
 import numpy as np
 import pandas as pd
@@ -56,7 +56,7 @@ def horizon_diff(period: str, period2: str) -> int:
     return int((tp - tp2) // tp.time_delta)
 
 
-def _convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast]) -> pd.DataFrame:
+def _convert_backtest_to_flat_forecasts(backtest_forecasts: list[BackTestForecast]) -> pd.DataFrame:
     """
     Convert a list of BackTestForecast objects to a flat DataFrame format
     conforming to ForecastFlatDataSchema.
@@ -120,7 +120,7 @@ def _create_df(forecast: BackTestForecast, horizon_distance: int):
 
 
 def convert_backtest_to_flat_forecasts(
-    backtest_forecasts: List[BackTestForecast], *, validate: bool = True
+    backtest_forecasts: list[BackTestForecast], *, validate: bool = True
 ) -> pd.DataFrame:
     import numpy as np
     import pandas as pd
@@ -167,7 +167,7 @@ def convert_backtest_to_flat_forecasts(
 
 
 def convert_backtest_observations_to_flat_observations(
-    observations: List[ObservationBase],
+    observations: list[ObservationBase],
 ) -> pd.DataFrame:
     """
     Convert a list of ObservationBase objects to a flat DataFrame format
@@ -222,7 +222,7 @@ def group_flat_forecast_by_horizon(flat_forecast_df: pd.DataFrame, aggregate_sam
         return flat_forecast_df
 
 
-class DataDimension(str, Enum):
+class DataDimension(StrEnum):
     """
     Enum for the possible dimensions metrics datasets can have
     """

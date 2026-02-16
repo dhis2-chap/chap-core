@@ -1,8 +1,9 @@
 import functools
 import logging
+from collections.abc import Iterable
 from datetime import datetime
 from numbers import Number  # Still needed for clean_timestring
-from typing import TYPE_CHECKING, Iterable, Tuple, Union, overload
+from typing import TYPE_CHECKING, overload
 
 import dateutil
 import numpy as np
@@ -16,7 +17,7 @@ from pytz import utc
 from chap_core.exceptions import InvalidDateError
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +277,7 @@ class Day(TimePeriod):
 
 class WeekNumbering:
     @staticmethod
-    def get_week_info(date: datetime) -> Tuple[int, int, int]:
+    def get_week_info(date: datetime) -> tuple[int, int, int]:
         return date.isocalendar()
 
     @staticmethod
@@ -431,20 +432,20 @@ class TimeDelta(DateUtilWrapper):
     def __eq__(self, other):
         return self._relative_delta == other._relative_delta
 
-    def __add__(self, other: Union[TimeStamp, TimePeriod]):
+    def __add__(self, other: TimeStamp | TimePeriod):
         if not isinstance(other, (TimeStamp, TimePeriod)):
             return NotImplemented
         return other.__class__(other._date + self._relative_delta)
 
-    def __radd__(self, other: Union[TimeStamp, TimePeriod]):
+    def __radd__(self, other: TimeStamp | TimePeriod):
         return self.__add__(other)
 
-    def __sub__(self, other: Union[TimeStamp, TimePeriod]):
+    def __sub__(self, other: TimeStamp | TimePeriod):
         if not isinstance(other, (TimeStamp, TimePeriod)):
             return NotImplemented
         return other.__class__(other._date - self._relative_delta)
 
-    def __rsub__(self, other: Union[TimeStamp, TimePeriod]):
+    def __rsub__(self, other: TimeStamp | TimePeriod):
         return self.__sub__(other)
 
     def __mul__(self, other: int):

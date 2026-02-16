@@ -1,5 +1,4 @@
 import logging
-from typing import List, Optional
 
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship
@@ -22,7 +21,7 @@ class ModelSpecBase(ModelTemplateMetaData, DBModel):
 
     name: str
     # supported_period_types: PeriodType = PeriodType.any
-    source_url: Optional[str] = None
+    source_url: str | None = None
     supported_period_type: PeriodType = PeriodType.any  # ] = [PeriodType.month, PeriodType.week]
 
     # @field_validator("supported_period_type", mode="before")
@@ -34,7 +33,7 @@ class ModelSpecBase(ModelTemplateMetaData, DBModel):
 
 class ModelSpecRead(ModelSpecBase):
     id: int
-    covariates: List[FeatureType]
+    covariates: list[FeatureType]
     target: FeatureType
     archived: bool = False
 
@@ -48,21 +47,21 @@ class ModelSpec(ModelSpecBase, table=True):
     It is configured through the "configuration" field which is JSON
     """
 
-    id: Optional[int] = Field(primary_key=True, default=None)
-    covariates: List[FeatureType] = Relationship(link_model=ModelFeatureLink)
+    id: int | None = Field(primary_key=True, default=None)
+    covariates: list[FeatureType] = Relationship(link_model=ModelFeatureLink)
     target_name: str = Field(foreign_key="featuretype.name")
     target: FeatureType = Relationship()
-    configuration: Optional[dict] = Field(sa_column=Column(JSON))
+    configuration: dict | None = Field(sa_column=Column(JSON))
 
 
-def get_available_models_from_config_dir(config_dir: str, base_covariates) -> List[ModelSpec]:
+def get_available_models_from_config_dir(config_dir: str, base_covariates) -> list[ModelSpec]:
     #  Reads from config dir, creates ModelSpec objects by reading from github_urls,
     # and returns a list of ModelSpec objects by calling ModelSpec.from_model_spec_read()
     raise NotImplementedError()
 
 
 # todo: check if can be removed
-def get_available_models(base_covariates) -> List[ModelSpec]:
+def get_available_models(base_covariates) -> list[ModelSpec]:
     """
     Returns a list of models that are available in chap
     """

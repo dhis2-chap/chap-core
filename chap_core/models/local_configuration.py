@@ -27,7 +27,7 @@ def parse_local_model_config_file(file_name) -> Configurations:
     The configuration file is in the config/models directory.
     """
     # parse the yaml file using the pydantic model
-    with open(file_name, "r") as file:
+    with open(file_name) as file:
         content = yaml.safe_load(file)
         configurations = TypeAdapter(list[LocalModelTemplateWithConfigurations]).validate_python(content)
         return configurations

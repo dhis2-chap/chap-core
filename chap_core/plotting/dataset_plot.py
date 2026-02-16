@@ -99,7 +99,7 @@ def get_dataset_plots_registry() -> dict[str, type[DatasetPlot]]:
     return _dataset_plots_registry.copy()
 
 
-def get_dataset_plot(plot_id: str) -> Optional[type[DatasetPlot]]:
+def get_dataset_plot(plot_id: str) -> type[DatasetPlot] | None:
     """Get a specific dataset plot class by ID."""
     return _dataset_plots_registry.get(plot_id)
 
