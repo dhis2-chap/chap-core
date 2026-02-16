@@ -131,7 +131,7 @@ def load_dataset_from_csv(
         df = pd.read_csv(csv_path)
         # Rename columns: mapping is {target_name: source_name}, so swap for rename
         df.rename(columns={v: k for k, v in column_mapping.items()}, inplace=True)
-        dataset = DataSet.from_pandas(df)
+        dataset: DataSet = DataSet.from_pandas(df)
         dataset.metadata = DataSetMetaData(name=str(Path(csv_path).stem), filename=str(csv_path))
     else:
         dataset = DataSet.from_csv(csv_path)
@@ -155,7 +155,7 @@ def load_dataset(
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
         logging.info(f"Loading dataset from {dataset_csv}")
-        dataset = DataSet.from_csv(dataset_csv)
+        dataset: DataSet = DataSet.from_csv(dataset_csv)
         if polygons_json is not None:
             logging.info(f"Loading polygons from {polygons_json}")
             polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)
