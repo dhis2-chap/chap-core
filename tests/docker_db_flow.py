@@ -270,6 +270,7 @@ class IntegrationTest:
                     break
                 logger.info(f"Logs for job {job_id} are empty, retrying...")
                 time.sleep(1)
+            assert logs is not None, "Logs should not be None after 10 seconds of retries"
             assert logs.strip().strip('"'), "Logs should contain actual content after 10 seconds of retries"
             return logs
         except Exception as e:

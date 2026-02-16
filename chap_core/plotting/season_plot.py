@@ -70,7 +70,7 @@ class SeasonCorrelationPlot(DatasetPlot):
 
 
 @dataset_plot(
-    id="seasonal-correlation-plot",
+    plot_id="seasonal-correlation-plot",
     name="Seasonal Correlation Bar Plot",
     description="Bar plot showing correlation between seasonal disease outcomes and climate features.",
 )

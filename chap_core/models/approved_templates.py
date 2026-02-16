@@ -94,10 +94,7 @@ def get_approved_templates() -> list[ApprovedTemplate]:
 
 def is_approved(url: str, version: str, approved: list[ApprovedTemplate]) -> bool:
     """Check if url+version is in the approved list."""
-    for template in approved:
-        if template.url == url and version in template.versions:
-            return True
-    return False
+    return any(template.url == url and version in template.versions for template in approved)
 
 
 def get_git_ref(url: str, version: str, approved: list[ApprovedTemplate]) -> str | None:

@@ -81,14 +81,14 @@ class DatasetPlot(ABC):
     def data(self): ...
 
 
-def dataset_plot(id: str, name: str, description: str = ""):
+def dataset_plot(plot_id: str, name: str, description: str = ""):
     """Decorator to register a dataset plot class."""
 
     def decorator(cls: type[DatasetPlot]) -> type[DatasetPlot]:
-        cls.id = id
+        cls.id = plot_id
         cls.name = name
         cls.description = description
-        _dataset_plots_registry[id] = cls
+        _dataset_plots_registry[plot_id] = cls
         return cls
 
     return decorator
@@ -122,7 +122,7 @@ def create_plot_from_dataset(plot_id: str, dataset):
 
 
 @dataset_plot(
-    id="disease-cases-map",
+    plot_id="disease-cases-map",
     name="Disease Cases Map",
     description="Choropleth map showing mean disease cases or incidence rate by location.",
 )
@@ -180,7 +180,7 @@ class DiseaseCasesMap(DatasetPlot):
 
 
 @dataset_plot(
-    id="standardized-feature-plot",
+    plot_id="standardized-feature-plot",
     name="Standardized Feature Plot",
     description="Standardized features over time for different locations with interactive selection.",
 )

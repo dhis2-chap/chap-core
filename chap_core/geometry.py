@@ -77,10 +77,10 @@ def normalize_name(name: str) -> str:
 
 
 def add_id(feature, admin_level=1, lookup_dict=None):
-    id = feature.properties[f"NAME_{admin_level}"]
+    feature_id = feature.properties[f"NAME_{admin_level}"]
     if lookup_dict:
-        id = lookup_dict[normalize_name(id)]
-    return DFeatureModel(**feature.model_dump(), id=id)
+        feature_id = lookup_dict[normalize_name(feature_id)]
+    return DFeatureModel(**feature.model_dump(), id=feature_id)
 
 
 def get_area_polygons(country: str, regions: list[str] | None = None, admin_level: int = 1) -> FeatureCollectionModel:
@@ -153,7 +153,7 @@ def get_country_data(country, admin_level) -> PFeatureCollectionModel:
 
 
 def get_all_data():
-    return ((country, get_country_data(country, admin_level=1)) for country in country_codes.keys())
+    return ((country, get_country_data(country, admin_level=1)) for country in country_codes)
 
 
 class Polygons:
@@ -211,7 +211,7 @@ class Polygons:
 
     def get_predecessors_map(self, predecessors: list[str]):
         predecessors_set = set(predecessors)
-        map = {}
+        result = {}
         for feature in self._polygons.features:
             if feature.properties is None:
                 raise ValueError(f"Feature {feature.id} has no properties")
@@ -222,8 +222,8 @@ class Polygons:
                 raise ValueError(f"Feature {feature.id} has no parent in predecessors")
             if len(possible_parents) > 1:
                 raise ValueError(f"Feature {feature.id} has multiple parents in predecessors")
-            map[feature.id] = possible_parents[0]
-        return map
+            result[feature.id] = possible_parents[0]
+        return result
 
     def filter_locations(self, locations: list[str]):
         """

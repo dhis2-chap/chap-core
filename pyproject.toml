@@ -110,8 +110,8 @@ include = ["chap_core/**/*.py", "tests/**/*.py"]
 exclude = ["external_models/**"]
 
 [tool.ruff.lint]
-select = ["I", "UP", "F", "B", "C4", "PIE", "RUF", "FURB", "PERF"]
-ignore = ["B008", "RUF012"]
+select = ["I", "UP", "F", "B", "C4", "PIE", "RUF", "FURB", "PERF", "ISC", "RSE", "W", "A", "TCH", "SIM"]
+ignore = ["B008", "RUF012", "SIM108", "SIM115"]
 fixable = ["ALL"]
 
 # Disable all linting in tests, but still allow formatting there.

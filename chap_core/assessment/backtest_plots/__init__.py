@@ -11,7 +11,7 @@ Example usage:
     import altair as alt
 
     @backtest_plot(
-        id="my_custom_plot",
+        plot_id="my_custom_plot",
         name="My Custom Plot",
         description="A custom visualization showing forecast accuracy."
     )
@@ -50,11 +50,14 @@ Data schemas:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 import altair as alt
-import pandas as pd
 
-from chap_core.database.tables import BackTest
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from chap_core.database.tables import BackTest
 
 # Type alias for Altair chart types that plots can return
 ChartType = alt.Chart | alt.VConcatChart | alt.FacetChart | alt.LayerChart | alt.HConcatChart
@@ -111,7 +114,7 @@ class BacktestPlotBase(ABC):
 
 
 def backtest_plot(
-    id: str,
+    plot_id: str,
     name: str,
     description: str = "",
     needs_historical: bool = False,
@@ -121,7 +124,7 @@ def backtest_plot(
 
     Parameters
     ----------
-    id : str
+    plot_id : str
         Unique identifier for the plot (used in URLs/APIs)
     name : str
         Human-readable display name
@@ -134,7 +137,7 @@ def backtest_plot(
     Example
     -------
     @backtest_plot(
-        id="sample_bias",
+        plot_id="sample_bias",
         name="Sample Bias Plot",
         description="Shows forecast bias relative to observations"
     )
@@ -147,12 +150,12 @@ def backtest_plot(
         if not issubclass(cls, BacktestPlotBase):
             raise TypeError(f"{cls.__name__} must inherit from BacktestPlotBase")
 
-        cls.id = id
+        cls.id = plot_id
         cls.name = name
         cls.description = description
         cls.needs_historical = needs_historical
 
-        _backtest_plots_registry[id] = cls
+        _backtest_plots_registry[plot_id] = cls
         return cls
 
     return decorator

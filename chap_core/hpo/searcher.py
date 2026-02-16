@@ -1,12 +1,14 @@
 import itertools
 import math
 import random
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import optuna
 
 from .base import Float, Int
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _TRIAL_ID_KEY = "_trial_id"  # reserved key we inject into params
 
@@ -218,10 +220,9 @@ def _validate_search_space_extended(search_space: dict[str, Any]) -> dict[str, A
                     raise ValueError(f"Float('{k}'): step must be None when log=True")
                 if low <= 0 or high <= 0:
                     raise ValueError(f"Float('{k}'): log=True requires low, high > 0")
-            else:
-                if spec.step is not None:
-                    if not (isinstance(spec.step, (int, float)) and spec.step > 0):
-                        raise ValueError(f"Float('{k}'): step must be > 0")
+            elif spec.step is not None:
+                if not (isinstance(spec.step, (int, float)) and spec.step > 0):
+                    raise ValueError(f"Float('{k}'): step must be > 0")
             normalized[k] = Float(low=low, high=high, step=spec.step, log=spec.log)
             continue
 

@@ -240,11 +240,11 @@ class CeleryJob[ReturnType]:
 
     @property
     def status(self) -> str:
-        return cast(str, self._result.state)
+        return cast("str", self._result.state)
 
     @property
     def result(self) -> ReturnType:
-        return cast(ReturnType, self._result.result)
+        return cast("ReturnType", self._result.result)
 
     @property
     def progress(self) -> float:

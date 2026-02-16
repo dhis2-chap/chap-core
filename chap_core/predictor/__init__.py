@@ -8,7 +8,7 @@ __all__ = ["MultiRegionNaivePredictor", "MultiRegionPoissonModel"]
 models = __all__
 
 all_model_names = tuple(__all__ + list(r_models.keys()))
-all_models = [d[name] for d in [globals()] for name in d.keys() if name in all_model_names]
+all_models = [d[name] for d in [globals()] for name in d if name in all_model_names]
 type ModelType = Literal["MultiRegionPoissonModel", "MultiRegionNaivePredictor", "ewars_Plus"]
 
 DEFAULT_MODEL = None  # external_models['HierarchicalModel']

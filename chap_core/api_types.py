@@ -25,7 +25,7 @@ class FeatureModel(_FeatureModel):
     properties: dict[str, Any] | None = Field(default_factory=dict)  # type: ignore[assignment]
     geometry: (
         PointModel | MultiPointModel | LineStringModel | MultiLineStringModel | PolygonModel | MultiPolygonModel | None
-    ) = None
+    ) = None  # type: ignore[assignment]
 
 
 class FeatureCollectionModel(_FeatureCollectionModel):

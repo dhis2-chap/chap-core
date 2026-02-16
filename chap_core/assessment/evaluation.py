@@ -51,8 +51,8 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
     Returns:
         xarray.Dataset with dimensions (location, time_period, horizon_distance, sample)
     """
-    forecasts_df = pd.DataFrame(cast(pd.DataFrame, flat_data.forecasts)).copy()
-    observations_df = pd.DataFrame(cast(pd.DataFrame, flat_data.observations)).copy()
+    forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts)).copy()
+    observations_df = pd.DataFrame(cast("pd.DataFrame", flat_data.observations)).copy()
 
     # Set multi-index for forecasts: location, time_period, horizon_distance, sample
     forecasts_indexed = forecasts_df.set_index(["location", "time_period", "horizon_distance", "sample"])
@@ -72,7 +72,7 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
 
     # Add historical observations if present
     if flat_data.historical_observations is not None:
-        historical_df = pd.DataFrame(cast(pd.DataFrame, flat_data.historical_observations)).copy()
+        historical_df = pd.DataFrame(cast("pd.DataFrame", flat_data.historical_observations)).copy()
         if not historical_df.empty:
             # Use different dimension name to avoid conflicts with test period observations
             historical_indexed = historical_df.set_index(["location", "time_period"])
@@ -487,7 +487,7 @@ class Evaluation(EvaluationBase):
         """
         observations = []
 
-        for location in dataset.keys():
+        for location in dataset.keys():  # noqa: SIM118
             location_data = dataset[location]
             time_periods = location_data.time_period
             disease_cases = location_data.disease_cases
@@ -542,14 +542,14 @@ class Evaluation(EvaluationBase):
         if self._flat_data_cache is None:
             forecasts_df = convert_backtest_to_flat_forecasts(self._backtest.forecasts)
             observations_df = convert_backtest_observations_to_flat_observations(
-                cast(list[ObservationBase], self._backtest.dataset.observations)
+                cast("list[ObservationBase]", self._backtest.dataset.observations)
             )
 
             # Convert historical observations if present
             historical_observations = None
             if self._historical_observations:
                 historical_df = convert_backtest_observations_to_flat_observations(
-                    cast(list[ObservationBase], self._historical_observations)
+                    cast("list[ObservationBase]", self._historical_observations)
                 )
                 if not historical_df.empty:
                     historical_observations = FlatObserved(historical_df)
@@ -638,7 +638,7 @@ class Evaluation(EvaluationBase):
             dataset_id=0,
         )
 
-        forecasts_df = pd.DataFrame(cast(pd.DataFrame, flat_data.forecasts))
+        forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))
 
         # Group by (location, time_period, horizon_distance) to create BackTestForecast objects
         for (location, time_period, horizon_distance), group in forecasts_df.groupby(
@@ -661,7 +661,7 @@ class Evaluation(EvaluationBase):
             backtest.forecasts.append(forecast)
 
         # Create observations from flat data
-        observations_df = pd.DataFrame(cast(pd.DataFrame, flat_data.observations))
+        observations_df = pd.DataFrame(cast("pd.DataFrame", flat_data.observations))
         observations = []
         for _, row in observations_df.iterrows():
             observation = Observation(
@@ -681,7 +681,7 @@ class Evaluation(EvaluationBase):
         # Load historical observations if present
         historical_observations = []
         if flat_data.historical_observations is not None:
-            historical_df = pd.DataFrame(cast(pd.DataFrame, flat_data.historical_observations))
+            historical_df = pd.DataFrame(cast("pd.DataFrame", flat_data.historical_observations))
             for _, row in historical_df.iterrows():
                 observation = Observation(
                     period=row["time_period"],

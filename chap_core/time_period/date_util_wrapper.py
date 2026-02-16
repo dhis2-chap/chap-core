@@ -121,25 +121,25 @@ class TimePeriod:
         return datetime(int(year), int(month), int(day))
 
     @classmethod
-    def from_id(cls, id: str):
-        if len(id) == 4:
-            return Year(int(id))
+    def from_id(cls, period_id: str):
+        if len(period_id) == 4:
+            return Year(int(period_id))
         # Handle new format: YYYY-Snn (Sunday-start)
-        if "-S" in id:
-            return Week(*map(int, id.split("-S")), iso_day=7)
+        if "-S" in period_id:
+            return Week(*map(int, period_id.split("-S")), iso_day=7)
         # Handle new format: YYYY-Wnn (Monday-start)
-        if "-W" in id:
-            return Week(*map(int, id.split("-W")))
+        if "-W" in period_id:
+            return Week(*map(int, period_id.split("-W")))
         # Handle old format: YYYYSunWnn (Sunday-start)
-        if "SunW" in id:
-            return Week(*map(int, id.split("SunW")), iso_day=7)
+        if "SunW" in period_id:
+            return Week(*map(int, period_id.split("SunW")), iso_day=7)
         # Handle old format: YYYYWnn (Monday-start)
-        if "W" in id:
-            return Week(*map(int, id.split("W")))
-        elif len(id) == 6:
-            return Month(int(id[:4]), int(id[4:]))
-        elif len(id) == 8:
-            return Day(int(id[:4]), int(id[4:6]), int(id[6:]))
+        if "W" in period_id:
+            return Week(*map(int, period_id.split("W")))
+        elif len(period_id) == 6:
+            return Month(int(period_id[:4]), int(period_id[4:]))
+        elif len(period_id) == 8:
+            return Day(int(period_id[:4]), int(period_id[4:6]), int(period_id[6:]))
 
     @property
     def id(self):
@@ -672,7 +672,7 @@ class PeriodRange(BNPDataClass):
 
     @classmethod
     def from_ids(cls, ids: Iterable[str], fill_missing=False):
-        periods = [TimePeriod.from_id(id) for id in ids]
+        periods = [TimePeriod.from_id(period_id) for period_id in ids]
         return cls.from_period_list(fill_missing, periods)
 
     @classmethod
