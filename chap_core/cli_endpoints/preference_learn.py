@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel
@@ -133,7 +133,7 @@ def _create_evaluation(
 def preference_learn(
     model_name: str,
     dataset_csv: Path,
-    search_space_yaml: Optional[Path] = None,
+    search_space_yaml: Path | None = None,
     state_file: Path = Path("preference_state.json"),
     backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfig = RunConfig(),
@@ -190,7 +190,7 @@ def preference_learn(
                 )
         else:
             logger.info(f"Loading search space from {search_space_yaml}")
-            with open(search_space_yaml, "r") as f:
+            with open(search_space_yaml) as f:
                 raw_search_space = yaml.safe_load(f)
 
         search_space = load_search_space_from_config(raw_search_space)

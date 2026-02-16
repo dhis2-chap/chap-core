@@ -40,7 +40,7 @@ class NaivePredictor:
 
     @classmethod
     def load(cls, filename: str):
-        with open(filename, "r") as f:
+        with open(filename) as f:
             mean_dict = json.load(f)
         return cls(mean_dict)
 

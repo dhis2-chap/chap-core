@@ -1,7 +1,8 @@
 import dataclasses
 import logging
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, TypeVar
+from typing import TypeVar
 
 import numpy as np
 from gluonts.model import SampleForecast
@@ -54,7 +55,7 @@ class DataSetAdaptor:
 
     @staticmethod
     def get_metadata(dataset: DataSet):
-        return {"static_cat": [{i: location for i, location in enumerate(dataset.keys())}]}
+        return {"static_cat": [dict(enumerate(dataset.keys()))]}
 
     @staticmethod
     def to_gluonts(dataset: DataSet, start_index=0, static=None, real=None) -> GlunTSDataSet:
@@ -63,14 +64,14 @@ class DataSetAdaptor:
             return
         static = [] if static is None else static
         assert real is None
-        for i, (location, data) in enumerate(dataset.items(), start=start_index):
+        for i, (_location, data) in enumerate(dataset.items(), start=start_index):
             period = data.time_period[0]
 
             yield {
                 "start": period.topandas(),
                 "target": data.disease_cases,
                 "feat_dynamic_real": remove_field(data, "disease_cases").to_array().T,  # exclude the target
-                "feat_static_cat": [i] + static,
+                "feat_static_cat": [i, *static],
             }
 
     from_dataset = to_gluonts
@@ -97,7 +98,7 @@ class DataSetAdaptor:
     @staticmethod
     def to_gluonts_multicountry(dataset: MultiCountryDataSet) -> GlunTSDataSet:
         offset = 0
-        for i, (country, data) in enumerate(dataset.items()):
+        for i, (_country, data) in enumerate(dataset.items()):
             yield from DataSetAdaptor.to_gluonts(data, start_index=offset, static=[i])
             offset += len(data.keys())
 

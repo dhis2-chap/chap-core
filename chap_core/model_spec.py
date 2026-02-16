@@ -47,7 +47,7 @@ class ModelSpec(BaseModel):
 
 
 def get_dataclass(model_class) -> type[TimeSeriesData] | None:
-    param_type = list(inspect.get_annotations(model_class.train).values())[0]
+    param_type = next(iter(inspect.get_annotations(model_class.train).values()))
     if not hasattr(param_type, "__args__"):
         return None
     return param_type.__args__[0]  # type: ignore[no-any-return]

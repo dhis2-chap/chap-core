@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from sqlalchemy import JSON, Column
 from sqlmodel import Field
 
@@ -25,9 +23,9 @@ class FeatureSource(DBModel, table=True):
     display_name: str
     feature_type: str = Field(foreign_key="featuretype.name")
     provider: str
-    supported_period_types: List[PeriodType] = Field(default_factory=list, sa_column=Column(JSON))
+    supported_period_types: list[PeriodType] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class ModelFeatureLink(DBModel, table=True):
-    model_id: Optional[int] = Field(default=None, foreign_key="modelspec.id", primary_key=True)
-    feature_type: Optional[str] = Field(default=None, foreign_key="featuretype.name", primary_key=True)
+    model_id: int | None = Field(default=None, foreign_key="modelspec.id", primary_key=True)
+    feature_type: str | None = Field(default=None, foreign_key="featuretype.name", primary_key=True)

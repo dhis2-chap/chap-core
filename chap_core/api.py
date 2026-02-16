@@ -1,6 +1,5 @@
 import dataclasses
 import logging
-from typing import List, Optional
 
 from .assessment.forecast import forecast as do_forecast
 from .datatypes import (
@@ -38,8 +37,8 @@ class PredictionData:
     health_data: DataSet[HealthData] | None = None
     climate_data: DataSet[ClimateData] | None = None
     population_data: DataSet[HealthPopulationData] | None = None
-    disease_id: Optional[str] = None
-    features: List[object] | None = None
+    disease_id: str | None = None
+    features: list[object] | None = None
 
 
 def extract_disease_name(health_data: dict) -> str:
@@ -50,7 +49,7 @@ def forecast(
     model_name: str,
     dataset_name: DataSetType,
     n_months: int,
-    model_path: Optional[str] = None,
+    model_path: str | None = None,
 ):
     logging.basicConfig(level=logging.INFO)
     dataset = datasets[dataset_name].load()

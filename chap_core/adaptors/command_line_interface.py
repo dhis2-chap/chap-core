@@ -87,13 +87,13 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
         predictor.save(model_path)
 
     def _get_dataclass(estimator):
-        data_fields = estimator.covariate_names + [model_template.model_template_info.target]
+        data_fields = [*estimator.covariate_names, model_template.model_template_info.target]
         dc = create_tsdataclass(data_fields)
         return dc
 
     def _read_model_config(model_config_path):
         if model_config_path is not None:
-            with open(model_config_path, "r") as file:
+            with open(model_config_path) as file:
                 model_config = yaml.safe_load(file)
             # model_config = model_template.get_config_class().parse_file(model_config_path)
         else:

@@ -3,7 +3,7 @@ import configparser
 
 def parse_description_file(file_path):
     # Read the file contents
-    with open(file_path, "r") as file:
+    with open(file_path) as file:
         content = file.read()
 
     # Add a dummy section header

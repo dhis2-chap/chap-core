@@ -1,6 +1,5 @@
 import dataclasses
 from asyncio import CancelledError
-from typing import Optional
 
 from chap_core.worker.interface import Job
 
@@ -40,9 +39,9 @@ class Control:
 
 @dataclasses.dataclass
 class InternalState:
-    control: Optional[Control]
+    control: Control | None
     current_data: dict
-    model_path: Optional[str] = None
+    model_path: str | None = None
     current_job: Job | None = None
 
     def is_ready(self):

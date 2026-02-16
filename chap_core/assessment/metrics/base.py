@@ -4,7 +4,7 @@ Base classes for all metrics.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ from chap_core.assessment.flat_representations import (
 )
 
 
-class AggregationOp(str, Enum):
+class AggregationOp(StrEnum):
     """
     Enum for aggregation operations.
     """

@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from chap_core import api
 from chap_core.assessment.forecast import multi_forecast as do_multi_forecast
@@ -18,7 +17,7 @@ def forecast(
     model_name: str,
     dataset_name: DataSetType,
     n_months: int,
-    model_path: Optional[str] = None,
+    model_path: str | None = None,
     out_path: str = "./",
 ):
     """
@@ -35,8 +34,7 @@ def forecast(
     out_file = Path(out_path) / f"{model_name}_{dataset_name}_forecast_results_{n_months}.html"
     f = open(out_file, "w")
     figs = api.forecast(model_name, dataset_name, n_months, model_path)
-    for fig in figs:
-        f.write(fig.to_html())
+    f.writelines(fig.to_html() for fig in figs)
     f.close()
 
 

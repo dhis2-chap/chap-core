@@ -1,12 +1,11 @@
 import dataclasses
-from typing import List, Optional
+from warnings import deprecated
 
 import bionumpy as bnp
 import numpy as np
 import pandas as pd
 from bionumpy.bnpdataclass import BNPDataClass
 from pydantic import BaseModel, ConfigDict, field_validator
-from typing_extensions import deprecated
 
 from .api_types import PeriodObservation
 from .time_period import PeriodRange
@@ -97,7 +96,6 @@ class TimeSeriesData:
             assert len(time_strings) == len(set(time_strings)), f"{time_strings} has duplicates"
             time = PeriodRange.from_strings(time_strings, fill_missing=fill_missing)
         except Exception:
-            print("Error in time period: ", data.time_period)
             raise
 
         if fill_missing:
@@ -110,7 +108,7 @@ class TimeSeriesData:
         variable_names = [field.name for field in dataclasses.fields(cls) if field.name != "time_period"]  # type: ignore[arg-type]
         data_values = [cls._fill_missing(data[name].values, missing_indices) for name in variable_names]
         assert all(len(d) == len(time) for d in data_values), f"{[len(d) for d in data_values]} != {len(time)}"
-        return cls(time, **dict(zip(variable_names, data_values)))  # type: ignore[call-arg]
+        return cls(time, **dict(zip(variable_names, data_values, strict=False)))  # type: ignore[call-arg]
 
     @classmethod
     def from_csv(cls, csv_file: str, **kwargs):
@@ -118,12 +116,12 @@ class TimeSeriesData:
         data = pd.read_csv(csv_file, **kwargs)
         return cls.from_pandas(data)
 
-    def interpolate(self, field_names: Optional[List[str]] = None):
+    def interpolate(self, field_names: list[str] | None = None):
         data_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}  # type: ignore[arg-type]
         data_dict["time_period"] = self.time_period
         fields = {
             key: interpolate_nans(value)
-            if ((field_names is None) or (key in field_names) and not np.all(np.isnan(value)))
+            if ((field_names is None) or ((key in field_names) and not np.all(np.isnan(value))))
             else value
             for key, value in data_dict.items()
             if key != "time_period"

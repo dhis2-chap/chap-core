@@ -5,7 +5,7 @@ $ rq worker --with-scheduler
 
 import logging
 import os
-from typing import Callable, Generic
+from collections.abc import Callable
 
 from dotenv import find_dotenv, load_dotenv
 from redis import Redis
@@ -21,7 +21,7 @@ chap_core.log_config.initialize_logging()
 # logger.info("Logging initialized")
 
 
-class RedisJob(Generic[ReturnType]):
+class RedisJob[ReturnType]:
     """Wrapper for a Redis Job"""
 
     def __init__(self, job: Job):
@@ -65,7 +65,7 @@ class RedisQueue:
     def __init__(self):
         # TODO: switch to using utils.load_redis()?
         host, port = self.read_environment_variables()
-        logger.info("Connecting to Redis queue at %s:%s" % (host, port))
+        logger.info(f"Connecting to Redis queue at {host}:{port}")
         self.q = Queue(connection=Redis(host=host, port=int(port)), default_timeout=3600)
 
     def read_environment_variables(self):

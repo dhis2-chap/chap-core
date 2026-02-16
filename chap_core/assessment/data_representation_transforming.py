@@ -1,6 +1,5 @@
 import itertools
 from collections import defaultdict
-from typing import Dict, List
 
 from chap_core.assessment.evaluator import Evaluator
 from chap_core.assessment.representations import (
@@ -18,7 +17,7 @@ from chap_core.database.dataset_tables import ObservationBase
 from chap_core.database.tables import BackTestForecast
 
 
-def convert_to_multi_location_forecast(backTestList: List[BackTestForecast]) -> Dict[str, MultiLocationForecast]:
+def convert_to_multi_location_forecast(backTestList: list[BackTestForecast]) -> dict[str, MultiLocationForecast]:
     # Group samples by location
     all_splitpoint_timeseries = {}
     backTestList = sorted(backTestList, key=lambda x: x.last_seen_period)
@@ -29,8 +28,8 @@ def convert_to_multi_location_forecast(backTestList: List[BackTestForecast]) -> 
     return all_splitpoint_timeseries
 
 
-def convert_single_splitpoint_to_multi_location_forecast(backTestList: List[BackTestForecast]) -> MultiLocationForecast:
-    location_forecasts: Dict[str, List[Samples]] = defaultdict(list)
+def convert_single_splitpoint_to_multi_location_forecast(backTestList: list[BackTestForecast]) -> MultiLocationForecast:
+    location_forecasts: dict[str, list[Samples]] = defaultdict(list)
     for forecast in backTestList:
         location_key = str(forecast.org_unit)  # Or use forecast.backtest.location if available
 
@@ -49,8 +48,8 @@ def convert_single_splitpoint_to_multi_location_forecast(backTestList: List[Back
     return MultiLocationForecast(timeseries=timeseries)
 
 
-def convert_to_multi_location_timeseries(obs: List[ObservationBase]) -> MultiLocationDiseaseTimeSeries:
-    grouped: defaultdict[str, List[DiseaseObservation]] = defaultdict(list)
+def convert_to_multi_location_timeseries(obs: list[ObservationBase]) -> MultiLocationDiseaseTimeSeries:
+    grouped: defaultdict[str, list[DiseaseObservation]] = defaultdict(list)
 
     for ob in obs:
         if ob.feature_name == "disease_cases" and ob.value is not None:
@@ -85,7 +84,7 @@ class MAEonMeanPredictions(Evaluator):
             assert len(truth_series.observations) == len(forecast_series.predictions), (
                 f"{len(truth_series.observations)} != {len(forecast_series.predictions)}"
             )
-            truth_and_forecast_series = zip(truth_series.observations, forecast_series.predictions)
+            truth_and_forecast_series = zip(truth_series.observations, forecast_series.predictions, strict=False)
             error = 0
             for truth, prediction in truth_and_forecast_series:
                 assert truth.time_period == prediction.time_period, (truth.time_period, prediction.time_period)

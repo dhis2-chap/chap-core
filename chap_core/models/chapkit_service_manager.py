@@ -9,7 +9,6 @@ import socket
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional
 
 import httpx
 
@@ -48,7 +47,7 @@ class ChapkitServiceManager:
     def __init__(
         self,
         model_directory: str,
-        port: Optional[int] = None,
+        port: int | None = None,
         host: str = "127.0.0.1",
         startup_timeout: int = 60,
     ):
@@ -65,8 +64,8 @@ class ChapkitServiceManager:
         self.host = host
         self.port = port
         self.startup_timeout = startup_timeout
-        self._process: Optional[subprocess.Popen] = None
-        self._url: Optional[str] = None
+        self._process: subprocess.Popen | None = None
+        self._url: str | None = None
 
     @property
     def url(self) -> str:

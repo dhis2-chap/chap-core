@@ -41,7 +41,7 @@ class ModelTemplate:
         ignore_env=False,
         run_dir_type="timestamp",
         is_chapkit_model: bool = False,
-    ) -> "ModelTemplate":
+    ) -> ModelTemplate:
         """
         Gets the model template and initializes a working directory with the code for the model.
         model_path can be a local directory or github url
@@ -83,18 +83,17 @@ class ModelTemplate:
     def __str__(self):
         return f"ModelTemplate: {self._model_template_config}"
 
-    def __enter__(self) -> "ModelTemplate":
+    def __enter__(self) -> ModelTemplate:
         """Context manager entry (no-op for compatibility with ExternalChapkitModelTemplate)."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit (no-op for compatibility with ExternalChapkitModelTemplate)."""
-        pass
 
-    def get_default_model(self) -> "ExternalModel":
+    def get_default_model(self) -> ExternalModel:
         return self.get_model()
 
-    def get_model(self, model_configuration: ModelConfiguration | None = None) -> "ExternalModel":
+    def get_model(self, model_configuration: ModelConfiguration | None = None) -> ExternalModel:
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default

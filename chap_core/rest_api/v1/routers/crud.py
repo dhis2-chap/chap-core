@@ -17,7 +17,7 @@ Magic is used to make the returned objects camelCase while internal objects are 
 import json
 import logging
 from functools import partial
-from typing import Annotated, Any, List, Optional
+from typing import Annotated, Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
@@ -50,7 +50,6 @@ from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.models.approved_templates import (
-    ApprovedTemplate,
     get_approved_templates,
     get_git_ref,
     is_approved,
@@ -188,7 +187,7 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
         except ValueError:
             raise HTTPException(
                 status_code=400, detail=f"Invalid ID format: '{stripped_id_str}' is not a valid integer in '{ids}'."
-            )
+            ) from None
 
     for backtest_id in backtest_ids_list:
         backtest = session.get(BackTest, backtest_id)
@@ -253,7 +252,7 @@ class DataBaseResponse(DBModel):
 
 
 class DatasetCreate(DataSetCreateInfo):
-    observations: List[ObservationBase]
+    observations: list[ObservationBase]
     geojson: FeatureCollectionModel
 
 
@@ -361,9 +360,9 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     # TODO: should probably be moved somewhere else?
     name: str
     id: int
-    user_options: Optional[dict] = None
-    required_covariates: List[str] = []
-    version: Optional[str] = None
+    user_options: dict | None = None
+    required_covariates: list[str] = []
+    version: str | None = None
     archived: bool = False
 
 
@@ -372,9 +371,7 @@ async def list_model_templates(session: Session = Depends(get_session)):
     """
     Lists all model templates from the db, including archived.
     """
-    model_templates = session.exec(
-        select(ModelTemplateDB)  # noqa: E712
-    ).all()
+    model_templates = session.exec(select(ModelTemplateDB)).all()
     return model_templates
 
 
@@ -412,7 +409,7 @@ async def add_model_template(
     try:
         config = ExternalModelTemplate.fetch_config_from_github_url(full_url)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to fetch from GitHub: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to fetch from GitHub: {e}") from e
 
     config.version = model_template_create.version
 
@@ -455,8 +452,8 @@ def list_configured_models(session: Session = Depends(get_session)):
 class ModelConfigurationCreate(DBModel):
     name: str
     model_template_id: int
-    user_option_values: Optional[dict] = None
-    additional_continuous_covariates: List[str] = []
+    user_option_values: dict | None = None
+    additional_continuous_covariates: list[str] = []
 
 
 @router.post("/configured-models", response_model=ConfiguredModelDB, tags=["Models"])

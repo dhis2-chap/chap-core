@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, HTTPException
@@ -36,7 +36,7 @@ def trigger_exception(database_url: str = Depends(get_database_url), worker_sett
 
 
 @router.get("/get-status")
-def get_status(task_id: Optional[str] = None) -> dict:
+def get_status(task_id: str | None = None) -> dict:
     """Get the status and result of a task."""
     if task_id is None:
         if cur_job is None:

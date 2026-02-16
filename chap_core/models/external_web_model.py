@@ -3,7 +3,6 @@ import logging
 import time
 import uuid
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import requests
@@ -32,8 +31,8 @@ class ExternalWebModel(ExternalModelBase):
         name: str | None = None,
         timeout: int = 3600,
         poll_interval: int = 5,
-        configuration: Optional[dict] = None,
-        adapters: Optional[dict] = None,
+        configuration: dict | None = None,
+        adapters: dict | None = None,
         working_dir: str = "./",
     ):
         """
@@ -117,7 +116,7 @@ class ExternalWebModel(ExternalModelBase):
 
             except requests.RequestException as e:
                 logger.error(f"Error checking job status: {e}")
-                raise ModelFailedException(f"Failed to check job status: {e}")
+                raise ModelFailedException(f"Failed to check job status: {e}") from e
 
         raise ModelFailedException(f"{job_type} job timed out after {self._timeout} seconds")
 
@@ -183,7 +182,7 @@ class ExternalWebModel(ExternalModelBase):
 
         except requests.RequestException as e:
             logger.error(f"Failed to submit training job: {e}")
-            raise ModelFailedException(f"Training failed: {e}")
+            raise ModelFailedException(f"Training failed: {e}") from e
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         """
@@ -266,8 +265,8 @@ class ExternalWebModel(ExternalModelBase):
                 return predictions
             except ValueError as e:
                 logger.error(f"Error parsing predictions: {e}")
-                raise ModelFailedException(f"Failed to parse predictions: {e}")
+                raise ModelFailedException(f"Failed to parse predictions: {e}") from e
 
         except requests.RequestException as e:
             logger.error(f"Failed to submit prediction job: {e}")
-            raise ModelFailedException(f"Prediction failed: {e}")
+            raise ModelFailedException(f"Prediction failed: {e}") from e

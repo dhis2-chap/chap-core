@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from chap_core.datatypes import Samples
 from chap_core.external.model_configuration import ModelTemplateConfigV2
@@ -39,7 +38,7 @@ class ExternalChapkitModelTemplate:
     def __init__(
         self,
         path_or_url: str,
-        port: Optional[int] = None,
+        port: int | None = None,
         host: str = "127.0.0.1",
         startup_timeout: int = 60,
     ):

@@ -1,9 +1,10 @@
 import dataclasses
 import logging
 import pickle
+from collections.abc import Callable, Iterable
 from numbers import Number
 from pathlib import Path, PurePath
-from typing import IO, Callable, Generic, Iterable, Optional, Protocol, Tuple, Type, TypeVar, Union
+from typing import IO, Protocol, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -32,7 +33,7 @@ class TimeSeriesLike(Protocol):
 
     def to_pandas(self) -> pd.DataFrame: ...
     def to_pickle_dict(self) -> dict: ...
-    def interpolate(self, field_names: Optional[list[str]] = None) -> "TimeSeriesLike": ...
+    def interpolate(self, field_names: list[str] | None = None) -> "TimeSeriesLike": ...
     def fill_to_range(self, start_timestamp: TimeStamp, end_timestamp: TimeStamp) -> "TimeSeriesLike": ...
     def join(self, other: "TimeSeriesLike") -> "TimeSeriesLike": ...
 
@@ -51,7 +52,7 @@ FeaturesT = TypeVar("FeaturesT")
 TemporalIndexType = slice
 
 
-class TemporalDataclass(Generic[FeaturesT]):
+class TemporalDataclass[FeaturesT]:
     """
     Wraps a dataclass in a object that is can be sliced by time period.
     Call .data() to get the data back.
@@ -157,13 +158,13 @@ class DataSetMetaData(BaseModel):
     db_id: int | None = None
 
 
-class DataSet(Generic[FeaturesT]):
+class DataSet[FeaturesT]:
     """
     Class representing severeal time series at different locations.
     """
 
     def __init__(self, data_dict: dict[str, FeaturesT], polygons=None, metadata=DataSetMetaData()):
-        self._data_dict = {loc: data for loc, data in data_dict.items()}
+        self._data_dict = dict(data_dict.items())
         self._polygons = polygons
         self._parent_dict = None
         self.metadata = metadata
@@ -217,7 +218,7 @@ class DataSet(Generic[FeaturesT]):
         self._polygons = polygons
         return list(ignored_locations)
 
-    def get_parent_dict(self) -> Optional[dict[str, str]]:
+    def get_parent_dict(self) -> dict[str, str] | None:
         if not self._polygons:
             return {str(location): "-" for location in self.locations()}
         return Polygons(self._polygons).get_parent_dict()  # type: ignore[return-value, no-any-return]
@@ -256,7 +257,7 @@ class DataSet(Generic[FeaturesT]):
     def keys(self) -> Iterable[str]:
         return self._data_dict.keys()
 
-    def items(self) -> Iterable[Tuple[str, FeaturesT]]:
+    def items(self) -> Iterable[tuple[str, FeaturesT]]:
         return ((k, d) for k, d in self._data_dict.items())
 
     def values(self) -> Iterable[FeaturesT]:
@@ -267,7 +268,7 @@ class DataSet(Generic[FeaturesT]):
         try:
             first_period_range = self._data_dict[next(iter(self._data_dict))].time_period  # type: ignore[attr-defined]
         except StopIteration:
-            raise ValueError(f"No data in dataset {self}")
+            raise ValueError(f"No data in dataset {self}") from None
 
         assert first_period_range.start_timestamp == first_period_range.start_timestamp
         assert first_period_range.end_timestamp == first_period_range.end_timestamp
@@ -326,7 +327,7 @@ class DataSet(Generic[FeaturesT]):
             raise
         return pd.concat(tables)  # type: ignore[return-value, no-any-return]
 
-    def interpolate(self, field_names: Optional[list[str]] = None):
+    def interpolate(self, field_names: list[str] | None = None):
         return self.__class__({loc: data.interpolate(field_names) for loc, data in self.items()}, self._polygons)  # type: ignore[attr-defined, misc]
 
     @classmethod
@@ -340,7 +341,7 @@ class DataSet(Generic[FeaturesT]):
 
     @classmethod
     def from_pandas(
-        cls, df: pd.DataFrame, dataclass: Type[FeaturesT] | None = None, fill_missing: bool = False
+        cls, df: pd.DataFrame, dataclass: type[FeaturesT] | None = None, fill_missing: bool = False
     ) -> "DataSet[FeaturesT]":
         """
         Create a SpatioTemporalDict from a pandas dataframe.
@@ -413,13 +414,13 @@ class DataSet(Generic[FeaturesT]):
             pickle.dump(data_dict, f)
 
     @classmethod
-    def from_pickle(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
+    def from_pickle(cls, file_name: str, dataclass: type[FeaturesT]) -> "DataSet[FeaturesT]":
         with open(file_name, "rb") as f:
             data_dict = pickle.load(f)
         return cls({loc: dataclass.from_pickle_dict(val) for loc, val in data_dict.items()})  # type: ignore[attr-defined, misc]
 
     @classmethod
-    def from_file(cls, file_name: str, dataclass: Type[FeaturesT]) -> "DataSet[FeaturesT]":
+    def from_file(cls, file_name: str, dataclass: type[FeaturesT]) -> "DataSet[FeaturesT]":
         if file_name.endswith(".csv"):
             return cls.from_csv(file_name, dataclass)
         if file_name.endswith(".pkl"):
@@ -472,7 +473,7 @@ class DataSet(Generic[FeaturesT]):
 
     @classmethod
     def from_csv(
-        cls, file_name: Union[str, Path, IO[bytes]], dataclass: Type[FeaturesT] | None = None
+        cls, file_name: str | Path | IO[bytes], dataclass: type[FeaturesT] | None = None
     ) -> "DataSet[FeaturesT]":
         csv = pd.read_csv(file_name)
         if dataclass is None:
@@ -484,13 +485,13 @@ class DataSet(Generic[FeaturesT]):
         if isinstance(file_name, (str, Path)):
             path = Path(file_name).with_suffix(".geojson")
             if path.exists():
-                with open(path, "r") as f:
+                with open(path) as f:
                     obj.set_polygons(FeatureCollectionModel.model_validate_json(f.read()))
             else:
                 path = Path(file_name).with_suffix(".json")
                 if path.exists():
                     polygons = Polygons.from_file(path, id_property="NAME_1")
-                    with open(path, "r") as f:
+                    with open(path) as f:
                         obj.set_polygons(polygons.feature_collection())
         if isinstance(file_name, (str, PurePath)):
             meta_data = DataSetMetaData(name=str(Path(file_name).stem), filename=str(file_name))
@@ -580,8 +581,8 @@ class DataSet(Generic[FeaturesT]):
         import plotly.express as px
 
         total = np.zeros(len(self.period_range))
-        for location, value in self.items():
-            total += np.where(np.isnan(getattr(value, "disease_cases")), 0, getattr(value, "disease_cases"))
+        for value in self.values():
+            total += np.where(np.isnan(value.disease_cases), 0, value.disease_cases)  # type: ignore[attr-defined]
         return px.line(x=self.period_range.tolist(), y=total)
 
     def to_report(self, pdf_filename: str):

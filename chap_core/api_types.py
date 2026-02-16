@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -21,11 +21,11 @@ from chap_core.database.base_tables import DBModel
 
 
 class FeatureModel(_FeatureModel):
-    id: Optional[str] = None
-    properties: Optional[dict[str, Any]] = Field(default_factory=dict)  # type: ignore[assignment]
-    geometry: Union[
-        PointModel, MultiPointModel, LineStringModel, MultiLineStringModel, PolygonModel, MultiPolygonModel, None
-    ] = None  # type: ignore[assignment]
+    id: str | None = None
+    properties: dict[str, Any] | None = Field(default_factory=dict)  # type: ignore[assignment]
+    geometry: (
+        PointModel | MultiPointModel | LineStringModel | MultiLineStringModel | PolygonModel | MultiPolygonModel | None
+    ) = None  # type: ignore[assignment]
 
 
 class FeatureCollectionModel(_FeatureCollectionModel):
@@ -35,7 +35,7 @@ class FeatureCollectionModel(_FeatureCollectionModel):
 class DataElement(BaseModel):
     pe: str
     ou: str
-    value: Optional[float]
+    value: float | None
 
 
 class DataList(BaseModel):
@@ -47,7 +47,7 @@ class DataList(BaseModel):
 class DataElementV2(BaseModel):
     period: str
     orgUnit: str
-    value: Optional[float]
+    value: float | None
 
 
 class DataListV2(BaseModel):
@@ -92,7 +92,7 @@ class RunConfig(BaseModel):
 
     ignore_environment: bool = False
     debug: bool = False
-    log_file: Optional[str] = None
+    log_file: str | None = None
     run_directory_type: Literal["latest", "timestamp", "use_existing"] = "timestamp"
     is_chapkit_model: bool = False
 

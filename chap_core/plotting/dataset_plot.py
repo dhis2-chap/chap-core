@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import altair as alt
 import numpy as np
@@ -63,8 +62,9 @@ class DatasetPlot(ABC):
             filter(
                 lambda name: self._df[name].dtype.name in ("float64", "int64", "bool", "int32", "float32"),
                 filter(
-                    lambda name: name not in ("disease_cases", "location", "time_period")
-                    and not name.startswith("Unnamed"),
+                    lambda name: (
+                        name not in ("disease_cases", "location", "time_period") and not name.startswith("Unnamed")
+                    ),
                     self._df.columns,
                 ),
             )
@@ -99,7 +99,7 @@ def get_dataset_plots_registry() -> dict[str, type[DatasetPlot]]:
     return _dataset_plots_registry.copy()
 
 
-def get_dataset_plot(plot_id: str) -> Optional[type[DatasetPlot]]:
+def get_dataset_plot(plot_id: str) -> type[DatasetPlot] | None:
     """Get a specific dataset plot class by ID."""
     return _dataset_plots_registry.get(plot_id)
 

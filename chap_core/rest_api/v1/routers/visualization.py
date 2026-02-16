@@ -1,7 +1,6 @@
 import json
 import logging
 from functools import partial
-from typing import Type
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
@@ -33,7 +32,7 @@ router = APIRouter(prefix="/visualization", tags=["Visualizations"])
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 
 # Type annotation for registry - concrete subclasses with visualization_info
-metric_plots_registry: dict[str, Type[MetricPlotV2]] = {
+metric_plots_registry: dict[str, type[MetricPlotV2]] = {
     MetricByHorizonV2Mean.visualization_info.id: MetricByHorizonV2Mean,
     MetricMapV2.visualization_info.id: MetricMapV2,
 }
@@ -45,7 +44,7 @@ def get_avilable_metric_plots(backtest_id: int):
     """
     List available visualizations
     """
-    return list(cls.visualization_info for cls in metric_plots_registry.values())
+    return [cls.visualization_info for cls in metric_plots_registry.values()]
 
 
 class VisualizationParams(DBModel):

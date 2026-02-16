@@ -36,7 +36,7 @@ def ping_service(
     try:
         return orchestrator.ping(service_id)
     except ServiceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.get("", response_model=ServiceListResponse, response_model_exclude_none=True)
@@ -56,7 +56,7 @@ def get_service(
     try:
         return orchestrator.get(service_id)
     except ServiceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -69,4 +69,4 @@ def deregister_service(
     try:
         orchestrator.deregister(service_id)
     except ServiceNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e

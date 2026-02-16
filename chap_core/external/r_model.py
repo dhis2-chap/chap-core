@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from chap_core.datatypes import ClimateData, ClimateHealthTimeSeries, HealthData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -20,7 +20,7 @@ class ExternalRModel:
 FeatureType = TypeVar("FeatureType")
 
 
-class ExternalLaggedRModel(Generic[FeatureType]):
+class ExternalLaggedRModel[FeatureType]:
     def __init__(
         self,
         script_file_name: str,

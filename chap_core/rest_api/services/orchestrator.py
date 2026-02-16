@@ -11,7 +11,7 @@ Services are stored in Redis with automatic expiration.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from redis import Redis
@@ -30,8 +30,6 @@ KEY_PREFIX = "service:"
 
 class ServiceNotFoundError(Exception):
     """Raised when a requested service is not found in the registry."""
-
-    pass
 
 
 class Orchestrator:
@@ -61,13 +59,13 @@ class Orchestrator:
 
     def _now_iso(self) -> str:
         """Get current UTC timestamp in ISO format."""
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(UTC).isoformat()
 
     def _compute_expires_at(self) -> str:
         """Compute expiration timestamp based on current time and TTL."""
         from datetime import timedelta
 
-        return (datetime.now(timezone.utc) + timedelta(seconds=self.ttl_seconds)).isoformat()
+        return (datetime.now(UTC) + timedelta(seconds=self.ttl_seconds)).isoformat()
 
     def register(self, payload: RegistrationRequest) -> RegistrationResponse:
         """

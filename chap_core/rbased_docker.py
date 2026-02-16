@@ -44,7 +44,7 @@ def create_image(r_packages, image_name="r-custom-image"):
     try:
         # Build the Docker image
         print(f"Building the Docker image: {image_name}...")
-        image, logs = client.images.build(path=folder.name + "/", tag=image_name)
+        _image, logs = client.images.build(path=folder.name + "/", tag=image_name)
 
         # Display build logs
         for log in logs:

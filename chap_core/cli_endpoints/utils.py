@@ -4,7 +4,7 @@ import dataclasses
 import json
 import logging
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import numpy as np
 import pandas as pd
@@ -39,7 +39,7 @@ def sanity_check_model(
     else:
         dataset = DataSet.from_csv(dataset_path, FullData)
     train, tests = train_test_generator(dataset, 3, n_test_sets=2)
-    context, future, truth = next(tests)
+    context, future, _truth = next(tests)
 
     if model_config_path is not None:
         model_config = ModelConfiguration.model_validate(yaml.safe_load(open(model_config_path)))
@@ -66,7 +66,7 @@ def sanity_check_model(
         assert not np.isnan(prediction.samples).any(), (
             f"NaNs in predictions for location {location}, {prediction.samples}"
         )
-    context, future, truth = next(tests)
+    context, future, _truth = next(tests)
     try:
         predictions = predictor.predict(context, future)
     except Exception as e:
@@ -78,7 +78,7 @@ def sanity_check_model(
         )
 
 
-def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool = False):
+def serve(seedfile: str | None = None, debug: bool = False, auto_reload: bool = False):
     """
     Start CHAP as a backend server
     """
@@ -213,7 +213,7 @@ def generate_pdf_report(input_file: Path, output_file: Path):
 def export_metrics(
     input_files: list[Path],
     output_file: Path,
-    metric_ids: Optional[list[str]] = None,
+    metric_ids: list[str] | None = None,
 ):
     """
     Export metrics from multiple backtest files to CSV.

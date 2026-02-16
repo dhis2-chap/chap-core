@@ -19,7 +19,7 @@ def prediction_plot(
     climate_data: ClimateData,
     n_samples,
 ) -> Figure:
-    for i in range(n_samples):
+    for _i in range(n_samples):
         new_observed = predicition_sampler.sample(climate_data)
         plt.plot(new_observed, label="predicted", color="grey")  # type: ignore[arg-type]
     plt.plot(true_data.disease_cases, label="real", color="blue")
@@ -77,7 +77,7 @@ def plot_forecasts_from_data_frame(
         y=transform(true_df["real"]),
         mode="lines",
         name="real",
-        line=dict(color="blue"),
+        line={"color": "blue"},
     )
     fig.update_layout(
         title="Predicted path using estimated parameters vs real path",
@@ -103,7 +103,7 @@ def add_prediction_lines(fig, prediction_df, transform, true_df):
             x=prediction_df["time_period"],
             y=transform(prediction_df["quantile_high"]),
             mode="lines",
-            line=dict(color="lightgrey"),
+            line={"color": "lightgrey"},
             name="quantile_high",
         ),
     )
@@ -112,7 +112,7 @@ def add_prediction_lines(fig, prediction_df, transform, true_df):
             x=prediction_df["time_period"],
             y=transform(prediction_df["quantile_low"]),
             mode="lines",
-            line=dict(color="lightgrey"),
+            line={"color": "lightgrey"},
             fill="tonexty",
             fillcolor="rgba(68, 68, 68, 0.3)",
             name="quantile_low",
@@ -122,17 +122,17 @@ def add_prediction_lines(fig, prediction_df, transform, true_df):
         x=prediction_df["time_period"],
         y=transform(prediction_df["median"]),
         mode="lines",
-        line=dict(color="grey"),
+        line={"color": "grey"},
         name="Median",
     )
     # add vertical line for last true data point
     fig.add_shape(
-        dict(
-            type="line",
-            x0=true_df["x"].iloc[last_idx - 1],
-            x1=true_df["x"].iloc[last_idx - 1],
-            y0=0,
-            y1=max(max(prediction_df["quantile_high"]), max(true_df["real"])),
-            line=dict(color="red", width=2),
-        )
+        {
+            "type": "line",
+            "x0": true_df["x"].iloc[last_idx - 1],
+            "x1": true_df["x"].iloc[last_idx - 1],
+            "y0": 0,
+            "y1": max(max(prediction_df["quantile_high"]), max(true_df["real"])),
+            "line": {"color": "red", "width": 2},
+        }
     )

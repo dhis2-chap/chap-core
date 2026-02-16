@@ -2,8 +2,9 @@ import inspect
 import json
 import logging
 import os
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable, Generic, TypeVar, cast
+from typing import TypeVar, cast
 
 import celery
 from celery import Celery, Task, shared_task
@@ -165,7 +166,7 @@ class TrackedTask(Task):
                     "end_time": datetime.now().isoformat(),
                 },
             )
-            raise Exception("Could not serialize return value to JSON. Return value is:" + str(retval))
+            raise Exception("Could not serialize return value to JSON. Return value is:" + str(retval)) from None
 
         r.hset(
             f"job_meta:{task_id}",
@@ -231,7 +232,7 @@ JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
 
 
-class CeleryJob(Generic[ReturnType]):
+class CeleryJob[ReturnType]:
     """Wrapper for a Celery Job"""
 
     def __init__(self, job: celery.Task, app: Celery):
@@ -298,7 +299,7 @@ class CeleryJob(Generic[ReturnType]):
             return self.exception_info
 
 
-class CeleryPool(Generic[ReturnType]):
+class CeleryPool[ReturnType]:
     """Simple abstraction for a Celery Worker"""
 
     def __init__(self, celery: Celery = None):

@@ -5,8 +5,6 @@ This module provides a backtest plot that shows truth vs predictions over time,
 with uncertainty bands and optional historical observations for context.
 """
 
-from typing import Optional
-
 import altair as alt
 import pandas as pd
 
@@ -42,15 +40,11 @@ def _compute_quantiles_from_forecasts(forecasts_df: pd.DataFrame) -> pd.DataFram
         samples = group["forecast"].values
         quantile_values = pd.Series(samples).quantile(quantiles).values
 
-        # Calculate split_period: this is the last period we had data for when making this forecast
-        # We need to go back horizon_distance periods from time_period
-        time_period_clean = clean_time(str(time_period))
-
         # For simplicity, we'll use the first forecast's split calculation
         # In practice, we use horizon_distance to determine the split
         rows.append(
             {
-                "time_period": time_period_clean,
+                "time_period": time_period,
                 "location": location,
                 "horizon_distance": horizon_distance,
                 "q_10": quantile_values[0],
@@ -89,7 +83,10 @@ def _infer_split_periods(forecasts_df: pd.DataFrame) -> pd.DataFrame:
         horizon = int(row["horizon_distance"])
         # Go back horizon periods to get the split period
         split_period = time_period - (horizon * time_period.time_delta)
-        result_rows.append({**row.to_dict(), "split_period": clean_time(str(split_period))})
+        row_dict = row.to_dict()
+        row_dict["time_period"] = clean_time(time_period.to_string())
+        row_dict["split_period"] = clean_time(split_period.to_string())
+        result_rows.append(row_dict)
 
     return pd.DataFrame(result_rows)
 
@@ -112,7 +109,7 @@ class EvaluationPlot(BacktestPlotBase):
         self,
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
-        historical_observations: Optional[pd.DataFrame] = None,
+        historical_observations: pd.DataFrame | None = None,
     ) -> ChartType:
         """
         Generate and return the evaluation visualization.

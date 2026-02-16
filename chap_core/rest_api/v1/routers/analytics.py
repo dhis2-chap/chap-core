@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Any, List
+from typing import Annotated, Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
@@ -45,7 +45,7 @@ worker: CeleryPool[Any] = CeleryPool()
 
 class EvaluationEntryRequest(BaseModel):
     backtest_id: int
-    quantiles: List[Annotated[float, Field(ge=0, le=1)]]
+    quantiles: list[Annotated[float, Field(ge=0, le=1)]]
 
 
 class MetaDataEntry(BaseModel):
@@ -55,7 +55,7 @@ class MetaDataEntry(BaseModel):
 
 
 class MetaData(BaseModel):
-    data_name_mapping: List[MetaDataEntry]
+    data_name_mapping: list[MetaDataEntry]
 
 
 @router.post("/make-dataset", response_model=ImportSummaryResponse, tags=["Datasets"])
@@ -145,7 +145,7 @@ def _validate_full_dataset(
     return new_dataset, rejected_list
 
 
-@router.get("/compatible-backtests/{backtestId}", response_model=List[BackTestRead], tags=["Backtests"])
+@router.get("/compatible-backtests/{backtestId}", response_model=list[BackTestRead], tags=["Backtests"])
 def get_compatible_backtests(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
@@ -172,8 +172,8 @@ def get_compatible_backtests(
 
 
 class BacktestDomain(DBModel):
-    org_units: List[str]
-    split_periods: List[str]
+    org_units: list[str]
+    split_periods: list[str]
 
 
 @router.get("/backtest-overlap/{backtestId1}/{backtestId2}", response_model=BacktestDomain, tags=["Backtests"])
@@ -194,10 +194,10 @@ def get_backtest_overlap(
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
 
 
-@router.get("/prediction-entry", response_model=List[PredictionEntry], tags=["Predictions"])
+@router.get("/prediction-entry", response_model=list[PredictionEntry], tags=["Predictions"])
 async def get_prediction_entry(
     prediction_id: Annotated[int, Query(alias="predictionId")],
-    quantiles: List[float] = Query(...),
+    quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
 ):
     """
@@ -218,12 +218,12 @@ async def get_prediction_entry(
     ]
 
 
-@router.get("/evaluation-entry", response_model=List[EvaluationEntry], tags=["Backtests"])
+@router.get("/evaluation-entry", response_model=list[EvaluationEntry], tags=["Backtests"])
 async def get_evaluation_entries(
     backtest_id: Annotated[int, Query(alias="backtestId")],
-    quantiles: List[float] = Query(...),
+    quantiles: list[float] = Query(...),
     split_period: str = Query(None, alias="splitPeriod"),
-    org_units: List[str] = Query(None, alias="orgUnits"),
+    org_units: list[str] = Query(None, alias="orgUnits"),
     session: Session = Depends(get_session),
 ):
     """
@@ -332,7 +332,7 @@ async def make_prediction(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
+    provided_data, _rejections = _validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
@@ -353,10 +353,10 @@ async def make_prediction(
     return JobResponse(id=job.id)
 
 
-@router.get("/prediction-entry/{predictionId}", response_model=List[PredictionEntry], tags=["Predictions"])
+@router.get("/prediction-entry/{predictionId}", response_model=list[PredictionEntry], tags=["Predictions"])
 def get_prediction_entries(
     prediction_id: Annotated[int, Path(alias="predictionId")],
-    quantiles: List[float] = Query(...),
+    quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
 ):
     prediction = session.get(Prediction, prediction_id)
@@ -374,7 +374,7 @@ def get_prediction_entries(
 @router.get("/actualCases/{backtestId}", response_model=DataList, tags=["Backtests"])
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
-    org_units: List[str] = Query(None, alias="orgUnits"),
+    org_units: list[str] = Query(None, alias="orgUnits"),
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
     session: Session = Depends(get_session),
 ):
@@ -429,7 +429,7 @@ async def get_actual_cases(
 class ChapDataSource(DBModel):
     name: str
     display_name: str
-    supported_features: List[str]
+    supported_features: list[str]
     description: str
     dataset: str
 
@@ -501,8 +501,8 @@ data_sources = [
 ]
 
 
-@router.get("/data-sources", response_model=List[ChapDataSource], tags=["Datasets"])
-async def get_data_sources() -> List[ChapDataSource]:
+@router.get("/data-sources", response_model=list[ChapDataSource], tags=["Datasets"])
+async def get_data_sources() -> list[ChapDataSource]:
     return data_sources
 
 

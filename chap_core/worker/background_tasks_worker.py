@@ -1,14 +1,12 @@
 from asyncio import CancelledError
-from typing import Generic
 
 from fastapi import BackgroundTasks
 
 from ..internal_state import Control, InternalState
 from ..training_control import TrainingControl
-from .interface import ReturnType
 
 
-class BGTaskJob(Generic[ReturnType]):
+class BGTaskJob[ReturnType]:
     def __init__(self, state, job_id):
         self._state = state
         self._job_id = job_id
@@ -34,7 +32,7 @@ class BGTaskJob(Generic[ReturnType]):
         return self._job_id in self._result_dict
 
 
-class BGTaskWorker(Generic[ReturnType]):
+class BGTaskWorker[ReturnType]:
     def __init__(self, background_tasks: BackgroundTasks, internal_state: InternalState, state):
         self._background_tasks = background_tasks
         self._result_dict = internal_state.current_data

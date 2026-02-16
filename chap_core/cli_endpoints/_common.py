@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import pandas as pd
 import yaml
@@ -53,11 +53,9 @@ def save_results(report_filename: str, results_dict: dict[Any, Any]) -> None:
     first_model = True
     for key, value in results_dict.items():
         aggregate_metric_dist = value[0]
-        row: list[Any] = [key]
-        for k, v in aggregate_metric_dist.items():
-            row.append(v)
+        row: list[Any] = [key, *aggregate_metric_dist.values()]
         if first_model:
-            data.append(["Model"] + list(aggregate_metric_dist.keys()))
+            data.append(["Model", *list(aggregate_metric_dist.keys())])
             first_model = False
         data.append(row)
         full_data[key] = pd.DataFrame(value[1])
@@ -89,7 +87,7 @@ def create_model_lists(model_configuration_yaml: str | None, model_name: str) ->
     return model_configuration_yaml_list, model_list
 
 
-def discover_geojson(csv_path: Path) -> Optional[Path]:
+def discover_geojson(csv_path: Path) -> Path | None:
     """
     Discover GeoJSON file alongside CSV file.
 
@@ -109,8 +107,8 @@ def discover_geojson(csv_path: Path) -> Optional[Path]:
 
 def load_dataset_from_csv(
     csv_path: Path,
-    geojson_path: Optional[Path] = None,
-    column_mapping: Optional[dict[str, str]] = None,
+    geojson_path: Path | None = None,
+    column_mapping: dict[str, str] | None = None,
 ) -> DataSet:
     """
     Load dataset from CSV file with optional GeoJSON polygons.

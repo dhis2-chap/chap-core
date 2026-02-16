@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List, Optional, cast
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -21,8 +21,8 @@ worker: CeleryPool[Any] = CeleryPool()
 
 @router.get("")
 def list_jobs(
-    ids: List[str] = Query(None), status: List[str] = Query(None), type: str = Query(None)
-) -> List[JobDescription]:
+    ids: list[str] = Query(None), status: list[str] = Query(None), type: str = Query(None)
+) -> list[JobDescription]:
     """
     List all jobs currently in the queue.
     Optionally filters by a list of job IDs, a list of statuses, and/or a job type.
@@ -39,10 +39,10 @@ def list_jobs(
         jobs_to_return = [job for job in jobs_to_return if job.type and job.type.upper() == type_upper]
 
     if status:
-        status_filter_set = set(s.upper() for s in status)
+        status_filter_set = {s.upper() for s in status}
         jobs_to_return = [job for job in jobs_to_return if job.status and job.status.upper() in status_filter_set]
 
-    return cast(List[JobDescription], jobs_to_return)
+    return cast(list[JobDescription], jobs_to_return)
 
 
 def _get_successful_job(job_id):
@@ -187,7 +187,7 @@ class NaiveJob:
     def is_finished(self):
         return self._finished
 
-    def get_logs(self, n_lines: Optional[int]):
+    def get_logs(self, n_lines: int | None):
         """Retrives logs from the current job"""
         return ""
 

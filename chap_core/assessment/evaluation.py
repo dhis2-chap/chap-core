@@ -8,9 +8,10 @@ evaluation results, enabling better code reuse between REST API and CLI workflow
 import datetime
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, List, Optional, Union, cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
@@ -167,7 +168,7 @@ class FlatEvaluationData:
 
     forecasts: FlatForecasts
     observations: FlatObserved
-    historical_observations: Optional[FlatObserved] = None
+    historical_observations: FlatObserved | None = None
 
 
 class EvaluationBase(ABC):
@@ -191,27 +192,24 @@ class EvaluationBase(ABC):
         Returns:
             FlatEvaluationData containing FlatForecasts and FlatObserved objects
         """
-        pass
 
     @abstractmethod
-    def get_org_units(self) -> List[str]:
+    def get_org_units(self) -> list[str]:
         """
         Get list of locations included in this evaluation.
 
         Returns:
             List of location identifiers (org_units)
         """
-        pass
 
     @abstractmethod
-    def get_split_periods(self) -> List[str]:
+    def get_split_periods(self) -> list[str]:
         """
         Get list of train/test split periods used in evaluation.
 
         Returns:
             List of period identifiers (e.g., ["2024-01", "2024-02"])
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -227,7 +225,6 @@ class EvaluationBase(ABC):
         Returns:
             Evaluation instance
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -251,7 +248,7 @@ class Evaluation(EvaluationBase):
     def __init__(
         self,
         backtest: "BackTest",
-        historical_observations: Optional[List[Observation]] = None,
+        historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
     ):
         """
@@ -266,7 +263,7 @@ class Evaluation(EvaluationBase):
         self._backtest = backtest
         self._historical_observations = historical_observations or []
         self._historical_context_periods = historical_context_periods
-        self._flat_data_cache: Optional[FlatEvaluationData] = None
+        self._flat_data_cache: FlatEvaluationData | None = None
 
     @classmethod
     def from_backtest(cls, backtest: "BackTest") -> "Evaluation":
@@ -288,7 +285,7 @@ class Evaluation(EvaluationBase):
         last_train_period: TimePeriod,
         configured_model: ConfiguredModelDB,
         info: BackTestCreate,
-        historical_observations: Optional[List[Observation]] = None,
+        historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
     ) -> "Evaluation":
         info.created = datetime.datetime.now()
@@ -296,8 +293,8 @@ class Evaluation(EvaluationBase):
             **info.model_dump()
             | {"model_db_id": configured_model.id, "model_template_version": configured_model.model_template.version}
         )
-        org_units = set([])
-        split_points = set([])
+        org_units = set()
+        split_points = set()
         observations = []
 
         for eval_result in evaluation_results:
@@ -307,7 +304,7 @@ class Evaluation(EvaluationBase):
                 # NOTE: samples_with_truth is class datatypes.SamplesWithTruth
                 org_units.add(location)
                 for period, sample_values, disease_cases in zip(  # type: ignore[call-overload]
-                    eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases
+                    eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases, strict=False
                 ):
                     # add forecast series for this period
                     forecast = BackTestForecast(
@@ -476,7 +473,7 @@ class Evaluation(EvaluationBase):
         dataset: _DataSet,
         up_to_period: TimePeriod,
         n_periods: int,
-    ) -> List[Observation]:
+    ) -> list[Observation]:
         """
         Extract historical observations from a dataset for plotting context.
 
@@ -545,14 +542,14 @@ class Evaluation(EvaluationBase):
         if self._flat_data_cache is None:
             forecasts_df = convert_backtest_to_flat_forecasts(self._backtest.forecasts)
             observations_df = convert_backtest_observations_to_flat_observations(
-                cast(List[ObservationBase], self._backtest.dataset.observations)
+                cast(list[ObservationBase], self._backtest.dataset.observations)
             )
 
             # Convert historical observations if present
             historical_observations = None
             if self._historical_observations:
                 historical_df = convert_backtest_observations_to_flat_observations(
-                    cast(List[ObservationBase], self._historical_observations)
+                    cast(list[ObservationBase], self._historical_observations)
                 )
                 if not historical_df.empty:
                     historical_observations = FlatObserved(historical_df)
@@ -564,7 +561,7 @@ class Evaluation(EvaluationBase):
             )
         return self._flat_data_cache
 
-    def get_org_units(self) -> List[str]:
+    def get_org_units(self) -> list[str]:
         """
         Get locations from BackTest metadata.
 
@@ -573,7 +570,7 @@ class Evaluation(EvaluationBase):
         """
         return self._backtest.org_units
 
-    def get_split_periods(self) -> List[str]:
+    def get_split_periods(self) -> list[str]:
         """
         Get split periods from BackTest metadata.
 
@@ -584,10 +581,10 @@ class Evaluation(EvaluationBase):
 
     def to_file(
         self,
-        filepath: Union[str, Path],
-        model_name: Optional[str] = None,
-        model_configuration: Optional[dict] = None,
-        model_version: Optional[str] = None,
+        filepath: str | Path,
+        model_name: str | None = None,
+        model_configuration: dict | None = None,
+        model_version: str | None = None,
     ) -> None:
         """
         Export evaluation to NetCDF file using xarray.
@@ -613,7 +610,7 @@ class Evaluation(EvaluationBase):
         ds.to_netcdf(filepath)
 
     @classmethod
-    def from_file(cls, filepath: Union[str, Path]) -> "Evaluation":
+    def from_file(cls, filepath: str | Path) -> "Evaluation":
         """
         Load evaluation from NetCDF file.
 
@@ -714,7 +711,7 @@ class ModelCard:
     def __init__(
         self,
         backtest: "BackTest",
-        description: Optional[str] = None,
+        description: str | None = None,
     ):
         self.backtest = backtest
         self.description = description

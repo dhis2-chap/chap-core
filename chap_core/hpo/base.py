@@ -3,7 +3,7 @@
 # import time
 import json
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -31,7 +31,7 @@ class Int:
 class Float:
     low: float
     high: float
-    step: Optional[float] = None
+    step: float | None = None
     log: bool = False
 
 

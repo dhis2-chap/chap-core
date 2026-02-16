@@ -15,7 +15,7 @@ class SeasonPlot(DatasetPlot):
         df["month"] = df["time_period"].dt.month - 1
         df["year"] = df["time_period"].dt.year
         means = ((month, group["log1p"].mean()) for month, group in df.groupby("month"))
-        min_month, val = min(means, key=lambda x: x[1])
+        min_month, _val = min(means, key=lambda x: x[1])
         assert df["month"].max() == 11
         offset_month = df["month"] - min_month  # type: ignore[operator]
         df["seasonal_month"] = offset_month % 12

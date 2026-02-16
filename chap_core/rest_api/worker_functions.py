@@ -2,7 +2,8 @@ import dataclasses
 import json
 import logging
 import os
-from typing import Any, List, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -46,7 +47,7 @@ class WorkerConfig(BaseModel):
 def sample_dataset_to_prediction_response(predictions: DataSet[Samples], target_id: str) -> dict:
     summaries = DataSet({location: samples.summaries() for location, samples in predictions.items()})
     attrs = ["median", "quantile_high", "quantile_low"]
-    data_values = predictions_to_datavalue(summaries, attribute_mapping=dict(zip(attrs, attrs)))
+    data_values = predictions_to_datavalue(summaries, attribute_mapping=dict(zip(attrs, attrs, strict=False)))
     json_body = [dataclasses.asdict(element) for element in data_values]
     response = {"diseaseId": target_id, "dataValues": json_body}
     return response
@@ -77,13 +78,13 @@ def __clean_actual_cases(real_data: DataList) -> DataList:
 
 
 def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataList):
-    evaluation_entries: List[EvaluationEntry] = []
+    evaluation_entries: list[EvaluationEntry] = []
     for predictions in predictions_list:
         first_period = predictions.period_range[0]
         for location, samples in predictions.items():
             calculated_quantiles = {q: np.quantile(samples.samples, q, axis=-1) for q in quantiles}
             for q, quantile in calculated_quantiles.items():
-                for period, value in zip(predictions.period_range, quantile):
+                for period, value in zip(predictions.period_range, quantile, strict=False):
                     entry = EvaluationEntry(
                         orgUnit=location, period=period.id, quantile=q, value=value, splitPeriod=first_period.id
                     )
@@ -109,7 +110,7 @@ def train_on_json_data(json_data: str | bytes, model_name: str, model_path: str,
     predictions = forecast_with_predicted_weather(predictor, train_data, 3)
     summaries = DataSet({location: samples.summaries() for location, samples in predictions.items()})
     attrs = ["median", "quantile_high", "quantile_low"]
-    data_values = predictions_to_datavalue(summaries, attribute_mapping=dict(zip(attrs, attrs)))
+    data_values = predictions_to_datavalue(summaries, attribute_mapping=dict(zip(attrs, attrs, strict=False)))
     json_body = [dataclasses.asdict(element) for element in data_values]
 
     return {"diseaseId": target_id, "dataValues": json_body}
@@ -152,7 +153,7 @@ base_fetch_requests = (
 def harmonize_health_dataset(
     dataset: DataSet[FullData],
     usecwd_for_credentials: bool,
-    fetch_requests: Optional[List[FetchRequest]] = None,
+    fetch_requests: list[FetchRequest] | None = None,
     worker_config: WorkerConfig = WorkerConfig(),
 ) -> DataSet[FullData]:
     assert not fetch_requests, "Google earth engine no longer supported"
@@ -220,7 +221,7 @@ def predictions_to_datavalue(dataset: DataSet[HealthData], attribute_mapping: di
 
 
 def v1_conversion(
-    data_list: Sequence[Union[DataElement, DataElementV2]],
+    data_list: Sequence[DataElement | DataElementV2],
     fill_missing: bool = False,
     colnames: tuple[str, str] = ("ou", "pe"),
 ) -> DataSet[TimeSeriesArray]:
@@ -230,11 +231,11 @@ def v1_conversion(
     location_col, period_col = colnames
     df = pd.DataFrame([d.model_dump() for d in data_list])
     df.sort_values(by=[location_col, period_col], inplace=True)
-    d = dict(
-        time_period=[convert_time_period_string(row) for row in df[period_col]],
-        location=df[location_col],
-        value=df.value,
-    )
+    d = {
+        "time_period": [convert_time_period_string(row) for row in df[period_col]],
+        "location": df[location_col],
+        "value": df.value,
+    }
     converted_df = pd.DataFrame(d)
     ds = DataSet.from_pandas(converted_df, TimeSeriesArray, fill_missing=fill_missing)
     return ds

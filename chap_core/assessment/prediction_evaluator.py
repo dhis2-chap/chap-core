@@ -8,7 +8,8 @@ points are ``backtest`` (yields per-split prediction results) and
 
 import logging
 from collections import defaultdict
-from typing import Dict, Iterable, Protocol, TypeVar
+from collections.abc import Iterable
+from typing import Protocol, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -114,7 +115,7 @@ def evaluate_model(
         Summary and individual evaluation results
     """
     logger.info(f"Evaluating {estimator} with {n_test_sets} test sets for {prediction_length} periods ahead")
-    train, test_generator = train_test_generator(
+    train, _test_generator = train_test_generator(
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
     predictor = estimator.train(train)
@@ -139,7 +140,7 @@ def evaluate_model(
 
     logger.info("Getting forecasts")
     # forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
-    forecast_list, tss = zip(*forecasts_and_truths_generator)
+    forecast_list, tss = zip(*forecasts_and_truths_generator, strict=False)
 
     logger.info("Evaluating")
     evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9], num_workers=None, allow_nan_forecast=True)
@@ -168,7 +169,7 @@ def create_multiloc_timeseries(truth_data):
 def _get_forecast_generators(
     predictor: Predictor,
     test_generator: Iterable[tuple[DataSet, DataSet, DataSet]],
-    truth_data: Dict[str, pd.DataFrame],
+    truth_data: dict[str, pd.DataFrame],
 ) -> tuple[list[Forecast], list[pd.DataFrame]]:
     """
     Get the forecast and truth data for a predictor and test generator.
@@ -220,9 +221,7 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
                 try:
                     _t = truth[location]
                 except KeyError:
-                    logger.error(
-                        f"Location {repr(location)} not found in truth data which has locations {truth.keys()}"
-                    )
+                    logger.error(f"Location {location!r} not found in truth data which has locations {truth.keys()}")
                     raise
                 logging.warning(
                     f"Had to convert location to string {location}, something has maybe gone wrong at some point with data types"

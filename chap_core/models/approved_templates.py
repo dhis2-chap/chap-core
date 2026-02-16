@@ -11,7 +11,6 @@ This module provides functionality to:
 import logging
 import time
 from pathlib import Path
-from typing import Optional
 
 import requests
 import yaml
@@ -29,10 +28,10 @@ class ApprovedTemplate(BaseModel):
 
 class ApprovedTemplatesCache:
     def __init__(self):
-        self._data: Optional[list[ApprovedTemplate]] = None
+        self._data: list[ApprovedTemplate] | None = None
         self._timestamp: float = 0
 
-    def get(self) -> Optional[list[ApprovedTemplate]]:
+    def get(self) -> list[ApprovedTemplate] | None:
         if self._data is not None and time.time() - self._timestamp < CACHE_TTL:
             return self._data
         return None
