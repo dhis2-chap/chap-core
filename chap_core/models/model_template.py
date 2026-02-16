@@ -9,13 +9,13 @@ import yaml
 from chap_core.datatypes import HealthData
 from chap_core.external.github import fetch_mlproject_content
 from chap_core.external.model_configuration import ModelTemplateConfigV2
-from chap_core.models.configured_model import ModelConfiguration
 from chap_core.models.external_web_model import ExternalWebModel
 from chap_core.models.model_template_interface import ModelTemplateInterface
 from chap_core.runners.runner import TrainPredictRunner
 
 if TYPE_CHECKING:
     from chap_core.external.external_model import ExternalModel  # type: ignore[attr-defined]
+    from chap_core.models.configured_model import ModelConfiguration
     from chap_core.runners.runner import TrainPredictRunner
 
 
@@ -78,7 +78,7 @@ class ModelTemplate:
         return self._model_template_config
 
     def get_train_predict_runner(self) -> TrainPredictRunner:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def __str__(self):
         return f"ModelTemplate: {self._model_template_config}"

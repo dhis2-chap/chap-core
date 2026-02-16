@@ -20,7 +20,7 @@ from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricByTi
 
 
 @backtest_plot(
-    id="metrics_dashboard",
+    plot_id="metrics_dashboard",
     name="Overview of various metrics by horizon/time",
     description="A dashboard showing various metrics by forecast horizon and time period.",
 )

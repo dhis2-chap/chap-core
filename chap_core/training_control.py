@@ -19,12 +19,12 @@ class TrainingControl:
 
     def register_progress(self, n_sampled):
         if self._cancelled:
-            raise CancelledError()
+            raise CancelledError
         self._n_finished += n_sampled
 
     def set_status(self, status):
         if self._cancelled:
-            raise CancelledError()
+            raise CancelledError
         self._status = status
 
     def cancel(self):

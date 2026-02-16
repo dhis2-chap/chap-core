@@ -88,7 +88,7 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
         shutil.copytree(
             model_path,
             working_dir,
-            ignore=lambda dir, contents: list({".venv", "venv", "runs"}.intersection(contents)),
+            ignore=lambda _dir, contents: list({".venv", "venv", "runs"}.intersection(contents)),
             dirs_exist_ok=True,
         )
     return working_dir

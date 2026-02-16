@@ -73,10 +73,10 @@ def get_naive_model_template():
 
 
 def seed_configured_models_from_config_dir(
-    session, dir=get_config_path() / "configured_models", skip_chapkit_models=False
+    session, directory=get_config_path() / "configured_models", skip_chapkit_models=False
 ):
     wrapper = SessionWrapper(session=session)
-    configured_models = parse_local_model_config_from_directory(dir)
+    configured_models = parse_local_model_config_from_directory(directory)
     for config in configured_models:
         if config.uses_chapkit:
             if skip_chapkit_models:

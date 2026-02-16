@@ -124,6 +124,7 @@ def load_dataset_from_csv(
     """
     logging.info(f"Loading dataset from {csv_path}")
 
+    dataset: DataSet
     if column_mapping is not None:
         logging.info(f"Applying column mapping: {column_mapping}")
         df = pd.read_csv(csv_path)
@@ -150,6 +151,7 @@ def load_dataset(
     polygons_id_field: str | None,
     polygons_json: Path | None,
 ) -> DataSet:
+    dataset: DataSet
     if dataset_name is None:
         assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
         logging.info(f"Loading dataset from {dataset_csv}")

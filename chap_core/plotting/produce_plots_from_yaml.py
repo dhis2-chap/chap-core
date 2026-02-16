@@ -73,8 +73,8 @@ def _concat_v(charts):
 
 # ---------- plot component builder ----------
 def _build_plot_component(backtest, comp: dict, context: dict):
-    type = comp.get("type")
-    if type == "metric":
+    comp_type = comp.get("type")
+    if comp_type == "metric":
         metric_name = comp.get("metric")
         plot_type = comp.get("plot_type", "bar")  # -> Default
 
@@ -108,7 +108,7 @@ def _build_plot_component(backtest, comp: dict, context: dict):
         plotter = plot_class(metric_df)  # type: ignore[abstract]
         return plotter.plot()
 
-    return text_chart(f"Unknown plot kind: {type}", line_length=60)
+    return text_chart(f"Unknown plot kind: {comp_type}", line_length=60)
 
 
 # ---------- MAIN: build_from_yaml ----------
@@ -273,25 +273,25 @@ if __name__ == "__main__":
             - text:
                 value: "CRPS by horizon mean."
         - row:
-            - plot: 
+            - plot:
                 type: metric
                 metric: samples_above_truth
                 plot_type: metric_by_horizon_mean
             - text:
                 value: "Ratio of Samples Above Truth (per location & horizon)."
-        - row: 
-            - plot: 
+        - row:
+            - plot:
                 type: metric
                 metric: detailed_rmse
                 plot_type: metric_by_time_location_mean
-            - text: 
+            - text:
                 value: "Detailed RMSE by time period and location mean."
-        - row: 
-            - plot: 
+        - row:
+            - plot:
                 type: metric
                 metric: peak_value_diff
                 plot_type: metric_by_time_location_mean
-            - text: 
+            - text:
                 value: "Peak Value Difference by time period and location mean."
     """
 

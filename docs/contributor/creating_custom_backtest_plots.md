@@ -109,7 +109,7 @@ import pandas as pd
 from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
 
 @backtest_plot(
-    id="my_custom_plot",              # Unique identifier (used in APIs)
+    plot_id="my_custom_plot",              # Unique identifier (used in APIs)
     name="My Custom Plot",             # Human-readable display name
     description="Shows forecast accuracy by location.",
 )
@@ -137,7 +137,7 @@ from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase,
 
 
 @backtest_plot(
-    id="error_by_location",
+    plot_id="error_by_location",
     name="Error by Location",
     description="Shows mean absolute forecast error for each location.",
 )
@@ -311,7 +311,7 @@ import pandas as pd
 from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
 
 @backtest_plot(
-    id="trend_plot",
+    plot_id="trend_plot",
     name="Trend Plot",
     description="Shows forecasts with historical trend context.",
     needs_historical=True,  # Request historical data
@@ -380,7 +380,7 @@ Study these existing implementations as examples:
 
 ```console
 @backtest_plot(
-    id: str,                    # Required: Unique identifier
+    plot_id: str,                    # Required: Unique identifier
     name: str,                  # Required: Display name
     description: str = "",      # Optional: Description
     needs_historical: bool = False,  # Optional: Request historical data

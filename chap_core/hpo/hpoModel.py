@@ -59,7 +59,7 @@ class HpoModel(HpoModelInterface):
 
     def predict(self, historic_data: DataSet[Any], future_data: DataSet[Any]) -> DataSet[Any]:
         assert self._predictor is not None, "Model not trained yet"
-        return cast(DataSet[Any], self._predictor.predict(historic_data, future_data))
+        return cast("DataSet[Any]", self._predictor.predict(historic_data, future_data))
 
     def get_leaderboard(self, dataset: DataSetType | None) -> list[dict[str, Any]]:
         """

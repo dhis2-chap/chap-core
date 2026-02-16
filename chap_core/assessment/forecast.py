@@ -26,7 +26,7 @@ def forecast(model, dataset: DataSet, prediction_length: TimeDelta, graph=None):
     model._num_warmup = 1000
     model._num_samples = 400
     model.train(train_data)
-    if False and hasattr(model, "diagnose"):
+    if False:
         model.diagnose()
     predictions = model.forecast(future_weather, 10, prediction_length)
     return predictions

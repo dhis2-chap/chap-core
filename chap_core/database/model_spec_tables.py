@@ -57,7 +57,7 @@ class ModelSpec(ModelSpecBase, table=True):
 def get_available_models_from_config_dir(config_dir: str, base_covariates) -> list[ModelSpec]:
     #  Reads from config dir, creates ModelSpec objects by reading from github_urls,
     # and returns a list of ModelSpec objects by calling ModelSpec.from_model_spec_read()
-    raise NotImplementedError()
+    raise NotImplementedError
 
 
 # todo: check if can be removed
@@ -156,7 +156,7 @@ def get_available_models(base_covariates) -> list[ModelSpec]:
             author="Model by Michelle Evans, adapted by CHAP",
             organization="Pivot",
             source_url="https://github.com/dhis2-chap/Madagascar_ARIMA@a732bb4c88f36df8c8a07b11110b0db01170f8a0",
-            target=target_type 
+            target=target_type
         ),
         ModelSpec(
             name='Epidemiar',

@@ -141,7 +141,7 @@ async def get_results() -> FullPredictionResponse:
 
     if not cur_job.is_finished:
         raise HTTPException(status_code=400, detail="No response available")
-    return cast(FullPredictionResponse, cur_job.result)
+    return cast("FullPredictionResponse", cur_job.result)
 
 
 @app.get("/get-evaluation-results")
@@ -157,7 +157,7 @@ async def get_evaluation_results() -> EvaluationResponse:
 
     if not cur_job.is_finished:
         raise HTTPException(status_code=400, detail="No response available")
-    return cast(EvaluationResponse, cur_job.result)
+    return cast("EvaluationResponse", cur_job.result)
 
 
 @app.get("/get-exception")

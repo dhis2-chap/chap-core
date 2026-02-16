@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 
 """
-Constraints on non-categorical hyperparameter values:   
+Constraints on non-categorical hyperparameter values:
     log=True
         floats: step=None and low/high > 0
         ints: step=1 and low/high > 0

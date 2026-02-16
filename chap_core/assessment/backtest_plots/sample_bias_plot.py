@@ -15,7 +15,7 @@ from chap_core.plotting.backtest_plot import text_chart
 
 
 @backtest_plot(
-    id="ratio_of_samples_above_truth",
+    plot_id="ratio_of_samples_above_truth",
     name="Sample Bias Plot",
     description="Backtest plot showing forecast bias relative to observations.",
 )
