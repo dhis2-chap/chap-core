@@ -4,12 +4,10 @@ import pandas as pd
 
 from .dataset_plot import DatasetPlot, dataset_plot
 
-alt.renderers.enable("browser")
-
 
 class SeasonPlot(DatasetPlot):
-    def data(self) -> pd.DataFrame:
-        df = self._df.copy()
+    def data(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
         df["log1p"] = np.log1p(df["disease_cases"])
         df["time_period"] = pd.to_datetime(df["time_period"])
         df["month"] = df["time_period"].dt.month - 1
@@ -20,12 +18,11 @@ class SeasonPlot(DatasetPlot):
         offset_month = df["month"] - min_month  # type: ignore[operator]
         df["seasonal_month"] = offset_month % 12
         df["season_idx"] = df["year"] + offset_month // 12  # type: ignore[operator]
-        # Create season_idx (season index based on years from start)
         df["season_idx"] = df["season_idx"] - df["season_idx"].min()
         return df
 
-    def plot(self) -> alt.FacetChart:  # type: ignore[override]
-        df = self.data()
+    def plot(self, df: pd.DataFrame, geojson=None) -> alt.FacetChart:  # type: ignore[override]
+        df = self.data(df)
         return (  # type: ignore[no-any-return]
             alt.Chart(df)
             .mark_line(point=False, strokeWidth=2)
@@ -39,20 +36,17 @@ class SeasonPlot(DatasetPlot):
 
 
 class SeasonCorrelationPlot(DatasetPlot):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._season_plot = SeasonPlot(*args, **kwargs)
-
-    def data(self) -> pd.DataFrame:
-        df = self._season_plot.data()
+    def data(self, df: pd.DataFrame) -> pd.DataFrame:
+        season_plot = SeasonPlot()
+        df = season_plot.data(df)
         season_stats = df.groupby(["location", "season_idx"])["log1p"].agg(["mean", "std", "max"]).reset_index()
         season_stats.columns = ["location", "season_idx", "season_mean", "season_std", "season_max"]
         df = df.merge(season_stats, on=["location", "season_idx"], how="left")
         return df
 
-    def plot(self):
-        df = self.data()
-        return (
+    def plot(self, df: pd.DataFrame, geojson=None) -> alt.FacetChart:  # type: ignore[override]
+        df = self.data(df)
+        return (  # type: ignore[no-any-return]
             alt.Chart(df)
             .mark_point(filled=True, size=100)
             .encode(
@@ -75,21 +69,19 @@ class SeasonCorrelationPlot(DatasetPlot):
     description="Bar plot showing correlation between seasonal disease outcomes and climate features.",
 )
 class SeasonCorrelationBarPlot(SeasonCorrelationPlot):
-    feature_name = "mean_temperature"  # Example feature to correlate with season_mean
+    feature_name = "mean_temperature"
 
-    def data(self) -> pd.DataFrame:
-        df = super().data()
+    def data(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().data(df)
         last_months_subset = df[df["seasonal_month"] >= 9].copy()
         last_months_subset["seasonal_month"] -= 12
         last_months_subset["season_idx"] += 1
         df = pd.concat([df, last_months_subset], ignore_index=True)
 
-        # Calculate correlation coefficient between season_mean and mean_temperature for each season_idx and location
         correlations = []
         for (location, seasonal_month), group in df.groupby(["location", "seasonal_month"]):
-            for feature_name in self._get_feature_names():
+            for feature_name in self._get_feature_names(df):
                 for outcome in ["max", "mean", "std"]:
-                    # Suppress RuntimeWarning for invalid values (e.g., when std is 0)
                     with np.errstate(invalid="ignore"):
                         corr = group[f"season_{outcome}"].corr(group[feature_name])
                     correlations.append(
@@ -105,8 +97,8 @@ class SeasonCorrelationBarPlot(SeasonCorrelationPlot):
 
         return pd.DataFrame(correlations)
 
-    def plot(self) -> alt.FacetChart:  # type: ignore[override]
-        df = self.data()
+    def plot(self, df: pd.DataFrame, geojson=None) -> alt.FacetChart:  # type: ignore[override]
+        df = self.data(df)
         return (  # type: ignore[no-any-return]
             alt.Chart(df)
             .mark_bar()
@@ -129,36 +121,3 @@ class SeasonCorrelationBarPlot(SeasonCorrelationPlot):
                 }
             )
         )
-
-
-def test_season_plot(df: pd.DataFrame):
-    plot = SeasonPlot(df)
-    data = plot.data()
-
-    print(data)
-    assert "seasonal_month" in data.columns
-    chart = plot.plot()
-    chart.save("season_plot.html")
-    chart.save("season_plot.png")
-
-
-def test_season_correlation_plot(df: pd.DataFrame):
-    plot = SeasonCorrelationPlot(df)
-    data = plot.data()
-    print(data)
-    assert "season_mean" in data.columns
-    assert "season_std" in data.columns
-    chart = plot.plot()
-    chart.save("season_correlation_plot.html")
-    chart.save("season_correlation_plot.png")
-
-
-def test_season_correlation_bar_plot(df: pd.DataFrame):
-    plot = SeasonCorrelationBarPlot(df)
-    data = plot.data()
-    print(data)
-    assert "correlation" in data.columns
-    assert "location" in data.columns
-    chart = plot.plot()
-    chart.save("season_correlation_bar_plot.html")
-    chart.save("season_correlation_bar_plot.png")
