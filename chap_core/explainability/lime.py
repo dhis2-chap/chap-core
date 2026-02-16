@@ -1,16 +1,17 @@
 
 import logging
 import random
-import re
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import Ridge
+from sklearn.metrics import r2_score
+
 from chap_core.climate_predictor import get_climate_predictor
 from chap_core.data.datasets import ISIMIP_dengue_harmonized
-from chap_core.explainability.surrogate import RidgeSurrogate, SurrogateModel, TreeSurrogate
+from chap_core.explainability.surrogate import RidgeSurrogate, TreeSurrogate
+from chap_core.explainability.segment import SegmentationModel, UniformSegmentation
 from chap_core.model_spec import _non_feature_names
 from chap_core.models.external_model import ExternalModel
 from chap_core.models.utils import get_model_from_directory_or_github_url
@@ -71,7 +72,7 @@ def avg_samples(
 def is_constant(
     window: pd.DataFrame,
     feature_name: str,
-    num_steps: int,
+    num_steps: int | None = None,
     count_down: bool = True
 ) -> bool:
     """
@@ -85,30 +86,30 @@ def is_constant(
     Return:
         bool of whether value is constant
     """
-    value_set = set()
-    for i in range(num_steps):
-        pos = [-(i+1) if count_down else (i)][0]
-        value_set.add(float(window[feature_name].iloc[pos]))
-    if (len(value_set) <= 1): 
-        return True
-    return False
+    series = window[feature_name]
+
+    if num_steps is not None:
+        series = series.iloc[-num_steps:] if count_down else series.iloc[:num_steps]
+
+    return series.nunique(dropna=False) <= 1
 
 
 
 def build_original_vector(
-    window: pd.DataFrame,
-    future: pd.DataFrame,
+    segmenter: SegmentationModel,
+    hist_df: pd.DataFrame,
+    fut_df: pd.DataFrame,
     features_hist: List[str],
     features_fut: List[str],
     horizon: int,
     granularity: int
-) -> Dict[str, float | str]:
+) -> Dict[str, float | str | Dict[str, float]]:
     """
     Create original information vector for producing perturbed input
 
     Args:
-        window (pandas.DataFrame): Dataframe with data within boundries of granularity
-        window (pandas.DataFrame): Dataframe with future data within boundries of horizon
+        hist_df (pandas.DataFrame): Complete history dataframe
+        fut_df (pandas.DataFrame): Dataframe with future data
         features_hist (list(str)): List of feature names of historical dataset
         features_fut (list(str)): List of feature names of future dataset
         horizon (int): Number of time steps in future to include in vector
@@ -119,19 +120,18 @@ def build_original_vector(
     """
     x0 = {}
     for name in features_hist:
-        if is_constant(window, name, granularity):  # If features doesn't vary with time, add once
-            x0[name] = float(window[name].iloc[-1])
+        if is_constant(hist_df, name):  # If features doesn't vary with time, add once
+            x0[name] = float(hist_df[name].iloc[-1])
         else:
-            for i in range(granularity):  # Add an entry for each time step in granularity
-                name_with_time_step = name + "_t" + [f"-{i}" if i>0 else ""][0]
-                x0[name_with_time_step] = float(window[name].iloc[-(i+1)])
-    for name in features_fut:
-        if is_constant(future, name, horizon, count_down=False):
-            x0[name] = float(future[name].iloc[0])
+            lagged_dict = segmenter.segment(hist_df[name])
+            x0[name] = lagged_dict
+    for name in features_fut:  # Future features are not segmented (TODO?)
+        if is_constant(fut_df, name, horizon, count_down=False):
+            x0[name] = float(fut_df[name].iloc[0])
         else:
             for i in range(horizon):
                 name_with_time_step = name + "_fut_" + str(i+1)
-                x0[name_with_time_step] = float(future[name].iloc[i])
+                x0[name_with_time_step] = float(fut_df[name].iloc[i])
 
     return x0
 
@@ -139,26 +139,39 @@ def build_original_vector(
 def linear_shift(
     rng: random.Random,
     feature_name: str,
-    lagged_dict: Dict[int, float]
-):
-    can_be_negative = (feature_name in ["temperature"])  # TODO: Shouldn't be hardcoded
-    new_vals = []
-    vals = [v for v in lagged_dict.values()]
-    avg_val = sum(vals)/len(vals)
+    segment: List[float]
+) -> List[float]:
+    """
+    Perturbs lagged features by shifting them linearly (and clipping if illegaly negative)
+
+    Args:
+        rng (random Random): RNG object to preserve seed
+        feature_name (str): The lagged feature of which to sample
+        segment (list(float)): Original segment values
+
+    Return:
+        List of perturbed values
+    """
+    can_be_negative = (feature_name in ["temperature"])  # TODO: Shouldn't be hardcoded    
+    if not segment: return []
+    
+    avg_val = sum(segment) / len(segment)
     shift = rng.uniform(-avg_val, avg_val)
-    for lag in sorted(lagged_dict.keys(), reverse=True):
-        new_val = lagged_dict[lag] + shift
+
+    new_segment = []
+    for val in segment:
+        new_val = val + shift
         if not can_be_negative:
-            new_val = max(0, new_val)
-        new_vals.append(new_val)
-    return new_vals
+            new_val = max(0.0, new_val)
+        new_segment.append(new_val)
+    return new_segment
 
 def data_sample(
     rng: random.Random,
     hist_df: pd.DataFrame,
     feature_name: str,
-    lagged_dict: Dict[int, float]
-):
+    length: int
+) -> List[float]:
     """
     Perturbs lagged features by sampling randomly from existing dataset
 
@@ -166,36 +179,32 @@ def data_sample(
         rng (random Random): RNG object to preserve seed
         hist_df (pandas DataFrame): Dataframe of original historical data
         feature_name (str): The lagged feature of which to sample
-        lagged_dict (dict(int, float)): Original time keys and values of lagged feature
+        length: Length of data to sample
 
     Return:
-        List of perturbed vectors
+        List of sampled values
     """
 
-    time_range = len(lagged_dict.keys())
     locations = hist_df["location"].dropna().unique().tolist()
 
     for _ in range(3): # Retries twice if selected window is too narrow
         loc = rng.choice(locations)
-        loc_df = hist_df[hist_df["location"] == loc].copy()  # TODO: Currently only one location in df
-        if len(loc_df) < time_range:
-            continue
-        
-        max_start = len(loc_df) - time_range
-        if max_start < 0:
-            continue
-        start = rng.randrange(0, max_start + 1)
-        window = loc_df.iloc[start : start + time_range]
+        loc_df = hist_df[hist_df["location"] == loc]
 
-        vals = window[feature_name].astype(float).tolist()
+        if len(loc_df) < length:
+            continue
+
+        max_start = len(loc_df) - length            
+        start = rng.randrange(0, max_start + 1)
+        vals = loc_df.iloc[start : start + length][feature_name].astype(float).tolist()
+
         if any(pd.isna(v) for v in vals):
             continue
 
-        return vals[::-1]
+        return vals
     
     # Fallback
-    lag_ints = sorted(lagged_dict.keys(), reverse=True)
-    return [float(lagged_dict[lag]) for lag in lag_ints]
+    return [0.0] * length
 
 
 
@@ -206,7 +215,7 @@ def perturb_vector(
     mutation_rate: float,
     seed: int = None,
     lagged_feature_strategy: str = "dataset_sample"  # TODO: Make enum? Also investigate effectiveness
-) -> List[Dict]:
+) -> Tuple[List[Dict], List[Dict]]:
     """
     Perturb original vector to get local variations
 
@@ -223,53 +232,44 @@ def perturb_vector(
         List of perturbed vectors
     """
     rng = random.Random(seed)
-    perturbations = []
-    lagged_pattern = re.compile(r"^(?P<name>.+?)_t(?P<lag>-\d+)?$")
+    perturbations: List[Dict] = []
+    perturbation_masks: List[Dict] = []
     for _ in range(num_perturbations):
         vec = {}
-        feature_groupings = {}
-        for key, value in orig_vector.items():
-                m = lagged_pattern.match(key)
-                if not m:
-                    # Not lagged feature
-                    if (rng.random() < mutation_rate 
-                    and isinstance(value, (int, float))
-                    and not isinstance(value, bool)):  # TODO: Handle categorical?
-                        new_val = rng.gauss(float(value), 1.0)  # TODO: Functionality to vary sampling?
-                        vec[key] = new_val
+        pert_mask = {}
+        for key, val in orig_vector.items():
+            # Handle static features
+            if isinstance(val, (float, int)):
+                if rng.random() < mutation_rate:
+                    vec[key] = rng.gauss(val, 1.0)
+                    pert_mask[key] = 0
+                else:
+                    vec[key] = val
+                    pert_mask[key] = 1
+                continue
+
+            if isinstance(val, dict):
+                new_dict = {}
+                lag_mask = {}
+                for lag, segment in val.items():
+                    if rng.random() < mutation_rate:
+                        lag_mask[lag] = 0
+                        match lagged_feature_strategy:
+                            case "linear_shift":
+                                new_dict[lag] = linear_shift(rng, key, segment)
+                            case "dataset_sample":
+                                new_dict[lag] = data_sample(rng, dataset, key, len(segment))
+                            case _:
+                                raise ValueError(f"Unknown strategy: {lagged_feature_strategy}")
                     else:
-                        vec[key] = value
-                    continue
-                name = m.group("name")
-                lag_str = m.group("lag")
-                lag = 0 if lag_str is None else int(lag_str)
-                if name not in feature_groupings.keys():
-                    feature_groupings[name] = {}
-                feature_groupings[name][lag] = value
+                        lag_mask[lag] = 1
+                        new_dict[lag] = segment
+                vec[key] = new_dict
+                pert_mask[key] = lag_mask
 
-        for name, series in feature_groupings.items():  # TODO: Is series always sorted
-            lag_ints = sorted(series.keys(), reverse=True)
-            if rng.random() < mutation_rate and any(isinstance(value, (int, float)) for value in series.values()):
-                match lagged_feature_strategy:
-                    case "random":
-                        raise NotImplementedError() #lagged_random(rng, name, series)
-                    case "linear_shift":
-                        new_vals = linear_shift(rng, name, series)
-                    case "dataset_sample":
-                        new_vals = data_sample(rng, dataset, name, series)
-                    case _:
-                        raise ValueError(f"Illegal lagged feature strategy: {lagged_feature_strategy}")
-                # TODO: Ensure order of new_vals is not altered compared to series
-                vec[f"{name}_t"] = new_vals[0]
-                for i in range(1, len(lag_ints)):
-                    vec[f"{name}_t{lag_ints[i]}"] = new_vals[i]
-            else:
-                vec[f"{name}_t"] = series[lag_ints[0]]
-                for i in range(1, len(lag_ints)):
-                    vec[f"{name}_t{lag_ints[i]}"] = series[lag_ints[i]]
         perturbations.append(vec)
-
-    return perturbations
+        perturbation_masks.append(pert_mask)
+    return perturbations, perturbation_masks
 
 
 
@@ -305,21 +305,39 @@ def convert_vector_to_dataset(
     """
     # TODO: Ensure dataset only contains "location"?
     # Historic data insertions
-    hist_idx0 = len(hist_df) - granularity
+
+    hist_df = hist_df.copy()
+    fut_df = fut_df.copy()
+
+    # These loops stop futurewarning for casting columns
     for feat in features_hist:
-        has_lagged = (f"{feat}_t" in perturbation) or any(
-            f"{feat}_t-{lag}" in perturbation for lag in range(1, granularity)
-        )
+        if feat in hist_df.columns:
+            hist_df[feat] = hist_df[feat].astype(float)
+            
+    for feat in features_fut:
+        if feat in fut_df.columns:
+            fut_df[feat] = fut_df[feat].astype(float)
     
-        if has_lagged:
-            for lag in range(granularity):
-                key = f"{feat}_t" if lag==0 else f"{feat}_t-{lag}"
-                if key in perturbation and feat in hist_df.columns:
-                    row = (len(hist_df) - 1) - lag
-                    hist_df.loc[row, feat] = float(perturbation[key])
+    for feat in features_hist:
+        if feat not in perturbation:
+            continue
+
+        val = perturbation[feat]
+        if isinstance(val, dict):
+            num_segments = len(val)
+            total_len = len(hist_df)
+            segment_len = total_len // num_segments
+
+            for lag_key, segment_vals in val.items():
+                lag = lag_key
+                real_idx = (num_segments - 1) - lag
+                start_idx = real_idx * segment_len
+                end_idx = start_idx + len(segment_vals)
+
+                col_idx = hist_df.columns.get_loc(feat)
+                hist_df.iloc[start_idx:end_idx, col_idx] = segment_vals
         else:
-            if feat in perturbation and feat in hist_df.columns:
-                hist_df.loc[hist_idx0:, feat] = float(perturbation[feat])
+            hist_df[feat] = float(val)
     
     # Future data insertions
     for feat in features_fut:
@@ -361,11 +379,34 @@ def build_X_y(
         y.append(float(prob))
     return np.asarray(X), np.asarray(y)
 
+
+def flatten_vector(
+    vector: Dict
+) -> Dict[str, int]:
+    """
+    Flattens a perturbation vector mask into a flat dict.
+    
+    Args:
+        vector (dict): The vector to be flattened
+
+    Returns:
+        The flattened vector as dictionary of string to int
+    """
+    flat = {}
+    for key, val in vector.items():
+        if isinstance(val, dict):
+            for lag, segment_data in val.items():
+                    flat[f"{key}_lag_{lag}"] = segment_data
+        elif isinstance(val, (int, float)):
+            flat[key] = val
+    return flat
+
 def produce_lime_dataset(
     model: ExternalModel, 
     dataset: pd.DataFrame,
     future_weather: pd.DataFrame,
     perturbations: List[Dict],
+    perturbation_masks: List[Dict],
     features_hist: List[str],
     features_fut: List[str],
     horizon: int,
@@ -374,6 +415,7 @@ def produce_lime_dataset(
     threshold: Optional[float] = None,
     hist_type: Type = None,
     fut_type: Type = None,
+    chunk_size: int = 10
 ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
     """
     Produce training input and target dataset for LIME linear surrogate model
@@ -383,6 +425,7 @@ def produce_lime_dataset(
         dataset (pandas DataFrame): Dataset of historic data to perturb
         future_weather (pandas DataFrame): Dataset of future weather to perturb
         perturbations (List[Dict]): List of perturbed input vectors
+        perturbation_masks (List[Dict]): List of perturbed features mapped to binary
         features_hist (List[str]): The feature names in the historic dataset
         features_fut (List[str]): The feature names of the future dataset
         horizon (int): The number of time steps in the past for which we want detailed explanations
@@ -391,54 +434,63 @@ def produce_lime_dataset(
         threshold (Optional float): The threshold of disease cases above which counted as positive class (Default None)
         hist_type (type): Dataclass of historical data (Default None)
         fut_type (type): Dataclass of future data (Default None)
+        chunk_size (int): Size of prediction chunks
 
     Returns:
         Tuple of numpy arrays and feature name list
     """
-    results = []
+    results: List[Tuple[Dict[str, float], str]] = []
     # Batch prediction is quicker than individual predictions
     # Key different perturbations by pseudo-location, then batch predict
-    full_hist_dict = {}
-    full_fut_dict = {}
-    pert_map = {}
-    for i, pb in enumerate(perturbations):
-        loc_id = f"pb_{i}"
-        pert_map[loc_id] = pb
-        # TODO: Should refactor external_model a bit, avoid reduplication on adapt especially
-        new_hist, new_fut = convert_vector_to_dataset(
-            pb, 
-            dataset, 
-            future_weather, 
-            features_hist, 
-            features_fut, 
-            horizon, 
-            granularity, 
-            hist_type,
-            fut_type
-        )
-        full_hist_dict[loc_id] = new_hist.get_location(location)
-        full_fut_dict[loc_id] = new_fut.get_location(location)
+    for i in range(0, len(perturbations), chunk_size):
+        chunk = perturbations[i : i + chunk_size]
+        full_hist_dict = {}
+        full_fut_dict = {}
+        pert_map = {}
+        logger.info(f"Processing prediction chunk {i//chunk_size + 1} ({len(chunk)} perturbations)...")
+        chunk_masks = perturbation_masks[i : i + len(chunk)]
+        for j, pb in enumerate(chunk):
+            loc_id = f"pb_{j}"
+            pert_map[loc_id] = chunk_masks[j]
+            # TODO: Should refactor external_model a bit, avoid reduplication on adapt especially
+            new_hist, new_fut = convert_vector_to_dataset(
+                pb, 
+                dataset, 
+                future_weather, 
+                features_hist, 
+                features_fut, 
+                horizon, 
+                granularity, 
+                hist_type,
+                fut_type
+            )
+            full_hist_dict[loc_id] = new_hist.get_location(location)
+            full_fut_dict[loc_id] = new_fut.get_location(location)
 
-    hist_combined = DataSet(full_hist_dict, polygons=None) 
-    fut_combined = DataSet(full_fut_dict, polygons=None)
+        hist_combined = DataSet(full_hist_dict, polygons=None) 
+        fut_combined = DataSet(full_fut_dict, polygons=None)
+        
+        pred_v = model.predict(hist_combined, fut_combined)
+
+        for ds in pred_v.iter_locations():
+            loc_name = next(iter(ds.locations()))
+            if loc_name in pert_map:
+                pb_vec = pert_map[loc_name]
+                if threshold is not None:  # TODO: Should probably be a class eventually
+                    vals = prob_thresh(ds, threshold=threshold)
+                else:
+                    vals = avg_samples(ds)
+                # Extract most recent "prob" as horizon value
+                latest = max(vals.keys())
+                latest_prob = vals[latest]
+                flat_vec = flatten_vector(pb_vec)
+                results.append((flat_vec, latest_prob))
     
-    pred_v = model.predict(hist_combined, fut_combined)
+    if not results:
+        raise ValueError("No results generated")
 
-    for ds in pred_v.iter_locations():
-        loc_name = next(iter(ds.locations()))
-        if loc_name in pert_map:
-            pb_vec = pert_map[loc_name]
-            if threshold is not None:  # TODO: Should probably be a class eventually
-                vals = prob_thresh(ds, threshold=threshold)
-            else:
-                vals = avg_samples(ds)
-            # Extract most recent "prob" as horizon value
-            latest = max(vals.keys())
-            latest_prob = vals[latest]
-            results.append((pb_vec, latest_prob))
-
-    # TODO: This is brittle, especially as regards pairing it up with coefficients later
-    feature_names = [k for k in perturbations[0].keys() if k not in _non_feature_names]
+    first_vec = results[0][0]
+    feature_names = [k for k in first_vec.keys() if k not in _non_feature_names]
     X, y = build_X_y(results, feature_names)
     return X, y, feature_names
 
@@ -486,8 +538,8 @@ def explain(
     dataset: DataSet,
     location: str,
     horizon: int,
-    granularity: int = 4,
-    num_perturbations: int = 40,  # TODO: Include in endpoint
+    granularity: int = 5,
+    num_perturbations: int = 300,  # TODO: Include in endpoint
     surrogate_name: str = "ridge",
     threshold: Optional[float] = None
 ):
@@ -530,7 +582,6 @@ def explain(
     future_df = future_weather.to_pandas().sort_values("time_period").reset_index(drop=True)
     assert len(future_df) >= horizon, f"Need at least {horizon} future steps, got {len(future_df)}"
     # Isolate data from last (granularity) time steps
-    window = hist_df.iloc[-granularity:].reset_index(drop=True)
 
     features_hist = [
         fn 
@@ -544,9 +595,12 @@ def explain(
         if fn not in _non_feature_names
     ]
 
+    segmenter = UniformSegmentation(num_segments=granularity) # TODO: Route to selected, granularity is num_segments
+
     # Build original vector around which to generate perturbed vectors
     x0 = build_original_vector(
-        window, 
+        segmenter,
+        hist_df, 
         future_df, 
         features_hist, 
         features_fut, 
@@ -554,9 +608,11 @@ def explain(
         granularity
     )
 
+    full_dataset_df = dataset.to_pandas()
+
     # Create perturbed variations
     # TODO: When, where and how to decide number of perturbations and mr?
-    perturbations = perturb_vector(hist_df, x0, num_perturbations=num_perturbations, mutation_rate=0.3)
+    perturbations, perturbation_masks = perturb_vector(full_dataset_df, x0, num_perturbations=num_perturbations, mutation_rate=0.2)
     
     # Threshold picked arbitrarily in example
     X, y, feature_names = produce_lime_dataset(
@@ -564,6 +620,7 @@ def explain(
         hist_df,
         future_df,
         perturbations,
+        perturbation_masks,
         features_hist,
         features_fut,
         horizon,
@@ -573,10 +630,12 @@ def explain(
         hist_type,
         fut_type
     )
+    
+    len_vector = len(X[0])
+    x0_row = np.ones(X.shape[1], dtype=float)
 
-    x0_row = np.array([float(x0[f]) for f in feature_names], dtype=float)
-
-    weights = lime_weights_from_X(X, x0_row, kernel_width=1.0)
+    kw = 0.75 * np.sqrt(X.shape[1])  # This can be automatically inferred per paper "initial step towards stable" et.c.; magic number for now
+    weights = lime_weights_from_X(X, x0_row, kernel_width=kw)
 
     if threshold is not None:  # Transform z based on target type
         eps = 1e-4
@@ -588,6 +647,11 @@ def explain(
     surrogate_model = instantiate_model(surrogate_name)
     surrogate_model.fit(X, z, weights)
     results = surrogate_model.explain(feature_names)
+
+    z_hat = surrogate_model.predict(X)
+    r2 = r2_score(z, z_hat, sample_weight=weights)
+    n_eff = (weights.sum() ** 2) / (weights ** 2).sum()
+    logger.info(f"Surrogate weighted R2={r2:.3f}, effective N={n_eff:.1f}, p={X.shape[1]}")
 
     logger.info("Coefficients:")
     for name, c in results.as_sorted():

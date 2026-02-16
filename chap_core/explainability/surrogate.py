@@ -1,11 +1,12 @@
-
-
+"""
+Classes for surrogate models in LIME pipeline
+"""
 
 from dataclasses import dataclass
 from typing import List, Optional, Protocol, Sequence, Tuple
 
 import numpy as np
-from sklearn.discriminant_analysis import StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
 from sklearn.tree import DecisionTreeRegressor
 
@@ -21,12 +22,6 @@ class SurrogateResult:
     
 
 class SurrogateModel(Protocol):
-    """
-    Minimal contract:
-      - fit on X, y with optional kernel weights
-      - expose local importances aligned with feature_names
-      - optionally predict (useful for sanity checks)
-    """
     def fit(
         self,
         X: np.ndarray,
@@ -43,17 +38,14 @@ class SurrogateModel(Protocol):
 
 
 class RidgeSurrogate:
-    def __init__(self, alpha: float = 1.0):
+    def __init__(self, alpha: float = 5.0):
         self.alpha = alpha
         self.scaler: Optional[StandardScaler] = None
         self.model: Optional[Ridge] = None
 
     def fit(self, X: np.ndarray, y: np.ndarray, sample_weight: Optional[np.ndarray] = None) -> "RidgeSurrogate":
-        self.scaler = StandardScaler()
-        Xs = self.scaler.fit_transform(X)
-
-        self.model = Ridge(alpha=self.alpha)
-        self.model.fit(Xs, y, sample_weight=sample_weight)
+        self.model = Ridge(alpha=self.alpha, fit_intercept=True)
+        self.model.fit(X, y, sample_weight=sample_weight)
         return self
 
     def explain(self, feature_names: List[str]) -> SurrogateResult:
@@ -62,9 +54,9 @@ class RidgeSurrogate:
         return SurrogateResult(feature_names=feature_names, weighting=self.model.coef_.copy())
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        if self.model is None or self.scaler is None:
+        if self.model is None:
             raise RuntimeError("Surrogate not fitted.")
-        return self.model.predict(self.scaler.transform(X))
+        return self.model.predict(X)
     
 
 class TreeSurrogate:
@@ -75,7 +67,6 @@ class TreeSurrogate:
 
     def fit(self, X: np.ndarray, y: np.ndarray, sample_weight: Optional[np.ndarray] = None) -> "TreeSurrogate":
         self.model = DecisionTreeRegressor(max_depth=self.max_depth, random_state=self.random_state)
-        # DecisionTreeRegressor supports sample_weight
         self.model.fit(X, y, sample_weight=sample_weight)
         return self
 

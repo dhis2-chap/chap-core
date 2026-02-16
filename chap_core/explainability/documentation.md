@@ -1,5 +1,7 @@
 # Explain module
 
+TODO:: UPdate module
+
 The chap_core/explain module is intended to provide functionality to estimate variable contribution for individual model predictions model-agnostically. Given an arbitrary model adhering to the CHAP external model standards, and a particular prediction to explain, it can return the weighting of input variables in the specified prediction.
 
 Currently, the module leverages LIME to perform this analysis. LIME is a model-agnostic technique in explainability which trains an explainable surrogate model to behave similarly to the original model locally around the specified prediction. To achieve this, we produce a dataset of local input vectors by perturbing the original input vector randomly, and producing the target data by running these perturbed input vectors through the original model. We can then train the surrogate model using this new dataset of local inputs and predicted outputs, and may explain the original model by the behavior of the trained surrogate.
