@@ -11,7 +11,7 @@ However, we are working on making this more flexible. For now, please reach out 
 
 The following figure shows how the train and predict entry points are part of a data flow between DHIS2 and the external model:
 
-![External model integration with DHIS2](dhis_chap_integration.jpg)
+<!-- Image removed: dhis_chap_integration.jpg no longer available -->
 
 
 # Overview of supported models
@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
 # Docker Compose (CHAP Core)
 
-Starting CHAP Core using Docker Compose is specifically for those who want to use the CHAP Core REST-API, either together with other services or with the Modeling App installed on a DHIS2 server. See documentation for [Modeling App](modeling-app/modeling-app.md) for instructions on how to install the Modeling App.
+Starting CHAP Core using Docker Compose is specifically for those who want to use the CHAP Core REST-API, either together with other services or with the Modeling App installed on a DHIS2 server. See documentation for the Modeling App for instructions on how to install the Modeling App.
 
 **Requirements**
 
