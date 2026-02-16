@@ -17,7 +17,7 @@ Magic is used to make the returned objects camelCase while internal objects are 
 import json
 import logging
 from functools import partial
-from typing import Annotated, Any, List, Optional
+from typing import Annotated, Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
@@ -253,7 +253,7 @@ class DataBaseResponse(DBModel):
 
 
 class DatasetCreate(DataSetCreateInfo):
-    observations: List[ObservationBase]
+    observations: list[ObservationBase]
     geojson: FeatureCollectionModel
 
 
@@ -361,9 +361,9 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     # TODO: should probably be moved somewhere else?
     name: str
     id: int
-    user_options: Optional[dict] = None
-    required_covariates: List[str] = []
-    version: Optional[str] = None
+    user_options: dict | None = None
+    required_covariates: list[str] = []
+    version: str | None = None
     archived: bool = False
 
 
@@ -455,8 +455,8 @@ def list_configured_models(session: Session = Depends(get_session)):
 class ModelConfigurationCreate(DBModel):
     name: str
     model_template_id: int
-    user_option_values: Optional[dict] = None
-    additional_continuous_covariates: List[str] = []
+    user_option_values: dict | None = None
+    additional_continuous_covariates: list[str] = []
 
 
 @router.post("/configured-models", response_model=ConfiguredModelDB)

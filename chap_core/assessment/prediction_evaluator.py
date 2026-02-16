@@ -8,7 +8,8 @@ points are ``backtest`` (yields per-split prediction results) and
 
 import logging
 from collections import defaultdict
-from typing import Dict, Iterable, Protocol, TypeVar
+from collections.abc import Iterable
+from typing import Protocol, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -168,7 +169,7 @@ def create_multiloc_timeseries(truth_data):
 def _get_forecast_generators(
     predictor: Predictor,
     test_generator: Iterable[tuple[DataSet, DataSet, DataSet]],
-    truth_data: Dict[str, pd.DataFrame],
+    truth_data: dict[str, pd.DataFrame],
 ) -> tuple[list[Forecast], list[pd.DataFrame]]:
     """
     Get the forecast and truth data for a predictor and test generator.

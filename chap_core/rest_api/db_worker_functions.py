@@ -75,10 +75,10 @@ def validate_and_filter_dataset_for_evaluation(
 # @convert_dicts_to_models
 def run_backtest(
     info: BackTestCreate,
-    n_periods: Optional[int] = None,
+    n_periods: int | None = None,
     n_splits: int = 10,
     stride: int = 1,
-    session: Optional[SessionWrapper] = None,
+    session: SessionWrapper | None = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     assert session is not None, "session is required"
@@ -130,7 +130,7 @@ def run_backtest(
 def run_prediction(
     model_id: str,
     dataset_id: str,
-    n_periods: Optional[int],
+    n_periods: int | None,
     name: str,
     session: SessionWrapper,
 ):

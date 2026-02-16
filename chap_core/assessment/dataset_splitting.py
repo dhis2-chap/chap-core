@@ -7,7 +7,8 @@ training set grows with each successive split while the prediction window
 slides forward.
 """
 
-from typing import Iterable, Iterator, Optional, Protocol, Type
+from collections.abc import Iterable, Iterator
+from typing import Protocol
 
 from chap_core.climate_predictor import FutureWeatherFetcher
 from chap_core.datatypes import ClimateData
@@ -23,9 +24,9 @@ class IsTimeDelta(Protocol):
 def split_test_train_on_period(
     data_set: DataSet,
     split_points: Iterable[TimePeriod],
-    future_length: Optional[IsTimeDelta] = None,
+    future_length: IsTimeDelta | None = None,
     include_future_weather: bool = False,
-    future_weather_class: Type[ClimateData] = ClimateData,
+    future_weather_class: type[ClimateData] = ClimateData,
 ):
     """Generate train/test splits at each split point.
 
@@ -63,7 +64,7 @@ def split_test_train_on_period(
 def train_test_split(
     data_set: DataSet,
     prediction_start_period: TimePeriod,
-    extension: Optional[IsTimeDelta] = None,
+    extension: IsTimeDelta | None = None,
     restrict_test=True,
 ):
     """Split a dataset into train and test sets at a single split point.
@@ -105,7 +106,7 @@ def train_test_generator(
     prediction_length: int,
     n_test_sets: int = 1,
     stride: int = 1,
-    future_weather_provider: Optional[FutureWeatherFetcher] = None,
+    future_weather_provider: FutureWeatherFetcher | None = None,
 ) -> tuple[DataSet, Iterator[tuple[DataSet, DataSet, DataSet]]]:
     """Generate expanding-window train/test splits for backtesting.
 
@@ -182,8 +183,8 @@ def train_test_generator(
 def train_test_split_with_weather(
     data_set: DataSet,
     prediction_start_period: TimePeriod,
-    extension: Optional[IsTimeDelta] = None,
-    future_weather_class: Type[ClimateData] = ClimateData,
+    extension: IsTimeDelta | None = None,
+    future_weather_class: type[ClimateData] = ClimateData,
 ):
     train_set, test_set = train_test_split(data_set, prediction_start_period, extension)
     future_weather = test_set.remove_field("disease_cases")

@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Dict, Tuple
 
 import pooch
 import pycountry
@@ -168,8 +167,7 @@ class Polygons:
         return len(self._polygons.features)
 
     def __iter__(self):
-        for feat in self._polygons.features:
-            yield feat
+        yield from self._polygons.features
 
     @property
     def __geo_interface__(self):
@@ -195,7 +193,7 @@ class Polygons:
     def to_file(self, filename):
         json.dump(self.to_geojson(), open(filename, "w"))
 
-    def id_to_name_tuple_dict(self) -> Dict[str, Tuple[str, str]]:
+    def id_to_name_tuple_dict(self) -> dict[str, tuple[str, str]]:
         """Returns a dictionary with the id as key and a tuple with the name and parent as value"""
         lookup = {}
         for feat in self.feature_collection().features:

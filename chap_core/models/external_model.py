@@ -257,6 +257,6 @@ class ExternalModel(ExternalModelBase):
         except ValueError as e:
             logging.error(f"Error while parsing predictions: {df}")
             logging.error(f"Error message: {e}")
-            raise ModelFailedException("Error while parsing predictions: %s" % e)
+            raise ModelFailedException(f"Error while parsing predictions: {e}")
 
         return d

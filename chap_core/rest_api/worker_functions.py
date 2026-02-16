@@ -2,7 +2,8 @@ import dataclasses
 import json
 import logging
 import os
-from typing import Any, List, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -77,7 +78,7 @@ def __clean_actual_cases(real_data: DataList) -> DataList:
 
 
 def samples_to_evaluation_response(predictions_list, quantiles, real_data: DataList):
-    evaluation_entries: List[EvaluationEntry] = []
+    evaluation_entries: list[EvaluationEntry] = []
     for predictions in predictions_list:
         first_period = predictions.period_range[0]
         for location, samples in predictions.items():
@@ -152,7 +153,7 @@ base_fetch_requests = (
 def harmonize_health_dataset(
     dataset: DataSet[FullData],
     usecwd_for_credentials: bool,
-    fetch_requests: Optional[List[FetchRequest]] = None,
+    fetch_requests: list[FetchRequest] | None = None,
     worker_config: WorkerConfig = WorkerConfig(),
 ) -> DataSet[FullData]:
     assert not fetch_requests, "Google earth engine no longer supported"
@@ -220,7 +221,7 @@ def predictions_to_datavalue(dataset: DataSet[HealthData], attribute_mapping: di
 
 
 def v1_conversion(
-    data_list: Sequence[Union[DataElement, DataElementV2]],
+    data_list: Sequence[DataElement | DataElementV2],
     fill_missing: bool = False,
     colnames: tuple[str, str] = ("ou", "pe"),
 ) -> DataSet[TimeSeriesArray]:

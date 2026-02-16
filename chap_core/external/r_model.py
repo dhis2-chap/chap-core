@@ -20,7 +20,7 @@ class ExternalRModel:
 FeatureType = TypeVar("FeatureType")
 
 
-class ExternalLaggedRModel(Generic[FeatureType]):
+class ExternalLaggedRModel[FeatureType]:
     def __init__(
         self,
         script_file_name: str,

@@ -25,11 +25,11 @@ def validate_cmd(
         ),
     ],
     model_name: Annotated[
-        Optional[str],
+        str | None,
         Parameter(help="Model path (local directory) or GitHub URL to validate dataset against"),
     ] = None,
     data_source_mapping: Annotated[
-        Optional[Path],
+        Path | None,
         Parameter(
             help="Path to JSON file mapping model covariate names to CSV column names. "
             'Format: {"model_name": "csv_column"}'

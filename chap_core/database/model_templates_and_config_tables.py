@@ -1,6 +1,5 @@
 import logging
 from enum import Enum
-from typing import List, Optional
 
 import jsonschema
 from sqlalchemy import JSON, Column
@@ -26,19 +25,19 @@ class ModelTemplateMetaData(SQLModel):
     author_note: str = "No Author note yet"
     author_assessed_status: AuthorAssessedStatus = AuthorAssessedStatus("red")
     author: str = "Unknown Author"
-    organization: Optional[str] = None
-    organization_logo_url: Optional[str] = None
-    contact_email: Optional[str] = None
-    citation_info: Optional[str] = None
+    organization: str | None = None
+    organization_logo_url: str | None = None
+    contact_email: str | None = None
+    citation_info: str | None = None
 
 
 class ModelTemplateInformation(SQLModel):
     supported_period_type: PeriodType = PeriodType.any
-    user_options: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSON))
-    hpo_search_space: Optional[dict] = Field(default=None, sa_column=Column(JSON))  # rename to hpo_search_space
-    required_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
-    min_prediction_length: Optional[int] = None
-    max_prediction_length: Optional[int] = None
+    user_options: dict | None = Field(default_factory=dict, sa_column=Column(JSON))
+    hpo_search_space: dict | None = Field(default=None, sa_column=Column(JSON))  # rename to hpo_search_space
+    required_covariates: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    min_prediction_length: int | None = None
+    max_prediction_length: int | None = None
     target: str = "disease_cases"
     allow_free_additional_continuous_covariates: bool = False
 
@@ -49,23 +48,23 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     """
 
     name: str = Field(unique=True)
-    id: Optional[int] = Field(primary_key=True, default=None)
-    source_url: Optional[str] = None
-    configured_models: List["ConfiguredModelDB"] = Relationship(back_populates="model_template", cascade_delete=True)
-    version: Optional[str] = None
+    id: int | None = Field(primary_key=True, default=None)
+    source_url: str | None = None
+    configured_models: list["ConfiguredModelDB"] = Relationship(back_populates="model_template", cascade_delete=True)
+    version: str | None = None
     archived: bool = Field(default=False)
 
 
 class ModelConfiguration(SQLModel):
-    user_option_values: Optional[dict] = Field(sa_column=Column(JSON), default_factory=dict)
-    additional_continuous_covariates: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    user_option_values: dict | None = Field(sa_column=Column(JSON), default_factory=dict)
+    additional_continuous_covariates: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     #  unique constraint on name
     # model_config = ConfigDict(protected_namespaces=())
     name: str = Field(unique=True)
-    id: Optional[int] = Field(primary_key=True, default=None)
+    id: int | None = Field(primary_key=True, default=None)
     model_template_id: int = Field(foreign_key="modeltemplatedb.id", ondelete="CASCADE")
     model_template: ModelTemplateDB = Relationship(back_populates="configured_models")
     archived: bool = Field(default=False)

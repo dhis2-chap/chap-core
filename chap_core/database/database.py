@@ -7,7 +7,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import cast
 
 import psycopg2
 import sqlalchemy
@@ -70,7 +70,7 @@ class SessionWrapper:
 
     def __init__(self, local_engine=None, session=None):
         self.engine = local_engine  #  or engine
-        self._session: Optional[Session] = session
+        self._session: Session | None = session
 
     @property
     def session(self) -> Session:
@@ -193,7 +193,7 @@ class SessionWrapper:
         # return id
         return cast(int, configured_model.id)
 
-    def get_configured_models(self) -> List[ModelSpecRead]:
+    def get_configured_models(self) -> list[ModelSpecRead]:
         # TODO: using ModelSpecRead for backwards compatibility, should in future return ConfiguredModelDB?
 
         # get configured models from db, excluding those with archived templates
@@ -384,9 +384,9 @@ class SessionWrapper:
         self.session.commit()
         return prediction.id
 
-    def add_dataset_from_csv(self, name: str, csv_path: Path, geojson_path: Optional[Path] = None):
+    def add_dataset_from_csv(self, name: str, csv_path: Path, geojson_path: Path | None = None):
         dataset = _DataSet.from_csv(csv_path, dataclass=FullData)
-        geojson_content = open(geojson_path, "r").read() if geojson_path else None
+        geojson_content = open(geojson_path).read() if geojson_path else None
         features = None
         if geojson_content is not None:
             features = Polygons.from_geojson(json.loads(geojson_content), id_property="NAME_1").feature_collection()
@@ -463,7 +463,7 @@ class SessionWrapper:
 
         return cast(_DataSet, new_dataset)
 
-    def get_dataset_by_name(self, dataset_name: str) -> Optional[DataSet]:
+    def get_dataset_by_name(self, dataset_name: str) -> DataSet | None:
         dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()
         return dataset
 

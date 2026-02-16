@@ -8,7 +8,7 @@ NOTE: Written by ai as a prototype, TODO: refactor and cleanup once working
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 import chapkit
 import httpx
@@ -76,7 +76,7 @@ class CHAPKitRestAPIWrapper:
 
     # Information endpoints
 
-    def health(self) -> Dict[str, str]:
+    def health(self) -> dict[str, str]:
         """
         Check service health status
 
@@ -84,9 +84,9 @@ class CHAPKitRestAPIWrapper:
             Dict with status field ('healthy')
         """
         response = self._request("GET", "/health")
-        return cast(Dict[str, str], response.json())
+        return cast(dict[str, str], response.json())
 
-    def info(self) -> Dict[str, Any]:
+    def info(self) -> dict[str, Any]:
         """
         Get system information
 
@@ -94,11 +94,11 @@ class CHAPKitRestAPIWrapper:
             System info including name, version, description, etc.
         """
         response = self._request("GET", "/api/v1/info")
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
     # Configuration management endpoints
 
-    def list_configs(self) -> List[Dict[str, Any]]:
+    def list_configs(self) -> list[dict[str, Any]]:
         """
         List all model configurations
 
@@ -106,9 +106,9 @@ class CHAPKitRestAPIWrapper:
             List of model configuration objects
         """
         response = self._request("GET", "/api/v1/configs")
-        return cast(List[Dict[str, Any]], response.json())
+        return cast(list[dict[str, Any]], response.json())
 
-    def create_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def create_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         Create or replace a model configuration
 
@@ -119,9 +119,9 @@ class CHAPKitRestAPIWrapper:
             Created configuration with ID
         """
         response = self._request("POST", "/api/v1/configs", json=config)
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
-    def get_config_schema(self) -> Dict[str, Any]:
+    def get_config_schema(self) -> dict[str, Any]:
         """
         Get JSON Schema for model configuration
 
@@ -129,9 +129,9 @@ class CHAPKitRestAPIWrapper:
             JSON Schema for configuration model
         """
         response = self._request("GET", "/api/v1/configs/$schema")
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
-    def get_config(self, config_id: str) -> Dict[str, Any]:
+    def get_config(self, config_id: str) -> dict[str, Any]:
         """
         Get a specific configuration by ID
 
@@ -142,9 +142,9 @@ class CHAPKitRestAPIWrapper:
             Configuration object
         """
         response = self._request("GET", f"/api/v1/configs/{config_id}")
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
-    def update_config(self, config_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def update_config(self, config_id: str, config: dict[str, Any]) -> dict[str, Any]:
         """
         Update a configuration by ID
 
@@ -156,7 +156,7 @@ class CHAPKitRestAPIWrapper:
             Updated configuration
         """
         response = self._request("PUT", f"/api/v1/configs/{config_id}", json=config)
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
     def delete_config(self, config_id: str) -> None:
         """
@@ -167,7 +167,7 @@ class CHAPKitRestAPIWrapper:
         """
         self._request("DELETE", f"/api/v1/configs/{config_id}")
 
-    def link_artifact_to_config(self, config_id: str, artifact_id: str) -> Dict[str, Any]:
+    def link_artifact_to_config(self, config_id: str, artifact_id: str) -> dict[str, Any]:
         """
         Link an artifact to a configuration
 
@@ -181,9 +181,9 @@ class CHAPKitRestAPIWrapper:
         response = self._request(
             "POST", f"/api/v1/configs/{config_id}/$link-artifact", json={"artifact_id": artifact_id}
         )
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
-    def unlink_artifact_from_config(self, config_id: str, artifact_id: str) -> Dict[str, Any]:
+    def unlink_artifact_from_config(self, config_id: str, artifact_id: str) -> dict[str, Any]:
         """
         Unlink an artifact from a configuration
 
@@ -197,9 +197,9 @@ class CHAPKitRestAPIWrapper:
         response = self._request(
             "POST", f"/api/v1/configs/{config_id}/$unlink-artifact", json={"artifact_id": artifact_id}
         )
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
-    def get_config_artifacts(self, config_id: str) -> List[Dict[str, Any]]:
+    def get_config_artifacts(self, config_id: str) -> list[dict[str, Any]]:
         """
         Get all artifacts linked to a configuration
 
@@ -210,11 +210,11 @@ class CHAPKitRestAPIWrapper:
             List of artifact objects linked to the configuration
         """
         response = self._request("GET", f"/api/v1/configs/{config_id}/$artifacts")
-        return cast(List[Dict[str, Any]], response.json())
+        return cast(list[dict[str, Any]], response.json())
 
     # Job management endpoints
 
-    def get_jobs(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_jobs(self, status: str | None = None) -> list[dict[str, Any]]:
         """
         Get all jobs, optionally filtered by status
 
@@ -226,9 +226,9 @@ class CHAPKitRestAPIWrapper:
         """
         params = {"status": status} if status else {}
         response = self._request("GET", "/api/v1/jobs", params=params)
-        return cast(List[Dict[str, Any]], response.json())
+        return cast(list[dict[str, Any]], response.json())
 
-    def get_job(self, job_id: str) -> Dict[str, Any]:
+    def get_job(self, job_id: str) -> dict[str, Any]:
         """
         Get full job record by ID
 
@@ -239,7 +239,7 @@ class CHAPKitRestAPIWrapper:
             Job record with status, times, error info, etc.
         """
         response = self._request("GET", f"/api/v1/jobs/{job_id}")
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
     def delete_job(self, job_id: str) -> None:
         """
@@ -252,7 +252,7 @@ class CHAPKitRestAPIWrapper:
 
     # Artifact management endpoints
 
-    def get_artifacts_for_config(self, config_id: str) -> List[Dict[str, Any]]:
+    def get_artifacts_for_config(self, config_id: str) -> list[dict[str, Any]]:
         """
         Get all artifacts linked to a configuration
 
@@ -263,9 +263,9 @@ class CHAPKitRestAPIWrapper:
             List of artifact info objects
         """
         response = self._request("GET", f"/api/v1/artifacts/config/{config_id}")
-        return cast(List[Dict[str, Any]], response.json())
+        return cast(list[dict[str, Any]], response.json())
 
-    def get_artifact(self, artifact_id: str) -> Dict[str, Any]:
+    def get_artifact(self, artifact_id: str) -> dict[str, Any]:
         """
         Get a specific artifact by ID
 
@@ -276,7 +276,7 @@ class CHAPKitRestAPIWrapper:
             Artifact info object
         """
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}")
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
     def get_prediction_artifact_dataframe(self, artifact_id: str) -> chapkit.data.DataFrame:
         """
@@ -302,7 +302,7 @@ class CHAPKitRestAPIWrapper:
         """
         self._request("DELETE", f"/api/v1/artifacts/{artifact_id}")
 
-    def get_artifact_expand(self, artifact_id: str) -> Dict[str, Any]:
+    def get_artifact_expand(self, artifact_id: str) -> dict[str, Any]:
         """
         Get artifact with expanded data
 
@@ -313,9 +313,9 @@ class CHAPKitRestAPIWrapper:
             Expanded artifact object
         """
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$expand")
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
-    def get_artifact_tree_by_id(self, artifact_id: str) -> Dict[str, Any]:
+    def get_artifact_tree_by_id(self, artifact_id: str) -> dict[str, Any]:
         """
         Get artifact tree starting from a specific artifact
 
@@ -326,9 +326,9 @@ class CHAPKitRestAPIWrapper:
             Artifact tree with nested children
         """
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$tree")
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
-    def get_artifact_config(self, artifact_id: str) -> Dict[str, Any]:
+    def get_artifact_config(self, artifact_id: str) -> dict[str, Any]:
         """
         Get the configuration associated with an artifact
 
@@ -339,7 +339,7 @@ class CHAPKitRestAPIWrapper:
             Configuration object linked to the artifact
         """
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$config")
-        return cast(Dict[str, Any], response.json())
+        return cast(dict[str, Any], response.json())
 
     # CHAP operation endpoints
 
@@ -348,8 +348,8 @@ class CHAPKitRestAPIWrapper:
         config_id: str,
         data: pd.DataFrame,
         run_info: RunInfo,
-        geo_features: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, str]:
+        geo_features: dict[str, Any] | None = None,
+    ) -> dict[str, str]:
         """
         Train a model with data
 
@@ -370,7 +370,7 @@ class CHAPKitRestAPIWrapper:
         data = data.replace({np.nan: None})
 
         # Convert DataFrame to columns/data format
-        train_body: Dict[str, Any] = {
+        train_body: dict[str, Any] = {
             "config_id": config_id,
             "data": {"columns": data.columns.tolist(), "data": data.values.tolist()},
             "run_info": run_info.model_dump(exclude_none=True),
@@ -388,9 +388,9 @@ class CHAPKitRestAPIWrapper:
         artifact_id: str,
         future_data: pd.DataFrame,
         run_info: RunInfo,
-        historic_data: Optional[pd.DataFrame] = None,
-        geo_features: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, str]:
+        historic_data: pd.DataFrame | None = None,
+        geo_features: dict[str, Any] | None = None,
+    ) -> dict[str, str]:
         """
         Make predictions with a trained model
 
@@ -410,7 +410,7 @@ class CHAPKitRestAPIWrapper:
             )
         future_data = future_data.replace({np.nan: None})
 
-        predict_body: Dict[str, Any] = {
+        predict_body: dict[str, Any] = {
             "artifact_id": artifact_id,
             "future": {"columns": future_data.columns.tolist(), "data": future_data.values.tolist()},
             "run_info": run_info.model_dump(exclude_none=True),
@@ -436,7 +436,7 @@ class CHAPKitRestAPIWrapper:
 
     # Helper methods
 
-    def wait_for_job(self, job_id: str, poll_interval: int = 2, timeout: Optional[int] = None) -> Dict[str, Any]:
+    def wait_for_job(self, job_id: str, poll_interval: int = 2, timeout: int | None = None) -> dict[str, Any]:
         """
         Wait for a job to complete
 
@@ -470,9 +470,9 @@ class CHAPKitRestAPIWrapper:
         config_id: str,
         data: pd.DataFrame,
         run_info: RunInfo,
-        geo_features: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = 300,
-    ) -> Dict[str, Any]:
+        geo_features: dict[str, Any] | None = None,
+        timeout: int | None = 300,
+    ) -> dict[str, Any]:
         """
         Train a model and wait for completion
 
@@ -497,10 +497,10 @@ class CHAPKitRestAPIWrapper:
         artifact_id: str,
         future_data: pd.DataFrame,
         run_info: RunInfo,
-        historic_data: Optional[pd.DataFrame] = None,
-        geo_features: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = 7200,
-    ) -> Dict[str, Any]:
+        historic_data: pd.DataFrame | None = None,
+        geo_features: dict[str, Any] | None = None,
+        timeout: int | None = 7200,
+    ) -> dict[str, Any]:
         """
         Make predictions and wait for completion
 
@@ -521,7 +521,7 @@ class CHAPKitRestAPIWrapper:
         job["artifact_id"] = result["artifact_id"]
         return job
 
-    def poll_job(self, job_id: str, timeout: Optional[int] = None) -> Dict[str, Any]:
+    def poll_job(self, job_id: str, timeout: int | None = None) -> dict[str, Any]:
         """
         Simple polling method that waits for a job to complete
 

@@ -1,5 +1,5 @@
 import abc
-from typing import Optional, Type, cast
+from typing import cast
 
 import altair as alt
 import pandas as pd
@@ -20,7 +20,7 @@ class MetricPlotV2(abc.ABC):
 
     visualization_info: "VisualizationInfo"  # Declared by subclasses
 
-    def __init__(self, metric_data: pd.DataFrame, geojson: Optional[dict] = None):
+    def __init__(self, metric_data: pd.DataFrame, geojson: dict | None = None):
         self._metric_data = metric_data
 
     def plot(self, title="Mean metric by horizon") -> alt.Chart:
@@ -204,7 +204,7 @@ class MetricMapV2(MetricPlotV2):
         id="metric_map", display_name="Map", description="Shows a map of aggregated metrics per org unit"
     )
 
-    def __init__(self, metric_data: pd.DataFrame, geojson: Optional[dict] = None):
+    def __init__(self, metric_data: pd.DataFrame, geojson: dict | None = None):
         super().__init__(metric_data, geojson)
         self._geojson = geojson
 
@@ -241,7 +241,7 @@ class MetricMapV2(MetricPlotV2):
 
 
 def make_plot_from_backtest_object(
-    backtest: BackTest, plotting_class: Type[MetricPlotV2], metric: Metric, geojson: Optional[dict] = None
+    backtest: BackTest, plotting_class: type[MetricPlotV2], metric: Metric, geojson: dict | None = None
 ) -> dict:
     # Convert to flat representation using Evaluation abstraction
     evaluation = Evaluation.from_backtest(backtest)

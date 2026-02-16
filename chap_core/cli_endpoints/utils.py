@@ -78,7 +78,7 @@ def sanity_check_model(
         )
 
 
-def serve(seedfile: Optional[str] = None, debug: bool = False, auto_reload: bool = False):
+def serve(seedfile: str | None = None, debug: bool = False, auto_reload: bool = False):
     """
     Start CHAP as a backend server
     """
@@ -213,7 +213,7 @@ def generate_pdf_report(input_file: Path, output_file: Path):
 def export_metrics(
     input_files: list[Path],
     output_file: Path,
-    metric_ids: Optional[list[str]] = None,
+    metric_ids: list[str] | None = None,
 ):
     """
     Export metrics from multiple backtest files to CSV.

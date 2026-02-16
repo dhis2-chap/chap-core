@@ -1,7 +1,8 @@
 import itertools
 import math
 import random
-from typing import Any, Iterator, Optional
+from collections.abc import Iterator
+from typing import Any, Optional
 
 import optuna
 
@@ -20,7 +21,7 @@ class Searcher:
     """
 
     def reset(self, space: Any) -> None: ...
-    def ask(self) -> Optional[dict[str, Any]]: ...
+    def ask(self) -> dict[str, Any] | None: ...
     def tell(self, params: dict[str, Any], result: float) -> None: ...
 
 
@@ -33,7 +34,7 @@ class GridSearcher(Searcher):
         self.keys = list(search_space.keys())
         self._iterator = itertools.product(*search_space.values())
 
-    def ask(self) -> Optional[dict[str, Any]]:
+    def ask(self) -> dict[str, Any] | None:
         if self._iterator is None:
             raise RuntimeError("GridSearch not initialized. Call reset(params).")
         try:
@@ -58,7 +59,7 @@ class RandomSearcher(Searcher):
             raise ValueError("max_trials must be a positive integer")
         self.max_trials = max_trials
 
-    def reset(self, search_space: dict[str, Any], seed: Optional[int] = None) -> None:
+    def reset(self, search_space: dict[str, Any], seed: int | None = None) -> None:
         self.search_space = _validate_search_space_extended(search_space)
         print(f"randomSearcher search space in reset: {self.search_space}")
         self.rng = random.Random(seed)
@@ -102,7 +103,7 @@ class RandomSearcher(Searcher):
             return self._sample_int(spec)
         raise TypeError(f"Unsupported spec at runtime: {spec!r}")
 
-    def ask(self) -> Optional[dict[str, Any]]:
+    def ask(self) -> dict[str, Any] | None:
         if self.rng is None:
             raise RuntimeError("RandomSearch not initialized. Call reset(search_space, seed)")
         if self.emitted >= self.max_trials:
@@ -129,16 +130,16 @@ class TPESearcher(Searcher):
     - Int(low, high, step>1, log=bool) -> IntDistribution
     """
 
-    def __init__(self, direction: str = "minimize", max_trials: Optional[int] = None):
+    def __init__(self, direction: str = "minimize", max_trials: int | None = None):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
         self.direction = direction
         self.max_trials = max_trials
         self._pending: dict[int, optuna.trial.Trial] = {}
-        self._study: Optional[optuna.study.Study] = None
+        self._study: optuna.study.Study | None = None
         self._asked = 0
 
-    def reset(self, search_space: dict[str, list], seed: Optional[int] = None) -> None:
+    def reset(self, search_space: dict[str, list], seed: int | None = None) -> None:
         # validate_search_space(search_space)
         search_space = _validate_search_space_extended(search_space)
 
@@ -156,7 +157,7 @@ class TPESearcher(Searcher):
         self._pending.clear()
         self._asked = 0
 
-    def ask(self) -> Optional[dict[str, Any]]:
+    def ask(self) -> dict[str, Any] | None:
         if self._study is None:
             raise RuntimeError("TPESearcher not initialized. Call reset(search_space, seed)")
 

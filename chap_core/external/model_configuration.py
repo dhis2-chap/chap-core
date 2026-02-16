@@ -11,7 +11,7 @@ class DockerEnvConfig(BaseModel):
 
 class CommandConfig(BaseModel):
     command: str
-    parameters: Optional[dict[str, str]] = None
+    parameters: dict[str, str] | None = None
 
 
 class EntryPointConfig(BaseModel):
@@ -22,11 +22,11 @@ class EntryPointConfig(BaseModel):
 class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to forbid extra fields):
     """This is all needed to actually run model"""
 
-    entry_points: Optional[EntryPointConfig] = None
-    docker_env: Optional[DockerEnvConfig] = None
-    python_env: Optional[str] = None
-    uv_env: Optional[str] = None
-    renv_env: Optional[str] = None
+    entry_points: EntryPointConfig | None = None
+    docker_env: DockerEnvConfig | None = None
+    python_env: str | None = None
+    uv_env: str | None = None
+    renv_env: str | None = None
 
 
 class ModelTemplateConfigCommon(ModelTemplateInformation, extra="forbid"):
@@ -38,7 +38,7 @@ class ModelTemplateConfigV2(ModelTemplateConfigCommon, RunnerConfig, extra="forb
     """This is used to parse MLProject files"""
 
     name: str
-    source_url: Optional[str] = None
-    adapters: Optional[dict[str, str]] = None
-    rest_api_url: Optional[str] = None
-    version: Optional[str] = None
+    source_url: str | None = None
+    adapters: dict[str, str] | None = None
+    rest_api_url: str | None = None
+    version: str | None = None
