@@ -2,7 +2,7 @@ import itertools
 import math
 import random
 from collections.abc import Iterator
-from typing import Any, Optional
+from typing import Any
 
 import optuna
 
@@ -39,8 +39,8 @@ class GridSearcher(Searcher):
             raise RuntimeError("GridSearch not initialized. Call reset(params).")
         try:
             ne: tuple[Any, ...] = next(self._iterator)
-            print(f"SEARCHER params: {dict(zip(self.keys, ne))}")
-            return dict(zip(self.keys, ne))
+            print(f"SEARCHER params: {dict(zip(self.keys, ne, strict=False))}")
+            return dict(zip(self.keys, ne, strict=False))
         except StopIteration:
             return None
 
@@ -76,7 +76,7 @@ class RandomSearcher(Searcher):
             return self.rng.uniform(s.low, s.high)
 
         n_float = (s.high - s.low) / s.step
-        n = int(math.floor(n_float + 1e-12))
+        n = math.floor(n_float + 1e-12)
         k = self.rng.randint(0, n)
         return s.low + k * s.step
 
@@ -84,7 +84,7 @@ class RandomSearcher(Searcher):
         if s.log:
             low_log, high_log = math.log(s.low), math.log(s.high + 1)  # +1 allows high to be sampled bc floor
             u = self.rng.uniform(low_log, high_log)
-            x = int(math.floor(math.exp(u)))
+            x = math.floor(math.exp(u))
             return max(s.low, min(x, s.high))  # floating-point edges issues
 
         if s.step == 1:

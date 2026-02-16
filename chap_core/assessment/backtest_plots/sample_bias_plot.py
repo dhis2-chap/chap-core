@@ -5,8 +5,6 @@ This module provides a backtest plot that shows the ratio of forecast samples
 above truth by horizon distance and time period.
 """
 
-from typing import Optional
-
 import altair as alt
 import pandas as pd
 

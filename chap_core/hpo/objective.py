@@ -1,5 +1,5 @@
 import logging
-from typing import Literal, Optional
+from typing import Literal
 
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration

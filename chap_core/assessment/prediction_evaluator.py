@@ -115,7 +115,7 @@ def evaluate_model(
         Summary and individual evaluation results
     """
     logger.info(f"Evaluating {estimator} with {n_test_sets} test sets for {prediction_length} periods ahead")
-    train, test_generator = train_test_generator(
+    train, _test_generator = train_test_generator(
         data, prediction_length, n_test_sets, future_weather_provider=weather_provider
     )
     predictor = estimator.train(train)
@@ -140,7 +140,7 @@ def evaluate_model(
 
     logger.info("Getting forecasts")
     # forecast_list, tss = _get_forecast_generators(predictor, test_generator, truth_data)
-    forecast_list, tss = zip(*forecasts_and_truths_generator)
+    forecast_list, tss = zip(*forecasts_and_truths_generator, strict=False)
 
     logger.info("Evaluating")
     evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9], num_workers=None, allow_nan_forecast=True)
@@ -221,9 +221,7 @@ def plot_forecasts(predictor, test_instance, truth, pdf_filename):
                 try:
                     _t = truth[location]
                 except KeyError:
-                    logger.error(
-                        f"Location {repr(location)} not found in truth data which has locations {truth.keys()}"
-                    )
+                    logger.error(f"Location {location!r} not found in truth data which has locations {truth.keys()}")
                     raise
                 logging.warning(
                     f"Had to convert location to string {location}, something has maybe gone wrong at some point with data types"

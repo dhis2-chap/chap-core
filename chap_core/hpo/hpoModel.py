@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Literal, Optional, cast
+from typing import Any, Literal, cast
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.file_io.example_data_set import DataSetType

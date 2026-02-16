@@ -56,7 +56,7 @@ def get_metric(metric_id: str) -> type[Metric] | None:
 def list_metrics() -> list[dict]:
     """List all registered metrics with metadata (id, name, description, aggregation_op)."""
     result = []
-    for metric_id, metric_cls in _metrics_registry.items():
+    for metric_cls in _metrics_registry.values():
         spec = metric_cls.spec
         result.append(
             {
@@ -73,14 +73,14 @@ def _discover_metrics():
     """Import all metric modules to trigger registration."""
     # Import each module to trigger @metric() decorators
     from chap_core.assessment.metrics import (
-        above_truth,  # noqa: F401
-        crps,  # noqa: F401
-        crps_norm,  # noqa: F401
-        example_metric,  # noqa: F401
-        mae,  # noqa: F401
-        percentile_coverage,  # noqa: F401
-        rmse,  # noqa: F401
-        test_metrics,  # noqa: F401
+        above_truth,
+        crps,
+        crps_norm,
+        example_metric,
+        mae,
+        percentile_coverage,
+        rmse,
+        test_metrics,
     )
 
 
@@ -88,51 +88,51 @@ def _discover_metrics():
 _discover_metrics()
 
 # Import metric classes for backwards compatibility in exports
-from chap_core.assessment.metrics.above_truth import RatioAboveTruthMetric  # noqa: E402
-from chap_core.assessment.metrics.crps import CRPSMetric  # noqa: E402
-from chap_core.assessment.metrics.crps_norm import CRPSNormMetric  # noqa: E402
-from chap_core.assessment.metrics.example_metric import ExampleMetric  # noqa: E402
-from chap_core.assessment.metrics.mae import MAEMetric  # noqa: E402
-from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric  # noqa: E402
-from chap_core.assessment.metrics.percentile_coverage import (  # noqa: E402
+from chap_core.assessment.metrics.above_truth import RatioAboveTruthMetric
+from chap_core.assessment.metrics.crps import CRPSMetric
+from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
+from chap_core.assessment.metrics.example_metric import ExampleMetric
+from chap_core.assessment.metrics.mae import MAEMetric
+from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric
+from chap_core.assessment.metrics.percentile_coverage import (
     Coverage10_90Metric,
     Coverage25_75Metric,
     PercentileCoverageMetric,
 )
-from chap_core.assessment.metrics.rmse import RMSEMetric  # noqa: E402
-from chap_core.assessment.metrics.test_metrics import SampleCountMetric  # noqa: E402
+from chap_core.assessment.metrics.rmse import RMSEMetric
+from chap_core.assessment.metrics.test_metrics import SampleCountMetric
 
 # Backward compatibility alias
 available_metrics: dict[str, type[Metric]] = _metrics_registry
 
 __all__ = [
+    "DEFAULT_OUTPUT_DIMENSIONS",
     # Base classes
     "AggregationOp",
-    "Metric",
-    "MetricSpec",
-    "DeterministicMetric",
-    "ProbabilisticMetric",
-    "DEFAULT_OUTPUT_DIMENSIONS",
-    "DataDimension",
-    # Registry API
-    "metric",
-    "get_metrics_registry",
-    "get_metric",
-    "list_metrics",
-    "available_metrics",
-    # Metrics
-    "RMSEMetric",
-    "MAEMetric",
     "CRPSMetric",
     "CRPSNormMetric",
-    "PeakValueDiffMetric",
-    "PeakPeriodLagMetric",
-    "RatioAboveTruthMetric",
-    "PercentileCoverageMetric",
     "Coverage10_90Metric",
     "Coverage25_75Metric",
-    "SampleCountMetric",
+    "DataDimension",
+    "DeterministicMetric",
     "ExampleMetric",
+    "MAEMetric",
+    "Metric",
+    "MetricSpec",
+    "PeakPeriodLagMetric",
+    "PeakValueDiffMetric",
+    "PercentileCoverageMetric",
+    "ProbabilisticMetric",
+    # Metrics
+    "RMSEMetric",
+    "RatioAboveTruthMetric",
+    "SampleCountMetric",
+    "available_metrics",
+    "get_metric",
+    "get_metrics_registry",
+    "list_metrics",
+    # Registry API
+    "metric",
 ]
 
 

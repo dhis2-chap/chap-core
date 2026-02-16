@@ -201,7 +201,7 @@ class SessionWrapper:
             select(ConfiguredModelDB)
             .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
             .join(ModelTemplateDB)
-            .where(ModelTemplateDB.archived == False)  # noqa: E712
+            .where(ModelTemplateDB.archived == False)
         ).all()
 
         # serialize to json and combine configured model with model template
@@ -223,7 +223,7 @@ class SessionWrapper:
                 logger.error(
                     f"Template id={configured_model.model_template.id if configured_model.model_template else 'None'}"
                 )
-                logger.error(f"Exception: {type(e).__name__}: {str(e)}")
+                logger.error(f"Exception: {type(e).__name__}: {e!s}")
                 logger.error("Full traceback:", exc_info=True)
                 raise
 
@@ -303,7 +303,7 @@ class SessionWrapper:
             all_names = self.session.exec(select(ConfiguredModelDB.name)).all()
             raise ValueError(
                 f"Configured model with name {configured_model_name} not found. Available names: {all_names}"
-            )
+            ) from None
 
         return configured_model
 
@@ -359,12 +359,14 @@ class SessionWrapper:
         self.session.add(backtest)
         self.session.commit()
 
-    def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict = {}):
-        n_periods = len(list(predictions.values())[0])
+    def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict | None = None):
+        if metadata is None:
+            metadata = {}
+        n_periods = len(next(iter(predictions.values())))
         samples_ = [
             PredictionSamplesEntry(period=period.id, org_unit=location, values=value.tolist())
             for location, data in predictions.items()
-            for period, value in zip(data.time_period, data.samples)
+            for period, value in zip(data.time_period, data.samples, strict=False)
         ]
         org_units = list(predictions.keys())
         model_db_id = self.session.exec(select(ConfiguredModelDB.id).where(ConfiguredModelDB.name == model_id)).first()

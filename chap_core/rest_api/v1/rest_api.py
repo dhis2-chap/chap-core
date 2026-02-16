@@ -55,11 +55,11 @@ def create_api():
         """Catch all unhandled exceptions and log full traceback"""
         # Handle InvalidVersion exceptions without full stack trace
         if isinstance(exc, InvalidVersion):
-            logger.warning(f"Invalid version string on {request.method} {request.url.path}: {str(exc)}")
+            logger.warning(f"Invalid version string on {request.method} {request.url.path}: {exc!s}")
         else:
             logger.error(f"Unhandled exception on {request.method} {request.url.path}")
             logger.error(f"Exception type: {type(exc).__name__}")
-            logger.error(f"Exception message: {str(exc)}")
+            logger.error(f"Exception message: {exc!s}")
             logger.error("Full traceback:")
             logger.error(traceback.format_exc())
 

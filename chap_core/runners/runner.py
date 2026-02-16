@@ -1,5 +1,4 @@
 import abc
-from typing import Optional
 
 
 class Runner:
@@ -16,7 +15,6 @@ class Runner:
     def teardown(self):
         """To be called after the runner is done with train and predict. This is to clean up the runner, e.g.
         to remove docker images, etc"""
-        ...
 
 
 class TrainPredictRunner(abc.ABC):
@@ -37,4 +35,5 @@ class TrainPredictRunner(abc.ABC):
         polygons_file_name: str | None,
     ): ...
 
-    def teardown(self): ...
+    def teardown(self):  # noqa: B027
+        ...

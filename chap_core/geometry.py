@@ -69,7 +69,7 @@ country_codes_l = [
     "KHM",
     "SGP",
 ]
-country_codes = dict(zip(country_names, country_codes_l))
+country_codes = dict(zip(country_names, country_codes_l, strict=False))
 
 
 def normalize_name(name: str) -> str:
@@ -182,7 +182,7 @@ class Polygons:
         from .geoutils import feature_bbox
 
         boxes = (feature_bbox(feat) for feat in self)
-        xmins, ymins, xmaxs, ymaxs = zip(*boxes)
+        xmins, ymins, xmaxs, ymaxs = zip(*boxes, strict=False)
         bbox = min(xmins), min(ymins), max(xmaxs), max(ymaxs)
         return bbox
 

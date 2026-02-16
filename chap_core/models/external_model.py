@@ -241,7 +241,7 @@ class ExternalModel(ExternalModelBase):
         except pd.errors.EmptyDataError:
             # todo: Probably deal with this in an other way, throw an exception istead
             logger.warning("No data returned from model (empty file from predictions)")
-            raise NoPredictionsError("No prediction data written")
+            raise NoPredictionsError("No prediction data written") from None
 
         if self._location_mapping is not None:
             df["location"] = df["location"].apply(self._location_mapping.index_to_name)
@@ -257,6 +257,6 @@ class ExternalModel(ExternalModelBase):
         except ValueError as e:
             logging.error(f"Error while parsing predictions: {df}")
             logging.error(f"Error message: {e}")
-            raise ModelFailedException(f"Error while parsing predictions: {e}")
+            raise ModelFailedException(f"Error while parsing predictions: {e}") from e
 
         return d

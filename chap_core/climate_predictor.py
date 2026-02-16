@@ -88,7 +88,7 @@ class QuickForecastFetcher:
 class FetcherNd:
     def __init__(self, historical_data: DataSet[SimpleClimateData]):
         self.historical_data = historical_data
-        self._cls = list(historical_data.values())[0].__class__
+        self._cls = next(iter(historical_data.values())).__class__
 
     def get_future_weather(self, period_range: PeriodRange) -> DataSet[SimpleClimateData]:
         prediction_dict = {}
@@ -98,7 +98,7 @@ class FetcherNd:
                 **{
                     field.name: getattr(data, field.name)[-len(period_range) :]
                     for field in dataclasses.fields(data)  # type: ignore[arg-type]
-                    if field.name not in ("time_period",)
+                    if field.name != "time_period"
                 },
             )
 

@@ -8,9 +8,9 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="gluonts")
 # Suppress bionumpy warnings
 warnings.filterwarnings("ignore", module="bionumpy")
 
-from cyclopts import App  # noqa: E402
+from cyclopts import App
 
-from chap_core.cli_endpoints import convert, evaluate, forecast, init, preference_learn, utils, validate  # noqa: E402
+from chap_core.cli_endpoints import convert, evaluate, forecast, init, preference_learn, utils, validate
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

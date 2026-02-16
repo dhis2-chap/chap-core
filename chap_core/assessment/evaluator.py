@@ -38,7 +38,9 @@ class ComponentBasedEvaluator(Evaluator):
             current_error_series = ErrorTimeSeries(observations=[])
             forecast_series = all_forecasts.timeseries[location]
             assert len(all_truths[location].observations) == len(forecast_series.predictions)
-            truth_and_forecast_series = zip(all_truths[location].observations, forecast_series.predictions)
+            truth_and_forecast_series = zip(
+                all_truths[location].observations, forecast_series.predictions, strict=False
+            )
             errors = []
             for truth, prediction in truth_and_forecast_series:
                 assert truth.time_period == prediction.time_period

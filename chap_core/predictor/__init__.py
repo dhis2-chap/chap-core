@@ -4,7 +4,7 @@ from typing import Literal, Optional, TypeAlias
 from ..external.r_models import models as r_models
 from .naive_predictor import MultiRegionNaivePredictor, MultiRegionPoissonModel
 
-__all__ = ["MultiRegionPoissonModel", "MultiRegionNaivePredictor"]
+__all__ = ["MultiRegionNaivePredictor", "MultiRegionPoissonModel"]
 models = __all__
 
 all_model_names = tuple(__all__ + list(r_models.keys()))

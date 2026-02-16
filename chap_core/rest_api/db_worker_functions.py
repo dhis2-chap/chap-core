@@ -1,7 +1,7 @@
 import inspect
 import logging
 from functools import wraps
-from typing import Optional, get_type_hints
+from typing import get_type_hints
 
 import numpy as np
 from pydantic import BaseModel
@@ -60,11 +60,12 @@ def validate_and_filter_dataset_for_evaluation(
     dataset: DataSet, target_name: str, n_periods: int, n_splits: int, stride: int
 ) -> DataSet:
     evaluation_length = n_periods + (n_splits - 1) * stride
-    new_data = {}
+    new_data = {
+        location: data
+        for location, data in dataset.items()
+        if np.any(np.logical_not(np.isnan(getattr(data, target_name)[:-evaluation_length])))
+    }
     rejected: list[str] = []
-    for location, data in dataset.items():
-        if np.any(np.logical_not(np.isnan(getattr(data, target_name)[:-evaluation_length]))):
-            new_data[location] = data
 
     logger.warning(f"Rejected regions: {rejected} due to missing target values for the whole training period")
     logger.info(f"Remaining regions: {list(new_data.keys())} with {len(new_data)} entries")

@@ -87,7 +87,7 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
         predictor.save(model_path)
 
     def _get_dataclass(estimator):
-        data_fields = estimator.covariate_names + [model_template.model_template_info.target]
+        data_fields = [*estimator.covariate_names, model_template.model_template_info.target]
         dc = create_tsdataclass(data_fields)
         return dc
 

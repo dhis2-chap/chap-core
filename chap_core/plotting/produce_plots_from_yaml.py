@@ -209,9 +209,9 @@ class ForecastStub:
             }
         elif isinstance(quantiles, (int, float, np.floating)) or quantiles is None:
             val = None if quantiles is None else float(quantiles)
-            qd = {q: val for q in qkeys}
+            qd = dict.fromkeys(qkeys, val)
         else:
-            qd = {q: None for q in qkeys}
+            qd = dict.fromkeys(qkeys)
         for q in qkeys:
             qd.setdefault(q, None)
         self._qs = qd

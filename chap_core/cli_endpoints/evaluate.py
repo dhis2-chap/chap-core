@@ -3,7 +3,7 @@
 import logging
 import warnings
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 import pandas as pd
 import yaml
@@ -102,7 +102,7 @@ def evaluate_hpo(
     logging.info(f"Model configuration: {model_configuration_yaml_list}")
 
     results_dict = {}
-    for name, configuration in zip(model_list, model_configuration_yaml_list):
+    for name, configuration in zip(model_list, model_configuration_yaml_list, strict=False):
         template = ModelTemplate.from_directory_or_github_url(
             name,
             base_working_dir=Path("./runs/"),
@@ -167,11 +167,9 @@ def evaluate_hpo(
     first_model = True
     for key, value in results_dict.items():
         aggregate_metric_dist = value[0]
-        row = [key]
-        for k, v in aggregate_metric_dist.items():
-            row.append(v)
+        row = [key, *aggregate_metric_dist.values()]
         if first_model:
-            data.append(["Model"] + list(aggregate_metric_dist.keys()))
+            data.append(["Model", *list(aggregate_metric_dist.keys())])
             first_model = False
         data.append(row)
     dataframe = pd.DataFrame(data)
@@ -213,7 +211,7 @@ def evaluate(
     model_configuration_yaml_list, model_list = create_model_lists(model_configuration_yaml, model_name)
     logger.info(f"Model configuration: {model_configuration_yaml_list}")
     results_dict = {}
-    for name, configuration in zip(model_list, model_configuration_yaml_list):
+    for name, configuration in zip(model_list, model_configuration_yaml_list, strict=False):
         model = get_model(configuration, ignore_environment, is_chapkit_model, name, run_directory_type)
         assert isinstance(model, ExternalModel)
         model_info = model.model_information

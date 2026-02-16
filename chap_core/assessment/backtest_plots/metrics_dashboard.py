@@ -5,8 +5,6 @@ This module provides a backtest plot that shows various metrics by forecast
 horizon and time period.
 """
 
-from typing import Optional
-
 import altair as alt
 import pandas as pd
 

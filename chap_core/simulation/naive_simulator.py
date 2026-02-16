@@ -49,12 +49,12 @@ class AdditiveSimulator(Simulator):
         return values  # type: ignore[no-any-return]
 
     def simulate(self, data_dims: DatasetDimensions) -> DataSet:
-        feature_names = data_dims.features + [data_dims.target]
+        feature_names = [*data_dims.features, data_dims.target]
         observations = []
         for feature_name in feature_names:
             observations.extend(self.simulate_observations(data_dims, feature_name))
         return DataSet(
-            name="Simulated DataSet", covariates=data_dims.features + [data_dims.target], observations=observations
+            name="Simulated DataSet", covariates=[*data_dims.features, data_dims.target], observations=observations
         )
 
     def simulate_observations(self, data_dims: DatasetDimensions, feature_name) -> list[Observation]:

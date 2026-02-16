@@ -171,13 +171,13 @@ def train_test_generator(
     if future_weather_provider is not None:
         masked_future_data = [
             future_weather_provider(hd).get_future_weather(fd.period_range)  # type: ignore[operator]
-            for (hd, fd) in zip(historic_data, future_data)
+            for (hd, fd) in zip(historic_data, future_data, strict=False)
         ]
     else:
         masked_future_data = [dataset.remove_field("disease_cases") for dataset in future_data]
     train_set.metadata = dataset.metadata.model_copy()
     train_set.metadata.name += "_train_set"
-    return train_set, zip(historic_data, masked_future_data, future_data)
+    return train_set, zip(historic_data, masked_future_data, future_data, strict=False)
 
 
 def train_test_split_with_weather(

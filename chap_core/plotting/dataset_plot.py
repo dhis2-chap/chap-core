@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import altair as alt
 import numpy as np
@@ -63,8 +62,9 @@ class DatasetPlot(ABC):
             filter(
                 lambda name: self._df[name].dtype.name in ("float64", "int64", "bool", "int32", "float32"),
                 filter(
-                    lambda name: name not in ("disease_cases", "location", "time_period")
-                    and not name.startswith("Unnamed"),
+                    lambda name: (
+                        name not in ("disease_cases", "location", "time_period") and not name.startswith("Unnamed")
+                    ),
                     self._df.columns,
                 ),
             )

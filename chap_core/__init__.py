@@ -37,4 +37,4 @@ def get_temp_dir() -> Path:
     return temp_dir
 
 
-__all__ = ["fetch", "data", "ModelTemplateInterface", "is_debug_mode", "get_temp_dir"]
+__all__ = ["ModelTemplateInterface", "data", "fetch", "get_temp_dir", "is_debug_mode"]

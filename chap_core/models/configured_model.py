@@ -26,5 +26,3 @@ class ModelConfiguration(BaseModel):
     """
     BaseClass used for configuration that a ModelTemplate takes for creating specific Models
     """
-
-    pass
