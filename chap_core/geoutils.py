@@ -26,7 +26,8 @@ def feature_bbox(feature: FeatureModel):
         A 4-tuple in the form of (xmin,ymin,xmax,ymax)
     """
     geom = feature.geometry
-    assert geom is not None
+    if geom is None:
+        raise ValueError("Feature has no geometry")
 
     geotype = geom.type
     coords: Any = geom.coordinates
@@ -99,8 +100,7 @@ def buffer_point_features(collection: FeatureCollectionModel, distance: float):
     """
     features = []
     for feature in collection.features:
-        assert feature.geometry is not None
-        if "Point" in feature.geometry.type:
+        if feature.geometry is not None and "Point" in feature.geometry.type:
             if not distance:
                 raise ValueError(
                     f"Attempting to buffer point geometries but the buffer distance arg is 0 or None: {distance}"

@@ -124,7 +124,7 @@ def evaluate_model(
             data[location].disease_cases,
             index=data[location].time_period.to_period_index(),
         )
-        for location in data.keys()
+        for location in data.keys()  # noqa: SIM118
     }
 
     # transformed = create_multiloc_timeseries(truth_data)
@@ -250,7 +250,7 @@ def plot_predictions(predictions: DataSet[Samples], truth: DataSet, pdf_filename
             truth[location].disease_cases,
             index=truth[location].time_period.to_period_index(),
         )
-        for location in truth.keys()
+        for location in truth.keys()  # noqa: SIM118
     }
     with PdfPages(pdf_filename) as pdf:
         for location, prediction in predictions.items():
@@ -317,7 +317,7 @@ def generate_pdf_from_evaluation(evaluation, pdf_filename: str) -> None:
             obs_dict = obs_by_location[location]
             obs_df = pd.DataFrame(
                 {"disease_cases": list(obs_dict.values())},
-                index=pd.PeriodIndex([TimePeriod.parse(p).topandas() for p in obs_dict.keys()]),
+                index=pd.PeriodIndex([TimePeriod.parse(p).topandas() for p in obs_dict]),
             )
             obs_df = obs_df.sort_index()
 

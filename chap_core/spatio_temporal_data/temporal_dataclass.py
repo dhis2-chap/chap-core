@@ -393,7 +393,7 @@ class DataSet[FeaturesT]:
                 location = str(location)
 
             time_element = data["time_period"].iloc[0]
-            if isinstance(time_element, str) or isinstance(time_element, Number):
+            if isinstance(time_element, (str, Number)):
                 # if time periods are string, clean them and convert to periods
                 data["time_period"] = data["time_period"].apply(clean_timestring)
 
@@ -557,9 +557,7 @@ class DataSet[FeaturesT]:
         polygons_in_merged = None
         if self.polygons is not None and other_dataset.polygons is not None:
             raise Exception("Trying to merge two datasets with polygons, not sure how to do this (not implemented yet)")
-        elif self.polygons is not None:
-            polygons_in_merged = self.polygons
-        elif other_dataset.polygons is not None:
+        elif self.polygons is not None or other_dataset.polygons is not None:
             polygons_in_merged = self.polygons
         other_locations = set(other_dataset.locations())
         assert all(location in other_locations for location in self.locations()), (self.locations(), other_locations)

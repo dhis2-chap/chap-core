@@ -10,7 +10,7 @@ class Simulator:
     @abstractmethod
     def simulate(self) -> ClimateHealthTimeSeries:
         """Simulate the model for the given parameters."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class IsDiseaseCaseSimulator(Protocol):

@@ -1,17 +1,19 @@
 import logging
 from pathlib import Path
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 import yaml
 
 from chap_core.external.model_configuration import ModelTemplateConfigV2
-from chap_core.models.model_template import ModelConfiguration
 from chap_core.runners.command_line_runner import CommandLineRunner, CommandLineTrainPredictRunner
 from chap_core.runners.docker_runner import DockerRunner, DockerTrainPredictRunner
 from chap_core.runners.mlflow_runner import MlFlowTrainPredictRunner
 from chap_core.runners.renv_runner import RenvRunner, RenvTrainPredictRunner
 from chap_core.runners.runner import TrainPredictRunner
 from chap_core.runners.uv_runner import UvRunner, UvTrainPredictRunner
+
+if TYPE_CHECKING:
+    from chap_core.models.model_template import ModelConfiguration
 
 logger = logging.getLogger(__name__)
 

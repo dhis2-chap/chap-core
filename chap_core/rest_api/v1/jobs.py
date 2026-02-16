@@ -21,7 +21,7 @@ worker: CeleryPool[Any] = CeleryPool()
 
 @router.get("")
 def list_jobs(
-    ids: list[str] = Query(None), status: list[str] = Query(None), type: str = Query(None)
+    ids: list[str] = Query(None), status: list[str] = Query(None), job_type: str = Query(None, alias="type")
 ) -> list[JobDescription]:
     """
     List all jobs currently in the queue.
@@ -34,15 +34,15 @@ def list_jobs(
         id_filter_set = set(ids)
         jobs_to_return = [job for job in jobs_to_return if job.id in id_filter_set]
 
-    if type:
-        type_upper = type.upper()
+    if job_type:
+        type_upper = job_type.upper()
         jobs_to_return = [job for job in jobs_to_return if job.type and job.type.upper() == type_upper]
 
     if status:
         status_filter_set = {s.upper() for s in status}
         jobs_to_return = [job for job in jobs_to_return if job.status and job.status.upper() in status_filter_set]
 
-    return cast(list[JobDescription], jobs_to_return)
+    return cast("list[JobDescription]", jobs_to_return)
 
 
 def _get_successful_job(job_id):
@@ -114,12 +114,12 @@ def get_logs(job_id: str) -> str:
 
 @router.get("/{job_id}/prediction_result")
 def get_prediction_result(job_id: str) -> FullPredictionResponse:
-    return cast(FullPredictionResponse, _get_successful_job(job_id).result)
+    return cast("FullPredictionResponse", _get_successful_job(job_id).result)
 
 
 @router.get("/{job_id}/evaluation_result")
 def get_evaluation_result(job_id: str) -> EvaluationResponse:
-    return cast(EvaluationResponse, _get_successful_job(job_id).result)
+    return cast("EvaluationResponse", _get_successful_job(job_id).result)
 
 
 class DataBaseResponse(BaseModel):

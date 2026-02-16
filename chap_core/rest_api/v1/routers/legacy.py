@@ -57,7 +57,7 @@ async def get_results() -> FullPredictionResponse:
         raise HTTPException(status_code=400, detail="Job failed. Check the exception endpoint for more information")
     if not cur_job.is_finished:
         raise HTTPException(status_code=400, detail="No response available")
-    return cast(FullPredictionResponse, cur_job.result)
+    return cast("FullPredictionResponse", cur_job.result)
 
 
 @router.get("/get-evaluation-results")
@@ -70,7 +70,7 @@ async def get_evaluation_results() -> EvaluationResponse:
         raise HTTPException(status_code=400, detail="Job failed. Check the exception endpoint for more information")
     if not cur_job.is_finished:
         raise HTTPException(status_code=400, detail="No response available")
-    return cast(EvaluationResponse, cur_job.result)
+    return cast("EvaluationResponse", cur_job.result)
 
 
 @router.get("/get-exception")

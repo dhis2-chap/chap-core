@@ -53,7 +53,7 @@ class MetricByHorizonAndLocationMean(MetricPlotV2):
         adf = df.groupby(["horizon_distance", "location"]).agg({"metric": "mean"}).reset_index()
         print(adf)
         chart = cast(
-            alt.Chart,
+            "alt.Chart",
             alt.Chart(adf)
             .mark_bar(point=True)
             .encode(
@@ -101,7 +101,7 @@ class MetricByHorizonV2Sum(MetricPlotV2):
     def plot_from_df(self, title: str = "Samples above truth by horizon") -> alt.Chart:
         df = self._metric_data
         chart = cast(
-            alt.Chart,
+            "alt.Chart",
             alt.Chart(df)
             .mark_bar()
             .encode(
@@ -129,7 +129,7 @@ class MetricByTimePeriodAndLocationV2Mean(MetricPlotV2):
         df = self._metric_data
         adf = df.groupby(["time_period", "location"]).agg({"metric": "mean"}).reset_index()
         chart = cast(
-            alt.Chart,
+            "alt.Chart",
             alt.Chart(adf)
             .mark_line(point=True)
             .encode(
@@ -154,7 +154,7 @@ class MetricByTimePeriodV2Sum(MetricPlotV2):
     def plot_from_df(self, title: str = "Samples above truth by time period") -> alt.Chart:
         df = self._metric_data
         chart = cast(
-            alt.Chart,
+            "alt.Chart",
             alt.Chart(df)
             .mark_line()
             .encode(
@@ -223,7 +223,7 @@ class MetricMapV2(MetricPlotV2):
 
         # Build Altair map chart
         chart = cast(
-            alt.Chart,
+            "alt.Chart",
             alt.Chart(alt.Data(values=geojson_data["features"]))
             .mark_geoshape(stroke="black", strokeWidth=0.5)
             .encode(

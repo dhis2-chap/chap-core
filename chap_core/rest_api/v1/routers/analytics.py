@@ -159,7 +159,7 @@ def get_compatible_backtests(
     res = session.exec(
         select(BackTest.id, BackTest.org_units, BackTest.split_periods).where(BackTest.id != backtest_id)
     ).all()
-    ids = [id for id, o, s in res if set(o) & org_units and set(s) & split_periods]
+    ids = [bt_id for bt_id, o, s in res if set(o) & org_units and set(s) & split_periods]
     backtests = session.exec(
         select(BackTest)
         .where(BackTest.id.in_(ids))  # type: ignore[union-attr, attr-defined]

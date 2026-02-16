@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -9,9 +9,13 @@ import pandera.pandas as pa
 from pandera import Check
 from pandera.pandas import DataFrameModel
 
-from chap_core.database.dataset_tables import ObservationBase
-from chap_core.database.tables import BackTestForecast
 from chap_core.time_period import TimePeriod
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from chap_core.database.dataset_tables import ObservationBase
+    from chap_core.database.tables import BackTestForecast
 
 
 class FlatData(DataFrameModel):

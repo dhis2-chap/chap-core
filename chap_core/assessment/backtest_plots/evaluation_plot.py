@@ -92,7 +92,7 @@ def _infer_split_periods(forecasts_df: pd.DataFrame) -> pd.DataFrame:
 
 
 @backtest_plot(
-    id="evaluation_plot",
+    plot_id="evaluation_plot",
     name="Evaluation Plot",
     description="Shows truth vs predictions over time with uncertainty bands and historical context.",
     needs_historical=True,

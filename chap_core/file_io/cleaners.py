@@ -32,7 +32,7 @@ def rwanda_data(filename):
     filename = "/home/knut/Downloads/data/Malaria Cases Final.xlsx"
     df = pd.read_excel(filename, sheet_name="Sheet1")
     df.to_csv("/home/knut/Downloads/data/malaria_cases.csv")
-    case_names = "Under5_F	Under5_M	5-19_F	5-19_M	20 +_F	20 +_M".split("\t")
+    case_names = ["Under5_F", "Under5_M", "5-19_F", "5-19_M", "20 +_F", "20 +_M"]
     case_names = [name.strip() for name in case_names]
     cases = sum([df[name].values for name in case_names])  # type: ignore[misc]
     period = [pd.Period(f"{year}-{month}") for year, month in zip(df["Year"], df["Period"], strict=False)]

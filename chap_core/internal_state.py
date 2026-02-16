@@ -24,7 +24,7 @@ class Control:
         self._current_control = self._controls.get(status, None)
         self._status = status
         if self._is_cancelled:
-            raise CancelledError()
+            raise CancelledError
 
     def get_status(self):
         if self._current_control is not None:
