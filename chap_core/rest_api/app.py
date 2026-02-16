@@ -72,3 +72,25 @@ app.include_router(v2_router, prefix="/v2")
 # /health are requested at /v1/status and /v1/health. This duplicate mount
 # ensures those requests still work. Hidden from the OpenAPI schema.
 app.include_router(common_router, prefix="/v1", include_in_schema=False)
+
+
+def get_openapi_schema():
+    return app.openapi()
+
+
+def main_backend(seed_data=None, auto_reload=False):
+    import uvicorn
+
+    from chap_core.database.database import create_db_and_tables
+    from chap_core.rest_api.v1.routers.legacy import seed
+
+    create_db_and_tables()
+
+    if seed_data is not None:
+        seed(seed_data)
+
+    if auto_reload:
+        app_path = "chap_core.rest_api.app:app"
+        uvicorn.run(app_path, host="0.0.0.0", port=8000, reload=auto_reload)
+    else:
+        uvicorn.run(app, host="0.0.0.0", port=8000)
