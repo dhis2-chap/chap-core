@@ -132,6 +132,16 @@ def test_validate_warns_on_non_numeric_field(tmp_path):
     assert any("notes" in w.message and "non-numeric" in w.message for w in warnings)
 
 
+def test_validate_accepts_integer_columns(tmp_path):
+    raw_df = pd.read_csv(LAOS_SUBSET)
+    raw_df["population"] = 100000
+    csv_path = tmp_path / "with_int_col.csv"
+    raw_df.to_csv(csv_path, index=False)
+    dataset = DataSet.from_csv(csv_path)
+    issues = validate_dataset(dataset)
+    assert not any("population" in i.message for i in issues)
+
+
 def test_validate_skips_location_name_field(tmp_path):
     raw_df = pd.read_csv(LAOS_SUBSET)
     raw_df["location_name"] = "Some Name"

@@ -69,7 +69,7 @@ def _check_nan_covariates(dataset: DataSet) -> list[ValidationIssue]:
             if field_name in RESERVED_FIELDS:
                 continue
             values = getattr(data, field_name)
-            if not np.issubdtype(values.dtype, np.floating):
+            if not np.issubdtype(values.dtype, np.number):
                 if field_name not in non_numeric_warned:
                     non_numeric_warned.add(field_name)
                     issues.append(
@@ -78,6 +78,8 @@ def _check_nan_covariates(dataset: DataSet) -> list[ValidationIssue]:
                             message=f"Column '{field_name}' is non-numeric and will be ignored by models",
                         )
                     )
+                continue
+            if not np.issubdtype(values.dtype, np.floating):
                 continue
             isnan = np.isnan(values)
             if np.any(isnan):
