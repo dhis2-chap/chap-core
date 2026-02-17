@@ -11,11 +11,11 @@ This document describes how to get started for contributing to the chap-core cod
 
 ## Getting started working with the chap-core codebase
 
-If you're new to CHAP Core, it can be useful to see [the code overview guide](code_overview) for a brief overview of the code base.
+If you're new to CHAP Core, it can be useful to see [the code overview guide](code_overview.md) for a brief overview of the code base.
 
 ### Windows users
 
-Windows users who wish to contribute to CHAP Core should [start by reading this important note](windows_contributors).
+Windows users who wish to contribute to CHAP Core should [start by reading this important note](windows_contributors.md).
 
 ### Development setup
 
@@ -71,7 +71,7 @@ The CHAP Core codebase relies heavily on testing to ensure that the code works p
 $ pytest tests/test_polygons.py
 ```
 
-See more about our guidelines for testing in the [testing guide](testing).
+See more about our guidelines for testing in the [testing guide](testing.md).
 
 ### Code formatting
 
@@ -102,7 +102,7 @@ More detailed guidelines for how to write and build the documentation [can be fo
 
 Code contributions should always be made to the `dev` branch first. When the `dev` branch has been used and tested for some time, the CHAP team will merge this into the `master` branch.
 
-Before making your contribution, always [run the quick test suite](testing) to make sure everything works.
+Before making your contribution, always [run the quick test suite](testing.md) to make sure everything works.
 
 Most of the time, contributions should be made on a new branch, and creating a [Pull Request](https://github.com/dhis2-chap/chap-core/pulls) targeting the `dev` branch of the chap-core repository.
 

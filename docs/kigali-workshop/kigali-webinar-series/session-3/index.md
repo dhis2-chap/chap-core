@@ -2,7 +2,7 @@
 
 By the end of this session, you'll have a working model that runs through CHAP and generates a prediction report. You'll start from a template, make a small modification, and run an evaluation — the same workflow you'll use for your own models later
 
-Before following this session, you should have completed [Session 2](../session-2). We assume you now have a system for virtual environments in either R or Python and know the basics of working on the command line, git and GitHub. It is also an advantage to have gone through [Session 1](../session-1) as well before starting this session.
+Before following this session, you should have completed [Session 2](../session-2/index.md). We assume you now have a system for virtual environments in either R or Python and know the basics of working on the command line, git and GitHub. It is also an advantage to have gone through [Session 1](../session-1/index.md) as well before starting this session.
 
 ## Recording
 
@@ -20,7 +20,7 @@ Fork and clone an example model repository. Choose between Python (uv) or R depe
 
 ## Homework
 
-To follow the progression of the webinar series, you should **[verify that you are all set](homework)** by January 21, 2026
+To follow the progression of the webinar series, you should **[verify that you are all set](homework.md)** by January 21, 2026
 
 ## Learn more
 To learn more, please continue to the following webinar sessions (4,5,6) or consult our [guide to learn modeling with disease modeling as case](https://chap.dhis2.org/chap-modeling-platform/external_models/learn_modelling/). 
