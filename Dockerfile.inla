@@ -9,7 +9,7 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 
 # Copy uv binary from official source image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.10 /uv /bin/uv
 
 # Create non-root user 'chap' and prepare /app directory
 RUN useradd -m -s /bin/bash chap && \
