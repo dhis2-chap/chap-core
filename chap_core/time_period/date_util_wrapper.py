@@ -575,12 +575,19 @@ class PeriodRange(BNPDataClass):
     def __iter__(self):
         return (self._period_class((self._start_timestamp + self._time_delta * i)._date) for i in range(len(self)))
 
-    def __getitem__(self, item: slice | int):
+    @overload
+    def __getitem__(self, item: int | np.integer) -> "Day | Month | Year | Week": ...
+
+    @overload
+    def __getitem__(self, item: slice) -> "PeriodRange": ...
+
+    def __getitem__(self, item: slice | int | np.integer):
         """Slice by numeric index in the period range"""
         if isinstance(item, (int, np.integer)):
-            if item < 0:
-                item += len(self)
-            return self._period_class((self._start_timestamp + self._time_delta * item)._date)
+            index = int(item)
+            if index < 0:
+                index += len(self)
+            return self._period_class((self._start_timestamp + self._time_delta * index)._date)
         assert item.step is None
         start = self._start_timestamp
         end = self._end_timestamp
