@@ -78,7 +78,7 @@ def sanity_check_model(
         )
 
 
-def serve(seedfile: str | None = None, debug: bool = False, auto_reload: bool = False):
+def serve(debug: bool = False, auto_reload: bool = False):
     """
     Start CHAP as a backend server
     """
@@ -86,12 +86,7 @@ def serve(seedfile: str | None = None, debug: bool = False, auto_reload: bool = 
 
     logger.info("Running chap serve")
 
-    if seedfile is not None:
-        data = json.load(open(seedfile))
-    else:
-        data = None
-
-    main_backend(data, auto_reload=auto_reload)
+    main_backend(auto_reload=auto_reload)
 
 
 def write_open_api_spec(out_path: str):

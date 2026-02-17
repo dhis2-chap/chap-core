@@ -21,7 +21,6 @@ openapi_tags = [
     {"name": "Visualizations", "description": "Generate plots and charts"},
     {"name": "Jobs", "description": "Monitor and manage async jobs"},
     {"name": "Debug", "description": "Debug and diagnostic endpoints"},
-    {"name": "Legacy", "description": "Deprecated single-job endpoints (use Jobs instead)"},
     {"name": "Services", "description": "Service registry (v2)"},
 ]
 
@@ -78,16 +77,12 @@ def get_openapi_schema():
     return app.openapi()
 
 
-def main_backend(seed_data=None, auto_reload=False):
+def main_backend(auto_reload=False):
     import uvicorn
 
     from chap_core.database.database import create_db_and_tables
-    from chap_core.rest_api.v1.routers.legacy import seed
 
     create_db_and_tables()
-
-    if seed_data is not None:
-        seed(seed_data)
 
     if auto_reload:
         app_path = "chap_core.rest_api.app:app"
