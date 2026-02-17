@@ -1,7 +1,7 @@
 """Common API endpoints shared across all API versions.
 
 These endpoints are mounted at the root level of the application and provide
-version-independent functionality such as health checks, version info,
+version-independent functionality such as health checks,
 compatibility checks, and system information.
 """
 
@@ -55,14 +55,6 @@ router = APIRouter(tags=["System"])
 async def health(worker_config=Depends(get_settings)) -> HealthResponse:
     """Check that the API is running and healthy."""
     return HealthResponse(status="success", message="healthy")
-
-
-@router.get("/version")
-async def version() -> dict:
-    """Return the current chap-core version."""
-    from chap_core import __version__ as chap_core_version
-
-    return {"version": chap_core_version}
 
 
 @router.get("/is-compatible")

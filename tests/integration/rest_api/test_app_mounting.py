@@ -38,13 +38,6 @@ class TestCommonEndpoints:
         assert response.status_code == 200
         assert response.json() == {"status": "success", "message": "healthy"}
 
-    def test_root_version_endpoint(self, client):
-        response = client.get("/version")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "version" in data
-
     def test_root_is_compatible_endpoint(self, client):
         response = client.get("/is-compatible?modelling_app_version=999.0.0")
 
