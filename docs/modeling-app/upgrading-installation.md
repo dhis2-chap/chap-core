@@ -16,7 +16,7 @@ Follow these steps if you already have Chap Core installed and want to update to
 
 ```console
 # Create a backup of the PostgreSQL database
-docker compose exec -T postgres pg_dump -U root chap_core > backup_$(date +%Y%m%d_%H%M%S).sql
+docker compose exec -T postgres pg_dump -U ${POSTGRES_USER} chap_core > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 ## 2. Update the Repository
@@ -43,6 +43,15 @@ For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](htt
         cp .env.example .env
 
     For production deployments, edit `.env` to set secure values for `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`.
+
+!!! warning "Upgrading to v1.1.5 with an existing database"
+    Versions before 1.1.5 used hard-coded PostgreSQL credentials (`root` / `thisisnotgoingtobeexposed`). The new `.env.example` defaults to different values (`chap` / `chap`). If you have an existing database created with the old credentials, copying `.env.example` as-is will cause a connection failure because PostgreSQL keeps the credentials that were set when the volume was first created.
+
+    To keep your existing database working, set the **old** credentials in your `.env` file:
+
+        POSTGRES_USER=root
+        POSTGRES_PASSWORD=thisisnotgoingtobeexposed
+        POSTGRES_DB=chap_core
 
 ## 3. Upgrade Chap Core
 
@@ -93,7 +102,7 @@ docker compose up -d postgres
 
 # Wait for postgres to initialize, then restore the backup
 
-cat backup_20241023_120000.sql | docker compose exec -T postgres psql -U root chap_core
+cat backup_20241023_120000.sql | docker compose exec -T postgres psql -U ${POSTGRES_USER} chap_core
 
 # Start all services
 docker compose up --build

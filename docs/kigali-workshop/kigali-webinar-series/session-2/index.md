@@ -28,7 +28,7 @@ Learn how to install packages and optionally learn Docker, uv (Python), and renv
 
 ## Homework
 
-To follow the progression of the webinar series, you should **[verify that you are all set](<(homework)>)** by January 14, 2026
+To follow the progression of the webinar series, you should **[verify that you are all set](homework.md)** by January 14, 2026
 
 ## Get help
 
