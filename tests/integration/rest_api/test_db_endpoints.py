@@ -460,6 +460,14 @@ def test_backtest_with_data_flow(
     _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run)
 
 
+def test_backtest_with_empty_provided_data(dependency_overrides, create_backtest_with_data_request):
+    request_payload = create_backtest_with_data_request.model_dump()
+    request_payload["provided_data"] = []
+    response = client.post("/v1/analytics/create-backtest-with-data", json=request_payload)
+    assert response.status_code == 400
+    assert "No observation data provided" in response.json()["detail"]
+
+
 @pytest.mark.parametrize("dry_run", [False, True])
 def test_backtest_with_weekly_data_flow(
     celery_session_worker, dependency_overrides, example_polygons, create_backtest_with_weekly_data_request, dry_run
