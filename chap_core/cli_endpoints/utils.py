@@ -78,17 +78,6 @@ def sanity_check_model(
         )
 
 
-def serve(debug: bool = False, auto_reload: bool = False):
-    """
-    Start CHAP as a backend server
-    """
-    from chap_core.rest_api.app import main_backend
-
-    logger.info("Running chap serve")
-
-    main_backend(auto_reload=auto_reload)
-
-
 def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
@@ -277,7 +266,6 @@ def export_metrics(
 def register_commands(app):
     """Register utility commands with the CLI app."""
     app.command()(sanity_check_model)
-    app.command()(serve)
     app.command()(write_open_api_spec)
     app.command()(test)
     app.command()(plot_dataset)

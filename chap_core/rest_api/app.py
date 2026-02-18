@@ -75,17 +75,3 @@ app.include_router(common_router, prefix="/v1", include_in_schema=False)
 
 def get_openapi_schema():
     return app.openapi()
-
-
-def main_backend(auto_reload=False):
-    import uvicorn
-
-    from chap_core.database.database import create_db_and_tables
-
-    create_db_and_tables()
-
-    if auto_reload:
-        app_path = "chap_core.rest_api.app:app"
-        uvicorn.run(app_path, host="0.0.0.0", port=8000, reload=auto_reload)
-    else:
-        uvicorn.run(app, host="0.0.0.0", port=8000)
