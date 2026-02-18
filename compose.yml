@@ -71,7 +71,7 @@ services:
           size: 2000000000 # 2GB for runtime temp files (model execution)
       - type: volume
         source: runs
-        target: /app/runs
+        target: /data/runs
       - type: volume
         source: renv
         target: /data/renv
@@ -113,4 +113,4 @@ volumes:
   renv: {}
   uv: {}
   pytensor: {}
-  runs:
+  runs: {}
