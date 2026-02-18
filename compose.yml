@@ -71,7 +71,7 @@ services:
         target: /tmp
         tmpfs:
           size: 2000000000 # 2GB for runtime temp files (model execution)
-      - type: bind
+      - type: volume
         source: runs
         target: /app/runs
       - type: volume
