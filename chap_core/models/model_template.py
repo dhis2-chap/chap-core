@@ -37,7 +37,7 @@ class ModelTemplate:
     def from_directory_or_github_url(
         cls,
         model_template_path,
-        base_working_dir=Path("runs/"),
+        base_working_dir=None,
         ignore_env=False,
         run_dir_type="timestamp",
         is_chapkit_model: bool = False,
@@ -59,7 +59,10 @@ class ModelTemplate:
             "latest" will create a new directory based on the model name, but will remove any existing directory with the same name.
             "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
         """
-        from .utils import get_model_template_from_directory_or_github_url
+        from .utils import CHAP_RUNS_DIR, get_model_template_from_directory_or_github_url
+
+        if base_working_dir is None:
+            base_working_dir = CHAP_RUNS_DIR
 
         return get_model_template_from_directory_or_github_url(  # type: ignore[return-value]
             model_template_path,

@@ -15,6 +15,8 @@ from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.model_template import ModelTemplate
 
+CHAP_RUNS_DIR = Path(os.getenv("CHAP_RUNS_DIR", "runs/"))
+
 if TYPE_CHECKING:
     from chap_core.models.external_model import ExternalModel
 
@@ -110,7 +112,7 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False, wor
 
 def get_model_template_from_directory_or_github_url(
     model_template_path: str,
-    base_working_dir: Path = Path("runs/"),
+    base_working_dir: Path = CHAP_RUNS_DIR,
     ignore_env: bool = False,
     run_dir_type: str = "timestamp",
     is_chapkit_model: bool = False,
@@ -165,7 +167,7 @@ def get_model_template_from_directory_or_github_url(
 
 def get_model_from_directory_or_github_url(
     model_template_path,
-    base_working_dir=Path("runs/"),
+    base_working_dir=CHAP_RUNS_DIR,
     ignore_env=False,
     run_dir_type: Literal["timestamp", "latest", "use_existing"] = "timestamp",
     model_configuration_yaml: str | None = None,

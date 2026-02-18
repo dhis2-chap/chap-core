@@ -21,6 +21,7 @@ from chap_core.database.model_templates_and_config_tables import (
 from chap_core.hpo.base import load_search_space_from_config
 from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
+from chap_core.models.utils import CHAP_RUNS_DIR
 from chap_core.preference_learning.decision_maker import (
     DecisionMaker,
     MetricDecisionMaker,
@@ -92,7 +93,7 @@ def _create_evaluation(
     logger.info(f"Loading model template from {model_candidate.model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_candidate.model_name,
-        base_working_dir=Path("./runs/"),
+        base_working_dir=CHAP_RUNS_DIR,
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
         is_chapkit_model=run_config.is_chapkit_model,
@@ -177,7 +178,7 @@ def preference_learn(
             # Try to get search space from model template
             template = ModelTemplate.from_directory_or_github_url(
                 model_name,
-                base_working_dir=Path("./runs/"),
+                base_working_dir=CHAP_RUNS_DIR,
                 ignore_env=run_config.ignore_environment,
                 run_dir_type=run_config.run_directory_type,
                 is_chapkit_model=run_config.is_chapkit_model,
