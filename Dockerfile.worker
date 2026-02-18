@@ -36,8 +36,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Create data directories and set ownership for the chap user
 # Each directory is owned explicitly rather than recursively owning /data
-RUN mkdir -p /data/logs /data/uv /data/renv /data/pytensor /data/runs \
-  && chown chap:chap /data/logs /data/uv /data/renv /data/pytensor /data/runs
+RUN mkdir -p /data/logs /data/uv /data/renv /data/pytensor \
+  && chown chap:chap /data/logs /data/uv /data/renv /data/pytensor
 
 USER chap
 

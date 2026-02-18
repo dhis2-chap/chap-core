@@ -71,7 +71,7 @@ services:
           size: 2000000000 # 2GB for runtime temp files (model execution)
       - type: volume
         source: runs
-        target: /data/runs
+        target: /app/runs
       - type: volume
         source: renv
         target: /data/renv
