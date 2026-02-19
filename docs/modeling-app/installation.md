@@ -1,6 +1,6 @@
-# Installing Chap Core for use with the DHIS2 Modeling APP
+# Installing Chap Core for use with the DHIS2 Modeling App
 
-This guide covers installing and running Chap Core using Docker Compose. This is necessary if you want to run the modeling app.
+This guide covers installing and running Chap Core using Docker Compose. This is necessary if you want to run the Modeling App.
 
 !!! warning
     We highly recommend you to have read the [recommendation for server deployment](running-chap-on-server.md) before installing Chap Modeling Platform on a server.
