@@ -64,6 +64,7 @@ nav:
           - Recommendation for server deployment: modeling-app/running-chap-on-server.md
           - First-time Setup: modeling-app/fresh-installation.md
           - Updating to a New Version: modeling-app/upgrading-installation.md
+          - Enabling Optional Model Services: modeling-app/enabling-optional-model-services.md
       - "Using the modeling app":
           - Getting started: "modeling-app/using-the-modeling-app/getting-started"
           - Creating an evaluation: "modeling-app/using-the-modeling-app/creating-an-evaluation"
