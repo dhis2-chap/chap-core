@@ -44,6 +44,7 @@ mlruns/
 # === Project-Specific ===
 config/configured_models/*
 !config/configured_models/default.yaml
+!config/configured_models/README.md
 
 # === OS-Specific ===
 .DS_Store
