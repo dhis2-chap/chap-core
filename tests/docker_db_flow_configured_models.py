@@ -149,8 +149,6 @@ class ConfiguredModelsIntegrationTest:
         except Exception:
             logger.error("Failed to connect to %s" % self._chap_url)
             logger.error("Failed to get %s" % url)
-            exception_info = requests.get(self._chap_url + "/v1/get-exception").json()
-            logger.error(exception_info)
             raise
         assert response.status_code == 200, (response.status_code, response.text)
         return response.json()

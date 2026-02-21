@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from chap_core.datatypes import create_tsdataclass
-from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.analytics import _validate_full_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange

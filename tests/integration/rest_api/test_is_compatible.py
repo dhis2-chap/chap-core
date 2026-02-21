@@ -3,12 +3,19 @@ import logging
 import pytest
 from fastapi.testclient import TestClient
 
-from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.app import app
+from chap_core.rest_api.v1.routers.dependencies import get_settings
+from chap_core.rest_api.worker_functions import WorkerConfig
 
-client = TestClient(app, raise_server_exceptions=False)
+
+@pytest.fixture
+def client():
+    app.dependency_overrides[get_settings] = lambda: WorkerConfig()
+    yield TestClient(app, raise_server_exceptions=False)
+    app.dependency_overrides.clear()
 
 
-def test_is_compatible_with_valid_version():
+def test_is_compatible_with_valid_version(client):
     """Test that a valid version returns the expected compatibility response"""
     response = client.get("/is-compatible?modelling_app_version=3.0.0")
     assert response.status_code == 200
@@ -18,7 +25,7 @@ def test_is_compatible_with_valid_version():
     assert isinstance(data["compatible"], bool)
 
 
-def test_is_compatible_with_invalid_version_format(caplog):
+def test_is_compatible_with_invalid_version_format(client, caplog):
     """Test that an invalid version returns error without stack trace"""
     with caplog.at_level(logging.WARNING):
         response = client.get("/is-compatible?modelling_app_version=999.99.9-remove-orgunits-lacking-geometry.1")
@@ -34,11 +41,10 @@ def test_is_compatible_with_invalid_version_format(caplog):
 
     # Verify only WARNING level logs, no ERROR with stack trace
     assert any("Invalid version string" in record.message for record in caplog.records if record.levelname == "WARNING")
-    # Verify no ERROR logs with "Full traceback" or traceback content
     assert not any("Full traceback" in record.message for record in caplog.records if record.levelname == "ERROR")
 
 
-def test_is_compatible_with_old_version():
+def test_is_compatible_with_old_version(client):
     """Test that an old version returns incompatible response"""
     response = client.get("/is-compatible?modelling_app_version=1.0.0")
     assert response.status_code == 200
@@ -47,7 +53,7 @@ def test_is_compatible_with_old_version():
     assert "too old" in data["description"].lower()
 
 
-def test_is_compatible_with_newer_version():
+def test_is_compatible_with_newer_version(client):
     """Test that a newer version returns compatible response"""
     response = client.get("/is-compatible?modelling_app_version=999.0.0")
     assert response.status_code == 200

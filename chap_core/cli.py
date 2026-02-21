@@ -10,7 +10,7 @@ warnings.filterwarnings("ignore", module="bionumpy")
 
 from cyclopts import App
 
-from chap_core.cli_endpoints import convert, evaluate, forecast, init, preference_learn, utils, validate
+from chap_core.cli_endpoints import convert, evaluate, forecast, preference_learn, utils, validate
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -21,7 +21,6 @@ app = App()
 convert.register_commands(app)
 evaluate.register_commands(app)
 forecast.register_commands(app)
-init.register_commands(app)
 preference_learn.register_commands(app)
 utils.register_commands(app)
 validate.register_commands(app)
