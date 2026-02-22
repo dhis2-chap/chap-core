@@ -19,23 +19,7 @@ $ curl -sL -o chap_LAO_admin1_monthly.csv \
 
 The CSV contains ~2800 rows covering 18 provinces from 1998-2010 with columns: `time_period`, `location`, `disease_cases`, `population`, `location_name`, `rainfall`, `mean_temperature`, `mean_relative_humidity`.
 
-### 2. Clean the data
-
-Some provinces have missing disease case data. Remove them so the models can run cleanly:
-
-```console
-$ python -c "
-import pandas as pd
-df = pd.read_csv('chap_LAO_admin1_monthly.csv')
-bad = df.groupby('location')['disease_cases'].apply(lambda x: x.isna().any())
-bad_locs = bad[bad].index.tolist()
-print(f'Removing {len(bad_locs)} locations with missing data: {bad_locs}')
-df[~df['location'].isin(bad_locs)].to_csv('chap_LAO_admin1_monthly.csv', index=False)
-print(f'Dataset now has {df["location"].nunique() - len(bad_locs)} locations')
-"
-```
-
-### 3. Explore the dataset
+### 2. Explore the dataset
 
 ```console
 $ chap plot-dataset chap_LAO_admin1_monthly.csv
@@ -45,34 +29,29 @@ This opens an interactive plot in your browser showing standardized disease case
 
 ![Laos dataset overview](assets/laos_dataset.png)
 
-### 4. Evaluate Model A -- Naive baseline
+### 3. Evaluate Model A -- Minimalist baseline
 
-Run a backtest with 2 train/test splits and a 3-month forecast horizon using the built-in naive model:
+Run a backtest with 2 train/test splits and a 3-month forecast horizon using a simple baseline model:
 
 ```console
-$ chap eval external_models/naive_python_model_uv \
+$ chap eval https://github.com/knutdrand/minimalist_example_uv \
     chap_LAO_admin1_monthly.csv \
-    naive_eval.nc \
+    minimalist_eval.nc \
     --backtest-params.n-splits 2 \
     --backtest-params.n-periods 3
 ```
 
-Generate the evaluation plots:
+Generate the evaluation plot:
 
 ```console
-$ chap plot-backtest naive_eval.nc naive_evaluation_plot.png --plot-type evaluation_plot
-$ chap plot-backtest naive_eval.nc naive_metrics_dashboard.png --plot-type metrics_dashboard
+$ chap plot-backtest minimalist_eval.nc minimalist_evaluation_plot.png --plot-type evaluation_plot
 ```
 
 **Evaluation plot** -- observed vs. predicted cases per location and split:
 
-![Naive evaluation plot](assets/naive_evaluation_plot.png)
+![Minimalist evaluation plot](assets/minimalist_evaluation_plot.png)
 
-**Metrics dashboard** -- summary metrics across locations:
-
-![Naive metrics dashboard](assets/naive_metrics_dashboard.png)
-
-### 5. Evaluate Model B -- Auto-EWARS
+### 4. Evaluate Model B -- Auto-EWARS
 
 Now evaluate a more sophisticated model. The EWARS model is fetched directly from GitHub:
 
@@ -84,28 +63,23 @@ $ chap eval https://github.com/dhis2-chap/chap_auto_ewars \
     --backtest-params.n-periods 3
 ```
 
-Generate the same plots:
+Generate the evaluation plot:
 
 ```console
 $ chap plot-backtest ewars_eval.nc ewars_evaluation_plot.png --plot-type evaluation_plot
-$ chap plot-backtest ewars_eval.nc ewars_metrics_dashboard.png --plot-type metrics_dashboard
 ```
 
 **Evaluation plot:**
 
 ![EWARS evaluation plot](assets/ewars_evaluation_plot.png)
 
-**Metrics dashboard:**
-
-![EWARS metrics dashboard](assets/ewars_metrics_dashboard.png)
-
-### 6. Compare models
+### 5. Compare models
 
 Export aggregate metrics from both evaluations into a single CSV:
 
 ```console
 $ chap export-metrics \
-    --input-files naive_eval.nc \
+    --input-files minimalist_eval.nc \
     --input-files ewars_eval.nc \
     --output-file metrics_comparison.csv
 ```
@@ -114,9 +88,9 @@ The output CSV contains one row per model with columns for each metric:
 
 | model | mae | rmse | crps | coverage_10_90 |
 |---|---|---|---|---|
-| naive_python_model_uv | 131.7 | 278.8 | 109.8 | 0.595 |
-| chap_auto_ewars | 107.5 | 224.5 | 76.6 | 0.702 |
+| minimalist_example_uv | 124.6 | 282.1 | 124.6 | 0.0 |
+| chap_auto_ewars | 97.8 | 227.4 | 67.2 | 0.781 |
 
 Lower MAE, RMSE, and CRPS indicate better accuracy. Coverage_10_90 measures how often the true value falls within the 10th-90th percentile prediction interval (ideal: 0.80).
 
-In this comparison, the EWARS model outperforms the naive baseline across all metrics.
+In this comparison, the EWARS model outperforms the minimalist baseline across all metrics.
