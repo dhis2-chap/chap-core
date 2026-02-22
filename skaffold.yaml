@@ -1,0 +1,30 @@
+apiVersion: skaffold/v4beta13
+kind: Config
+build:
+  local:
+    useBuildkit: true
+  artifacts:
+    - image: ghcr.io/dhis2-chap/chap-core
+deploy:
+  statusCheckDeadlineSeconds: 300
+  tolerateFailuresUntilDeadline: true
+  helm:
+    releases:
+      - name: chap
+        chartPath: charts/chap
+        namespace: chap
+        createNamespace: true
+        setValueTemplates:
+          googleServiceAccount:
+            email: "{{.GOOGLE_SERVICE_ACCOUNT_EMAIL}}"
+            privateKey: "{{.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}}"
+          postgresql:
+            managed:
+              database: chap_core
+          ingress:
+            enabled: false
+            hosts:
+              - host: "{{.HOST}}"
+                paths:
+                  - path: /
+                    pathType: ImplementationSpecific
