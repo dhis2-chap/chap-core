@@ -11,7 +11,8 @@ from sklearn.metrics import r2_score
 from chap_core.climate_predictor import get_climate_predictor
 from chap_core.data.datasets import ISIMIP_dengue_harmonized
 from chap_core.explainability.surrogate import RidgeSurrogate, TreeSurrogate
-from chap_core.explainability.segment import SegmentationModel, UniformSegmentation
+from chap_core.explainability.segment import SegmentationModel, UniformSegmentation, ExponentialSegmentation, ReverseExponentialSegmentation, Indices
+from chap_core.explainability.plot import plot_importance
 from chap_core.model_spec import _non_feature_names
 from chap_core.models.external_model import ExternalModel
 from chap_core.models.utils import get_model_from_directory_or_github_url
@@ -63,6 +64,7 @@ def avg_samples(
     """
     dataframe = data.to_pandas()
     # Only keep the sample columns
+    # TODO: Reduce number of samples in prediction?
     sample_cols = dataframe.filter(regex=r"^sample_\d+$").columns
     mean_vals = dataframe[sample_cols].mean(axis=1)
     tp_len = len(dataframe["time_period"]); val_len = len(mean_vals)
@@ -102,8 +104,7 @@ def build_original_vector(
     features_hist: List[str],
     features_fut: List[str],
     horizon: int,
-    granularity: int
-) -> Dict[str, float | str | Dict[str, float]]:
+) -> Tuple[Dict, Dict[str, Indices]]:
     """
     Create original information vector for producing perturbed input
 
@@ -113,18 +114,19 @@ def build_original_vector(
         features_hist (list(str)): List of feature names of historical dataset
         features_fut (list(str)): List of feature names of future dataset
         horizon (int): Number of time steps in future to include in vector
-        granularity (int): Number of time steps in advance to include in vector
     
     Returns:
         Dictionary of feature names and value
     """
     x0 = {}
+    feat_indices = {}
     for name in features_hist:
         if is_constant(hist_df, name):  # If features doesn't vary with time, add once
             x0[name] = float(hist_df[name].iloc[-1])
         else:
-            lagged_dict = segmenter.segment(hist_df[name])
+            lagged_dict, indices = segmenter.segment(hist_df[name])
             x0[name] = lagged_dict
+            feat_indices[name] = indices
     for name in features_fut:  # Future features are not segmented (TODO?)
         if is_constant(fut_df, name, horizon, count_down=False):
             x0[name] = float(fut_df[name].iloc[0])
@@ -133,7 +135,7 @@ def build_original_vector(
                 name_with_time_step = name + "_fut_" + str(i+1)
                 x0[name_with_time_step] = float(fut_df[name].iloc[i])
 
-    return x0
+    return x0, feat_indices
 
 
 def linear_shift(
@@ -241,7 +243,7 @@ def perturb_vector(
             # Handle static features
             if isinstance(val, (float, int)):
                 if rng.random() < mutation_rate:
-                    vec[key] = rng.gauss(val, 1.0)
+                    vec[key] = rng.gauss(val, 1.0)  # TODO: Scale sigma by value
                     pert_mask[key] = 0
                 else:
                     vec[key] = val
@@ -280,9 +282,9 @@ def convert_vector_to_dataset(
     features_hist: List[str],
     features_fut: List[str],
     horizon: int,
-    granularity: int,
     hist_type: Type,
     fut_type: Type,
+    feat_indices: Dict[str, Dict]
 ) -> Tuple[DataSet, DataSet]:
     """
     Convert interpretable vector back into full dataset
@@ -294,10 +296,10 @@ def convert_vector_to_dataset(
         features_hist (list(str)): List of feature names of historical dataset
         features_fut (list(str)): List of feature names of future dataset
         horizon (int): Number of future time steps the vector encompasses
-        granularity (int): Number of historic time steps the vector encompasses
         location (str): Geographical location of data,
         hist_type (type): Dataclass of historical data
         fut_type (type): Dataclass of future data
+        feat_indices (Dict[str, Dict]): Dictionary of segment indices for each temporal feature
         
     Return:
         Historic dataset with perturbed values inserted
@@ -324,18 +326,16 @@ def convert_vector_to_dataset(
 
         val = perturbation[feat]
         if isinstance(val, dict):
-            num_segments = len(val)
-            total_len = len(hist_df)
-            segment_len = total_len // num_segments
+            idx_map = feat_indices[feat]
+            if idx_map is None:
+                raise KeyError(f"Missing indices for segmented feature '{feat}'")
+    
+            col_idx = hist_df.columns.get_loc(feat)
 
-            for lag_key, segment_vals in val.items():
-                lag = lag_key
-                real_idx = (num_segments - 1) - lag
-                start_idx = real_idx * segment_len
-                end_idx = start_idx + len(segment_vals)
-
-                col_idx = hist_df.columns.get_loc(feat)
-                hist_df.iloc[start_idx:end_idx, col_idx] = segment_vals
+            for lag, segment_vals in val.items():
+                start_idx, end_idx = idx_map[lag]
+                n = end_idx - start_idx
+                hist_df.iloc[start_idx:end_idx, col_idx] = segment_vals[:n]
         else:
             hist_df[feat] = float(val)
     
@@ -410,12 +410,12 @@ def produce_lime_dataset(
     features_hist: List[str],
     features_fut: List[str],
     horizon: int,
-    granularity: int,
     location: str,
+    feat_indices: Dict[str, List],
     threshold: Optional[float] = None,
     hist_type: Type = None,
     fut_type: Type = None,
-    chunk_size: int = 10
+    chunk_size: int = 10,
 ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
     """
     Produce training input and target dataset for LIME linear surrogate model
@@ -428,13 +428,13 @@ def produce_lime_dataset(
         perturbation_masks (List[Dict]): List of perturbed features mapped to binary
         features_hist (List[str]): The feature names in the historic dataset
         features_fut (List[str]): The feature names of the future dataset
-        horizon (int): The number of time steps in the past for which we want detailed explanations
-        granularity (int): The number of time steps into the future for which we want an explanation
+        horizon (int): The number of time steps into the future for which we want detailed explanations
         location (str): Geographical location of the data
         threshold (Optional float): The threshold of disease cases above which counted as positive class (Default None)
         hist_type (type): Dataclass of historical data (Default None)
         fut_type (type): Dataclass of future data (Default None)
         chunk_size (int): Size of prediction chunks
+        feat_indices (Dict[str, List]): List of indices for segments, for each temporal feature
 
     Returns:
         Tuple of numpy arrays and feature name list
@@ -460,9 +460,9 @@ def produce_lime_dataset(
                 features_hist, 
                 features_fut, 
                 horizon, 
-                granularity, 
                 hist_type,
-                fut_type
+                fut_type,
+                feat_indices
             )
             full_hist_dict[loc_id] = new_hist.get_location(location)
             full_fut_dict[loc_id] = new_fut.get_location(location)
@@ -538,8 +538,8 @@ def explain(
     dataset: DataSet,
     location: str,
     horizon: int,
-    granularity: int = 5,
-    num_perturbations: int = 300,  # TODO: Include in endpoint
+    granularity: int = 10,
+    num_perturbations: int = 20,  # TODO: Include in endpoint
     surrogate_name: str = "ridge",
     threshold: Optional[float] = None
 ):
@@ -551,7 +551,7 @@ def explain(
         dataset (DataSet): The dataset on which to perturb
         location (str): The location on which to explain
         horizon (int): The number of time steps into the future on which to explain
-        granularity (int): Number of time steps in advance to find weighting on (default: 4)
+        granularity (int): Number of segments to divide the time series data into for importance weighting (default: TODO)
         num_perturbations (int): Number of generated perturbed variations of input vector (default 200)
         surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "tree"] (default ridge)
         threshold (Optional float): The threshold above which to count as positive observation (default None)
@@ -595,24 +595,23 @@ def explain(
         if fn not in _non_feature_names
     ]
 
-    segmenter = UniformSegmentation(num_segments=granularity) # TODO: Route to selected, granularity is num_segments
+    segmenter = ReverseExponentialSegmentation(num_segments=granularity) # TODO: Route to selected, granularity is num_segments
 
     # Build original vector around which to generate perturbed vectors
-    x0 = build_original_vector(
+    x0, feat_indices = build_original_vector(  # TODO: Return number of variables to scale mutation_rate accordingly
         segmenter,
         hist_df, 
         future_df, 
         features_hist, 
         features_fut, 
-        horizon, 
-        granularity
+        horizon
     )
 
     full_dataset_df = dataset.to_pandas()
 
     # Create perturbed variations
     # TODO: When, where and how to decide number of perturbations and mr?
-    perturbations, perturbation_masks = perturb_vector(full_dataset_df, x0, num_perturbations=num_perturbations, mutation_rate=0.2)
+    perturbations, perturbation_masks = perturb_vector(full_dataset_df, x0, num_perturbations=num_perturbations, mutation_rate=0.05)
     
     # Threshold picked arbitrarily in example
     X, y, feature_names = produce_lime_dataset(
@@ -624,14 +623,13 @@ def explain(
         features_hist,
         features_fut,
         horizon,
-        granularity,
         location,
+        feat_indices,
         threshold,
         hist_type,
         fut_type
     )
     
-    len_vector = len(X[0])
     x0_row = np.ones(X.shape[1], dtype=float)
 
     kw = 0.75 * np.sqrt(X.shape[1])  # This can be automatically inferred per paper "initial step towards stable" et.c.; magic number for now
@@ -656,21 +654,39 @@ def explain(
     logger.info("Coefficients:")
     for name, c in results.as_sorted():
         logger.info(f"{name:>12}: {c:+.4f}")
+    
+    plot_importance(results.as_sorted(), hist_df, future_df, feat_indices)
 
 
 
 
 if __name__ == "__main__":
-    model_name = 'https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6'#'https://github.com/chap-models/chap_auto_ewars'
+    from pathlib import Path
+    from chap_core.cli_endpoints._common import load_dataset_from_csv
+    from chap_core.models.utils import get_model_from_directory_or_github_url
+
+    model_name = "https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6"
+    dataset_csv = Path("example_data/nicaragua_weekly_data.csv")
+    location = "boaco"
+    horizon = 3
+    historical_context_steps = 6
+    surrogate_name = "ridge"
+    threshold = None
+
+    # Load dataset (without geojson handling)
+    dataset = load_dataset_from_csv(dataset_csv, geojson_path=None)
+
+    # Load and train model directly
     estimator = get_model_from_directory_or_github_url(model_name)
-    dataset = ISIMIP_dengue_harmonized['vietnam']
     predictor = estimator.train(dataset)
 
-
+    # Run explanation
     explain(
-        predictor,
-        dataset,
-        location="BinhDinh",
-        horizon=3,
-        granularity=5,
+        model=predictor,
+        dataset=dataset,
+        location=location,
+        horizon=horizon,
+        granularity=historical_context_steps,
+        surrogate_name=surrogate_name,
+        threshold=threshold,
     )

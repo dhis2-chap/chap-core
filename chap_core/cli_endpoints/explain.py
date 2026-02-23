@@ -26,7 +26,7 @@ def explain(
     dataset_csv: Path,
     location: str,
     horizon: int,
-    historical_context_steps: int = 6,
+    granularity: int = 6,
     surrogate_name: str = "ridge",
     threshold: Optional[int] = None,
     model_configuration_yaml: Optional[Path] = None,
@@ -44,8 +44,7 @@ def explain(
         dataset_csv: Path to CSV file with disease data
         location: String of the location name in which to explain prediction
         horizon: Int of number of time steps in the future of which to explain prediction
-        historical_context_steps: Int of number of time steps of historical data 
-                to include as lagged variable features in explanation
+        granularity: Int of number of segments to divide historical data into
         surrogate_name: String of the short name of which surrogate model to use
         threshold: Optional number of disease cases above which a prediction is
                 counted as a positive class instance. If not supplied, will use
@@ -88,14 +87,13 @@ def explain(
         logger.info(
             f"Generating explanation for {location}, {horizon} time steps into the future."
         )
-        logger.debug(f"Including {historical_context_steps} years of historical data as individual lagged variables.")
         evaluation = lime.explain(
             model=estimator,
             dataset=dataset,
             location=location,
             horizon=horizon,
             surrogate_name=surrogate_name,
-            granularity=historical_context_steps,  # TODO: Fix
+            granularity=granularity,  # TODO: Fix
             threshold=threshold
         )
 
