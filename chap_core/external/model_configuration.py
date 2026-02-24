@@ -25,6 +25,7 @@ class RunnerConfig(BaseModel, extra="forbid"):  # pydantic-specific config to fo
     python_env: str | None = None
     uv_env: str | None = None
     renv_env: str | None = None
+    conda_env: str | None = None
 
 
 class ModelTemplateConfigCommon(ModelTemplateInformation, extra="forbid"):
