@@ -13,6 +13,7 @@ from chap_core.assessment.backtest_plots import (
     BacktestPlotBase,
 )
 from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods
+from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
 from chap_core.assessment.backtest_plots.metrics_dashboard import MetricsDashboard
 from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
@@ -86,6 +87,13 @@ def test_metrics_dashboard_directly(flat_observations, flat_forecasts, default_t
     """Test the metrics dashboard with flat data."""
     plot = MetricsDashboard()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts))
+    assert chart is not None
+
+
+def test_horizon_location_grid_directly(flat_observations, flat_forecasts_multiple_samples, default_transformer):
+    """Test the horizon location grid plot with multiple-sample forecasts."""
+    plot = HorizonLocationGridPlot()
+    chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
     assert chart is not None
 
 

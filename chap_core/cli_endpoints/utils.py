@@ -4,7 +4,7 @@ import dataclasses
 import json
 import logging
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import numpy as np
 import pandas as pd
@@ -261,9 +261,17 @@ def export_metrics(
             "model_version": model_version,
         }
 
+        historical_obs = flat_data.historical_observations
+        historical_df: pd.DataFrame | None = (
+            pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
+        )
+
         for metric_id in metrics_to_compute:
             metric_cls = available_metrics[metric_id]
-            metric = metric_cls()
+            metric = metric_cls(historical_observations=historical_df)
+            if not metric.is_applicable(flat_data.observations):
+                row[metric_id] = None
+                continue
             metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
             if len(metric_df) == 1:
                 row[metric_id] = float(metric_df["metric"].iloc[0])
