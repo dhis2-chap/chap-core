@@ -1,5 +1,5 @@
 """
-Outbreak detection metrics: sensitivity and specificity.
+Outbreak detection metrics: sensitivity, specificity, and accuracy.
 
 An "outbreak" is defined as observed cases exceeding the seasonal baseline
 (mean + 2*std) for a given location and calendar month. An "alert" is raised
@@ -152,4 +152,59 @@ class SpecificityMetric(Metric):
             on=["location", "time_period"],
             how="inner",
         )
+        return pd.DataFrame(merged[["location", "time_period", "horizon_distance", "metric"]])
+
+
+@metric()
+class OutbreakAccuracyMetric(Metric):
+    """Accuracy for outbreak detection.
+
+    Measures the proportion of all periods where the alert status
+    correctly matches the outbreak status: (TP + TN) / (TP + TN + FP + FN).
+    """
+
+    spec = MetricSpec(
+        metric_id="outbreak_accuracy",
+        metric_name="Outbreak Accuracy",
+        aggregation_op=AggregationOp.MEAN,
+        description="Proportion of correctly classified outbreak/non-outbreak periods",
+    )
+
+    def is_applicable(self, observations: FlatObserved) -> bool:
+        return self.historical_observations is not None and _has_monthly_time_periods(observations)
+
+    def compute_detailed(self, observations: pd.DataFrame, forecasts: pd.DataFrame) -> pd.DataFrame:
+        thresholds = _get_thresholds(self)
+        empty = pd.DataFrame(columns=["location", "time_period", "horizon_distance", "metric"])
+        if thresholds.empty:
+            return empty
+
+        obs = observations[["location", "time_period", "disease_cases"]].copy()
+        obs["month"] = obs["time_period"].apply(lambda tp: pd.to_datetime(tp).month)
+        obs = obs.merge(thresholds, on=["location", "month"], how="left")
+        obs = obs.dropna(subset=["threshold"])
+        if obs.empty:
+            return empty
+
+        obs["outbreak"] = (obs["disease_cases"] > obs["threshold"]).astype(float)
+
+        # Merge forecasts with thresholds
+        fc = forecasts.copy()
+        fc["month"] = fc["time_period"].apply(lambda tp: pd.to_datetime(tp).month)
+        fc = fc.merge(thresholds, on=["location", "month"], how="left")
+
+        # Compute alert per (location, time_period, horizon_distance)
+        fc["exceeds"] = (fc["forecast"] > fc["threshold"]).astype(float)
+        alert = fc.groupby(["location", "time_period", "horizon_distance"], as_index=False)["exceeds"].mean()
+        alert["alert"] = (alert["exceeds"] > 0.5).astype(float)
+
+        # Join all observations with alerts
+        merged = obs[["location", "time_period", "outbreak"]].merge(
+            alert[["location", "time_period", "horizon_distance", "alert"]],
+            on=["location", "time_period"],
+            how="inner",
+        )
+
+        # 1.0 when alert matches outbreak status, 0.0 otherwise
+        merged["metric"] = (merged["alert"] == merged["outbreak"]).astype(float)
         return pd.DataFrame(merged[["location", "time_period", "horizon_distance", "metric"]])

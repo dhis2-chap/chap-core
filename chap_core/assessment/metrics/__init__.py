@@ -99,6 +99,7 @@ from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
 from chap_core.assessment.metrics.example_metric import ExampleMetric
 from chap_core.assessment.metrics.mae import MAEMetric
 from chap_core.assessment.metrics.outbreak_detection import (
+    OutbreakAccuracyMetric,
     SensitivityMetric,
     SpecificityMetric,
     compute_seasonal_thresholds,
@@ -133,6 +134,7 @@ __all__ = [
     "MAEMetric",
     "Metric",
     "MetricSpec",
+    "OutbreakAccuracyMetric",
     "PeakPeriodLagMetric",
     "PeakValueDiffMetric",
     "PercentileCoverageMetric",

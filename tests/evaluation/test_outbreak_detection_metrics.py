@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 from chap_core.assessment.metrics.outbreak_detection import (
+    OutbreakAccuracyMetric,
     SensitivityMetric,
     SpecificityMetric,
     compute_seasonal_thresholds,
@@ -145,3 +146,43 @@ def test_sensitivity_empty_without_historical_observations():
     metric = SensitivityMetric()
     result = metric.get_detailed_metric(observations, forecasts)
     assert len(result) == 0
+
+
+def test_outbreak_accuracy_all_correct(historical_observations, threshold_value):
+    """Accuracy is 1.0 when all predictions are correct (1 TP + 1 TN)."""
+    observations = pd.DataFrame(
+        [
+            {"location": "A", "time_period": "2023-06-15", "disease_cases": threshold_value + 10},
+            {"location": "A", "time_period": "2023-06-22", "disease_cases": threshold_value - 10},
+        ]
+    )
+    forecasts = pd.concat(
+        [
+            _make_forecasts("A", "2023-06-15", 1, [threshold_value + 5] * 10),  # TP
+            _make_forecasts("A", "2023-06-22", 1, [threshold_value - 5] * 10),  # TN
+        ],
+        ignore_index=True,
+    )
+    metric = OutbreakAccuracyMetric(historical_observations=historical_observations)
+    result = metric.get_global_metric(observations, forecasts)
+    assert result.iloc[0]["metric"] == pytest.approx(1.0)
+
+
+def test_outbreak_accuracy_mixed(historical_observations, threshold_value):
+    """Accuracy is 0.5 when half the predictions are correct (1 TP + 1 FP)."""
+    observations = pd.DataFrame(
+        [
+            {"location": "A", "time_period": "2023-06-15", "disease_cases": threshold_value + 10},
+            {"location": "A", "time_period": "2023-06-22", "disease_cases": threshold_value - 10},
+        ]
+    )
+    forecasts = pd.concat(
+        [
+            _make_forecasts("A", "2023-06-15", 1, [threshold_value + 5] * 10),  # TP
+            _make_forecasts("A", "2023-06-22", 1, [threshold_value + 5] * 10),  # FP
+        ],
+        ignore_index=True,
+    )
+    metric = OutbreakAccuracyMetric(historical_observations=historical_observations)
+    result = metric.get_global_metric(observations, forecasts)
+    assert result.iloc[0]["metric"] == pytest.approx(0.5)
