@@ -2,8 +2,9 @@
 
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
+import pandas as pd
 import yaml
 from pydantic import BaseModel
 
@@ -59,9 +60,14 @@ def _compute_metrics(evaluation: Evaluation) -> dict:
     flat_data = evaluation.to_flat()
 
     # Compute all aggregated metrics (those that return a single value)
+    historical_obs = flat_data.historical_observations
+    historical_df = pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
+
     results = {}
     for metric_id, metric_cls in available_metrics.items():
-        metric = metric_cls()
+        metric = metric_cls(historical_observations=historical_df)
+        if not metric.is_applicable(flat_data.observations):
+            continue
         try:
             metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
             if len(metric_df) == 1:
