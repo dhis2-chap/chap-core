@@ -76,3 +76,58 @@ class WinklerScore25_75Metric(WinklerScoreMetric):
     )
     low_percentile = 25
     high_percentile = 75
+
+
+class WinklerScoreLog1pMetric(ProbabilisticMetric):
+    """
+    Base class for Winkler score on log1p-transformed values.
+
+    Applies log1p to both forecast samples and observations before computing
+    the Winkler score. Not registered directly.
+    """
+
+    low_percentile: int
+    high_percentile: int
+
+    def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
+        """Compute Winkler score on log1p-transformed values."""
+        log_samples = np.log1p(samples)
+        log_observed = np.log1p(observed)
+        low, high = np.percentile(log_samples, [self.low_percentile, self.high_percentile])
+        alpha = 1.0 - (self.high_percentile - self.low_percentile) / 100.0
+        interval_width = high - low
+
+        if log_observed < low:
+            return float(interval_width + (2.0 / alpha) * (low - log_observed))
+        elif log_observed > high:
+            return float(interval_width + (2.0 / alpha) * (log_observed - high))
+        else:
+            return float(interval_width)
+
+
+@metric()
+class WinklerScore10_90Log1pMetric(WinklerScoreLog1pMetric):
+    """Winkler score (log1p) for 10th-90th percentile prediction interval."""
+
+    spec = MetricSpec(
+        metric_id="winkler_score_10_90_log1p",
+        metric_name="Winkler 10-90 (log1p)",
+        aggregation_op=AggregationOp.MEAN,
+        description="Winkler score on log(1+x)-transformed values for 10-90 interval",
+    )
+    low_percentile = 10
+    high_percentile = 90
+
+
+@metric()
+class WinklerScore25_75Log1pMetric(WinklerScoreLog1pMetric):
+    """Winkler score (log1p) for 25th-75th percentile prediction interval."""
+
+    spec = MetricSpec(
+        metric_id="winkler_score_25_75_log1p",
+        metric_name="Winkler 25-75 (log1p)",
+        aggregation_op=AggregationOp.MEAN,
+        description="Winkler score on log(1+x)-transformed values for 25-75 interval",
+    )
+    low_percentile = 25
+    high_percentile = 75

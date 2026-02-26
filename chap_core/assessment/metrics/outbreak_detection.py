@@ -15,6 +15,7 @@ from chap_core.assessment.metrics.base import (
     Metric,
     MetricSpec,
 )
+from chap_core.time_period import TimePeriod
 
 
 def compute_seasonal_thresholds(historical_observations: pd.DataFrame) -> pd.DataFrame:
@@ -27,7 +28,7 @@ def compute_seasonal_thresholds(historical_observations: pd.DataFrame) -> pd.Dat
         DataFrame with columns [location, month, threshold]
     """
     df = historical_observations.copy()
-    df["month"] = df["time_period"].apply(lambda tp: pd.to_datetime(tp).month)
+    df["month"] = df["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
     grouped = df.groupby(["location", "month"])["disease_cases"].agg(["mean", "std"]).reset_index()
     grouped["threshold"] = grouped["mean"] + 2 * grouped["std"]
     return grouped[["location", "month", "threshold"]]
@@ -40,15 +41,15 @@ def _get_thresholds(metric_instance: Metric) -> pd.DataFrame:
 
 
 def _has_monthly_time_periods(observations: pd.DataFrame | FlatObserved) -> bool:
-    """Check if time periods are parseable as dates (monthly format, not weekly like 2022W01)."""
+    """Check if time periods are monthly (not weekly like 2022W01)."""
     if observations.empty:
         return False
     sample = str(observations["time_period"].iloc[0])
     try:
-        pd.to_datetime(sample)
-    except ValueError:
+        tp = TimePeriod.parse(sample)
+    except (ValueError, KeyError):
         return False
-    return True
+    return "W" not in sample and "w" not in sample and tp.n_days > 7
 
 
 @metric()
@@ -76,7 +77,7 @@ class SensitivityMetric(Metric):
             return empty
 
         obs = observations[["location", "time_period", "disease_cases"]].copy()
-        obs["month"] = obs["time_period"].apply(lambda tp: pd.to_datetime(tp).month)
+        obs["month"] = obs["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
         obs = obs.merge(thresholds, on=["location", "month"], how="left")
 
         # Keep only condition-positive rows (actual outbreaks)
@@ -86,7 +87,7 @@ class SensitivityMetric(Metric):
 
         # Merge forecasts with thresholds
         fc = forecasts.copy()
-        fc["month"] = fc["time_period"].apply(lambda tp: pd.to_datetime(tp).month)
+        fc["month"] = fc["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
         fc = fc.merge(thresholds, on=["location", "month"], how="left")
 
         # Compute alert per (location, time_period, horizon_distance)
@@ -128,7 +129,7 @@ class SpecificityMetric(Metric):
             return empty
 
         obs = observations[["location", "time_period", "disease_cases"]].copy()
-        obs["month"] = obs["time_period"].apply(lambda tp: pd.to_datetime(tp).month)
+        obs["month"] = obs["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
         obs = obs.merge(thresholds, on=["location", "month"], how="left")
 
         # Keep only condition-negative rows (no outbreak)
@@ -138,7 +139,7 @@ class SpecificityMetric(Metric):
 
         # Merge forecasts with thresholds
         fc = forecasts.copy()
-        fc["month"] = fc["time_period"].apply(lambda tp: pd.to_datetime(tp).month)
+        fc["month"] = fc["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
         fc = fc.merge(thresholds, on=["location", "month"], how="left")
 
         # Compute alert per (location, time_period, horizon_distance)
@@ -180,7 +181,7 @@ class OutbreakAccuracyMetric(Metric):
             return empty
 
         obs = observations[["location", "time_period", "disease_cases"]].copy()
-        obs["month"] = obs["time_period"].apply(lambda tp: pd.to_datetime(tp).month)
+        obs["month"] = obs["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
         obs = obs.merge(thresholds, on=["location", "month"], how="left")
         obs = obs.dropna(subset=["threshold"])
         if obs.empty:
@@ -190,7 +191,7 @@ class OutbreakAccuracyMetric(Metric):
 
         # Merge forecasts with thresholds
         fc = forecasts.copy()
-        fc["month"] = fc["time_period"].apply(lambda tp: pd.to_datetime(tp).month)
+        fc["month"] = fc["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
         fc = fc.merge(thresholds, on=["location", "month"], how="left")
 
         # Compute alert per (location, time_period, horizon_distance)

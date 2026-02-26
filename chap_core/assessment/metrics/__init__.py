@@ -94,7 +94,7 @@ _discover_metrics()
 
 # Import metric classes for backwards compatibility in exports
 from chap_core.assessment.metrics.above_truth import RatioAboveTruthMetric
-from chap_core.assessment.metrics.crps import CRPSMetric
+from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
 from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
 from chap_core.assessment.metrics.example_metric import ExampleMetric
 from chap_core.assessment.metrics.mae import MAEMetric
@@ -113,8 +113,11 @@ from chap_core.assessment.metrics.percentile_coverage import (
 from chap_core.assessment.metrics.rmse import RMSEMetric
 from chap_core.assessment.metrics.test_metrics import SampleCountMetric
 from chap_core.assessment.metrics.winkler_score import (
+    WinklerScore10_90Log1pMetric,
     WinklerScore10_90Metric,
+    WinklerScore25_75Log1pMetric,
     WinklerScore25_75Metric,
+    WinklerScoreLog1pMetric,
     WinklerScoreMetric,
 )
 
@@ -124,6 +127,7 @@ available_metrics: dict[str, type[Metric]] = _metrics_registry
 __all__ = [
     "DEFAULT_OUTPUT_DIMENSIONS",
     "AggregationOp",
+    "CRPSLog1pMetric",
     "CRPSMetric",
     "CRPSNormMetric",
     "Coverage10_90Metric",
@@ -144,8 +148,11 @@ __all__ = [
     "SampleCountMetric",
     "SensitivityMetric",
     "SpecificityMetric",
+    "WinklerScore10_90Log1pMetric",
     "WinklerScore10_90Metric",
+    "WinklerScore25_75Log1pMetric",
     "WinklerScore25_75Metric",
+    "WinklerScoreLog1pMetric",
     "WinklerScoreMetric",
     "available_metrics",
     "compute_seasonal_thresholds",
