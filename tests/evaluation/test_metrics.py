@@ -12,6 +12,8 @@ from chap_core.assessment.metrics import (
     Coverage25_75Metric,
     SampleCountMetric,
     ExampleMetric,
+    WinklerScore10_90Metric,
+    WinklerScore25_75Metric,
     DataDimension,
     compute_all_aggregated_metrics_from_backtest,
 )
@@ -37,6 +39,8 @@ ALL_METRIC_FACTORIES = [
     Coverage25_75Metric,
     SampleCountMetric,
     ExampleMetric,
+    WinklerScore10_90Metric,
+    WinklerScore25_75Metric,
 ]
 
 
@@ -513,6 +517,45 @@ def test_peak_value_diff_metric_monthly(flat_observations_monthly, flat_forecast
     expected_sorted = expected.sort_values(["location", "horizon_distance"]).reset_index(drop=True)
 
     pd.testing.assert_frame_equal(result_sorted, expected_sorted)
+
+
+def test_winkler_score_observation_inside_interval():
+    """Test Winkler score when observation is inside the prediction interval."""
+    samples = np.array([0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0])
+    observed = 50.0
+
+    metric = WinklerScore25_75Metric()
+    score = metric.compute_sample_metric(samples, observed)
+
+    # 25th percentile = 25, 75th percentile = 75, interval width = 50
+    # observation inside interval -> score = width = 50
+    assert score == 50.0
+
+
+def test_winkler_score_observation_below_interval():
+    """Test Winkler score when observation falls below the prediction interval."""
+    samples = np.array([0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0])
+    observed = 10.0
+
+    metric = WinklerScore25_75Metric()
+    score = metric.compute_sample_metric(samples, observed)
+
+    # 25th percentile = 25, 75th percentile = 75, alpha = 0.5
+    # score = 50 + (2/0.5) * (25 - 10) = 50 + 4 * 15 = 110
+    assert score == 110.0
+
+
+def test_winkler_score_observation_above_interval():
+    """Test Winkler score when observation falls above the prediction interval."""
+    samples = np.array([0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0])
+    observed = 90.0
+
+    metric = WinklerScore25_75Metric()
+    score = metric.compute_sample_metric(samples, observed)
+
+    # 25th percentile = 25, 75th percentile = 75, alpha = 0.5
+    # score = 50 + (2/0.5) * (90 - 75) = 50 + 4 * 15 = 110
+    assert score == 110.0
 
 
 def test_peak_period_lag_metric_monthly(flat_observations_monthly, flat_forecasts_monthly):

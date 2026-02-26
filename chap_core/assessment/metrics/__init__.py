@@ -81,6 +81,7 @@ def _discover_metrics():
         percentile_coverage,
         rmse,
         test_metrics,
+        winkler_score,
     )
 
 
@@ -101,6 +102,11 @@ from chap_core.assessment.metrics.percentile_coverage import (
 )
 from chap_core.assessment.metrics.rmse import RMSEMetric
 from chap_core.assessment.metrics.test_metrics import SampleCountMetric
+from chap_core.assessment.metrics.winkler_score import (
+    WinklerScore10_90Metric,
+    WinklerScore25_75Metric,
+    WinklerScoreMetric,
+)
 
 # Backward compatibility alias
 available_metrics: dict[str, type[Metric]] = _metrics_registry
@@ -127,6 +133,9 @@ __all__ = [
     "RMSEMetric",
     "RatioAboveTruthMetric",
     "SampleCountMetric",
+    "WinklerScore10_90Metric",
+    "WinklerScore25_75Metric",
+    "WinklerScoreMetric",
     "available_metrics",
     "get_metric",
     "get_metrics_registry",
