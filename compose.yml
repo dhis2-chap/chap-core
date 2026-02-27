@@ -7,7 +7,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      CELERY_BROKER: redis://redis:6379/0
+      CELERY_BROKER: redis://redis:6379
       CHAP_LOGS_DIR: /data/logs
       CHAP_RUNS_DIR: /data/runs
     # for now some of the tests uses hardcoded names so we need to set the container name
@@ -29,6 +29,12 @@ services:
         target: /data/logs
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       redis:
         condition: service_started
@@ -36,11 +42,15 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+      migration:
+        condition: service_completed_successfully
 
   worker:
     depends_on:
       postgres:
         condition: service_healthy
+      migration:
+        condition: service_completed_successfully
     # NOTE: Built from Dockerfile.worker which extends the INLA worker image with chap-core
     build:
       context: .
@@ -88,6 +98,27 @@ services:
         target: /data/pytensor
   redis:
     image: valkey/valkey:8
+
+  migration:
+    build: .
+    environment:
+      CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MPLCONFIGDIR: /app/.matplotlib
+    command: alembic upgrade head
+    depends_on:
+      postgres:
+        condition: service_healthy
+    user: chap:chap
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - type: tmpfs
+        target: /app/.matplotlib
+        tmpfs:
+          size: 10000000  # 10MB for matplotlib cache
 
   postgres:
     image: postgres:17
