@@ -232,7 +232,9 @@ class StandardizedFeaturePlot(DatasetPlot):
 
         # Filter data based on selected features if specified
         # Convert time_period to proper datetime format
-        data["date"] = pd.to_datetime(data["time_period"] + "-01")
+        from chap_core.time_period import TimePeriod
+
+        data["date"] = pd.to_datetime(data["time_period"].apply(lambda tp: TimePeriod.parse(tp).start_timestamp.date))
 
         checkbox_selection = alt.selection_point(fields=["feature"], toggle="true")
 

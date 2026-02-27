@@ -48,12 +48,12 @@ def text_chart(text, line_length=80, font_size=12, align="left", pad_bottom=50):
 
 
 def clean_time(period):
-    """Convert period to ISO date format for Altair/vegafusion compatibility."""
-    if len(period) == 6:
-        # YYYYMM format -> YYYY-MM-01 (add day for full date)
-        return f"{period[:4]}-{period[4:]}-01"
-    elif len(period) == 7 and period[4] == "-":
-        # YYYY-MM format -> YYYY-MM-01 (add day for full date)
-        return f"{period}-01"
-    else:
-        return period
+    """Convert period to ISO date format for Altair/vegafusion compatibility.
+
+    Accepts all formats supported by TimePeriod.parse(), including compact
+    formats like '202212' and '2022W13'.
+    """
+    from chap_core.time_period import TimePeriod
+
+    parsed = TimePeriod.parse(period)
+    return parsed.start_timestamp.date.strftime("%Y-%m-%d")
