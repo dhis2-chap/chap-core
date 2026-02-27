@@ -58,7 +58,8 @@ if database_url is not None:
     else:
         raise ValueError("Failed to connect to database")
 else:
-    logger.warning("Database url not set. Database operations will not work")
+    # info, not warning: CLI commands import this module transitively but don't need a database
+    logger.info("Database url not set. Database operations will not work")
 
 
 class SessionWrapper:

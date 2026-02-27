@@ -225,15 +225,6 @@ ignore_missing_imports = true
 module = "npstructures.*"
 ignore_missing_imports = true
 
-# Missing internal modules (likely dead code to be cleaned up)
-[[tool.mypy.overrides]]
-module = "chap_core._legacy_dataset"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "chap_core.rest_api_src.*"
-ignore_missing_imports = true
-
 [tool.pyright]
 pythonVersion = "3.13"
 include = ["chap_core/", "tests/"]

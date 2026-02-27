@@ -11,7 +11,7 @@ from ..data_models import JobResponse
 from .jobs import worker
 from .routers.dependencies import get_database_url, get_settings
 
-router = APIRouter(prefix="/debug", tags=["debug"])
+router = APIRouter(prefix="/debug", tags=["Debug"])
 logger = logging.getLogger(__name__)
 cur_job = None
 celery_pool: CeleryPool[Any] = CeleryPool()

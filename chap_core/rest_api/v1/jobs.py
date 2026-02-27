@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 logger.info("Logging initialized")
 
 
-router = APIRouter(prefix="/jobs", tags=["jobs"])
+router = APIRouter(prefix="/jobs", tags=["Jobs"])
 worker: CeleryPool[Any] = CeleryPool()
 
 

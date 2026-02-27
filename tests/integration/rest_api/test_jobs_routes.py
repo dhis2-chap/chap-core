@@ -5,7 +5,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.app import app
 from chap_core.util import redis_available
 
 logger = logging.getLogger(__name__)

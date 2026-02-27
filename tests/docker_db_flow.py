@@ -90,8 +90,6 @@ class IntegrationTest:
         except:
             logger.error("Failed to connect to %s" % chap_url)
             logger.error("Failed to get %s" % url)
-            exception_info = requests.get(chap_url + "/v1/get-exception").json()
-            logger.error(exception_info)
             raise
         assert response.status_code == 200, (response.status_code, response.text)
         return response.json()

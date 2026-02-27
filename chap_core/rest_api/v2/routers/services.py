@@ -10,7 +10,7 @@ from chap_core.rest_api.services.schemas import (
 )
 from chap_core.rest_api.v2.dependencies import get_orchestrator, verify_service_key
 
-router = APIRouter(prefix="/services", tags=["services"])
+router = APIRouter(prefix="/services", tags=["Services"])
 
 
 @router.post("/$register", response_model=RegistrationResponse)

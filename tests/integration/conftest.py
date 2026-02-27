@@ -3,7 +3,7 @@ from sqlmodel import Session
 
 from chap_core.database.dataset_tables import DataSource
 from chap_core.rest_api.data_models import DatasetMakeRequest
-from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.analytics import MakeBacktestWithDataRequest, data_sources
 from chap_core.rest_api.v1.routers.dependencies import get_database_url, get_session, get_settings
 from chap_core.rest_api.worker_functions import WorkerConfig

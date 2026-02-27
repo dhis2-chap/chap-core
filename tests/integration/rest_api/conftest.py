@@ -10,9 +10,12 @@ from sqlmodel import select, Session
 from chap_core.api_types import FeatureCollectionModel, FeatureModel
 from chap_core.database.dataset_tables import DataSet, Observation, DataSource
 from chap_core.database.tables import Prediction, BackTest, BackTestForecast, BackTestMetric, PredictionSamplesEntry
-from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.app import app
+from chap_core.rest_api.v1.debug import router as debug_router
 from chap_core.rest_api.v1.routers.analytics import BackTestParams
 from chap_core.rest_api.v1.routers.dependencies import get_session
+
+app.include_router(debug_router, prefix="/v1")
 
 
 @pytest.fixture

@@ -111,9 +111,9 @@ class TrackedTask(Task):
 
         try:
             # Mark as started when the task is actually executing
-            r.hmset(
+            r.hset(
                 f"job_meta:{task_id}",
-                {
+                mapping={
                     "status": "STARTED",
                     # "start_time": datetime.now().isoformat(), # update the start time
                 },
@@ -136,9 +136,14 @@ class TrackedTask(Task):
         job_type = kwargs.pop(JOB_TYPE_KW, None) or "Unspecified"
         result = super().apply_async(args=args, kwargs=kwargs, **options)
 
-        r.hmset(
+        r.hset(
             f"job_meta:{result.id}",
-            {"job_name": job_name, "job_type": job_type, "status": "PENDING", "start_time": datetime.now().isoformat()},
+            mapping={
+                "job_name": job_name,
+                "job_type": job_type,
+                "status": "PENDING",
+                "start_time": datetime.now().isoformat(),
+            },
         )
 
         return result
@@ -152,9 +157,9 @@ class TrackedTask(Task):
         except TypeError:
             logger.error("RETVAL: Could not serialize return value to JSON")
             logger.error(str(retval))
-            r.hmset(
+            r.hset(
                 f"job_meta:{task_id}",
-                {
+                mapping={
                     "status": "FAILURE",
                     # "duration": duration,
                     "error": "Could not serialize return value to JSON",
@@ -163,9 +168,9 @@ class TrackedTask(Task):
             )
             raise Exception("Could not serialize return value to JSON. Return value is:" + str(retval)) from None
 
-        r.hmset(
+        r.hset(
             f"job_meta:{task_id}",
-            {
+            mapping={
                 "status": "SUCCESS",
                 # "duration": duration,
                 "result": retval,
@@ -178,9 +183,9 @@ class TrackedTask(Task):
         # start = float(r.hget(f"job_meta:{task_id}", "start_time") or time.time())
         # duration = time.time() - start
 
-        r.hmset(
+        r.hset(
             f"job_meta:{task_id}",
-            {
+            mapping={
                 "status": "FAILURE",
                 # "duration": duration,
                 "error": str(exc),
@@ -254,9 +259,9 @@ class CeleryJob[ReturnType]:
         self._result.revoke(terminate=True)
 
         # Update Redis metadata to reflect the cancellation
-        r.hmset(
+        r.hset(
             f"job_meta:{self._job.id}",
-            {
+            mapping={
                 "status": "REVOKED",
                 "end_time": datetime.now().isoformat(),
             },

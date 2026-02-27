@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from chap_core.database.model_templates_and_config_tables import ModelTemplateDB
 from chap_core.models.approved_templates import ApprovedTemplate, clear_cache
-from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.app import app
 
 logger = logging.getLogger(__name__)
 client = TestClient(app)

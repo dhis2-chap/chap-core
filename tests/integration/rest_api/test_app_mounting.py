@@ -4,7 +4,9 @@ from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
 from chap_core.rest_api.services.orchestrator import Orchestrator
+from chap_core.rest_api.v1.routers.dependencies import get_settings
 from chap_core.rest_api.v2.dependencies import SERVICE_KEY_ENV_VAR, get_orchestrator
+from chap_core.rest_api.worker_functions import WorkerConfig
 
 TEST_SERVICE_KEY = "test-service-key"
 
@@ -21,32 +23,39 @@ def test_orchestrator(fake_redis):
 
 @pytest.fixture
 def client(test_orchestrator, monkeypatch):
-    from chap_core.rest_api.v2.rest_api import app as v2_app
-
     monkeypatch.setenv(SERVICE_KEY_ENV_VAR, TEST_SERVICE_KEY)
 
-    def override_get_orchestrator():
-        return test_orchestrator
-
-    v2_app.dependency_overrides[get_orchestrator] = override_get_orchestrator
+    app.dependency_overrides[get_orchestrator] = lambda: test_orchestrator
+    app.dependency_overrides[get_settings] = lambda: WorkerConfig()
     yield TestClient(app, raise_server_exceptions=False)
-    v2_app.dependency_overrides.clear()
+    app.dependency_overrides.clear()
 
 
-class TestParentApp:
+class TestCommonEndpoints:
     def test_root_health_endpoint(self, client):
         response = client.get("/health")
 
         assert response.status_code == 200
-        assert response.json() == {"status": "healthy"}
+        assert response.json() == {"status": "success", "message": "healthy"}
 
-    def test_v1_health_endpoint(self, client):
-        response = client.get("/v1/health")
+    def test_root_is_compatible_endpoint(self, client):
+        response = client.get("/is-compatible?modelling_app_version=999.0.0")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "success"
+        assert data["compatible"] is True
 
+    def test_root_system_info_endpoint(self, client):
+        response = client.get("/system-info")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "chap_core_version" in data
+        assert "python_version" in data
+        assert "os" in data
+
+
+class TestV2Mounting:
     def test_v2_services_endpoint(self, client):
         response = client.get("/v2/services")
 
@@ -75,30 +84,46 @@ class TestParentApp:
         assert response.status_code == 200
         assert response.json()["status"] == "registered"
 
-    def test_docs_redirects_to_v1(self, client):
-        response = client.get("/docs", follow_redirects=False)
 
-        assert response.status_code == 307
-        assert response.headers["location"] == "/v1/docs"
+class TestOpenAPITags:
+    def test_openapi_tags_present_and_ordered(self, client):
+        response = client.get("/openapi.json")
+        assert response.status_code == 200
+        schema = response.json()
+        tag_names = [tag["name"] for tag in schema["tags"]]
+        expected = [
+            "System",
+            "Backtests",
+            "Predictions",
+            "Datasets",
+            "Models",
+            "Visualizations",
+            "Jobs",
+            "Debug",
+            "Services",
+        ]
+        assert tag_names == expected
 
-    def test_redoc_redirects_to_v1(self, client):
-        response = client.get("/redoc", follow_redirects=False)
+    def test_no_untagged_endpoints(self, client):
+        response = client.get("/openapi.json")
+        schema = response.json()
+        defined_tags = {tag["name"] for tag in schema["tags"]}
+        for path, methods in schema["paths"].items():
+            for method, details in methods.items():
+                if method in ("get", "post", "put", "patch", "delete"):
+                    endpoint_tags = details.get("tags", [])
+                    assert endpoint_tags, f"{method.upper()} {path} has no tags"
+                    for tag in endpoint_tags:
+                        assert tag in defined_tags, f"{method.upper()} {path} uses undefined tag '{tag}'"
 
-        assert response.status_code == 307
-        assert response.headers["location"] == "/v1/redoc"
 
-    def test_openapi_json_redirects_to_v1(self, client):
-        response = client.get("/openapi.json", follow_redirects=False)
-
-        assert response.status_code == 307
-        assert response.headers["location"] == "/v1/openapi.json"
-
-    def test_v1_docs_accessible(self, client):
-        response = client.get("/v1/docs")
+class TestDocs:
+    def test_docs_accessible(self, client):
+        response = client.get("/docs")
 
         assert response.status_code == 200
 
-    def test_v2_docs_accessible(self, client):
-        response = client.get("/v2/docs")
+    def test_redoc_accessible(self, client):
+        response = client.get("/redoc")
 
         assert response.status_code == 200

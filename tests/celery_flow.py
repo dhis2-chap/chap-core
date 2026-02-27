@@ -24,13 +24,8 @@ def main():
     try:
         response = requests.get(add_url)
     except:
-        print("Failed to connect to %s" % chap_url)
-        logger.error("Failed when fetching models")
-        print("----------------Exception info----------------")
-        exception_info = requests.get(chap_url + "/v1/get-exception").json()
-        print(exception_info)
-        logger.error(exception_info)
         logger.error("Failed to connect to %s" % chap_url)
+        logger.error("Failed when fetching models")
         raise
 
     for i in range(5):
@@ -46,7 +41,7 @@ def main():
 def ensure_up(chap_url):
     for _ in range(5):
         try:
-            requests.get(chap_url + "/v1/status")
+            requests.get(chap_url + "/v1/health")
             break
         except requests.exceptions.ConnectionError:
             time.sleep(5)
