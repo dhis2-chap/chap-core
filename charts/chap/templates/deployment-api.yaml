@@ -69,6 +69,16 @@ spec:
                 configMapKeyRef:
                   name: {{ include "chap.fullname" . }}
                   key: REDIS_PORT
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.valkeyConnection.existingSecret }}
+                  name: {{ .Values.valkeyConnection.existingSecret }}
+                  key: {{ .Values.valkeyConnection.secretKeys.password }}
+                  {{- else }}
+                  name: {{ include "chap.fullname" . }}
+                  key: REDIS_PASSWORD
+                  {{- end }}
             - name: CHAP_DATABASE_URL
               value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
             - name: CELERY_BROKER
@@ -115,16 +125,6 @@ spec:
                 configMapKeyRef:
                   name: {{ include "chap.fullname" . }}
                   key: POSTGRES_DB
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  {{- if .Values.valkeyConnection.existingSecret }}
-                  name: {{ .Values.valkeyConnection.existingSecret }}
-                  key: {{ .Values.valkeyConnection.secretKeys.password }}
-                  {{- else }}
-                  name: {{ include "chap.fullname" . }}
-                  key: REDIS_PASSWORD
-                  {{- end }}
             - name: GOOGLE_SERVICE_ACCOUNT_EMAIL
               valueFrom:
                 secretKeyRef:
