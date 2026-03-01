@@ -1,0 +1,19 @@
+{{- if .Values.postgresql.managed.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "chap.fullname" . }}-postgres
+  labels:
+    {{- include "chap.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.postgresql.managed.instances }}
+  imageName: "ghcr.io/cloudnative-pg/postgresql:{{ .Values.postgresql.managed.version }}"
+  storage:
+    size: {{ .Values.postgresql.managed.storageSize }}
+  monitoring:
+    enablePodMonitor: {{ .Values.postgresql.managed.monitoring }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgresql.managed.database }}
+      owner: app
+{{- end }}
