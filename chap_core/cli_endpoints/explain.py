@@ -27,8 +27,9 @@ def explain(
     location: str,
     horizon: int,
     granularity: int = 6,
+    num_perturbations: int = 300,
     surrogate_name: str = "ridge",
-    threshold: Optional[int] = None,
+    segmenter_name: str = "uniform",
     model_configuration_yaml: Optional[Path] = None,
     run_config: RunConfig = RunConfig(),
 ):
@@ -46,9 +47,6 @@ def explain(
         horizon: Int of number of time steps in the future of which to explain prediction
         granularity: Int of number of segments to divide historical data into
         surrogate_name: String of the short name of which surrogate model to use
-        threshold: Optional number of disease cases above which a prediction is
-                counted as a positive class instance. If not supplied, will use
-                average predicted disease cases instead.
         model_configuration_yaml: Optional YAML file with model configuration
         run_config: Model run environment configuration
     """
@@ -87,19 +85,18 @@ def explain(
         logger.info(
             f"Generating explanation for {location}, {horizon} time steps into the future."
         )
-        evaluation = lime.explain(
+        evaluation = lime.explain(  # TODO: Order args
             model=estimator,
             dataset=dataset,
             location=location,
             horizon=horizon,
+            num_perturbations=num_perturbations,
             surrogate_name=surrogate_name,
-            granularity=granularity,  # TODO: Fix
-            threshold=threshold
+            segmenter_name=segmenter_name,
+            granularity=granularity,
         )
 
         # TODO: Plot results and save as csv or figure o.s.
-        # Example run:
-        # chap explain --model_name https://github.com/chap-models/chap_auto_ewars --dataset_csv example_data/v0/historic_data.csv --location Acre --horizon 3
 
 def register_commands(app):
     """Register evaluate commands with the CLI app."""

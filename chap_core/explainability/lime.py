@@ -26,29 +26,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def prob_thresh(
-    data: DataSet, 
-    threshold: float
-) -> Dict:
-    """
-    Convert range of simulated runs into probability of seeing a higher result than threshold
-    
-    Args:
-        data (DataSet): A dataset of range of sampled predictions
-        threshold (float): The threshold of which to calculate the probability of exceeding
-
-    Returns:
-        Dictionary of probability over time
-    """
-    dataframe = data.to_pandas()
-    # Only keep the sample columns
-    sample_cols = dataframe.filter(regex=r"^sample_\d+$").columns
-    thresh_prob_mask = dataframe[sample_cols] > threshold
-    # Probability of exceeding threshold estimated as mean of exceeding mask
-    thresh_prob = thresh_prob_mask.mean(axis=1)
-    tp_len = len(dataframe["time_period"]); prb_len = len(thresh_prob)
-    assert tp_len == prb_len, f"Error: Length of time period {tp_len} is not equal to length of probabilities {prb_len}"
-    return dict(zip(dataframe["time_period"], thresh_prob))
 
 def avg_samples(
     data: DataSet, 
@@ -412,7 +389,6 @@ def produce_lime_dataset(
     horizon: int,
     location: str,
     feat_indices: Dict[str, List],
-    threshold: Optional[float] = None,
     hist_type: Type = None,
     fut_type: Type = None,
     chunk_size: int = 10,
@@ -430,7 +406,6 @@ def produce_lime_dataset(
         features_fut (List[str]): The feature names of the future dataset
         horizon (int): The number of time steps into the future for which we want detailed explanations
         location (str): Geographical location of the data
-        threshold (Optional float): The threshold of disease cases above which counted as positive class (Default None)
         hist_type (type): Dataclass of historical data (Default None)
         fut_type (type): Dataclass of future data (Default None)
         chunk_size (int): Size of prediction chunks
@@ -476,10 +451,7 @@ def produce_lime_dataset(
             loc_name = next(iter(ds.locations()))
             if loc_name in pert_map:
                 pb_vec = pert_map[loc_name]
-                if threshold is not None:  # TODO: Should probably be a class eventually
-                    vals = prob_thresh(ds, threshold=threshold)
-                else:
-                    vals = avg_samples(ds)
+                vals = avg_samples(ds)
                 # Extract most recent "prob" as horizon value
                 latest = max(vals.keys())
                 latest_prob = vals[latest]
@@ -522,7 +494,7 @@ def lime_weights_from_X(
 
 
 
-def instantiate_model(name: str):
+def disambiguate_surrogate(name: str):
     match name.lower():
         case "ridge":
             return RidgeSurrogate()
@@ -532,6 +504,36 @@ def instantiate_model(name: str):
             raise ValueError(f"Unknown surrogate model: {name}")
 
 
+def disambiguate_segmenter(name: str, granularity: int, window_size: int | None = None): # TODO: Could maybe add a config
+    match name.lower():
+        case "uniform":
+            return UniformSegmentation(num_segments=granularity)
+        case "exponential":
+            return ExponentialSegmentation(num_segments=granularity)
+        case "reverse_exponential" | "reverse exponential":
+            return ReverseExponentialSegmentation(num_segments=granularity)
+        case "matrix_slope" | "matrix slope":
+            if window_size is None:
+                raise ValueError("Selected segmenter needs a window_size, which is currently set to None")
+            return MatrixProfileSlopeSegmentation(num_segments=granularity, window_size=window_size)
+        case "matrix_diff" | "matrix diff": # TODO: Should probably synchronize names
+            if window_size is None:
+                raise ValueError("Selected segmenter needs a window_size, which is currently set to None")
+            return MatrixProfileSortedSlopeSegmentation(num_segments=granularity, window_size=window_size)
+        case "matrix_bins" | "matrix bins":
+            if window_size is None:
+                raise ValueError("Selected segmenter needs a window_size, which is currently set to None")
+            return MatrixProfileBinSegmentation(num_segments=granularity, window_size=window_size, num_bins=3, mode="min") # TODO: Hardcoded?
+        case "sax":
+            return SaxTransformSegmentation(num_segments=granularity)
+        case "nn":
+            if window_size is None:
+                raise ValueError("Selected segmenter needs a window_size, which is currently set to None")
+            return NNSegmentation(num_segments=granularity, window_size=window_size)
+        case _:
+            raise ValueError(f"Unknown segmenter: {name}")
+
+
 
 def explain(
     model: ExternalModel,
@@ -539,9 +541,9 @@ def explain(
     location: str,
     horizon: int,
     granularity: int = 10,
-    num_perturbations: int = 20,  # TODO: Include in endpoint
+    num_perturbations: int = 300,
     surrogate_name: str = "ridge",
-    threshold: Optional[float] = None
+    segmenter_name: str = "uniform",
 ):
     """
     Model-agnostic function to supply variable contribution weighting for specific prediction
@@ -552,9 +554,10 @@ def explain(
         location (str): The location on which to explain
         horizon (int): The number of time steps into the future on which to explain
         granularity (int): Number of segments to divide the time series data into for importance weighting (default: TODO)
-        num_perturbations (int): Number of generated perturbed variations of input vector (default 200)
+        num_perturbations (int): Number of generated perturbed variations of input vector (default 300)
         surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "tree"] (default ridge)
-        threshold (Optional float): The threshold above which to count as positive observation (default None)
+        surrogate_name (str): The model used as explainable surrogate - one of ["uniform", "exponential", "matrix_slope",
+                              "matrix_diff", "matrix_bins", "sax", "nn"] (default uniform)
     """
     # Initial input safety checks
     assert horizon > 0, f"Horizon must be positive; received horizon={horizon}"
@@ -595,7 +598,8 @@ def explain(
         if fn not in _non_feature_names
     ]
 
-    segmenter = NNSegmentation(num_segments=granularity, window_size=20) # TODO: Route to selected, granularity is num_segments
+    window_size = max(min(5, len(hist_df)//30), len(hist_df))  # TODO: Heuristic for now
+    segmenter = disambiguate_segmenter(segmenter_name, granularity, window_size)
 
     # Build original vector around which to generate perturbed vectors
     x0, feat_indices = build_original_vector(  # TODO: Return number of variables to scale mutation_rate accordingly
@@ -613,7 +617,6 @@ def explain(
     # TODO: When, where and how to decide number of perturbations and mr?
     perturbations, perturbation_masks = perturb_vector(full_dataset_df, x0, num_perturbations=num_perturbations, mutation_rate=0.05)
     
-    # Threshold picked arbitrarily in example
     X, y, feature_names = produce_lime_dataset(
         model, 
         hist_df,
@@ -625,7 +628,6 @@ def explain(
         horizon,
         location,
         feat_indices,
-        threshold,
         hist_type,
         fut_type
     )
@@ -634,15 +636,9 @@ def explain(
 
     kw = 0.75 * np.sqrt(X.shape[1])  # This can be automatically inferred per paper "initial step towards stable" et.c.; magic number for now
     weights = lime_weights_from_X(X, x0_row, kernel_width=kw)
+    z = np.log1p(y) # Log transform
 
-    if threshold is not None:  # Transform z based on target type
-        eps = 1e-4
-        y_clip = np.clip(y, eps, 1-eps)
-        z = logit(y_clip)
-    else:
-        z = np.log1p(y) # Log transform
-
-    surrogate_model = instantiate_model(surrogate_name)
+    surrogate_model = disambiguate_surrogate(surrogate_name)
     surrogate_model.fit(X, z, weights)
     results = surrogate_model.explain(feature_names)
 
@@ -671,7 +667,6 @@ if __name__ == "__main__":
     horizon = 3
     historical_context_steps = 6
     surrogate_name = "ridge"
-    threshold = None
 
     # Load dataset (without geojson handling)
     dataset = load_dataset_from_csv(dataset_csv, geojson_path=None)
@@ -688,5 +683,4 @@ if __name__ == "__main__":
         horizon=horizon,
         granularity=historical_context_steps,
         surrogate_name=surrogate_name,
-        threshold=threshold,
     )

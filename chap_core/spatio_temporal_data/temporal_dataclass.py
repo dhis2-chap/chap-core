@@ -4,7 +4,7 @@ import pickle
 from collections.abc import Callable, Iterable
 from numbers import Number
 from pathlib import Path, PurePath
-from typing import IO, Protocol, TypeVar
+from typing import IO, Protocol, TypeVar, Iterator
 
 import numpy as np
 import pandas as pd
