@@ -24,7 +24,7 @@ The explain module is available through the command line interface (CLI). By cal
 Example of a run:
 
 ```bash
-chap explain --model_name https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6 --dataset_csv example_data/nicaragua_weekly_data.csv --location boaco --horizon 3
+chap explain --model_name https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6 --dataset_csv example_data/nicaragua_weekly_data.csv --location boaco --horizon 3 --granularity 6
 ```
 Example output:
 

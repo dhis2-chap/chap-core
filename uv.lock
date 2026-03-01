@@ -359,11 +359,14 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "python-multipart" },
+    { name = "pyts" },
     { name = "pyyaml" },
+    { name = "rbeast" },
     { name = "requests" },
     { name = "rq" },
     { name = "scikit-learn" },
     { name = "sqlmodel" },
+    { name = "stumpy" },
     { name = "topojson" },
     { name = "unidecode" },
     { name = "uvicorn" },
@@ -442,11 +445,14 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
+    { name = "pyts", specifier = ">=0.13.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "rbeast", specifier = ">=0.1.23" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "rq", specifier = ">=2.6.0" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "sqlmodel", specifier = ">=0.0.25" },
+    { name = "stumpy", specifier = ">=1.14.1" },
     { name = "topojson", specifier = ">=1.10" },
     { name = "unidecode", specifier = ">=1.4.0" },
     { name = "uvicorn", specifier = ">=0.37.0" },
@@ -1438,6 +1444,18 @@ wheels = [
 ]
 
 [[package]]
+name = "llvmlite"
+version = "0.46.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/74/cd/08ae687ba099c7e3d21fe2ea536500563ef1943c5105bf6ab4ee3829f68e/llvmlite-0.46.0.tar.gz", hash = "sha256:227c9fd6d09dce2783c18b754b7cd9d9b3b3515210c46acc2d3c5badd9870ceb", size = 193456, upload-time = "2025-12-08T18:15:36.295Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e6/ff/3eba7eb0aed4b6fca37125387cd417e8c458e750621fce56d2c541f67fa8/llvmlite-0.46.0-cp313-cp313-macosx_12_0_arm64.whl", hash = "sha256:30b60892d034bc560e0ec6654737aaa74e5ca327bd8114d82136aa071d611172", size = 37232767, upload-time = "2025-12-08T18:15:13.22Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/54/737755c0a91558364b9200702c3c9c15d70ed63f9b98a2c32f1c2aa1f3ba/llvmlite-0.46.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:6cc19b051753368a9c9f31dc041299059ee91aceec81bd57b0e385e5d5bf1a54", size = 56275176, upload-time = "2025-12-08T18:15:16.339Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/91/14f32e1d70905c1c0aa4e6609ab5d705c3183116ca02ac6df2091868413a/llvmlite-0.46.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:bca185892908f9ede48c0acd547fe4dc1bafefb8a4967d47db6cf664f9332d12", size = 55128629, upload-time = "2025-12-08T18:15:19.493Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/a7/d526ae86708cea531935ae777b6dbcabe7db52718e6401e0fb9c5edea80e/llvmlite-0.46.0-cp313-cp313-win_amd64.whl", hash = "sha256:67438fd30e12349ebb054d86a5a1a57fd5e87d264d2451bcfafbbbaa25b82a35", size = 38138941, upload-time = "2025-12-08T18:15:22.536Z" },
+]
+
+[[package]]
 name = "mako"
 version = "1.3.10"
 source = { registry = "https://pypi.org/simple" }
@@ -1796,6 +1814,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f5/72/e2574d0f865879218cbc40a018c4935bb4475c5a8a14b96fd3de21092c5a/npstructures-0.2.19.tar.gz", hash = "sha256:8091ff5f6e3f0bef8f8c847a95d784366762bc4426616c02381a071228b9b7fb", size = 47363, upload-time = "2024-05-31T08:54:06.143Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/6b/fdbd754e75c16c1da91f159170d2b25e9028f21bbc5d2102028b9912cefb/npstructures-0.2.19-py2.py3-none-any.whl", hash = "sha256:0d833606978cfd5b01b5fb3b74bb9896a53a1e1f82d4b5cc09def1920e41fdbd", size = 36360, upload-time = "2024-05-31T08:54:04.317Z" },
+]
+
+[[package]]
+name = "numba"
+version = "0.64.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "llvmlite" },
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/23/c9/a0fb41787d01d621046138da30f6c2100d80857bf34b3390dd68040f27a3/numba-0.64.0.tar.gz", hash = "sha256:95e7300af648baa3308127b1955b52ce6d11889d16e8cfe637b4f85d2fca52b1", size = 2765679, upload-time = "2026-02-18T18:41:20.974Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/52/80/2734de90f9300a6e2503b35ee50d9599926b90cbb7ac54f9e40074cd07f1/numba-0.64.0-cp313-cp313-macosx_12_0_arm64.whl", hash = "sha256:3bab2c872194dcd985f1153b70782ec0fbbe348fffef340264eacd3a76d59fd6", size = 2683392, upload-time = "2026-02-18T18:41:06.563Z" },
+    { url = "https://files.pythonhosted.org/packages/42/e8/14b5853ebefd5b37723ef365c5318a30ce0702d39057eaa8d7d76392859d/numba-0.64.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:703a246c60832cad231d2e73c1182f25bf3cc8b699759ec8fe58a2dbc689a70c", size = 3812245, upload-time = "2026-02-18T18:41:07.963Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/a2/f60dc6c96d19b7185144265a5fbf01c14993d37ff4cd324b09d0212aa7ce/numba-0.64.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7e2e49a7900ee971d32af7609adc0cfe6aa7477c6f6cccdf6d8138538cf7756f", size = 3511328, upload-time = "2026-02-18T18:41:09.504Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/2a/fe7003ea7e7237ee7014f8eaeeb7b0d228a2db22572ca85bab2648cf52cb/numba-0.64.0-cp313-cp313-win_amd64.whl", hash = "sha256:396f43c3f77e78d7ec84cdfc6b04969c78f8f169351b3c4db814b97e7acf4245", size = 2752668, upload-time = "2026-02-18T18:41:11.455Z" },
 ]
 
 [[package]]
@@ -2706,6 +2740,22 @@ wheels = [
 ]
 
 [[package]]
+name = "pyts"
+version = "0.13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "joblib" },
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/97/2e/ecb645d86e0e2d0b5d107b25a7e89e965f7e20befe0dfdcae26eeffe62c8/pyts-0.13.0.tar.gz", hash = "sha256:aca0ecc315f4cc782be363f3b62384a24a02d23a5a7d549b839b2c40a7fbed02", size = 2448631, upload-time = "2023-06-18T12:35:25.648Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b3/e3/da2042a20782b105631abe273ca5fef4390e7bdb6f5377c596891262437b/pyts-0.13.0-py3-none-any.whl", hash = "sha256:b49608267b686ea693dba31316ef2b22ad73ea29b27144696c347809ecd5ad62", size = 2546897, upload-time = "2023-06-18T12:35:23.496Z" },
+]
+
+[[package]]
 name = "pytz"
 version = "2025.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2753,6 +2803,15 @@ sdist = { url = "https://files.pythonhosted.org/packages/eb/2e/79c822141bfd05a85
 wheels = [
     { url = "https://files.pythonhosted.org/packages/04/11/432f32f8097b03e3cd5fe57e88efb685d964e2e5178a48ed61e841f7fdce/pyyaml_env_tag-1.1-py3-none-any.whl", hash = "sha256:17109e1a528561e32f026364712fee1264bc2ea6715120891174ed1b980d2e04", size = 4722, upload-time = "2025-05-13T15:23:59.629Z" },
 ]
+
+[[package]]
+name = "rbeast"
+version = "0.1.23"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/c2/506baf1a935969c00dd147a53e1a7cb15eed17198de21ac030f351a42f77/Rbeast-0.1.23.tar.gz", hash = "sha256:8e0eac99391667a4004d236662dc410760383f341bf19de40698d6e50bf87eaf", size = 710765, upload-time = "2024-09-08T05:30:17.808Z" }
 
 [[package]]
 name = "redis"
@@ -3213,6 +3272,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ef/52/9ba0f43b686e7f3ddfeaa78ac3af750292662284b3661e91ad5494f21dbc/structlog-25.5.0.tar.gz", hash = "sha256:098522a3bebed9153d4570c6d0288abf80a031dfdb2048d59a49e9dc2190fc98", size = 1460830, upload-time = "2025-10-27T08:28:23.028Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/45/a132b9074aa18e799b891b91ad72133c98d8042c70f6240e4c5f9dabee2f/structlog-25.5.0-py3-none-any.whl", hash = "sha256:a8453e9b9e636ec59bd9e79bbd4a72f025981b3ba0f5837aebf48f02f37a7f9f", size = 72510, upload-time = "2025-10-27T08:28:21.535Z" },
+]
+
+[[package]]
+name = "stumpy"
+version = "1.14.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/78/bd8662a45669dfecda152af36f45b00f186cb2b368b3289b9fd556587ef4/stumpy-1.14.1.tar.gz", hash = "sha256:1cb13696724ddab4b512b16843d37ccf4047aee19e072d1ad83024e1fa6fde96", size = 597700, upload-time = "2026-02-08T01:54:10.08Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/db/3d/0701e08335954b5d25ae98e5c2e9f20580587c833de85e486ebdda80cb20/stumpy-1.14.1-py3-none-any.whl", hash = "sha256:1150c95905fdee5f6cb8c77d7136035c2ef4f4aed8d41af73a550a4cf55c7fc5", size = 183983, upload-time = "2026-02-08T01:54:08.255Z" },
 ]
 
 [[package]]

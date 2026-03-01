@@ -11,7 +11,7 @@ from sklearn.metrics import r2_score
 from chap_core.climate_predictor import get_climate_predictor
 from chap_core.data.datasets import ISIMIP_dengue_harmonized
 from chap_core.explainability.surrogate import RidgeSurrogate, TreeSurrogate
-from chap_core.explainability.segment import SegmentationModel, UniformSegmentation, ExponentialSegmentation, ReverseExponentialSegmentation, Indices
+from chap_core.explainability.segment import *
 from chap_core.explainability.plot import plot_importance
 from chap_core.model_spec import _non_feature_names
 from chap_core.models.external_model import ExternalModel
@@ -595,7 +595,7 @@ def explain(
         if fn not in _non_feature_names
     ]
 
-    segmenter = ReverseExponentialSegmentation(num_segments=granularity) # TODO: Route to selected, granularity is num_segments
+    segmenter = NNSegmentation(num_segments=granularity, window_size=20) # TODO: Route to selected, granularity is num_segments
 
     # Build original vector around which to generate perturbed vectors
     x0, feat_indices = build_original_vector(  # TODO: Return number of variables to scale mutation_rate accordingly

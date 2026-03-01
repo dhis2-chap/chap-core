@@ -99,6 +99,7 @@ def plot_importance(
 
 # STILL TODO:
 ## Plot future segments
+## Sort variables alphabetically (or sim.) so axes always appear in same order
 ## Plot static variables
 ## Is plot a good way to present this info anyway?
 ## Could do some counterfactual equidistant spacing?

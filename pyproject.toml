@@ -59,6 +59,9 @@ dependencies = [
     "alembic>=1.14.0",
     "chapkit>=0.16",
     "cryptography>=46.0.3",
+    "stumpy>=1.14.1",
+    "pyts>=0.13.0",
+    "rbeast>=0.1.23",
 ]
 
 [dependency-groups]
