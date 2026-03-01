@@ -95,6 +95,8 @@ def make_dataset(
 
 
 def _read_dataset(request):
+    if not request.provided_data:
+        raise HTTPException(status_code=400, detail="No observation data provided.")
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
