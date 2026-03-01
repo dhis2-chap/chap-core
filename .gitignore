@@ -25,6 +25,8 @@ target/
 # === Documentation ===
 docs/chap_core*.rst
 docs/modules.rst
+docs/generated/*
+!docs/generated/.gitkeep
 site/
 
 # === Environment and Secrets ===
