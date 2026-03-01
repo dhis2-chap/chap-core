@@ -6,6 +6,7 @@ import yaml
 
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.runners.command_line_runner import CommandLineRunner, CommandLineTrainPredictRunner
+from chap_core.runners.conda_runner import CondaRunner, CondaTrainPredictRunner
 from chap_core.runners.docker_runner import DockerRunner, DockerTrainPredictRunner
 from chap_core.runners.mlflow_runner import MlFlowTrainPredictRunner
 from chap_core.runners.renv_runner import RenvRunner, RenvTrainPredictRunner
@@ -36,6 +37,8 @@ def get_train_predict_runner_from_model_template_config(
         runner_type = "uv"
     elif model_template_config.renv_env is not None:
         runner_type = "renv"
+    elif model_template_config.conda_env is not None:
+        runner_type = "conda"
     elif model_template_config.python_env is not None:
         runner_type = "mlflow"
     else:
@@ -50,7 +53,7 @@ def get_train_predict_runner_from_model_template_config(
         config_dict = model_configuration.model_dump() if model_configuration is not None else {}
         yaml.dump(config_dict, file)
 
-    if skip_environment or runner_type in ("docker", "uv", "renv"):
+    if skip_environment or runner_type in ("docker", "uv", "renv", "conda"):
         # read yaml file into a dict
         assert model_template_config.entry_points is not None
         train_command = model_template_config.entry_points.train.command  # data["entry_points"]["train"]["command"]
@@ -81,6 +84,14 @@ def get_train_predict_runner_from_model_template_config(
         elif runner_type == "renv":
             return RenvTrainPredictRunner(
                 RenvRunner(working_dir),
+                train_command,
+                predict_command,
+                model_configuration_filename=yaml_filename,
+            )
+        elif runner_type == "conda":
+            assert model_template_config.conda_env is not None
+            return CondaTrainPredictRunner(
+                CondaRunner(working_dir, model_template_config.conda_env),
                 train_command,
                 predict_command,
                 model_configuration_filename=yaml_filename,

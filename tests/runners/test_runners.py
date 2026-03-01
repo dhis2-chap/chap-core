@@ -6,6 +6,7 @@ from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.runners.docker_runner import DockerRunner
 from chap_core.runners.uv_runner import UvRunner, UvTrainPredictRunner
 from chap_core.runners.renv_runner import RenvRunner, RenvTrainPredictRunner
+from chap_core.runners.conda_runner import CondaRunner, CondaTrainPredictRunner
 from chap_core.runners.helper_functions import get_train_predict_runner_from_model_template_config
 from chap_core.external.model_configuration import (
     ModelTemplateConfigV2,
@@ -179,3 +180,83 @@ def test_runner_selection_with_renv_env(tmp_path):
     )
     runner = get_train_predict_runner_from_model_template_config(config, tmp_path)
     assert isinstance(runner, RenvTrainPredictRunner)
+
+
+def test_conda_runner_prepends_conda_run(tmp_path):
+    """Test that CondaRunner correctly formats commands with conda run"""
+    (tmp_path / "environment.yaml").write_text("name: test\ndependencies:\n  - python")
+
+    with patch("chap_core.runners.conda_runner.run_command") as mock_run_command:
+        mock_run_command.return_value = "test output"
+        runner = CondaRunner(tmp_path, "environment.yaml")
+        runner.run_command("python main.py train data.csv model.pkl")
+
+        assert mock_run_command.call_count == 2
+        # First call creates the environment
+        create_call = mock_run_command.call_args_list[0][0][0]
+        assert "conda env create" in create_call
+        assert "-f environment.yaml" in create_call
+        # Second call runs the command
+        run_call = mock_run_command.call_args_list[1][0][0]
+        assert "conda run" in run_call
+        assert "python main.py train data.csv model.pkl" in run_call
+
+
+def test_conda_runner_updates_existing_env(tmp_path):
+    """Test that CondaRunner uses 'conda env update' when env directory exists"""
+    (tmp_path / "environment.yaml").write_text("name: test\ndependencies:\n  - python")
+    (tmp_path / ".conda_env").mkdir()
+
+    with patch("chap_core.runners.conda_runner.run_command") as mock_run_command:
+        mock_run_command.return_value = "test output"
+        runner = CondaRunner(tmp_path, "environment.yaml")
+        runner.run_command("python main.py train data.csv model.pkl")
+
+        create_call = mock_run_command.call_args_list[0][0][0]
+        assert "conda env update" in create_call
+
+
+def test_conda_runner_only_creates_env_once(tmp_path):
+    """Test that CondaRunner only creates the environment once across multiple commands"""
+    (tmp_path / "environment.yaml").write_text("name: test\ndependencies:\n  - python")
+
+    with patch("chap_core.runners.conda_runner.run_command") as mock_run_command:
+        mock_run_command.return_value = "test output"
+        runner = CondaRunner(tmp_path, "environment.yaml")
+        runner.run_command("python main.py train data.csv model.pkl")
+        runner.run_command("python main.py predict model.pkl h.csv f.csv out.csv")
+
+        # 1 env create + 2 commands = 3 calls
+        assert mock_run_command.call_count == 3
+
+
+def test_conda_runner_fails_without_env_file(tmp_path):
+    """Test that CondaRunner raises error if environment file is missing"""
+    runner = CondaRunner(tmp_path, "environment.yaml")
+    with pytest.raises(FileNotFoundError, match="environment.yaml"):
+        runner.run_command("python main.py train data.csv model.pkl")
+
+
+def test_runner_selection_with_conda_env(tmp_path):
+    """Test that get_train_predict_runner_from_model_template_config returns CondaTrainPredictRunner when conda_env is set"""
+    config = ModelTemplateConfigV2(
+        name="test_conda_model",
+        conda_env="environment.yaml",
+        entry_points=EntryPointConfig(
+            train=CommandConfig(
+                command="python main.py train {train_data} {model}",
+                parameters={"train_data": "str", "model": "str"},
+            ),
+            predict=CommandConfig(
+                command="python main.py predict {model} {historic_data} {future_data} {out_file}",
+                parameters={
+                    "model": "str",
+                    "historic_data": "str",
+                    "future_data": "str",
+                    "out_file": "str",
+                },
+            ),
+        ),
+    )
+    runner = get_train_predict_runner_from_model_template_config(config, tmp_path)
+    assert isinstance(runner, CondaTrainPredictRunner)
