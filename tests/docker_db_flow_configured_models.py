@@ -7,6 +7,12 @@ backtest evaluations for each testable model.
 
 This file should not import chap as a python package and should be possible to
 run without chap pip installed, only with the necessary requirements (requests).
+
+Use --data-file to supply a custom backtest dataset, e.g. a minimal weekly
+dataset for faster iteration on weekly models:
+
+    uv run python tests/docker_db_flow_configured_models.py --model ewars_plus \
+        --data-file example_data/create-backtest-with-data-weekly-debug.json
 """
 
 import requests
@@ -103,16 +109,31 @@ def make_weekly_backtest_data(monthly_data):
     return data
 
 
+def _data_is_already_weekly(data):
+    """Check if the provided data already uses weekly period format (e.g. 2021W01)."""
+    for entry in data.get("providedData", []):
+        if "W" in entry.get("period", ""):
+            return True
+    return False
+
+
+def _has_population_data(data):
+    """Check if population entries already exist in the provided data."""
+    return any(entry["featureName"] == "population" for entry in data.get("providedData", []))
+
+
 def make_backtest_request(model_name, base_data, is_weekly=False):
     """Create a backtest request for a specific model."""
-    if is_weekly:
+    if is_weekly and not _data_is_already_weekly(base_data):
         data = make_weekly_backtest_data(base_data)
     else:
         data = json.loads(json.dumps(base_data))
 
     data["modelId"] = model_name
     data["name"] = f"integration_test: {model_name}"
-    return add_population_data(data)
+    if not _has_population_data(data):
+        data = add_population_data(data)
+    return data
 
 
 class ConfiguredModelsIntegrationTest:
