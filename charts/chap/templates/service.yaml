@@ -12,4 +12,6 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "chap.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "chap.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    component: api
