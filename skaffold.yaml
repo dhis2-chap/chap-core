@@ -20,9 +20,6 @@ deploy:
           googleServiceAccount:
             email: "{{.GOOGLE_SERVICE_ACCOUNT_EMAIL}}"
             privateKey: "{{.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}}"
-          postgresql:
-            managed:
-              database: chap_core
           ingress:
             enabled: false
             hosts:

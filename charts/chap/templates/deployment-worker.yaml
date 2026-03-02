@@ -43,8 +43,6 @@ spec:
           env:
             - name: IS_IN_DOCKER
               value: "1"
-            - name: CHAP_DATABASE_URL
-              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
             - name: REDIS_HOST
               valueFrom:
                 configMapKeyRef:
@@ -119,6 +117,8 @@ spec:
                 configMapKeyRef:
                   name: {{ include "chap.fullname" . }}
                   key: POSTGRES_DB
+            - name: CHAP_DATABASE_URL
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
             - name: GOOGLE_SERVICE_ACCOUNT_EMAIL
               valueFrom:
                 secretKeyRef:

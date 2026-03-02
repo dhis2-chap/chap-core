@@ -79,8 +79,6 @@ spec:
                   name: {{ include "chap.fullname" . }}
                   key: REDIS_PASSWORD
                   {{- end }}
-            - name: CHAP_DATABASE_URL
-              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
             - name: CELERY_BROKER
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
             - name: POSTGRES_USER
@@ -125,6 +123,8 @@ spec:
                 configMapKeyRef:
                   name: {{ include "chap.fullname" . }}
                   key: POSTGRES_DB
+            - name: CHAP_DATABASE_URL
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
             - name: GOOGLE_SERVICE_ACCOUNT_EMAIL
               valueFrom:
                 secretKeyRef:
