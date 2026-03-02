@@ -30,6 +30,7 @@ def explain(
     num_perturbations: int = 300,
     surrogate_name: str = "ridge",
     segmenter_name: str = "uniform",
+    sampler_name: str = "background",
     model_configuration_yaml: Optional[Path] = None,
     run_config: RunConfig = RunConfig(),
 ):
@@ -47,6 +48,8 @@ def explain(
         horizon: Int of number of time steps in the future of which to explain prediction
         granularity: Int of number of segments to divide historical data into
         surrogate_name: String of the short name of which surrogate model to use
+        segmenter_name: String of the short name of which segmentation model to use
+        sampler_name: String of the short name of which sampling strategy to use
         model_configuration_yaml: Optional YAML file with model configuration
         run_config: Model run environment configuration
     """
@@ -93,6 +96,7 @@ def explain(
             num_perturbations=num_perturbations,
             surrogate_name=surrogate_name,
             segmenter_name=segmenter_name,
+            sampler_name=sampler_name,
             granularity=granularity,
         )
 

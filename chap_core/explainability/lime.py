@@ -10,8 +10,9 @@ from sklearn.metrics import r2_score
 
 from chap_core.climate_predictor import get_climate_predictor
 from chap_core.data.datasets import ISIMIP_dengue_harmonized
-from chap_core.explainability.surrogate import RidgeSurrogate, TreeSurrogate
+from chap_core.explainability.surrogate import *
 from chap_core.explainability.segment import *
+from chap_core.explainability.perturb import *
 from chap_core.explainability.plot import plot_importance
 from chap_core.model_spec import _non_feature_names
 from chap_core.models.external_model import ExternalModel
@@ -115,92 +116,48 @@ def build_original_vector(
     return x0, feat_indices
 
 
-def linear_shift(
-    rng: random.Random,
-    feature_name: str,
-    segment: List[float]
-) -> List[float]:
-    """
-    Perturbs lagged features by shifting them linearly (and clipping if illegaly negative)
 
-    Args:
-        rng (random Random): RNG object to preserve seed
-        feature_name (str): The lagged feature of which to sample
-        segment (list(float)): Original segment values
 
-    Return:
-        List of perturbed values
-    """
-    can_be_negative = (feature_name in ["temperature"])  # TODO: Shouldn't be hardcoded    
-    if not segment: return []
-    
-    avg_val = sum(segment) / len(segment)
-    shift = rng.uniform(-avg_val, avg_val)
-
-    new_segment = []
-    for val in segment:
-        new_val = val + shift
-        if not can_be_negative:
-            new_val = max(0.0, new_val)
-        new_segment.append(new_val)
-    return new_segment
-
-def data_sample(
-    rng: random.Random,
-    hist_df: pd.DataFrame,
-    feature_name: str,
-    length: int
-) -> List[float]:
-    """
-    Perturbs lagged features by sampling randomly from existing dataset
-
-    Args:
-        rng (random Random): RNG object to preserve seed
-        hist_df (pandas DataFrame): Dataframe of original historical data
-        feature_name (str): The lagged feature of which to sample
-        length: Length of data to sample
-
-    Return:
-        List of sampled values
-    """
-
-    locations = hist_df["location"].dropna().unique().tolist()
-
-    for _ in range(3): # Retries twice if selected window is too narrow
-        loc = rng.choice(locations)
-        loc_df = hist_df[hist_df["location"] == loc]
-
-        if len(loc_df) < length:
-            continue
-
-        max_start = len(loc_df) - length            
-        start = rng.randrange(0, max_start + 1)
-        vals = loc_df.iloc[start : start + length][feature_name].astype(float).tolist()
-
-        if any(pd.isna(v) for v in vals):
-            continue
-
-        return vals
-    
-    # Fallback
-    return [0.0] * length
-
+def disambiguate_sampler(name: str, rng: random.Random, hist_df: pd.DataFrame | None = None):
+    match name.lower():
+        case "background":
+            if hist_df is None:
+                raise ValueError("Selected sampler needs hist_df, which has been set to None")
+            return RandomBackground(rng=rng, dataset=hist_df)
+        case "linear":
+            return LinearInterpolation(rng=rng)
+        case "constant":
+            return ConstantTransform(rng=rng)
+        case "local_mean" | "local mean":
+            return LocalMean(rng)
+        case "global_mean" | "global mean":
+            return GlobalMean(rng)
+        case "random":
+            if hist_df is None:
+                raise ValueError("Selected sampler needs hist_df, which has been set to None")
+            return RandomUniform(rng=rng, dataset=hist_df)
+        case _:
+            raise ValueError(f"Unknown sampler: {name}")
 
 
 def perturb_vector(
     dataset: pd.DataFrame,
+    hist_df: pd.DataFrame,
     orig_vector: Dict,
+    feat_indices: Dict,
     num_perturbations: int,
     mutation_rate: float,
     seed: int = None,
-    lagged_feature_strategy: str = "dataset_sample"  # TODO: Make enum? Also investigate effectiveness
+    sampler_name: str = "background"
 ) -> Tuple[List[Dict], List[Dict]]:
     """
     Perturb original vector to get local variations
 
     Args:
         dataset (pandas DataFrame): Historical data of model
+        hist_df (pandas DataFrame): Historical data of the specific location
         orig_vector (dict): Dictionary of original features and values
+        feat_indices (dict): Dictionary of segment indices
         num_perturbations (int): Number of perturbed vectors to create
         mutation_rate (float): Probability of changing a particular value
         seed (int): Seed for rng
@@ -233,13 +190,9 @@ def perturb_vector(
                 for lag, segment in val.items():
                     if rng.random() < mutation_rate:
                         lag_mask[lag] = 0
-                        match lagged_feature_strategy:
-                            case "linear_shift":
-                                new_dict[lag] = linear_shift(rng, key, segment)
-                            case "dataset_sample":
-                                new_dict[lag] = data_sample(rng, dataset, key, len(segment))
-                            case _:
-                                raise ValueError(f"Unknown strategy: {lagged_feature_strategy}")
+                        sampler = disambiguate_sampler(sampler_name, rng, dataset)
+                        indices = feat_indices[key][lag] 
+                        new_dict[lag] = sampler.sample(hist_df, indices, key, len(segment))
                     else:
                         lag_mask[lag] = 1
                         new_dict[lag] = segment
@@ -544,6 +497,7 @@ def explain(
     num_perturbations: int = 300,
     surrogate_name: str = "ridge",
     segmenter_name: str = "uniform",
+    sampler_name: str = "background",
 ):
     """
     Model-agnostic function to supply variable contribution weighting for specific prediction
@@ -556,8 +510,9 @@ def explain(
         granularity (int): Number of segments to divide the time series data into for importance weighting (default: TODO)
         num_perturbations (int): Number of generated perturbed variations of input vector (default 300)
         surrogate_name (str): The model used as explainable surrogate - one of ["ridge", "tree"] (default ridge)
-        surrogate_name (str): The model used as explainable surrogate - one of ["uniform", "exponential", "matrix_slope",
+        segmenter_name (str): The model used for segmentation - one of ["uniform", "exponential", "matrix_slope",
                               "matrix_diff", "matrix_bins", "sax", "nn"] (default uniform)
+        sampler_name (str): The sampling strategy used to replace features "turned off" - one of ["background"] (default background)
     """
     # Initial input safety checks
     assert horizon > 0, f"Horizon must be positive; received horizon={horizon}"
@@ -615,7 +570,7 @@ def explain(
 
     # Create perturbed variations
     # TODO: When, where and how to decide number of perturbations and mr?
-    perturbations, perturbation_masks = perturb_vector(full_dataset_df, x0, num_perturbations=num_perturbations, mutation_rate=0.05)
+    perturbations, perturbation_masks = perturb_vector(full_dataset_df, hist_df, x0, feat_indices, num_perturbations=num_perturbations, mutation_rate=0.05, sampler_name=sampler_name)
     
     X, y, feature_names = produce_lime_dataset(
         model, 
@@ -684,3 +639,7 @@ if __name__ == "__main__":
         granularity=historical_context_steps,
         surrogate_name=surrogate_name,
     )
+
+
+# TODO: Hvorfor gir lasso reg -0.7-ish til rainfall_fut_3, og tree gir +0.7-ish?
+# TODO: Parametrised event primitives? LOMATCE
