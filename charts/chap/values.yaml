@@ -138,7 +138,6 @@ worker:
   volumeMounts: []
 
 valkey:
-  enabled: true
   auth:
     enabled: true
     aclUsers:
