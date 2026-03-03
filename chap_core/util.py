@@ -57,10 +57,10 @@ def redis_available():
             raise
 
 
-def load_redis(db=0):
+def load_redis(db=0, decode_responses=False):
     import redis
 
     host = os.getenv("REDIS_HOST", "localhost")  # default to localhost for backward compatibility
     port = os.getenv("REDIS_PORT", "6379")
-    r = redis.Redis(host=host, port=int(port), db=db)
+    r = redis.Redis(host=host, port=int(port), db=db, decode_responses=decode_responses)
     return r

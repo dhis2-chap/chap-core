@@ -12,11 +12,11 @@ from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
 from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel
-from redis import Redis
 from sqlalchemy import create_engine
 
 from ..database.database import SessionWrapper
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
+from ..util import load_redis
 
 ReturnType = TypeVar("ReturnType")
 
@@ -59,9 +59,7 @@ app.conf.update(
 
 
 # Setup Redis connection (for job metadata)
-# TODO: switch to using utils.load_redis()?
-redis_url = "redis" if "localhost" not in url else "localhost"
-r = Redis(host=redis_url, port=6379, db=2, decode_responses=True)  # TODO: how to set this better?
+r = load_redis(db=2, decode_responses=True)
 
 
 # logger.warning("No database URL set")
