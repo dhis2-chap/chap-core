@@ -58,7 +58,8 @@ app.conf.update(
 )
 
 
-r = load_redis(db=2)
+# Setup Redis connection (for job metadata)
+r = load_redis(db=2, decode_responses=True)
 
 
 # logger.warning("No database URL set")
