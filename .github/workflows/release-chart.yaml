@@ -29,6 +29,9 @@ jobs:
 
       - name: Helm Dependencies
         run: |
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm repo update
+
           for dir in $(ls -d charts/*); do
             helm dependency update $dir;
           done
