@@ -5,11 +5,39 @@ This document describes how new models can be added to the modeling app.
 Note that when talking about adding a model to the modeling app, we are usually referring to adding a new **model template** (unconfigured model) that can then be used to create configured models (models that can be trained and used for predictions).
 
 
-Currently, chap comes with some model templates and configured models that will be seeded on startup. These are defined in `config/configured_models/default.yaml` a long with a description of how new model templates and configured models can be added. Currently, in order to get a new model template available in the modeling app, someone with access to this configuration file on the server where chap is deployed will need to add the new model template there.
+## Model seeding on startup
+
+CHAP seeds the database with model templates and configured models every time the backend starts. The seeding process reads YAML files from `config/configured_models/` and is idempotent (existing models are updated, not duplicated).
+
+### How seeding works
+
+1. `default.yaml` is parsed first. For each model entry, only the **last listed version** is used -- earlier versions are kept as historical documentation.
+2. All other `*.yaml` files in the directory (e.g. `local.yaml`, `benchmark_models.yaml`) are parsed next, with all versions available.
+3. For each model, the seeding logic fetches `MLProject.yaml` from the GitHub repository at the specified commit to retrieve model metadata (name, description, required covariates, user options, etc.).
+4. A model template is inserted (or updated) in the database, along with any named configurations that specify user option values and additional covariates.
+
+### Adding custom models
+
+Do not edit `default.yaml` directly -- it is overwritten on updates. Instead, create a new YAML file in `config/configured_models/` following this format:
+
+```yaml
+- url: https://github.com/org/model-repo
+  versions:
+    v1: "@<commit-sha-or-branch>"
+  configurations:       # optional
+    config_name:
+      user_option_values:
+        option_key: value
+      additional_continuous_covariates:
+        - rainfall
+        - mean_temperature
+```
+
+See `config/configured_models/README.md` for full details on the file format and seeding logic.
 
 Note that configured models can also be created directly through the modeling app (if the model template already exists).
 
-We are currently also working on a system for adding new model templates through the modeling app. Note that this functionality has not benn released yet, and is planned for a future release. The rest of this document describes how that system works.
+We are currently also working on a system for adding new model templates through the modeling app. Note that this functionality has not been released yet, and is planned for a future release. The rest of this document describes how that system works.
 
 
 ## System for adding model templates through the modeling app

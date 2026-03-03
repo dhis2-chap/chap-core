@@ -62,5 +62,6 @@ def load_redis(db=0, decode_responses=False):
 
     host = os.getenv("REDIS_HOST", "localhost")  # default to localhost for backward compatibility
     port = os.getenv("REDIS_PORT", "6379")
-    r = redis.Redis(host=host, port=int(port), db=db, decode_responses=decode_responses)
+    password = os.getenv("REDIS_PASSWORD", None)
+    r = redis.Redis(host=host, port=int(port), db=db, password=password, decode_responses=decode_responses)
     return r
