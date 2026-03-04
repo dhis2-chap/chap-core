@@ -162,7 +162,7 @@ valkeyConnection:
     password: default-password
   host: chap-valkey
   port: 6379
-  password: changeme
+  password: ""
 
 postgresql:
   managed:
