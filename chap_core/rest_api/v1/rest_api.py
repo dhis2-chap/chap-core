@@ -1,5 +1,6 @@
 import logging
 import traceback
+from contextlib import asynccontextmanager
 from typing import Any, cast
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -30,9 +31,17 @@ logger.info("Logging initialized")
 
 
 def create_api():
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        from chap_core.database.database import create_db_and_tables
+
+        create_db_and_tables()
+        yield
+
     app = FastAPI(
         root_path="/v1",
         default_response_class=ORJSONResponse,
+        lifespan=lifespan,
     )
 
     origins = [
