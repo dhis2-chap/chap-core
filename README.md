@@ -28,3 +28,7 @@ If you find any bugs or issues when using this code base, we appreciate it if yo
 cp .env.example .env
 docker compose up
 ```
+
+## Deploy on Kubernetes
+
+CHAP can be deployed on Kubernetes using our helm chart which can be found [here](./charts/chap).
