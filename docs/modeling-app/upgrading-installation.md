@@ -53,6 +53,9 @@ For latest release go to: [https://github.com/dhis2-chap/chap-core/releases](htt
         POSTGRES_PASSWORD=thisisnotgoingtobeexposed
         POSTGRES_DB=chap_core
 
+!!! note "New in v1.2.0: Runs volume target changed"
+    In version 1.2.0, the runs volume target moved from `/app/runs` to `/data/runs`, controlled by the new `CHAP_RUNS_DIR` environment variable set in `compose.yml`. Existing runs data stored in the Docker volume will be automatically available at the new path since Docker volumes are path-independent, so no manual migration is needed.
+
 ## 3. Upgrade Chap Core
 
 ```console
