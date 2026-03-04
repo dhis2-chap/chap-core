@@ -5,6 +5,11 @@ build:
     useBuildkit: true
   artifacts:
     - image: ghcr.io/dhis2-chap/chap-core
+      docker:
+        dockerfile: Dockerfile
+    - image: ghcr.io/dhis2-chap/chap-worker-with-inla
+      docker:
+        dockerfile: Dockerfile.worker
 deploy:
   statusCheckDeadlineSeconds: 300
   tolerateFailuresUntilDeadline: true
@@ -17,6 +22,8 @@ deploy:
         setValueTemplates:
           image:
             pullPolicy: Always
+          valkeyConnection:
+            password: "{{.REDIS_PASSWORD}}"
           googleServiceAccount:
             email: "{{.GOOGLE_SERVICE_ACCOUNT_EMAIL}}"
             privateKey: "{{.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}}"
