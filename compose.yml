@@ -1,6 +1,7 @@
 services:
   chap:
     build: .
+    init: true
     environment:
       GOOGLE_SERVICE_ACCOUNT_EMAIL: ${GOOGLE_SERVICE_ACCOUNT_EMAIL}
       GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
@@ -38,6 +39,7 @@ services:
         condition: service_healthy
 
   worker:
+    init: true
     depends_on:
       postgres:
         condition: service_healthy

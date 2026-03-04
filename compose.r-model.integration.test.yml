@@ -1,5 +1,6 @@
 services:
   chap_r_model_test:
+    init: true
     build:
       context: .
       dockerfile: Dockerfile.r-model.integrationtest
