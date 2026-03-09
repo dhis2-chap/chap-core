@@ -49,12 +49,6 @@ from chap_core.database.model_templates_and_config_tables import (
 from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
-from chap_core.models.approved_templates import (
-    get_approved_templates,
-    get_git_ref,
-    is_approved,
-)
-from chap_core.models.model_template import ExternalModelTemplate
 from chap_core.rest_api.celery_tasks import CeleryPool
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
@@ -373,67 +367,6 @@ async def list_model_templates(session: Session = Depends(get_session)):
     """
     model_templates = session.exec(select(ModelTemplateDB)).all()
     return model_templates
-
-
-# Disabled for release - security review pending
-# @router.get("/model-templates/available", response_model=list[ApprovedTemplate])
-async def list_available_model_templates():
-    """
-    Lists whitelisted model templates that can be added.
-    Fetches from remote whitelist URLs configured in config/approved_model_repos.yaml.
-    """
-    return get_approved_templates()
-
-
-class ModelTemplateCreate(DBModel):
-    url: str
-    version: str
-
-
-# Disabled for release - security review pending
-# @router.post("/model-templates", response_model=ModelTemplateRead)
-async def add_model_template(
-    model_template_create: ModelTemplateCreate,
-    session: Session = Depends(get_session),
-):
-    """
-    Add a model template from a whitelisted GitHub URL.
-    The url+version must be in the approved whitelist.
-    """
-    approved = get_approved_templates()
-    if not is_approved(model_template_create.url, model_template_create.version, approved):
-        raise HTTPException(status_code=403, detail="Model template not in approved list")
-
-    git_ref = get_git_ref(model_template_create.url, model_template_create.version, approved)
-    full_url = f"{model_template_create.url}{git_ref}"
-    try:
-        config = ExternalModelTemplate.fetch_config_from_github_url(full_url)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to fetch from GitHub: {e}") from e
-
-    config.version = model_template_create.version
-
-    session_wrapper = SessionWrapper(session=session)
-    template_id = session_wrapper.add_model_template_from_yaml_config(config)
-    return session.get(ModelTemplateDB, template_id)
-
-
-# Disabled for release - security review pending
-# @router.delete("/model-templates/{modelTemplateId}")
-async def delete_model_template(
-    model_template_id: Annotated[int, Path(alias="modelTemplateId")],
-    session: Session = Depends(get_session),
-):
-    """
-    Soft delete a model template by setting archived to True.
-    """
-    model_template = session.get(ModelTemplateDB, model_template_id)
-    if model_template is None:
-        raise HTTPException(status_code=404, detail="Model template not found")
-    model_template.archived = True
-    session.add(model_template)
-    session.commit()
-    return {"message": "deleted"}
 
 
 ###########
