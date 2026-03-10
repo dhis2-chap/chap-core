@@ -17,9 +17,6 @@ deploy:
         setValueTemplates:
           image:
             pullPolicy: Always
-          googleServiceAccount:
-            email: "{{.GOOGLE_SERVICE_ACCOUNT_EMAIL}}"
-            privateKey: "{{.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}}"
           ingress:
             enabled: false
             hosts:

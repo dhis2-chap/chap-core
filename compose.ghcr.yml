@@ -3,8 +3,6 @@ services:
     image: ghcr.io/dhis2-chap/chap-core:latest
     platform: linux/amd64
     environment:
-      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${GOOGLE_SERVICE_ACCOUNT_EMAIL}
-      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -43,8 +41,6 @@ services:
     image: ghcr.io/dhis2-chap/chap-worker:latest
     platform: linux/amd64
     environment:
-      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${GOOGLE_SERVICE_ACCOUNT_EMAIL}
-      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       IS_IN_DOCKER: 1
       REDIS_HOST: redis
       REDIS_PORT: 6379

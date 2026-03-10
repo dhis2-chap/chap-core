@@ -10,8 +10,6 @@ services:
     # for now some of the tests uses hardocded names so we need to set the container name
     container_name: chap_test
     environment:
-      - GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}
-      - GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       - HAS_WORKER=1
     command: /app/.venv/bin/pytest /app/tests
 

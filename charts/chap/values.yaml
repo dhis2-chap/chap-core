@@ -174,7 +174,3 @@ postgresql:
   secretKeys:
     username: username
     password: password
-
-googleServiceAccount:
-  email: ""
-  privateKey: ""

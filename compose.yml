@@ -3,8 +3,6 @@ services:
     build: .
     init: true
     environment:
-      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${GOOGLE_SERVICE_ACCOUNT_EMAIL}
-      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CHAP_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -48,8 +46,6 @@ services:
       context: .
       dockerfile: Dockerfile.worker
     environment:
-      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${GOOGLE_SERVICE_ACCOUNT_EMAIL}
-      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}
       IS_IN_DOCKER: 1
       REDIS_HOST: redis
       REDIS_PORT: 6379
