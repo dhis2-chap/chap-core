@@ -16,8 +16,8 @@ jobs:
         include:
           - dockerfile: Dockerfile
             image_name: dhis2-chap/chap-core
-          - dockerfile: Dockerfile.inla
-            image_name: dhis2-chap/chap-core-with-inla
+          # - dockerfile: Dockerfile.inla
+          #   image_name: dhis2-chap/chap-core-with-inla
           - dockerfile: Dockerfile.worker
             image_name: dhis2-chap/chap-worker
 
