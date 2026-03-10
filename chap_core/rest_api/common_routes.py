@@ -6,6 +6,7 @@ version-independent functionality such as health checks and system information.
 
 import logging
 import os
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -17,6 +18,19 @@ from chap_core.rest_api.v1.routers.dependencies import get_settings
 from chap_core.util import docker_available as _docker_available
 
 logger = logging.getLogger(__name__)
+
+
+def _get_git_revision() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+    except Exception:
+        return ""
 
 
 # --- Response models ---
@@ -63,7 +77,7 @@ async def system_info() -> SystemInfoResponse:
     from chap_core import __version__ as chap_core_version
 
     server_date = datetime.now(UTC).isoformat()
-    revision = os.environ.get("GIT_REVISION", "")
+    revision = os.environ.get("GIT_REVISION", "") or _get_git_revision()
     build_time = os.environ.get("BUILD_TIME", "")
     docker_avail = _docker_available()
 

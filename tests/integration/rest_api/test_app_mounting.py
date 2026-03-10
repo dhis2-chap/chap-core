@@ -53,6 +53,23 @@ class TestCommonEndpoints:
         assert "build_time" in data
         assert "docker_available" in data
 
+    def test_system_info_revision_fallback(self, client, monkeypatch):
+        monkeypatch.delenv("GIT_REVISION", raising=False)
+        response = client.get("/system/info")
+
+        assert response.status_code == 200
+        revision = response.json()["revision"]
+        # Outside CI the fallback runs git rev-parse HEAD, which should
+        # return a 40-char hex string in a git repo.
+        assert len(revision) == 40
+
+    def test_system_info_revision_from_env(self, client, monkeypatch):
+        monkeypatch.setenv("GIT_REVISION", "abc123")
+        response = client.get("/system/info")
+
+        assert response.status_code == 200
+        assert response.json()["revision"] == "abc123"
+
     def test_system_info_server_date_is_recent(self, client):
         before = datetime.now(timezone.utc)
         response = client.get("/system/info")
