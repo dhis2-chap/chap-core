@@ -1,11 +1,4 @@
-## TODO
-
-* ~~cicd docker hub~~
-* ~~helm~~
-* helm cicd
-* changeme in values.yaml
-
-    # Welcome to the Chap modelling platform!
+# Welcome to the Chap modelling platform!
 
 [![CI](https://github.com/dhis2-chap/chap-core/actions/workflows/ci-test-python-install.yml/badge.svg)](https://github.com/dhis2-chap/chap-core/actions/workflows/ci-test-python-install.yml)
 [![PyPI version](https://img.shields.io/pypi/v/chap-core)](https://pypi.org/project/chap-core/)
@@ -35,3 +28,7 @@ If you find any bugs or issues when using this code base, we appreciate it if yo
 cp .env.example .env
 docker compose up
 ```
+
+## Deploy on Kubernetes
+
+CHAP can be deployed on Kubernetes using our helm chart which can be found [here](./charts/chap).
