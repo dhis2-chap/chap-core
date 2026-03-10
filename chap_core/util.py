@@ -1,4 +1,5 @@
 import os
+import subprocess
 from shutil import which
 
 import numpy as np
@@ -33,7 +34,18 @@ def conda_available():
 
 
 def docker_available():
-    return which("docker") is not None
+    if which("docker") is None:
+        return False
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
 
 
 def pyenv_available():
