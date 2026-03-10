@@ -78,6 +78,9 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: ${{ steps.tag.outputs.TAGS }}
+          build-args: |
+            GIT_REVISION=${{ github.sha }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2

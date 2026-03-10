@@ -10,6 +10,11 @@ ENV MPLCONFIGDIR=/tmp
 ENV PORT=8000
 ENV PATH="/app/.venv/bin:$PATH"
 
+ARG BUILD_TIME=""
+ARG GIT_REVISION=""
+ENV BUILD_TIME=${BUILD_TIME}
+ENV GIT_REVISION=${GIT_REVISION}
+
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt update && apt upgrade -y && \

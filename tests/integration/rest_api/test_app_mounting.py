@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import fakeredis
 import pytest
 from fastapi.testclient import TestClient
@@ -45,6 +47,19 @@ class TestCommonEndpoints:
         data = response.json()
         assert "chap_core_version" in data
         assert "python_version" in data
+        assert "server_date" in data
+        assert "server_time_zone_id" in data
+        assert "revision" in data
+        assert "build_time" in data
+        assert "docker_available" in data
+
+    def test_system_info_server_date_is_recent(self, client):
+        before = datetime.now(timezone.utc)
+        response = client.get("/system/info")
+        after = datetime.now(timezone.utc)
+
+        server_date = datetime.fromisoformat(response.json()["server_date"])
+        assert before <= server_date <= after
 
 
 class TestV2Mounting:
