@@ -30,7 +30,6 @@ RUN apt-get update && \
 
 COPY ./chap_core ./chap_core
 COPY ./config ./config
-COPY ./scripts/seed.py ./scripts/seed.py
 COPY ./pyproject.toml .
 COPY ./uv.lock .
 COPY ./README.md .

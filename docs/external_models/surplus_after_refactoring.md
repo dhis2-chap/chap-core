@@ -131,7 +131,7 @@ Starting CHAP Core using Docker Compose is specifically for those who want to us
 
 **Requirements**
 
-- Access to credentials for Google Earth Engine. (Google Service Account Email and Private Key)
+- Docker installed on your machine
 
 ## 1. Install Docker (if not installed)
 
@@ -147,32 +147,9 @@ You need to clone the CHAP Core repository from GitHub. Open your terminal and r
 git clone https://github.com/dhis2-chap/chap-core.git
 ```
 
-## 3. Add Credentials for Google Earth Engine
+## 3. Start CHAP Core
 
-1. Open your terminal and navigate to the "chap-core" repository you cloned:
-
-   ```sh
-   cd chap-core
-   ```
-
-2. Open the "chap-core" repository in your code editor. For example, if you are using Visual Studio Code, you can use the following command in the terminal:
-
-   ```sh
-   code .
-   ```
-
-3. In your code editor, create a new file at the root level of the repository and name it `.env`.
-
-4. Add the following environment variables to the `.env` file. Replace the placeholder values with your actual Google Service Account credentials:
-
-   ```bash
-   GOOGLE_SERVICE_ACCOUNT_EMAIL="your-google-service-account@company.iam.gserviceaccount.com"
-   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----<your-private-key>-----END PRIVATE KEY-----"
-   ```
-
-## 4. Start CHAP Core
-
-At the root level of the repository (the same level you placed the .env-file), run:
+At the root level of the repository, run:
 
 ```sh
 docker-compose up
@@ -188,7 +165,7 @@ You can go to [http://localhost:8000/docs](http://localhost:8000/docs) to verify
 
 ![Swagger UI](../_static/swagger-fastapi.png)
 
-## 5. Stop CHAP Core
+## 4. Stop CHAP Core
 
 ```sh
 docker-compose down

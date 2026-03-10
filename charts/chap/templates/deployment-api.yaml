@@ -125,16 +125,6 @@ spec:
                   key: POSTGRES_DB
             - name: CHAP_DATABASE_URL
               value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
-            - name: GOOGLE_SERVICE_ACCOUNT_EMAIL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "chap.fullname" . }}
-                  key: GOOGLE_SERVICE_ACCOUNT_EMAIL
-            - name: GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "chap.fullname" . }}
-                  key: GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
             - name: CHAP_LOGS_DIR
               value: /data/logs
           envFrom:

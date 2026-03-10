@@ -27,7 +27,7 @@ from chap_core.rest_api.v1.routers.dependencies import get_session
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/visualization", tags=["Visualization"])
+router = APIRouter(prefix="/visualization", tags=["Visualizations"])
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 

@@ -1,11 +1,33 @@
-from fastapi import FastAPI
+import logging
+import traceback
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, ORJSONResponse
 
-from chap_core.rest_api.v1.rest_api import app as v1_app
-from chap_core.rest_api.v2.rest_api import app as v2_app
+from chap_core.rest_api.common_routes import router as common_router
+from chap_core.rest_api.v1.rest_api import router as v1_router
+from chap_core.rest_api.v2.rest_api import router as v2_router
 
-app = FastAPI(title="CHAP Core API", docs_url=None, redoc_url=None, openapi_url=None)
+logger = logging.getLogger(__name__)
+
+openapi_tags = [
+    {"name": "System", "description": "Health checks and system information"},
+    {"name": "Backtests", "description": "Create, manage, and query backtests and evaluation results"},
+    {"name": "Predictions", "description": "Create, manage, and query predictions"},
+    {"name": "Datasets", "description": "Create, manage, and export datasets"},
+    {"name": "Models", "description": "Model templates and configured models"},
+    {"name": "Visualizations", "description": "Generate plots and charts"},
+    {"name": "Jobs", "description": "Monitor and manage async jobs"},
+    {"name": "Debug", "description": "Debug and diagnostic endpoints"},
+    {"name": "Services", "description": "Service registry (v2)"},
+]
+
+app = FastAPI(
+    title="CHAP Core API",
+    default_response_class=ORJSONResponse,
+    openapi_tags=openapi_tags,
+)
 
 origins = [
     "*",
@@ -21,25 +43,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/v1", v1_app)
-app.mount("/v2", v2_app)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions and log full traceback"""
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}")
+    logger.error(f"Exception type: {type(exc).__name__}")
+    logger.error(f"Exception message: {exc!s}")
+    logger.error("Full traceback:")
+    logger.error(traceback.format_exc())
+
+    return JSONResponse(
+        status_code=500, content={"detail": "Internal server error", "error": str(exc), "type": type(exc).__name__}
+    )
 
 
-@app.get("/health")
-async def root_health():
-    return {"status": "healthy"}
+app.include_router(common_router)
+app.include_router(v1_router, prefix="/v1")
+app.include_router(v2_router, prefix="/v2")
 
 
-@app.get("/docs", include_in_schema=False)
-async def docs_redirect():
-    return RedirectResponse(url="/v1/docs")
-
-
-@app.get("/redoc", include_in_schema=False)
-async def redoc_redirect():
-    return RedirectResponse(url="/v1/redoc")
-
-
-@app.get("/openapi.json", include_in_schema=False)
-async def openapi_redirect():
-    return RedirectResponse(url="/v1/openapi.json")
+def get_openapi_schema():
+    return app.openapi()
