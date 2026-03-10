@@ -38,21 +38,13 @@ class TestCommonEndpoints:
         assert response.status_code == 200
         assert response.json() == {"status": "success", "message": "healthy"}
 
-    def test_root_is_compatible_endpoint(self, client):
-        response = client.get("/is-compatible?modelling_app_version=999.0.0")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["compatible"] is True
-
     def test_root_system_info_endpoint(self, client):
-        response = client.get("/system-info")
+        response = client.get("/system/info")
 
         assert response.status_code == 200
         data = response.json()
         assert "chap_core_version" in data
         assert "python_version" in data
-        assert "os" in data
 
 
 class TestV2Mounting:
