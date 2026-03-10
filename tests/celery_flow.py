@@ -41,7 +41,7 @@ def main():
 def ensure_up(chap_url):
     for _ in range(5):
         try:
-            requests.get(chap_url + "/v1/health")
+            requests.get(chap_url + "/health")
             break
         except requests.exceptions.ConnectionError:
             time.sleep(5)
