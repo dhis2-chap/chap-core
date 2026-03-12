@@ -219,7 +219,9 @@ def test_get_data_sources():
 
 @pytest.fixture
 def make_prediction_request(make_dataset_request):
-    return MakePredictionRequest(model_id="naive_model", meta_data={"test": "test"}, **make_dataset_request.dict())
+    return MakePredictionRequest(
+        model_id="naive_model", meta_data={"test": "test"}, **make_dataset_request.model_dump()
+    )
 
 
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):

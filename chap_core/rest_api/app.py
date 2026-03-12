@@ -3,7 +3,7 @@ import traceback
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, ORJSONResponse
+from fastapi.responses import JSONResponse
 
 from chap_core.rest_api.common_routes import router as common_router
 from chap_core.rest_api.v1.rest_api import router as v1_router
@@ -25,7 +25,6 @@ openapi_tags = [
 
 app = FastAPI(
     title="CHAP Core API",
-    default_response_class=ORJSONResponse,
     openapi_tags=openapi_tags,
 )
 
