@@ -25,12 +25,14 @@ def explain(
     model_name: str,
     dataset_csv: Path,
     location: str,
-    horizon: int,
+    horizon: int = 1,
     granularity: int = 6,
     num_perturbations: int = 300,
     surrogate_name: str = "ridge",
     segmenter_name: str = "uniform",
     sampler_name: str = "background",
+    weighter_name: str = "pairwise",
+    seed: int | None = None,
     model_configuration_yaml: Optional[Path] = None,
     run_config: RunConfig = RunConfig(),
 ):
@@ -50,6 +52,7 @@ def explain(
         surrogate_name: String of the short name of which surrogate model to use
         segmenter_name: String of the short name of which segmentation model to use
         sampler_name: String of the short name of which sampling strategy to use
+        seed: Int for seeding in random perturbations
         model_configuration_yaml: Optional YAML file with model configuration
         run_config: Model run environment configuration
     """
@@ -97,6 +100,8 @@ def explain(
             surrogate_name=surrogate_name,
             segmenter_name=segmenter_name,
             sampler_name=sampler_name,
+            weighter_name=weighter_name,
+            seed=seed,
             granularity=granularity,
         )
 

@@ -448,6 +448,8 @@ from neighbors (as function of mean and variance)
 
 TODO: Add BEAST and others?
 
+TODO In general: Safe getting, current development on data without NaNs which gives false security
+
 Idea: Evaluate boundary placement by difference in mean and variance thing from above iteratively for windows
 to left and right
 """

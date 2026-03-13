@@ -6,6 +6,7 @@ import random
 import pandas as pd
 import numpy as np
 
+from scipy.signal import ShortTimeFFT, get_window
 from typing import Protocol, List, Tuple
 
 import logging
@@ -99,9 +100,6 @@ class RandomUniform:
         return rand_vals
 
 
-# TODO: FFT-based algo from LimeSegment
-
-
 class RandomBackground:
     def __init__(
             self,
@@ -135,4 +133,60 @@ class RandomBackground:
         return [0.0] * length
 
 
+class FourierReplacement:
+    def __init__(
+            self,
+            rng: random.Random,
+            dataset: pd.DataFrame,
+            window_size: int,
+            freq: float
+            ):
+        self.rng = rng
+        self.dataset = dataset
+        self.window_size = window_size
+        self.freq = freq
 
+        self.R_cache = {}
+
+    def calculate_background(self, ts: np.ndarray):
+        ts_length = len(ts)
+        if self.window_size is None:
+            dynamic_win = ts_length // 10
+            win_size = min(max(16, dynamic_win), ts_length - 1)
+        else:
+            win_size = self.window_size
+        
+        win = get_window('hann', win_size)
+        stft = ShortTimeFFT(win, hop=1, fs=self.freq)
+        x_stft = stft.stft(ts)
+        f_persist = self.extract_argmax(x_stft)
+
+        f_filtered = np.zeros_like(x_stft)
+        f_filtered[f_persist, :] = x_stft[f_persist, :]
+        R = stft.istft(f_filtered, k0=0, k1=len(ts))
+        return R
+    
+    def extract_argmax(self, x_stft: np.ndarray):
+        mag = np.abs(x_stft)
+        mean_mag = np.mean(mag, axis=1)
+        std_mag = np.std(mag, axis=1)
+        score = mean_mag / (std_mag + 1e-9)
+        return np.argmax(score)
+    
+    def sample(self, hist_df: pd.DataFrame, indices: Tuple[int, int], feature_name: str, length: int):
+        start, end = indices
+        if feature_name not in self.R_cache:
+            ts = hist_df[feature_name].to_numpy()
+            self.R_cache[feature_name] = self.calculate_background(ts)
+        
+        segment = self.R_cache[feature_name][start:end]
+        return segment.tolist()
+
+
+
+"""
+Linear transform, constant transform, random background is from "agnostic local explanations [...]"
+Local mean, global mean, random uniform is from "LOMATCE"
+Fourier is from LimeSegment
+
+"""

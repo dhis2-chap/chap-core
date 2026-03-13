@@ -1,18 +1,17 @@
 
 import logging
 import random
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Tuple, Type, Any
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score
 
 from chap_core.climate_predictor import get_climate_predictor
-from chap_core.data.datasets import ISIMIP_dengue_harmonized
 from chap_core.explainability.surrogate import *
 from chap_core.explainability.segment import *
 from chap_core.explainability.perturb import *
+from chap_core.explainability.distance import *
 from chap_core.explainability.plot import plot_importance
 from chap_core.model_spec import _non_feature_names
 from chap_core.models.external_model import ExternalModel
@@ -118,43 +117,21 @@ def build_original_vector(
 
 
 
-def disambiguate_sampler(name: str, rng: random.Random, hist_df: pd.DataFrame | None = None):
-    match name.lower():
-        case "background":
-            if hist_df is None:
-                raise ValueError("Selected sampler needs hist_df, which has been set to None")
-            return RandomBackground(rng=rng, dataset=hist_df)
-        case "linear":
-            return LinearInterpolation(rng=rng)
-        case "constant":
-            return ConstantTransform(rng=rng)
-        case "local_mean" | "local mean":
-            return LocalMean(rng)
-        case "global_mean" | "global mean":
-            return GlobalMean(rng)
-        case "random":
-            if hist_df is None:
-                raise ValueError("Selected sampler needs hist_df, which has been set to None")
-            return RandomUniform(rng=rng, dataset=hist_df)
-        case _:
-            raise ValueError(f"Unknown sampler: {name}")
 
 
 def perturb_vector(
-    dataset: pd.DataFrame,
     hist_df: pd.DataFrame,
     orig_vector: Dict,
     feat_indices: Dict,
     num_perturbations: int,
     mutation_rate: float,
-    seed: int = None,
-    sampler_name: str = "background"
+    sampler: Any, # TODO
+    rng: random.Random
 ) -> Tuple[List[Dict], List[Dict]]:
     """
     Perturb original vector to get local variations
 
     Args:
-        dataset (pandas DataFrame): Historical data of model
         hist_df (pandas DataFrame): Historical data of the specific location
         orig_vector (dict): Dictionary of original features and values
         feat_indices (dict): Dictionary of segment indices
@@ -167,7 +144,6 @@ def perturb_vector(
     Return:
         List of perturbed vectors
     """
-    rng = random.Random(seed)
     perturbations: List[Dict] = []
     perturbation_masks: List[Dict] = []
     for _ in range(num_perturbations):
@@ -177,7 +153,7 @@ def perturb_vector(
             # Handle static features
             if isinstance(val, (float, int)):
                 if rng.random() < mutation_rate:
-                    vec[key] = rng.gauss(val, 1.0)  # TODO: Scale sigma by value
+                    vec[key] = 0  # TODO: Is this the correct way to "turn off" a static feature?
                     pert_mask[key] = 0
                 else:
                     vec[key] = val
@@ -190,7 +166,6 @@ def perturb_vector(
                 for lag, segment in val.items():
                     if rng.random() < mutation_rate:
                         lag_mask[lag] = 0
-                        sampler = disambiguate_sampler(sampler_name, rng, dataset)
                         indices = feat_indices[key][lag] 
                         new_dict[lag] = sampler.sample(hist_df, indices, key, len(segment))
                     else:
@@ -331,6 +306,14 @@ def flatten_vector(
             flat[key] = val
     return flat
 
+def build_dtw_sequence(
+    hist_df: pd.DataFrame,
+    features_hist: list[str],
+) -> np.ndarray:
+    # TODO: Only handling temporal columns... what to do with static?
+    temporal_cols = [f for f in features_hist if not is_constant(hist_df, f)]
+    return hist_df[temporal_cols].to_numpy(dtype=float)
+
 def produce_lime_dataset(
     model: ExternalModel, 
     dataset: pd.DataFrame,
@@ -368,6 +351,8 @@ def produce_lime_dataset(
         Tuple of numpy arrays and feature name list
     """
     results: List[Tuple[Dict[str, float], str]] = []
+    distance_sequences = []
+    x0_sequence = build_dtw_sequence(dataset, features_hist)
     # Batch prediction is quicker than individual predictions
     # Key different perturbations by pseudo-location, then batch predict
     for i in range(0, len(perturbations), chunk_size):
@@ -392,6 +377,8 @@ def produce_lime_dataset(
                 fut_type,
                 feat_indices
             )
+            seq = build_dtw_sequence(new_hist.to_pandas().sort_values("time_period").reset_index(drop=True), features_hist)
+            distance_sequences.append(seq)
             full_hist_dict[loc_id] = new_hist.get_location(location)
             full_fut_dict[loc_id] = new_fut.get_location(location)
 
@@ -417,33 +404,7 @@ def produce_lime_dataset(
     first_vec = results[0][0]
     feature_names = [k for k in first_vec.keys() if k not in _non_feature_names]
     X, y = build_X_y(results, feature_names)
-    return X, y, feature_names
-
-
-def logit(p):
-    return np.log(p / (1.0 - p))
-
-def lime_weights_from_X(
-    X: np.ndarray,
-    x0_row: np.ndarray,
-    kernel_width: float = 1.0,
-) -> np.ndarray:
-    """
-    RBF kernel weights based on distance to x0 in standardized space.
-
-    Args:
-        X (np.ndarray): Perturbed dataset
-        x0_row (np.ndarray): Original input vector
-        kernel_width (float): Width of the RBF kernel (default 1.0)
-    """
-    # Standardize for distance
-    scaler = StandardScaler()
-    Xs = scaler.fit_transform(X)
-    x0s = scaler.transform(x0_row.reshape(1, -1))[0]
-
-    d = np.linalg.norm(Xs - x0s, axis=1)
-    w = np.exp(-(d**2) / (kernel_width**2))
-    return w
+    return X, y, feature_names, distance_sequences, x0_sequence
 
 
 
@@ -487,6 +448,39 @@ def disambiguate_segmenter(name: str, granularity: int, window_size: int | None 
             raise ValueError(f"Unknown segmenter: {name}")
 
 
+def disambiguate_sampler(name: str, rng: random.Random, dataset: pd.DataFrame | None = None):
+    match name.lower():
+        case "background":
+            if dataset is None:
+                raise ValueError("Selected sampler needs dataset, which has been set to None")
+            return RandomBackground(rng=rng, dataset=dataset)
+        case "linear":
+            return LinearInterpolation(rng=rng)
+        case "constant":
+            return ConstantTransform(rng=rng)
+        case "local_mean" | "local mean":
+            return LocalMean(rng)
+        case "global_mean" | "global mean":
+            return GlobalMean(rng)
+        case "random":
+            if dataset is None:
+                raise ValueError("Selected sampler needs dataset, which has been set to None")
+            return RandomUniform(rng=rng, dataset=dataset)
+        case "fourier":
+            return FourierReplacement(rng, dataset, window_size=None, freq=1.0)
+        case _:
+            raise ValueError(f"Unknown sampler: {name}")
+
+
+def disambiguate_weighter(name: str, kernel_width: int):
+    match name.lower():
+        case "pairwise":
+            return Pairwise(kernel_width)
+        case "dtw":
+            return DTW(kernel_width)
+        case _:
+            raise ValueError(f"Unknown weighter: {name}")
+
 
 def explain(
     model: ExternalModel,
@@ -498,6 +492,8 @@ def explain(
     surrogate_name: str = "ridge",
     segmenter_name: str = "uniform",
     sampler_name: str = "background",
+    weighter_name: str = "pairwise",
+    seed: int | None = None
 ):
     """
     Model-agnostic function to supply variable contribution weighting for specific prediction
@@ -513,6 +509,8 @@ def explain(
         segmenter_name (str): The model used for segmentation - one of ["uniform", "exponential", "matrix_slope",
                               "matrix_diff", "matrix_bins", "sax", "nn"] (default uniform)
         sampler_name (str): The sampling strategy used to replace features "turned off" - one of ["background"] (default background)
+        weighter_name (str): The strategy for weighting perturbations according to distance to original (default pairwise)
+        seed (int): Seeding for RNG
     """
     # Initial input safety checks
     assert horizon > 0, f"Horizon must be positive; received horizon={horizon}"
@@ -553,7 +551,7 @@ def explain(
         if fn not in _non_feature_names
     ]
 
-    window_size = max(min(5, len(hist_df)//30), len(hist_df))  # TODO: Heuristic for now
+    window_size = min(max(5, len(hist_df)//30), len(hist_df))  # TODO: Heuristic for now
     segmenter = disambiguate_segmenter(segmenter_name, granularity, window_size)
 
     # Build original vector around which to generate perturbed vectors
@@ -568,11 +566,14 @@ def explain(
 
     full_dataset_df = dataset.to_pandas()
 
+    rng = random.Random(seed)
+    sampler = disambiguate_sampler(sampler_name, rng, full_dataset_df)
+
     # Create perturbed variations
     # TODO: When, where and how to decide number of perturbations and mr?
-    perturbations, perturbation_masks = perturb_vector(full_dataset_df, hist_df, x0, feat_indices, num_perturbations=num_perturbations, mutation_rate=0.05, sampler_name=sampler_name)
+    perturbations, perturbation_masks = perturb_vector(hist_df, x0, feat_indices, num_perturbations=num_perturbations, mutation_rate=0.05, sampler=sampler, rng=rng)
     
-    X, y, feature_names = produce_lime_dataset(
+    X, y, feature_names, distance_sequences, x0_sequence = produce_lime_dataset(
         model, 
         hist_df,
         future_df,
@@ -590,7 +591,12 @@ def explain(
     x0_row = np.ones(X.shape[1], dtype=float)
 
     kw = 0.75 * np.sqrt(X.shape[1])  # This can be automatically inferred per paper "initial step towards stable" et.c.; magic number for now
-    weights = lime_weights_from_X(X, x0_row, kernel_width=kw)
+
+    weighter = disambiguate_weighter(weighter_name, kw)
+    if weighter.takes_mask:
+        weights = weighter.get_weights(X, x0_row)
+    else:
+        weights = weighter.get_weights(distance_sequences, x0_sequence)
     z = np.log1p(y) # Log transform
 
     surrogate_model = disambiguate_surrogate(surrogate_name)
@@ -606,6 +612,7 @@ def explain(
     for name, c in results.as_sorted():
         logger.info(f"{name:>12}: {c:+.4f}")
     
+    # TODO: Let user select last n datapoints to use in explanation...?
     plot_importance(results.as_sorted(), hist_df, future_df, feat_indices)
 
 
@@ -631,7 +638,7 @@ if __name__ == "__main__":
     predictor = estimator.train(dataset)
 
     # Run explanation
-    explain(
+    explain(  # TODO: Update
         model=predictor,
         dataset=dataset,
         location=location,
