@@ -213,4 +213,4 @@ curl http://127.0.0.1:8001/v1/crud/model-templates | jq '.[].name'
 - **`is_chapkit_model` flag threading**: The flag is still passed through 4-5 layers (CLI args -> RunConfig -> get_model -> ModelTemplate -> utils). Auto-detection now handles URL mode, but the flag is still needed for directory mode. Could be further simplified.
 - **Commented-out config**: `default.yaml` has commented chapkit entries -- decide whether to remove or document as examples.
 - **Deprecated evaluate()**: `cli_endpoints/evaluate.py` has a deprecated `evaluate()` function that still carries `is_chapkit_model` -- can be removed when the old codepath is dropped.
-- **v1/v2 gap**: v1 now syncs model templates from the v2 service registry on GET /model-templates, but configured model sync and health status are not yet implemented. (Tracked in roadmap above.)
+- **v1/v2 gap**: Resolved for model template sync, configured model sync, and health status. Remaining: backtest runs don't yet store chapkit `artifact_id` references.
