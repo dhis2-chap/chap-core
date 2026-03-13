@@ -172,7 +172,12 @@ class ExternalChapkitModelTemplate:
         )
 
         logger.info(f"Created model configuration with id {configuration_id} at {self.rest_api_url}")
-        return ExternalChapkitModel(self.name, self.rest_api_url, configuration_id=configuration_id)
+        return ExternalChapkitModel(
+            self.name,
+            self.rest_api_url,
+            configuration_id=configuration_id,
+            model_information=self.model_template_config,
+        )
 
     @property
     def name(self):
@@ -235,6 +240,8 @@ class ExternalChapkitModelTemplate:
             ),
             "supported_period_type": PeriodType(model_info.get("supported_period_type", "any")),
             "user_options": user_options,
+            "min_prediction_length": model_info.get("min_prediction_periods"),
+            "max_prediction_length": model_info.get("max_prediction_periods"),
             # target defaults to "disease_cases"
             # RunnerConfig fields not needed for REST API models:
             "entry_points": None,
@@ -247,7 +254,13 @@ class ExternalChapkitModelTemplate:
 
 
 class ExternalChapkitModel(ExternalModelBase):
-    def __init__(self, model_name: str, rest_api_url: str, configuration_id: str):
+    def __init__(
+        self,
+        model_name: str,
+        rest_api_url: str,
+        configuration_id: str,
+        model_information: ModelTemplateConfigV2 | None = None,
+    ):
         self.model_name = model_name
         self.rest_api_url = rest_api_url
         self.configuration_id = configuration_id
@@ -255,6 +268,11 @@ class ExternalChapkitModel(ExternalModelBase):
         self._adapters = None
         self.client = CHAPKitRestAPIWrapper(rest_api_url)
         self._train_id = None
+        self._model_information = model_information
+
+    @property
+    def model_information(self):
+        return self._model_information
 
     def train(self, train_data: DataSet, extra_args=None, run_info: RunInfo | None = None):
         frequency = self._get_frequency(train_data)

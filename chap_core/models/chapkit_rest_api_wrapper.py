@@ -377,7 +377,7 @@ class CHAPKitRestAPIWrapper:
         }
 
         if geo_features:
-            train_body["geo"] = geo_features
+            train_body["geo"] = geo_features if isinstance(geo_features, dict) else geo_features.model_dump()
 
         response = self._request("POST", "/api/v1/ml/$train", json=train_body)
         result = response.json()
@@ -428,7 +428,7 @@ class CHAPKitRestAPIWrapper:
             }
 
         if geo_features:
-            predict_body["geo"] = geo_features
+            predict_body["geo"] = geo_features if isinstance(geo_features, dict) else geo_features.model_dump()
 
         response = self._request("POST", "/api/v1/ml/$predict", json=predict_body)
         result = response.json()
