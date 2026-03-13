@@ -42,6 +42,7 @@ def ml_service_info_to_model_template_config(
         "organization_logo_url": str(metadata.organization_logo_url) if metadata.organization_logo_url else None,
         "contact_email": metadata.contact_email,
         "citation_info": metadata.citation_info,
+        "documentation_url": str(metadata.documentation_url) if metadata.documentation_url else None,
     }
 
     config_dict = {
@@ -51,6 +52,7 @@ def ml_service_info_to_model_template_config(
         "meta_data": meta_data_dict,
         "required_covariates": info.required_covariates or [],
         "allow_free_additional_continuous_covariates": info.allow_free_additional_continuous_covariates,
+        "requires_geo": getattr(info, "requires_geo", False),
         "supported_period_type": _chapkit_period_to_chap(info.period_type),
         "user_options": user_options or {},
         "min_prediction_length": info.min_prediction_periods,

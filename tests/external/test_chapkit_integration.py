@@ -357,6 +357,24 @@ class TestMlServiceInfoToModelTemplateConfig:
         config = ml_service_info_to_model_template_config(MOCK_INFO_RESPONSE, "http://localhost:8000", options)
         assert config.user_options == options
 
+    def test_maps_requires_geo(self):
+        info_dict = {**MOCK_INFO_DICT, "requires_geo": True}
+        info = MLServiceInfo.model_validate(info_dict)
+        config = ml_service_info_to_model_template_config(info, "http://localhost:8000")
+        assert config.requires_geo is True
+
+    def test_requires_geo_defaults_to_false(self):
+        config = ml_service_info_to_model_template_config(MOCK_INFO_RESPONSE, "http://localhost:8000")
+        assert config.requires_geo is False
+
+    def test_maps_documentation_url(self):
+        metadata = dict(MOCK_INFO_DICT["model_metadata"])  # type: ignore[arg-type]
+        metadata["documentation_url"] = "https://docs.example.com/model"
+        info_dict = {**MOCK_INFO_DICT, "model_metadata": metadata}
+        info = MLServiceInfo.model_validate(info_dict)
+        config = ml_service_info_to_model_template_config(info, "http://localhost:8000")
+        assert config.meta_data.documentation_url == "https://docs.example.com/model"
+
 
 class TestSyncChapkitConfiguredModels:
     @pytest.fixture()

@@ -188,8 +188,8 @@ All HTTP calls go through `CHAPKitRestAPIWrapper`. Jobs are async on the chapkit
 - [x] Sync live chapkit services to DB on GET /model-templates via `_sync_live_chapkit_services()` in crud.py (uses v2 Orchestrator, graceful fallback if Redis unavailable)
 - [x] Auto-sync chapkit configs to configured models on first discovery via `_sync_chapkit_configured_models()`
 - [ ] Health status on chapkit-backed templates: check `/health` endpoint and include status in model-templates response
-- [ ] Map `requires_geo` from chapkit to chap-core (needs DB column addition + migration)
-- [ ] Map `documentation_url` from chapkit metadata (needs DB column addition + migration)
+- [x] Map `requires_geo` from chapkit to chap-core (DB column + Alembic migration `b2c3d4e5f6a7`)
+- [x] Map `documentation_url` from chapkit metadata (DB column + Alembic migration `b2c3d4e5f6a7`)
 
 ### Testing Self-Registration
 
