@@ -1,12 +1,12 @@
-# Integrating External Models with DHIS2 through CHAP
+# Integrating External Models with DHIS2 through Chap
 
 > **Deprecation Notice:** The `chap evaluate` command examples shown in this document are deprecated and will be removed in v2.0. For new evaluations, use `chap eval` instead. See the [Evaluation Workflow](../chap-cli/evaluation-workflow.md) for the recommended approach.
 
-Assuming you have CHAP running on a server with DHIS2 ([see this guide](../modeling-app/running-chap-on-server.md)), it is possible to
+Assuming you have Chap running on a server with DHIS2 ([see this guide](../modeling-app/running-chap-on-server.md)), it is possible to
 make new external models available.
 
-Currently, CHAP has an internal registry of models that can be used.  
-If you want to run a model that is not in the registry, this now has to be done by editing the local CHAP code at the server.  
+Currently, Chap has an internal registry of models that can be used.  
+If you want to run a model that is not in the registry, this now has to be done by editing the local Chap code at the server.  
 However, we are working on making this more flexible. For now, please reach out if you want a new model to be added to the internal registry in a given installation.
 
 The following figure shows how the train and predict entry points are part of a data flow between DHIS2 and the external model:
@@ -19,20 +19,20 @@ The following figure shows how the train and predict entry points are part of a 
 This model has been developed internally by the Chap team. Autoregressive weekly is a deep learning model based on DeepAR that uses rainfall and temperature as climate predictors and models disease counts with a negative binomial distribution where the parameters are estimated by a recurrent neural network. The current model available through Chap can be [found here](https://github.com/knutdrand/weekly_ar_model).
 
 ## Epidemiar
-Epidemiar is a Generalizes additive model (GAM) used for climate health forecasts. It requires weekly epidemilogical data, like disease cases and population, and daily enviromental data. As most of the data in CHAP is monthly or weekly we pass weakly data to the model, and then naively expand weekly data to daily data, which the epidemiar library again aggregates back to weekly data. The model produces a sample for each location per time point with and upper and lower boundary for some unknown quantiles. For more information regarding the model look [here](https://github.com/dhis2-chap/epidemiar_example_model). An example of running the model from the CHAP command line interface is
+Epidemiar is a Generalizes additive model (GAM) used for climate health forecasts. It requires weekly epidemilogical data, like disease cases and population, and daily enviromental data. As most of the data in Chap is monthly or weekly we pass weakly data to the model, and then naively expand weekly data to daily data, which the epidemiar library again aggregates back to weekly data. The model produces a sample for each location per time point with and upper and lower boundary for some unknown quantiles. For more information regarding the model look [here](https://github.com/dhis2-chap/epidemiar_example_model). An example of running the model from the Chap command line interface is
 ```
 chap evaluate --model-name https://github.com/dhis2-chap/epidemiar_example_model --dataset-csv LOCAL_FILE_PATH/laos_test_data.csv --report-filename report.pdf --debug --n-splits=3
 ```
-which requires that `laos_test_data` is saved locally, but we are working on making weekly datasets available internaly in CHAP.
+which requires that `laos_test_data` is saved locally, but we are working on making weekly datasets available internaly in Chap.
 
 ## EWARS
-EWARS is a Bayesian hierarchical model implemented with the INLA library. We use a negative binomial likelihood in the observation layer and combine several latent effect, both spatial and temporal, in the latent layer. The latent layer is log-transformed and scaled by the population, so it effectivaly models the proprotion of cases in each region. Specifically the latent layers combine a first order cyclic random walk to capture the seasonal effect, this is also included in the lagged exogenous variables rainfall and temperature, then a spatial smoothing with an ICAR and an iid effect to capture the spatial heterogeneity. The ICAR and iid can also be combined, scaled and reparameterized to the BYM2 model. Further information is available in the [model repository](https://github.com/dhis2-chap/chap_auto_ewars). An example of running the model from the CHAP command line interface is
+EWARS is a Bayesian hierarchical model implemented with the INLA library. We use a negative binomial likelihood in the observation layer and combine several latent effect, both spatial and temporal, in the latent layer. The latent layer is log-transformed and scaled by the population, so it effectivaly models the proprotion of cases in each region. Specifically the latent layers combine a first order cyclic random walk to capture the seasonal effect, this is also included in the lagged exogenous variables rainfall and temperature, then a spatial smoothing with an ICAR and an iid effect to capture the spatial heterogeneity. The ICAR and iid can also be combined, scaled and reparameterized to the BYM2 model. Further information is available in the [model repository](https://github.com/dhis2-chap/chap_auto_ewars). An example of running the model from the Chap command line interface is
 ```
 chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --report-filename report.pdf --debug --n-splits=3
 ```
 
 ## ARIMA
-A general ARIMA model is a timeseries model with an autoregressive part, a moving average part and the option to difference the original timeseries, often to make it stationary. Additonally we have lagged rainfall and temperature, which actually makes this an ARIMAX model, where the X indicates exogenous variables. This model handles each region individually and it expects monthly data for all the covariates. The model utilizes the `arima` function which chooses the order of the differencing, autoregression and the moving average for us. Further information is available in the [model repository](https://github.com/dhis2-chap/Madagascar_ARIMA). An example of running the model from the CHAP command line interface is
+A general ARIMA model is a timeseries model with an autoregressive part, a moving average part and the option to difference the original timeseries, often to make it stationary. Additonally we have lagged rainfall and temperature, which actually makes this an ARIMAX model, where the X indicates exogenous variables. This model handles each region individually and it expects monthly data for all the covariates. The model utilizes the `arima` function which chooses the order of the differencing, autoregression and the moving average for us. Further information is available in the [model repository](https://github.com/dhis2-chap/Madagascar_ARIMA). An example of running the model from the Chap command line interface is
 ```
 chap evaluate --model-name https://github.com/dhis2-chap/Madagascar_ARIMA --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --report-filename report.pdf --debug --n-splits=3
 ```
@@ -41,7 +41,7 @@ chap evaluate --model-name https://github.com/dhis2-chap/Madagascar_ARIMA --data
 # Wrapping GluonTS models
 
 GluonTS provides a set of models that can be used for probabilistic time-series forecasting.
-Here, we show how we can wrap these models into CHAP models, to enable using them on spatio-temporal data and to evalutate them against other models.
+Here, we show how we can wrap these models into Chap models, to enable using them on spatio-temporal data and to evalutate them against other models.
 
 We will use the `DeepAREstimator` model from GluonTS, which is a deep learning model based on an RNN architecture. For this simple example we use
 a model that does not take weather into account, but only the the auto-regressive time series data.
@@ -71,7 +71,7 @@ deep_ar = DeepAREstimator(
     distr_output=NegativeBinomialOutput(),
     freq='M')
 
-# Wrap the model in a CHAP model
+# Wrap the model in a Chap model
 model = GluonTSEstimator(deep_ar, data)
 ```
 
@@ -86,7 +86,7 @@ evaluate_model(model, data, prediction_length=4, n_test_sets=8, report_filename=
 
 ## Running an external model in Python
 
-CHAP contains an API for loading models through Python. The following shows an example of loading and evaluating three different models by specifying paths/github urls, and evaluating those models:
+Chap contains an API for loading models through Python. The following shows an example of loading and evaluating three different models by specifying paths/github urls, and evaluating those models:
 
 ```python
 import pandas as pd
@@ -125,9 +125,9 @@ if __name__ == '__main__':
 
 ```
 
-# Docker Compose (CHAP Core)
+# Docker Compose (Chap Core)
 
-Starting CHAP Core using Docker Compose is specifically for those who want to use the CHAP Core REST-API, either together with other services or with the Modeling App installed on a DHIS2 server. See documentation for [Modeling App](modeling-app/modeling-app.md) for instructions on how to install the Modeling App.
+Starting Chap Core using Docker Compose is specifically for those who want to use the Chap Core REST-API, either together with other services or with the Modeling App installed on a DHIS2 server. See documentation for [Modeling App](modeling-app/modeling-app.md) for instructions on how to install the Modeling App.
 
 **Requirements**
 
@@ -139,15 +139,15 @@ Starting CHAP Core using Docker Compose is specifically for those who want to us
 
 To download and install Docker, visit the official Docker website: [https://docs.docker.com/get-started/get-docker](https://docs.docker.com/get-started/get-docker)
 
-## 2. Clone CHAP Core GitHub-Repository
+## 2. Clone Chap Core GitHub-Repository
 
-You need to clone the CHAP Core repository from GitHub. Open your terminal and run the following command:
+You need to clone the Chap Core repository from GitHub. Open your terminal and run the following command:
 
 ```sh
 git clone https://github.com/dhis2-chap/chap-core.git
 ```
 
-## 3. Start CHAP Core
+## 3. Start Chap Core
 
 At the root level of the repository, run:
 
@@ -165,7 +165,7 @@ You can go to [http://localhost:8000/docs](http://localhost:8000/docs) to verify
 
 ![Swagger UI](../_static/swagger-fastapi.png)
 
-## 4. Stop CHAP Core
+## 4. Stop Chap Core
 
 ```sh
 docker-compose down
@@ -179,9 +179,9 @@ When running things with docker compose, some logging will be done by each conta
 - `logs/worker.log`: This contains logs from the worker running the models. This should be checked if a model for some reason fails
 - `logs/tas_{task_id}.log`: One log file is generated for each task (typically model run). The task_id is the internal task id for the Celery task.
 
-# Data requirements in CHAP
+# Data requirements in Chap
 
-CHAP expects the data to contain certain features as column names of the supplied csv files. Specifically, time_period, population, disease_cases, location, rainfall and mean_temperature. CHAP gives an error if any of these are missing in the supplied datafile. Additionally, there are conventions for how to represent time in the time_period. For instance, weekly data should be represented as
+Chap expects the data to contain certain features as column names of the supplied csv files. Specifically, time_period, population, disease_cases, location, rainfall and mean_temperature. Chap gives an error if any of these are missing in the supplied datafile. Additionally, there are conventions for how to represent time in the time_period. For instance, weekly data should be represented as
 
 |time_period|
 |-----------|
@@ -201,4 +201,4 @@ And for monthly data it should be
 
 This requirement is checked for supplied data files for training and predicitng and also for the output data from the model. Additionaly the model should give samples from a distribuition, preferable $1000$ samples for each location and time index with column names `sample_0, sample_1` and so on.
 
-A useful tool for handling data is the adapters that can be included in the MLproject file. These adapters map the internal names in CHAP to whatever you want them to be. For instance disease_cases could be mapped to cases, as in the MLproject file in the repository under the [dhis2-chap organization](https://github.com/dhis2-chap/chap_auto_ewars_weekly). In practice, the adapters copy the mentioned column and gives it the new column name.
+A useful tool for handling data is the adapters that can be included in the MLproject file. These adapters map the internal names in Chap to whatever you want them to be. For instance disease_cases could be mapped to cases, as in the MLproject file in the repository under the [dhis2-chap organization](https://github.com/dhis2-chap/chap_auto_ewars_weekly). In practice, the adapters copy the mentioned column and gives it the new column name.

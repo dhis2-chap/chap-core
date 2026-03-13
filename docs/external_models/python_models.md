@@ -1,6 +1,6 @@
 # Make Python-models compatible with Chap
 
-CHAP supports multiple environment options for Python models, including Docker, MLflow/Conda, and uv.
+Chap supports multiple environment options for Python models, including Docker, MLflow/Conda, and uv.
 
 ## Environment options
 

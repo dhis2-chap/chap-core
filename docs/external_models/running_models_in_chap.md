@@ -4,8 +4,8 @@ In order to run Chap, you should first follow our [guide for how to install Chap
 
 > **Deprecation Notice:** The `chap evaluate` command shown below is deprecated and will be removed in v2.0. For new evaluations, use `chap eval` instead. See the [eval Reference](../chap-cli/eval-reference.md) and [Evaluation Workflow](../chap-cli/evaluation-workflow.md) for the recommended approach.
 
-Models that are compatible with CHAP can be used with the `chap evaluate` command.
-An external model can be provided to CHAP in two ways:
+Models that are compatible with Chap can be used with the `chap evaluate` command.
+An external model can be provided to Chap in two ways:
 
 - By specifying a path to a local code base:
 
@@ -20,7 +20,7 @@ $ chap evaluate --model-name https://github.com/dhis2-chap/minimalist_example --
 ```
 
 Note the `--ignore-environment` in the above commands.
-This means that we don't ask CHAP to use Docker or a Python environment when running the model.
+This means that we don't ask Chap to use Docker or a Python environment when running the model.
 This can be useful when developing and testing custom models before deploying them to a production environment.
 Instead the model will be run directly using the current environment you are in.
 This usually works fine when developing a model, but requires you to have both chap-core and the dependencies of your model available.
@@ -32,7 +32,7 @@ a docker container based on the specifications in the MLproject file of the mode
 $ chap evaluate --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-name ISIMIP_dengue_harmonized --dataset-country brazil
 ```
 
-If the above command runs without any error messages, you have successfully evaluated the model through CHAP, and a file `report.pdf` should have been generated with predictions for various regions.
+If the above command runs without any error messages, you have successfully evaluated the model through Chap, and a file `report.pdf` should have been generated with predictions for various regions.
 
 A folder `runs/model_name/latest` should also have been generated that contains copy of your model directory along with data files used. This can be useful to inspect if something goes wrong.
 

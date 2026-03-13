@@ -1,6 +1,6 @@
 # Evaluation Pipeline
 
-This document explains how model evaluation (backtesting) works internally in CHAP, with a focus on the expanding window cross-validation strategy used to split time series data.
+This document explains how model evaluation (backtesting) works internally in Chap, with a focus on the expanding window cross-validation strategy used to split time series data.
 
 ## Overview
 
@@ -13,7 +13,7 @@ It does this by:
 3. Generating predictions for each test window
 4. Comparing predictions against observed values (ground truth)
 
-Because disease surveillance data is a time series, we cannot use random train/test splits. Instead, CHAP uses **expanding window cross-validation**, where the training data always precedes the test data chronologically.
+Because disease surveillance data is a time series, we cannot use random train/test splits. Instead, Chap uses **expanding window cross-validation**, where the training data always precedes the test data chronologically.
 
 ## Pipeline Architecture
 
@@ -50,7 +50,7 @@ Standard k-fold cross-validation randomly assigns data points to folds. This is 
 
 ### The Strategy
 
-CHAP uses an **expanding window** approach where:
+Chap uses an **expanding window** approach where:
 
 - The model is trained once on an initial training set
 - Multiple test windows are created by sliding forward through the data
