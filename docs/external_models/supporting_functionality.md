@@ -8,4 +8,4 @@ while relying on the Chap framework to collect data from various sources, parse 
 
 If you specify `max_prediction_length` in your model configuration, Chap can automatically extend your model's prediction horizon using ExtendedPredictor. This wrapper makes predictions beyond your model's limit through iterative prediction: it predicts up to the maximum length, adds those predictions to the historic data, then predicts again. This repeats until the desired forecast length is reached.
 
-There are ongoing developments for a range of further supporting features, allowing modellers to rely on the Chap framework for model tuning (autoML), ensemble model learning, model explainability and more (please see overview of planned features [here](https://github.com/dhis2-chap/chap-core/wiki/Chap-Roadmap))   
+There are ongoing developments for a range of further supporting features, allowing modellers to rely on the Chap framework for model tuning (autoML), ensemble model learning, model explainability and more.

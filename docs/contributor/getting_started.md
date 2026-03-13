@@ -1,6 +1,6 @@
 # Contributor getting started
 
-The main intended way of contributing to Chap-Core is by contributing with models, for which we have a modularized system that makes it easy to contribute.
+The main intended way of contributing to Chap Core is by contributing with models, for which we have a modularized system that makes it easy to contribute.
 For this, we have guides/tutorials that explain how to make models compatible with Chap.
 
 We are also working on adding similar guides for contributing with custom code for evaluating models and visualizing results.

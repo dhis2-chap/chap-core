@@ -44,7 +44,7 @@ Open the Modelling App and confirm you are using version **4.0.0** or later.
 
 ### 4. Create a model
 
-Go to Models, click New model, and select **Chap-EWARS Model**. This model supports additional covariates. Give the model a clear name such as `extract_data`. Leave n_lags, precision, and regional seasonal settings unchanged.
+Go to Models, click New model, and select **CHAP-EWARS Model**. This model supports additional covariates. Give the model a clear name such as `extract_data`. Leave n_lags, precision, and regional seasonal settings unchanged.
 
 ### 5. Add covariates
 
