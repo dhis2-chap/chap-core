@@ -184,16 +184,33 @@ All HTTP calls go through `CHAPKitRestAPIWrapper`. Jobs are async on the chapkit
 
 - [x] Use chapkit `id` field as model template name (instead of `{display_name}_v{version}`)
 - [x] Map `version` and `repository_url` from chapkit metadata to model template config
-- [ ] Self-registration on GET /model-templates: merge live chapkit services (from v2 Orchestrator) with DB-stored templates so frontend sees all available models without manual seeding
+- [x] Extract `ml_service_info_to_model_template_config()` as standalone converter (works with both chapkit and local MLServiceInfo)
+- [x] Sync live chapkit services to DB on GET /model-templates via `_sync_live_chapkit_services()` in crud.py (uses v2 Orchestrator, graceful fallback if Redis unavailable)
 - [ ] Auto-sync chapkit configs to configured models: when a chapkit service is discovered, fetch its configs via `list_configs()` and create/update `ConfiguredModelDB` entries
-- [ ] Wire `Orchestrator` (currently v2-only, Redis db=3) into v1 router as a shared dependency
 - [ ] Health status on chapkit-backed templates: check `/health` endpoint and include status in model-templates response
 - [ ] Map `requires_geo` from chapkit to chap-core (needs DB column addition + migration)
 - [ ] Map `documentation_url` from chapkit metadata (needs DB column addition + migration)
+
+### Testing Self-Registration
+
+Start a chapkit service and register it with the v2 service registry, then verify it syncs to model templates:
+
+```bash
+# Start a chapkit service (e.g. hello-world model)
+cd /path/to/hello-world && uv run fastapi dev
+
+# Register with chap-core's v2 service registry (POST to v2 endpoint)
+curl -X POST http://127.0.0.1:8001/v2/services/\$register \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://127.0.0.1:8000", "info": <MLServiceInfo from /api/v1/info>}'
+
+# Verify it shows up in model templates (triggers sync from registry to DB)
+curl http://127.0.0.1:8001/v1/crud/model-templates | jq '.[].name'
+```
 
 ## Cleanup Opportunities
 
 - **`is_chapkit_model` flag threading**: The flag is still passed through 4-5 layers (CLI args -> RunConfig -> get_model -> ModelTemplate -> utils). Auto-detection now handles URL mode, but the flag is still needed for directory mode. Could be further simplified.
 - **Commented-out config**: `default.yaml` has commented chapkit entries -- decide whether to remove or document as examples.
 - **Deprecated evaluate()**: `cli_endpoints/evaluate.py` has a deprecated `evaluate()` function that still carries `is_chapkit_model` -- can be removed when the old codepath is dropped.
-- **v1/v2 gap**: v1 has no awareness of the service registry; it relies on pre-configured URLs in the database. v2 service registry is not yet wired into model loading. (Tracked in roadmap above.)
+- **v1/v2 gap**: v1 now syncs model templates from the v2 service registry on GET /model-templates, but configured model sync and health status are not yet implemented. (Tracked in roadmap above.)

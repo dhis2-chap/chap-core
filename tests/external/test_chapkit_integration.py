@@ -14,8 +14,10 @@ from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, Run
 from chap_core.models.external_chapkit_model import (
     ExternalChapkitModel,
     ExternalChapkitModelTemplate,
+    ml_service_info_to_model_template_config,
 )
 from chap_core.models.utils import _is_chapkit_url
+from chap_core.rest_api.services.schemas import MLServiceInfo as LocalMLServiceInfo
 
 VALID_ULID_1 = str(ULID())
 VALID_ULID_2 = str(ULID())
@@ -331,6 +333,27 @@ class TestTypedResponses:
             assert len(result) == 2
             assert all(isinstance(c, chapkit.ConfigOut) for c in result)
             assert result[0].id == ulid1
+
+
+class TestMlServiceInfoToModelTemplateConfig:
+    def test_converts_chapkit_ml_service_info(self):
+        config = ml_service_info_to_model_template_config(MOCK_INFO_RESPONSE, "http://localhost:8000")
+        assert config.name == "test-model"
+        assert config.version == "1.0.0"
+        assert config.rest_api_url == "http://localhost:8000"
+        assert config.min_prediction_length == 1
+        assert config.max_prediction_length == 12
+
+    def test_converts_local_schema_ml_service_info(self):
+        local_info = LocalMLServiceInfo.model_validate(MOCK_INFO_DICT)
+        config = ml_service_info_to_model_template_config(local_info, "http://localhost:9000")
+        assert config.name == "test-model"
+        assert config.rest_api_url == "http://localhost:9000"
+
+    def test_passes_user_options(self):
+        options = {"learning_rate": {"type": "number"}}
+        config = ml_service_info_to_model_template_config(MOCK_INFO_RESPONSE, "http://localhost:8000", options)
+        assert config.user_options == options
 
 
 class TestIsChapkitUrl:

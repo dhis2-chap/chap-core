@@ -57,6 +57,37 @@ from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
 
+
+def _sync_live_chapkit_services(session: Session) -> None:
+    """Sync live chapkit services from the v2 registry into the DB.
+
+    Queries the Redis-backed Orchestrator for registered services and
+    upserts each as a model template. Silently skips if Redis is
+    unavailable.
+    """
+    try:
+        from chap_core.rest_api.v2.dependencies import get_orchestrator
+
+        orchestrator = get_orchestrator()
+        service_list = orchestrator.get_all()
+    except Exception:
+        logger.debug("Could not reach service registry, skipping chapkit sync")
+        return
+
+    if service_list.count == 0:
+        return
+
+    from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
+
+    session_wrapper = SessionWrapper(session=session)
+    for service in service_list.services:
+        try:
+            config = ml_service_info_to_model_template_config(service.info, service.url)
+            session_wrapper.add_model_template_from_yaml_config(config)
+        except Exception:
+            logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
+
+
 router = APIRouter(prefix="/crud")
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
@@ -364,7 +395,10 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
 async def list_model_templates(session: Session = Depends(get_session)):
     """
     Lists all model templates from the db, including archived.
+    Also syncs live chapkit services from the v2 service registry
+    into the database (upsert by name).
     """
+    _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB)).all()
     return model_templates
 
