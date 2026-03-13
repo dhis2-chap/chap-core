@@ -12,8 +12,11 @@ from cyclopts import App
 
 from chap_core.cli_endpoints import convert, evaluate, forecast, preference_learn, utils, validate
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)-7s] %(message)s [%(name)s]",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
 
 app = App()
 

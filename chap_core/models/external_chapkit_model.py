@@ -10,6 +10,14 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
 
+_CHAPKIT_PERIOD_MAP = {"weekly": "week", "monthly": "month"}
+
+
+def _chapkit_period_to_chap(chapkit_period_type) -> PeriodType:
+    """Map chapkit period type enum to CHAP PeriodType."""
+    value = chapkit_period_type.value if hasattr(chapkit_period_type, "value") else str(chapkit_period_type)
+    return PeriodType(_CHAPKIT_PERIOD_MAP.get(value, value))
+
 
 class ExternalChapkitModelTemplate:
     """Wrapper around External models that are based on chapkit.
@@ -72,6 +80,10 @@ class ExternalChapkitModelTemplate:
                 host=host,
                 startup_timeout=startup_timeout,
             )
+
+    @property
+    def is_url_mode(self) -> bool:
+        return self._is_url_mode
 
     def _ensure_initialized(self) -> None:
         """Ensure the template is initialized (service running, client ready)."""
@@ -163,16 +175,21 @@ class ExternalChapkitModelTemplate:
         # }
 
         config_response = self.client.create_config(config_data)
-        configuration_id = config_response["id"]
+        configuration_id = str(config_response.id)
 
         # get all configs and assert that configuration_id is there
         all_configs = self.client.list_configs()
-        assert any(cfg["id"] == configuration_id for cfg in all_configs), (
+        assert any(cfg.id == configuration_id for cfg in all_configs), (
             f"Created configuration {configuration_id} not found in list of configs"
         )
 
         logger.info(f"Created model configuration with id {configuration_id} at {self.rest_api_url}")
-        return ExternalChapkitModel(self.name, self.rest_api_url, configuration_id=configuration_id)
+        return ExternalChapkitModel(
+            self.name,
+            self.rest_api_url,
+            configuration_id=configuration_id,
+            model_information=self.model_template_config,
+        )
 
     @property
     def name(self):
@@ -182,12 +199,8 @@ class ExternalChapkitModelTemplate:
         self._ensure_initialized()
         assert self.client is not None
         info = self.client.info()
-        if "name" in info:
-            # name not supported in current chapkit version, might be supported in the future
-            name = info["name"]
-        else:
-            name = info["display_name"].lower().replace(" ", "_")
-        version = info.get("version")
+        name = info.display_name.lower().replace(" ", "_")
+        version = info.version
         return f"{name}_v{version}"
 
     @property
@@ -210,33 +223,29 @@ class ExternalChapkitModelTemplate:
         if "$defs" in config_schema and "ModelConfiguration" in config_schema["$defs"]:
             user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
 
-        # Build metadata dict from info endpoint
-        # TODO: this can be done by dumping the dict into a base-model
+        metadata = model_info.model_metadata
         meta_data_dict = {
-            "display_name": model_info.get("display_name", "No Display Name"),
-            "description": model_info.get("description") or model_info.get("summary", "No Description"),
-            "author_note": model_info.get("author_note") or "",
-            "author_assessed_status": model_info.get("author_assessed_status", "red"),
-            "author": model_info.get("author", "Unknown Author"),
-            "organization": model_info.get("organization"),
-            "organization_logo_url": model_info.get("organization_logo_url"),
-            "contact_email": model_info.get("contact_email"),
-            "citation_info": model_info.get("citation_info"),
+            "display_name": model_info.display_name,
+            "description": model_info.description or "No Description",
+            "author_note": metadata.author_note or "",
+            "author_assessed_status": metadata.author_assessed_status or "red",
+            "author": metadata.author or "Unknown Author",
+            "organization": metadata.organization,
+            "organization_logo_url": str(metadata.organization_logo_url) if metadata.organization_logo_url else None,
+            "contact_email": metadata.contact_email,
+            "citation_info": metadata.citation_info,
         }
 
-        # Build complete config dict
         config_dict = {
             "name": self.name,
             "rest_api_url": self.rest_api_url,
             "meta_data": meta_data_dict,
-            "required_covariates": model_info.get("required_covariates", []),
-            "allow_free_additional_continuous_covariates": model_info.get(
-                "allow_free_additional_continuous_covariates", False
-            ),
-            "supported_period_type": PeriodType(model_info.get("supported_period_type", "any")),
+            "required_covariates": model_info.required_covariates or [],
+            "allow_free_additional_continuous_covariates": model_info.allow_free_additional_continuous_covariates,
+            "supported_period_type": _chapkit_period_to_chap(model_info.period_type),
             "user_options": user_options,
-            # target defaults to "disease_cases"
-            # RunnerConfig fields not needed for REST API models:
+            "min_prediction_length": model_info.min_prediction_periods,
+            "max_prediction_length": model_info.max_prediction_periods,
             "entry_points": None,
             "docker_env": None,
             "python_env": None,
@@ -247,14 +256,25 @@ class ExternalChapkitModelTemplate:
 
 
 class ExternalChapkitModel(ExternalModelBase):
-    def __init__(self, model_name: str, rest_api_url: str, configuration_id: str):
+    def __init__(
+        self,
+        model_name: str,
+        rest_api_url: str,
+        configuration_id: str,
+        model_information: ModelTemplateConfigV2 | None = None,
+    ):
         self.model_name = model_name
         self.rest_api_url = rest_api_url
         self.configuration_id = configuration_id
         self._location_mapping = None
         self._adapters = None
         self.client = CHAPKitRestAPIWrapper(rest_api_url)
-        self._train_id = None
+        self._train_id: str | None = None
+        self._model_information = model_information
+
+    @property
+    def model_information(self):
+        return self._model_information
 
     def train(self, train_data: DataSet, extra_args=None, run_info: RunInfo | None = None):
         frequency = self._get_frequency(train_data)
@@ -263,15 +283,14 @@ class ExternalChapkitModel(ExternalModelBase):
         geo = train_data.polygons
         if run_info is None:
             run_info = RunInfo(prediction_length=1)
-        response = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
+        job, artifact_id = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
 
-        if response["status"] == "failed":
+        if job.status == "failed":
             raise RuntimeError(
-                f"Training failed: {response.get('error', 'Unknown error')}. Stacktrace: {response.get('error_traceback', '')}"
+                f"Training failed: {job.error or 'Unknown error'}. Stacktrace: {job.error_traceback or ''}"
             )
 
-        artifact_id = response["artifact_id"]
-        assert artifact_id is not None, response
+        assert artifact_id is not None, f"No artifact_id returned: {job}"
         self._train_id = artifact_id
         return self
 
@@ -283,7 +302,7 @@ class ExternalChapkitModel(ExternalModelBase):
         if run_info is None:
             prediction_length = len(future_data.period_range)
             run_info = RunInfo(prediction_length=prediction_length)
-        response = self.client.predict_and_wait(
+        job, artifact_id = self.client.predict_and_wait(
             artifact_id=self._train_id,
             future_data=future_data_pd,
             run_info=run_info,
@@ -291,11 +310,10 @@ class ExternalChapkitModel(ExternalModelBase):
             geo_features=geo,
         )
 
-        if response["status"] == "failed":
-            raise RuntimeError(f"Prediction failed: {response.get('error', 'Unknown error')}")
+        if job.status == "failed":
+            raise RuntimeError(f"Prediction failed: {job.error or 'Unknown error'}")
 
-        artifact_id = response["artifact_id"]
-        assert artifact_id is not None, response.get("error", "No prediction artifact")
+        assert artifact_id is not None, f"No prediction artifact: {job.error or ''}"
 
         # get artifact from the client
         prediction_data = self.client.get_prediction_artifact_dataframe(artifact_id)
