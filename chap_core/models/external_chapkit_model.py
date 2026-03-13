@@ -163,11 +163,11 @@ class ExternalChapkitModelTemplate:
         # }
 
         config_response = self.client.create_config(config_data)
-        configuration_id = config_response["id"]
+        configuration_id = str(config_response.id)
 
         # get all configs and assert that configuration_id is there
         all_configs = self.client.list_configs()
-        assert any(cfg["id"] == configuration_id for cfg in all_configs), (
+        assert any(cfg.id == configuration_id for cfg in all_configs), (
             f"Created configuration {configuration_id} not found in list of configs"
         )
 
@@ -267,7 +267,7 @@ class ExternalChapkitModel(ExternalModelBase):
         self._location_mapping = None
         self._adapters = None
         self.client = CHAPKitRestAPIWrapper(rest_api_url)
-        self._train_id = None
+        self._train_id: str | None = None
         self._model_information = model_information
 
     @property
@@ -281,15 +281,14 @@ class ExternalChapkitModel(ExternalModelBase):
         geo = train_data.polygons
         if run_info is None:
             run_info = RunInfo(prediction_length=1)
-        response = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
+        job, artifact_id = self.client.train_and_wait(self.configuration_id, new_df, run_info, geo)
 
-        if response["status"] == "failed":
+        if job.status == "failed":
             raise RuntimeError(
-                f"Training failed: {response.get('error', 'Unknown error')}. Stacktrace: {response.get('error_traceback', '')}"
+                f"Training failed: {job.error or 'Unknown error'}. Stacktrace: {job.error_traceback or ''}"
             )
 
-        artifact_id = response["artifact_id"]
-        assert artifact_id is not None, response
+        assert artifact_id is not None, f"No artifact_id returned: {job}"
         self._train_id = artifact_id
         return self
 
@@ -301,7 +300,7 @@ class ExternalChapkitModel(ExternalModelBase):
         if run_info is None:
             prediction_length = len(future_data.period_range)
             run_info = RunInfo(prediction_length=prediction_length)
-        response = self.client.predict_and_wait(
+        job, artifact_id = self.client.predict_and_wait(
             artifact_id=self._train_id,
             future_data=future_data_pd,
             run_info=run_info,
@@ -309,11 +308,10 @@ class ExternalChapkitModel(ExternalModelBase):
             geo_features=geo,
         )
 
-        if response["status"] == "failed":
-            raise RuntimeError(f"Prediction failed: {response.get('error', 'Unknown error')}")
+        if job.status == "failed":
+            raise RuntimeError(f"Prediction failed: {job.error or 'Unknown error'}")
 
-        artifact_id = response["artifact_id"]
-        assert artifact_id is not None, response.get("error", "No prediction artifact")
+        assert artifact_id is not None, f"No prediction artifact: {job.error or ''}"
 
         # get artifact from the client
         prediction_data = self.client.get_prediction_artifact_dataframe(artifact_id)

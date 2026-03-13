@@ -1,9 +1,12 @@
 """Tests for chapkit integration: model_information propagation and geo serialization."""
 
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+import chapkit
 import pytest
 from pydantic import BaseModel
+from ulid import ULID
 
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, RunInfo
 from chap_core.models.external_chapkit_model import (
@@ -11,6 +14,8 @@ from chap_core.models.external_chapkit_model import (
     ExternalChapkitModelTemplate,
 )
 
+VALID_ULID_1 = str(ULID())
+VALID_ULID_2 = str(ULID())
 
 MOCK_INFO_RESPONSE = {
     "id": "test-model",
@@ -36,6 +41,28 @@ MOCK_CONFIG_SCHEMA = {
         }
     }
 }
+
+
+def _mock_train_predict_response():
+    """Create a mock response with valid data for train/predict endpoints."""
+    mock = MagicMock()
+    mock.json.return_value = {
+        "job_id": VALID_ULID_1,
+        "artifact_id": VALID_ULID_2,
+        "message": "ok",
+    }
+    return mock
+
+
+def _make_config_out(config_id=None, name="test"):
+    """Create a valid ConfigOut instance."""
+    return chapkit.ConfigOut(
+        id=config_id or VALID_ULID_1,
+        name=name,
+        data={"prediction_periods": 3},
+        created_at=datetime(2024, 1, 1),
+        updated_at=datetime(2024, 1, 1),
+    )
 
 
 class TestExternalChapkitModelInformation:
@@ -91,11 +118,13 @@ class TestGetModelPassesModelInformation:
     def test_get_model_passes_model_information(self):
         template = ExternalChapkitModelTemplate("http://localhost:8000")
 
+        config_out = _make_config_out()
+
         mock_client = MagicMock()
         mock_client.info.return_value = MOCK_INFO_RESPONSE
         mock_client.get_config_schema.return_value = MOCK_CONFIG_SCHEMA
-        mock_client.create_config.return_value = {"id": "config-123"}
-        mock_client.list_configs.return_value = [{"id": "config-123"}]
+        mock_client.create_config.return_value = config_out
+        mock_client.list_configs.return_value = [config_out]
         template.client = mock_client
         template.rest_api_url = "http://localhost:8000"
         template._initialized = True
@@ -118,8 +147,7 @@ class TestGeoSerialization:
 
     def test_train_serializes_pydantic_geo(self, wrapper):
         geo = FakeGeoModel()
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"job_id": "j1", "artifact_id": "a1"}
+        mock_response = _mock_train_predict_response()
 
         import pandas as pd
 
@@ -135,8 +163,7 @@ class TestGeoSerialization:
 
     def test_train_passes_dict_geo_unchanged(self, wrapper):
         geo = {"type": "FeatureCollection", "features": []}
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"job_id": "j1", "artifact_id": "a1"}
+        mock_response = _mock_train_predict_response()
 
         import pandas as pd
 
@@ -151,8 +178,7 @@ class TestGeoSerialization:
 
     def test_predict_serializes_pydantic_geo(self, wrapper):
         geo = FakeGeoModel()
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"job_id": "j1", "artifact_id": "a1"}
+        mock_response = _mock_train_predict_response()
 
         import pandas as pd
 
@@ -165,3 +191,65 @@ class TestGeoSerialization:
             body = call_kwargs.kwargs["json"]
             assert isinstance(body["geo"], dict)
             assert body["geo"]["type"] == "FeatureCollection"
+
+
+class TestTypedResponses:
+    @pytest.fixture()
+    def wrapper(self):
+        return CHAPKitRestAPIWrapper("http://localhost:8000")
+
+    def test_train_returns_typed_response(self, wrapper):
+        mock_response = _mock_train_predict_response()
+
+        with patch.object(wrapper, "_request", return_value=mock_response):
+            result = wrapper.train(
+                "config-1",
+                __import__("pandas").DataFrame({"x": [1]}),
+                RunInfo(prediction_length=1),
+            )
+            assert isinstance(result, chapkit.TrainResponse)
+            assert result.job_id == VALID_ULID_1
+            assert result.artifact_id == VALID_ULID_2
+
+    def test_predict_returns_typed_response(self, wrapper):
+        mock_response = _mock_train_predict_response()
+
+        with patch.object(wrapper, "_request", return_value=mock_response):
+            result = wrapper.predict(
+                "artifact-1",
+                __import__("pandas").DataFrame({"x": [1]}),
+                RunInfo(prediction_length=1),
+            )
+            assert isinstance(result, chapkit.PredictResponse)
+            assert result.job_id == VALID_ULID_1
+
+    def test_get_job_returns_typed_response(self, wrapper):
+        job_ulid = str(ULID())
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "id": job_ulid,
+            "status": "completed",
+            "submitted_at": "2024-01-01T00:00:00",
+        }
+
+        with patch.object(wrapper, "_request", return_value=mock_response):
+            result = wrapper.get_job(job_ulid)
+            assert isinstance(result, chapkit.ChapkitJobRecord)
+            assert result.status == "completed"
+
+    def test_list_configs_returns_typed_response(self, wrapper):
+        ulid1 = str(ULID())
+        ulid2 = str(ULID())
+        now = "2024-01-01T00:00:00"
+        mock_response = MagicMock()
+        data = {"prediction_periods": 3}
+        mock_response.json.return_value = [
+            {"id": ulid1, "name": "config1", "data": data, "created_at": now, "updated_at": now},
+            {"id": ulid2, "name": "config2", "data": data, "created_at": now, "updated_at": now},
+        ]
+
+        with patch.object(wrapper, "_request", return_value=mock_response):
+            result = wrapper.list_configs()
+            assert len(result) == 2
+            assert all(isinstance(c, chapkit.ConfigOut) for c in result)
+            assert result[0].id == ulid1
