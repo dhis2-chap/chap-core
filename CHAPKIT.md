@@ -172,10 +172,28 @@ All HTTP calls go through `CHAPKitRestAPIWrapper`. Jobs are async on the chapkit
 - **Workspace snowball bug (chapkit)**: `FunctionalModelRunner.on_train()` and `ShellModelRunner.on_train()` call `prepare_workspace(Path.cwd(), workspace_dir)` which copies the entire project directory, then zips it into a blob stored in SQLite via `PickleType`. If the chapkit service's SQLite DB file (e.g. `data/chapkit.db`) lives inside the project directory, each run the DB contains previous artifact blobs, so the workspace zip grows exponentially. First eval succeeds, second fails with `sqlite3.DataError: string or blob too big`. Confirmed with `hello-world` model where `data/chapkit.db` is inside the project root. Fix needed in chapkit: either add `"*.db"` / `"data"` to `WORKSPACE_EXCLUDE_PATTERNS` in `runner.py`, or store the DB outside the project directory.
 - **Period type mismatch**: Chapkit uses "monthly"/"weekly" while chap-core uses "month"/"week". The mapping is handled by `_chapkit_period_to_chap()` in `external_chapkit_model.py`.
 
+## Conceptual Mapping
+
+| chapkit | chap-core | Notes |
+|---------|-----------|-------|
+| service | ModelTemplateDB | A chapkit service = a model template |
+| service + config | ConfiguredModelDB | A configured model = template + user config |
+| train/predict calls | BackTest | Runs stored as BackTest in DB. Could store chapkit artifact_id reference later |
+
+## Roadmap: Self-Registration
+
+- [x] Use chapkit `id` field as model template name (instead of `{display_name}_v{version}`)
+- [x] Map `version` and `repository_url` from chapkit metadata to model template config
+- [ ] Self-registration on GET /model-templates: merge live chapkit services (from v2 Orchestrator) with DB-stored templates so frontend sees all available models without manual seeding
+- [ ] Auto-sync chapkit configs to configured models: when a chapkit service is discovered, fetch its configs via `list_configs()` and create/update `ConfiguredModelDB` entries
+- [ ] Wire `Orchestrator` (currently v2-only, Redis db=3) into v1 router as a shared dependency
+- [ ] Health status on chapkit-backed templates: check `/health` endpoint and include status in model-templates response
+- [ ] Map `requires_geo` from chapkit to chap-core (needs DB column addition + migration)
+- [ ] Map `documentation_url` from chapkit metadata (needs DB column addition + migration)
+
 ## Cleanup Opportunities
 
 - **`is_chapkit_model` flag threading**: The flag is still passed through 4-5 layers (CLI args -> RunConfig -> get_model -> ModelTemplate -> utils). Auto-detection now handles URL mode, but the flag is still needed for directory mode. Could be further simplified.
 - **Commented-out config**: `default.yaml` has commented chapkit entries -- decide whether to remove or document as examples.
 - **Deprecated evaluate()**: `cli_endpoints/evaluate.py` has a deprecated `evaluate()` function that still carries `is_chapkit_model` -- can be removed when the old codepath is dropped.
-- **Version support**: `model_template_seed.py` has a TODO about ignoring versions for chapkit models.
-- **v1/v2 gap**: v1 has no awareness of the service registry; it relies on pre-configured URLs in the database. v2 service registry is not yet wired into model loading.
+- **v1/v2 gap**: v1 has no awareness of the service registry; it relies on pre-configured URLs in the database. v2 service registry is not yet wired into model loading. (Tracked in roadmap above.)

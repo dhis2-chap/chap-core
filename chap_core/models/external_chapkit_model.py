@@ -193,15 +193,11 @@ class ExternalChapkitModelTemplate:
 
     @property
     def name(self):
-        """
-        This returns a unique name for the model. In the future, this might be some sort of id given by the model
-        """
+        """Return the chapkit service id as the model template name."""
         self._ensure_initialized()
         assert self.client is not None
         info = self.client.info()
-        name = info.display_name.lower().replace(" ", "_")
-        version = info.version
-        return f"{name}_v{version}"
+        return info.id
 
     @property
     def model_template_config(self) -> ModelTemplateConfigV2:
@@ -238,6 +234,7 @@ class ExternalChapkitModelTemplate:
 
         config_dict = {
             "name": self.name,
+            "version": model_info.version,
             "rest_api_url": self.rest_api_url,
             "meta_data": meta_data_dict,
             "required_covariates": model_info.required_covariates or [],
@@ -249,7 +246,7 @@ class ExternalChapkitModelTemplate:
             "entry_points": None,
             "docker_env": None,
             "python_env": None,
-            "source_url": self._path_or_url,
+            "source_url": str(metadata.repository_url) if metadata.repository_url else self._path_or_url,
         }
 
         return ModelTemplateConfigV2.model_validate(config_dict)

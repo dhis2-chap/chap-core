@@ -85,6 +85,26 @@ class TestExternalChapkitModelInformation:
         assert model.model_information is None
 
 
+class TestNameUsesChapkitId:
+    def test_name_returns_service_id(self):
+        template = ExternalChapkitModelTemplate("http://localhost:8000")
+
+        mock_client = MagicMock()
+        mock_client.info.return_value = MOCK_INFO_RESPONSE
+        template.client = mock_client
+
+        assert template.name == "test-model"
+
+    def test_name_does_not_use_display_name_format(self):
+        template = ExternalChapkitModelTemplate("http://localhost:8000")
+
+        mock_client = MagicMock()
+        mock_client.info.return_value = MOCK_INFO_RESPONSE
+        template.client = mock_client
+
+        assert template.name != "test_model_v1.0.0"
+
+
 class TestGetModelTemplateConfig:
     def test_maps_prediction_periods_to_prediction_length(self):
         template = ExternalChapkitModelTemplate("http://localhost:8000")
@@ -99,6 +119,58 @@ class TestGetModelTemplateConfig:
         config = template.get_model_template_config()
         assert config.min_prediction_length == 1
         assert config.max_prediction_length == 12
+
+    def test_config_name_uses_service_id(self):
+        template = ExternalChapkitModelTemplate("http://localhost:8000")
+
+        mock_client = MagicMock()
+        mock_client.info.return_value = MOCK_INFO_RESPONSE
+        mock_client.get_config_schema.return_value = MOCK_CONFIG_SCHEMA
+        template.client = mock_client
+        template.rest_api_url = "http://localhost:8000"
+
+        config = template.get_model_template_config()
+        assert config.name == "test-model"
+
+    def test_config_includes_version(self):
+        template = ExternalChapkitModelTemplate("http://localhost:8000")
+
+        mock_client = MagicMock()
+        mock_client.info.return_value = MOCK_INFO_RESPONSE
+        mock_client.get_config_schema.return_value = MOCK_CONFIG_SCHEMA
+        template.client = mock_client
+        template.rest_api_url = "http://localhost:8000"
+
+        config = template.get_model_template_config()
+        assert config.version == "1.0.0"
+
+    def test_config_uses_repository_url_as_source_url(self):
+        metadata = dict(MOCK_INFO_DICT["model_metadata"])  # type: ignore[arg-type]
+        metadata["repository_url"] = "https://github.com/example/model"
+        info_dict = {**MOCK_INFO_DICT, "model_metadata": metadata}
+        info = MLServiceInfo.model_validate(info_dict)
+
+        template = ExternalChapkitModelTemplate("http://localhost:8000")
+        mock_client = MagicMock()
+        mock_client.info.return_value = info
+        mock_client.get_config_schema.return_value = MOCK_CONFIG_SCHEMA
+        template.client = mock_client
+        template.rest_api_url = "http://localhost:8000"
+
+        config = template.get_model_template_config()
+        assert config.source_url == "https://github.com/example/model"
+
+    def test_config_falls_back_to_service_url_for_source_url(self):
+        template = ExternalChapkitModelTemplate("http://localhost:8000")
+
+        mock_client = MagicMock()
+        mock_client.info.return_value = MOCK_INFO_RESPONSE
+        mock_client.get_config_schema.return_value = MOCK_CONFIG_SCHEMA
+        template.client = mock_client
+        template.rest_api_url = "http://localhost:8000"
+
+        config = template.get_model_template_config()
+        assert config.source_url == "http://localhost:8000"
 
     def test_prediction_length_uses_defaults_when_not_specified(self):
         template = ExternalChapkitModelTemplate("http://localhost:8000")
