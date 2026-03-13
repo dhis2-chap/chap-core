@@ -8,8 +8,10 @@ import httpx
 import pytest
 from chapkit.api.service_builder import MLServiceInfo
 from pydantic import BaseModel
+from sqlmodel import Session, select
 from ulid import ULID
 
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, RunInfo
 from chap_core.models.external_chapkit_model import (
     ExternalChapkitModel,
@@ -61,12 +63,12 @@ def _mock_train_predict_response():
     return mock
 
 
-def _make_config_out(config_id=None, name="test"):
+def _make_config_out(config_id=None, name="test", data=None):
     """Create a valid ConfigOut instance."""
     return chapkit.ConfigOut(
         id=config_id or VALID_ULID_1,
         name=name,
-        data={"prediction_periods": 3},
+        data=data if data is not None else {"prediction_periods": 3},
         created_at=datetime(2024, 1, 1),
         updated_at=datetime(2024, 1, 1),
     )
@@ -354,6 +356,79 @@ class TestMlServiceInfoToModelTemplateConfig:
         options = {"learning_rate": {"type": "number"}}
         config = ml_service_info_to_model_template_config(MOCK_INFO_RESPONSE, "http://localhost:8000", options)
         assert config.user_options == options
+
+
+class TestSyncChapkitConfiguredModels:
+    @pytest.fixture()
+    def db_session(self):
+        from sqlalchemy import create_engine
+        from sqlmodel import SQLModel
+
+        engine = create_engine("sqlite://")
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as session:
+            yield session
+
+    @pytest.fixture()
+    def template_id(self, db_session):
+        from chap_core.database.database import SessionWrapper
+
+        config = ml_service_info_to_model_template_config(MOCK_INFO_RESPONSE, "http://localhost:8000")
+        wrapper = SessionWrapper(session=db_session)
+        return wrapper.add_model_template_from_yaml_config(config)
+
+    def test_creates_default_config_when_service_has_no_configs(self, db_session, template_id):
+        from chap_core.database.database import SessionWrapper
+        from chap_core.rest_api.v1.routers.crud import _sync_chapkit_configured_models
+
+        mock_wrapper_cls = MagicMock()
+        mock_wrapper_cls.return_value.list_configs.return_value = []
+
+        _sync_chapkit_configured_models(
+            SessionWrapper(session=db_session), template_id, "http://localhost:8000", mock_wrapper_cls
+        )
+
+        configs = db_session.exec(
+            select(ConfiguredModelDB).where(ConfiguredModelDB.model_template_id == template_id)
+        ).all()
+        assert len(configs) == 1
+        assert configs[0].uses_chapkit is True
+
+    def test_creates_configured_models_from_service_configs(self, db_session, template_id):
+        from chap_core.database.database import SessionWrapper
+        from chap_core.rest_api.v1.routers.crud import _sync_chapkit_configured_models
+
+        config_a = _make_config_out(name="config-a")
+        config_b = _make_config_out(config_id=str(ULID()), name="config-b")
+
+        mock_wrapper_cls = MagicMock()
+        mock_wrapper_cls.return_value.list_configs.return_value = [config_a, config_b]
+
+        _sync_chapkit_configured_models(
+            SessionWrapper(session=db_session), template_id, "http://localhost:8000", mock_wrapper_cls
+        )
+
+        configs = db_session.exec(
+            select(ConfiguredModelDB).where(ConfiguredModelDB.model_template_id == template_id)
+        ).all()
+        assert len(configs) == 2
+        assert all(c.uses_chapkit for c in configs)
+
+    def test_skips_sync_when_configs_already_exist(self, db_session, template_id):
+        from chap_core.database.database import SessionWrapper
+        from chap_core.rest_api.v1.routers.crud import _sync_chapkit_configured_models
+
+        wrapper = SessionWrapper(session=db_session)
+
+        # First sync creates configs
+        mock_wrapper_cls = MagicMock()
+        mock_wrapper_cls.return_value.list_configs.return_value = []
+        _sync_chapkit_configured_models(wrapper, template_id, "http://localhost:8000", mock_wrapper_cls)
+
+        # Second sync should skip (no new HTTP call)
+        mock_wrapper_cls2 = MagicMock()
+        _sync_chapkit_configured_models(wrapper, template_id, "http://localhost:8000", mock_wrapper_cls2)
+        mock_wrapper_cls2.assert_not_called()
 
 
 class TestIsChapkitUrl:
