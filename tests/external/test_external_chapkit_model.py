@@ -104,11 +104,11 @@ class TestChapkitServiceManager:
 class TestExternalChapkitModelTemplateDetection:
     def test_detects_url_mode(self):
         template = ExternalChapkitModelTemplate("http://localhost:8000")
-        assert template._is_url_mode is True
+        assert template.is_url_mode is True
 
     def test_detects_directory_mode(self, tmp_path):
         template = ExternalChapkitModelTemplate(str(tmp_path))
-        assert template._is_url_mode is False
+        assert template.is_url_mode is False
 
 
 class TestExternalChapkitModelTemplateDirectoryMode:

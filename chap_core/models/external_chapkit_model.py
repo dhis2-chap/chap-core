@@ -81,6 +81,10 @@ class ExternalChapkitModelTemplate:
                 startup_timeout=startup_timeout,
             )
 
+    @property
+    def is_url_mode(self) -> bool:
+        return self._is_url_mode
+
     def _ensure_initialized(self) -> None:
         """Ensure the template is initialized (service running, client ready)."""
         if self.client is None:

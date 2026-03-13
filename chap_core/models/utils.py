@@ -160,7 +160,7 @@ def get_model_template_from_directory_or_github_url(
             logger.info("Auto-detected chapkit service at %s", model_template_path)
         logger.debug("Model is chapkit model")
         template = ExternalChapkitModelTemplate(model_template_path)
-        if template._is_url_mode:
+        if template.is_url_mode:
             assert template.name is not None, template
         return template
 
