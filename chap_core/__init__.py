@@ -17,8 +17,6 @@ try:
 except Exception:
     __version__ = "unknown"
 
-__minimum_modelling_app_version__ = "3.0.0"
-
 
 def get_temp_dir() -> Path:
     """Get the temporary directory for build and test artifacts.

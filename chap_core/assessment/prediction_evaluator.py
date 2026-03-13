@@ -77,7 +77,7 @@ def backtest(
         ``SamplesWithTruth`` (predicted samples merged with observed values).
     """
     train, test_generator = train_test_generator(
-        data, prediction_length, n_test_sets, future_weather_provider=weather_provider
+        data, prediction_length, n_test_sets, stride=stride, future_weather_provider=weather_provider
     )
     predictor = estimator.train(train)
     for historic_data, future_data, future_truth in test_generator:

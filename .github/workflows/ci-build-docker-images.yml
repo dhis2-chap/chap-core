@@ -16,8 +16,10 @@ jobs:
         include:
           - dockerfile: Dockerfile
             image_name: dhis2-chap/chap-core
-          - dockerfile: Dockerfile.inla
-            image_name: dhis2-chap/chap-core-with-inla
+          # - dockerfile: Dockerfile.inla
+          #   image_name: dhis2-chap/chap-core-with-inla
+          - dockerfile: Dockerfile.worker
+            image_name: dhis2-chap/chap-worker
 
     permissions:
       contents: read
@@ -76,6 +78,8 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: ${{ steps.tag.outputs.TAGS }}
+          build-args: |
+            GIT_REVISION=${{ github.sha }}
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2

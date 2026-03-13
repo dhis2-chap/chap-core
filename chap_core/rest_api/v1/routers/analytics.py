@@ -37,7 +37,7 @@ from ...data_models import (
 )
 from .dependencies import get_database_url, get_session, get_settings
 
-router = APIRouter(prefix="/analytics", tags=["analytics"])
+router = APIRouter(prefix="/analytics")
 
 logger = logging.getLogger(__name__)
 worker: CeleryPool[Any] = CeleryPool()
@@ -58,7 +58,7 @@ class MetaData(BaseModel):
     data_name_mapping: list[MetaDataEntry]
 
 
-@router.post("/make-dataset", response_model=ImportSummaryResponse)
+@router.post("/make-dataset", response_model=ImportSummaryResponse, tags=["Datasets"])
 def make_dataset(
     request: DatasetMakeRequest, database_url: str = Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
@@ -145,7 +145,7 @@ def _validate_full_dataset(
     return new_dataset, rejected_list
 
 
-@router.get("/compatible-backtests/{backtestId}", response_model=list[BackTestRead])
+@router.get("/compatible-backtests/{backtestId}", response_model=list[BackTestRead], tags=["Backtests"])
 def get_compatible_backtests(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
@@ -176,7 +176,7 @@ class BacktestDomain(DBModel):
     split_periods: list[str]
 
 
-@router.get("/backtest-overlap/{backtestId1}/{backtestId2}", response_model=BacktestDomain)
+@router.get("/backtest-overlap/{backtestId1}/{backtestId2}", response_model=BacktestDomain, tags=["Backtests"])
 def get_backtest_overlap(
     backtest_id1: Annotated[int, Path(alias="backtestId1")],
     backtest_id2: Annotated[int, Path(alias="backtestId2")],
@@ -194,7 +194,7 @@ def get_backtest_overlap(
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
 
 
-@router.get("/prediction-entry", response_model=list[PredictionEntry])
+@router.get("/prediction-entry", response_model=list[PredictionEntry], tags=["Predictions"])
 async def get_prediction_entry(
     prediction_id: Annotated[int, Query(alias="predictionId")],
     quantiles: list[float] = Query(...),
@@ -218,7 +218,7 @@ async def get_prediction_entry(
     ]
 
 
-@router.get("/evaluation-entry", response_model=list[EvaluationEntry])
+@router.get("/evaluation-entry", response_model=list[EvaluationEntry], tags=["Backtests"])
 async def get_evaluation_entries(
     backtest_id: Annotated[int, Query(alias="backtestId")],
     quantiles: list[float] = Query(...),
@@ -307,7 +307,7 @@ class MakeBacktestWithDataRequest(DatasetMakeRequest, BackTestParams):
     model_id: str
 
 
-@router.post("/create-backtest", response_model=JobResponse)
+@router.post("/create-backtest", response_model=JobResponse, tags=["Backtests"])
 async def create_backtest(request: MakeBacktestRequest, database_url: str = Depends(get_database_url)):
     job = worker.queue_db(
         wf.run_backtest,
@@ -322,7 +322,7 @@ async def create_backtest(request: MakeBacktestRequest, database_url: str = Depe
     return JobResponse(id=job.id)
 
 
-@router.post("/make-prediction", response_model=JobResponse)
+@router.post("/make-prediction", response_model=JobResponse, tags=["Predictions"])
 async def make_prediction(
     request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
@@ -353,7 +353,7 @@ async def make_prediction(
     return JobResponse(id=job.id)
 
 
-@router.get("/prediction-entry/{predictionId}", response_model=list[PredictionEntry])
+@router.get("/prediction-entry/{predictionId}", response_model=list[PredictionEntry], tags=["Predictions"])
 def get_prediction_entries(
     prediction_id: Annotated[int, Path(alias="predictionId")],
     quantiles: list[float] = Query(...),
@@ -371,7 +371,7 @@ def get_prediction_entries(
     ]
 
 
-@router.get("/actualCases/{backtestId}", response_model=DataList)
+@router.get("/actualCases/{backtestId}", response_model=DataList, tags=["Backtests"])
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     org_units: list[str] = Query(None, alias="orgUnits"),
@@ -501,12 +501,12 @@ data_sources = [
 ]
 
 
-@router.get("/data-sources", response_model=list[ChapDataSource])
+@router.get("/data-sources", response_model=list[ChapDataSource], tags=["Datasets"])
 async def get_data_sources() -> list[ChapDataSource]:
     return data_sources
 
 
-@router.post("/create-backtest-with-data/", response_model=ImportSummaryResponse)
+@router.post("/create-backtest-with-data/", response_model=ImportSummaryResponse, tags=["Backtests"])
 async def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
     dry_run: bool = Query(
