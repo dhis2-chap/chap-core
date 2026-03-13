@@ -71,11 +71,26 @@ Detection: `is_url()` in `chapkit_service_manager.py` checks if the input looks 
 
 ## CLI Integration
 
-```
-chap eval --run-config.is-chapkit-model --model-path <url-or-dir> ...
+### Tested Commands
+
+Evaluate a chapkit model running at a URL:
+```bash
+chap eval --model-name http://127.0.0.1:8000 \
+    --run-config.is-chapkit-model \
+    --dataset-csv example_data/vietnam_monthly.csv \
+    --output-file /tmp/chapkit_eval_test.nc
 ```
 
-Call chain:
+Evaluate a chapkit model from a local directory (auto-starts service):
+```bash
+chap eval --model-name /path/to/chapkit/model \
+    --run-config.is-chapkit-model \
+    --dataset-csv example_data/vietnam_monthly.csv \
+    --output-file /tmp/chapkit_eval_test.nc
+```
+
+### Call Chain
+
 1. `RunConfig.is_chapkit_model` parsed from CLI args (`api_types.py`)
 2. `evaluate()` passes to `get_model()` (`_common.py`)
 3. `get_model()` calls `ModelTemplate.from_directory_or_github_url(is_chapkit_model=True)`
