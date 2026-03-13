@@ -1,5 +1,9 @@
 # Tuesday Morning - 24 Feb
 
+Presentation slides:
+- [Classical time series models](tuesday-morning-files/classical_rwanda.pdf)
+- [Forecasting in Supply Chain](tuesday-morning-files/supply_chain.pdf)
+
 You could have a look at your model of main interest among several open-source models already integrated with Chap:
 
 - An Exponential Smoothing Model, implemented in R: [auto_ets](https://github.com/chap-models/auto_ets)
