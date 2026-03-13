@@ -1,9 +1,9 @@
 # 3. Homework
 Perform all the verification steps to ensure that you are up to speed with the webinar series and can in a smooth way follow the coming sessions.  
-### 1. Install CHAP
+### 1. Install Chap
 
-- Read [Installing CHAP](install-chap.md)
-- Install CHAP using uv
+- Read [Installing Chap](install-chap.md)
+- Install Chap using uv
 - Verification: Running `chap --help` shows available commands
 
 ### 2. Fork and Clone an Example

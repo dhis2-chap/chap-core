@@ -49,7 +49,7 @@ Virtual environments solve this by giving each project its own set of packages.
 
 **uv** and **renv** isolate _packages_ — your project gets its own folder of dependencies. You need **one of** these depending on whether you use Python or R.
 
-**Docker** goes further — it isolates the _entire environment_ including the operating system. If code runs in a Docker container on your machine, it runs identically on any other machine. CHAP uses Docker to ensure models work the same everywhere. Docker is optional for local development but required if you want to run or share containerized models.
+**Docker** goes further — it isolates the _entire environment_ including the operating system. If code runs in a Docker container on your machine, it runs identically on any other machine. Chap uses Docker to ensure models work the same everywhere. Docker is optional for local development but required if you want to run or share containerized models.
 
 ---
 
@@ -79,7 +79,7 @@ When activated, your terminal prompt changes (usually showing `(.venv)`) and `py
 
 ## 2. Install uv
 
-**uv** is a fast, modern replacement for `venv` + `pip`. It creates virtual environments and manages packages automatically — no need to activate/deactivate manually. We recommend uv for CHAP projects.
+**uv** is a fast, modern replacement for `venv` + `pip`. It creates virtual environments and manages packages automatically — no need to activate/deactivate manually. We recommend uv for Chap projects.
 
 **Official guide:** [docs.astral.sh/uv/getting-started/installation](https://docs.astral.sh/uv/getting-started/installation/)
 

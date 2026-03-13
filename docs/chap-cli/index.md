@@ -1,6 +1,6 @@
 # Using the CLI Tool
 
-The CHAP CLI provides commands for evaluating disease prediction models, visualizing results, and exporting metrics.
+The Chap CLI provides commands for evaluating disease prediction models, visualizing results, and exporting metrics.
 
 ## Quick Start
 

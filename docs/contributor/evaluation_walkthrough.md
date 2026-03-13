@@ -11,7 +11,7 @@ For the conceptual overview and architecture diagrams, see
 
 ## 1. Loading a Dataset
 
-A `DataSet` is the central data structure in CHAP. It maps location names to
+A `DataSet` is the central data structure in Chap. It maps location names to
 typed time-series arrays. Load one from CSV:
 
 ```python

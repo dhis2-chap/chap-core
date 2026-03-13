@@ -1,6 +1,6 @@
 # Enabling Optional Model Services
 
-Some models require an external service to be running alongside CHAP. These services are not started by default but can be enabled using a Docker Compose overlay file.
+Some models require an external service to be running alongside Chap. These services are not started by default but can be enabled using a Docker Compose overlay file.
 
 ## Available Optional Services
 
@@ -11,7 +11,7 @@ Some models require an external service to be running alongside CHAP. These serv
 
 ## Setup
 
-CHAP ships with a `compose.override.yml.example` file that defines these optional services. Docker Compose automatically merges `compose.override.yml` with `compose.yml` when both are present.
+Chap ships with a `compose.override.yml.example` file that defines these optional services. Docker Compose automatically merges `compose.override.yml` with `compose.yml` when both are present.
 
 ### 1. Copy the overlay file
 
@@ -34,7 +34,7 @@ services:
 
 ### 3. Add the model to configured models
 
-The model also needs to be registered so that CHAP seeds it on startup. Create or edit a YAML file in `config/configured_models/` (do **not** edit `default.yaml`):
+The model also needs to be registered so that Chap seeds it on startup. Create or edit a YAML file in `config/configured_models/` (do **not** edit `default.yaml`):
 
 ```yaml
 # config/configured_models/local.yaml
@@ -47,7 +47,7 @@ See [Managing models](managing-model-templates.md) for details on the configured
 
 ### 4. Rebuild and start
 
-After adding the overlay and the model configuration, rebuild the CHAP images (so the new config is included) and start all services:
+After adding the overlay and the model configuration, rebuild the Chap images (so the new config is included) and start all services:
 
 ```console
 docker compose build chap worker

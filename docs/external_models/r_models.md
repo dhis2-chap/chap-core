@@ -12,7 +12,7 @@ Use `renv_env` to specify an renv.lock file for R models that use [renv](https:/
 renv_env: renv.lock
 ```
 
-When CHAP runs your model, it will automatically:
+When Chap runs your model, it will automatically:
 
 1. Look for the `renv.lock` file in your model directory
 2. Run `renv::restore(prompt = FALSE)` to install all required R packages
