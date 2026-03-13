@@ -437,6 +437,18 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     required_covariates: list[str] = []
     version: str | None = None
     archived: bool = False
+    health_status: str | None = None
+
+
+def _get_live_service_ids() -> set[str]:
+    """Return the set of service IDs currently registered in the v2 registry."""
+    try:
+        from chap_core.rest_api.v2.dependencies import get_orchestrator
+
+        service_list = get_orchestrator().get_all()
+        return {s.info.id for s in service_list.services}
+    except Exception:
+        return set()
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])
@@ -448,7 +460,15 @@ async def list_model_templates(session: Session = Depends(get_session)):
     """
     _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB)).all()
-    return model_templates
+
+    live_ids = _get_live_service_ids()
+    results = []
+    for t in model_templates:
+        read = ModelTemplateRead.model_validate(t)
+        if t.name in live_ids:
+            read.health_status = "live"
+        results.append(read)
+    return results
 
 
 ###########
