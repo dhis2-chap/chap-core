@@ -4,7 +4,9 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import chapkit
+import httpx
 import pytest
+from chapkit.api.service_builder import MLServiceInfo
 from pydantic import BaseModel
 from ulid import ULID
 
@@ -13,11 +15,12 @@ from chap_core.models.external_chapkit_model import (
     ExternalChapkitModel,
     ExternalChapkitModelTemplate,
 )
+from chap_core.models.utils import _is_chapkit_url
 
 VALID_ULID_1 = str(ULID())
 VALID_ULID_2 = str(ULID())
 
-MOCK_INFO_RESPONSE = {
+MOCK_INFO_DICT = {
     "id": "test-model",
     "display_name": "Test Model",
     "version": "1.0.0",
@@ -33,6 +36,8 @@ MOCK_INFO_RESPONSE = {
     "required_covariates": [],
     "requires_geo": False,
 }
+
+MOCK_INFO_RESPONSE = MLServiceInfo.model_validate(MOCK_INFO_DICT)
 
 MOCK_CONFIG_SCHEMA = {
     "$defs": {
@@ -95,23 +100,24 @@ class TestGetModelTemplateConfig:
         assert config.min_prediction_length == 1
         assert config.max_prediction_length == 12
 
-    def test_prediction_length_none_when_not_in_info(self):
+    def test_prediction_length_uses_defaults_when_not_specified(self):
         template = ExternalChapkitModelTemplate("http://localhost:8000")
 
-        info_without_periods = {**MOCK_INFO_RESPONSE}
-        del info_without_periods["min_prediction_periods"]
-        del info_without_periods["max_prediction_periods"]
+        info_dict = {**MOCK_INFO_DICT}
+        del info_dict["min_prediction_periods"]
+        del info_dict["max_prediction_periods"]
+        info_with_defaults = MLServiceInfo.model_validate(info_dict)
 
         mock_client = MagicMock()
-        mock_client.info.return_value = info_without_periods
+        mock_client.info.return_value = info_with_defaults
         mock_client.get_config_schema.return_value = MOCK_CONFIG_SCHEMA
         template.client = mock_client
         template.rest_api_url = "http://localhost:8000"
         template._initialized = True
 
         config = template.get_model_template_config()
-        assert config.min_prediction_length is None
-        assert config.max_prediction_length is None
+        assert config.min_prediction_length == 0
+        assert config.max_prediction_length == 100
 
 
 class TestGetModelPassesModelInformation:
@@ -253,3 +259,25 @@ class TestTypedResponses:
             assert len(result) == 2
             assert all(isinstance(c, chapkit.ConfigOut) for c in result)
             assert result[0].id == ulid1
+
+
+class TestIsChapkitUrl:
+    def test_valid_chapkit_service(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = MOCK_INFO_DICT
+
+        with patch("chap_core.models.utils.httpx.get", return_value=mock_response):
+            assert _is_chapkit_url("http://localhost:8000") is True
+
+    def test_non_chapkit_service(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "ok"}
+
+        with patch("chap_core.models.utils.httpx.get", return_value=mock_response):
+            assert _is_chapkit_url("http://localhost:8000") is False
+
+    def test_unreachable_service(self):
+        with patch("chap_core.models.utils.httpx.get", side_effect=httpx.ConnectError("Connection refused")):
+            assert _is_chapkit_url("http://localhost:9999") is False

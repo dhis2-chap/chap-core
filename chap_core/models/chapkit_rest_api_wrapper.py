@@ -8,6 +8,7 @@ import chapkit
 import httpx
 import numpy as np
 import pandas as pd
+from chapkit.api.service_builder import MLServiceInfo
 from pydantic import BaseModel, Field
 
 from chap_core.time_period.date_util_wrapper import pandas_period_to_string
@@ -84,10 +85,10 @@ class CHAPKitRestAPIWrapper:
         response = self._request("GET", "/health")
         return cast("dict[str, str]", response.json())
 
-    def info(self) -> dict[str, Any]:
+    def info(self) -> MLServiceInfo:
         """Get system information."""
         response = self._request("GET", "/api/v1/info")
-        return cast("dict[str, Any]", response.json())
+        return MLServiceInfo.model_validate(response.json())
 
     # Configuration management endpoints
 

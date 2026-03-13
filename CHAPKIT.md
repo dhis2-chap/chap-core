@@ -14,7 +14,7 @@ Reference document for how chapkit integrates with chap-core across CLI, REST AP
 | **URL mode** | `http://host:port` | Connects to an already-running chapkit service |
 | **Directory mode** | Local path | Auto-starts a chapkit dev server via `uv run fastapi dev`, manages lifecycle |
 
-Detection: `is_url()` in `chapkit_service_manager.py` checks if the input looks like a URL.
+Detection: `is_url()` in `chapkit_service_manager.py` checks if the input looks like a URL. For URL mode, `_is_chapkit_url()` in `utils.py` probes `/api/v1/info` and validates against `MLServiceInfo` to auto-detect chapkit services without requiring `--run-config.is-chapkit-model`.
 
 ## File Map
 
@@ -23,9 +23,9 @@ Detection: `is_url()` in `chapkit_service_manager.py` checks if the input looks 
 | File | Purpose |
 |------|---------|
 | `chap_core/models/external_chapkit_model.py` | `ExternalChapkitModelTemplate` (factory) + `ExternalChapkitModel` (train/predict calls) |
-| `chap_core/models/chapkit_rest_api_wrapper.py` | `CHAPKitRestAPIWrapper` - synchronous HTTP client for all chapkit endpoints |
+| `chap_core/models/chapkit_rest_api_wrapper.py` | `CHAPKitRestAPIWrapper` - synchronous HTTP client for all chapkit endpoints. `info()` returns typed `MLServiceInfo` |
 | `chap_core/models/chapkit_service_manager.py` | `ChapkitServiceManager` - subprocess lifecycle, port allocation, health polling |
-| `chap_core/models/utils.py` | `ModelTemplateType = ModelTemplate \| ExternalChapkitModelTemplate`; factory branch on `is_chapkit_model` |
+| `chap_core/models/utils.py` | `ModelTemplateType = ModelTemplate \| ExternalChapkitModelTemplate`; factory branch on `is_chapkit_model` or auto-detection via `_is_chapkit_url()` |
 | `chap_core/models/model_template.py` | `from_directory_or_github_url()` accepts `is_chapkit_model` flag |
 
 ### CLI
@@ -73,7 +73,14 @@ Detection: `is_url()` in `chapkit_service_manager.py` checks if the input looks 
 
 ### Tested Commands
 
-Evaluate a chapkit model running at a URL:
+Evaluate a chapkit model running at a URL (auto-detected, no flag needed):
+```bash
+chap eval --model-name http://127.0.0.1:8000 \
+    --dataset-csv example_data/vietnam_monthly.csv \
+    --output-file /tmp/chapkit_eval_test.nc
+```
+
+Evaluate with explicit flag (still supported as override):
 ```bash
 chap eval --model-name http://127.0.0.1:8000 \
     --run-config.is-chapkit-model \
@@ -81,7 +88,7 @@ chap eval --model-name http://127.0.0.1:8000 \
     --output-file /tmp/chapkit_eval_test.nc
 ```
 
-Evaluate a chapkit model from a local directory (auto-starts service):
+Evaluate a chapkit model from a local directory (auto-starts service, flag required):
 ```bash
 chap eval --model-name /path/to/chapkit/model \
     --run-config.is-chapkit-model \
@@ -93,9 +100,10 @@ chap eval --model-name /path/to/chapkit/model \
 
 1. `RunConfig.is_chapkit_model` parsed from CLI args (`api_types.py`)
 2. `evaluate()` passes to `get_model()` (`_common.py`)
-3. `get_model()` calls `ModelTemplate.from_directory_or_github_url(is_chapkit_model=True)`
-4. Factory in `utils.py` creates `ExternalChapkitModelTemplate` instead of `ModelTemplate`
-5. For directory mode, context manager starts/stops the subprocess
+3. `get_model()` calls `ModelTemplate.from_directory_or_github_url(is_chapkit_model=...)`
+4. Factory in `utils.py` checks: explicit flag OR (is URL AND `_is_chapkit_url()` auto-detection)
+5. Creates `ExternalChapkitModelTemplate` instead of `ModelTemplate`
+6. For directory mode, context manager starts/stops the subprocess
 
 ## REST API Integration
 
@@ -159,9 +167,14 @@ ExternalChapkitModelTemplate
 
 All HTTP calls go through `CHAPKitRestAPIWrapper`. Jobs are async on the chapkit side; the wrapper polls until completion.
 
+## Known Issues
+
+- **Workspace snowball bug (chapkit)**: `FunctionalModelRunner.on_train()` and `ShellModelRunner.on_train()` call `prepare_workspace(Path.cwd(), workspace_dir)` which copies the entire project directory, then zips it into a blob stored in SQLite via `PickleType`. If the chapkit service's SQLite DB file (e.g. `data/chapkit.db`) lives inside the project directory, each run the DB contains previous artifact blobs, so the workspace zip grows exponentially. First eval succeeds, second fails with `sqlite3.DataError: string or blob too big`. Confirmed with `hello-world` model where `data/chapkit.db` is inside the project root. Fix needed in chapkit: either add `"*.db"` / `"data"` to `WORKSPACE_EXCLUDE_PATTERNS` in `runner.py`, or store the DB outside the project directory.
+- **Period type mismatch**: Chapkit uses "monthly"/"weekly" while chap-core uses "month"/"week". The mapping is handled by `_chapkit_period_to_chap()` in `external_chapkit_model.py`.
+
 ## Cleanup Opportunities
 
-- **`is_chapkit_model` threading**: The flag is passed through 4-5 layers (CLI args -> RunConfig -> get_model -> ModelTemplate -> utils). Could be simplified with auto-detection (e.g., checking for chapkit markers in the directory or URL path).
+- **`is_chapkit_model` flag threading**: The flag is still passed through 4-5 layers (CLI args -> RunConfig -> get_model -> ModelTemplate -> utils). Auto-detection now handles URL mode, but the flag is still needed for directory mode. Could be further simplified.
 - **Commented-out config**: `default.yaml` has commented chapkit entries -- decide whether to remove or document as examples.
 - **Deprecated evaluate()**: `cli_endpoints/evaluate.py` has a deprecated `evaluate()` function that still carries `is_chapkit_model` -- can be removed when the old codepath is dropped.
 - **Version support**: `model_template_seed.py` has a TODO about ignoring versions for chapkit models.
