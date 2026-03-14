@@ -67,6 +67,7 @@ Detection: `is_url()` in `chapkit_service_manager.py` checks if the input looks 
 |------|---------|
 | `chap_core/exceptions.py` | `ChapkitServiceStartupError` |
 | `tests/external/test_external_chapkit_model.py` | Unit tests for service manager and model template |
+| `tests/integration/rest_api/test_chapkit_self_registration.py` | End-to-end tests for self-registration flow (fakeredis + in-memory SQLite) |
 | `docs/external_models/chapkit.md` | User-facing chapkit integration guide |
 
 ## CLI Integration
@@ -172,10 +173,53 @@ All HTTP calls go through `CHAPKitRestAPIWrapper`. Jobs are async on the chapkit
 - **Workspace snowball bug (chapkit)**: `FunctionalModelRunner.on_train()` and `ShellModelRunner.on_train()` call `prepare_workspace(Path.cwd(), workspace_dir)` which copies the entire project directory, then zips it into a blob stored in SQLite via `PickleType`. If the chapkit service's SQLite DB file (e.g. `data/chapkit.db`) lives inside the project directory, each run the DB contains previous artifact blobs, so the workspace zip grows exponentially. First eval succeeds, second fails with `sqlite3.DataError: string or blob too big`. Confirmed with `hello-world` model where `data/chapkit.db` is inside the project root. Fix needed in chapkit: either add `"*.db"` / `"data"` to `WORKSPACE_EXCLUDE_PATTERNS` in `runner.py`, or store the DB outside the project directory.
 - **Period type mismatch**: Chapkit uses "monthly"/"weekly" while chap-core uses "month"/"week". The mapping is handled by `_chapkit_period_to_chap()` in `external_chapkit_model.py`.
 
+## Conceptual Mapping
+
+| chapkit | chap-core | Notes |
+|---------|-----------|-------|
+| service | ModelTemplateDB | A chapkit service = a model template |
+| service + config | ConfiguredModelDB | A configured model = template + user config |
+| train/predict calls | BackTest | Runs stored as BackTest in DB. Could store chapkit artifact_id reference later |
+
+## Roadmap: Self-Registration
+
+- [x] Use chapkit `id` field as model template name (instead of `{display_name}_v{version}`)
+- [x] Map `version` and `repository_url` from chapkit metadata to model template config
+- [x] Extract `ml_service_info_to_model_template_config()` as standalone converter (works with both chapkit and local MLServiceInfo)
+- [x] Sync live chapkit services to DB on GET /model-templates via `_sync_live_chapkit_services()` in crud.py (uses v2 Orchestrator, graceful fallback if Redis unavailable)
+- [x] Auto-sync chapkit configs to configured models on first discovery via `_sync_chapkit_configured_models()`
+- [x] Health status on model templates: `health_status` field in GET /model-templates response, set to `"live"` for services in v2 registry (no extra HTTP calls)
+- [x] Map `requires_geo` from chapkit to chap-core (DB column + Alembic migration `b2c3d4e5f6a7`)
+- [x] Map `documentation_url` from chapkit metadata (DB column + Alembic migration `b2c3d4e5f6a7`)
+
+### Testing Self-Registration
+
+Start a chapkit service and register it with the v2 service registry, then verify it syncs to model templates:
+
+```bash
+# Start a chapkit service (e.g. hello-world model)
+cd /path/to/hello-world && uv run fastapi dev
+
+# Register with chap-core's v2 service registry (POST to v2 endpoint)
+curl -X POST http://127.0.0.1:8001/v2/services/\$register \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://127.0.0.1:8000", "info": <MLServiceInfo from /api/v1/info>}'
+
+# Verify it shows up in model templates (triggers sync from registry to DB)
+curl http://127.0.0.1:8001/v1/crud/model-templates | jq '.[].name'
+```
+
+#### Automated Tests
+
+Integration tests cover the full self-registration flow (register -> sync -> verify model templates and configured models) using fakeredis and in-memory SQLite:
+
+```bash
+pytest tests/integration/rest_api/test_chapkit_self_registration.py -v
+```
+
 ## Cleanup Opportunities
 
 - **`is_chapkit_model` flag threading**: The flag is still passed through 4-5 layers (CLI args -> RunConfig -> get_model -> ModelTemplate -> utils). Auto-detection now handles URL mode, but the flag is still needed for directory mode. Could be further simplified.
 - **Commented-out config**: `default.yaml` has commented chapkit entries -- decide whether to remove or document as examples.
 - **Deprecated evaluate()**: `cli_endpoints/evaluate.py` has a deprecated `evaluate()` function that still carries `is_chapkit_model` -- can be removed when the old codepath is dropped.
-- **Version support**: `model_template_seed.py` has a TODO about ignoring versions for chapkit models.
-- **v1/v2 gap**: v1 has no awareness of the service registry; it relies on pre-configured URLs in the database. v2 service registry is not yet wired into model loading.
+- **v1/v2 gap**: Resolved for model template sync, configured model sync, and health status. Remaining: backtest runs don't yet store chapkit `artifact_id` references.

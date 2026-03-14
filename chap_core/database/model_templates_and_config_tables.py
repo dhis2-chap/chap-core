@@ -29,6 +29,7 @@ class ModelTemplateMetaData(SQLModel):
     organization_logo_url: str | None = None
     contact_email: str | None = None
     citation_info: str | None = None
+    documentation_url: str | None = None
 
 
 class ModelTemplateInformation(SQLModel):
@@ -40,6 +41,7 @@ class ModelTemplateInformation(SQLModel):
     max_prediction_length: int | None = None
     target: str = "disease_cases"
     allow_free_additional_continuous_covariates: bool = False
+    requires_geo: bool = False
 
 
 class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, table=True):

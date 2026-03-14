@@ -57,6 +57,85 @@ from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
 
+
+def _sync_live_chapkit_services(session: Session) -> None:
+    """Sync live chapkit services from the v2 registry into the DB.
+
+    Queries the Redis-backed Orchestrator for registered services and
+    upserts each as a model template. For new templates (no configured
+    models yet), also fetches configs from the chapkit service and
+    creates configured models. Silently skips if Redis is unavailable.
+    """
+    try:
+        from chap_core.rest_api.v2.dependencies import get_orchestrator
+
+        orchestrator = get_orchestrator()
+        service_list = orchestrator.get_all()
+    except Exception:
+        logger.debug("Could not reach service registry, skipping chapkit sync")
+        return
+
+    if service_list.count == 0:
+        return
+
+    from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
+    from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
+
+    session_wrapper = SessionWrapper(session=session)
+    for service in service_list.services:
+        try:
+            config = ml_service_info_to_model_template_config(service.info, service.url)
+            template_id = session_wrapper.add_model_template_from_yaml_config(config)
+            _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
+        except Exception:
+            logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
+
+
+def _sync_chapkit_configured_models(
+    session_wrapper: SessionWrapper,
+    template_id: int,
+    service_url: str,
+    wrapper_cls: type,
+) -> None:
+    """Sync configured models from a chapkit service into the DB.
+
+    Skips if the template already has configured models (only syncs
+    on first discovery). Creates a default configured model if the
+    service has no configs.
+    """
+    existing = session_wrapper.session.exec(
+        select(ConfiguredModelDB).where(ConfiguredModelDB.model_template_id == template_id)
+    ).first()
+    if existing is not None:
+        return
+
+    client = wrapper_cls(service_url)
+    try:
+        configs = client.list_configs()
+    except Exception:
+        logger.debug("Could not fetch configs from %s, creating default", service_url)
+        configs = []
+
+    if not configs:
+        session_wrapper.add_configured_model(
+            template_id,
+            ModelConfiguration(user_option_values={}, additional_continuous_covariates=[]),
+            "default",
+            uses_chapkit=True,
+        )
+        return
+
+    for cfg in configs:
+        # Chapkit manages its own config data; chap-core stores the
+        # configured model as a reference only, with empty user options.
+        session_wrapper.add_configured_model(
+            template_id,
+            ModelConfiguration(user_option_values={}, additional_continuous_covariates=[]),
+            cfg.name,
+            uses_chapkit=True,
+        )
+
+
 router = APIRouter(prefix="/crud")
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
@@ -358,15 +437,38 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     required_covariates: list[str] = []
     version: str | None = None
     archived: bool = False
+    health_status: str | None = None
+
+
+def _get_live_service_ids() -> set[str]:
+    """Return the set of service IDs currently registered in the v2 registry."""
+    try:
+        from chap_core.rest_api.v2.dependencies import get_orchestrator
+
+        service_list = get_orchestrator().get_all()
+        return {s.info.id for s in service_list.services}
+    except Exception:
+        return set()
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])
 async def list_model_templates(session: Session = Depends(get_session)):
     """
     Lists all model templates from the db, including archived.
+    Also syncs live chapkit services from the v2 service registry
+    into the database (upsert by name).
     """
+    _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB)).all()
-    return model_templates
+
+    live_ids = _get_live_service_ids()
+    results = []
+    for t in model_templates:
+        read = ModelTemplateRead.model_validate(t)
+        if t.name in live_ids:
+            read.health_status = "live"
+        results.append(read)
+    return results
 
 
 ###########
