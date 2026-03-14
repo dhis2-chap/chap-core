@@ -6,6 +6,7 @@ An introduction to time series modeling, as well as more specifically into suppl
 
 A set of R Markdown documents (and soon webinar recordings) is also available for Bayesian modeling according to a process of data exploration followed by manual model selection, given by Ania Kawiecki Peralta and Carles Milà of the Barcelona Supercomputing Center:
 - [Model selection workflow using GHRmodel](https://gitlab.earth.bsc.es/ghr/ghr4dhis2/-/tree/selection/)
+- The two main files are these RMarkdown files: [Exploration](tuesday-morning-files/DHIS2-Module1.Rmd) and [Model selection](tuesday-morning-files/DHIS2-Module2.Rmd) 
 
 As part of this session, one can look at a model of main interest among several open-source models already integrated with Chap:
 - An Exponential Smoothing Model, implemented in R: [auto_ets](https://github.com/chap-models/auto_ets)
