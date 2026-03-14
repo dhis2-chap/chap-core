@@ -67,6 +67,7 @@ Detection: `is_url()` in `chapkit_service_manager.py` checks if the input looks 
 |------|---------|
 | `chap_core/exceptions.py` | `ChapkitServiceStartupError` |
 | `tests/external/test_external_chapkit_model.py` | Unit tests for service manager and model template |
+| `tests/integration/rest_api/test_chapkit_self_registration.py` | End-to-end tests for self-registration flow (fakeredis + in-memory SQLite) |
 | `docs/external_models/chapkit.md` | User-facing chapkit integration guide |
 
 ## CLI Integration
@@ -206,6 +207,14 @@ curl -X POST http://127.0.0.1:8001/v2/services/\$register \
 
 # Verify it shows up in model templates (triggers sync from registry to DB)
 curl http://127.0.0.1:8001/v1/crud/model-templates | jq '.[].name'
+```
+
+#### Automated Tests
+
+Integration tests cover the full self-registration flow (register -> sync -> verify model templates and configured models) using fakeredis and in-memory SQLite:
+
+```bash
+pytest tests/integration/rest_api/test_chapkit_self_registration.py -v
 ```
 
 ## Cleanup Opportunities
