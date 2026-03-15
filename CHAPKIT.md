@@ -110,7 +110,7 @@ chap eval --model-name /path/to/chapkit/model \
 
 ### v1: Backtest System
 
-No chapkit-specific router. The `uses_chapkit` flag on `ConfiguredModelDB` controls model loading at runtime:
+No chapkit-specific router. `/v1/crud/models` is an alias for `/v1/crud/configured-models`. The `uses_chapkit` flag on `ConfiguredModelDB` controls model loading at runtime:
 
 ```
 database.py:_get_model()
@@ -138,6 +138,8 @@ Auth: Optional `SERVICEKIT_REGISTRATION_KEY` env var; if unset, auth is skipped.
 ## Database
 
 `ConfiguredModelDB.uses_chapkit: bool` (default `False`) on the configured models table.
+
+`ConfiguredModelDB` has a foreign key `model_template_id` pointing to `ModelTemplateDB.id` (cascade delete). One template can have many configured models. Naming convention: the default configured model uses `{template_name}`, variants use `{template_name}:{config_name}`.
 
 Seeding flow (`model_template_seed.py`):
 1. Parse YAML config with `uses_chapkit: true`
@@ -175,10 +177,14 @@ All HTTP calls go through `CHAPKitRestAPIWrapper`. Jobs are async on the chapkit
 
 ## Conceptual Mapping
 
+A **model template** is a blueprint: metadata, available hyperparameters (`user_options`), required covariates, and period type constraints. It cannot run on its own.
+
+A **configured model** is a template with concrete choices applied: specific `user_option_values` and optionally extra covariates. This is what actually runs train/predict. One template can have many configured models.
+
 | chapkit | chap-core | Notes |
 |---------|-----------|-------|
-| service | ModelTemplateDB | A chapkit service = a model template |
-| service + config | ConfiguredModelDB | A configured model = template + user config |
+| service | ModelTemplateDB | One chapkit service maps to one model template |
+| service + config | ConfiguredModelDB | Each user config on a template creates a configured model (1:many from template) |
 | train/predict calls | BackTest | Runs stored as BackTest in DB. Could store chapkit artifact_id reference later |
 
 ## Roadmap: Self-Registration
