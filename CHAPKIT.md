@@ -191,6 +191,7 @@ All HTTP calls go through `CHAPKitRestAPIWrapper`. Jobs are async on the chapkit
 - [x] Health status on model templates: `health_status` field in GET /model-templates response, set to `"live"` for services in v2 registry (no extra HTTP calls)
 - [x] Map `requires_geo` from chapkit to chap-core (DB column + Alembic migration `b2c3d4e5f6a7`)
 - [x] Map `documentation_url` from chapkit metadata (DB column + Alembic migration `b2c3d4e5f6a7`)
+- [x] Auto-archive chapkit templates when service disappears (reversible -- re-registration unarchives via upsert)
 
 ### Testing Self-Registration
 
