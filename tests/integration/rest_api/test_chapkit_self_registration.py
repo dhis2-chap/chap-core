@@ -172,6 +172,40 @@ def test_sync_is_idempotent(client, register_service):
     assert len(models1) == len(models2)
 
 
+def test_deregistered_service_becomes_archived(client, register_service, fake_orchestrator):
+    register_service()
+    response = client.get("/v1/crud/model-templates")
+    templates = response.json()
+    matching = [t for t in templates if t["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["archived"] is False
+
+    fake_orchestrator.deregister("test-model")
+
+    response = client.get("/v1/crud/model-templates")
+    templates = response.json()
+    matching = [t for t in templates if t["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["archived"] is True
+
+
+def test_re_registered_service_becomes_unarchived(client, register_service, fake_orchestrator):
+    register_service()
+    client.get("/v1/crud/model-templates")
+
+    fake_orchestrator.deregister("test-model")
+    response = client.get("/v1/crud/model-templates")
+    matching = [t for t in response.json() if t["name"] == "test-model"]
+    assert matching[0]["archived"] is True
+
+    register_service()
+    response = client.get("/v1/crud/model-templates")
+    matching = [t for t in response.json() if t["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["archived"] is False
+    assert matching[0]["healthStatus"] == "live"
+
+
 def test_returns_200_when_redis_unavailable(client):
     with patch(
         "chap_core.rest_api.v2.dependencies.get_orchestrator",

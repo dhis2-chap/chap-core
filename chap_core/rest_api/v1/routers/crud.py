@@ -75,20 +75,35 @@ def _sync_live_chapkit_services(session: Session) -> None:
         logger.debug("Could not reach service registry, skipping chapkit sync")
         return
 
-    if service_list.count == 0:
-        return
+    if service_list.count > 0:
+        from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
+        from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
 
-    from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
-    from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
+        session_wrapper = SessionWrapper(session=session)
+        for service in service_list.services:
+            try:
+                config = ml_service_info_to_model_template_config(service.info, service.url)
+                template_id = session_wrapper.add_model_template_from_yaml_config(config)
+                _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
+            except Exception:
+                logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
 
-    session_wrapper = SessionWrapper(session=session)
-    for service in service_list.services:
-        try:
-            config = ml_service_info_to_model_template_config(service.info, service.url)
-            template_id = session_wrapper.add_model_template_from_yaml_config(config)
-            _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
-        except Exception:
-            logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
+    _archive_stale_chapkit_templates(session, service_list)
+
+
+def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
+    """Archive chapkit templates whose services are no longer live."""
+    live_names = {s.info.id for s in service_list.services}
+    chapkit_templates = session.exec(
+        select(ModelTemplateDB)
+        .join(ConfiguredModelDB)
+        .where(ConfiguredModelDB.uses_chapkit == True, ModelTemplateDB.archived == False)
+    ).all()
+    for template in chapkit_templates:
+        if template.name not in live_names:
+            template.archived = True
+            session.add(template)
+    session.commit()
 
 
 def _sync_chapkit_configured_models(
@@ -109,7 +124,7 @@ def _sync_chapkit_configured_models(
     if existing is not None:
         return
 
-    client = wrapper_cls(service_url)
+    client = wrapper_cls(service_url, timeout=5)
     try:
         configs = client.list_configs()
     except Exception:
