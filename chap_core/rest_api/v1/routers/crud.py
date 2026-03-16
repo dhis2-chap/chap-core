@@ -58,13 +58,15 @@ from .dependencies import get_database_url, get_session, get_settings
 logger = logging.getLogger(__name__)
 
 
-def _sync_live_chapkit_services(session: Session) -> None:
+def _sync_live_chapkit_services(session: Session) -> set[str]:
     """Sync live chapkit services from the v2 registry into the DB.
 
     Queries the Redis-backed Orchestrator for registered services and
     upserts each as a model template. For new templates (no configured
     models yet), also fetches configs from the chapkit service and
     creates configured models. Silently skips if Redis is unavailable.
+
+    Returns the set of live service IDs from the registry.
     """
     try:
         from chap_core.rest_api.v2.dependencies import get_orchestrator
@@ -73,7 +75,9 @@ def _sync_live_chapkit_services(session: Session) -> None:
         service_list = orchestrator.get_all()
     except Exception:
         logger.debug("Could not reach service registry, skipping chapkit sync")
-        return
+        return set()
+
+    live_ids = {s.info.id for s in service_list.services}
 
     if service_list.count > 0:
         from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
@@ -89,6 +93,7 @@ def _sync_live_chapkit_services(session: Session) -> None:
                 logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
 
     _archive_stale_chapkit_templates(session, service_list)
+    return live_ids
 
 
 def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
@@ -128,8 +133,8 @@ def _sync_chapkit_configured_models(
     try:
         configs = client.list_configs()
     except Exception:
-        logger.debug("Could not fetch configs from %s, creating default", service_url)
-        configs = []
+        logger.debug("Could not fetch configs from %s, will retry next sync", service_url)
+        return
 
     if not configs:
         session_wrapper.add_configured_model(
@@ -455,17 +460,6 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     health_status: str | None = None
 
 
-def _get_live_service_ids() -> set[str]:
-    """Return the set of service IDs currently registered in the v2 registry."""
-    try:
-        from chap_core.rest_api.v2.dependencies import get_orchestrator
-
-        service_list = get_orchestrator().get_all()
-        return {s.info.id for s in service_list.services}
-    except Exception:
-        return set()
-
-
 @router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])
 async def list_model_templates(session: Session = Depends(get_session)):
     """
@@ -473,10 +467,9 @@ async def list_model_templates(session: Session = Depends(get_session)):
     Also syncs live chapkit services from the v2 service registry
     into the database (upsert by name).
     """
-    _sync_live_chapkit_services(session)
+    live_ids = _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB)).all()
 
-    live_ids = _get_live_service_ids()
     results = []
     for t in model_templates:
         read = ModelTemplateRead.model_validate(t)

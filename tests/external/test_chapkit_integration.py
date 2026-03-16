@@ -462,6 +462,22 @@ class TestSyncChapkitConfiguredModels:
         assert len(configs) == 2
         assert all(c.uses_chapkit for c in configs)
 
+    def test_returns_early_on_list_configs_error(self, db_session, template_id):
+        from chap_core.database.database import SessionWrapper
+        from chap_core.rest_api.v1.routers.crud import _sync_chapkit_configured_models
+
+        mock_wrapper_cls = MagicMock()
+        mock_wrapper_cls.return_value.list_configs.side_effect = Exception("connection refused")
+
+        _sync_chapkit_configured_models(
+            SessionWrapper(session=db_session), template_id, "http://localhost:8000", mock_wrapper_cls
+        )
+
+        configs = db_session.exec(
+            select(ConfiguredModelDB).where(ConfiguredModelDB.model_template_id == template_id)
+        ).all()
+        assert len(configs) == 0
+
     def test_skips_sync_when_configs_already_exist(self, db_session, template_id):
         from chap_core.database.database import SessionWrapper
         from chap_core.rest_api.v1.routers.crud import _sync_chapkit_configured_models
