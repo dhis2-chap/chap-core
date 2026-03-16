@@ -12,6 +12,8 @@ from sqlmodel import Session, select
 from ulid import ULID
 
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+from chapkit.api import HealthStatus
+
 from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, RunInfo
 from chap_core.models.external_chapkit_model import (
     ExternalChapkitModel,
@@ -318,6 +320,34 @@ class TestTypedResponses:
             result = wrapper.get_job(job_ulid)
             assert isinstance(result, chapkit.ChapkitJobRecord)
             assert result.status == "completed"
+
+    def test_health_returns_typed_response(self, wrapper):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "healthy"}
+
+        with patch.object(wrapper, "_request", return_value=mock_response):
+            result = wrapper.health()
+            assert isinstance(result, HealthStatus)
+            assert result.status == "healthy"
+
+    def test_get_artifact_returns_typed_response(self, wrapper):
+        artifact_ulid = str(ULID())
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "id": artifact_ulid,
+            "created_at": "2024-01-01T00:00:00",
+            "updated_at": "2024-01-01T00:00:00",
+            "tags": [],
+            "data": {"some": "data"},
+            "parent_id": None,
+            "level": 0,
+        }
+
+        with patch.object(wrapper, "_request", return_value=mock_response):
+            result = wrapper.get_artifact(artifact_ulid)
+            assert isinstance(result, chapkit.ArtifactOut)
+            assert str(result.id) == artifact_ulid
+            assert result.data == {"some": "data"}
 
     def test_list_configs_returns_typed_response(self, wrapper):
         ulid1 = str(ULID())

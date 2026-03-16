@@ -177,7 +177,7 @@ class ExternalChapkitModelTemplate:
         assert self.client is not None
         try:
             response = self.client.health()
-            return response["status"] == "healthy"
+            return response.status == "healthy"
         except Exception as e:
             logger.info(
                 f"Health check for model {self.rest_api_url} failed: {e}. Check health at {self.rest_api_url}/health"
