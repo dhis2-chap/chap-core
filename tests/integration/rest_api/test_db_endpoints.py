@@ -16,7 +16,7 @@ from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import BackTest, PredictionInfo, PredictionRead, BackTestRead
 from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, FetchRequest
-from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api.v1.routers.crud import DatasetCreate, ModelConfigurationCreate, ModelTemplateRead
 
@@ -73,7 +73,7 @@ def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
 def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
     response = client.get("/v1/visualization/metrics/1")
     assert response.status_code == 200
-    assert any(metric["id"] == "detailed_crps" for metric in response.json())
+    assert any(metric["id"] == "crps" for metric in response.json())
 
 
 def test_get_visualizations(celery_session_worker, clean_engine, dependency_overrides):
@@ -141,7 +141,7 @@ def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_ov
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
     data = dataset_create.model_dump_json()
     print(json.dumps(data, indent=2))
-    response = client.post("/v1/crud/datasets", data=data)
+    response = client.post("/v1/crud/datasets", content=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get(f"/v1/crud/datasets/{db_id}")
@@ -219,12 +219,14 @@ def test_get_data_sources():
 
 @pytest.fixture
 def make_prediction_request(make_dataset_request):
-    return MakePredictionRequest(model_id="naive_model", meta_data={"test": "test"}, **make_dataset_request.dict())
+    return MakePredictionRequest(
+        model_id="naive_model", meta_data={"test": "test"}, **make_dataset_request.model_dump()
+    )
 
 
 def test_make_prediction_flow(celery_session_worker, dependency_overrides, make_prediction_request):
     data = make_prediction_request.model_dump_json()
-    response = client.post("/v1/analytics/make-prediction", data=data)
+    response = client.post("/v1/analytics/make-prediction", content=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get(f"/v1/crud/predictions/{db_id}")
@@ -368,7 +370,7 @@ def _make_dataset(
     expected_rejections=None,
 ):
     data = make_dataset_request.model_dump_json()
-    response = client.post("/v1/analytics/make-dataset", data=data)
+    response = client.post("/v1/analytics/make-dataset", content=data)
     content = response.json()
     _check_rejected_org_units(content, expected_rejections)
 
@@ -420,9 +422,9 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     data_source = next(ds for ds in data_sources if fetched_feature in ds["supportedFeatures"])
     fetch_request = []  # [FetchRequest(feature_name=fetched_feature, data_source_name=data_source["name"])]
     request = create_make_data_request(example_polygons, fetch_request, provided_features)
-    request = MakePredictionRequest(model_id=model.name, **request.dict())
+    request = MakePredictionRequest(model_id=model.name, **request.model_dump())
     data = request.model_dump_json()
-    response = client.post("/v1/analytics/make-prediction", data=data)
+    response = client.post("/v1/analytics/make-prediction", content=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get("/v1/crud/predictions")
@@ -458,6 +460,14 @@ def test_backtest_with_data_flow(
 ):
     request_payload = create_backtest_with_data_request.model_dump()
     _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run)
+
+
+def test_backtest_with_empty_provided_data(dependency_overrides, create_backtest_with_data_request):
+    request_payload = create_backtest_with_data_request.model_dump()
+    request_payload["provided_data"] = []
+    response = client.post("/v1/analytics/create-backtest-with-data", json=request_payload)
+    assert response.status_code == 400
+    assert "No observation data provided" in response.json()["detail"]
 
 
 @pytest.mark.parametrize("dry_run", [False, True])

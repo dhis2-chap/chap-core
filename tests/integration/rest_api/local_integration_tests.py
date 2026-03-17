@@ -1,7 +1,7 @@
 from integration.rest_api.test_db_endpoints import await_result_id
 from starlette.testclient import TestClient
 
-from chap_core.rest_api.v1.rest_api import app
+from chap_core.rest_api.app import app
 
 client = TestClient(app)
 

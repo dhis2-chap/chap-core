@@ -129,7 +129,10 @@ def get_area_polygons(country: str, regions: list[str] | None = None, admin_leve
 
 def get_country_data_file(country: str, level=1):
     real_name = country.capitalize()
-    country_code = pycountry.countries.get(name=real_name).alpha_3
+    country_obj = pycountry.countries.get(name=real_name)
+    if country_obj is None:
+        raise ValueError(f"Unknown country: {country}")
+    country_code = country_obj.alpha_3
     # country_code = country_codes[country.lower()]
     return get_data_file(country_code, level)
 

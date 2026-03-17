@@ -1,10 +1,4 @@
-"""
-Synchronous REST API wrapper for CHAP service
-Provides synchronous methods for all available API endpoints
-
-NOTE: Written by ai as a prototype, TODO: refactor and cleanup once working
-
-"""
+"""Synchronous REST API wrapper for CHAPKit service."""
 
 import logging
 import time
@@ -14,6 +8,7 @@ import chapkit
 import httpx
 import numpy as np
 import pandas as pd
+from chapkit.api.service_builder import MLServiceInfo
 from pydantic import BaseModel, Field
 
 from chap_core.time_period.date_util_wrapper import pandas_period_to_string
@@ -35,17 +30,28 @@ class RunInfo(BaseModel):
     )
 
 
+def _prepare_dataframe(df: pd.DataFrame) -> dict[str, Any]:
+    """Convert a DataFrame to the columns/data format expected by CHAPKit."""
+    if "time_period" in df.columns:
+        df = df.copy()
+        df["time_period"] = df["time_period"].apply(
+            lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
+        )
+    df = df.replace({np.nan: None})
+    return {"columns": df.columns.tolist(), "data": df.values.tolist()}
+
+
+def _serialize_geo(geo_features: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Serialize geo features, converting Pydantic models to dicts."""
+    if not geo_features:
+        return None
+    return geo_features if isinstance(geo_features, dict) else geo_features.model_dump()
+
+
 class CHAPKitRestAPIWrapper:
-    """Synchronous client for interacting with the CHAP REST API"""
+    """Synchronous client for interacting with the CHAPKit REST API."""
 
     def __init__(self, base_url: str = "http://localhost:8001", timeout: int = 7200):
-        """
-        Initialize the API client
-
-        Args:
-            base_url: Base URL of the CHAP API
-            timeout: Request timeout in seconds
-        """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.client = httpx.Client(
@@ -53,15 +59,13 @@ class CHAPKitRestAPIWrapper:
         )
 
     def __enter__(self):
-        """Context manager entry"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit"""
         self.close()
 
     def _request(self, method: str, endpoint: str, **kwargs) -> httpx.Response:
-        """Make synchronous HTTP request with error handling"""
+        """Make synchronous HTTP request with error handling."""
         try:
             response = self.client.request(method, endpoint, **kwargs)
             response.raise_for_status()
@@ -70,276 +74,58 @@ class CHAPKitRestAPIWrapper:
             raise httpx.HTTPError(f"API request failed: {e}") from e
 
     def close(self):
-        """Close the client connection"""
+        """Close the client connection."""
         if self.client:
             self.client.close()
 
     # Information endpoints
 
     def health(self) -> dict[str, str]:
-        """
-        Check service health status
-
-        Returns:
-            Dict with status field ('healthy')
-        """
+        """Check service health status."""
         response = self._request("GET", "/health")
         return cast("dict[str, str]", response.json())
 
-    def info(self) -> dict[str, Any]:
-        """
-        Get system information
-
-        Returns:
-            System info including name, version, description, etc.
-        """
+    def info(self) -> MLServiceInfo:
+        """Get system information."""
         response = self._request("GET", "/api/v1/info")
-        return cast("dict[str, Any]", response.json())
+        return MLServiceInfo.model_validate(response.json())
 
     # Configuration management endpoints
 
-    def list_configs(self) -> list[dict[str, Any]]:
-        """
-        List all model configurations
-
-        Returns:
-            List of model configuration objects
-        """
+    def list_configs(self) -> list[chapkit.ConfigOut]:
+        """List all model configurations."""
         response = self._request("GET", "/api/v1/configs")
-        return cast("list[dict[str, Any]]", response.json())
+        return [chapkit.ConfigOut.model_validate(c) for c in response.json()]
 
-    def create_config(self, config: dict[str, Any]) -> dict[str, Any]:
-        """
-        Create or replace a model configuration
-
-        Args:
-            config: Configuration dictionary
-
-        Returns:
-            Created configuration with ID
-        """
+    def create_config(self, config: dict[str, Any]) -> chapkit.ConfigOut:
+        """Create or replace a model configuration."""
         response = self._request("POST", "/api/v1/configs", json=config)
-        return cast("dict[str, Any]", response.json())
+        return chapkit.ConfigOut.model_validate(response.json())
 
     def get_config_schema(self) -> dict[str, Any]:
-        """
-        Get JSON Schema for model configuration
-
-        Returns:
-            JSON Schema for configuration model
-        """
+        """Get JSON Schema for model configuration."""
         response = self._request("GET", "/api/v1/configs/$schema")
         return cast("dict[str, Any]", response.json())
 
-    def get_config(self, config_id: str) -> dict[str, Any]:
-        """
-        Get a specific configuration by ID
-
-        Args:
-            config_id: Configuration ID
-
-        Returns:
-            Configuration object
-        """
-        response = self._request("GET", f"/api/v1/configs/{config_id}")
-        return cast("dict[str, Any]", response.json())
-
-    def update_config(self, config_id: str, config: dict[str, Any]) -> dict[str, Any]:
-        """
-        Update a configuration by ID
-
-        Args:
-            config_id: Configuration ID
-            config: Updated configuration dictionary
-
-        Returns:
-            Updated configuration
-        """
-        response = self._request("PUT", f"/api/v1/configs/{config_id}", json=config)
-        return cast("dict[str, Any]", response.json())
-
-    def delete_config(self, config_id: str) -> None:
-        """
-        Delete a configuration by ID
-
-        Args:
-            config_id: Configuration ID to delete
-        """
-        self._request("DELETE", f"/api/v1/configs/{config_id}")
-
-    def link_artifact_to_config(self, config_id: str, artifact_id: str) -> dict[str, Any]:
-        """
-        Link an artifact to a configuration
-
-        Args:
-            config_id: Configuration ID
-            artifact_id: Artifact ID to link
-
-        Returns:
-            Updated configuration or confirmation
-        """
-        response = self._request(
-            "POST", f"/api/v1/configs/{config_id}/$link-artifact", json={"artifact_id": artifact_id}
-        )
-        return cast("dict[str, Any]", response.json())
-
-    def unlink_artifact_from_config(self, config_id: str, artifact_id: str) -> dict[str, Any]:
-        """
-        Unlink an artifact from a configuration
-
-        Args:
-            config_id: Configuration ID
-            artifact_id: Artifact ID to unlink
-
-        Returns:
-            Updated configuration or confirmation
-        """
-        response = self._request(
-            "POST", f"/api/v1/configs/{config_id}/$unlink-artifact", json={"artifact_id": artifact_id}
-        )
-        return cast("dict[str, Any]", response.json())
-
-    def get_config_artifacts(self, config_id: str) -> list[dict[str, Any]]:
-        """
-        Get all artifacts linked to a configuration
-
-        Args:
-            config_id: Configuration ID
-
-        Returns:
-            List of artifact objects linked to the configuration
-        """
-        response = self._request("GET", f"/api/v1/configs/{config_id}/$artifacts")
-        return cast("list[dict[str, Any]]", response.json())
-
     # Job management endpoints
 
-    def get_jobs(self, status: str | None = None) -> list[dict[str, Any]]:
-        """
-        Get all jobs, optionally filtered by status
-
-        Args:
-            status: Optional status filter ('pending', 'running', 'completed', 'failed', 'canceled')
-
-        Returns:
-            List of job records
-        """
-        params = {"status": status} if status else {}
-        response = self._request("GET", "/api/v1/jobs", params=params)
-        return cast("list[dict[str, Any]]", response.json())
-
-    def get_job(self, job_id: str) -> dict[str, Any]:
-        """
-        Get full job record by ID
-
-        Args:
-            job_id: Job ID
-
-        Returns:
-            Job record with status, times, error info, etc.
-        """
+    def get_job(self, job_id: str) -> chapkit.ChapkitJobRecord:
+        """Get full job record by ID."""
         response = self._request("GET", f"/api/v1/jobs/{job_id}")
-        return cast("dict[str, Any]", response.json())
+        return chapkit.ChapkitJobRecord.model_validate(response.json())
 
-    def delete_job(self, job_id: str) -> None:
-        """
-        Cancel (if running) and delete a job
-
-        Args:
-            job_id: Job ID to delete
-        """
-        self._request("DELETE", f"/api/v1/jobs/{job_id}")
-
-    # Artifact management endpoints
-
-    def get_artifacts_for_config(self, config_id: str) -> list[dict[str, Any]]:
-        """
-        Get all artifacts linked to a configuration
-
-        Args:
-            config_id: Configuration ID
-
-        Returns:
-            List of artifact info objects
-        """
-        response = self._request("GET", f"/api/v1/artifacts/config/{config_id}")
-        return cast("list[dict[str, Any]]", response.json())
+    # Artifact endpoints
 
     def get_artifact(self, artifact_id: str) -> dict[str, Any]:
-        """
-        Get a specific artifact by ID
-
-        Args:
-            artifact_id: Artifact ID
-
-        Returns:
-            Artifact info object
-        """
+        """Get a specific artifact by ID."""
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}")
         return cast("dict[str, Any]", response.json())
 
     def get_prediction_artifact_dataframe(self, artifact_id: str) -> chapkit.data.DataFrame:
-        """
-        Get the data content of a specific artifact by ID
-
-        Args:
-            artifact_id: Artifact ID
-
-        Returns:
-            Artifact data object
-        """
+        """Get prediction artifact data as a chapkit DataFrame."""
         response = self.get_artifact(artifact_id)
-        # note: this is a dict of a chapkit DataFrame
         data = chapkit.artifact.schemas.MLPredictionArtifactData.model_validate(response["data"])
         return chapkit.data.DataFrame(**data.content)
-
-    def delete_artifact(self, artifact_id: str) -> None:
-        """
-        Delete an artifact by ID
-
-        Args:
-            artifact_id: Artifact ID to delete
-        """
-        self._request("DELETE", f"/api/v1/artifacts/{artifact_id}")
-
-    def get_artifact_expand(self, artifact_id: str) -> dict[str, Any]:
-        """
-        Get artifact with expanded data
-
-        Args:
-            artifact_id: Artifact ID
-
-        Returns:
-            Expanded artifact object
-        """
-        response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$expand")
-        return cast("dict[str, Any]", response.json())
-
-    def get_artifact_tree_by_id(self, artifact_id: str) -> dict[str, Any]:
-        """
-        Get artifact tree starting from a specific artifact
-
-        Args:
-            artifact_id: Artifact ID
-
-        Returns:
-            Artifact tree with nested children
-        """
-        response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$tree")
-        return cast("dict[str, Any]", response.json())
-
-    def get_artifact_config(self, artifact_id: str) -> dict[str, Any]:
-        """
-        Get the configuration associated with an artifact
-
-        Args:
-            artifact_id: Artifact ID
-
-        Returns:
-            Configuration object linked to the artifact
-        """
-        response = self._request("GET", f"/api/v1/artifacts/{artifact_id}/$config")
-        return cast("dict[str, Any]", response.json())
 
     # CHAP operation endpoints
 
@@ -349,39 +135,20 @@ class CHAPKitRestAPIWrapper:
         data: pd.DataFrame,
         run_info: RunInfo,
         geo_features: dict[str, Any] | None = None,
-    ) -> dict[str, str]:
-        """
-        Train a model with data
-
-        Args:
-            config_id: Configuration ID to use for training
-            data: Training data as pandas DataFrame
-            run_info: Runtime information for the model
-            geo_features: Optional GeoJSON FeatureCollection
-
-        Returns:
-            Dict with job_id and artifact_id
-        """
-        # Convert DataFrame to split format
-        if "time_period" in data.columns:
-            data["time_period"] = data["time_period"].apply(
-                lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
-            )
-        data = data.replace({np.nan: None})
-
-        # Convert DataFrame to columns/data format
+    ) -> chapkit.TrainResponse:
+        """Train a model with data."""
         train_body: dict[str, Any] = {
             "config_id": config_id,
-            "data": {"columns": data.columns.tolist(), "data": data.values.tolist()},
+            "data": _prepare_dataframe(data),
             "run_info": run_info.model_dump(exclude_none=True),
         }
 
-        if geo_features:
-            train_body["geo"] = geo_features
+        geo = _serialize_geo(geo_features)
+        if geo:
+            train_body["geo"] = geo
 
         response = self._request("POST", "/api/v1/ml/$train", json=train_body)
-        result = response.json()
-        return {"job_id": result["job_id"], "artifact_id": result["artifact_id"]}
+        return chapkit.TrainResponse.model_validate(response.json())
 
     def predict(
         self,
@@ -390,74 +157,35 @@ class CHAPKitRestAPIWrapper:
         run_info: RunInfo,
         historic_data: pd.DataFrame | None = None,
         geo_features: dict[str, Any] | None = None,
-    ) -> dict[str, str]:
-        """
-        Make predictions with a trained model
-
-        Args:
-            artifact_id: Trained model artifact ID
-            future_data: Future covariates as pandas DataFrame
-            run_info: Runtime information for the model
-            historic_data: Optional historical data as pandas DataFrame
-            geo_features: Optional GeoJSON FeatureCollection
-
-        Returns:
-            Dict with job_id and artifact_id
-        """
-        if "time_period" in future_data.columns:
-            future_data["time_period"] = future_data["time_period"].apply(
-                lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
-            )
-        future_data = future_data.replace({np.nan: None})
-
+    ) -> chapkit.PredictResponse:
+        """Make predictions with a trained model."""
         predict_body: dict[str, Any] = {
             "artifact_id": artifact_id,
-            "future": {"columns": future_data.columns.tolist(), "data": future_data.values.tolist()},
+            "future": _prepare_dataframe(future_data),
             "run_info": run_info.model_dump(exclude_none=True),
         }
 
         if historic_data is not None:
-            if "time_period" in historic_data.columns:
-                historic_data["time_period"] = historic_data["time_period"].apply(
-                    lambda x: pandas_period_to_string(x) if hasattr(x, "freqstr") else str(x)
-                )
-            historic_data = historic_data.replace({np.nan: None})
-            predict_body["historic"] = {
-                "columns": historic_data.columns.tolist(),
-                "data": historic_data.values.tolist(),
-            }
+            predict_body["historic"] = _prepare_dataframe(historic_data)
 
-        if geo_features:
-            predict_body["geo"] = geo_features
+        geo = _serialize_geo(geo_features)
+        if geo:
+            predict_body["geo"] = geo
 
         response = self._request("POST", "/api/v1/ml/$predict", json=predict_body)
-        result = response.json()
-        return {"job_id": result["job_id"], "artifact_id": result["artifact_id"]}
+        return chapkit.PredictResponse.model_validate(response.json())
 
     # Helper methods
 
-    def wait_for_job(self, job_id: str, poll_interval: int = 2, timeout: int | None = None) -> dict[str, Any]:
-        """
-        Wait for a job to complete
-
-        Args:
-            job_id: Job ID to monitor
-            poll_interval: Seconds between status checks
-            timeout: Maximum seconds to wait (None for no timeout)
-
-        Returns:
-            Final job status
-
-        Raises:
-            TimeoutError: If job doesn't complete within timeout
-        """
+    def wait_for_job(self, job_id: str, poll_interval: int = 2, timeout: int | None = None) -> chapkit.ChapkitJobRecord:
+        """Wait for a job to complete."""
         start_time = time.time()
 
         while True:
             job = self.get_job(job_id)
-            logger.info(f"Job {job_id} status: {job['status']}")
+            logger.info(f"Job {job_id} status: {job.status}")
 
-            if job["status"] in ["completed", "failed", "canceled"]:
+            if job.status in ["completed", "failed", "canceled"]:
                 return job
 
             if timeout and (time.time() - start_time) > timeout:
@@ -472,25 +200,15 @@ class CHAPKitRestAPIWrapper:
         run_info: RunInfo,
         geo_features: dict[str, Any] | None = None,
         timeout: int | None = 300,
-    ) -> dict[str, Any]:
-        """
-        Train a model and wait for completion
-
-        Args:
-            config_id: Configuration ID
-            data: Training data
-            run_info: Runtime information for the model
-            geo_features: Optional GeoJSON features
-            timeout: Maximum seconds to wait
+    ) -> tuple[chapkit.ChapkitJobRecord, str]:
+        """Train a model and wait for completion.
 
         Returns:
-            Dict with job record and artifact_id
+            Tuple of (job record, artifact_id)
         """
         result = self.train(config_id, data, run_info, geo_features)
-        job_id = result["job_id"]
-        job = self.wait_for_job(job_id, timeout=timeout)
-        job["artifact_id"] = result["artifact_id"]
-        return job
+        job = self.wait_for_job(result.job_id, timeout=timeout)
+        return job, result.artifact_id
 
     def predict_and_wait(
         self,
@@ -500,36 +218,12 @@ class CHAPKitRestAPIWrapper:
         historic_data: pd.DataFrame | None = None,
         geo_features: dict[str, Any] | None = None,
         timeout: int | None = 7200,
-    ) -> dict[str, Any]:
-        """
-        Make predictions and wait for completion
-
-        Args:
-            artifact_id: Trained model artifact ID
-            future_data: Future covariates
-            run_info: Runtime information for the model
-            historic_data: Optional historical data
-            geo_features: Optional GeoJSON features
-            timeout: Maximum seconds to wait
+    ) -> tuple[chapkit.ChapkitJobRecord, str]:
+        """Make predictions and wait for completion.
 
         Returns:
-            Dict with job record and artifact_id
+            Tuple of (job record, artifact_id)
         """
         result = self.predict(artifact_id, future_data, run_info, historic_data, geo_features)
-        job_id = result["job_id"]
-        job = self.wait_for_job(job_id, timeout=timeout)
-        job["artifact_id"] = result["artifact_id"]
-        return job
-
-    def poll_job(self, job_id: str, timeout: int | None = None) -> dict[str, Any]:
-        """
-        Simple polling method that waits for a job to complete
-
-        Args:
-            job_id: Job ID to poll
-            timeout: Maximum seconds to wait (None for no timeout)
-
-        Returns:
-            Final job status when completed
-        """
-        return self.wait_for_job(job_id, timeout=timeout)
+        job = self.wait_for_job(result.job_id, timeout=timeout)
+        return job, result.artifact_id

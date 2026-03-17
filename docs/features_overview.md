@@ -55,6 +55,9 @@ Integrating with the Chap platform allows to focus only on the model itself, and
     * Planned work on automatic brokering of compatible models for a given prediction context according to metadata (filtering models based on chosen data availability and decision need)
 * Plans for overall summary of forecasting analyses, including details of data, training and prediction skill
 
+### Complementary features in the DHIS2 ecosystem (outside but useful for Chap and modelling)
+- In order to compute outbreak probabilities, the predicted number of cases need to be compared to an outbreak threshold (often per region and month), also referred to as endemic channel. We are currently developing a flexible scheme for computing and using such thresholds to derive forecasts of outbreak probabilties. This currently includes a script that can be used to populate outbreak threshold values into DHIS2, which can then be imported to and used with Chap.    
+- 
 ### Research
 * We have many ambitions on [research]() and scientific publications on technical, IS and climate health aspects of Chap  
 
