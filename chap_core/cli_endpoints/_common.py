@@ -11,6 +11,7 @@ from chap_core.database.model_templates_and_config_tables import ModelConfigurat
 from chap_core.file_io.example_data_set import datasets
 from chap_core.geometry import Polygons
 from chap_core.models.model_template import ModelTemplate
+from chap_core.models.utils import CHAP_RUNS_DIR
 from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet, DataSetMetaData
 
@@ -30,7 +31,7 @@ def get_model(
 ) -> Any:
     template = ModelTemplate.from_directory_or_github_url(
         name,
-        base_working_dir=Path("./runs/"),
+        base_working_dir=CHAP_RUNS_DIR,
         ignore_env=ignore_environment,
         run_dir_type=run_directory_type,
         is_chapkit_model=is_chapkit_model,

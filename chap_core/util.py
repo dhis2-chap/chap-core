@@ -1,4 +1,5 @@
 import os
+import subprocess
 from shutil import which
 
 import numpy as np
@@ -33,7 +34,18 @@ def conda_available():
 
 
 def docker_available():
-    return which("docker") is not None
+    if which("docker") is None:
+        return False
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
 
 
 def pyenv_available():
@@ -57,10 +69,11 @@ def redis_available():
             raise
 
 
-def load_redis(db=0):
+def load_redis(db=0, decode_responses=False):
     import redis
 
     host = os.getenv("REDIS_HOST", "localhost")  # default to localhost for backward compatibility
     port = os.getenv("REDIS_PORT", "6379")
-    r = redis.Redis(host=host, port=int(port), db=db)
+    password = os.getenv("REDIS_PASSWORD", None)
+    r = redis.Redis(host=host, port=int(port), db=db, password=password, decode_responses=decode_responses)
     return r

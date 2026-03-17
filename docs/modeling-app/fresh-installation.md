@@ -42,7 +42,10 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-This creates a `.env` file with default database credentials used by Docker Compose. For production deployments, edit `.env` to set secure values for `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`.
+This creates a `.env` file with default database credentials used by Docker Compose.
+
+!!! tip "Production deployments"
+    For production, open `.env` and change at least `POSTGRES_PASSWORD` to a strong, unique value. You can optionally change `POSTGRES_USER` as well. These credentials are set permanently when the database volume is first created, so choose them before running `docker compose up` for the first time.
 
 ## 4. Start Chap Core
 

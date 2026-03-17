@@ -52,7 +52,7 @@ wait_for_service() {
 }
 
 # Wait for services to be healthy
-if ! wait_for_service "http://localhost:5001/api/v1/health" "chtorch"; then
+if ! wait_for_service "http://localhost:5001/api/health" "chtorch"; then
     docker compose -f compose.yml -f compose-models.yml logs chtorch --tail=50
     docker compose -f compose.yml -f compose-models.yml down --volumes
     exit 1

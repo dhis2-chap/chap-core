@@ -22,7 +22,7 @@ This guide is not written yet, for now we refer to the chapkit documentation: [h
 
 ## Data format sent to chapkit models
 
-CHAP sends data to chapkit models via the REST API in a standardized format. The data is sent as JSON with a `columns` array and a `data` array (column-oriented format).
+Chap sends data to chapkit models via the REST API in a standardized format. The data is sent as JSON with a `columns` array and a `data` array (column-oriented format).
 
 ### Required columns
 
@@ -96,7 +96,7 @@ The format is `YYYY-MM` where:
 
 ### Run info
 
-Along with the data, CHAP sends a `run_info` object containing runtime parameters:
+Along with the data, Chap sends a `run_info` object containing runtime parameters:
 
 ```json
 {
@@ -113,7 +113,7 @@ Along with the data, CHAP sends a `run_info` object containing runtime parameter
 
 ## How to run a chapkit model from the command line
 
-> **Deprecation Notice:** The `chap evaluate` command shown below is deprecated and will be removed in v2.0. For chapkit model evaluation, use `chap eval` with `--run-config.is-chapkit-model` instead. See the [Evaluation Workflow](../chap-cli/evaluation-workflow.md#chapkit-models) for examples.
+> **Deprecation Notice:** The `chap evaluate` command shown below is deprecated and will be removed in v2.0. For chapkit model evaluation, use `chap eval` with `--run-config.is-chapkit-model` instead. See the [Evaluation Workflow](../chap-cli/evaluation-workflow.md) for details on `chap eval`.
 
 To test that the model is working with chap, you can use the `chap evaluate` command. Instead of a github url or model name, you simply specify the REST API url to the model and add --is-chapkit-model to the command to tell chap that the model is a chapkit model.
 

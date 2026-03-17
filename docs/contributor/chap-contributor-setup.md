@@ -1,6 +1,6 @@
-# Setting Up CHAP Core as a Contributor
+# Setting Up Chap Core as a Contributor
 
-The following is our recommended setup for creating a development environment when working with CHAP Core as a contributor.
+The following is our recommended setup for creating a development environment when working with Chap Core as a contributor.
 
 If you are an external contributor without write-access to the chap-core repository you will first need to [fork the chap-core repository to your own GitHub account](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo?tool=webui).
 
@@ -11,7 +11,7 @@ If you are an external contributor without write-access to the chap-core reposit
     $ cd chap-core
     ```
 
-2.  If you need to work with and test a specific stable version of CHAP Core codebase, these are stored as version tags. Writing `git tag` on the commandline will give you a list of the available version. To switch to a desired version, for instance v1.0.3, you can write:
+2.  If you need to work with and test a specific stable version of Chap Core codebase, these are stored as version tags. Writing `git tag` on the commandline will give you a list of the available version. To switch to a desired version, for instance v1.0.3, you can write:
 
     ```bash
     git switch tags/v1.0.3

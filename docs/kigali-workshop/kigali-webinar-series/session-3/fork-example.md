@@ -52,7 +52,7 @@ After cloning your fork, open the **README.md** in the repository or on Github. 
 
 - Running the model in isolated mode
 - Making model alterations
-- Running the model through CHAP
+- Running the model through Chap
 
 After following the README, and making changes to the code, you should commit and push changes to your fork on Github.
 

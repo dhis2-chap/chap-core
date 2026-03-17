@@ -2,7 +2,7 @@
 
 **NOTE: The documentation about how the REST-API is working is limited.**
 
-There are two main ways to setup the CHAP REST-API:
+There are two main ways to setup the Chap REST-API:
 
-- For local testing purposes, the easiest way is to [setup the CHAP REST-API locally with Docker](docker-compose-doc.md)
-- For using Chap in a production environment, it's recommended to instead follow the instructions for [setting up the CHAP REST-API on a server](../modeling-app/running-chap-on-server.md)
+- For local testing purposes, the easiest way is to [setup the Chap REST-API locally with Docker](docker-compose-doc.md)
+- For using Chap in a production environment, it's recommended to instead follow the instructions for [setting up the Chap REST-API on a server](../modeling-app/running-chap-on-server.md)

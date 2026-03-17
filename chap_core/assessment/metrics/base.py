@@ -59,6 +59,9 @@ class Metric(ABC):
 
     spec: MetricSpec
 
+    def __init__(self, historical_observations: pd.DataFrame | None = None):
+        self.historical_observations = historical_observations
+
     def get_global_metric(
         self,
         observations: FlatObserved,
@@ -202,6 +205,15 @@ class Metric(ABC):
             cols[d.value] = pa.Column(dtype, chk) if chk else pa.Column(dtype)
         cols["metric"] = pa.Column(float, nullable=True)
         return pa.DataFrameSchema(cols, strict=True, coerce=True)
+
+    def is_applicable(self, observations: FlatObserved) -> bool:
+        """Check whether this metric can be computed for the given data.
+
+        Subclasses may override to indicate they require specific data
+        (e.g. historical observations or a particular time period format).
+        Callers should skip metrics that return False.
+        """
+        return True
 
     def get_name(self) -> str:
         """Return the display name of the metric."""

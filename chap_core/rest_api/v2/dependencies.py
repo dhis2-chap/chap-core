@@ -40,7 +40,7 @@ def verify_service_key(
     # Key is configured, so header is required
     if not x_service_key:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="X-Service-Key header is required",
         )
 

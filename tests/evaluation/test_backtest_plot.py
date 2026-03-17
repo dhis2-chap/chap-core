@@ -13,6 +13,8 @@ from chap_core.assessment.backtest_plots import (
     BacktestPlotBase,
 )
 from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods
+from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
+from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.metrics_dashboard import MetricsDashboard
 from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
@@ -89,6 +91,13 @@ def test_metrics_dashboard_directly(flat_observations, flat_forecasts, default_t
     assert chart is not None
 
 
+def test_horizon_location_grid_directly(flat_observations, flat_forecasts_multiple_samples, default_transformer):
+    """Test the horizon location grid plot with multiple-sample forecasts."""
+    plot = HorizonLocationGridPlot()
+    chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
+    assert chart is not None
+
+
 def test_infer_split_periods_monthly_format():
     """Test that _infer_split_periods produces date strings, not repr strings like 'Month(2022-1)'."""
     df = pd.DataFrame(
@@ -103,6 +112,21 @@ def test_infer_split_periods_monthly_format():
     for split_period in result["split_period"]:
         assert "Month(" not in split_period, f"Got repr string: {split_period}"
         assert split_period.startswith("20"), f"Unexpected format: {split_period}"
+
+
+@pytest.mark.parametrize(
+    "period_str, expected",
+    [
+        ("2022-01", "2022-01-01"),
+        ("202201", "2022-01-01"),
+        ("2022-W13", "2022-03-28"),
+        ("2022W13", "2022-03-28"),
+        ("2022-12", "2022-12-01"),
+        ("202212", "2022-12-01"),
+    ],
+)
+def test_clean_time_accepts_all_period_formats(period_str, expected):
+    assert clean_time(period_str) == expected
 
 
 def test_evaluation_plot_monthly_data(default_transformer):

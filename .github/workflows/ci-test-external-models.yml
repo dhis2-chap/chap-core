@@ -16,8 +16,7 @@ permissions:
 jobs:
   build:
     env:
-      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
-      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+      REDIS_HOST: redis
 
     runs-on: ubuntu-latest
     #container:

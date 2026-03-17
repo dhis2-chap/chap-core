@@ -121,7 +121,7 @@ chap eval \
 
 ### Standard Models (GitHub or Local)
 
-Models that follow the CHAP model specification can be loaded from:
+Models that follow the Chap model specification can be loaded from:
 
 - **GitHub URL**: `https://github.com/dhis2-chap/minimalist_example_r`
 - **Local directory**: `/path/to/model` or `./model`
@@ -155,7 +155,7 @@ chap eval \
     --run-config.is-chapkit-model
 ```
 
-When providing a directory path with `--run-config.is-chapkit-model`, CHAP automatically:
+When providing a directory path with `--run-config.is-chapkit-model`, Chap automatically:
 1. Starts a FastAPI dev server using `uv run fastapi dev`
 2. Waits for the service to become healthy
 3. Runs the evaluation
@@ -186,7 +186,7 @@ time_period,location,disease_cases,rainfall,mean_temperature,population
 
 ### GeoJSON Auto-Discovery
 
-CHAP automatically looks for a GeoJSON file with the same base name as the CSV:
+Chap automatically looks for a GeoJSON file with the same base name as the CSV:
 - CSV: `vietnam_data.csv`
 - GeoJSON: `vietnam_data.geojson` (auto-discovered in the same directory)
 

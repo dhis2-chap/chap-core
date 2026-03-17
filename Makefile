@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose
+.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose force-restart
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -86,3 +86,6 @@ dist: clean ## build source and wheel package
 
 install: clean ## sync dependencies and install package in development mode
 	uv sync
+
+force-restart: ## tear down, rebuild, and start docker compose from scratch
+	docker compose down -v && docker compose build --no-cache && docker compose up --remove-orphans

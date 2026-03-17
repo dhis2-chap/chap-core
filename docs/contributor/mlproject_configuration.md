@@ -2,7 +2,7 @@
 
 **Note:** We have future plans of going away from using MLproject files for configuring models, and instead use the new chapkit framework. This document describes the current implementation using MLproject files.
 
-MLproject files define model templates in CHAP. They specify the model name, execution environment, and entry points for training and prediction.
+MLproject files define model templates in Chap. They specify the model name, execution environment, and entry points for training and prediction.
 
 ## MLproject File Structure
 

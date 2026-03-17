@@ -34,6 +34,7 @@ from chap_core.hpo.searcher import RandomSearcher
 from chap_core.log_config import initialize_logging
 from chap_core.models.external_model import ExternalModel
 from chap_core.models.model_template import ModelTemplate
+from chap_core.models.utils import CHAP_RUNS_DIR
 from chap_core.predictor import ModelType
 from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -105,7 +106,7 @@ def evaluate_hpo(
     for name, configuration in zip(model_list, model_configuration_yaml_list, strict=False):
         template = ModelTemplate.from_directory_or_github_url(
             name,
-            base_working_dir=Path("./runs/"),
+            base_working_dir=CHAP_RUNS_DIR,
             ignore_env=ignore_environment,
             run_dir_type=run_directory_type,
         )
@@ -348,7 +349,7 @@ def eval_cmd(
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_name,
-        base_working_dir=Path("./runs/"),
+        base_working_dir=CHAP_RUNS_DIR,
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
         is_chapkit_model=run_config.is_chapkit_model,
