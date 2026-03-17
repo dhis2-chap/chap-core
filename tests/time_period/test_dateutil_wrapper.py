@@ -57,6 +57,14 @@ def test_parse(period1):
     assert period1.month == 1
 
 
+def test_parse_integer_time_period():
+    """Test that TimePeriod.parse handles integer input (e.g. from pandas CSV reading)."""
+    result = TimePeriod.parse(202001)
+    assert result == Month(2020, 1)
+    assert result.year == 2020
+    assert result.month == 1
+
+
 def test_ge(period1, period2):
     assert period2 >= period1
     assert period1 >= period1

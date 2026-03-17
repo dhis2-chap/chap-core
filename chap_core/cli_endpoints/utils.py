@@ -105,8 +105,8 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plo
         available = ", ".join(registry.keys())
         raise ValueError(f"Unknown plot type: {plot_name}. Available: {available}")
     plot_cls = registry[plot_name]
-    df = pd.read_csv(data_filename)
-    plotter = plot_cls(df)
+    ds: DataSet = DataSet.from_csv(data_filename)
+    plotter = plot_cls.from_dataset(ds)
     fig = plotter.plot()
     fig.show()
 
