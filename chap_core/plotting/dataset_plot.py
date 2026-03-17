@@ -7,6 +7,7 @@ from altair import HConcatChart
 from pydantic import BaseModel
 
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 alt.data_transformers.enable("vegafusion")
 # alt.renderers.enable("browser")
@@ -42,17 +43,22 @@ class DatasetPlot(ABC):
     @classmethod
     def from_dataset_model(cls, dataset_model):
         ds = dataset_model_to_dataset(dataset_model)
+        return cls.from_dataset(ds)
+
+    @classmethod
+    def from_dataset(cls, ds: DataSet, geojson=None):
         df = ds.to_pandas()
-        geojson = ds.polygons
+        df["time_period"] = df["time_period"].astype(str)
+        if geojson is None:
+            geojson = ds.polygons
         if isinstance(geojson, BaseModel):
             geojson = geojson.model_dump()
-        return cls.from_pandas(df, geojson=geojson)
+        return cls(df, geojson=geojson)
 
     @classmethod
     def from_pandas(cls, df: pd.DataFrame, geojson=None):
-        df = df.copy()
-        df["time_period"] = df["time_period"].astype(str)
-        return cls(df, geojson=geojson)
+        ds: DataSet = DataSet.from_pandas(df)
+        return cls.from_dataset(ds, geojson=geojson)
 
     def _get_feature_names(self) -> list:
         return [name for name in self._get_colnames() if name not in ("log1p", "population")]
