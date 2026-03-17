@@ -11,7 +11,7 @@ However, we are working on making this more flexible. For now, please reach out 
 
 The following figure shows how the train and predict entry points are part of a data flow between DHIS2 and the external model:
 
-![External model integration with DHIS2](dhis_chap_integration.jpg)
+<!-- Image removed: dhis_chap_integration.jpg no longer available -->
 
 
 # Overview of supported models
