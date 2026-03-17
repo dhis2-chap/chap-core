@@ -1,14 +1,14 @@
 # Creating Custom Metrics
 
-This guide explains how to create custom evaluation metrics for CHAP backtest results.
+This guide explains how to create custom evaluation metrics for Chap backtest results.
 
 ## Overview
 
-Metrics in CHAP measure how well a model's forecasts match observed values. The metrics system provides:
+Metrics in Chap measure how well a model's forecasts match observed values. The metrics system provides:
 
 - **Single definition**: Each metric is defined once and supports multiple aggregation levels
 - **Multi-level aggregation**: Get global values, per-location, per-horizon, or detailed breakdowns
-- **Automatic registration**: Metrics are discovered and available throughout CHAP
+- **Automatic registration**: Metrics are discovered and available throughout Chap
 - **Two metric types**: Deterministic (point forecasts) and Probabilistic (all samples)
 
 ## Quick Start

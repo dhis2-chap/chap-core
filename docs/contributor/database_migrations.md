@@ -1,6 +1,6 @@
 # Database Migrations with Alembic
 
-CHAP uses [Alembic](https://alembic.sqlalchemy.org/) to manage database schema changes. Migrations run automatically when you start the application with `docker compose up`.
+Chap uses [Alembic](https://alembic.sqlalchemy.org/) to manage database schema changes. Migrations run automatically when you start the application with `docker compose up`.
 
 ## Prerequisites
 

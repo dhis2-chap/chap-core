@@ -3,11 +3,11 @@
 !!! warning "Experimental Feature"
     This feature is a work in progress and considered experimental. The API may change in future releases without prior notice.
 
-The v2 API provides service registration endpoints that enable ML models built with [chapkit](https://github.com/dhis2-chap/chapkit) and [servicekit](https://github.com/winterop-com/servicekit) to register themselves with CHAP for automatic discovery.
+The v2 API provides service registration endpoints that enable ML models built with [chapkit](https://github.com/dhis2-chap/chapkit) and [servicekit](https://github.com/winterop-com/servicekit) to register themselves with Chap for automatic discovery.
 
 ## Overview
 
-Services register with the CHAP orchestrator and must send periodic keepalive pings to maintain their registration. Services that fail to ping within the TTL window are automatically expired.
+Services register with the Chap orchestrator and must send periodic keepalive pings to maintain their registration. Services that fail to ping within the TTL window are automatically expired.
 
 Key features:
 
@@ -32,7 +32,7 @@ Protected endpoints require an API key in the `X-Service-Key` header.
 
 ### Server Configuration
 
-Set the `SERVICEKIT_REGISTRATION_KEY` environment variable on the CHAP server:
+Set the `SERVICEKIT_REGISTRATION_KEY` environment variable on the Chap server:
 
 ```bash
 export SERVICEKIT_REGISTRATION_KEY="your-secret-key"

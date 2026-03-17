@@ -15,7 +15,7 @@ If this is the first time you're using wsl on Windows:
 
 ## Running commands through WSL
 
-If you're a Windows contributor, always remember to first enter the linux environment before you run any commands CHAP CLI commands or Python testing: 
+If you're a Windows contributor, always remember to first enter the linux environment before you run any commands Chap CLI commands or Python testing: 
 
 ```bash
 $ wsl

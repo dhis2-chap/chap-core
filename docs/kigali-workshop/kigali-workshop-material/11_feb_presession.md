@@ -1,10 +1,10 @@
 # Pre-session: Working with Datasets
 
-This session covers how to prepare datasets for use with CHAP -- from downloading data through the Modeling App, to transforming and validating your own CSV files, to running an evaluation.
+This session covers how to prepare datasets for use with Chap -- from downloading data through the Modeling App, to transforming and validating your own CSV files, to running an evaluation.
 
-## Why datasets need to be CHAP-compatible
+## Why datasets need to be Chap-compatible
 
-CHAP models are designed to be interchangeable: any model that follows the CHAP interface can be evaluated on any CHAP-compatible dataset. For this to work, datasets must follow a common CSV format so that models know which columns to expect and how to parse time periods and locations.
+Chap models are designed to be interchangeable: any model that follows the Chap interface can be evaluated on any Chap-compatible dataset. For this to work, datasets must follow a common CSV format so that models know which columns to expect and how to parse time periods and locations.
 
 The required columns are:
 
@@ -66,7 +66,7 @@ Click **Download request** to save the modelling payload to your computer as JSO
 
 ## Converting a Modeling App request to CSV and GeoJSON
 
-If you have a JSON request payload from the DHIS2 Modeling App (the `create-backtest-with-data` format), you can convert it directly to a CHAP-compatible CSV and GeoJSON file pair using `chap convert-request`:
+If you have a JSON request payload from the DHIS2 Modeling App (the `create-backtest-with-data` format), you can convert it directly to a Chap-compatible CSV and GeoJSON file pair using `chap convert-request`:
 
 ```bash
 chap convert-request example_data/create-backtest-with-data.json /tmp/chap_convert_doctest
@@ -89,7 +89,7 @@ rm -f /tmp/chap_convert_doctest.csv /tmp/chap_convert_doctest.geojson
 
 ## Transforming data from other sources
 
-If your data comes from a source other than DHIS2, you need to make sure it matches the CHAP format.
+If your data comes from a source other than DHIS2, you need to make sure it matches the Chap format.
 
 ### Column names
 
@@ -127,7 +127,7 @@ df = pd.DataFrame({
     "rain_mm": [37.9, 8.5, 55.3, 12.1],
 })
 
-# Rename columns to match CHAP format
+# Rename columns to match Chap format
 df = df.rename(columns={
     "region": "location",
     "cases": "disease_cases",
@@ -146,7 +146,7 @@ An example of how to do this with climate tools is here https://climate-tools.dh
 
 ## Validating your dataset
 
-Use the `chap validate` command to check that your CSV is CHAP-compatible before running an evaluation.
+Use the `chap validate` command to check that your CSV is Chap-compatible before running an evaluation.
 
 ### Basic validation
 

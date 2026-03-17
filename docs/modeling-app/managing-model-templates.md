@@ -7,7 +7,7 @@ Note that when talking about adding a model to the modeling app, we are usually 
 
 ## Model seeding on startup
 
-CHAP seeds the database with model templates and configured models every time the backend starts. The seeding process reads YAML files from `config/configured_models/` and is idempotent (existing models are updated, not duplicated).
+Chap seeds the database with model templates and configured models every time the backend starts. The seeding process reads YAML files from `config/configured_models/` and is idempotent (existing models are updated, not duplicated).
 
 ### How seeding works
 
@@ -50,7 +50,7 @@ The backend of chap-core provides API endpoints to manage model templates. In or
 
 #### How It Works
 
-CHAP maintains a list of approved model templates via remote YAML whitelists. The backend:
+Chap maintains a list of approved model templates via remote YAML whitelists. The backend:
 
 1. Reads URLs from `config/approved_model_repos.yaml`
 2. Fetches each URL and parses the YAML whitelist
