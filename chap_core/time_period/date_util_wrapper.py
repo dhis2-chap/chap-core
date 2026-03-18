@@ -200,6 +200,7 @@ class TimePeriod:
 
     @classmethod
     def parse(cls, text_repr: str):
+        text_repr = str(text_repr)
         # Handle week formats (old: W, SunW; new: -W, -S)
         if "W" in text_repr or "/" in text_repr or "-S" in text_repr:
             return cls.parse_week(text_repr)

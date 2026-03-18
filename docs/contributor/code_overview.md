@@ -38,7 +38,7 @@ Everything that inherits from `SqlModel` AND has `table=True` becomes a database
 ## External models
 
 The codebase contains various abtractions for external models. The general idea is that an external model is defined by what commands
-it uses to train and predict, and what kind of environment (e.g. docker) it needs to run these commands. CHAP then handles the necessary steps
+it uses to train and predict, and what kind of environment (e.g. docker) it needs to run these commands. Chap then handles the necessary steps
 to call these commands in the given environment with correct data files.
 
 ### Runners

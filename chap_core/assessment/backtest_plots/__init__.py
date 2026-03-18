@@ -310,6 +310,7 @@ def _discover_plots():
     """Import all plot modules to trigger decorator registration."""
     from chap_core.assessment.backtest_plots import (
         evaluation_plot,
+        horizon_location_grid,
         metrics_dashboard,
         sample_bias_plot,
     )

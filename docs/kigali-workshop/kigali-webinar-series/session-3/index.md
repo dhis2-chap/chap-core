@@ -1,6 +1,6 @@
 # Session 3 - Build your first model and run it through Chap
 
-By the end of this session, you'll have a working model that runs through CHAP and generates a prediction report. You'll start from a template, make a small modification, and run an evaluation — the same workflow you'll use for your own models later
+By the end of this session, you'll have a working model that runs through Chap and generates a prediction report. You'll start from a template, make a small modification, and run an evaluation — the same workflow you'll use for your own models later
 
 Before following this session, you should have completed [Session 2](../session-2). We assume you now have a system for virtual environments in either R or Python and know the basics of working on the command line, git and GitHub. It is also an advantage to have gone through [Session 1](../session-1) as well before starting this session.
 
@@ -10,9 +10,9 @@ Before following this session, you should have completed [Session 2](../session-
 
 ## Guides
 
-### [1. Install CHAP](install-chap.md)
+### [1. Install Chap](install-chap.md)
 
-Install the CHAP command-line tool using uv. This tool is required for evaluating and testing your models.
+Install the Chap command-line tool using uv. This tool is required for evaluating and testing your models.
 
 ### [2. Implement your own model from a minimalist example](fork-example.md)
 

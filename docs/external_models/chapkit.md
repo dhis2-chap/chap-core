@@ -22,7 +22,7 @@ This guide is not written yet, for now we refer to the chapkit documentation: [h
 
 ## Data format sent to chapkit models
 
-CHAP sends data to chapkit models via the REST API in a standardized format. The data is sent as JSON with a `columns` array and a `data` array (column-oriented format).
+Chap sends data to chapkit models via the REST API in a standardized format. The data is sent as JSON with a `columns` array and a `data` array (column-oriented format).
 
 ### Required columns
 
@@ -96,7 +96,7 @@ The format is `YYYY-MM` where:
 
 ### Run info
 
-Along with the data, CHAP sends a `run_info` object containing runtime parameters:
+Along with the data, Chap sends a `run_info` object containing runtime parameters:
 
 ```json
 {

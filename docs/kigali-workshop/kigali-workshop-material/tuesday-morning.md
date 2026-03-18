@@ -1,7 +1,14 @@
 # Tuesday Morning - 24 Feb
 
-You could have a look at your model of main interest among several open-source models already integrated with Chap:
+An introduction to time series modeling, as well as more specifically into supply chain forecasting (slides), given by Bahman Rostami-Tabar and Harsha Halgamuwe Hewage:
+- [Classical time series models](tuesday-morning-files/classical_rwanda.pdf)
+- [Forecasting in Supply Chain](tuesday-morning-files/supply_chain.pdf)
 
+A set of R Markdown documents (and soon webinar recordings) is also available for Bayesian modeling according to a process of data exploration followed by manual model selection, given by Ania Kawiecki Peralta and Carles Milà of the Barcelona Supercomputing Center:
+- [Model selection workflow using GHRmodel](https://gitlab.earth.bsc.es/ghr/ghr4dhis2/-/tree/selection/)
+- The two main files are these RMarkdown files: [Exploration](tuesday-morning-files/DHIS2-Module1.Rmd) and [Model selection](tuesday-morning-files/DHIS2-Module2.Rmd) 
+
+As part of this session, one can look at a model of main interest among several open-source models already integrated with Chap:
 - An Exponential Smoothing Model, implemented in R: [auto_ets](https://github.com/chap-models/auto_ets)
 - An ARIMA model, implemented in R: [auto_arima](https://github.com/chap-models/auto_arima)
 - An Hierarchical Bayesian model with INLA-R based model training (R): [chap_auto_ewars](https://github.com/chap-models/chap_auto_ewars)

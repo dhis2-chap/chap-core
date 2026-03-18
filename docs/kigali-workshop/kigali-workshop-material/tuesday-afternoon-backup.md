@@ -20,7 +20,7 @@ Walkthroughs for this session:
 
 This session follows Tuesday morning (which covers evaluation) and Monday afternoon
 (evaluation walkthrough). By this point, participants have built a minimalist model,
-gotten it running in CHAP, and evaluated it. The afternoon session introduces
+gotten it running in Chap, and evaluated it. The afternoon session introduces
 progressively more complex modeling effects, culminating in multi-region strategies.
 
 ### Session Goals
@@ -61,7 +61,7 @@ The feature extraction function signature:
 
 ```
 def extract_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Extract feature columns from a CHAP DataFrame."""
+    """Extract feature columns from a Chap DataFrame."""
     ...
 ```
 
