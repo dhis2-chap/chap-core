@@ -1,8 +1,9 @@
 import altair as alt
 import numpy as np
 import pandas as pd
+from sklearn.cluster import KMeans
 
-from .dataset_plot import DatasetPlot, dataset_plot
+from .dataset_plot import DatasetPlot, _get_periods_per_year, dataset_plot
 
 alt.renderers.enable("browser")
 
@@ -128,6 +129,92 @@ class SeasonCorrelationBarPlot(SeasonCorrelationPlot):
                     "subtitle": "Correlation between season maximum disease cases and mean temperature by seasonal month and location. Red bars indicate negative correlation, blue bars indicate positive correlation.",
                 }
             )
+        )
+
+
+@dataset_plot(
+    plot_id="seasonality-comparison",
+    name="Seasonality Comparison Plot",
+    description="Heatmap and line overlay showing how disease seasonality compares across regions.",
+)
+class SeasonalityComparisonPlot(DatasetPlot):
+    def data(self) -> pd.DataFrame:
+        df = self._df.copy()
+        periods_per_year = _get_periods_per_year(df["time_period"])
+        df["time_period"] = pd.to_datetime(df["time_period"])
+        if periods_per_year == 52:
+            df["period_of_year"] = df["time_period"].dt.isocalendar().week.astype(int)
+        else:
+            df["period_of_year"] = df["time_period"].dt.month
+
+        agg = df.groupby(["location", "period_of_year"])["disease_cases"].mean().reset_index()
+        totals = agg.groupby("location")["disease_cases"].sum().reset_index()
+        totals.columns = ["location", "total"]
+        agg = agg.merge(totals, on="location")
+        agg["normalized_cases"] = agg["disease_cases"] / agg["total"]
+
+        pivot = agg.pivot(index="location", columns="period_of_year", values="normalized_cases").fillna(0)
+        locations = pivot.index.tolist()
+        n_locations = len(locations)
+
+        n_clusters = min(4, n_locations)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init=10)
+        labels = kmeans.fit_predict(pivot.values)
+        cluster_labels = dict(zip(locations, labels, strict=True))
+        agg["cluster"] = agg["location"].map(cluster_labels)
+
+        return agg[["location", "period_of_year", "normalized_cases", "cluster"]]
+
+    def plot(self) -> alt.VConcatChart:  # type: ignore[override]
+        data = self.data()
+        periods_per_year = _get_periods_per_year(self._df["time_period"])
+        x_title = "Week of Year" if periods_per_year == 52 else "Month"
+
+        cluster_color = alt.Color("cluster:N", scale=alt.Scale(scheme="category10"), title="Cluster")
+
+        line_chart = (
+            alt.Chart(data)
+            .mark_line(point=True, strokeWidth=2)
+            .encode(
+                x=alt.X("period_of_year:O", title=x_title),
+                y=alt.Y("normalized_cases:Q", title="Fraction of Annual Total"),
+                color=cluster_color,
+                detail=alt.Detail("location:N"),
+                tooltip=[
+                    alt.Tooltip("location:N", title="Region"),
+                    alt.Tooltip("period_of_year:O", title=x_title),
+                    alt.Tooltip("normalized_cases:Q", title="Fraction", format=".3f"),
+                    alt.Tooltip("cluster:N", title="Cluster"),
+                ],
+            )
+            .properties(width=300, height=200)
+            .facet(column=alt.Column("cluster:N", title="Cluster"))
+        )
+
+        cluster_data = data[["location", "cluster"]].drop_duplicates()
+
+        if self._geojson is not None:
+            geojson_data = alt.Data(values=self._geojson["features"])
+            cluster_map = (
+                alt.Chart(geojson_data)
+                .mark_geoshape(stroke="white", strokeWidth=0.5)
+                .transform_lookup(lookup="id", from_=alt.LookupData(cluster_data, "location", ["cluster"]))
+                .encode(
+                    color=cluster_color,
+                    tooltip=[
+                        alt.Tooltip("id:N", title="Region"),
+                        alt.Tooltip("cluster:N", title="Cluster"),
+                    ],
+                )
+                .project(type="equirectangular")
+                .properties(width=400, height=300, title="Cluster Map")
+            )
+            return alt.vconcat(cluster_map, line_chart).properties(  # type: ignore[return-value]
+                title="Seasonality Comparison Across Regions"
+            )
+
+        return alt.vconcat(line_chart).properties(  # type: ignore[return-value]
+            title="Seasonality Comparison Across Regions"
         )
 
 

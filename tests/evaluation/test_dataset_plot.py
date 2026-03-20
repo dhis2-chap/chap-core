@@ -9,7 +9,7 @@ from chap_core.plotting.dataset_plot import (
     get_dataset_plots_registry,
     list_dataset_plots,
 )
-from chap_core.plotting.season_plot import SeasonCorrelationBarPlot
+from chap_core.plotting.season_plot import SeasonCorrelationBarPlot, SeasonalityComparisonPlot
 
 
 @pytest.fixture()
@@ -20,7 +20,9 @@ def default_transformer():
     yield
 
 
-@pytest.mark.parametrize("plt_cls", [DiseaseCasesMap, StandardizedFeaturePlot, SeasonCorrelationBarPlot])
+@pytest.mark.parametrize(
+    "plt_cls", [DiseaseCasesMap, StandardizedFeaturePlot, SeasonCorrelationBarPlot, SeasonalityComparisonPlot]
+)
 def test_standardized_feautre_plot(simulated_dataset, plt_cls, default_transformer):
     plotter = plt_cls.from_dataset_model(simulated_dataset)
     chart = plotter.plot()
@@ -28,7 +30,12 @@ def test_standardized_feautre_plot(simulated_dataset, plt_cls, default_transform
 
 def test_dataset_plot_registry():
     registry = get_dataset_plots_registry()
-    expected_ids = {"disease-cases-map", "standardized-feature-plot", "seasonal-correlation-plot"}
+    expected_ids = {
+        "disease-cases-map",
+        "standardized-feature-plot",
+        "seasonal-correlation-plot",
+        "seasonality-comparison",
+    }
     assert expected_ids.issubset(registry.keys())
     for cls in registry.values():
         assert issubclass(cls, DatasetPlot)
@@ -36,7 +43,7 @@ def test_dataset_plot_registry():
 
 def test_list_dataset_plots():
     plots = list_dataset_plots()
-    assert len(plots) >= 3
+    assert len(plots) >= 4
     for plot in plots:
         assert "id" in plot
         assert "name" in plot
