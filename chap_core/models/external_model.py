@@ -164,6 +164,38 @@ class ExternalModel(ExternalModelBase):
     def model_information(self):
         return self._model_information
 
+    def _apply_generated_features(self, dataset: DataSet) -> DataSet:
+        """Apply any gen:-prefixed feature generators to the dataset."""
+        from chap_core.feature_generators import apply_feature_generators, parse_generated_covariates
+
+        if self._model_information is None:
+            return dataset
+        _, generator_ids = parse_generated_covariates(self._model_information.required_covariates)
+        if generator_ids:
+            dataset = apply_feature_generators(dataset, generator_ids)
+        return dataset
+
+    def _copy_generated_features(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+        """Copy location-constant generated features from historic_data to future_data."""
+        from chap_core.feature_generators import parse_generated_covariates
+
+        if self._model_information is None:
+            return future_data
+        _, generator_ids = parse_generated_covariates(self._model_information.required_covariates)
+        if not generator_ids:
+            return future_data
+
+        historic_df = historic_data.to_pandas()
+        future_df = future_data.to_pandas()
+        # For each generated feature, extract per-location values from historic data
+        generated_fields = set(historic_df.columns) - set(future_df.columns)
+        if not generated_fields:
+            return future_data
+        for field in generated_fields:
+            loc_values = historic_df.groupby("location")[field].first()
+            future_df[field] = future_df["location"].map(loc_values)
+        return DataSet.from_pandas(future_df)
+
     def train(self, train_data: DataSet, extra_args=None):
         """
         Trains this model on the given dataset.
@@ -177,6 +209,8 @@ class ExternalModel(ExternalModelBase):
         """
         if extra_args is None:
             extra_args = ""
+
+        train_data = self._apply_generated_features(train_data)
 
         train_file_name = "training_data.csv"
         train_file_name_full = Path(self._working_dir) / Path(train_file_name)
@@ -205,6 +239,9 @@ class ExternalModel(ExternalModelBase):
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         logging.debug("Running predict")
+        historic_data = self._apply_generated_features(historic_data)
+        future_data = self._copy_generated_features(historic_data, future_data)
+
         future_data_name = Path(self._working_dir) / "future_data.csv"
         historic_data_name = Path(self._working_dir) / "historic_data.csv"
         start_time = future_data.start_timestamp

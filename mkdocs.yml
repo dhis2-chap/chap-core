@@ -88,6 +88,7 @@ nav:
           - Python-models: external_models/python_models.md
           - R-models: external_models/r_models.md
           - Additional Configuration: external_models/additional_configuration.md
+          - Generated Features: external_models/generated_features.md
       - Evaluate models with Chap:
           - Evaluating Models: external_models/running_models_in_chap.md
       - Integration:
@@ -122,6 +123,7 @@ nav:
           - Evaluation Walkthrough: contributor/evaluation_walkthrough.md
           - Evaluation Abstraction: contributor/evaluation_abstraction.md
           - Preference Learning: contributor/preference_learning.md
+          - Creating Feature Generators: contributor/creating_feature_generators.md
       - Web API:
           - Overview: webapi/index.md
           - Developer Guide: webapi/developer.md
