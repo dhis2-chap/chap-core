@@ -8,6 +8,7 @@ import chapkit
 import httpx
 import numpy as np
 import pandas as pd
+from chapkit.api import HealthStatus
 from chapkit.api.service_builder import MLServiceInfo
 from pydantic import BaseModel, Field
 
@@ -80,10 +81,10 @@ class CHAPKitRestAPIWrapper:
 
     # Information endpoints
 
-    def health(self) -> dict[str, str]:
+    def health(self) -> HealthStatus:
         """Check service health status."""
         response = self._request("GET", "/health")
-        return cast("dict[str, str]", response.json())
+        return HealthStatus.model_validate(response.json())
 
     def info(self) -> MLServiceInfo:
         """Get system information."""
@@ -116,15 +117,15 @@ class CHAPKitRestAPIWrapper:
 
     # Artifact endpoints
 
-    def get_artifact(self, artifact_id: str) -> dict[str, Any]:
+    def get_artifact(self, artifact_id: str) -> chapkit.ArtifactOut:
         """Get a specific artifact by ID."""
         response = self._request("GET", f"/api/v1/artifacts/{artifact_id}")
-        return cast("dict[str, Any]", response.json())
+        return chapkit.ArtifactOut.model_validate(response.json())
 
     def get_prediction_artifact_dataframe(self, artifact_id: str) -> chapkit.data.DataFrame:
         """Get prediction artifact data as a chapkit DataFrame."""
         response = self.get_artifact(artifact_id)
-        data = chapkit.artifact.schemas.MLPredictionArtifactData.model_validate(response["data"])
+        data = chapkit.artifact.schemas.MLPredictionArtifactData.model_validate(response.data)
         return chapkit.data.DataFrame(**data.content)
 
     # CHAP operation endpoints

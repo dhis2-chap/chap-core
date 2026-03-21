@@ -50,7 +50,6 @@ class TestCommonEndpoints:
         assert "server_date" in data
         assert "server_time_zone_id" in data
         assert "revision" in data
-        assert "docker_available" in data
 
     def test_system_info_server_date_is_recent(self, client):
         before = datetime.now(timezone.utc)

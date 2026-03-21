@@ -26,6 +26,8 @@ services:
       - type: volume
         source: logs
         target: /data/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     depends_on:
