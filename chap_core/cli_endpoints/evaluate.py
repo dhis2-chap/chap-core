@@ -300,6 +300,15 @@ def eval_cmd(
             'Format: {"model_name": "csv_column"}. Example: {"rainfall": "precipitation_mm"}'
         ),
     ] = None,
+    n_trajectories: Annotated[
+        int,
+        Parameter(
+            help="Number of trajectories for multi-step uncertainty propagation when ExtendedPredictor is used. "
+            "The first trajectory always uses the mean (k=1, default, no extra cost). "
+            "Each additional trajectory draws a random sample for history updates, allowing uncertainty to grow. "
+            "Only relevant when the model's max_prediction_length is shorter than the forecast horizon."
+        ),
+    ] = 1,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
@@ -371,7 +380,7 @@ def eval_cmd(
                 logger.warning(
                     f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
                 )
-                estimator = ExtendedPredictor(estimator, backtest_params.n_periods)
+                estimator = ExtendedPredictor(estimator, backtest_params.n_periods, n_trajectories=n_trajectories)
 
         model_template_db = ModelTemplateDB(
             id=template.model_template_config.name,

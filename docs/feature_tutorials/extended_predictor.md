@@ -10,7 +10,7 @@ The `ExtendedPredictor` wraps a `ConfiguredModel` and extends its prediction cap
 
 1. **Iterative Prediction**: When the desired prediction scope exceeds the model's `max_prediction_length`, the predictor makes multiple prediction calls in sequence.
 
-2. **Rolling History Update**: After each prediction step, the predicted values are appended to the historic data. Sample columns are averaged to produce a single `disease_cases` value for use in subsequent predictions.
+2. **Rolling History Update**: After each prediction step, the predicted values are appended to the historic data. By default (1 trajectory), sample columns are averaged to produce a single `disease_cases` value for subsequent predictions. With multiple trajectories, later trajectories draw a random sample instead of the mean, allowing uncertainty to grow over the horizon.
 
 3. **Overlap Handling**: When predictions overlap (which happens in later iterations), duplicates are removed by keeping the most recent prediction for each time period and location.
 
@@ -43,5 +43,20 @@ rm -f ./extended_predictor_test.nc
 ```
 
 When the requested `n-periods` exceeds the model's `max_prediction_length`, Chap automatically uses `ExtendedPredictor` to make iterative predictions.
+
+To enable uncertainty growth over the prediction horizon, use `--n-trajectories`. The first trajectory always uses the mean (default behavior, no extra cost). Each additional trajectory draws a random sample for history updates:
+
+```bash
+chap eval --model-name external_models/naive_python_model_uv \
+    --dataset-csv example_data/laos_subset.csv \
+    --output-file ./extended_predictor_test.nc \
+    --backtest-params.n-periods 6 \
+    --backtest-params.n-splits 2 \
+    --n-trajectories 2
+```
+
+```bash
+rm -f ./extended_predictor_test.nc
+```
 
 > **Note:** The legacy `chap evaluate` command is deprecated and will be removed in v2.0. Use `chap eval` instead.
