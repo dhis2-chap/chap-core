@@ -435,7 +435,7 @@ requires-dist = [
     { name = "bionumpy", specifier = ">=1.0.14" },
     { name = "celery", extras = ["pytest"], specifier = ">=5.5.3" },
     { name = "chapkit", specifier = ">=0.16" },
-    { name = "cryptography", specifier = ">=46.0.3" },
+    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "cyclopts", specifier = ">=3.24.0" },
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "docker", specifier = ">=7.1.0" },
