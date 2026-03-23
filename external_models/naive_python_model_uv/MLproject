@@ -1,5 +1,8 @@
 name: naive_python_uv
 
+min_prediction_length: 1
+max_prediction_length: 3
+
 uv_env: pyproject.toml
 
 entry_points:

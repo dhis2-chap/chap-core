@@ -543,3 +543,35 @@ def test_overlap_correct_final_count():
         assert len(loc_df) == desired_scope, (
             f"Location {loc} should have {desired_scope} predictions after deduplication, got {len(loc_df)}"
         )
+
+
+def test_n_trajectories_invalid():
+    """Test that n_trajectories < 1 raises ValueError."""
+    mock_model = MockModel()
+    with pytest.raises(ValueError, match="n_trajectories must be at least 1"):
+        ExtendedPredictor(mock_model, desired_scope=6, n_trajectories=0)
+
+
+
+def test_n_trajectories_doubles_sample_columns():
+    """Test that n_trajectories=2 produces 2x sample columns with the same (time_period, location) pairs."""
+    data = create_multi_location_data(num_locations=2, num_future_periods=6)
+
+    mock_model_1 = MockModel(min_pred_length=2, max_pred_length=3)
+    mock_model_2 = MockModel(min_pred_length=2, max_pred_length=3)
+
+    predictor_1 = ExtendedPredictor(mock_model_1, desired_scope=6, n_trajectories=1)
+    predictor_2 = ExtendedPredictor(mock_model_2, desired_scope=6, n_trajectories=2)
+
+    result_1 = predictor_1.predict(data["historic_data"], data["future_data"]).to_pandas()
+    result_2 = predictor_2.predict(data["historic_data"], data["future_data"]).to_pandas()
+
+    sample_cols_1 = [c for c in result_1.columns if c.startswith("sample_")]
+    sample_cols_2 = [c for c in result_2.columns if c.startswith("sample_")]
+
+    assert len(sample_cols_2) == 2 * len(sample_cols_1)
+
+    # Same (time_period, location) pairs in both
+    pairs_1 = set(zip(result_1["time_period"], result_1["location"]))
+    pairs_2 = set(zip(result_2["time_period"], result_2["location"]))
+    assert pairs_1 == pairs_2
