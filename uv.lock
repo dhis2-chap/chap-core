@@ -460,7 +460,7 @@ requires-dist = [
     { name = "plotly", specifier = ">=6.3.1" },
     { name = "pooch", specifier = ">=1.8.2" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
-    { name = "pyarrow", specifier = ">=21.0.0" },
+    { name = "pyarrow", specifier = ">=23.0.1" },
     { name = "pycountry", specifier = ">=24.6.1" },
     { name = "pydantic", specifier = ">=2.11.10" },
     { name = "pydantic-geojson", specifier = ">=0.2.0,<0.3.0" },
