@@ -1,6 +1,7 @@
 import json
 
 import pandas as pd
+import pytest
 
 from chap_core.cli_endpoints.convert import convert_request
 
@@ -25,6 +26,8 @@ def test_convert_request_from_example_json(tmp_path):
     assert "rainfall" in df.columns
     assert "mean_temperature" in df.columns
     assert len(df) > 0
+    for period in df["time_period"]:
+        assert "-" in period, f"Expected dashed format, got: {period}"
 
     with open(geojson_path) as f:
         geojson = json.load(f)
@@ -80,3 +83,42 @@ def test_convert_request_pivots_correctly(tmp_path):
     with open(tmp_path / "result.geojson") as f:
         geojson = json.load(f)
     assert len(geojson["features"]) == 2
+
+
+@pytest.mark.parametrize(
+    "input_period,expected_period",
+    [
+        ("202212", "2022-12"),
+        ("2022-12", "2022-12"),
+        ("2022W13", "2022-W13"),
+        ("2022-W13", "2022-W13"),
+    ],
+)
+def test_convert_request_normalizes_periods(tmp_path, input_period, expected_period):
+    """Test that compact period formats are normalized to dashed format."""
+    request = {
+        "providedData": [
+            {"featureName": "rainfall", "orgUnit": "loc_1", "period": input_period, "value": 1.0},
+        ],
+        "geojson": {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "id": "loc_1",
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [0, 0]},
+                    "properties": {},
+                },
+            ],
+        },
+    }
+
+    input_path = tmp_path / "request.json"
+    with open(input_path, "w") as f:
+        json.dump(request, f)
+
+    output_prefix = tmp_path / "result"
+    convert_request(input_path, output_prefix)
+
+    df = pd.read_csv(tmp_path / "result.csv")
+    assert df["time_period"].iloc[0] == expected_period

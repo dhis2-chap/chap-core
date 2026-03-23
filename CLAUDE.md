@@ -1,52 +1,16 @@
 ## Workflow
 
 1. Always run `make lint` and `make test` after adding a feature or fixing a bug
-2. No commit attribution (no co-author or generated-by lines)
-3. Use conventional commits format for commit messages and PR titles
-4. Branch naming should follow conventional commit prefixes: `feat/`, `fix/`, `docs/`, `refactor/`, etc.
-5. No emojis in commit messages, PR descriptions, or code comments
-6. Be concise when adding code/features. Don't add stuff not specifically related to the problem/task, and avoid nice-to-have extras
-7. If you feel that the prompt is bad/unclear, always ask follow-up questions until you have high confidence you will be able to solve the problem given
-8. When adding new features or fixes, always add a test. Never access private fields or methods (starting with underscore) of a class through testing. Also, when changing code, if there are no relevant tests, consider adding a simple test for the change.
-9. When we ask you to go through some change (or finalize changes), always follow the rules in this document strictly.
-10. When making pr that has design document only, don't use docs in title.
-11. When writing tests, avoid creating new test data inline. Use existing fixtures from conftest.py files whenever possible. Only create new fixtures in conftest.py if testing edge cases not covered by existing fixtures. This improves test maintainability and reduces duplication.
-12. Never access private variables
-13. When creating Jira issues, always set at least one component
-
-## Documentation
-When writing documentation with code examples:
-1. All `python` code blocks are automatically tested by mktestdocs with `memory=True`, meaning code blocks within a file share state (imports, variables).
-2. Structure documentation with imports in earlier blocks, then usage examples in subsequent blocks that can reference those imports.
-3. Use real module paths and class names that exist in the codebase.
-4. For examples that reference user-created code (like `my_custom_metric.py`), use existing implementations instead (e.g., `MAEMetric` from `chap_core.assessment.metrics.mae`).
-5. Only use `console` blocks as a last resort for pseudo-code, CLI commands, or incomplete code signatures that cannot be made executable.
-6. When showing class/function signatures, prefer a complete minimal example over an incomplete signature snippet.
-7. To render code output in the built docs, use `exec="on" session="<name>" source="above"` on Python code blocks. Add `result="text"` for plain-text output, or omit it when the block prints markdown (e.g. `to_markdown()` tables). Blocks sharing a `session` share state like mktestdocs `memory=True`.
-
-## Domain Knowledge
-- To learn about domain-specific terms used in the codebase, refer to @docs/contributor/vocabulary.md.
-
-
-## Code architecture
-
-### Entry Points
-- **CLI** (`chap_core/cli.py`): Commands like `evaluate`, `forecast`, `serve`
-- **REST API** (`chap_core/rest_api/v1/rest_api.py`): FastAPI backend with Celery for async tasks
-  - Routers in `rest_api/v1/routers/`: analytics, crud, visualization, debug, jobs
-
-### Core Concepts
-- **Models** (`chap_core/models/`):
-  - `ModelTemplate`: Factory for creating configured models
-  - `ExternalModel`: Wrapper for Docker/command-line/web-based models
-- **Runners** (`chap_core/runners/`): Execute models in different environments (Docker, command-line, MLflow)
-- **Assessment** (`chap_core/assessment/`): Model evaluation, train/test splitting, backtesting
-- **Database** (`chap_core/database/`): SQLModel tables (find with `table=True`), Alembic migrations
-- **Data Types** (`chap_core/datatypes.py`, `spatio_temporal_data/`): Core data structures for time series
-
-### Key Patterns
-- Load model: `ModelTemplate.from_directory_or_github_url()` → `get_model()` → configured model instance
-- Execute model: Model uses appropriate `TrainPredictRunner` (Docker/CommandLine/MLflow) to run train/predict
-- Evaluate: `evaluate_model()` in `prediction_evaluator.py` handles train/test splits and evaluation
-
-See `docs/contributor/code_overview.md` for detailed architecture documentation.
+2. Use `uv run` when running tests and CLI commands (e.g., `uv run pytest`, `uv run chap`)
+3. No commit attribution (no co-author or generated-by lines)
+4. Use conventional commits format for commit messages and PR titles
+5. Branch naming should follow conventional commit prefixes: `feat/`, `fix/`, `docs/`, `refactor/`, etc.
+6. No emojis in commit messages, PR descriptions, or code comments
+7. Be concise when adding code/features. Don't add stuff not specifically related to the problem/task, and avoid nice-to-have extras
+8. If you feel that the prompt is bad/unclear, always ask follow-up questions until you have high confidence you will be able to solve the problem given
+9. When adding new features or fixes, always add a test. Never access private fields or methods (starting with underscore) of a class through testing. Also, when changing code, if there are no relevant tests, consider adding a simple test for the change.
+10. When we ask you to go through some change (or finalize changes), always follow the rules in this document strictly.
+11. When making pr that has design document only, don't use docs in title.
+12. When writing tests, avoid creating new test data inline. Use existing fixtures from conftest.py files whenever possible. Only create new fixtures in conftest.py if testing edge cases not covered by existing fixtures. This improves test maintainability and reduces duplication.
+13. Never access private variables
+14. When creating Jira issues, always set at least one component
