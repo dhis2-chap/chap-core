@@ -545,6 +545,14 @@ def test_overlap_correct_final_count():
         )
 
 
+def test_n_trajectories_invalid():
+    """Test that n_trajectories < 1 raises ValueError."""
+    mock_model = MockModel()
+    with pytest.raises(ValueError, match="n_trajectories must be at least 1"):
+        ExtendedPredictor(mock_model, desired_scope=6, n_trajectories=0)
+
+
+
 def test_n_trajectories_doubles_sample_columns():
     """Test that n_trajectories=2 produces 2x sample columns with the same (time_period, location) pairs."""
     data = create_multi_location_data(num_locations=2, num_future_periods=6)

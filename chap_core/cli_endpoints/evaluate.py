@@ -304,7 +304,7 @@ def eval_cmd(
         int,
         Parameter(
             help="Number of trajectories for multi-step uncertainty propagation when ExtendedPredictor is used. "
-            "The first trajectory always uses the mean (k=1, default, no extra cost). "
+            "The first trajectory always uses the mean (n_trajectories=1, default, no extra cost). "
             "Each additional trajectory draws a random sample for history updates, allowing uncertainty to grow. "
             "Only relevant when the model's max_prediction_length is shorter than the forecast horizon."
         ),

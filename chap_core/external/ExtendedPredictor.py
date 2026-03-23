@@ -7,10 +7,18 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class ExtendedPredictor(ConfiguredModel):
-    def __init__(self, configured_model: ConfiguredModel, desired_scope, n_trajectories: int = 1):
+    def __init__(
+        self,
+        configured_model: ConfiguredModel,
+        desired_scope,
+        n_trajectories: int = 1,
+    ):
+        if n_trajectories < 1:
+            raise ValueError(f"n_trajectories must be at least 1, got {n_trajectories}")
         self._config_model = configured_model
         self._desired_scope = desired_scope
         self._n_trajectories = n_trajectories
+        self._rng = np.random.default_rng()
 
     def train(self, train_data: DataSet, extra_args=None):
         self._config_model.train(train_data, extra_args)
@@ -45,9 +53,12 @@ class ExtendedPredictor(ConfiguredModel):
             traj_df = traj_df.rename(columns={f"sample_{i}": f"sample_{offset + i}" for i in range(n_samples)})
             trajectory_dfs.append(traj_df)
 
-        result = trajectory_dfs[0]
+        base_df = trajectory_dfs[0].set_index(["time_period", "location"])
         for traj_df in trajectory_dfs[1:]:
-            result = result.merge(traj_df, on=["time_period", "location"])
+            traj_indexed = traj_df.set_index(["time_period", "location"])
+            sample_cols = [col for col in traj_indexed.columns if col.startswith("sample_")]
+            base_df = base_df.join(traj_indexed[sample_cols], how="inner")
+        result = base_df.reset_index()
 
         return DataSet.from_pandas(result, Samples)
 
@@ -104,8 +115,7 @@ class ExtendedPredictor(ConfiguredModel):
         if use_mean:
             new_rows["disease_cases"] = new_rows[sample_cols].mean(axis=1)
         else:
-            rng = np.random.default_rng()
-            chosen_col = rng.choice(sample_cols)
+            chosen_col = self._rng.choice(sample_cols)
             new_rows["disease_cases"] = new_rows[chosen_col]
 
         # Drop the original sample columns
