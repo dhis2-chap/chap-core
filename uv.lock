@@ -422,6 +422,7 @@ dev = [
     { name = "types-jsonschema" },
     { name = "types-psycopg2" },
     { name = "types-python-dateutil" },
+    { name = "types-pytz" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "types-shapely" },
@@ -506,6 +507,7 @@ dev = [
     { name = "types-jsonschema", specifier = ">=4.26.0.20260202" },
     { name = "types-psycopg2", specifier = ">=2.9.21.20251012" },
     { name = "types-python-dateutil", specifier = ">=2.9.0.20260124" },
+    { name = "types-pytz", specifier = ">=2025.2.0.20251108" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
     { name = "types-requests", specifier = ">=2.31.0.6" },
     { name = "types-shapely", specifier = ">=2.1.0.20250917" },
@@ -3423,6 +3425,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e9/02/f72df9ef5ffc4f959b83cb80c8aa03eb8718a43e563ecd99ccffe265fa89/types_python_dateutil-2.9.0.20260323.tar.gz", hash = "sha256:a107aef5841db41ace381dbbbd7e4945220fc940f7a72172a0be5a92d9ab7164", size = 16897, upload-time = "2026-03-23T04:15:14.829Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/92/c1/b661838b97453e699a215451f2e22cee750eaaf4ea4619b34bdaf01221a4/types_python_dateutil-2.9.0.20260323-py3-none-any.whl", hash = "sha256:a23a50a07f6eb87e729d4cb0c2eb511c81761eeb3f505db2c1413be94aae8335", size = 18433, upload-time = "2026-03-23T04:15:13.683Z" },
+]
+
+[[package]]
+name = "types-pytz"
+version = "2026.1.1.20260304"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/56/2f12a15ea8c5615c8fb896c4fbbb527ab1c0f776ed5860c6fc9ec26ea2c7/types_pytz-2026.1.1.20260304.tar.gz", hash = "sha256:0c3542d8e9b0160b424233440c52b83d6f58cae4b85333d54e4f961cf013e117", size = 11198, upload-time = "2026-03-04T03:57:24.445Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/b8/e77c355f179dc89d44e7ca6dbf7a46e650806df1d356a5462e5829fccea5/types_pytz-2026.1.1.20260304-py3-none-any.whl", hash = "sha256:175332c1cf7bd6b1cc56b877f70bf02def1a3f75e5adcc05385ce2c3c70e6500", size = 10126, upload-time = "2026-03-04T03:57:23.481Z" },
 ]
 
 [[package]]
