@@ -7,6 +7,7 @@ from altair import HConcatChart
 from pydantic import BaseModel
 
 from chap_core.spatio_temporal_data.converters import dataset_model_to_dataset
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 alt.data_transformers.enable("vegafusion")
 # alt.renderers.enable("browser")
@@ -42,17 +43,22 @@ class DatasetPlot(ABC):
     @classmethod
     def from_dataset_model(cls, dataset_model):
         ds = dataset_model_to_dataset(dataset_model)
+        return cls.from_dataset(ds)
+
+    @classmethod
+    def from_dataset(cls, ds: DataSet, geojson=None):
         df = ds.to_pandas()
-        geojson = ds.polygons
+        df["time_period"] = df["time_period"].astype(str)
+        if geojson is None:
+            geojson = ds.polygons
         if isinstance(geojson, BaseModel):
             geojson = geojson.model_dump()
-        return cls.from_pandas(df, geojson=geojson)
+        return cls(df, geojson=geojson)
 
     @classmethod
     def from_pandas(cls, df: pd.DataFrame, geojson=None):
-        df = df.copy()
-        df["time_period"] = df["time_period"].astype(str)
-        return cls(df, geojson=geojson)
+        ds: DataSet = DataSet.from_pandas(df)
+        return cls.from_dataset(ds, geojson=geojson)
 
     def _get_feature_names(self) -> list:
         return [name for name in self._get_colnames() if name not in ("log1p", "population")]
@@ -121,10 +127,28 @@ def create_plot_from_dataset(plot_id: str, dataset):
     return plotter.plot_spec()
 
 
+def _get_periods_per_year(time_period_strings: pd.Series) -> int:
+    """Determine the number of periods per year from time period strings."""
+    from chap_core.time_period import TimePeriod
+
+    periods = [TimePeriod.parse(tp) for tp in time_period_strings.iloc[:2]]
+    delta = periods[1] - periods[0]
+    rd = delta._relative_delta
+    if rd.days == 7 or rd.weeks == 1:
+        return 52
+    elif rd.months == 1:
+        return 12
+    elif rd.days == 1:
+        return 365
+    elif rd.years == 1:
+        return 1
+    return 52
+
+
 @dataset_plot(
     plot_id="disease-cases-map",
     name="Disease Cases Map",
-    description="Choropleth map showing mean disease cases or incidence rate by location.",
+    description="Choropleth map showing annual incidence rate per 1000 by location.",
 )
 class DiseaseCasesMap(DatasetPlot):
     plot_variable: str = "disease_cases"
@@ -132,8 +156,18 @@ class DiseaseCasesMap(DatasetPlot):
     def data(self):
         df = self._df.copy()
         if "population" in df.columns:
-            df["incidence_rate"] = df["disease_cases"] / df["population"]
-            self.plot_variable = "incidence_rate"
+            periods_per_year = _get_periods_per_year(df["time_period"])
+            agg = (
+                df.groupby("location")
+                .agg(
+                    disease_cases=("disease_cases", "mean"),
+                    population=("population", "mean"),
+                )
+                .reset_index()
+            )
+            agg["annual_incidence_per_1000"] = agg["disease_cases"] * periods_per_year / agg["population"] * 1000
+            self.plot_variable = "annual_incidence_per_1000"
+            return agg[["location", self.plot_variable]]
         agg = df.groupby("location").agg({self.plot_variable: "mean"}).reset_index()
         return agg
 
@@ -143,10 +177,12 @@ class DiseaseCasesMap(DatasetPlot):
         if self._geojson is None:
             raise ValueError("GeoJSON data is required for DiseaseCasesMap")
 
-        # Prepare the GeoJSON data
+        is_incidence = self.plot_variable == "annual_incidence_per_1000"
+        legend_title = "Annual Incidence per 1000" if is_incidence else "Mean Disease Cases"
+        chart_title = "Annual Incidence Rate per 1000" if is_incidence else "Disease Cases Map"
+
         geojson_data = alt.Data(values=self._geojson["features"])
 
-        # Create the choropleth map
         chart = (
             alt.Chart(geojson_data)
             .mark_geoshape(stroke="white", strokeWidth=0.5)
@@ -155,25 +191,19 @@ class DiseaseCasesMap(DatasetPlot):
                 color=alt.Color(
                     f"{self.plot_variable}:Q",
                     scale=alt.Scale(scheme="oranges"),
-                    legend=alt.Legend(
-                        title="Mean Disease Cases" if self.plot_variable == "disease_cases" else "Mean Incidence Rate"
-                    ),
+                    legend=alt.Legend(title=legend_title),
                 ),
                 tooltip=[
                     alt.Tooltip("id:N", title="Location"),
                     alt.Tooltip(
                         f"{self.plot_variable}:Q",
-                        title="Mean Disease Cases" if self.plot_variable == "disease_cases" else "Mean Incidence Rate",
+                        title=legend_title,
                         format=".2f",
                     ),
                 ],
             )
             .project(type="equirectangular")
-            .properties(
-                width=600,
-                height=400,
-                title="Disease Cases Map" if self.plot_variable == "disease_cases" else "Disease Incidence Rate Map",
-            )
+            .properties(width=600, height=400, title=chart_title)
         )
 
         return chart

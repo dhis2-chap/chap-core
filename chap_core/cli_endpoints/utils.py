@@ -4,7 +4,7 @@ import dataclasses
 import json
 import logging
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import numpy as np
 import pandas as pd
@@ -78,27 +78,11 @@ def sanity_check_model(
         )
 
 
-def serve(seedfile: str | None = None, debug: bool = False, auto_reload: bool = False):
-    """
-    Start CHAP as a backend server
-    """
-    from chap_core.rest_api.v1.rest_api import main_backend
-
-    logger.info("Running chap serve")
-
-    if seedfile is not None:
-        data = json.load(open(seedfile))
-    else:
-        data = None
-
-    main_backend(data, auto_reload=auto_reload)
-
-
 def write_open_api_spec(out_path: str):
     """
     Write the OpenAPI spec to a file
     """
-    from chap_core.rest_api.v1.rest_api import get_openapi_schema
+    from chap_core.rest_api.app import get_openapi_schema
 
     schema = get_openapi_schema()
     with open(out_path, "w") as f:
@@ -121,8 +105,8 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plo
         available = ", ".join(registry.keys())
         raise ValueError(f"Unknown plot type: {plot_name}. Available: {available}")
     plot_cls = registry[plot_name]
-    df = pd.read_csv(data_filename)
-    plotter = plot_cls(df)
+    ds: DataSet = DataSet.from_csv(data_filename)
+    plotter = plot_cls.from_dataset(ds)
     fig = plotter.plot()
     fig.show()
 
@@ -261,9 +245,17 @@ def export_metrics(
             "model_version": model_version,
         }
 
+        historical_obs = flat_data.historical_observations
+        historical_df: pd.DataFrame | None = (
+            pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
+        )
+
         for metric_id in metrics_to_compute:
             metric_cls = available_metrics[metric_id]
-            metric = metric_cls()
+            metric = metric_cls(historical_observations=historical_df)
+            if not metric.is_applicable(flat_data.observations):
+                row[metric_id] = None
+                continue
             metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
             if len(metric_df) == 1:
                 row[metric_id] = float(metric_df["metric"].iloc[0])
@@ -282,7 +274,6 @@ def export_metrics(
 def register_commands(app):
     """Register utility commands with the CLI app."""
     app.command()(sanity_check_model)
-    app.command()(serve)
     app.command()(write_open_api_spec)
     app.command()(test)
     app.command()(plot_dataset)

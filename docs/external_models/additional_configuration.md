@@ -3,7 +3,7 @@ Some additional model configuration must be specified, and some fields are optio
 
 ## Specifying prediction length constraints
 
-Include `min_prediction_length` and `max_prediction_length` in your model configuration to define how many time periods your model can predict ahead. When users need predictions beyond your `max_prediction_length`, CHAP automatically uses ExtendedPredictor to make iterative predictions (see [supporting functionality](supporting_functionality.md)).
+Include `min_prediction_length` and `max_prediction_length` in your model configuration to define how many time periods your model can predict ahead. When users need predictions beyond your `max_prediction_length`, Chap automatically uses ExtendedPredictor to make iterative predictions (see [supporting functionality](supporting_functionality.md)).
 
 ## Model Configuration Options
 

@@ -128,7 +128,7 @@ print(f"Location + season MAE: {mae:.1f}")
 
 ## 6. Climate Covariates
 
-CHAP provides future climate data (rainfall, temperature) at prediction time,
+Chap provides future climate data (rainfall, temperature) at prediction time,
 so we can use these as features directly. This captures the relationship
 between climate conditions and disease incidence:
 

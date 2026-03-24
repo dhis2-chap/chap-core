@@ -12,8 +12,11 @@ from cyclopts import App
 
 from chap_core.cli_endpoints import convert, evaluate, explain, forecast, init, preference_learn, utils, validate  # noqa: E402
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)-7s] %(message)s [%(name)s]",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
 
 app = App()
 
@@ -22,7 +25,6 @@ convert.register_commands(app)
 evaluate.register_commands(app)
 explain.register_commands(app)
 forecast.register_commands(app)
-init.register_commands(app)
 preference_learn.register_commands(app)
 utils.register_commands(app)
 validate.register_commands(app)

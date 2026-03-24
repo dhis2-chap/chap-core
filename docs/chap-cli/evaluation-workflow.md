@@ -1,6 +1,6 @@
 # Evaluation Workflow: Comparing Models with CLI
 
-This guide walks through the complete workflow for evaluating models, visualizing results, and comparing metrics using the CHAP CLI.
+This guide walks through the complete workflow for evaluating models, visualizing results, and comparing metrics using the Chap CLI.
 
 ## Overview
 
@@ -12,7 +12,7 @@ The workflow consists of three main steps:
 
 ## Prerequisites
 
-- CHAP Core installed (see [Setup guide](chap-core-cli-setup.md))
+- Chap Core installed (see [Setup guide](chap-core-cli-setup.md))
 - A dataset CSV file with disease case data
 - A GeoJSON file with region polygons (optional, auto-discovered if named same as CSV)
 
@@ -34,7 +34,7 @@ chap export-metrics --help
 
 ## Example Dataset
 
-CHAP includes a small example dataset for testing and learning:
+Chap includes a small example dataset for testing and learning:
 
 - `example_data/laos_subset.csv` - Monthly dengue data for 3 provinces (2010-2012)
 - `example_data/laos_subset.geojson` - Matching polygon boundaries
@@ -90,7 +90,7 @@ For detailed parameter descriptions and examples, see the [eval Reference](eval-
 
 ### GeoJSON Auto-Discovery
 
-If your dataset is `vietnam_data.csv`, CHAP will automatically look for `vietnam_data.geojson` in the same directory.
+If your dataset is `vietnam_data.csv`, Chap will automatically look for `vietnam_data.geojson` in the same directory.
 
 ## Step 2: Visualize the Evaluation
 

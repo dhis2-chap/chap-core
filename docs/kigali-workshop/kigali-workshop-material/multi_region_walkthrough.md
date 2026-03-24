@@ -182,4 +182,4 @@ Hierarchical (partial pooling) models offer a principled middle ground.
 Instead of fully sharing or fully separating parameters, they allow each
 region's parameters to deviate from a shared mean, with the amount of
 deviation learned from data. This is the primary use case for hierarchical
-Bayesian models, which CHAP supports through frameworks like PyMC.
+Bayesian models, which Chap supports through frameworks like PyMC.

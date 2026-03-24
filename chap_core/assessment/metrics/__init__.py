@@ -9,6 +9,9 @@ adds them to the registry based on their spec.metric_id.
 """
 
 import logging
+from typing import cast
+
+import pandas as pd
 
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.flat_representations import DataDimension, FlatForecasts, FlatObserved
@@ -78,9 +81,11 @@ def _discover_metrics():
         crps_norm,
         example_metric,
         mae,
+        outbreak_detection,
         percentile_coverage,
         rmse,
         test_metrics,
+        winkler_score,
     )
 
 
@@ -89,10 +94,16 @@ _discover_metrics()
 
 # Import metric classes for backwards compatibility in exports
 from chap_core.assessment.metrics.above_truth import RatioAboveTruthMetric
-from chap_core.assessment.metrics.crps import CRPSMetric
+from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
 from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
 from chap_core.assessment.metrics.example_metric import ExampleMetric
 from chap_core.assessment.metrics.mae import MAEMetric
+from chap_core.assessment.metrics.outbreak_detection import (
+    OutbreakAccuracyMetric,
+    SensitivityMetric,
+    SpecificityMetric,
+    compute_seasonal_thresholds,
+)
 from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric
 from chap_core.assessment.metrics.percentile_coverage import (
     Coverage10_90Metric,
@@ -101,14 +112,22 @@ from chap_core.assessment.metrics.percentile_coverage import (
 )
 from chap_core.assessment.metrics.rmse import RMSEMetric
 from chap_core.assessment.metrics.test_metrics import SampleCountMetric
+from chap_core.assessment.metrics.winkler_score import (
+    WinklerScore10_90Log1pMetric,
+    WinklerScore10_90Metric,
+    WinklerScore25_75Log1pMetric,
+    WinklerScore25_75Metric,
+    WinklerScoreLog1pMetric,
+    WinklerScoreMetric,
+)
 
 # Backward compatibility alias
 available_metrics: dict[str, type[Metric]] = _metrics_registry
 
 __all__ = [
     "DEFAULT_OUTPUT_DIMENSIONS",
-    # Base classes
     "AggregationOp",
+    "CRPSLog1pMetric",
     "CRPSMetric",
     "CRPSNormMetric",
     "Coverage10_90Metric",
@@ -119,19 +138,27 @@ __all__ = [
     "MAEMetric",
     "Metric",
     "MetricSpec",
+    "OutbreakAccuracyMetric",
     "PeakPeriodLagMetric",
     "PeakValueDiffMetric",
     "PercentileCoverageMetric",
     "ProbabilisticMetric",
-    # Metrics
     "RMSEMetric",
     "RatioAboveTruthMetric",
     "SampleCountMetric",
+    "SensitivityMetric",
+    "SpecificityMetric",
+    "WinklerScore10_90Log1pMetric",
+    "WinklerScore10_90Metric",
+    "WinklerScore25_75Log1pMetric",
+    "WinklerScore25_75Metric",
+    "WinklerScoreLog1pMetric",
+    "WinklerScoreMetric",
     "available_metrics",
+    "compute_seasonal_thresholds",
     "get_metric",
     "get_metrics_registry",
     "list_metrics",
-    # Registry API
     "metric",
 ]
 
@@ -152,9 +179,16 @@ def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()
 
+    historical_obs = flat_data.historical_observations
+    historical_df: pd.DataFrame | None = (
+        pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
+    )
+
     results = {}
     for metric_id, metric_factory in available_metrics.items():
-        metric = metric_factory()
+        metric = metric_factory(historical_observations=historical_df)
+        if not metric.is_applicable(flat_data.observations):
+            continue
         metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
         if len(metric_df) != 1:
             raise ValueError(

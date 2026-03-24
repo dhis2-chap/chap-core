@@ -5,7 +5,7 @@ hands-on, step-by-step guide through the evaluation pipeline.
 
 ## Workshop: Evaluating Models on the Laos Dengue Dataset
 
-In this hands-on exercise you will download a real dataset, run two different models through the CHAP evaluation pipeline, and compare the results.
+In this hands-on exercise you will download a real dataset, run two different models through the Chap evaluation pipeline, and compare the results.
 
 ### 1. Download the dataset
 

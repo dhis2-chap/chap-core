@@ -7,15 +7,31 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import git
+import httpx
 import yaml
+from chapkit.api.service_builder import MLServiceInfo
 
 from chap_core.exceptions import InvalidModelException
 from chap_core.external.external_model import logger
 from chap_core.external.model_configuration import ModelTemplateConfigV2
+from chap_core.models.chapkit_service_manager import is_url
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.model_template import ModelTemplate
 
 CHAP_RUNS_DIR = Path(os.getenv("CHAP_RUNS_DIR", "runs/"))
+
+
+def _is_chapkit_url(url: str) -> bool:
+    """Probe a URL to check if it's a running chapkit service."""
+    try:
+        response = httpx.get(f"{url.rstrip('/')}/api/v1/info", timeout=5)
+        if response.status_code == 200:
+            MLServiceInfo.model_validate(response.json())
+            return True
+    except Exception:
+        pass
+    return False
+
 
 if TYPE_CHECKING:
     from chap_core.models.external_model import ExternalModel
@@ -109,15 +125,6 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False, wor
     model_template = ModelTemplate(config, working_dir, ignore_env)
     return model_template
 
-def _abs_dir(p: Path | str) -> Path:
-    p = Path(p).expanduser()
-    if p.is_absolute():
-        return p
-    try:
-        return (Path.cwd() / p).resolve()
-    except FileNotFoundError:
-        return (Path.home() / p).resolve()
-
 
 def get_model_template_from_directory_or_github_url(
     model_template_path: str,
@@ -147,15 +154,13 @@ def get_model_template_from_directory_or_github_url(
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
 
-    base_working_dir = _abs_dir(base_working_dir)
-    
-    if is_chapkit_model:
+    detected = not is_chapkit_model and is_url(model_template_path) and _is_chapkit_url(model_template_path)
+    if is_chapkit_model or detected:
+        if detected:
+            logger.info("Auto-detected chapkit service at %s", model_template_path)
         logger.debug("Model is chapkit model")
-        # ExternalChapkitModelTemplate now handles both URLs and directory paths.
-        # For directory mode, the caller must use it as a context manager.
         template = ExternalChapkitModelTemplate(model_template_path)
-        # Only verify name for URL mode (service already running)
-        if template._is_url_mode:
+        if template.is_url_mode:
             assert template.name is not None, template
         return template
 

@@ -6,7 +6,7 @@ Your codebase need to contain a file named `MLproject` that defines the followin
 - An entry point in the MLproject file called `train` with parameters `train_data` and `model`
 - An entry point in the MLproject file called `predict` with parameters `historic_data`, `future_data`, `model` and `out_file`
 
-These should contain commands that can be run to train a model and predict the future using that model. The model parameter should be used to save a model in the train step that can be read and used in the predict step. CHAP will provide all the data (the other parameters) when running a model.
+These should contain commands that can be run to train a model and predict the future using that model. The model parameter should be used to save a model in the train step that can be read and used in the predict step. Chap will provide all the data (the other parameters) when running a model.
 
 Here is an [example of a valid MLproject file](https://github.com/dhis2-chap/minimalist_example/blob/main/MLproject) (taken from our minimalist_example).
 

@@ -1,7 +1,7 @@
 # Contributor getting started
 
-The main intended way of contributing to CHAP-Core is by contributing with models, for which we have a modularized system that makes it easy to contribute.
-For this, we have guides/tutorials that explain how to make models compatible with CHAP.
+The main intended way of contributing to Chap Core is by contributing with models, for which we have a modularized system that makes it easy to contribute.
+For this, we have guides/tutorials that explain how to make models compatible with Chap.
 
 We are also working on adding similar guides for contributing with custom code for evaluating models and visualizing results.
 The code for evaluating and visualizing results is currently tightly integrated into the chap-core code base, but the plan is to
@@ -11,11 +11,11 @@ This document describes how to get started for contributing to the chap-core cod
 
 ## Getting started working with the chap-core codebase
 
-If you're new to CHAP Core, it can be useful to see [the code overview guide](code_overview) for a brief overview of the code base.
+If you're new to Chap Core, it can be useful to see [the code overview guide](code_overview) for a brief overview of the code base.
 
 ### Windows users
 
-Windows users who wish to contribute to CHAP Core should [start by reading this important note](windows_contributors).
+Windows users who wish to contribute to Chap Core should [start by reading this important note](windows_contributors).
 
 ### Development setup
 
@@ -65,7 +65,7 @@ For Windows users using VSCode, since the code should be run and tested on WSL, 
 
 ### Testing
 
-The CHAP Core codebase relies heavily on testing to ensure that the code works properly. A quick example to run a specific test file would be to write:
+The Chap Core codebase relies heavily on testing to ensure that the code works properly. A quick example to run a specific test file would be to write:
 
 ```bash
 $ pytest tests/test_polygons.py
@@ -89,7 +89,7 @@ Ensure that function and class docstrings include appropriate sections such as '
 
 ### Documentation
 
-Changes to the CHAP Core documentation is done inside the `docs` folder, and can be built by writing:
+Changes to the Chap Core documentation is done inside the `docs` folder, and can be built by writing:
 
 ```bash
 $ cd docs
@@ -100,7 +100,7 @@ More detailed guidelines for how to write and build the documentation [can be fo
 
 ### Contributing code
 
-Code contributions should always be made to the `dev` branch first. When the `dev` branch has been used and tested for some time, the CHAP team will merge this into the `master` branch.
+Code contributions should always be made to the `dev` branch first. When the `dev` branch has been used and tested for some time, the Chap team will merge this into the `master` branch.
 
 Before making your contribution, always [run the quick test suite](testing) to make sure everything works.
 

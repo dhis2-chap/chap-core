@@ -1,5 +1,5 @@
-## Making a dataset CHAP-compliant
-To use your data with CHAP, it must be provided as a CSV file that follows the format described below. A complete working example is available in [example_data/laos_subset.csv](https://github.com/dhis2-chap/chap-core/blob/master/example_data/laos_subset.csv).
+## Making a dataset Chap-compliant
+To use your data with Chap, it must be provided as a CSV file that follows the format described below. A complete working example is available in [example_data/laos_subset.csv](https://github.com/dhis2-chap/chap-core/blob/master/example_data/laos_subset.csv).
 
 ### Required columns
 
@@ -25,7 +25,7 @@ If your CSV uses different column names than those expected by a model, you can 
 
 ### Specific named fields
 
-The table below summarises every column name that CHAP recognises:
+The table below summarises every column name that Chap recognises:
 
 | Column | Required | Description |
 |--------|----------|-------------|
@@ -52,13 +52,13 @@ Different columns have different rules for missing (NaN) values:
 |--------|-------------|-------|
 | `time_period` | No | Every row must have a valid period |
 | `location` | No | Every row must have a location |
-| `disease_cases` | Yes | Surveillance data may have gaps; CHAP tolerates NaN in the target |
+| `disease_cases` | Yes | Surveillance data may have gaps; Chap tolerates NaN in the target |
 | Covariates | No | Climate/environmental columns must be fully observed |
 | `population` | Yes | Missing values are forward-filled by interpolation when present |
 
-CHAP does not perform imputation on covariates. If your data pipeline produces NaN values in covariate columns, those must be resolved before passing the CSV to CHAP. Locations with missing covariate values will be rejected during dataset validation.
+Chap does not perform imputation on covariates. If your data pipeline produces NaN values in covariate columns, those must be resolved before passing the CSV to Chap. Locations with missing covariate values will be rejected during dataset validation.
 
-Every `(location, time_period)` combination in the dataset must be present as a row. Missing rows are not allowed -- if a location covers 12 months, it must have all 12 rows. CHAP will raise an error if any location has fewer time periods than others.
+Every `(location, time_period)` combination in the dataset must be present as a row. Missing rows are not allowed -- if a location covers 12 months, it must have all 12 rows. Chap will raise an error if any location has fewer time periods than others.
 
 ### Requirement for Periods to be consecutive
 
