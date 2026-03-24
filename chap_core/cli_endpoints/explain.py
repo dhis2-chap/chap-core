@@ -33,6 +33,8 @@ def explain(
     sampler_name: str = "background",
     weighter_name: str = "pairwise",
     seed: int | None = None,
+    timed: bool = False,
+    adaptive: bool = False,
     model_configuration_yaml: Optional[Path] = None,
     run_config: RunConfig = RunConfig(),
 ):
@@ -53,6 +55,8 @@ def explain(
         segmenter_name: String of the short name of which segmentation model to use
         sampler_name: String of the short name of which sampling strategy to use
         seed: Int for seeding in random perturbations
+        timed: Bool for whether to intermittently print execution time of LIME pipeline stages
+        adaptive: Bool for whether to use adaptive version of LIME
         model_configuration_yaml: Optional YAML file with model configuration
         run_config: Model run environment configuration
     """
@@ -91,19 +95,36 @@ def explain(
         logger.info(
             f"Generating explanation for {location}, {horizon} time steps into the future."
         )
-        evaluation = lime.explain(  # TODO: Order args
-            model=estimator,
-            dataset=dataset,
-            location=location,
-            horizon=horizon,
-            num_perturbations=num_perturbations,
-            surrogate_name=surrogate_name,
-            segmenter_name=segmenter_name,
-            sampler_name=sampler_name,
-            weighter_name=weighter_name,
-            seed=seed,
-            granularity=granularity,
-        )
+        if adaptive:
+            evaluation = lime.explain_adaptive(  # TODO: Order args
+                model=estimator,
+                dataset=dataset,
+                location=location,
+                horizon=horizon,
+                num_perturbations=num_perturbations,
+                surrogate_name=surrogate_name,
+                segmenter_name=segmenter_name,
+                sampler_name=sampler_name,
+                weighter_name=weighter_name,
+                seed=seed,
+                timed=timed,
+                granularity=granularity,
+            )
+        else:
+            evaluation = lime.explain(  # TODO: Order args
+                model=estimator,
+                dataset=dataset,
+                location=location,
+                horizon=horizon,
+                num_perturbations=num_perturbations,
+                surrogate_name=surrogate_name,
+                segmenter_name=segmenter_name,
+                sampler_name=sampler_name,
+                weighter_name=weighter_name,
+                seed=seed,
+                timed=timed,
+                granularity=granularity,
+            )
 
         # TODO: Plot results and save as csv or figure o.s.
 

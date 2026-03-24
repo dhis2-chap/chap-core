@@ -35,7 +35,7 @@ Multiple strategies have been put forward for optimally perturbing time series d
 
 #### Surrogate
 
-As mentioned, the LIME algorithm works by training an explainable model - called the surrogate model - on a perturbed dataset in the neighborhood of the original input, so that it behaves similarly to the original black box model around that original prediction. The most common surrogate model is a linear regression model, but decision trees are also a viable explainable alternative - this module provides functionality to use either.
+As mentioned, the LIME algorithm works by training an explainable model - called the surrogate model - on a perturbed dataset in the neighborhood of the original input, so that it behaves similarly to the original black box model around that original prediction. The most common surrogate model is a linear regression model, but decision trees are also a viable explainable alternative, though the latter only produces absolute weighted values, saying nothing about the direction of impact. Currently, this module only implements linear regression models, in the form of ridge.
 
 
 #### Distance
@@ -54,6 +54,8 @@ When training the surrogate model, you want to weight the training dataset accor
 The LIME pipeline from the explainability module is available through the command line interface (CLI) using the ```explain``` command. It is run by calling the explain command along with the name of the model to explain, the location of the dataset on which to explain, the location on which to explain, and the number of time steps into the future on which to explain (called the horizon).
 
 As previously mentioned, the LIME algorithm only works for local explanations, i.e. on a particular prediction. For a time series predictor, one particular prediction is defined by the input data for a particular location, for a specific dataset, at a specific time in the future (since the model may predict for several time steps into the future; all considered individual predictions).
+
+There are also currently two main lime pipeline functions; explain() and explain_adaptive(). The former is the standard LIME pipeline, while the latter uses the Expected Active Gain for Local Explanations algorithm (EAGLE) to produce a surrogate dataset adaptively, aiming to optimize perturbation selection in order to reduce the number of calls to the original black box model.
 
 An example of a simple run with the ```explain``` command is:
 
@@ -93,9 +95,8 @@ Name of the perturbation strategy to use. In all cases, the perturbed segment ha
 
 
 #### ```surrogate_name``` (Default: ridge)
-Name of the surrogate model to use. May take any of the following:
+Name of the surrogate model to use. Currently only has one implementation:
 - **"ridge"**: A ridge regression model, where the importance weighting is calculated from the weights of the model
-- **"tree"**: A decision tree regressor model, with the importance weighting taken directly from the model feature importance vector. Note that this model only provides the absolute importance value without direction - it only says how much the value affected the output, not whether it did so positively or negatively.
 
 
 #### ```weighter_name``` (Default: pairwise)
@@ -106,6 +107,9 @@ Name of the perturbation weighting strategy to use. May take any of the followin
 
 #### ```num_perturbations``` (Default: 300)
 Number of perturbations to create for the training of the surrogate model. A higher number will result in a longer running time, as each perturbation must be run through the model for an output, but will also result in a more accurate explanation.
+
+#### ```adaptive``` (Default: False)
+Flag for whether to run the LIME pipeline adaptively or non-adaptively.
 
 
 An example run using all options is:
@@ -120,8 +124,7 @@ chap explain --model_name https://github.com/sandvelab/chap_auto_ewars_weekly@73
 
 Running the ```explain``` command will produce a printed output as well as a plot. 
 
-The plot shows the original input for each variable in blue, with predicted future values in orange, and with vertical stipled lines delineating the segments. The background colour of each segment shows the importance weighting for that particular segment - a greener colour means that segment contributed positively to the prediction; a redder colour means that segment contributed negatively to the prediction, and a more yellow colour means that segment didn't make too great of a difference one way or the other on the prediction compared to other segments. As mentioned, note that the 'tree' surrogate model will only produce the absolute importance without respect to direction, so all outputs will be positive.
-
+The plot shows the original input for each variable in blue, with predicted future values in orange, and with vertical stipled lines delineating the segments. The background colour of each segment shows the importance weighting for that particular segment - a greener colour means that segment contributed positively to the prediction; a redder colour means that segment contributed negatively to the prediction, and a more yellow colour means that segment didn't make too great of a difference one way or the other on the prediction compared to other segments.
 The printed output shows the same result in more detail. Features are labeled with the variable names, plus either "_lag_n" for the segment n steps into the past (read from the right), while "_fut_n" means the value (_not_ the segment, as future predicted values are not segmented) n steps into the future (read from the left). The number next to the feature is the importance weighting, on which the features are sorted in absolute values.
 
 TODO: [Plotting is not finished, importance for static and future values is not shown]

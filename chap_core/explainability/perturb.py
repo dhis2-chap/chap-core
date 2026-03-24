@@ -190,3 +190,5 @@ Local mean, global mean, random uniform is from "LOMATCE"
 Fourier is from LimeSegment
 
 """
+
+# TODO: cprofile
