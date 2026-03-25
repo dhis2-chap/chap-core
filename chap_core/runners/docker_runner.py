@@ -19,9 +19,12 @@ class DockerRunner(Runner):
         self._working_dir = working_dir
         self._model_configuration_filename = model_configuration_filename
 
+    def _execute(self, command, working_dir, env=None):
+        return run_command_through_docker_container(self._docker_name, str(working_dir), command)
+
     def run_command(self, command):
         logger.debug(f"Running command {command} in docker container {self._docker_name} in {self._working_dir}")
-        return run_command_through_docker_container(self._docker_name, str(self._working_dir), command)
+        return self._execute(command, self._working_dir)
 
     def teardown(self):
         # remove the docker image

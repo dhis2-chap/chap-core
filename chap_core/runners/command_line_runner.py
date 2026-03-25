@@ -13,7 +13,7 @@ class CommandLineRunner(Runner):
         self._working_dir = working_dir
 
     def run_command(self, command):
-        return run_command(command, self._working_dir)
+        return self._execute(command, self._working_dir)
 
     def store_file(self, file_path: str | None = None) -> None:
         pass

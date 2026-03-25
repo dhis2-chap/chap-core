@@ -8,6 +8,11 @@ class Runner:
 
     def run_command(self, command): ...
 
+    def _execute(self, command, working_dir, env=None):
+        from chap_core.runners.command_line_runner import run_command
+
+        return run_command(command, working_dir, env=env)
+
     def store_file(self, file_path: str | None = None) -> None:
         ...
         # not used for anything now

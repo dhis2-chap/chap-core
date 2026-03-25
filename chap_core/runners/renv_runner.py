@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from chap_core.exceptions import CommandLineException
-from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner, run_command
+from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
 
 from .runner import Runner
 
@@ -35,13 +35,13 @@ class RenvRunner(Runner):
 
         logger.info(f"Restoring renv environment in {self._working_dir}")
         restore_command = 'Rscript -e "renv::restore(prompt = FALSE)"'
-        run_command(restore_command, self._working_dir)
+        self._execute(restore_command, self._working_dir)
         self._restored = True
 
     def run_command(self, command):
         self._ensure_restored()
         logger.debug(f"Running command {command} in {self._working_dir}")
-        return run_command(command, self._working_dir)
+        return self._execute(command, self._working_dir)
 
     def store_file(self, file_path: str | None = None) -> None:
         pass

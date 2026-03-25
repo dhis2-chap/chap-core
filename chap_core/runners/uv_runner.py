@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 
-from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner, run_command
+from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
 
 from .runner import Runner
 
@@ -22,7 +22,7 @@ class UvRunner(Runner):
         # This prevents UV from trying to install packages into the main application's venv.
         env = os.environ.copy()
         env["UV_PROJECT_ENVIRONMENT"] = str(self._working_dir / ".venv")
-        return run_command(uv_command, self._working_dir, env=env)
+        return self._execute(uv_command, self._working_dir, env=env)
 
     def store_file(self, file_path: str | None = None) -> None:
         pass

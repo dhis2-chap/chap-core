@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner, run_command
+from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
 
 from .runner import Runner
 
@@ -32,14 +32,14 @@ class CondaRunner(Runner):
             logger.info(f"Creating conda environment at {self._env_path}")
             cmd = f"conda env create -f {self._conda_env_file} -p {self._env_path}"
 
-        run_command(cmd, self._working_dir)
+        self._execute(cmd, self._working_dir)
         self._env_created = True
 
     def run_command(self, command):
         self._ensure_environment()
         conda_command = f"conda run --no-capture-output -p {self._env_path} {command}"
         logger.debug(f"Running command {conda_command} in {self._working_dir}")
-        return run_command(conda_command, self._working_dir)
+        return self._execute(conda_command, self._working_dir)
 
     def store_file(self, file_path: str | None = None) -> None:
         pass
