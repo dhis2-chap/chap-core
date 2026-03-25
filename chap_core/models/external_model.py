@@ -205,9 +205,10 @@ class ExternalModel(ExternalModelBase):
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
         logging.debug("Running predict")
-        future_data_name = Path(self._working_dir) / "future_data.csv"
-        historic_data_name = Path(self._working_dir) / "historic_data.csv"
         start_time = future_data.start_timestamp
+        suffix = start_time.date.date().isoformat()
+        future_data_name = Path(self._working_dir) / f"future_data_{suffix}.csv"
+        historic_data_name = Path(self._working_dir) / f"historic_data_{suffix}.csv"
         logger.debug(f"Predicting on dataset from {start_time} to {future_data.end_timestamp}")
 
         for filename, dataset in [
@@ -218,7 +219,7 @@ class ExternalModel(ExternalModelBase):
                 adapted_dataset = self._adapt_data(dataset.to_pandas(), frequency=self._get_frequency(dataset))
                 adapted_dataset.to_csv(filename)
 
-        predictions_file = Path(self._working_dir) / "predictions.csv"
+        predictions_file = Path(self._working_dir) / f"predictions_{suffix}.csv"
 
         # touch predictions.csv
         with open(predictions_file, "w") as _:
@@ -227,9 +228,9 @@ class ExternalModel(ExternalModelBase):
         try:
             self._runner.predict(
                 self._model_file_name,
-                "historic_data.csv",
-                "future_data.csv",
-                "predictions.csv",
+                f"historic_data_{suffix}.csv",
+                f"future_data_{suffix}.csv",
+                f"predictions_{suffix}.csv",
                 "polygons.geojson" if self._polygons_file_name is not None else None,
             )
         except CommandLineException as e:
