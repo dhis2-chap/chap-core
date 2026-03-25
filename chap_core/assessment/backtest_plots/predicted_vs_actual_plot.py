@@ -25,6 +25,10 @@ def _predicted_vs_actual_chart(
 
     merged = median_forecasts.merge(observations, on=["location", "time_period"], how="inner")
 
+    merged["horizon_distance"] = merged["horizon_distance"] + 1
+    is_weekly = merged["time_period"].iloc[0].upper().count("W") > 0 if len(merged) > 0 else False
+    horizon_unit = "weeks" if is_weekly else "months"
+
     if log1p:
         merged["plot_predicted"] = np.log1p(merged["median_forecast"])
         merged["plot_actual"] = np.log1p(merged["disease_cases"])
@@ -49,7 +53,7 @@ def _predicted_vs_actual_chart(
             ],
         )
         .properties(width=250, height=250, title=f"Predicted vs Actual{suffix}")
-        .facet(column=alt.Column("horizon_distance:O", title="Prediction Horizon"))
+        .facet(column=alt.Column("horizon_distance:O", title=f"Prediction Horizon ({horizon_unit})"))
     )
 
     return chart  # type: ignore[no-any-return]
