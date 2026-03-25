@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 
 from chap_core.assessment.backtest_plots import BacktestPlotBase, ChartType, backtest_plot
-from chap_core.plotting.backtest_plot import text_chart
 
 
 def _predicted_vs_actual_chart(
@@ -40,14 +39,23 @@ def _predicted_vs_actual_chart(
         suffix = ""
 
     scale_desc = "log(1+x) transformed" if log1p else "untransformed"
-    caption = text_chart(
+    caption_text = (
         f"Scatter plot of median predicted vs actual disease cases ({scale_desc}). "
         f"Each point represents one location at one time period. "
         f"Points on the diagonal indicate perfect predictions. "
-        f"Panels show different prediction horizons in {horizon_unit}.",
-        line_length=100,
-        font_size=11,
-        pad_bottom=10,
+        f"Panels show different prediction horizons in {horizon_unit}."
+    )
+    n_horizons = len(merged["horizon_distance"].unique())
+    caption_width = n_horizons * 250 + (n_horizons - 1) * 10
+    import textwrap
+
+    wrapped = textwrap.wrap(caption_text, width=130)
+    caption_df = pd.DataFrame({"line": wrapped, "y": range(len(wrapped))})
+    caption = (
+        alt.Chart(caption_df)
+        .mark_text(align="left", baseline="top", fontSize=12, dx=-(caption_width // 2) + 10)
+        .encode(text="line:N", y=alt.Y("y:O", axis=None))
+        .properties(width=caption_width, height=len(wrapped) * 14 + 20)
     )
 
     scatter = (
