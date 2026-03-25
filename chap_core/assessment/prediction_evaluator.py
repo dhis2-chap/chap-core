@@ -82,6 +82,8 @@ def backtest(
     predictor = estimator.train(train)
     for historic_data, future_data, future_truth in test_generator:
         r = predictor.predict(historic_data, future_data)
+        if r is None:
+            continue
         samples_with_truth = future_truth.merge(r, result_dataclass=SamplesWithTruth)  # type: ignore[arg-type]
         yield samples_with_truth
 

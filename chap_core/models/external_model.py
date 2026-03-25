@@ -132,6 +132,7 @@ class ExternalModel(ExternalModelBase):
         data_type=HealthData,
         configuration: ModelConfiguration | None = None,
         model_information: ModelTemplateConfigV2 | None = None,
+        dry_run=False,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
@@ -151,6 +152,7 @@ class ExternalModel(ExternalModelBase):
         )  # configuration passed from the user to the model, e.g. about covariates or parameters
         # self._config_filename = "model_config.yaml"
         self._model_information = model_information
+        self._dry_run = dry_run
 
     @property
     def name(self):
@@ -203,7 +205,7 @@ class ExternalModel(ExternalModelBase):
             raise ModelFailedException(str(e)) from e
         return self
 
-    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet | None:  # type: ignore[override]
         logging.debug("Running predict")
         start_time = future_data.start_timestamp
         suffix = start_time.date.date().isoformat()
@@ -236,6 +238,9 @@ class ExternalModel(ExternalModelBase):
         except CommandLineException as e:
             logger.error("Error predicting model, command failed")
             raise ModelFailedException(str(e)) from e
+
+        if self._dry_run:
+            return None
 
         try:
             df = pd.read_csv(predictions_file)

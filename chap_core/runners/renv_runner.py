@@ -16,7 +16,8 @@ class RenvRunner(Runner):
     This runner ensures dependencies are restored before command execution.
     """
 
-    def __init__(self, working_dir: str | Path, auto_restore: bool = True):
+    def __init__(self, working_dir: str | Path, auto_restore: bool = True, dry_run=False):
+        super().__init__(dry_run=dry_run)
         self._working_dir = Path(working_dir)
         self._auto_restore = auto_restore
         self._restored = False

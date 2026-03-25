@@ -300,6 +300,13 @@ def eval_cmd(
             'Format: {"model_name": "csv_column"}. Example: {"rainfall": "precipitation_mm"}'
         ),
     ] = None,
+    dry_run: Annotated[
+        bool,
+        Parameter(
+            help="Write data files and print commands without executing the model. "
+            "Useful for debugging model inputs and verifying command formatting."
+        ),
+    ] = False,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
@@ -353,6 +360,7 @@ def eval_cmd(
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
         is_chapkit_model=run_config.is_chapkit_model,
+        dry_run=dry_run,
     )
 
     with template:
@@ -390,6 +398,16 @@ def eval_cmd(
             f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
         )
         logger.debug(f"Including {historical_context_years} years of historical context for plotting")
+
+        if dry_run:
+            from chap_core.assessment.prediction_evaluator import backtest
+
+            for _ in backtest(
+                estimator, dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
+            ):
+                pass
+            return
+
         evaluation = Evaluation.create(
             configured_model=configured_model_db,
             estimator=estimator,

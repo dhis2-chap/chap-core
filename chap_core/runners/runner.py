@@ -6,9 +6,15 @@ class Runner:
     An interface for Runners. A runner is able to run "something", e.g. a command on the command line
     through Docker."""
 
+    def __init__(self, dry_run=False):
+        self._dry_run = dry_run
+
     def run_command(self, command): ...
 
     def _execute(self, command, working_dir, env=None):
+        if self._dry_run:
+            print(f"[dry-run] cd {working_dir} && {command}")
+            return ""
         from chap_core.runners.command_line_runner import run_command
 
         return run_command(command, working_dir, env=env)

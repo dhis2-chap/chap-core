@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 class CondaRunner(Runner):
     """Runs commands inside a conda environment created from an environment YAML file."""
 
-    def __init__(self, working_dir: str | Path, conda_env_file: str):
+    def __init__(self, working_dir: str | Path, conda_env_file: str, dry_run=False):
+        super().__init__(dry_run=dry_run)
         self._working_dir = Path(working_dir)
         self._conda_env_file = conda_env_file
         self._env_path = self._working_dir / ".conda_env"

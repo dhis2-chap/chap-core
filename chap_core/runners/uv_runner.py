@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 class UvRunner(Runner):
     """Runs commands through uv in a pyproject.toml-managed environment"""
 
-    def __init__(self, working_dir: str | Path):
+    def __init__(self, working_dir: str | Path, dry_run=False):
+        super().__init__(dry_run=dry_run)
         self._working_dir = Path(working_dir)
 
     def run_command(self, command):
