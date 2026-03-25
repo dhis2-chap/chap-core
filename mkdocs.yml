@@ -43,6 +43,7 @@ plugins:
             heading_level: 2
 
 markdown_extensions:
+  - md_in_html
   - admonition
   - pymdownx.details
   - pymdownx.superfences
@@ -81,8 +82,13 @@ nav:
       - Installing Chap Core:
           - Prepare for installation: external_models/prepare-for-installation.md
           - Install Chap Core: chap-cli/chap-core-cli-setup.md
-          - Run minimalist example: chap-cli/minimalist-example.md
+          - Run a model through chap: chap-cli/minimalist-example.md
       - Make your model Chap compatible:
+          - Prepare your data:
+              - Overview: external_models/prepare_data/index.md
+              - Own data: external_models/prepare_data/own-data.md
+              - DHIS2 data: external_models/prepare_data/dhis2-data.md
+              - Example data: external_models/prepare_data/example-data.md
           - Create your train and predict functions: external_models/train_and_predict.md
           - Connect your model to the Chap standard: external_models/describe_model.md
           - Defining the virtual environment for your model: external_models/defining-virtual-environment.md
