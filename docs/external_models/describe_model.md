@@ -62,10 +62,11 @@ Your train script should:
 2. Fit your model on this data
 3. Save the trained model to the path given by `model` (format is up to you: JSON, pickle, RDS, etc.)
 
-**Example train function (Python):**
+**Example train script (Python):**
 
 ```python
 import json
+import sys
 import pandas as pd
 
 def train(training_data_filename: str, model_path: str):
@@ -73,6 +74,14 @@ def train(training_data_filename: str, model_path: str):
     stats = df.groupby("location")["disease_cases"].agg(["mean", "std"]).to_dict()
     with open(model_path, "w") as f:
         json.dump(stats, f)
+```
+
+Call the function from the command line:
+
+```console
+# train.py (bottom of file)
+if __name__ == "__main__":
+    train(sys.argv[1], sys.argv[2])
 ```
 
 #### Predict
@@ -95,10 +104,11 @@ Your predict script should:
 
 Each `sample_i` column represents one draw from the predictive distribution. Chap uses these samples to compute uncertainty intervals. Typically, models produce 100 samples.
 
-**Example predict function (Python):**
+**Example predict script (Python):**
 
 ```python
 import json
+import sys
 import numpy as np
 import pandas as pd
 
@@ -121,6 +131,14 @@ def predict(model_filename: str, historic_data_filename: str,
         rows.append(row_data)
 
     pd.DataFrame(rows).to_csv(output_filename, index=False)
+```
+
+Call the function from the command line:
+
+```console
+# predict.py (bottom of file)
+if __name__ == "__main__":
+    predict(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
 ```
 
 #### How parameters map to files
