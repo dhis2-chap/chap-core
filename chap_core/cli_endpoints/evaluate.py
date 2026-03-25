@@ -300,6 +300,10 @@ def eval_cmd(
             'Format: {"model_name": "csv_column"}. Example: {"rainfall": "precipitation_mm"}'
         ),
     ] = None,
+    plot: Annotated[
+        bool,
+        Parameter(help="Generate an evaluation plot (HTML) alongside the NetCDF output"),
+    ] = False,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
@@ -408,6 +412,15 @@ def eval_cmd(
         )
 
         logger.info(f"Evaluation complete. Results saved to {output_file}")
+
+        if plot:
+            from chap_core.assessment.backtest_plots import create_plot_from_evaluation
+
+            plot_path = output_file.with_suffix(".html")
+            logger.info(f"Generating evaluation plot to {plot_path}")
+            chart = create_plot_from_evaluation("evaluation_plot", evaluation)
+            chart.save(str(plot_path))
+            logger.info(f"Plot saved to {plot_path}")
 
 
 def evaluate2(

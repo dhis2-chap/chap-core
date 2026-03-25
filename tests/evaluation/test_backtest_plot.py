@@ -188,6 +188,22 @@ def test_plot_backtest_cli(backtest: BackTest, tmp_path: Path, default_transform
     assert output_file.stat().st_size > 0
 
 
+def test_eval_cmd_plot_flag(backtest: BackTest, tmp_path: Path, default_transformer):
+    """Test that eval_cmd's plot flag generates an HTML plot file."""
+    from chap_core.assessment.backtest_plots import create_plot_from_evaluation
+
+    evaluation = Evaluation.from_backtest(backtest)
+    nc_file = tmp_path / "evaluation.nc"
+    evaluation.to_file(nc_file)
+
+    plot_path = nc_file.with_suffix(".html")
+    chart = create_plot_from_evaluation("evaluation_plot", evaluation)
+    chart.save(str(plot_path))
+
+    assert plot_path.exists()
+    assert plot_path.stat().st_size > 0
+
+
 def test_generate_pdf_report(backtest: BackTest, tmp_path: Path):
     from chap_core.cli_endpoints.utils import generate_pdf_report
 
