@@ -19,6 +19,7 @@ from chap_core.cli_endpoints._common import (
     get_model,
     load_dataset,
     load_dataset_from_csv,
+    resolve_csv_path,
     save_results,
 )
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -257,9 +258,9 @@ def eval_cmd(
         ),
     ],
     dataset_csv: Annotated[
-        Path,
+        str,
         Parameter(
-            help="Path to CSV file containing disease data with columns: time_period, "
+            help="Path or URL to CSV file containing disease data with columns: time_period, "
             "location, disease_cases, and climate covariates (rainfall, temperature, etc.)"
         ),
     ],
@@ -338,8 +339,9 @@ def eval_cmd(
         with open(data_source_mapping) as f:
             column_mapping = json.load(f)
 
-    geojson_path = discover_geojson(dataset_csv)
-    dataset = load_dataset_from_csv(dataset_csv, geojson_path, column_mapping)
+    csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
+    geojson_path = url_geojson_path or discover_geojson(csv_path)
+    dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
 
     configuration = None
     if model_configuration_yaml is not None:
@@ -419,9 +421,9 @@ def evaluate2(
         ),
     ],
     dataset_csv: Annotated[
-        Path,
+        str,
         Parameter(
-            help="Path to CSV file containing disease data with columns: time_period, "
+            help="Path or URL to CSV file containing disease data with columns: time_period, "
             "location, disease_cases, and climate covariates (rainfall, temperature, etc.)"
         ),
     ],
