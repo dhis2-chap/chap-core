@@ -342,7 +342,7 @@ wheels = [
 
 [[package]]
 name = "chap-core"
-version = "1.2.0"
+version = "1.4.0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
