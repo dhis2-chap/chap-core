@@ -24,26 +24,6 @@ Your model directory should contain:
 - `renv/` directory - Contains renv activation scripts
 - `.Rprofile` - Auto-activates renv when R starts (typically contains `source("renv/activate.R")`)
 
-Example MLproject file with renv:
-
-```yaml
-name: my_r_model
-renv_env: renv.lock
-entry_points:
-  train:
-    parameters:
-      train_data: str
-      model: str
-    command: "Rscript main.R train --train_data {train_data} --model {model}"
-  predict:
-    parameters:
-      historic_data: str
-      future_data: str
-      model: str
-      out_file: str
-    command: "Rscript main.R predict --model {model} --historic_data {historic_data} --future_data {future_data} --out_file {out_file}"
-```
-
 #### Setting up renv for your R model
 
 1. Initialize renv in your R project:

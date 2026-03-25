@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose force-restart
+.PHONY: clean coverage dist docs serve help install lint lint/flake8 test-chapkit-compose force-restart
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -79,6 +79,9 @@ coverage: ## run tests with coverage reporting
 docs: ## generate MkDocs HTML documentation
 	uv run mkdocs build
 	@echo "Docs: site/index.html"
+
+serve: ## serve MkDocs documentation with hot-reload (dirty mode: only rebuilds changed pages)
+	uv run mkdocs serve --dirty
 
 dist: clean ## build source and wheel package
 	uv build
