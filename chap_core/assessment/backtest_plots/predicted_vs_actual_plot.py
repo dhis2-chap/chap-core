@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from chap_core.assessment.backtest_plots import BacktestPlotBase, ChartType, backtest_plot
+from chap_core.plotting.backtest_plot import text_chart
 
 
 def _predicted_vs_actual_chart(
@@ -38,7 +39,18 @@ def _predicted_vs_actual_chart(
         merged["plot_actual"] = merged["disease_cases"]
         suffix = ""
 
-    chart = (
+    scale_desc = "log(1+x) transformed" if log1p else "untransformed"
+    caption = text_chart(
+        f"Scatter plot of median predicted vs actual disease cases ({scale_desc}). "
+        f"Each point represents one location at one time period. "
+        f"Points on the diagonal indicate perfect predictions. "
+        f"Panels show different prediction horizons in {horizon_unit}.",
+        line_length=100,
+        font_size=11,
+        pad_bottom=10,
+    )
+
+    scatter = (
         alt.Chart(merged)
         .mark_circle(size=60, opacity=0.7)
         .encode(
@@ -56,7 +68,7 @@ def _predicted_vs_actual_chart(
         .facet(column=alt.Column("horizon_distance:O", title=f"Prediction Horizon ({horizon_unit})"))
     )
 
-    return chart  # type: ignore[no-any-return]
+    return alt.vconcat(scatter, caption)  # type: ignore[no-any-return]
 
 
 @backtest_plot(
