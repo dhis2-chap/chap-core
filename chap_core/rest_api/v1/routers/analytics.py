@@ -106,13 +106,13 @@ def _read_dataset(request):
     return feature_names, provided_data
 
 
-def _validate_full_dataset(
-    feature_names, provided_data, target_name="disease_cases"
-) -> tuple[DataSet, list[ValidationError]]:
-    new_data = {}
+def _find_locations_with_complete_covariates(
+    dataset: DataSet, feature_names: list[str], target_name: str = "disease_cases"
+) -> tuple[set[str], list[ValidationError]]:
+    """Identify locations that have no NaN values in covariate features."""
+    locations_to_keep = set()
     rejected_list = []
-    n_locations = len(provided_data.locations())
-    for location, data in provided_data.items():
+    for location, data in dataset.items():
         for feature_name in feature_names:
             if feature_name == target_name:
                 continue
@@ -129,8 +129,18 @@ def _validate_full_dataset(
                 )
                 break
         else:
-            new_data[location] = data
-    if not new_data:
+            locations_to_keep.add(location)
+    return locations_to_keep, rejected_list
+
+
+def _validate_full_dataset(
+    feature_names, provided_data, target_name="disease_cases"
+) -> tuple[DataSet, list[ValidationError]]:
+    n_locations = len(provided_data.locations())
+    locations_to_keep, rejected_list = _find_locations_with_complete_covariates(
+        provided_data, feature_names, target_name
+    )
+    if not locations_to_keep:
         raise HTTPException(
             status_code=400,
             detail={
@@ -140,11 +150,12 @@ def _validate_full_dataset(
             },
         )
 
-    new_dataset = provided_data.__class__(new_data, polygons=provided_data.polygons, metadata=provided_data.metadata)
+    new_dataset = _filter_dataset_by_locations(provided_data, locations_to_keep)
+    new_locations = list(new_dataset.locations())
     logger.info(
-        f"Remaining dataset after validation: {len(new_dataset.locations())} (from {n_locations}) locations: {list(new_dataset.locations())} "
+        f"Remaining dataset after validation: {len(new_locations)} (from {n_locations}) locations: {new_locations} "
     )
-    assert len(new_dataset.locations()), new_dataset.locations()
+    assert len(new_locations), new_locations
     return new_dataset, rejected_list
 
 
