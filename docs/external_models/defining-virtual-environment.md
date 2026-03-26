@@ -1,6 +1,6 @@
-# Defining the virtual environment for your model
+# Defining the MLflow file for your model
 
-## Option 1) uv environment (python)
+## Option 1) uv environment (Python)
 
 Use `uv_env` to specify a pyproject.toml for uv-managed environments. This is useful for models that use [uv](https://docs.astral.sh/uv/) for dependency management:
 

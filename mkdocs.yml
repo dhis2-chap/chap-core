@@ -85,13 +85,14 @@ nav:
           - Run a model through chap: chap-cli/minimalist-example.md
       - Make your model Chap compatible:
           - Prepare your data:
-              - Overview: external_models/prepare_data/index.md
-              - Own data: external_models/prepare_data/own-data.md
-              - DHIS2 data: external_models/prepare_data/dhis2-data.md
-              - Example data: external_models/prepare_data/example-data.md
+              - Chap data format: external_models/prepare_data/index.md
+              - "Option 1: Own data": external_models/prepare_data/own-data.md
+              - "Option 2: DHIS2 data": external_models/prepare_data/dhis2-data.md
+              - "Option 3: Example data": external_models/prepare_data/example-data.md
+              - Validate your data: external_models/prepare_data/validate-data.md
           - Create your train and predict functions: external_models/train_and_predict.md
           - Connect your model to the Chap standard: external_models/describe_model.md
-          - Defining the virtual environment for your model: external_models/defining-virtual-environment.md
+          - Defining the MLflow file for your model: external_models/defining-virtual-environment.md
           - (Python-models): external_models/python_models.md
           - (R-models): external_models/r_models.md
           - Additional Configuration: external_models/additional_configuration.md
