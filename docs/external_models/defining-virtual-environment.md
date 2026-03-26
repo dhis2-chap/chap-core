@@ -1,8 +1,8 @@
-# Defining the MLprojcet environment for your model
+# Defining the MLproject environment for your model
 
-### MLprojcet environment
+### MLproject environment
 
-In the MLprojcet file you just created, you need to specify one environment CHAP will run your model within. The available options are uv (Python), renv environment (for R models) and docker. Below it is described how you set up each environment.
+In the MLproject file you just created, you need to specify one environment CHAP will run your model within. The available options are uv (Python), renv environment (for R models) and docker. Below it is described how you set up each environment.
 
 ## Option 1) uv environment (Python)
 
