@@ -92,7 +92,7 @@ nav:
               - Validate your data: external_models/prepare_data/validate-data.md
           - Create your train and predict functions: external_models/train_and_predict.md
           - Connect your model to the Chap standard: external_models/describe_model.md
-          - Defining the MLflow file for your model: external_models/defining-virtual-environment.md
+          - Defining the MLflow environment for your model: external_models/defining-virtual-environment.md
           - (R-models): external_models/r_models.md
           - Additional Configuration: external_models/additional_configuration.md
           - Generated Features: external_models/generated_features.md

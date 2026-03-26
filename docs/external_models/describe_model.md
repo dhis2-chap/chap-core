@@ -170,8 +170,3 @@ Your MLproject entry points can also accept these optional parameters:
 | `model_config` | Filename of a YAML configuration file for model-specific settings |
 
 To use these, include the corresponding `{polygons}` or `{model_config}` placeholder in your command string
-
-### ML file environment
-
-The MLproject file can specify a docker image, Python virtual environment, uv-managed environment, or renv environment (for R models) that will be used when running the commands.
-An example of this is the [MLproject file](https://github.com/dhis2-chap/minimalist_example_r/blob/main/MLproject) contained within our minimalist_example_r.

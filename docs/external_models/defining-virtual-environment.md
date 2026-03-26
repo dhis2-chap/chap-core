@@ -1,4 +1,8 @@
-# Defining the MLflow file for your model
+# Defining the MLflow environment for your model
+
+### ML file environment
+
+In the MLflow file you just created, you need to specify one environment CHAP will run your model within. The available options are uv (Python), renv environment (for R models) and docker. Below it is described how you set up each environment.
 
 ## Option 1) uv environment (Python)
 
