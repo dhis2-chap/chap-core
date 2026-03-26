@@ -4,10 +4,10 @@ Use the `chap validate` command to check that your CSV is Chap-compatible before
 
 ### Basic validation
 
-```bash
+```console
 chap validate --dataset-csv [YOUR-FOLDR-PATH].csv
+# e.g chap validate --dataset-csv example_data/laos_subset.csv
 ```
-[YOUR-FOLDR-PATH] could for example be: "example_data/laos_subset"
 
 This checks for:
 
@@ -19,9 +19,9 @@ This checks for:
 
 If you have a GeoJSON file alongside your CSV, validate it with the `--dataset-geo` flag:
 
-```bash
+```console
 chap validate --dataset-csv [YOUR-FOLDR-PATH].csv --dataset-geo [YOUR-FOLDR-PATH].geojson
+#e.g. chap validate --dataset-csv example_data/laos_subset.csv --dataset-geo example_data/laos_subset.geojson
 ```
-[YOUR-FOLDR-PATH] could for example be: "example_data/laos_subset.csv"
 
 This additionally checks that all `location` values in the CSV have a matching feature in the GeoJSON.
