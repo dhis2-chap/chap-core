@@ -11,6 +11,6 @@ Chap is a Climate & Health Modeling Platform that brings together disease foreca
 We here provide technical documentation tailored to:
 
 - [Experienced climate health modellers](./external_models/index.md) who want to develop or adapt existing models to be compatible with Chap.
-- [Someone new to modelling](learn_modelling.md) that wants to learn the principles of spatiotemporal modelling and how to more easily implement such models through Chap.
+- [Someone new to modelling](./external_models/newcomer.md) that wants to learn the principles of spatiotemporal modelling and how to more easily implement such models through Chap.
 - [Platform contributors](contributor/index.md)
 - [System administrators wanting to set up Chap with connections to DHIS2 and the Modeling App](modeling-app/index.md)

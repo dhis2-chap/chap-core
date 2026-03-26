@@ -34,7 +34,7 @@ Click "Start dry run" to verify that the data and configuration are accepted. Co
 
 Click **Download request** to save the modelling payload to your computer as JSON-file.
 
-<img src="assets/download-button.png" alt="Download request button">
+<img src="../assets/download-button.png" alt="Download request button">
 
 ## Converting a Modeling App request to CSV and GeoJSON
 
