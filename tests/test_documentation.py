@@ -31,6 +31,7 @@ SKIP_FILES = [
     # Explanatory guides with pseudo-code snippets (undefined variables like model, train_fn, etc.)
     "docs/external_models/model_explainability.md",
     # Slow bash tests moved to test_documentation_slow.py
+    "docs/external_models/data_formats.md",
     "docs/feature_tutorials/extended_predictor.md",
     "docs/chap-cli/evaluation-workflow.md",
     # Workshop tutorials (instructional content, not testable code)
