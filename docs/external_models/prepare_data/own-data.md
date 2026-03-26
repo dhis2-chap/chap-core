@@ -59,6 +59,6 @@ An example of how to do this with climate tools is [here](https://climate-tools.
 
 <div style="margin-bottom: 10rem;" markdown>
 
-Next: [Validate your data](index.md#3-validating-your-data)
+Next: [Validate your data](validate-data.md)
 
 </div>

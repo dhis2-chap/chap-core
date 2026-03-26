@@ -23,6 +23,6 @@ The CSV contains ~2800 rows covering 18 provinces from 1998-2010 with columns: `
 
 <div style="margin-bottom: 10rem;" markdown>
 
-Next: [Validate your data](index.md#3-validating-your-data)
+Next: [Validate your data](validate-data.md)
 
 </div>
