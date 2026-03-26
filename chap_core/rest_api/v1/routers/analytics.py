@@ -16,6 +16,7 @@ from chap_core.api_types import (
     FeatureCollectionModel,
     PredictionEntry,
 )
+from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
@@ -145,6 +146,41 @@ def _validate_full_dataset(
     )
     assert len(new_dataset.locations()), new_dataset.locations()
     return new_dataset, rejected_list
+
+
+def _find_locations_with_target_data(
+    dataset: DataSet,
+    target_name: str = "disease_cases",
+) -> tuple[set[str], list[ValidationError]]:
+    """Identify locations that have at least some non-NaN target data.
+
+    Returns the set of locations to keep and validation errors for rejected ones.
+    """
+    locations_to_keep = set()
+    rejected = []
+    for location, data in dataset.items():
+        target = getattr(data, target_name)
+        if np.any(np.logical_not(np.isnan(target))):
+            locations_to_keep.add(location)
+        else:
+            rejected.append(
+                ValidationError(
+                    reason="No disease data in the first training split",
+                    orgUnit=location,
+                    feature_name=target_name,
+                    time_periods=[],
+                )
+            )
+    return locations_to_keep, rejected
+
+
+def _filter_dataset_by_locations(
+    dataset: DataSet,
+    locations_to_keep: set[str],
+) -> DataSet:
+    """Return a new dataset containing only the specified locations."""
+    new_data = {location: data for location, data in dataset.items() if location in locations_to_keep}
+    return dataset.__class__(new_data, polygons=dataset.polygons, metadata=dataset.metadata)
 
 
 @router.get("/compatible-backtests/{backtestId}", response_model=list[BackTestRead], tags=["Backtests"])
@@ -519,6 +555,13 @@ async def create_backtest_with_data(
 ):
     feature_names, provided_data_processed = _read_dataset(request)
     provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
+    backtest_params = BackTestParams(**request.model_dump())
+    train_set, _ = train_test_generator(
+        provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
+    )
+    locations_to_keep, target_rejections = _find_locations_with_target_data(train_set)
+    provided_data_processed = _filter_dataset_by_locations(provided_data_processed, locations_to_keep)
+    rejections.extend(target_rejections)
     polygon_rejected = provided_data_processed.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
         ValidationError(reason="Missing polygon in geojson", orgUnit=location, feature_name="polygon", time_periods=[])
