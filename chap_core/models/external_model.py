@@ -132,6 +132,7 @@ class ExternalModel(ExternalModelBase):
         data_type=HealthData,
         configuration: ModelConfiguration | None = None,
         model_information: ModelTemplateConfigV2 | None = None,
+        dry_run=False,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
@@ -151,6 +152,7 @@ class ExternalModel(ExternalModelBase):
         )  # configuration passed from the user to the model, e.g. about covariates or parameters
         # self._config_filename = "model_config.yaml"
         self._model_information = model_information
+        self._dry_run = dry_run
 
     @property
     def name(self):
@@ -163,6 +165,38 @@ class ExternalModel(ExternalModelBase):
     @property
     def model_information(self):
         return self._model_information
+
+    def _apply_generated_features(self, dataset: DataSet) -> DataSet:
+        """Apply any gen:-prefixed feature generators to the dataset."""
+        from chap_core.feature_generators import apply_feature_generators, parse_generated_covariates
+
+        if self._model_information is None:
+            return dataset
+        _, generator_ids = parse_generated_covariates(self._model_information.required_covariates)
+        if generator_ids:
+            dataset = apply_feature_generators(dataset, generator_ids)
+        return dataset
+
+    def _copy_generated_features(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+        """Copy location-constant generated features from historic_data to future_data."""
+        from chap_core.feature_generators import parse_generated_covariates
+
+        if self._model_information is None:
+            return future_data
+        _, generator_ids = parse_generated_covariates(self._model_information.required_covariates)
+        if not generator_ids:
+            return future_data
+
+        historic_df = historic_data.to_pandas()
+        future_df = future_data.to_pandas()
+        # For each generated feature, extract per-location values from historic data
+        generated_fields = set(historic_df.columns) - set(future_df.columns)
+        if not generated_fields:
+            return future_data
+        for field in generated_fields:
+            loc_values = historic_df.groupby("location")[field].first()
+            future_df[field] = future_df["location"].map(loc_values)
+        return DataSet.from_pandas(future_df)
 
     def train(self, train_data: DataSet, extra_args=None):
         """
@@ -177,6 +211,8 @@ class ExternalModel(ExternalModelBase):
         """
         if extra_args is None:
             extra_args = ""
+
+        train_data = self._apply_generated_features(train_data)
 
         train_file_name = "training_data.csv"
         train_file_name_full = Path(self._working_dir) / Path(train_file_name)
@@ -203,11 +239,15 @@ class ExternalModel(ExternalModelBase):
             raise ModelFailedException(str(e)) from e
         return self
 
-    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+    def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet | None:  # type: ignore[override]
         logging.debug("Running predict")
-        future_data_name = Path(self._working_dir) / "future_data.csv"
-        historic_data_name = Path(self._working_dir) / "historic_data.csv"
+        historic_data = self._apply_generated_features(historic_data)
+        future_data = self._copy_generated_features(historic_data, future_data)
+
         start_time = future_data.start_timestamp
+        suffix = start_time.date.date().isoformat()
+        future_data_name = Path(self._working_dir) / f"future_data_{suffix}.csv"
+        historic_data_name = Path(self._working_dir) / f"historic_data_{suffix}.csv"
         logger.debug(f"Predicting on dataset from {start_time} to {future_data.end_timestamp}")
 
         for filename, dataset in [
@@ -218,7 +258,7 @@ class ExternalModel(ExternalModelBase):
                 adapted_dataset = self._adapt_data(dataset.to_pandas(), frequency=self._get_frequency(dataset))
                 adapted_dataset.to_csv(filename)
 
-        predictions_file = Path(self._working_dir) / "predictions.csv"
+        predictions_file = Path(self._working_dir) / f"predictions_{suffix}.csv"
 
         # touch predictions.csv
         with open(predictions_file, "w") as _:
@@ -227,14 +267,17 @@ class ExternalModel(ExternalModelBase):
         try:
             self._runner.predict(
                 self._model_file_name,
-                "historic_data.csv",
-                "future_data.csv",
-                "predictions.csv",
+                f"historic_data_{suffix}.csv",
+                f"future_data_{suffix}.csv",
+                f"predictions_{suffix}.csv",
                 "polygons.geojson" if self._polygons_file_name is not None else None,
             )
         except CommandLineException as e:
             logger.error("Error predicting model, command failed")
             raise ModelFailedException(str(e)) from e
+
+        if self._dry_run:
+            return None
 
         try:
             df = pd.read_csv(predictions_file)

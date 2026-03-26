@@ -1,7 +1,5 @@
 # Making chap-compatible train and predict endpoints
 
-**Requirement:** your already have your model, in a folder or github repo.
-
 To integrate a component for standardized, interoperable use, it must follow an established standard. Chap defines one such standard, and by adhering to it, your code gains all the benefits of seamless platform integration. In predictive modeling and machine learning, it is a long-established best practice to provide separate functions for training and prediction.
 
 The following figure shows the basic overview of how Chap expects modelling code to be, i.e. divided into separated _train_ and _predict_ parts

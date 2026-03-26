@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner, run_command
+from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
 
 from .runner import Runner
 
@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 class CondaRunner(Runner):
     """Runs commands inside a conda environment created from an environment YAML file."""
 
-    def __init__(self, working_dir: str | Path, conda_env_file: str):
+    def __init__(self, working_dir: str | Path, conda_env_file: str, dry_run=False):
+        super().__init__(dry_run=dry_run)
         self._working_dir = Path(working_dir)
         self._conda_env_file = conda_env_file
         self._env_path = self._working_dir / ".conda_env"
@@ -32,14 +33,14 @@ class CondaRunner(Runner):
             logger.info(f"Creating conda environment at {self._env_path}")
             cmd = f"conda env create -f {self._conda_env_file} -p {self._env_path}"
 
-        run_command(cmd, self._working_dir)
+        self._execute(cmd, self._working_dir)
         self._env_created = True
 
     def run_command(self, command):
         self._ensure_environment()
         conda_command = f"conda run --no-capture-output -p {self._env_path} {command}"
         logger.debug(f"Running command {conda_command} in {self._working_dir}")
-        return run_command(conda_command, self._working_dir)
+        return self._execute(conda_command, self._working_dir)
 
     def store_file(self, file_path: str | None = None) -> None:
         pass

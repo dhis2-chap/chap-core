@@ -43,6 +43,7 @@ plugins:
             heading_level: 2
 
 markdown_extensions:
+  - md_in_html
   - admonition
   - pymdownx.details
   - pymdownx.superfences
@@ -81,14 +82,22 @@ nav:
       - Installing Chap Core:
           - Prepare for installation: external_models/prepare-for-installation.md
           - Install Chap Core: chap-cli/chap-core-cli-setup.md
-          - Run minimalist example: chap-cli/minimalist-example.md
+          - Run a model through chap: chap-cli/minimalist-example.md
       - Make your model Chap compatible:
-          - Train and Predict: external_models/train_and_predict.md
-          - Describe Your Model: external_models/describe_model.md
-          - Python-models: external_models/python_models.md
-          - R-models: external_models/r_models.md
+          - Prepare your data:
+              - Overview: external_models/prepare_data/index.md
+              - Own data: external_models/prepare_data/own-data.md
+              - DHIS2 data: external_models/prepare_data/dhis2-data.md
+              - Example data: external_models/prepare_data/example-data.md
+          - Create your train and predict functions: external_models/train_and_predict.md
+          - Connect your model to the Chap standard: external_models/describe_model.md
+          - Defining the virtual environment for your model: external_models/defining-virtual-environment.md
+          - (Python-models): external_models/python_models.md
+          - (R-models): external_models/r_models.md
           - Additional Configuration: external_models/additional_configuration.md
+          - Generated Features: external_models/generated_features.md
       - Evaluate models with Chap:
+          - Evaluation Workflow: chap-cli/evaluation-workflow.md
           - Evaluating Models: external_models/running_models_in_chap.md
       - Integration:
           - Chapkit: external_models/chapkit.md
@@ -100,7 +109,7 @@ nav:
           - Model Explainability: external_models/model_explainability.md
       - CLI:
           - Overview: chap-cli/index.md
-          - Evaluation Workflow: chap-cli/evaluation-workflow.md
+          
           - eval Reference: chap-cli/eval-reference.md
 
   #- Modeling App:
@@ -122,6 +131,7 @@ nav:
           - Evaluation Walkthrough: contributor/evaluation_walkthrough.md
           - Evaluation Abstraction: contributor/evaluation_abstraction.md
           - Preference Learning: contributor/preference_learning.md
+          - Creating Feature Generators: contributor/creating_feature_generators.md
       - Web API:
           - Overview: webapi/index.md
           - Developer Guide: webapi/developer.md
