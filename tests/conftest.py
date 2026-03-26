@@ -106,17 +106,23 @@ def _cache_key(url: str) -> str:
 
 @pytest.fixture(autouse=True, scope="session")
 def _cache_github_fetches():
-    """Cache GitHub network calls (MLproject fetches and git clones) across test runs."""
+    """Cache GitHub network calls (MLproject fetches, git clones, pooch downloads) across test runs."""
     mlproject_cache = GITHUB_CACHE_DIR / "mlproject"
     mlproject_cache.mkdir(parents=True, exist_ok=True)
     clone_cache = GITHUB_CACHE_DIR / "clones"
     clone_cache.mkdir(parents=True, exist_ok=True)
+    pooch_cache = GITHUB_CACHE_DIR / "pooch"
+    pooch_cache.mkdir(parents=True, exist_ok=True)
 
     from chap_core.external.github import fetch_mlproject_content as original_fetch
     from chap_core.models.utils import (
         _get_model_code_base as original_get_code_base,
         _get_working_dir,
     )
+
+    import pooch as _pooch
+
+    original_pooch_retrieve = _pooch.retrieve
 
     def cached_fetch_mlproject_content(github_url: str) -> str:
         key = _cache_key(github_url)
@@ -151,10 +157,26 @@ def _cache_github_fetches():
         shutil.copytree(working_dir, cached, ignore=shutil.ignore_patterns(".git"))
         return working_dir
 
+    def cached_pooch_retrieve(url, known_hash, **kwargs):
+        if not (isinstance(url, str) and "github" in url):
+            return original_pooch_retrieve(url, known_hash, **kwargs)
+
+        key = _cache_key(url)
+        # Preserve the original filename extension
+        url_path = url.split("/")[-1].split("?")[0]
+        cache_file = pooch_cache / f"{key}_{url_path}"
+        if cache_file.exists():
+            logger.info(f"Cache hit for pooch: {url}")
+            return str(cache_file)
+        result = original_pooch_retrieve(url, known_hash, **kwargs)
+        shutil.copy2(result, cache_file)
+        return str(cache_file)
+
     with (
         patch("chap_core.external.github.fetch_mlproject_content", cached_fetch_mlproject_content),
         patch("chap_core.models.model_template.fetch_mlproject_content", cached_fetch_mlproject_content),
         patch("chap_core.models.utils._get_model_code_base", cached_get_model_code_base),
+        patch("pooch.retrieve", cached_pooch_retrieve),
     ):
         yield
 
