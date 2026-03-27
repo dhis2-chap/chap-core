@@ -134,6 +134,7 @@ log_level = "WARNING"
 norecursedirs = [
     "tests/data_wrangling",
     "tests/spatio_temporal_data",
+    "tests/.github_cache",
     ".mypy_cache",
     "runs",
     "dist",
