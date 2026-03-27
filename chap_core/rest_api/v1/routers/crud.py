@@ -101,11 +101,8 @@ def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
     live_names = {s.info.id for s in service_list.services}
     chapkit_templates = session.exec(
         select(ModelTemplateDB)
-        .outerjoin(ConfiguredModelDB)
-        .where(
-            (ConfiguredModelDB.uses_chapkit == True) | (ConfiguredModelDB.id == None),
-            ModelTemplateDB.archived == False,
-        )
+        .join(ConfiguredModelDB)
+        .where(ConfiguredModelDB.uses_chapkit == True, ModelTemplateDB.archived == False)
     ).all()
     for template in chapkit_templates:
         if template.name not in live_names:

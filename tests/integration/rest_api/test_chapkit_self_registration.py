@@ -206,29 +206,6 @@ def test_re_registered_service_becomes_unarchived(client, register_service, fake
     assert matching[0]["healthStatus"] == "live"
 
 
-def test_template_archived_even_when_config_sync_failed(client, register_service, fake_orchestrator, mock_wrapper_cls):
-    mock_wrapper_cls.return_value.list_configs.side_effect = ConnectionError("service unavailable")
-    register_service()
-
-    response = client.get("/v1/crud/model-templates")
-    templates = response.json()
-    matching = [t for t in templates if t["name"] == "test-model"]
-    assert len(matching) == 1
-    assert matching[0]["archived"] is False
-
-    # No configured models should exist since list_configs failed
-    models = client.get("/v1/crud/configured-models").json()
-    assert not any(m["name"] == "test-model" for m in models)
-
-    # Deregister the service - template should still be archived
-    fake_orchestrator.deregister("test-model")
-    response = client.get("/v1/crud/model-templates")
-    templates = response.json()
-    matching = [t for t in templates if t["name"] == "test-model"]
-    assert len(matching) == 1
-    assert matching[0]["archived"] is True
-
-
 def test_returns_200_when_redis_unavailable(client):
     with patch(
         "chap_core.rest_api.v2.dependencies.get_orchestrator",
