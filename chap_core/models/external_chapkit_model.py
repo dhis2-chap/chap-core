@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from chap_core.datatypes import Samples
 from chap_core.external.model_configuration import ModelTemplateConfigV2
@@ -17,6 +18,52 @@ def _chapkit_period_to_chap(chapkit_period_type) -> PeriodType:
     """Map chapkit period type enum to CHAP PeriodType."""
     value = chapkit_period_type.value if hasattr(chapkit_period_type, "value") else str(chapkit_period_type)
     return PeriodType(_CHAPKIT_PERIOD_MAP.get(value, value))
+
+
+def ml_service_info_to_model_template_config(
+    info: "Any",
+    rest_api_url: str,
+    user_options: dict | None = None,
+) -> ModelTemplateConfigV2:
+    """Convert an MLServiceInfo object to a ModelTemplateConfigV2.
+
+    Works with both chapkit's MLServiceInfo and the local schema copy
+    in ``chap_core.rest_api.services.schemas``, since they share the
+    same field names.
+    """
+    metadata = info.model_metadata
+    meta_data_dict = {
+        "display_name": info.display_name,
+        "description": info.description or "No Description",
+        "author_note": metadata.author_note or "",
+        "author_assessed_status": metadata.author_assessed_status or "red",
+        "author": metadata.author or "Unknown Author",
+        "organization": metadata.organization,
+        "organization_logo_url": str(metadata.organization_logo_url) if metadata.organization_logo_url else None,
+        "contact_email": metadata.contact_email,
+        "citation_info": metadata.citation_info,
+        "documentation_url": str(metadata.documentation_url) if metadata.documentation_url else None,
+    }
+
+    config_dict = {
+        "name": info.id,
+        "version": info.version,
+        "rest_api_url": rest_api_url,
+        "meta_data": meta_data_dict,
+        "required_covariates": info.required_covariates or [],
+        "allow_free_additional_continuous_covariates": info.allow_free_additional_continuous_covariates,
+        "requires_geo": getattr(info, "requires_geo", False),
+        "supported_period_type": _chapkit_period_to_chap(info.period_type),
+        "user_options": user_options or {},
+        "min_prediction_length": info.min_prediction_periods,
+        "max_prediction_length": info.max_prediction_periods,
+        "entry_points": None,
+        "docker_env": None,
+        "python_env": None,
+        "source_url": str(metadata.repository_url) if metadata.repository_url else rest_api_url,
+    }
+
+    return ModelTemplateConfigV2.model_validate(config_dict)
 
 
 class ExternalChapkitModelTemplate:
@@ -130,7 +177,7 @@ class ExternalChapkitModelTemplate:
         assert self.client is not None
         try:
             response = self.client.health()
-            return response["status"] == "healthy"
+            return response.status == "healthy"
         except Exception as e:
             logger.info(
                 f"Health check for model {self.rest_api_url} failed: {e}. Check health at {self.rest_api_url}/health"
@@ -193,15 +240,11 @@ class ExternalChapkitModelTemplate:
 
     @property
     def name(self):
-        """
-        This returns a unique name for the model. In the future, this might be some sort of id given by the model
-        """
+        """Return the chapkit service id as the model template name."""
         self._ensure_initialized()
         assert self.client is not None
         info = self.client.info()
-        name = info.display_name.lower().replace(" ", "_")
-        version = info.version
-        return f"{name}_v{version}"
+        return info.id
 
     @property
     def model_template_config(self) -> ModelTemplateConfigV2:
@@ -215,6 +258,7 @@ class ExternalChapkitModelTemplate:
         """
         self._ensure_initialized()
         assert self.client is not None
+        assert self.rest_api_url is not None
         model_info = self.client.info()
 
         # Get user options from config schema
@@ -223,36 +267,7 @@ class ExternalChapkitModelTemplate:
         if "$defs" in config_schema and "ModelConfiguration" in config_schema["$defs"]:
             user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
 
-        metadata = model_info.model_metadata
-        meta_data_dict = {
-            "display_name": model_info.display_name,
-            "description": model_info.description or "No Description",
-            "author_note": metadata.author_note or "",
-            "author_assessed_status": metadata.author_assessed_status or "red",
-            "author": metadata.author or "Unknown Author",
-            "organization": metadata.organization,
-            "organization_logo_url": str(metadata.organization_logo_url) if metadata.organization_logo_url else None,
-            "contact_email": metadata.contact_email,
-            "citation_info": metadata.citation_info,
-        }
-
-        config_dict = {
-            "name": self.name,
-            "rest_api_url": self.rest_api_url,
-            "meta_data": meta_data_dict,
-            "required_covariates": model_info.required_covariates or [],
-            "allow_free_additional_continuous_covariates": model_info.allow_free_additional_continuous_covariates,
-            "supported_period_type": _chapkit_period_to_chap(model_info.period_type),
-            "user_options": user_options,
-            "min_prediction_length": model_info.min_prediction_periods,
-            "max_prediction_length": model_info.max_prediction_periods,
-            "entry_points": None,
-            "docker_env": None,
-            "python_env": None,
-            "source_url": self._path_or_url,
-        }
-
-        return ModelTemplateConfigV2.model_validate(config_dict)
+        return ml_service_info_to_model_template_config(model_info, self.rest_api_url, user_options)
 
 
 class ExternalChapkitModel(ExternalModelBase):
