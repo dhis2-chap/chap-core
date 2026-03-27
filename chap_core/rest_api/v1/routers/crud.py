@@ -88,10 +88,6 @@ def _sync_live_chapkit_services(session: Session) -> set[str]:
             try:
                 config = ml_service_info_to_model_template_config(service.info, service.url)
                 template_id = session_wrapper.add_model_template_from_yaml_config(config)
-                template = session.get(ModelTemplateDB, template_id)
-                assert template is not None
-                template.uses_chapkit = True
-                session.commit()
                 _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
             except Exception:
                 logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
@@ -104,7 +100,12 @@ def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
     """Archive chapkit templates whose services are no longer live."""
     live_names = {s.info.id for s in service_list.services}
     chapkit_templates = session.exec(
-        select(ModelTemplateDB).where(ModelTemplateDB.uses_chapkit == True, ModelTemplateDB.archived == False)
+        select(ModelTemplateDB)
+        .outerjoin(ConfiguredModelDB)
+        .where(
+            (ConfiguredModelDB.uses_chapkit == True) | (ConfiguredModelDB.id == None),
+            ModelTemplateDB.archived == False,
+        )
     ).all()
     for template in chapkit_templates:
         if template.name not in live_names:

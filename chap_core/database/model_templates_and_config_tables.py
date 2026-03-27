@@ -55,7 +55,6 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     configured_models: list["ConfiguredModelDB"] = Relationship(back_populates="model_template", cascade_delete=True)
     version: str | None = None
     archived: bool = Field(default=False)
-    uses_chapkit: bool = Field(default=False)
 
 
 class ModelConfiguration(SQLModel):
