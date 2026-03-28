@@ -17,7 +17,7 @@ If you are an external contributor without write-access to the chap-core reposit
     git switch tags/v1.0.3
     ```
 
-3.  If you're a Windows user, [read this note about how to simulate a Linux environment using Windows WSL](../contributor/windows_contributors). Before proceeding to the next steps, initiate a wsl session from the commandline:
+3.  If you're a Windows user, [read this note about how to simulate a Linux environment using Windows WSL](../contributor/windows_contributors.md). Before proceeding to the next steps, initiate a wsl session from the commandline:
 
     ```bash
     $ wsl
