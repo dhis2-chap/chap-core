@@ -63,12 +63,18 @@ def plot_importance(
 
     # Plot data historic and future
     for i, col in enumerate(temp_columns.keys()):  # TODO: Again, is the df sorted here?
-        y = hist_df[col].tolist()
-        y_fut = fut_df[col].tolist()
-        x = range(len(y))
-        x_fut = range(len(y), len(y) + len(y_fut))
-        axes[i].plot(x, y)
-        axes[i].plot(x_fut, y_fut, color="orange")
+        if col in hist_df.columns:
+            y = hist_df[col].tolist()
+            x = range(len(y))
+            axes[i].plot(x, y)
+        else:
+            y = []
+
+        if col in fut_df.columns:
+            y_fut = fut_df[col].tolist()
+            x_fut = range(len(y), len(y) + len(y_fut))
+            axes[i].plot(x_fut, y_fut, color="orange")
+            
         axes[i].set_title(f"Variable: {col}")
         axes[i].set_xlabel("Time steps")
 

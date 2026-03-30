@@ -61,7 +61,6 @@ dependencies = [
     "cryptography>=46.0.5",
     "stumpy>=1.14.1",
     "pyts>=0.13.0",
-    "rbeast>=0.1.23",
     "fastdtw>=0.3.4",
 ]
 

@@ -51,7 +51,7 @@ When training the surrogate model, you want to weight the training dataset accor
 
 #### Running LIME
 
-The LIME pipeline from the explainability module is available through the command line interface (CLI) using the ```explain``` command. It is run by calling the explain command along with the name of the model to explain, the location of the dataset on which to explain, the location on which to explain, and the number of time steps into the future on which to explain (called the horizon).
+The LIME pipeline from the explainability module is available through the command line interface (CLI) using the ```explain-lime``` command. It is run by calling the explain command along with the name of the model to explain, the location of the dataset on which to explain, the location on which to explain, and the number of time steps into the future on which to explain (called the horizon).
 
 As previously mentioned, the LIME algorithm only works for local explanations, i.e. on a particular prediction. For a time series predictor, one particular prediction is defined by the input data for a particular location, for a specific dataset, at a specific time in the future (since the model may predict for several time steps into the future; all considered individual predictions).
 
@@ -61,10 +61,10 @@ An example of a simple run with the ```explain``` command is:
 
 
 ```bash
-chap explain --model_name https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6 --dataset_csv example_data/nicaragua_weekly_data.csv --location boaco --horizon 3
+chap explain-lime --model_name https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6 --dataset_csv example_data/nicaragua_weekly_data.csv --location boaco --horizon 3
 ```
 
-Additionally, there are multiple arguments with which to customize the LIME pipeline.
+Additionally, there are multiple arguments with which to customize the LIME pipeline, using the lime-params prefix:
 
 ### Options
 
@@ -108,6 +108,9 @@ Name of the perturbation weighting strategy to use. May take any of the followin
 #### ```num_perturbations``` (Default: 300)
 Number of perturbations to create for the training of the surrogate model. A higher number will result in a longer running time, as each perturbation must be run through the model for an output, but will also result in a more accurate explanation.
 
+#### ```timed``` (Default: False)
+Flag for whether to print timing debug logs during execution.
+
 #### ```adaptive``` (Default: False)
 Flag for whether to run the LIME pipeline adaptively or non-adaptively.
 
@@ -115,14 +118,14 @@ Flag for whether to run the LIME pipeline adaptively or non-adaptively.
 An example run using all options is:
 
 ```bash
-chap explain --model_name https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6 --dataset_csv example_data/nicaragua_weekly_data.csv --location boaco --horizon 3 --surrogate_name ridge --segmenter_name uniform --sampler_name fourier --weighter_name dtw --granularity 8 --num_perturbations 30
+chap explain-lime   --model_name https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6   --dataset_csv example_data/nicaragua_weekly_data.csv   --location boaco   --horizon 3   --lime-params.surrogate-name ridge   --lime-params.segmenter-name uniform   --lime-params.sampler-name fourier   --lime-params.granularity 8   --lime-params.num-perturbations 50   --lime-params.timed   --lime-params.adaptive
 ```
 
 
 
 ### Output
 
-Running the ```explain``` command will produce a printed output as well as a plot. 
+Running the ```explain-lime``` command will produce a printed output as well as a plot. 
 
 The plot shows the original input for each variable in blue, with predicted future values in orange, and with vertical stipled lines delineating the segments. The background colour of each segment shows the importance weighting for that particular segment - a greener colour means that segment contributed positively to the prediction; a redder colour means that segment contributed negatively to the prediction, and a more yellow colour means that segment didn't make too great of a difference one way or the other on the prediction compared to other segments.
 The printed output shows the same result in more detail. Features are labeled with the variable names, plus either "_lag_n" for the segment n steps into the past (read from the right), while "_fut_n" means the value (_not_ the segment, as future predicted values are not segmented) n steps into the future (read from the left). The number next to the feature is the importance weighting, on which the features are sorted in absolute values.

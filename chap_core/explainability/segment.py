@@ -1,9 +1,7 @@
 """
 Functionality for segmenting time series data into interpretable blocks (segments) of data
 """
-from re import U
 
-from cyclopts.core import V
 import pandas as pd
 import numpy as np
 import stumpy
@@ -11,8 +9,6 @@ import stumpy
 from pyts.approximation import SymbolicAggregateApproximation
 from typing import Protocol, Dict, List, Tuple
 
-
-from unidecode import x001
 
 
 Segment = List[float]
@@ -295,6 +291,16 @@ class SaxTransformSegmentation:
         n = len(x)
         target = self.num_segments
         tol = 0.10
+
+        nan_mask = ~np.isfinite(x)
+        if nan_mask.any():
+            if nan_mask.all():
+                # Return one single segment if all NaN
+                segments[0] = x.tolist()
+                indices[0] = (0, n)
+                return segments, indices
+            x = np.copy(x)
+            x[nan_mask] = np.nanmean(x[~nan_mask])
 
         mu = float(np.mean(x))
         sigma = float(np.std(x))

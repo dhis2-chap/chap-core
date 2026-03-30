@@ -149,12 +149,25 @@ class FourierReplacement:
         self.R_cache = {}
 
     def calculate_background(self, ts: np.ndarray):
+        # Safety guards to avoid NaN errors
+        # TODO: Other method than replace with nanmean?
+        if np.any(~np.isfinite(ts)):
+            clean = np.copy(ts)
+            mask = ~np.isfinite(clean)
+            if mask.all():
+                logger.warning("Time series is all NaN")
+                return np.zeros_like(ts)
+            clean[mask] = np.nanmean(clean[~mask])
+            ts = clean
+
         ts_length = len(ts)
         if self.window_size is None:
             dynamic_win = ts_length // 10
             win_size = min(max(16, dynamic_win), ts_length - 1)
         else:
             win_size = self.window_size
+
+        win_size = max(2, min(win_size, ts_length - 1))
         
         win = get_window('hann', win_size)
         stft = ShortTimeFFT(win, hop=1, fs=self.freq)
@@ -164,6 +177,11 @@ class FourierReplacement:
         f_filtered = np.zeros_like(x_stft)
         f_filtered[f_persist, :] = x_stft[f_persist, :]
         R = stft.istft(f_filtered, k0=0, k1=len(ts))
+
+        if np.any(~np.isfinite(R)):
+            logger.warning("Fourier background contains NaN/inf; falling back to original series")
+            R = np.copy(ts)
+
         return R
     
     def extract_argmax(self, x_stft: np.ndarray):
@@ -179,7 +197,19 @@ class FourierReplacement:
             ts = hist_df[feature_name].to_numpy()
             self.R_cache[feature_name] = self.calculate_background(ts)
         
-        segment = self.R_cache[feature_name][start:end]
+        segment = np.asarray(self.R_cache[feature_name][start:end], dtype=float)
+
+        if len(segment) != length or not np.isfinite(segment).all():
+            logger.warning(
+                f"Invalid Fourier segment for {feature_name}; falling back to original segment"
+            )
+            segment = hist_df[feature_name].iloc[start:end].to_numpy(dtype=float)
+
+        if len(segment) != length or not np.isfinite(segment).all():
+            logger.warning(
+                f"Original segment for {feature_name} is also invalid; using zeros"
+            )
+            segment = np.zeros(length, dtype=float)
         return segment.tolist()
 
 

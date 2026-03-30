@@ -2,7 +2,9 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Annotated
+from pydantic import BaseModel
+from cyclopts import Parameter
 
 import yaml
 
@@ -19,46 +21,58 @@ from chap_core.cli_endpoints._common import (
 
 logger = logging.getLogger(__name__)
 
+class LimeParams(BaseModel):
+    """Configuration for the LIME explainability pipeline."""
+    granularity: int = 8
+    num_perturbations: int = 300
+    surrogate_name: str = "ridge"
+    segmenter_name: str = "uniform"
+    sampler_name: str = "background"
+    weighter_name: str = "pairwise"
+    seed: int | None = None
+    timed: bool = False
+    adaptive: bool = False
 
 
-def explain(
-    model_name: str,
-    dataset_csv: Path,
-    location: str,
-    horizon: int = 1,
-    granularity: int = 6,
-    num_perturbations: int = 300,
-    surrogate_name: str = "ridge",
-    segmenter_name: str = "uniform",
-    sampler_name: str = "background",
-    weighter_name: str = "pairwise",
-    seed: int | None = None,
-    timed: bool = False,
-    adaptive: bool = False,
-    model_configuration_yaml: Optional[Path] = None,
-    run_config: RunConfig = RunConfig(),
+# TODO: Move LIME parameters to pydantic class
+def explain_lime(
+    model_name: Annotated[
+        str,
+        Parameter(help="Model identifier (path or GitHub URL)"),
+    ],
+    dataset_csv: Annotated[
+        Path,
+        Parameter(help="Path to CSV file with disease data"),
+    ],
+    location: Annotated[
+        str,
+        Parameter(help="Location name for which to explain the prediction"),
+    ],
+    horizon: Annotated[
+        int,
+        Parameter(help="Number of time steps into the future to explain"),
+    ] = 1,
+    lime_params: Annotated[
+        LimeParams,
+        Parameter(
+            help="LIME pipeline configuration. Use --lime-params.granularity for segment count, "
+            "--lime-params.segmenter-name for segmentation strategy, "
+            "--lime-params.sampler-name for perturbation strategy, "
+            "--lime-params.num-perturbations for sample count, "
+            "--lime-params.adaptive to enable adaptive mode"
+        ),
+    ] = LimeParams(),
+    run_config: Annotated[
+        RunConfig,
+        Parameter(help="Model execution configuration"),
+    ] = RunConfig(),
+    model_configuration_yaml: Annotated[
+        Path | None,
+        Parameter(help="Path to YAML file with model configuration"),
+    ] = None,
 ):
     """
     Explain a model prediction by providing variable contribution weighting.
-
-    This command accepts a model and a dataset, with the location and horizon
-    providing the specific prediction to explain, and then uses the LIME procedure to
-    find estimated variable contributions.
-
-    Args:
-        model_name: Model identifier (path or GitHub URL)
-        dataset_csv: Path to CSV file with disease data
-        location: String of the location name in which to explain prediction
-        horizon: Int of number of time steps in the future of which to explain prediction
-        granularity: Int of number of segments to divide historical data into
-        surrogate_name: String of the short name of which surrogate model to use
-        segmenter_name: String of the short name of which segmentation model to use
-        sampler_name: String of the short name of which sampling strategy to use
-        seed: Int for seeding in random perturbations
-        timed: Bool for whether to intermittently print execution time of LIME pipeline stages
-        adaptive: Bool for whether to use adaptive version of LIME
-        model_configuration_yaml: Optional YAML file with model configuration
-        run_config: Model run environment configuration
     """
     # TODO: Fix too much printing in console when running
     logger.info(f"Evaluating model {model_name} using LIME")
@@ -95,39 +109,26 @@ def explain(
         logger.info(
             f"Generating explanation for {location}, {horizon} time steps into the future."
         )
-        if adaptive:
-            evaluation = lime.explain_adaptive(  # TODO: Order args
-                model=estimator,
-                dataset=dataset,
-                location=location,
-                horizon=horizon,
-                num_perturbations=num_perturbations,
-                surrogate_name=surrogate_name,
-                segmenter_name=segmenter_name,
-                sampler_name=sampler_name,
-                weighter_name=weighter_name,
-                seed=seed,
-                timed=timed,
-                granularity=granularity,
-            )
-        else:
-            evaluation = lime.explain(  # TODO: Order args
-                model=estimator,
-                dataset=dataset,
-                location=location,
-                horizon=horizon,
-                num_perturbations=num_perturbations,
-                surrogate_name=surrogate_name,
-                segmenter_name=segmenter_name,
-                sampler_name=sampler_name,
-                weighter_name=weighter_name,
-                seed=seed,
-                timed=timed,
-                granularity=granularity,
-            )
+
+        explain_fn = lime.explain_adaptive if lime_params.adaptive else lime.explain
+
+        evaluation = explain_fn(
+            model=estimator,
+            dataset=dataset,
+            location=location,
+            horizon=horizon,
+            num_perturbations=lime_params.num_perturbations,
+            surrogate_name=lime_params.surrogate_name,
+            segmenter_name=lime_params.segmenter_name,
+            sampler_name=lime_params.sampler_name,
+            weighter_name=lime_params.weighter_name,
+            seed=lime_params.seed,
+            timed=lime_params.timed,
+            granularity=lime_params.granularity,
+        )
 
         # TODO: Plot results and save as csv or figure o.s.
 
 def register_commands(app):
     """Register evaluate commands with the CLI app."""
-    app.command()(explain)
+    app.command()(explain_lime)
