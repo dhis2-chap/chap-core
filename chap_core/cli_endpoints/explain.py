@@ -2,27 +2,28 @@
 
 import logging
 from pathlib import Path
-from typing import Optional, Annotated
-from pydantic import BaseModel
-from cyclopts import Parameter
+from typing import Annotated
 
 import yaml
+from cyclopts import Parameter
+from pydantic import BaseModel
 
 from chap_core.api_types import RunConfig
-from chap_core.explainability import lime
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.log_config import initialize_logging
-from chap_core.models.model_template import ModelTemplate
-
 from chap_core.cli_endpoints._common import (
     discover_geojson,
     load_dataset_from_csv,
 )
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+from chap_core.explainability import lime
+from chap_core.log_config import initialize_logging
+from chap_core.models.model_template import ModelTemplate
 
 logger = logging.getLogger(__name__)
 
+
 class LimeParams(BaseModel):
     """Configuration for the LIME explainability pipeline."""
+
     granularity: int = 8
     num_perturbations: int = 300
     surrogate_name: str = "ridge"
@@ -101,18 +102,14 @@ def explain_lime(
         estimator = model()
 
         # TODO: In the future, should load an already trained pickle object or something
-        logger.info(
-            f"Training model..."
-        )
+        logger.info("Training model...")
         estimator.train(dataset)
 
-        logger.info(
-            f"Generating explanation for {location}, {horizon} time steps into the future."
-        )
+        logger.info(f"Generating explanation for {location}, {horizon} time steps into the future.")
 
         explain_fn = lime.explain_adaptive if lime_params.adaptive else lime.explain
 
-        evaluation = explain_fn(
+        explain_fn(
             model=estimator,
             dataset=dataset,
             location=location,
@@ -128,6 +125,7 @@ def explain_lime(
         )
 
         # TODO: Plot results and save as csv or figure o.s.
+
 
 def register_commands(app):
     """Register evaluate commands with the CLI app."""

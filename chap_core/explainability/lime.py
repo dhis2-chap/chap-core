@@ -1,36 +1,34 @@
 import logging
 import random
-from typing import Dict, List, Tuple, Type, Any
-
 import time
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score
 
 from chap_core.climate_predictor import get_climate_predictor
+from chap_core.explainability.distance import *
+from chap_core.explainability.perturb import *
+from chap_core.explainability.plot import plot_importance
+from chap_core.explainability.segment import *
+
 # Wildcard imports to easily add/remove modules in the respective files
 from chap_core.explainability.surrogate import *
-from chap_core.explainability.segment import *
-from chap_core.explainability.perturb import *
-from chap_core.explainability.distance import *
-
-from chap_core.explainability.plot import plot_importance
 from chap_core.model_spec import _non_feature_names
 from chap_core.models.external_model import ExternalModel
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import PeriodRange
 
-
 logger = logging.getLogger(__name__)
 
 
 def avg_samples(
-    data: DataSet, 
-) -> Dict:
+    data: DataSet,
+) -> dict:
     """
     Average range of simulated runs
-    
+
     Args:
         data (DataSet): A dataset of range of sampled predictions
 
@@ -42,16 +40,13 @@ def avg_samples(
     # TODO: Reduce number of samples in prediction?
     sample_cols = dataframe.filter(regex=r"^sample_\d+$").columns
     mean_vals = dataframe[sample_cols].mean(axis=1)
-    tp_len = len(dataframe["time_period"]); val_len = len(mean_vals)
+    tp_len = len(dataframe["time_period"])
+    val_len = len(mean_vals)
     assert tp_len == val_len, f"Error: Length of time period {tp_len} is not equal to length of values {val_len}"
     return dict(zip(dataframe["time_period"], mean_vals))
 
-def is_constant(
-    window: pd.DataFrame,
-    feature_name: str,
-    num_steps: int | None = None,
-    count_down: bool = True
-) -> bool:
+
+def is_constant(window: pd.DataFrame, feature_name: str, num_steps: int | None = None, count_down: bool = True) -> bool:
     """
     Check whether feature varies with time
 
@@ -60,7 +55,7 @@ def is_constant(
         features (list(str)): List of feature names of dataset
         num_steps (int): Number of time steps ito check constantness over
         count_down (bool): Flag over whether to check constantness forward or backwards in time
-    
+
     Return:
         bool of whether value is constant
     """
@@ -72,15 +67,14 @@ def is_constant(
     return series.nunique(dropna=False) <= 1
 
 
-
 def build_original_vector(
     segmenter: SegmentationModel,
     hist_df: pd.DataFrame,
     fut_df: pd.DataFrame,
-    features_hist: List[str],
-    features_fut: List[str],
+    features_hist: list[str],
+    features_fut: list[str],
     horizon: int,
-) -> Tuple[Dict, Dict[str, Indices]]:
+) -> tuple[dict, dict[str, Indices]]:
     """
     Create original information vector for producing perturbed input
 
@@ -90,14 +84,14 @@ def build_original_vector(
         features_hist (list(str)): List of feature names of historical dataset
         features_fut (list(str)): List of feature names of future dataset
         horizon (int): Number of time steps in future to include in vector
-    
+
     Returns:
         Dictionary of feature names and value
     """
     x0 = {}
     feat_indices = {}
 
-    # Segment historical data 
+    # Segment historical data
     for name in features_hist:
         if is_constant(hist_df, name):  # If features doesn't vary with time, add once
             x0[name] = float(hist_df[name].iloc[-1])
@@ -113,11 +107,10 @@ def build_original_vector(
             x0[name] = float(fut_df[name].iloc[0])
         else:
             for i in range(horizon):
-                name_with_time_step = name + "_fut_" + str(i+1)
+                name_with_time_step = name + "_fut_" + str(i + 1)
                 x0[name_with_time_step] = float(fut_df[name].iloc[i])
 
     return x0, feat_indices
-
 
 
 def create_masks(
@@ -126,7 +119,7 @@ def create_masks(
     mutation_rate: float,
     rng: random.Random,
     deterministic: bool = False,
-) -> List[np.ndarray]:
+) -> list[np.ndarray]:
     """
     Create masks for LIME perturbation generation. If deterministic,
     masks are produced as leave-one-out (plus all original).
@@ -158,12 +151,12 @@ def create_masks(
 
 def perturb_vectors(
     hist_df: pd.DataFrame,
-    orig_vector: Dict,
-    feat_indices: Dict,
+    orig_vector: dict,
+    feat_indices: dict,
     sampler: Any,
-    feature_map: List[Tuple[str, str, int | None]],
-    flat_masks: List[np.ndarray],
-) -> Tuple[List[Dict], List[Dict]]:
+    feature_map: list[tuple[str, str, int | None]],
+    flat_masks: list[np.ndarray],
+) -> tuple[list[dict], list[dict]]:
     """
     Perturb original vector to get local variations
 
@@ -178,12 +171,12 @@ def perturb_vectors(
     Return:
         List of perturbed vectors and list of masks
     """
-    perturbations: List[Dict] = []
-    perturbation_masks: List[Dict] = []
+    perturbations: list[dict] = []
+    perturbation_masks: list[dict] = []
 
     for mask in flat_masks:  # TODO: Currently all features are perturbed equally?
-        pb: Dict = {}
-        pb_mask: Dict = {}
+        pb: dict = {}
+        pb_mask: dict = {}
 
         for idx, (_, parent_key, lag) in enumerate(feature_map):
             is_present = int(mask[idx])
@@ -205,9 +198,7 @@ def perturb_vectors(
                 pb[parent_key][lag] = orig_segment
             else:
                 indices = feat_indices[parent_key][lag]
-                pb[parent_key][lag] = sampler.sample(
-                    hist_df, indices, parent_key, len(orig_segment)
-                )
+                pb[parent_key][lag] = sampler.sample(hist_df, indices, parent_key, len(orig_segment))
 
             pb_mask[parent_key][lag] = is_present
 
@@ -218,22 +209,20 @@ def perturb_vectors(
     return perturbations, perturbation_masks
 
 
-
-
 def convert_vector_to_dataset(
-    perturbation: Dict, 
-    hist_df: pd.DataFrame, 
+    perturbation: dict,
+    hist_df: pd.DataFrame,
     fut_df: pd.DataFrame,
-    features_hist: List[str],
-    features_fut: List[str],
+    features_hist: list[str],
+    features_fut: list[str],
     horizon: int,
-    hist_type: Type,
-    fut_type: Type,
-    feat_indices: Dict[str, Dict]
-) -> Tuple[DataSet, DataSet]:
+    hist_type: type,
+    fut_type: type,
+    feat_indices: dict[str, dict],
+) -> tuple[DataSet, DataSet]:
     """
     Convert interpretable vector back into full perturbed dataset
-    
+
     Args:
         perturbation (dict): The perturbed interpretable vector
         hist_df (pandas DataFrame): The original historic dataset
@@ -245,7 +234,7 @@ def convert_vector_to_dataset(
         hist_type (type): Dataclass of historical data
         fut_type (type): Dataclass of future data
         feat_indices (Dict[str, Dict]): Dictionary of segment indices for each temporal feature
-        
+
     Return:
         Historic dataset with perturbed values inserted
         Future dataset with perturbed values inserted
@@ -265,7 +254,7 @@ def convert_vector_to_dataset(
             idx_map = feat_indices[feat]
             if idx_map is None:
                 raise KeyError(f"Missing indices for segmented feature '{feat}'")
-    
+
             col_idx = hist_df.columns.get_loc(feat)
 
             for lag, segment_vals in val.items():
@@ -279,26 +268,25 @@ def convert_vector_to_dataset(
                 # Avoid casting to float if feature is int-like
                 # Originally only cross-checked with np.integer but this still caused errors;
                 # comparing roundedness is a catch-all check
-                is_int_like = (
-                    np.issubdtype(hist_df[feat].dtype, np.integer)
-                    or (len(col_vals) > 0 and np.allclose(col_vals, np.round(col_vals)))
+                is_int_like = np.issubdtype(hist_df[feat].dtype, np.integer) or (
+                    len(col_vals) > 0 and np.allclose(col_vals, np.round(col_vals))
                 )
                 if is_int_like:
                     arr = np.clip(arr, 0, None)
                     arr = np.round(arr).astype(int)
-                
+
                 # Insert perturbed section
                 hist_df.iloc[start_idx:end_idx, col_idx] = arr
         else:
             hist_df[feat] = float(val)
-    
+
     # Future data insertions
     for feat in features_fut:
-        has_steps = any(f"{feat}_fut_{i+1}" in perturbation for i in range(horizon))
+        has_steps = any(f"{feat}_fut_{i + 1}" in perturbation for i in range(horizon))
 
         if has_steps:
             for i in range(horizon):
-                key = f"{feat}_fut_{i+1}"
+                key = f"{feat}_fut_{i + 1}"
                 if key in perturbation and feat in fut_df.columns:
                     fut_df.loc[i, feat] = float(perturbation[key])
         else:
@@ -311,18 +299,14 @@ def convert_vector_to_dataset(
     return new_hist, new_fut
 
 
-
-def build_X_y(
-    results: List[Tuple[Dict, float | int]], 
-    feature_names: List[str]
-) -> Tuple[np.ndarray, np.ndarray]:
+def build_X_y(results: list[tuple[dict, float | int]], feature_names: list[str]) -> tuple[np.ndarray, np.ndarray]:
     """
     Build input matrix and target vector for linear model training
-    
+
     Args:
         results (List[Tuple[Dict, float | int]]): List of perturbed vectors and corresponding targets
         feature_names (List[str]): List of all feature names in perturbed vectors
-    
+
     Returns:
         Tuple of numpy arrays
     """
@@ -333,12 +317,10 @@ def build_X_y(
     return np.asarray(X), np.asarray(y)
 
 
-def flatten_vector(
-    vector: Dict
-) -> Dict[str, int]:
+def flatten_vector(vector: dict) -> dict[str, int]:
     """
     Flattens a perturbation vector mask into a flat dict.
-    
+
     Args:
         vector (dict): The vector to be flattened
 
@@ -349,15 +331,15 @@ def flatten_vector(
     for key, val in vector.items():
         if isinstance(val, dict):
             for lag, segment_data in val.items():
-                    flat[f"{key}_lag_{lag}"] = segment_data
+                flat[f"{key}_lag_{lag}"] = segment_data
         elif isinstance(val, (int, float)):
             flat[key] = val
     return flat
 
 
 def build_feature_map(
-    orig_vector: Dict,
-) -> List[Tuple[str, str, int | None]]:
+    orig_vector: dict,
+) -> list[tuple[str, str, int | None]]:
     """
     Builds mapping from nested keys to feature names
 
@@ -367,7 +349,7 @@ def build_feature_map(
     Returns:
         List of tuples of feature names and their corresponding feature and lag
     """
-    feature_map: List[Tuple[str, str, int | None]] = []
+    feature_map: list[tuple[str, str, int | None]] = []
     # Loop over original vector and extract key (feature name) and lag index
     for key, val in orig_vector.items():
         if isinstance(val, dict):
@@ -376,7 +358,7 @@ def build_feature_map(
         elif isinstance(val, (int, float)):
             feature_map.append((key, key, None))
 
-    # feature_map is a list of lagged feature names (e.g. temperature_lag_3) 
+    # feature_map is a list of lagged feature names (e.g. temperature_lag_3)
     # and corresponding feature name and lag (e.g. temperature and 3)
     return feature_map
 
@@ -385,7 +367,7 @@ def compute_local_weights(
     weighter: Any,
     X: np.ndarray,
     x0_row: np.ndarray,
-    distance_sequences: List[np.ndarray] | None = None,
+    distance_sequences: list[np.ndarray] | None = None,
     x0_sequence: np.ndarray | None = None,
 ) -> np.ndarray:
     if weighter.takes_mask:
@@ -395,17 +377,17 @@ def compute_local_weights(
 
 
 def build_distance_sequences_for_perturbations(
-    perturbations: List[Dict],
+    perturbations: list[dict],
     hist_df: pd.DataFrame,
     fut_df: pd.DataFrame,
-    features_hist: List[str],
-    features_fut: List[str],
+    features_hist: list[str],
+    features_fut: list[str],
     horizon: int,
-    hist_type: Type,
-    fut_type: Type,
-    feat_indices: Dict[str, Dict],
-) -> List[np.ndarray]:
-    sequences: List[np.ndarray] = []
+    hist_type: type,
+    fut_type: type,
+    feat_indices: dict[str, dict],
+) -> list[np.ndarray]:
+    sequences: list[np.ndarray] = []
     for pb in perturbations:
         new_hist, _ = convert_vector_to_dataset(
             pb,
@@ -431,8 +413,8 @@ def generate_adaptive_candidate_masks(
     num_candidates: int,
     mutation_rate: float,
     rng: random.Random,
-    blocked_masks: set[Tuple[int, ...]],
-) -> List[np.ndarray]:
+    blocked_masks: set[tuple[int, ...]],
+) -> list[np.ndarray]:
     """
     Generate candidate masks, biased toward features with high posterior uncertainty.
 
@@ -457,7 +439,7 @@ def generate_adaptive_candidate_masks(
     # Mutation is biased towards more uncertain features
     per_feature_mutation = np.clip(mutation_rate * p * probs, 0.0, 1.0)
 
-    candidates: List[np.ndarray] = []
+    candidates: list[np.ndarray] = []
     local_blocked = set(blocked_masks)
 
     # Include most uncertain features
@@ -510,29 +492,32 @@ def build_dtw_sequence(
     # NaN-check
     mask = ~np.isfinite(seq)
     if mask.any():
-        df_tmp = pd.DataFrame(seq).ffill().bfill().fillna(0.0) # Fill NaN forwards, fallback to backwards, fallback to 0
+        df_tmp = (
+            pd.DataFrame(seq).ffill().bfill().fillna(0.0)
+        )  # Fill NaN forwards, fallback to backwards, fallback to 0
         seq = df_tmp.to_numpy(dtype=float)
     return seq
 
+
 def produce_lime_dataset(
-    model: ExternalModel, 
+    model: ExternalModel,
     dataset: pd.DataFrame,
     future_weather: pd.DataFrame,
-    perturbations: List[Dict],
-    perturbation_masks: List[Dict],
-    feature_names: List[str],
-    features_hist: List[str],
-    features_fut: List[str],
+    perturbations: list[dict],
+    perturbation_masks: list[dict],
+    feature_names: list[str],
+    features_hist: list[str],
+    features_fut: list[str],
     horizon: int,
     location: str,
-    feat_indices: Dict[str, List],
-    hist_type: Type = None,
-    fut_type: Type = None,
+    feat_indices: dict[str, list],
+    hist_type: type = None,
+    fut_type: type = None,
     chunk_size: int = 10,
-) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray], np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], np.ndarray]:
     """
     Produce training input and target dataset for LIME linear surrogate model
-    
+
     Args:
         model (ExternalModel): Model used for producing target values
         dataset (pandas DataFrame): Dataset of historic data to perturb
@@ -550,9 +535,9 @@ def produce_lime_dataset(
         chunk_size (int): Size of prediction chunks
 
     Returns:
-        Tuple of input and output arrays, perturbed and original dtw distance sequence/s 
+        Tuple of input and output arrays, perturbed and original dtw distance sequence/s
     """
-    results: List[Tuple[Dict[str, float], float]] = []
+    results: list[tuple[dict[str, float], float]] = []
     distance_sequences = []
     x0_sequence = build_dtw_sequence(dataset, features_hist)
     # Batch prediction is quicker than individual predictions
@@ -566,22 +551,14 @@ def produce_lime_dataset(
         pert_map = {}
         seq_map = {}
 
-        logger.info(f"Processing prediction chunk {i//chunk_size + 1} ({len(chunk)} perturbations)...")
+        logger.info(f"Processing prediction chunk {i // chunk_size + 1} ({len(chunk)} perturbations)...")
         for j, pb in enumerate(chunk):
             # Predict multiple outputs at once by assigning input data to different "locations" in same df
-            loc_id = f"pb_{i+j}"
+            loc_id = f"pb_{i + j}"
             pert_map[loc_id] = chunk_masks[j]
             # TODO: Should refactor external_model a bit, avoid reduplication on adapt especially
             new_hist, new_fut = convert_vector_to_dataset(
-                pb, 
-                dataset, 
-                future_weather, 
-                features_hist, 
-                features_fut, 
-                horizon, 
-                hist_type,
-                fut_type,
-                feat_indices
+                pb, dataset, future_weather, features_hist, features_fut, horizon, hist_type, fut_type, feat_indices
             )
             # Also store dtw sequence in case dtw distancing is used
             seq_map[loc_id] = build_dtw_sequence(
@@ -591,9 +568,9 @@ def produce_lime_dataset(
             full_hist_dict[loc_id] = new_hist.get_location(location)
             full_fut_dict[loc_id] = new_fut.get_location(location)
 
-        hist_combined = DataSet(full_hist_dict, polygons=None) 
+        hist_combined = DataSet(full_hist_dict, polygons=None)
         fut_combined = DataSet(full_fut_dict, polygons=None)
-        
+
         pred_v = model.predict(hist_combined, fut_combined)
 
         for ds in pred_v.iter_locations():
@@ -607,14 +584,13 @@ def produce_lime_dataset(
                 flat_vec = flatten_vector(pb_vec)
                 distance_sequences.append(seq_map[loc_name])
                 results.append((flat_vec, latest_prob))
-    
+
     if not results:
         raise ValueError("No results generated")
 
     # X is here the perturbation masks, y the black box model output
     X, y = build_X_y(results, feature_names)
     return X, y, distance_sequences, x0_sequence
-
 
 
 def disambiguate_surrogate(name: str):
@@ -627,7 +603,9 @@ def disambiguate_surrogate(name: str):
             raise ValueError(f"Unknown surrogate model: {name}")
 
 
-def disambiguate_segmenter(name: str, granularity: int, window_size: int | None = None): # TODO: Could maybe add a config
+def disambiguate_segmenter(
+    name: str, granularity: int, window_size: int | None = None
+):  # TODO: Could maybe add a config
     """
     Fetch the actual sampler instance from the short name
 
@@ -639,7 +617,7 @@ def disambiguate_segmenter(name: str, granularity: int, window_size: int | None 
     Returns:
         SegmentationModel: Returns the segmentation model with a method "segment"
     """
-    
+
     match name.lower():
         case "uniform":
             return UniformSegmentation(num_segments=granularity)
@@ -651,14 +629,16 @@ def disambiguate_segmenter(name: str, granularity: int, window_size: int | None 
             if window_size is None:
                 raise ValueError("Selected segmenter needs a window_size, which is currently set to None")
             return MatrixProfileSlopeSegmentation(num_segments=granularity, window_size=window_size)
-        case "matrix_diff" | "matrix diff": # TODO: Should probably synchronize names
+        case "matrix_diff" | "matrix diff":  # TODO: Should probably synchronize names
             if window_size is None:
                 raise ValueError("Selected segmenter needs a window_size, which is currently set to None")
             return MatrixProfileSortedSlopeSegmentation(num_segments=granularity, window_size=window_size)
         case "matrix_bins" | "matrix bins":
             if window_size is None:
                 raise ValueError("Selected segmenter needs a window_size, which is currently set to None")
-            return MatrixProfileBinSegmentation(num_segments=granularity, window_size=window_size, num_bins=3, mode="min") # TODO: Hardcoded?
+            return MatrixProfileBinSegmentation(
+                num_segments=granularity, window_size=window_size, num_bins=3, mode="min"
+            )  # TODO: Hardcoded?
         case "sax":
             return SaxTransformSegmentation(num_segments=granularity)
         case "nn":
@@ -720,11 +700,11 @@ def explain(
     sampler_name: str = "background",
     weighter_name: str = "pairwise",
     seed: int | None = None,
-    timed: bool = False
+    timed: bool = False,
 ):
     """
     Model-agnostic function to supply variable contribution weighting for specific prediction
-    
+
     Args:
         model (ExternalModel): A trained predictor on which to generate explanation
         dataset (DataSet): The dataset on which to perturb
@@ -763,7 +743,7 @@ def explain(
     # Make future prediction for climate columns
     climate_predictor = get_climate_predictor(dataset)
     future_weather = climate_predictor.predict(prediction_range)
-    
+
     # Isolate dataset to selected location
     dataset_loc = dataset.filter_locations([location])  # TODO: Just use dataset[location]?
     future_weather = future_weather.filter_locations([location])
@@ -775,22 +755,13 @@ def explain(
     # Sort by dates, and extract feature names
     hist_df = dataset_loc.to_pandas().sort_values("time_period").reset_index(drop=True)
     future_df = future_weather.to_pandas().sort_values("time_period").reset_index(drop=True)
-    
 
     assert len(future_df) >= horizon, f"Need at least {horizon} future steps, got {len(future_df)}"
-    
-    # Isolate features
-    features_hist = [
-        fn 
-        for fn in dataset_loc.field_names() 
-        if fn not in _non_feature_names
-    ]
 
-    features_fut = [
-        fn
-        for fn in future_weather.field_names() 
-        if fn not in _non_feature_names
-    ]
+    # Isolate features
+    features_hist = [fn for fn in dataset_loc.field_names() if fn not in _non_feature_names]
+
+    features_fut = [fn for fn in future_weather.field_names() if fn not in _non_feature_names]
 
     # Handle any missing values
     hist_df = hist_df.copy()
@@ -798,9 +769,8 @@ def explain(
 
     # Preparation for time series segmentation
     # Window size is used in matrix profiling for some segmenters, as the size of a sliding window
-    window_size = min(max(5, len(hist_df)//30), len(hist_df))  # TODO: Heuristic for now
+    window_size = min(max(5, len(hist_df) // 30), len(hist_df))  # TODO: Heuristic for now
     segmenter = disambiguate_segmenter(segmenter_name, granularity, window_size)
-
 
     if timed:
         print_time(start, "Finished LIME preparations in %.4f seconds")
@@ -808,15 +778,10 @@ def explain(
     # =================================================================
     # Build original vector around which to generate perturbed vectors
     # =================================================================
-    
+
     # Build the input vector for the prediction to explain
     x0, feat_indices = build_original_vector(  # TODO: Return number of variables to scale mutation_rate accordingly
-        segmenter,
-        hist_df, 
-        future_df, 
-        features_hist, 
-        features_fut, 
-        horizon
+        segmenter, hist_df, future_df, features_hist, features_fut, horizon
     )
 
     if timed:
@@ -844,14 +809,12 @@ def explain(
         num_masks=num_perturbations,
         mutation_rate=0.05,  # Mutation rate is currently not based on anything; selected intuitively
         rng=rng,
-        deterministic=False  # In standard LIME, perturbation is a stochastic process
+        deterministic=False,  # In standard LIME, perturbation is a stochastic process
     )
 
     # Create the actual perturbations - these are variations on the original input vector where
     # some of the segments in the time series have been altered
-    perturbations, perturbation_masks = perturb_vectors(
-        hist_df, x0, feat_indices, sampler, feature_map, flat_masks
-    )
+    perturbations, perturbation_masks = perturb_vectors(hist_df, x0, feat_indices, sampler, feature_map, flat_masks)
 
     if timed:
         print_time(start, "Finished creating perturbation vectors at %.4f seconds")
@@ -859,12 +822,12 @@ def explain(
     # =================================================================
     # Get target values for generated perturbations
     # =================================================================
-    
-    # The surrogate model must be trained on the masks and the output of the original model 
+
+    # The surrogate model must be trained on the masks and the output of the original model
     # on the perturbed data, obtained here. Also obtain dtw sequences (simply the temporal columns in
-    # a dataframe) for perturbations and original input, for later potential dtw distancing  
+    # a dataframe) for perturbations and original input, for later potential dtw distancing
     X, y, distance_sequences, x0_sequence = produce_lime_dataset(
-        model, 
+        model,
         hist_df,
         future_df,
         perturbations,
@@ -876,12 +839,12 @@ def explain(
         location,
         feat_indices,
         hist_type,
-        fut_type
+        fut_type,
     )
 
     if timed:
         print_time(start, "Finished creating LIME surrogate training dataset at %.4f seconds")
-    
+
     x0_row = np.ones(X.shape[1], dtype=float)
 
     # 3/4 * sqrt(num_features) is the most common kernel width in LIME papers
@@ -889,19 +852,13 @@ def explain(
     kw = 0.75 * np.sqrt(X.shape[1])
 
     weighter = disambiguate_weighter(weighter_name, kw)
-    weights = compute_local_weights(
-        weighter,
-        X,
-        x0_row,
-        distance_sequences,
-        x0_sequence
-    )
+    weights = compute_local_weights(weighter, X, x0_row, distance_sequences, x0_sequence)
 
     # Log transform for output with potentially long tail
     z = np.log1p(y)
 
     surrogate_model = disambiguate_surrogate(surrogate_name)
-    
+
     if timed:
         print_time(start, "Prepared surrogate at %.4f seconds")
 
@@ -910,10 +867,10 @@ def explain(
     # =================================================================
 
     surrogate_model.fit(X, z, weights)
-    
+
     if timed:
         print_time(start, "Trained surrogate at %.4f seconds")
-    
+
     results = surrogate_model.explain(feature_names)
 
     if timed:
@@ -925,14 +882,16 @@ def explain(
 
     # Temporary metrics TODO: update
     z_hat = surrogate_model.predict(X)
-    r2 = r2_score(z, z_hat, sample_weight=weights) # Compare similarity of output in neighborhood of prediction
-    n_eff = (weights.sum() ** 2) / (weights ** 2).sum() # Effective number of perturbations, based on the distribution of weighting of perturbations
+    r2 = r2_score(z, z_hat, sample_weight=weights)  # Compare similarity of output in neighborhood of prediction
+    n_eff = (weights.sum() ** 2) / (
+        weights**2
+    ).sum()  # Effective number of perturbations, based on the distribution of weighting of perturbations
     logger.info(f"Surrogate weighted R2={r2:.3f}, effective N={n_eff:.1f}, p={X.shape[1]}")
 
     logger.info("Coefficients:")
     for name, c in results.as_sorted():
         logger.info(f"{name:>12}: {c:+.4f}")
-    
+
     # TODO: Let user select last n datapoints to use in explanation...?
     plot_importance(results.as_sorted(), hist_df, future_df, feat_indices)
 
@@ -949,13 +908,13 @@ def explain_adaptive(
     sampler_name: str = "background",
     weighter_name: str = "pairwise",
     seed: int | None = None,
-    timed: bool = False
+    timed: bool = False,
 ):
     """
     Model-agnostic function using adaptive perturbation selection with a Bayesian
     linear acquisition model, then training the selected surrogate on the resulting
     local dataset.
-    
+
     Args:
         model (ExternalModel): A trained predictor on which to generate explanation
         dataset (DataSet): The dataset on which to perturb
@@ -976,11 +935,10 @@ def explain_adaptive(
         logger.info("Started bayesian LIME pipeline")
 
     # TODO: Might be useful to break upon some evaluation stagnation, eliminating the need for num_perturbations altogether
-    
+
     # =================================================================
     # Prepare dataset
     # =================================================================
-
 
     assert horizon > 0, f"Horizon must be positive; received horizon={horizon}"
     assert location in dataset.locations(), f"Location {location} not found in dataset"
@@ -1003,20 +961,11 @@ def explain_adaptive(
     hist_df = dataset_loc.to_pandas().sort_values("time_period").reset_index(drop=True)
     future_df = future_weather.to_pandas().sort_values("time_period").reset_index(drop=True)
 
-    
     assert len(future_df) >= horizon, f"Need at least {horizon} future steps, got {len(future_df)}"
 
-    features_hist = [
-        fn
-        for fn in dataset_loc.field_names()
-        if fn not in _non_feature_names
-    ]
+    features_hist = [fn for fn in dataset_loc.field_names() if fn not in _non_feature_names]
 
-    features_fut = [
-        fn
-        for fn in future_weather.field_names()
-        if fn not in _non_feature_names
-    ]
+    features_fut = [fn for fn in future_weather.field_names() if fn not in _non_feature_names]
     # TODO: Inform user of backfill/forward fill for missing numbers (better ways of doing this?)
     hist_df = hist_df.copy()
     hist_df[features_hist] = hist_df[features_hist].ffill().bfill()
@@ -1068,11 +1017,11 @@ def explain_adaptive(
     acquisition_batch_size = max(1, num_perturbations // 10)
 
     initial_flat_masks = create_masks(num_features, num_initial_perturbations, mutation_rate, rng, deterministic=True)
-    
+
     initial_perturbations, initial_perturbation_masks = perturb_vectors(
         hist_df, x0, feat_indices, sampler, feature_map, initial_flat_masks
     )
-    
+
     # =================================================================
     # Get target values for initial generated perturbations
     # =================================================================
@@ -1096,7 +1045,6 @@ def explain_adaptive(
     if timed:
         print_time(start, "Finished initial adaptive perturbation evaluation at %.4f seconds")
 
-    
     # =================================================================
     # Start adaptive pipeline
     # =================================================================
@@ -1127,7 +1075,9 @@ def explain_adaptive(
         uncertainty_tol = 0.05
         if coef_std is None:
             raise ValueError("Coef_std is None")
-        if len(y) >= num_initial_perturbations and np.all(coef_std <= uncertainty_tol):  # TODO: Doesn't work per now, std must be dynamic or smt
+        if len(y) >= num_initial_perturbations and np.all(
+            coef_std <= uncertainty_tol
+        ):  # TODO: Doesn't work per now, std must be dynamic or smt
             logger.info("Stopping adaptive sampling early because coefficient uncertainty is below threshold")
             break
 
@@ -1159,7 +1109,7 @@ def explain_adaptive(
         X_candidates = np.vstack(candidate_flat_masks).astype(float)
 
         # =================================================================
-        # Find optimal perturbations for maximizing acquisition function 
+        # Find optimal perturbations for maximizing acquisition function
         # =================================================================
 
         if weighter.takes_mask:
@@ -1220,7 +1170,9 @@ def explain_adaptive(
 
         if timed:
             mid = time.perf_counter()
-            logger.info(f"Finished adaptive batch; total evaluated perturbations={len(y)} at {(mid - start):.4f} seconds")
+            logger.info(
+                f"Finished adaptive batch; total evaluated perturbations={len(y)} at {(mid - start):.4f} seconds"
+            )
 
     # =================================================================
     # Train surrogate
@@ -1234,7 +1186,7 @@ def explain_adaptive(
         x0_sequence=x0_sequence,
     )
     z = np.log1p(y)
-    
+
     surrogate_model = disambiguate_surrogate(surrogate_name)
 
     if timed:
@@ -1244,7 +1196,6 @@ def explain_adaptive(
 
     if timed:
         print_time(start, "Trained surrogate at %.4f seconds")
-
 
     # =================================================================
     # Extract explanations
@@ -1257,7 +1208,7 @@ def explain_adaptive(
 
     z_hat = surrogate_model.predict(X)
     r2 = r2_score(z, z_hat, sample_weight=weights)
-    n_eff = (weights.sum() ** 2) / (weights ** 2).sum()
+    n_eff = (weights.sum() ** 2) / (weights**2).sum()
     logger.info(f"Adaptive surrogate weighted R2={r2:.3f}, effective N={n_eff:.1f}, p={X.shape[1]}, n={X.shape[0]}")
 
     logger.info("Coefficients:")
@@ -1267,10 +1218,9 @@ def explain_adaptive(
     plot_importance(results.as_sorted(), hist_df, future_df, feat_indices)
 
 
-
-
 if __name__ == "__main__":
     from pathlib import Path
+
     from chap_core.cli_endpoints._common import load_dataset_from_csv
     from chap_core.models.utils import get_model_from_directory_or_github_url
 

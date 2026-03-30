@@ -10,7 +10,15 @@ warnings.filterwarnings("ignore", module="bionumpy")
 
 from cyclopts import App
 
-from chap_core.cli_endpoints import convert, evaluate, explain, forecast, preference_learn, utils, validate  # noqa: E402
+from chap_core.cli_endpoints import (
+    convert,
+    evaluate,
+    explain,
+    forecast,
+    preference_learn,
+    utils,
+    validate,
+)
 
 logging.basicConfig(
     level=logging.INFO,

@@ -2,59 +2,57 @@
 Functionality for segmenting time series data into interpretable blocks (segments) of data
 """
 
-import pandas as pd
+from typing import Protocol
+
 import numpy as np
+import pandas as pd
 import stumpy
-
 from pyts.approximation import SymbolicAggregateApproximation
-from typing import Protocol, Dict, List, Tuple
 
+Segment = list[float]
+Segments = dict[int, Segment]
+Indices = dict[int, tuple[int, int]]
 
-
-Segment = List[float]
-Segments = Dict[int, Segment] 
-Indices = Dict[int, Tuple[int, int]]
 
 class SegmentationModel(Protocol):
-    def segment(self, data: pd.DataFrame) -> Tuple[Segments, Indices]: ... # TODO
-
-
+    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]: ...  # TODO
 
 
 class UniformSegmentation(SegmentationModel):
     def __init__(self, num_segments=5):
-        self.num_segments=num_segments
+        self.num_segments = num_segments
 
-    def segment(self, data: pd.DataFrame) -> Tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]:
         segments = {}
         indices = {}
 
         data_len = len(data)
         segment_len = data_len // self.num_segments
-        
+
         current_idx = 0
 
         for i in range(self.num_segments):
             lag = (self.num_segments - 1) - i
-        
+
             if i == self.num_segments - 1:
                 subset = data.iloc[current_idx:]
             else:
                 subset = data.iloc[current_idx : current_idx + segment_len]
-                
+
             start = current_idx
             end = current_idx + len(subset)
             indices[lag] = (start, end)
             segments[lag] = subset.to_numpy().tolist()
             current_idx = end
-                
+
         return segments, indices
+
 
 class ExponentialSegmentation:
     def __init__(self, num_segments=5):
-        self.num_segments=num_segments  # ExponentialSegmentation accepts num_segments but doesn't use - change?
-        
-    def segment(self, data: pd.DataFrame) -> Tuple[Segments, Indices]:
+        self.num_segments = num_segments  # ExponentialSegmentation accepts num_segments but doesn't use - change?
+
+    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]:
         segments = {}
         indices = {}
 
@@ -75,18 +73,19 @@ class ExponentialSegmentation:
             end = current_idx + len(subset)
             indices[lag] = (start, end)
             segments[lag] = subset.to_numpy().tolist()
-            
+
             current_idx = end
             if current_idx >= data_len:
                 break
-                
+
         return segments, indices
+
 
 class ReverseExponentialSegmentation:
     def __init__(self, num_segments=5):
         self.num_segments = num_segments  # as in ExponentialSegmentation
 
-    def segment(self, data: pd.DataFrame) -> Tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]:
         segments = {}
         indices = {}
 
@@ -123,7 +122,7 @@ class MatrixProfileSlopeSegmentation:
         self.num_segments = num_segments
         self.m = window_size
 
-    def segment(self, data: pd.DataFrame | pd.Series) -> Tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         segments = {}
         indices = {}
 
@@ -157,7 +156,7 @@ class MatrixProfileSlopeSegmentation:
             indices[lag] = (start, end)
             segments[lag] = x[start:end].tolist()
 
-        return segments, indices 
+        return segments, indices
 
 
 class MatrixProfileSortedSlopeSegmentation:
@@ -165,7 +164,7 @@ class MatrixProfileSortedSlopeSegmentation:
         self.num_segments = num_segments
         self.m = window_size
 
-    def segment(self, data: pd.DataFrame | pd.Series) -> Tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         segments: Segments = {}
         indices: Indices = {}
 
@@ -209,12 +208,14 @@ class MatrixProfileSortedSlopeSegmentation:
 
 class MatrixProfileBinSegmentation:
     def __init__(self, num_segments: int, window_size: int, num_bins: int, mode: str = "min"):
-        self.num_segments = num_segments  # As before, num_segments is not used. Remove, or concat until num_segments? TODO
+        self.num_segments = (
+            num_segments  # As before, num_segments is not used. Remove, or concat until num_segments? TODO
+        )
         self.num_bins = num_bins
         self.m = window_size
         self.mode = mode  # one of ["min", "max"] TODO: Safety check
 
-    def segment(self, data: pd.DataFrame | pd.Series) -> Tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         segments: Segments = {}
         indices: Indices = {}
 
@@ -263,7 +264,6 @@ class MatrixProfileBinSegmentation:
         return segments, indices
 
 
-
 def count_runs(symbols_1d: np.ndarray) -> int:
     if len(symbols_1d) == 0:
         return 0
@@ -278,7 +278,7 @@ class SaxTransformSegmentation:
     def __init__(self, num_segments: int):
         self.num_segments = num_segments
 
-    def segment(self, data: pd.DataFrame | pd.Series) -> Tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         # This algo doesn't really work at all on the kinds of noisy data we have
         segments: Segments = {}
         indices: Indices = {}
@@ -341,7 +341,6 @@ class SaxTransformSegmentation:
         return segments, indices
 
 
-
 def rho(x: np.ndarray, m: int, i: int, k: int) -> float:  # From the paper
     wi = x[i : i + m]
     wk = x[k : k + m]
@@ -352,13 +351,12 @@ def rho(x: np.ndarray, m: int, i: int, k: int) -> float:  # From the paper
     return abs((mu_i / sd_i) - (mu_k / sd_k))
 
 
-
 class NNSegmentation:
     def __init__(self, num_segments: int, window_size: int):
         self.num_segments = num_segments
         self.m = window_size
 
-    def segment(self, data: pd.DataFrame | pd.Series) -> Tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         segments: Segments = {}
         indices: Indices = {}
 
@@ -377,12 +375,12 @@ class NNSegmentation:
         nn_id = s[:, 1].astype(np.int64)  # Second column is the index of most similar section
         id_len = len(nn_id)
 
-        candidates: List[Tuple[int, float]] = []
+        candidates: list[tuple[int, float]] = []
 
         for i in range(id_len - 1):
-            if nn_id[i+1] != nn_id[i] + 1:
-                left_i = max(0, i-self.m)
-                right_i = min(id_len-1, i + self.m)
+            if nn_id[i + 1] != nn_id[i] + 1:
+                left_i = max(0, i - self.m)
+                right_i = min(id_len - 1, i + self.m)
                 r_left = rho(x, self.m, i, left_i)
                 r_right = rho(x, self.m, i, right_i)
 
@@ -392,11 +390,11 @@ class NNSegmentation:
                 else:
                     candidate = i + self.m
                     score = r_right
-                
+
                 candidates.append((candidate, score))
 
         candidates.sort(key=lambda t: t[1], reverse=True)
-        top = candidates[:self.num_segments]
+        top = candidates[: self.num_segments]
 
         boundaries = [c for c, _ in top]
         boundaries = sorted(boundaries)
@@ -411,8 +409,6 @@ class NNSegmentation:
             segments[lag] = x[start:end].tolist()
 
         return segments, indices
-
-
 
 
 """

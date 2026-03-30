@@ -2,15 +2,13 @@
 Functionality for sampling counterfactual data for LIME
 """
 
-import random
-import pandas as pd
-import numpy as np
-
-from scipy.signal import ShortTimeFFT, get_window
-from typing import Protocol, List, Tuple
-
 import logging
+import random
+from typing import Protocol
 
+import numpy as np
+import pandas as pd
+from scipy.signal import ShortTimeFFT, get_window
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,80 +18,76 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-
-
-
 class SampleModel(Protocol):
-    def sample(self, hist_df: pd.DataFrame, indices: Tuple[int, int], feature_name: str, length: int) -> List[float]: ...
-
+    def sample(
+        self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int
+    ) -> list[float]: ...
 
 
 class LinearInterpolation:
     def __init__(
-            self,
-            rng: random.Random,
-            ):
+        self,
+        rng: random.Random,
+    ):
         self.rng = rng
 
-    def sample(self, hist_df: pd.DataFrame, indices: Tuple[int, int], feature_name: str, length: int):
+    def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
         start, end = indices
         left = max(start - 1, 0)
-        right = min(len(hist_df)-1, end)
+        right = min(len(hist_df) - 1, end)
         length = (right - left) + 1
 
         v_left = float(hist_df[feature_name].iloc[left])
         v_right = float(hist_df[feature_name].iloc[right])
         vals = np.linspace(v_left, v_right, length)
-        
+
         segment_vals = vals[start - left : end - left]
         return segment_vals.tolist()
 
-        
+
 class ConstantTransform:
     def __init__(
-            self,
-            rng: random.Random,
-            ):
+        self,
+        rng: random.Random,
+    ):
         self.rng = rng
 
-    def sample(self, hist_df: pd.DataFrame, indices: Tuple[int, int], feature_name: str, length: int):
-        segment = [0.0]*length
+    def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
+        segment = [0.0] * length
         return segment
 
 
 class LocalMean:
     def __init__(
-            self,
-            rng: random.Random,
-            ):
+        self,
+        rng: random.Random,
+    ):
         self.rng = rng
 
-    def sample(self, hist_df: pd.DataFrame, indices: Tuple[int, int], feature_name: str, length: int):
+    def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
         start, end = indices
         mean = float(np.mean(hist_df[feature_name].iloc[start:end]))
         return [mean] * length
 
+
 class GlobalMean:
     def __init__(
-            self,
-            rng: random.Random,
-            ):
+        self,
+        rng: random.Random,
+    ):
         self.rng = rng
 
-    def sample(self, hist_df: pd.DataFrame, indices: Tuple[int, int], feature_name: str, length: int):
+    def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
         mean = float(np.mean(hist_df[feature_name]))
         return [mean] * length
 
+
 class RandomUniform:
-    def __init__(
-            self,
-            rng: random.Random,
-            dataset: pd.DataFrame
-            ):
+    def __init__(self, rng: random.Random, dataset: pd.DataFrame):
         self.rng = rng
         self.dataset = dataset
 
-    def sample(self, hist_df: pd.DataFrame, indices: Tuple[int, int], feature_name: str, length: int):
+    def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
         max_val = np.max(self.dataset[feature_name])
         min_val = np.min(self.dataset[feature_name])
         rand_vals = [self.rng.uniform(min_val, max_val) for i in range(length)]
@@ -102,24 +96,24 @@ class RandomUniform:
 
 class RandomBackground:
     def __init__(
-            self,
-            rng: random.Random,
-            dataset: pd.DataFrame,
-            ):
+        self,
+        rng: random.Random,
+        dataset: pd.DataFrame,
+    ):
         self.rng = rng
         self.dataset = dataset
 
-    def sample(self, hist_df: pd.DataFrame, indices: Tuple[int, int], feature_name: str, length: int):
+    def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
         locations = self.dataset["location"].dropna().unique().tolist()
 
-        for _ in range(3): # Retries twice if selected window is too narrow
+        for _ in range(3):  # Retries twice if selected window is too narrow
             loc = self.rng.choice(locations)
             loc_df: pd.DataFrame = self.dataset[self.dataset["location"] == loc]
 
             if len(loc_df) < length:
                 continue
 
-            max_start = len(loc_df) - length            
+            max_start = len(loc_df) - length
             start = self.rng.randrange(0, max_start + 1)
             vals = loc_df.iloc[start : start + length][feature_name].astype(float).tolist()
 
@@ -127,20 +121,14 @@ class RandomBackground:
                 continue
 
             return vals
-        
+
         # Fallback
         logger.info("Background sampling failed; fallback to constant value")
         return [0.0] * length
 
 
 class FourierReplacement:
-    def __init__(
-            self,
-            rng: random.Random,
-            dataset: pd.DataFrame,
-            window_size: int,
-            freq: float
-            ):
+    def __init__(self, rng: random.Random, dataset: pd.DataFrame, window_size: int, freq: float):
         self.rng = rng
         self.dataset = dataset
         self.window_size = window_size
@@ -168,8 +156,8 @@ class FourierReplacement:
             win_size = self.window_size
 
         win_size = max(2, min(win_size, ts_length - 1))
-        
-        win = get_window('hann', win_size)
+
+        win = get_window("hann", win_size)
         stft = ShortTimeFFT(win, hop=1, fs=self.freq)
         x_stft = stft.stft(ts)
         f_persist = self.extract_argmax(x_stft)
@@ -183,35 +171,30 @@ class FourierReplacement:
             R = np.copy(ts)
 
         return R
-    
+
     def extract_argmax(self, x_stft: np.ndarray):
         mag = np.abs(x_stft)
         mean_mag = np.mean(mag, axis=1)
         std_mag = np.std(mag, axis=1)
         score = mean_mag / (std_mag + 1e-9)
         return np.argmax(score)
-    
-    def sample(self, hist_df: pd.DataFrame, indices: Tuple[int, int], feature_name: str, length: int):
+
+    def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
         start, end = indices
         if feature_name not in self.R_cache:
             ts = hist_df[feature_name].to_numpy()
             self.R_cache[feature_name] = self.calculate_background(ts)
-        
+
         segment = np.asarray(self.R_cache[feature_name][start:end], dtype=float)
 
         if len(segment) != length or not np.isfinite(segment).all():
-            logger.warning(
-                f"Invalid Fourier segment for {feature_name}; falling back to original segment"
-            )
+            logger.warning(f"Invalid Fourier segment for {feature_name}; falling back to original segment")
             segment = hist_df[feature_name].iloc[start:end].to_numpy(dtype=float)
 
         if len(segment) != length or not np.isfinite(segment).all():
-            logger.warning(
-                f"Original segment for {feature_name} is also invalid; using zeros"
-            )
+            logger.warning(f"Original segment for {feature_name} is also invalid; using zeros")
             segment = np.zeros(length, dtype=float)
         return segment.tolist()
-
 
 
 """
