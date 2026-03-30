@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - feat/helm2
 
 jobs:
   release:
