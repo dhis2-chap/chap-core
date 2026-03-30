@@ -7,7 +7,7 @@ build:
     - image: ghcr.io/dhis2-chap/chap-core
       docker:
         dockerfile: Dockerfile
-    - image: ghcr.io/dhis2-chap/chap-worker-with-inla
+    - image: ghcr.io/dhis2-chap/chap-worker
       docker:
         dockerfile: Dockerfile.worker
 deploy:
@@ -20,17 +20,9 @@ deploy:
         namespace: chap
         createNamespace: true
         setValueTemplates:
-          image:
-            pullPolicy: Always
-          valkeyConnection:
-            password: "{{.REDIS_PASSWORD}}"
-          googleServiceAccount:
-            email: "{{.GOOGLE_SERVICE_ACCOUNT_EMAIL}}"
-            privateKey: "{{.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}}"
-          ingress:
-            enabled: false
-            hosts:
-              - host: "{{.HOST}}"
-                paths:
-                  - path: /
-                    pathType: ImplementationSpecific
+          chap-api.image.pullPolicy: Always
+          chap-worker.image.pullPolicy: Always
+          chap-valkey.valkey.auth.aclUsers.default.password: "{{.REDIS_PASSWORD}}"
+          chap-api.googleServiceAccount.email: "{{.GOOGLE_SERVICE_ACCOUNT_EMAIL}}"
+          chap-api.googleServiceAccount.privateKey: "{{.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}}"
+          chap-api.ingress.enabled: "false"

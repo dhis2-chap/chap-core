@@ -1,0 +1,33 @@
+# CHAP DB Chart - Values
+
+# -- Common labels applied to all Kubernetes resources created by this chart.
+commonLabels: {}
+
+nameOverride: "chap-db"
+fullnameOverride: ""
+
+postgresql:
+  password: changeme
+  existingSecret: ""
+  secretKeys:
+    username: username
+    password: password
+  cnpg:
+    cluster:
+      enabled: true
+      instances: 1
+      storageSize: 10Gi
+      version: "17"
+      database: chap_core
+      imageName: ""
+      pooler:
+        enabled: false
+      monitoring:
+        enabled: false
+  external:
+    enabled: false
+    host: ""
+    port: 5432
+    database: chap_core
+    user: postgres
+    password: ""

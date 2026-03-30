@@ -1,0 +1,21 @@
+# CHAP Valkey Chart - Values
+
+# -- Common labels applied to all Kubernetes resources created by this chart.
+commonLabels: {}
+
+nameOverride: "chap-valkey"
+fullnameOverride: ""
+
+valkey:
+  enabled: true
+  auth:
+    enabled: true
+    aclUsers:
+      default:
+        password: changeme
+        permissions: "~* &* +@all"
+  persistence:
+    enabled: true
+    size: 8Gi
+  # commonLabels mirrors the parent chart's commonLabels so IM labels reach valkey pods.
+  commonLabels: {}
