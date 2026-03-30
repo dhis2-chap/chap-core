@@ -10,10 +10,10 @@ dependencies:
     version: 0.1.0
     repository: "file://../chap-db"
     condition: chap-db.enabled
-  - name: chap-valkey
-    version: 0.1.0
-    repository: "file://../chap-valkey"
-    condition: chap-valkey.enabled
+  - name: valkey
+    version: 0.9.2
+    repository: "https://valkey.io/valkey-helm"
+    condition: valkey.enabled
   - name: chap-api
     version: 0.1.0
     repository: "file://../chap-api"

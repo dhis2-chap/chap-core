@@ -22,7 +22,7 @@ deploy:
         setValueTemplates:
           chap-api.image.pullPolicy: Always
           chap-worker.image.pullPolicy: Always
-          chap-valkey.valkey.auth.aclUsers.default.password: "{{.REDIS_PASSWORD}}"
+          valkey.auth.aclUsers.default.password: "{{.REDIS_PASSWORD}}"
           chap-api.googleServiceAccount.email: "{{.GOOGLE_SERVICE_ACCOUNT_EMAIL}}"
           chap-api.googleServiceAccount.privateKey: "{{.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}}"
           chap-api.ingress.enabled: "false"

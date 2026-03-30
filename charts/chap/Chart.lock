@@ -2,14 +2,14 @@ dependencies:
 - name: chap-db
   repository: file://../chap-db
   version: 0.1.0
-- name: chap-valkey
-  repository: file://../chap-valkey
-  version: 0.1.0
+- name: valkey
+  repository: https://valkey.io/valkey-helm
+  version: 0.9.2
 - name: chap-api
   repository: file://../chap-api
   version: 0.1.0
 - name: chap-worker
   repository: file://../chap-worker
   version: 0.1.0
-digest: sha256:faf3693f519e73b0d70b0cb67d36e3731fabb5089c3fe1d304a8548a1324815e
-generated: "2026-03-30T14:19:17.916391119+07:00"
+digest: sha256:9b2d06d3700e8f4faf2746511931f9002c13f2fd4469132a081f7670d1a9675f
+generated: "2026-03-30T21:56:41.725890467+07:00"

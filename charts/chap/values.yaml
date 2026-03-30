@@ -2,7 +2,6 @@
 
 # -- Common labels applied to all Kubernetes resources.
 # When deploying via IM, set these to the IM-required labels so they propagate to all pods.
-# Note: chap-valkey.valkey.commonLabels must mirror this value (Helm does not auto-propagate).
 commonLabels: {}
 
 chap-db:
@@ -21,21 +20,18 @@ chap-db:
       enabled: false
   commonLabels: {}
 
-chap-valkey:
+valkey:
   enabled: true
   fullnameOverride: "chap-valkey"
-  valkey:
-    auth:
-      enabled: true
-      aclUsers:
-        default:
-          password: changeme
-          permissions: "~* &* +@all"
-    persistence:
-      enabled: true
-      size: 8Gi
-    # Must mirror the top-level commonLabels so IM labels reach valkey pods.
-    commonLabels: {}
+  auth:
+    enabled: true
+    aclUsers:
+      default:
+        password: changeme
+        permissions: "~* &* +@all"
+  persistence:
+    enabled: true
+    size: 8Gi
   commonLabels: {}
 
 chap-api:
