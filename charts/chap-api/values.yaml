@@ -1,0 +1,116 @@
+# CHAP API Chart - Values
+
+# -- Common labels applied to all Kubernetes resources created by this chart.
+commonLabels: {}
+
+# -- Annotations applied to all pods deployed by this chart.
+podAnnotations: {}
+# -- Labels applied to all pods deployed by this chart.
+podLabels: {}
+
+image:
+  repository: ghcr.io/dhis2-chap/chap-core
+  pullPolicy: IfNotPresent
+  tag: ""
+
+replicaCount: 1
+
+command:
+  - uvicorn
+  - chap_core.rest_api.app:app
+  - --host
+  - 0.0.0.0
+  - --port
+  - "8000"
+
+resources: {}
+
+volumeMounts: []
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+imagePullSecrets: []
+
+nameOverride: "chap-api"
+fullnameOverride: ""
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+postgres:
+  existingSecret: ""
+  secretKeys:
+    username: username
+    password: password
+  host: ""
+  port: 5432
+  database: ""
+
+valkey:
+  existingSecret: ""
+  secretKeys:
+    password: default-password
+  host: ""
+  port: 6379
+  password: ""
+
+googleServiceAccount:
+  email: ""
+  privateKey: ""
