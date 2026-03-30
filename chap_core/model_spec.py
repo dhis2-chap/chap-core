@@ -7,6 +7,7 @@ import chap_core.predictor.feature_spec as fs
 from chap_core.datatypes import TimeSeriesData
 
 _non_feature_names = {
+    "disease_cases",
     "week",
     "month",
     "location",

@@ -22,6 +22,8 @@ from chap_core.time_period.date_util_wrapper import PeriodRange
 
 logger = logging.getLogger(__name__)
 
+_non_feature_names_plus_disease = _non_feature_names
+_non_feature_names_plus_disease.remove("disease_cases")
 
 def avg_samples(
     data: DataSet,
@@ -759,9 +761,9 @@ def explain(
     assert len(future_df) >= horizon, f"Need at least {horizon} future steps, got {len(future_df)}"
 
     # Isolate features
-    features_hist = [fn for fn in dataset_loc.field_names() if fn not in _non_feature_names]
+    features_hist = [fn for fn in dataset_loc.field_names() if fn not in _non_feature_names_plus_disease]
 
-    features_fut = [fn for fn in future_weather.field_names() if fn not in _non_feature_names]
+    features_fut = [fn for fn in future_weather.field_names() if fn not in _non_feature_names_plus_disease]
 
     # Handle any missing values
     hist_df = hist_df.copy()
@@ -963,9 +965,9 @@ def explain_adaptive(
 
     assert len(future_df) >= horizon, f"Need at least {horizon} future steps, got {len(future_df)}"
 
-    features_hist = [fn for fn in dataset_loc.field_names() if fn not in _non_feature_names]
+    features_hist = [fn for fn in dataset_loc.field_names() if fn not in _non_feature_names_plus_disease]
 
-    features_fut = [fn for fn in future_weather.field_names() if fn not in _non_feature_names]
+    features_fut = [fn for fn in future_weather.field_names() if fn not in _non_feature_names_plus_disease]
     # TODO: Inform user of backfill/forward fill for missing numbers (better ways of doing this?)
     hist_df = hist_df.copy()
     hist_df[features_hist] = hist_df[features_hist].ffill().bfill()

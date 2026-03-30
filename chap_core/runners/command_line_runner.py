@@ -9,11 +9,12 @@ logger = logging.getLogger(__name__)
 
 
 class CommandLineRunner(Runner):
-    def __init__(self, working_dir: str | Path):
+    def __init__(self, working_dir: str | Path, dry_run=False):
+        super().__init__(dry_run=dry_run)
         self._working_dir = working_dir
 
     def run_command(self, command):
-        return run_command(command, self._working_dir)
+        return self._execute(command, self._working_dir)
 
     def store_file(self, file_path: str | None = None) -> None:
         pass

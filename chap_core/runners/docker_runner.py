@@ -14,14 +14,23 @@ logger = logging.getLogger(__name__)
 class DockerRunner(Runner):
     """Runs through a docker image specified by name (e.g. on dockerhub), not a Dockerfile"""
 
-    def __init__(self, docker_name: str, working_dir: str | Path, model_configuration_filename: str | None = None):
+    def __init__(
+        self, docker_name: str, working_dir: str | Path, model_configuration_filename: str | None = None, dry_run=False
+    ):
+        super().__init__(dry_run=dry_run)
         self._docker_name = docker_name
         self._working_dir = working_dir
         self._model_configuration_filename = model_configuration_filename
 
+    def _execute(self, command, working_dir, env=None):
+        if self._dry_run:
+            print(f"[dry-run] docker run {self._docker_name} cd {working_dir} && {command}")
+            return ""
+        return run_command_through_docker_container(self._docker_name, str(working_dir), command)
+
     def run_command(self, command):
         logger.debug(f"Running command {command} in docker container {self._docker_name} in {self._working_dir}")
-        return run_command_through_docker_container(self._docker_name, str(self._working_dir), command)
+        return self._execute(command, self._working_dir)
 
     def teardown(self):
         # remove the docker image

@@ -112,7 +112,9 @@ def _get_model_code_base(model_path, base_working_dir, run_dir_type):
     return working_dir
 
 
-def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False, working_dir=None) -> ModelTemplate:
+def get_model_template_from_mlproject_file(
+    mlproject_file, ignore_env=False, working_dir=None, dry_run=False
+) -> ModelTemplate:
     if working_dir is None:
         working_dir = Path(mlproject_file).parent
     else:
@@ -122,7 +124,7 @@ def get_model_template_from_mlproject_file(mlproject_file, ignore_env=False, wor
         config = yaml.load(file, Loader=yaml.FullLoader)
     config = ModelTemplateConfigV2.model_validate(config)
 
-    model_template = ModelTemplate(config, working_dir, ignore_env)
+    model_template = ModelTemplate(config, working_dir, ignore_env, dry_run=dry_run)
     return model_template
 
 
@@ -132,6 +134,7 @@ def get_model_template_from_directory_or_github_url(
     ignore_env: bool = False,
     run_dir_type: str = "timestamp",
     is_chapkit_model: bool = False,
+    dry_run: bool = False,
 ) -> ModelTemplateType:
     """
     Note: Preferably use ModelTemplate.from_directory_or_github_url instead of
@@ -177,7 +180,9 @@ def get_model_template_from_directory_or_github_url(
     if not (working_dir / "MLproject").exists():
         raise InvalidModelException("No MLproject file found in model directory")
 
-    model_template = get_model_template_from_mlproject_file(working_dir / "MLproject", ignore_env=ignore_env)
+    model_template = get_model_template_from_mlproject_file(
+        working_dir / "MLproject", ignore_env=ignore_env, dry_run=dry_run
+    )
     return model_template
 
 

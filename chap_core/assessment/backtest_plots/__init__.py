@@ -312,6 +312,7 @@ def _discover_plots():
         evaluation_plot,
         horizon_location_grid,
         metrics_dashboard,
+        predicted_vs_actual_plot,
         sample_bias_plot,
     )
 

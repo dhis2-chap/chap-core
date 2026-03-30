@@ -24,6 +24,7 @@ def get_train_predict_runner_from_model_template_config(
     working_dir: Path,
     skip_environment=False,
     model_configuration: Optional["ModelConfiguration"] = None,
+    dry_run=False,
 ) -> TrainPredictRunner:
     """
     Utility function that returns a suitbale runner for a model given a ModelTemplateConfig (which contains information
@@ -69,21 +70,21 @@ def get_train_predict_runner_from_model_template_config(
         #     predict_command += f" --model_configuration {model_configuration_file}"
         if skip_environment:
             return CommandLineTrainPredictRunner(
-                CommandLineRunner(working_dir),
+                CommandLineRunner(working_dir, dry_run=dry_run),
                 train_command,
                 predict_command,
                 model_configuration_filename=yaml_filename,
             )
         elif runner_type == "uv":
             return UvTrainPredictRunner(
-                UvRunner(working_dir),
+                UvRunner(working_dir, dry_run=dry_run),
                 train_command,
                 predict_command,
                 model_configuration_filename=yaml_filename,
             )
         elif runner_type == "renv":
             return RenvTrainPredictRunner(
-                RenvRunner(working_dir),
+                RenvRunner(working_dir, dry_run=dry_run),
                 train_command,
                 predict_command,
                 model_configuration_filename=yaml_filename,
@@ -91,7 +92,7 @@ def get_train_predict_runner_from_model_template_config(
         elif runner_type == "conda":
             assert model_template_config.conda_env is not None
             return CondaTrainPredictRunner(
-                CondaRunner(working_dir, model_template_config.conda_env),
+                CondaRunner(working_dir, model_template_config.conda_env, dry_run=dry_run),
                 train_command,
                 predict_command,
                 model_configuration_filename=yaml_filename,
@@ -99,7 +100,7 @@ def get_train_predict_runner_from_model_template_config(
         else:
             assert model_template_config.docker_env is not None
             logging.debug(f"Docker image is {model_template_config.docker_env.image}")
-            command_runner = DockerRunner(model_template_config.docker_env.image, working_dir)
+            command_runner = DockerRunner(model_template_config.docker_env.image, working_dir, dry_run=dry_run)
             return DockerTrainPredictRunner(command_runner, train_command, predict_command, yaml_filename)
     else:
         # assert model_configuration is None or model_configuration == {}, "ModelConfiguration (for templates) not supported when runner is mlflow for now"
