@@ -8,7 +8,7 @@ chap-db:
   enabled: true
   fullnameOverride: "chap-db"
   postgresql:
-    password: changeme
+    password: chap
     cnpg:
       cluster:
         enabled: true
@@ -27,11 +27,11 @@ valkey:
     enabled: true
     aclUsers:
       default:
-        password: changeme
+        password: chap
         permissions: "~* &* +@all"
   persistence:
     enabled: true
-    size: 8Gi
+    size: 10Gi
   commonLabels: {}
 
 chap-api:
