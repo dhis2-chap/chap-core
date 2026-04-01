@@ -2,14 +2,11 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "chap-api.fullname" . }}-dhis2-route
+  name: {{ include "chap-api.fullname" . }}-dhis2-route-{{ .Release.Revision }}
   labels:
     {{- include "chap-api.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
+  ttlSecondsAfterFinished: 3600
   backoffLimit: 0
   template:
     spec:
@@ -54,8 +51,8 @@ spec:
                   echo "Route registered: HTTP $HTTP_CODE"
                   exit 0
                 elif [ "$HTTP_CODE" = "409" ]; then
-                  echo "Conflict: route already exists (HTTP 409)"
-                  exit 1
+                  echo "Route already exists (HTTP 409), nothing to do"
+                  exit 0
                 fi
                 i=$((i + 1))
                 echo "Attempt $i/$MAX_ATTEMPTS: HTTP $HTTP_CODE, retrying in ${DELAY}s..."

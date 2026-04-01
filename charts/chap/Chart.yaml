@@ -15,7 +15,7 @@ dependencies:
     repository: "https://valkey.io/valkey-helm"
     condition: valkey.enabled
   - name: chap-api
-    version: 0.1.5
+    version: 0.1.6
     repository: "file://../chap-api"
     condition: chap-api.enabled
   - name: chap-worker
