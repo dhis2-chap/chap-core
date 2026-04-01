@@ -107,6 +107,16 @@ entries:
   chap-api:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-04-01T17:01:59.742596613Z"
+    description: CHAP API - REST API Deployment
+    digest: a594f5036d94d7772bb2b92fae931e26d074d01bc0ca4df653db4f8ca4063dd6
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.6/chap-api-0.1.6.tgz
+    version: 0.1.6
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-04-01T14:49:16.649515473Z"
     description: CHAP API - REST API Deployment
     digest: 581014f58afdb032ac97c6d37184b4bc5021bb7cedf8cf3e9f2304951a601e0a
@@ -243,4 +253,4 @@ entries:
     urls:
     - https://github.com/dhis2-chap/chap-core/releases/download/chap-worker-0.1.0/chap-worker-0.1.0.tgz
     version: 0.1.0
-generated: "2026-04-01T16:42:25.497495001Z"
+generated: "2026-04-01T17:01:59.742650644Z"
