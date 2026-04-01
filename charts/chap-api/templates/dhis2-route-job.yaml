@@ -27,25 +27,40 @@ spec:
             - /bin/sh
             - -c
             - |
-              PAYLOAD=$(cat <<EOF
-              {
+              PAYLOAD=$(printf '%s' '{
                 "name": "Chap Modeling App",
                 "code": "chap",
-                "url": "${CHAP_URL}/**",
+                "url": "'"${CHAP_URL}"'/**",
                 "authorities": ["F_CHAP_MODELING_APP"],
                 "headers": {"Content-Type": "application/json"},
                 "responseTimeoutSeconds": 30
-              }
-              EOF
-              )
-              curl -sf \
-                -X POST \
-                -H "Content-Type: application/json" \
-                -u "${username}:${password}" \
-                --retry 30 \
-                --retry-delay 10 \
-                --retry-connrefused \
-                --retry-max-time 300 \
-                --data "$PAYLOAD" \
-                "https://${hostname}/api/42/routes"
+              }')
+              MAX_ATTEMPTS=30
+              DELAY=10
+              i=0
+              while [ $i -lt $MAX_ATTEMPTS ]; do
+                RESPONSE=$(curl -s -w "\n%{http_code}" \
+                  -X POST \
+                  -H "Content-Type: application/json" \
+                  -u "${username}:${password}" \
+                  --connect-timeout 10 \
+                  --max-time 30 \
+                  --data "$PAYLOAD" \
+                  "https://${hostname}/api/42/routes")
+                HTTP_CODE=$(printf '%s' "$RESPONSE" | tail -1)
+                BODY=$(printf '%s' "$RESPONSE" | head -n -1)
+                echo "HTTP $HTTP_CODE: $BODY"
+                if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+                  echo "Route registered: HTTP $HTTP_CODE"
+                  exit 0
+                elif [ "$HTTP_CODE" = "409" ]; then
+                  echo "Conflict: route already exists (HTTP 409)"
+                  exit 1
+                fi
+                i=$((i + 1))
+                echo "Attempt $i/$MAX_ATTEMPTS: HTTP $HTTP_CODE, retrying in ${DELAY}s..."
+                sleep $DELAY
+              done
+              echo "Failed after $MAX_ATTEMPTS attempts"
+              exit 1
 {{- end }}
