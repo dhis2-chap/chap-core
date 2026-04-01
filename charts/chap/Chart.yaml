@@ -7,7 +7,7 @@ appVersion: "1.0.0"
 
 dependencies:
   - name: chap-db
-    version: 0.1.1
+    version: 0.1.2
     repository: "file://../chap-db"
     condition: chap-db.enabled
   - name: valkey
