@@ -6,6 +6,11 @@ metadata:
   labels:
     {{- include "chap-db.labels" . | nindent 4 }}
 spec:
+  inheritedMetadata:
+    labels:
+      {{- with .Values.commonLabels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
   instances: {{ .Values.postgresql.cnpg.cluster.instances }}
   {{- if .Values.postgresql.cnpg.cluster.imageName }}
   imageName: {{ .Values.postgresql.cnpg.cluster.imageName }}
