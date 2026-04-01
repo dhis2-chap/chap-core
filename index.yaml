@@ -130,6 +130,18 @@ entries:
       category: Infrastructure
     apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-04-01T04:33:19.654383565Z"
+    description: CHAP PostgreSQL database (CloudNativePG)
+    digest: de53844dc72fb984c14647686c6fa1af3d9035d4e2fbd4751d3005210c32e9ab
+    name: chap-db
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-db-0.1.2/chap-db-0.1.2.tgz
+    version: 0.1.2
+  - annotations:
+      category: Infrastructure
+    apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-03-31T12:36:19.931227177Z"
     description: CHAP PostgreSQL database (CloudNativePG)
     digest: b0c6062049754e7a9ed0211f90a4a439bd6d076305221037d144d24df80e26b0
@@ -189,4 +201,4 @@ entries:
     urls:
     - https://github.com/dhis2-chap/chap-core/releases/download/chap-worker-0.1.0/chap-worker-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-31T12:36:20.110222626Z"
+generated: "2026-04-01T04:33:19.65440788Z"
