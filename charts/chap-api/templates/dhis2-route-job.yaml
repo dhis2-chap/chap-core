@@ -13,7 +13,7 @@ spec:
   backoffLimit: 0
   template:
     spec:
-      restartPolicy: Never
+      restartPolicy: OnFailure
       containers:
         - name: configure-route
           image: curlimages/curl:8.11.1
