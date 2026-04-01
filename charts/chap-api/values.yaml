@@ -114,3 +114,9 @@ valkey:
 googleServiceAccount:
   email: ""
   privateKey: ""
+
+dhis2:
+  enabled: true
+  hostname: ""
+  username: "system"
+  password: "System123"

@@ -1,0 +1,51 @@
+{{- if .Values.dhis2.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "chap-api.fullname" . }}-dhis2-route
+  labels:
+    {{- include "chap-api.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: configure-route
+          image: curlimages/curl:8.11.1
+          envFrom:
+            - secretRef:
+                name: {{ include "chap-api.fullname" . }}-dhis2
+          env:
+            - name: CHAP_URL
+              value: "http://{{ include "chap-api.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              PAYLOAD=$(cat <<EOF
+              {
+                "name": "Chap Modeling App",
+                "code": "chap",
+                "url": "${CHAP_URL}/**",
+                "authorities": ["F_CHAP_MODELING_APP"],
+                "headers": {"Content-Type": "application/json"},
+                "responseTimeoutSeconds": 30
+              }
+              EOF
+              )
+              curl -sf \
+                -X POST \
+                -H "Content-Type: application/json" \
+                -u "${username}:${password}" \
+                --retry 30 \
+                --retry-delay 10 \
+                --retry-connrefused \
+                --retry-max-time 300 \
+                --data "$PAYLOAD" \
+                "https://${hostname}/api/42/routes"
+{{- end }}
