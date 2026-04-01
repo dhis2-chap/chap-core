@@ -32,7 +32,7 @@ spec:
                 "headers": {"Content-Type": "application/json"},
                 "responseTimeoutSeconds": 30
               }')
-              MAX_ATTEMPTS=30
+              MAX_ATTEMPTS=90
               DELAY=10
               i=0
               while [ $i -lt $MAX_ATTEMPTS ]; do
