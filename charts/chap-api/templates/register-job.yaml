@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "chap-api.fullname" . }}-dhis2-route-{{ .Release.Revision }}
+  name: {{ include "chap-api.fullname" . }}-register-{{ .Release.Revision }}
   labels:
     {{- include "chap-api.labels" . | nindent 4 }}
 spec:
@@ -32,7 +32,7 @@ spec:
                 "headers": {"Content-Type": "application/json"},
                 "responseTimeoutSeconds": 30
               }')
-              MAX_ATTEMPTS=90
+              MAX_ATTEMPTS=10
               DELAY=10
               i=0
               while [ $i -lt $MAX_ATTEMPTS ]; do
@@ -46,7 +46,8 @@ spec:
                   "https://${hostname}/api/42/routes")
                 HTTP_CODE=$(printf '%s' "$RESPONSE" | tail -1)
                 BODY=$(printf '%s' "$RESPONSE" | head -n -1)
-                echo "HTTP $HTTP_CODE: $BODY"
+                # TODO: Support other DHIS2 versions than 42
+                echo "POST https://${hostname}/api/42/routes -> HTTP $HTTP_CODE: $BODY"
                 if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
                   echo "Route registered: HTTP $HTTP_CODE"
                   exit 0
@@ -55,7 +56,7 @@ spec:
                   exit 0
                 fi
                 i=$((i + 1))
-                echo "Attempt $i/$MAX_ATTEMPTS: HTTP $HTTP_CODE, retrying in ${DELAY}s..."
+                echo "Attempt $i/$MAX_ATTEMPTS: retrying in ${DELAY}s..."
                 sleep $DELAY
               done
               echo "Failed after $MAX_ATTEMPTS attempts"
