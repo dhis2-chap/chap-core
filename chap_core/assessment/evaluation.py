@@ -33,6 +33,7 @@ from chap_core.database.tables import BackTest, BackTestForecast
 from chap_core.datatypes import SamplesWithTruth
 from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.time_period import TimePeriod
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 try:
     from chap_core import __version__ as CHAP_VERSION
@@ -94,6 +95,7 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
             "org_units": json.dumps(model_metadata.get("org_units", [])),
             "historical_context_periods": model_metadata.get("historical_context_periods", 0),
             "chap_version": CHAP_VERSION,
+            "model_info" : model_metadata.get("model_info")
         }
     )
 
@@ -585,6 +587,7 @@ class Evaluation(EvaluationBase):
         model_name: str | None = None,
         model_configuration: dict | None = None,
         model_version: str | None = None,
+        model_info: ModelTemplateConfigV2 | None = None,
     ) -> None:
         """
         Export evaluation to NetCDF file using xarray.
@@ -597,6 +600,12 @@ class Evaluation(EvaluationBase):
         """
         flat_data = self.to_flat()
 
+        model_template_json = (
+            model_info.model_dump_json(exclude_none=True)
+            if model_info is not None
+            else ""
+        )
+
         model_metadata = {
             "model_name": model_name or "",
             "model_configuration": model_configuration or {},
@@ -604,6 +613,7 @@ class Evaluation(EvaluationBase):
             "split_periods": self.get_split_periods(),
             "org_units": self.get_org_units(),
             "historical_context_periods": self._historical_context_periods,
+            "model_info": model_template_json,
         }
 
         ds = _flat_data_to_xarray(flat_data, model_metadata)
