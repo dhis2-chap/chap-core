@@ -31,9 +31,9 @@ from chap_core.database.dataset_tables import DataSet, Observation, ObservationB
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import BackTest, BackTestForecast
 from chap_core.datatypes import SamplesWithTruth
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.time_period import TimePeriod
-from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 try:
     from chap_core import __version__ as CHAP_VERSION
