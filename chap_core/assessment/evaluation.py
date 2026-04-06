@@ -95,7 +95,7 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
             "org_units": json.dumps(model_metadata.get("org_units", [])),
             "historical_context_periods": model_metadata.get("historical_context_periods", 0),
             "chap_version": CHAP_VERSION,
-            "model_info" : model_metadata.get("model_info")
+            "model_info": model_metadata.get("model_info"),
         }
     )
 
@@ -600,11 +600,7 @@ class Evaluation(EvaluationBase):
         """
         flat_data = self.to_flat()
 
-        model_template_json = (
-            model_info.model_dump_json(exclude_none=True)
-            if model_info is not None
-            else ""
-        )
+        model_template_json = model_info.model_dump_json(exclude_none=True) if model_info is not None else ""
 
         model_metadata = {
             "model_name": model_name or "",
