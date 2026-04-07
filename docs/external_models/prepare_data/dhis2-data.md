@@ -1,10 +1,10 @@
 # Run models in Chap with data from DHIS2 / Modeling App
 
-This short guide describes how to import climate and environmental data, configure a model in the DHIS2 Modelling App, and extract the modelling payload.
+This short guide describes how to import climate and environmental data, configure a model in the [DHIS2 Modelling App](../../modeling-app/index.md), and extract the modelling payload.
 
 ### 1. Import data using the Climate App
 
-Use the Climate App to import climate and environmental indicators at the **same organisational level and period type** (weekly or monthly) as your disease data. Indicators of interest include air temperature, CHIRPS precipitation (or ERA5-Land precipitation if you know this performs better), relative humidity, NDVI (vegetation), and urban/built-up areas. You may also include other disease-relevant indicators such as soil moisture, surface water, land surface temperature, or elevation. Ensure all imported data are available as data elements.
+Use the [Climate App](/climate-data) to import climate and environmental indicators at the **same organisational level and period type** (weekly or monthly) as your disease data. Indicators of interest include air temperature, CHIRPS precipitation (or ERA5-Land precipitation if you know this performs better), relative humidity, NDVI (vegetation), and urban/built-up areas. You may also include other disease-relevant indicators such as soil moisture, surface water, land surface temperature, or elevation. Ensure all imported data are available as data elements.
 
 ### 2. Run analytics
 
@@ -34,7 +34,7 @@ Click "Start dry run" to verify that the data and configuration are accepted. Co
 
 Click **Download request** to save the modelling payload to your computer as JSON-file.
 
-<img src="assets/download-button.png" alt="Download request button">
+<img src="../assets/download-button.png" alt="Download request button">
 
 ## Converting a Modeling App request to CSV and GeoJSON
 
@@ -53,6 +53,6 @@ This reads the JSON file and produces two files:
 
 <div style="margin-bottom: 10rem;" markdown>
 
-Next: [Validate your data](index.md#3-validating-your-data)
+Next: [Validate your data](validate-data.md)
 
 </div>
