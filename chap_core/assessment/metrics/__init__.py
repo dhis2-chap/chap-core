@@ -81,6 +81,7 @@ def _discover_metrics():
         crps_norm,
         example_metric,
         mae,
+        mape,
         outbreak_detection,
         percentile_coverage,
         rmse,
@@ -98,6 +99,7 @@ from chap_core.assessment.metrics.crps import CRPSLog1pMetric, CRPSMetric
 from chap_core.assessment.metrics.crps_norm import CRPSNormMetric
 from chap_core.assessment.metrics.example_metric import ExampleMetric
 from chap_core.assessment.metrics.mae import MAEMetric
+from chap_core.assessment.metrics.mape import MAPEMetric
 from chap_core.assessment.metrics.outbreak_detection import (
     OutbreakAccuracyMetric,
     SensitivityMetric,
@@ -136,6 +138,7 @@ __all__ = [
     "DeterministicMetric",
     "ExampleMetric",
     "MAEMetric",
+    "MAPEMetric",
     "Metric",
     "MetricSpec",
     "OutbreakAccuracyMetric",
