@@ -21,7 +21,6 @@ from typing import Annotated, Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
-from sqlalchemy import or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 from starlette.responses import StreamingResponse
@@ -89,6 +88,10 @@ def _sync_live_chapkit_services(session: Session) -> set[str]:
             try:
                 config = ml_service_info_to_model_template_config(service.info, service.url)
                 template_id = session_wrapper.add_model_template_from_yaml_config(config)
+                # Mark template as chapkit-originated for archival tracking
+                template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()
+                template.uses_chapkit = True
+                session.commit()
                 _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
             except Exception:
                 logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
@@ -98,30 +101,14 @@ def _sync_live_chapkit_services(session: Session) -> set[str]:
 
 
 def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
-    """Archive chapkit templates whose services are no longer live.
-
-    Uses an outerjoin to also catch templates where config sync failed
-    on first discovery (no configured models exist yet). Non-chapkit
-    orphan templates are excluded by checking that uses_chapkit is True
-    or that no configured model exists at all (only chapkit sync creates
-    templates without configured models).
-    """
+    """Archive chapkit templates whose services are no longer live."""
     live_names = {s.info.id for s in service_list.services}
-    chapkit_templates = (
-        session.exec(
-            select(ModelTemplateDB)
-            .outerjoin(ConfiguredModelDB)
-            .where(
-                ModelTemplateDB.archived == False,
-                or_(
-                    ConfiguredModelDB.uses_chapkit == True,  # type: ignore[arg-type]
-                    ConfiguredModelDB.id == None,  # type: ignore[arg-type]
-                ),
-            )
+    chapkit_templates = session.exec(
+        select(ModelTemplateDB).where(
+            ModelTemplateDB.uses_chapkit == True,
+            ModelTemplateDB.archived == False,
         )
-        .unique()
-        .all()
-    )
+    ).all()
     for template in chapkit_templates:
         if template.name not in live_names:
             template.archived = True

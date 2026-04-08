@@ -291,3 +291,54 @@ def test_re_registered_service_updates_template_metadata(client, register_servic
     assert matching[0]["displayName"] == "Updated Model"
     assert matching[0]["requiresGeo"] is True
     assert matching[0]["requiredCovariates"] == ["rainfall"]
+
+
+def test_non_chapkit_orphan_template_not_archived(client, register_service, fake_orchestrator, db_engine):
+    """A non-chapkit template with zero configured models must not be archived by chapkit sync."""
+    from chap_core.database.model_templates_and_config_tables import ModelTemplateDB
+
+    # Create a non-chapkit template with no configured models
+    with Session(db_engine) as session:
+        template = ModelTemplateDB(name="manual-template", source_url="http://example.com")
+        session.add(template)
+        session.commit()
+
+    # Register and deregister a chapkit service (triggers archival)
+    register_service()
+    client.get("/v1/crud/model-templates")
+    fake_orchestrator.deregister("test-model")
+    client.get("/v1/crud/model-templates")
+
+    # Non-chapkit template must NOT be archived
+    templates = client.get("/v1/crud/model-templates").json()
+    manual = [t for t in templates if t["name"] == "manual-template"]
+    assert len(manual) == 1
+    assert manual[0]["archived"] is False
+
+    # Chapkit template should be archived
+    chapkit = [t for t in templates if t["name"] == "test-model"]
+    assert len(chapkit) == 1
+    assert chapkit[0]["archived"] is True
+
+
+def test_config_sync_frozen_after_first_discovery(client, register_service, mock_wrapper_cls):
+    """New configs added to a service after first discovery are not synced (intentional)."""
+    config_a = MagicMock()
+    config_a.name = "config-a"
+    mock_wrapper_cls.return_value.list_configs.return_value = [config_a]
+
+    register_service()
+    client.get("/v1/crud/model-templates")
+
+    # Service now exposes a second config
+    config_b = MagicMock()
+    config_b.name = "config-b"
+    mock_wrapper_cls.return_value.list_configs.return_value = [config_a, config_b]
+
+    # Trigger another sync
+    client.get("/v1/crud/model-templates")
+
+    models = client.get("/v1/crud/configured-models").json()
+    names = {m["name"] for m in models}
+    assert "test-model:config-a" in names
+    assert "test-model:config-b" not in names  # intentionally not synced
