@@ -18,6 +18,7 @@ coverage.xml
 *.cover
 .pytest_cache/
 .ruff_cache/
+tests/.github_cache/
 
 # Test artifacts
 target/
