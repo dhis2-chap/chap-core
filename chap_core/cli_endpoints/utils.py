@@ -270,7 +270,7 @@ def export_metrics(
     df.to_csv(output_file, index=False)
     logger.info(f"Metrics exported to {output_file}")
 
-    return results # for HPO 
+    return results  # for HPO
 
 
 def register_commands(app):

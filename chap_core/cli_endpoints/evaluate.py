@@ -133,7 +133,10 @@ def evaluate_hpo(
 
             configs = load_search_space_from_config(configs)
             assert metric is not None, "metric must be specified for HPO"
-            objective = Objective(template, metric, prediction_length, n_splits)
+            # objective = Objective(template, metric, prediction_length, n_splits)
+            # cheating to make it work with the new Objective
+            backtest_params = BackTestParams()
+            objective = Objective(template, backtest_params, metric)
             model = HpoModel(RandomSearcher(2), objective, direction, configs)
 
         model_info = model.model_information
@@ -398,8 +401,6 @@ def eval_cmd(
             backtest_name=f"{model_name}_evaluation",
             historical_context_years=historical_context_years,
         )
-        print(f"evaluation: {evaluation}")
-        print(f"results: {evaluation}")
 
         logger.info(f"Exporting evaluation to {output_file}")
         evaluation.to_file(
@@ -539,10 +540,9 @@ def eval_cmd_hpo(
                     raise ValueError("YAML must define a non-empty mapping of parameters")
             else:
                 config = template.model_template_config.hpo_search_space
-            
+
             search_space = load_search_space_from_config(config)
             assert metric is not None, "metric must be specified for HPO"
-            # objective = Objective(template, metric, backtest_params.n_periods, backtest_params.n_splits)
             objective = Objective(template, backtest_params, metric)
             estimator = HpoModel(RandomSearcher(2), objective, "minimize", search_space)
 
@@ -570,7 +570,9 @@ def eval_cmd_hpo(
             id="cli_eval",
             model_template_id=model_template_db.id,
             model_template=model_template_db,
-            configuration=configuration.model_dump() if configuration else {}, # if HPO configuration would be the search space and not a single config if it matters, hard to get a single config as this is before evaluation is ran, changed it so that when HPO configuration is set to None
+            configuration=configuration.model_dump()
+            if configuration
+            else {},  # if HPO configuration would be the search space and not a single config if it matters, hard to get a single config as this is before evaluation is ran, changed it so that when HPO configuration is set to None
         )
 
         logger.info(

@@ -1,15 +1,13 @@
 import logging
+from pathlib import Path
 from typing import Literal
 
-from chap_core.assessment.prediction_evaluator import evaluate_model
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.exceptions import NoPredictionsError
-from chap_core.file_io.example_data_set import DataSetType
-from chap_core.models.model_template import ModelTemplate
+from chap_core.api_types import BackTestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import export_metrics
-from chap_core.api_types import BackTestParams
-from pathlib import Path
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+from chap_core.models.model_template import ModelTemplate
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -34,35 +32,35 @@ class Objective:
         # self.prediction_length = prediction_length
         # self.n_splits = n_splits
 
-    def __call__(self, config, dataset: DataSetType | None = None) -> float:
-        """
-        This method takes a concrete configuration produced by a Searcher,
-        runs model evaluation, and returns a scalar score of the selected metric.
-        """
-        logger.info("Validating model configuration")
-        model_configs = {"user_option_values": config}  # TODO: should prob be removed
-        model_config = ModelConfiguration.model_validate(model_configs)
-        logger.info("Validated model configuration")
+    # def __call__(self, config, dataset: DataSetType | None = None) -> float:
+    #     """
+    #     This method takes a concrete configuration produced by a Searcher,
+    #     runs model evaluation, and returns a scalar score of the selected metric.
+    #     """
+    #     logger.info("Validating model configuration")
+    #     model_configs = {"user_option_values": config}  # TODO: should prob be removed
+    #     model_config = ModelConfiguration.model_validate(model_configs)
+    #     logger.info("Validated model configuration")
 
-        model = self.model_template.get_model(model_config)  # type: ignore[arg-type]
-        model = model()
-        try:
-            # evaluate_model should handle CV/nested CV and return mean results
-            # stratified fold/splits
-            results = evaluate_model(
-                model,
-                dataset,  # type: ignore[arg-type]
-                prediction_length=self.prediction_length,
-                n_test_sets=self.n_splits,
-            )
-        except NoPredictionsError as e:
-            logger.error(f"No predictions were made: {e}")
-            return float("inf")
-        return float(results[0][self.metric])
-    
-    def get_score(self, config, dataset: DataSetType | None = None) -> float:
+    #     model = self.model_template.get_model(model_config)  # type: ignore[arg-type]
+    #     model = model()
+    #     try:
+    #         # evaluate_model should handle CV/nested CV and return mean results
+    #         # stratified fold/splits
+    #         results = evaluate_model(
+    #             model,
+    #             dataset,  # type: ignore[arg-type]
+    #             prediction_length=self.prediction_length,
+    #             n_test_sets=self.n_splits,
+    #         )
+    #     except NoPredictionsError as e:
+    #         logger.error(f"No predictions were made: {e}")
+    #         return float("inf")
+    #     return float(results[0][self.metric])
+
+    def __call__(self, config, dataset: DataSet) -> float:
         from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-        
+
         logger.info("Validating model configuration")
         model_configs = {"user_option_values": config}  # TODO: should prob be removed
         configuration = ModelConfiguration.model_validate(model_configs)
@@ -112,5 +110,6 @@ class Objective:
         )
 
         from chap_core.assessment.metrics import available_metrics
+
         print("metrics list:", list(available_metrics.keys()))
         return float(metrics_results[0][self.metric])
