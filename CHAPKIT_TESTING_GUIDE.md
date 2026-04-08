@@ -152,13 +152,44 @@ Restart the service to verify it un-archives automatically.
 
 ## Automated Tests
 
+### Unit tests (mocked, fast -- included in `make test`)
+
 ```bash
-# Unit tests (mocked, fast)
 pytest tests/external/test_chapkit_integration.py -v
+```
 
-# Self-registration tests (fakeredis, fast)
+Covers: REST API wrapper serialization, config conversion (`MLServiceInfo` to `ModelTemplateConfig`), geo serialization, typed responses. All HTTP calls are mocked.
+
+### Self-registration tests (fakeredis, fast -- included in `make test`)
+
+```bash
 pytest tests/integration/rest_api/test_chapkit_self_registration.py -v
+```
 
-# End-to-end tests (real chapkit subprocess, slow)
+Covers: service registration via v2 Orchestrator, health status tracking, default configured model creation, config sync, archival on deregistration, re-registration unarchival, graceful Redis failure. Uses fakeredis and in-memory SQLite (no real services).
+
+### End-to-end tests (real chapkit subprocess, slow -- requires `--run-slow`)
+
+```bash
 pytest tests/integration/test_chapkit_e2e.py -v --run-slow
 ```
+
+Starts a real chapkit service from `tests/fixtures/chapkit_test_model/` as a subprocess.
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_chapkit_service_is_healthy` | Service starts and responds to `/health` |
+| `test_chapkit_service_info` | Service metadata matches (`id`, `period_type`) |
+| `test_chapkit_eval_cli` | Full `chap eval` CLI against live service with example data |
+| `test_chapkit_backtest_via_worker_function` | DB backtest flow: seeds model template + configured model from live service info, loads dataset from CSV, runs `run_backtest()` directly (same path as POST /v1/crud/backtests/ minus Celery) |
+
+### Test coverage summary
+
+| Flow | Automated? | Test location |
+|------|-----------|---------------|
+| REST API wrapper (train/predict HTTP calls) | Yes (mocked) | `test_chapkit_integration.py` |
+| Self-registration + health status + archival | Yes (fakeredis) | `test_chapkit_self_registration.py` |
+| CLI eval against live service | Yes (subprocess) | `test_chapkit_e2e.py` |
+| DB backtest against live service | Yes (direct call) | `test_chapkit_e2e.py` |
+| REST API backtest via Celery | No (needs Redis + Celery worker) | Manual or Docker compose |
+| Modeling app UI flow | No | Manual only |
