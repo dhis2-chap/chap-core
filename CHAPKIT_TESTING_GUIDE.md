@@ -166,7 +166,7 @@ Covers: REST API wrapper serialization, config conversion (`MLServiceInfo` to `M
 pytest tests/integration/rest_api/test_chapkit_self_registration.py -v
 ```
 
-Covers: service registration via v2 Orchestrator, health status tracking, default configured model creation, config sync, archival on deregistration, re-registration unarchival, graceful Redis failure. Uses fakeredis and in-memory SQLite (no real services).
+Covers: service registration via v2 Orchestrator, health status tracking, default and multi-config model creation, config sync, archival on deregistration (including when config sync failed), re-registration with metadata updates, graceful Redis failure. Uses fakeredis and in-memory SQLite (no real services).
 
 ### End-to-end tests (real chapkit subprocess, slow -- requires `--run-slow`)
 
@@ -191,5 +191,33 @@ Starts a real chapkit service from `tests/fixtures/chapkit_test_model/` as a sub
 | Self-registration + health status + archival | Yes (fakeredis) | `test_chapkit_self_registration.py` |
 | CLI eval against live service | Yes (subprocess) | `test_chapkit_e2e.py` |
 | DB backtest against live service | Yes (direct call) | `test_chapkit_e2e.py` |
+| Multi-config sync (2+ configs per service) | Yes (fakeredis) | `test_chapkit_self_registration.py` |
+| Re-registration with metadata changes | Yes (fakeredis) | `test_chapkit_self_registration.py` |
 | REST API backtest via Celery | No (needs Redis + Celery worker) | Manual or Docker compose |
 | Modeling app UI flow | No | Manual only |
+
+## How Multiple Configs Work
+
+A single chapkit service can expose multiple named configurations via `/api/v1/configs`. When chap-core discovers a service for the first time:
+
+1. It creates one `ModelTemplateDB` from the service metadata (name = service id)
+2. It calls `list_configs()` on the service
+3. For each config returned, it creates a `ConfiguredModelDB`:
+   - Default config (or empty list): name = `{template_name}` (e.g. `my-model`)
+   - Named configs: name = `{template_name}:{config_name}` (e.g. `my-model:config-a`)
+4. Config sync only happens on first discovery. Subsequent syncs skip if configured models already exist.
+
+The configured model in chap-core stores an **empty reference** -- the actual config values (hyperparameters, etc.) live in the chapkit service. When a backtest runs, chap-core passes the config name to chapkit, which applies its own stored values.
+
+## V1 API Limitations
+
+The chapkit integration is built on top of the existing v1 REST API. This works but has some inherent limitations:
+
+| Limitation | Details |
+|-----------|---------|
+| **Sync on every GET** | `GET /v1/crud/model-templates` queries Redis and syncs templates on every request, adding latency when Redis or services are slow |
+| **Config values are opaque** | Configured model configs are stored as empty references in chap-core; actual values live in the chapkit service |
+| **User options not synced** | The chapkit config schema (`user_options`) is not fetched during template sync; it's resolved lazily when needed |
+| **No artifact references** | Backtest results don't store chapkit `artifact_id` -- these are transient during train/predict and discarded |
+| **Celery required for backtests** | REST API backtests go through Celery, so both a worker and Redis must be running |
+| **No migration for new fields** | `requires_geo` and `documentation_url` exist on the Python model but not in the DB schema; they are re-synced from the live service on every request and will be missing on old databases |

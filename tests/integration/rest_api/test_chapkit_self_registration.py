@@ -244,3 +244,41 @@ def test_template_archived_when_config_sync_never_succeeded(
     matching = [t for t in templates if t["name"] == "test-model"]
     assert len(matching) == 1
     assert matching[0]["archived"] is True
+
+
+def test_creates_multiple_configured_models_from_service_configs(client, register_service, mock_wrapper_cls):
+    """When a chapkit service exposes multiple named configs, each becomes a configured model."""
+    config_a = MagicMock()
+    config_a.name = "config-a"
+    config_b = MagicMock()
+    config_b.name = "config-b"
+    mock_wrapper_cls.return_value.list_configs.return_value = [config_a, config_b]
+
+    register_service()
+    client.get("/v1/crud/model-templates")
+
+    models = client.get("/v1/crud/configured-models").json()
+    names = {m["name"] for m in models}
+    assert "test-model:config-a" in names
+    assert "test-model:config-b" in names
+    assert len(names) == 2
+
+
+def test_re_registered_service_updates_template_metadata(client, register_service, fake_orchestrator):
+    """Re-registering a service with updated metadata should update the template, not duplicate it."""
+    register_service()
+    templates = client.get("/v1/crud/model-templates").json()
+    matching = [t for t in templates if t["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["version"] == "1.0.0"
+
+    # Re-register with updated version and display name
+    updated_info = {**MOCK_INFO_DICT, "version": "2.0.0", "display_name": "Updated Model"}
+    fake_orchestrator.deregister("test-model")
+    register_service(info_dict=updated_info)
+
+    templates = client.get("/v1/crud/model-templates").json()
+    matching = [t for t in templates if t["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["version"] == "2.0.0"
+    assert matching[0]["displayName"] == "Updated Model"
