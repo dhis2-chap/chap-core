@@ -355,6 +355,7 @@ dependencies = [
     { name = "diskcache" },
     { name = "docker" },
     { name = "fastapi" },
+    { name = "geojson-pydantic" },
     { name = "geopandas" },
     { name = "geopy" },
     { name = "gitpython" },
@@ -379,7 +380,6 @@ dependencies = [
     { name = "pyarrow" },
     { name = "pycountry" },
     { name = "pydantic" },
-    { name = "pydantic-geojson" },
     { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "python-multipart" },
@@ -442,6 +442,7 @@ requires-dist = [
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "fastapi", specifier = ">=0.135.3" },
+    { name = "geojson-pydantic", specifier = ">=2.1.1" },
     { name = "geopandas", specifier = ">=1.1.1" },
     { name = "geopy", specifier = ">=2.4.1" },
     { name = "gitpython", specifier = ">=3.1.45" },
@@ -465,7 +466,6 @@ requires-dist = [
     { name = "pyarrow", specifier = ">=23.0.1" },
     { name = "pycountry", specifier = ">=24.6.1" },
     { name = "pydantic", specifier = ">=2.11.10" },
-    { name = "pydantic-geojson", specifier = ">=0.2.0,<0.3.0" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "python-multipart", specifier = ">=0.0.24" },
@@ -1040,14 +1040,14 @@ wheels = [
 
 [[package]]
 name = "geojson-pydantic"
-version = "2.1.0"
+version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5c/52/961c8f7c51067f5d853a732cd4abc09b4d15c742384406dda8348b98071e/geojson_pydantic-2.1.0.tar.gz", hash = "sha256:78a52b2a7cd9c113bac4898a81ce00c146c7927dd2804f1c7e9fd05c2515073f", size = 9398, upload-time = "2025-10-08T13:31:12.474Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d9/76/77c6f2e608028a2885e4d9d9a28cb6801879972d4bb3106c1dca02201df6/geojson_pydantic-2.1.1.tar.gz", hash = "sha256:3b64fa2dcd98108ff8a19bfb01eee3dab41bc230be2481804aefd7c1659d1c23", size = 8156, upload-time = "2026-04-07T09:48:07.252Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/18/8a9dca353e605b344408114f6b045b11d14082d19f4668b073259d3ed1a9/geojson_pydantic-2.1.0-py3-none-any.whl", hash = "sha256:f9091bed334ab9fbb1bef113674edc1212a3737f374a0b13b1aa493f57964c1d", size = 8819, upload-time = "2025-10-08T13:31:11.646Z" },
+    { url = "https://files.pythonhosted.org/packages/95/97/d59d999f00aec90fc7a4efb742fc11e6c160552aa1b313438d3497998644/geojson_pydantic-2.1.1-py3-none-any.whl", hash = "sha256:55354f22ededc3c070e3210fec6f518d784b65c4368c1763f2c6dc4bab79b898", size = 9456, upload-time = "2026-04-07T09:48:05.772Z" },
 ]
 
 [[package]]
@@ -2497,18 +2497,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/66/71/dba38ee2651f84f7842206adbd2233d8bbdb59fb85e9fa14232486a8c471/pydantic_extra_types-2.11.1.tar.gz", hash = "sha256:46792d2307383859e923d8fcefa82108b1a141f8a9c0198982b3832ab5ef1049", size = 172002, upload-time = "2026-03-16T08:08:03.92Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/17/c1/3226e6d7f5a4f736f38ac11a6fbb262d701889802595cdb0f53a885ac2e0/pydantic_extra_types-2.11.1-py3-none-any.whl", hash = "sha256:1722ea2bddae5628ace25f2aa685b69978ef533123e5638cfbddb999e0100ec1", size = 79526, upload-time = "2026-03-16T08:08:02.533Z" },
-]
-
-[[package]]
-name = "pydantic-geojson"
-version = "0.2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4e/a4/2d8745b3087eacb7741619cd7cecb3f7a605dd445ae2a849848c1d08fd35/pydantic_geojson-0.2.0.tar.gz", hash = "sha256:009dd35eef84330de3d90a159102dba9eccf5ef1fafd05bbd5ba3be541dc09ee", size = 7952, upload-time = "2024-12-09T22:35:07.965Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/09/2719298014713a471f27214cc7688c7b94ca01e3cce8f63177d41219d5d8/pydantic_geojson-0.2.0-py3-none-any.whl", hash = "sha256:01197bed7caab646ca1607c526c3be62143eca34ba96bbfae09a736dbff2ddd2", size = 9584, upload-time = "2024-12-09T22:35:06.337Z" },
 ]
 
 [[package]]

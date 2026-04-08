@@ -44,7 +44,9 @@ def test_get_area_polygons_brazil():
 
 
 import pytest
+from geojson_pydantic import Point
 
+from chap_core.api_types import FeatureCollectionModel, FeatureModel
 from chap_core.geometry import Polygons
 
 
@@ -67,3 +69,24 @@ def test_get_parent_dict(vietnam_polygons: Polygons):
         assert isinstance(parent_dict[feature.id], str)
         # assert feature.properties['parent'] in parent_dict.values()
         # assert feature.properties['parent'] in parent_dict.values()
+
+
+def test_geojson_round_trip():
+    feature = FeatureModel(
+        type="Feature",
+        id="loc_1",
+        properties={"name": "Location 1"},
+        geometry=Point(type="Point", coordinates=[10.0, 20.0]),
+    )
+    collection = FeatureCollectionModel(
+        type="FeatureCollection",
+        features=[feature],
+    )
+
+    json_str = collection.model_dump_json()
+    restored = FeatureCollectionModel.model_validate_json(json_str)
+
+    assert len(restored.features) == 1
+    assert restored.features[0].id == "loc_1"
+    assert restored.features[0].properties["name"] == "Location 1"
+    assert restored.features[0].geometry.type == "Point"

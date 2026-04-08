@@ -1,5 +1,5 @@
 import pytest
-from pydantic_geojson import PointModel
+from geojson_pydantic import Point
 
 from chap_core.api_types import (
     DataElement,
@@ -41,12 +41,13 @@ def test_train_on_json_data_new(big_request_json, models_path):
 def test_get_health_dataset():
     prediction_request = PredictionRequest(
         orgUnitsGeoJson=FeatureCollectionModel(
+            type="FeatureCollection",
             features=[
                 FeatureModel(
                     id="location1",
                     properties={"name": "location1"},
-                    geometry=PointModel(coordinates=[0, 0]),  # type: ignore[reportArgumentType]
-                    type="Point",
+                    geometry=Point(type="Point", coordinates=[0, 0]),  # type: ignore[reportArgumentType]
+                    type="Feature",
                 )
             ]
         ),
@@ -101,15 +102,16 @@ def combined_dataset():
         for k, data_element in enumerate(data_elements)
     ]
     geojson = FeatureCollectionModel(
+        type="FeatureCollection",
         features=[
             FeatureModel(
                 id=location,
                 properties={"name": location},
-                geometry=PointModel(coordinates=[0, 0]),  # type: ignore[reportArgumentType]
-                type="Point",
+                geometry=Point(type="Point", coordinates=[0, 0]),  # type: ignore[reportArgumentType]
+                type="Feature",
             )
             for location in locations
-        ]
+        ],
     )
 
     return RequestV1(orgUnitsGeoJson=geojson, features=data_lists)

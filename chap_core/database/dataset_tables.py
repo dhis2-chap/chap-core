@@ -1,17 +1,19 @@
 from datetime import datetime
 
-from pydantic_geojson import (
-    FeatureCollectionModel as _FeatureCollectionModel,
+from geojson_pydantic import (
+    Feature,
 )
-from pydantic_geojson import FeatureModel
+from geojson_pydantic import (
+    FeatureCollection as _FeatureCollection,
+)
 from sqlalchemy import JSON, Column, TypeDecorator
 from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import DBModel, PeriodID
 
 
-class FeatureCollectionModel(_FeatureCollectionModel):
-    features: list[FeatureModel]  # type: ignore[assignment]
+class FeatureCollectionModel(_FeatureCollection):
+    features: list[Feature]  # type: ignore[assignment]
 
 
 class PydanticListType(TypeDecorator):
