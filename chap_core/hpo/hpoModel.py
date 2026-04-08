@@ -82,7 +82,8 @@ class HpoModel(HpoModelInterface):
                 trial_number = params.pop("_trial_id")
 
             # Maybe best to seperate hpo_config and other configs in two files ??
-            score = self._objective(params, dataset)
+            # score = self._objective(params, dataset) # this is used with evaluate_hpo
+            score = self._objective.get_score(params, dataset)
             if trial_number is not None:  # for parallel TPE search
                 params["_trial_id"] = trial_number
                 self._searcher.tell(params, score)
