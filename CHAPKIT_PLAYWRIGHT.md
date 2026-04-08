@@ -31,11 +31,12 @@ The modeling app needs a route to reach chap-core. If you see "Could not connect
 cd tests/fixtures/chapkit_test_model
 uv sync
 SERVICEKIT_ORCHESTRATOR_URL=http://localhost:8000/v2/services/\$register \
+SERVICEKIT_HOST=host.docker.internal \
 SERVICEKIT_PORT=8090 \
     uv run uvicorn main:app --host 0.0.0.0 --port 8090
 ```
 
-Set `SERVICEKIT_HOST=host.docker.internal` so the service registers with a Docker-accessible URL (fixed in servicekit 0.8.2 / chapkit 0.16.7).
+`SERVICEKIT_HOST=host.docker.internal` ensures the service registers with a URL that chap-core's Docker container can resolve (requires chapkit >= 0.16.7).
 
 ## Step 4: Verify registration
 
@@ -102,12 +103,14 @@ The route URL must use `host.docker.internal` when DHIS2 runs in Docker and chap
 ### SERVICEKIT_HOST env var (fixed in chapkit 0.16.7)
 Previously the `SERVICEKIT_HOST` env var was ignored. Fixed in servicekit 0.8.2 / chapkit 0.16.7. Now `SERVICEKIT_HOST=host.docker.internal` works correctly.
 
-### Zero covariates warning
-When a model has `required_covariates: []`, the dataset configuration shows "All data items mapped" but also "Please map all model covariates to valid data items". This is a frontend display bug - the form works correctly with just `disease_cases` mapped.
-
 ### Data item mapping
 The modeling app maps model covariates to DHIS2 data elements/indicators. The covariate names in `required_covariates` must match what the app expects:
+- `disease_cases` (target) -> "Dengue Cases (Any) - Monthly"
 - `population` -> "Population by year"
 - `rainfall` -> "Precipitation (CHIRPS)"
 - `mean_temperature` -> "Air temperature (ERA5-Land)"
-- `disease_cases` (target) -> "Dengue Cases (Any) - Monthly"
+
+### Verified evaluation results
+Both EWARS and Chapkit Test Model evaluations completed successfully:
+- EWARS: ~2 minutes (full INLA model)
+- Chapkit Test Model: ~30 seconds (returns mean of disease_cases)

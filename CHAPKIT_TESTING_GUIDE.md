@@ -27,8 +27,12 @@ curl http://localhost:8000/v1/crud/model-templates
 cd tests/fixtures/chapkit_test_model
 uv sync
 SERVICEKIT_ORCHESTRATOR_URL=http://localhost:8000/v2/services/\$register \
-    uv run uvicorn main:app --port 8080
+SERVICEKIT_HOST=host.docker.internal \
+SERVICEKIT_PORT=8090 \
+    uv run uvicorn main:app --host 0.0.0.0 --port 8090
 ```
+
+Note: `SERVICEKIT_HOST=host.docker.internal` is needed so the service registers with a URL that chap-core's Docker container can reach.
 
 ### Option B: Use a real chapkit model
 
@@ -133,11 +137,10 @@ curl -X POST http://localhost:8000/v1/analytics/create-backtest-with-data/ \
 
 ## 6. Test via modeling app (full UI flow)
 
-1. Open the DHIS2 modeling app
-2. Navigate to model selection
-3. The chapkit model should appear with "live" status
-4. Select it and configure a backtest
-5. Run and verify results
+See `CHAPKIT_PLAYWRIGHT.md` for detailed step-by-step instructions with the DHIS2 modeling app, including:
+- DHIS2 route configuration
+- Model selection and covariate mapping
+- Running evaluations and verifying results
 
 ## 7. Test deregistration
 

@@ -58,3 +58,6 @@ charts/*/charts/*.tgz
 tests/fixtures/chapkit_test_model/.venv/
 tests/fixtures/chapkit_test_model/uv.lock
 tests/fixtures/chapkit_test_model/data/
+
+# Playwright MCP snapshots
+.playwright-mcp/
