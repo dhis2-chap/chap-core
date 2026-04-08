@@ -1,104 +1,113 @@
-# Chapkit Manual Testing Session
+# Chapkit Manual Testing via Modeling App
 
-## Environment
-- DHIS2 at http://localhost:8080
-- Modeling app at http://localhost:8080/apps/dhis2-chapmodeling-app
-- chap-core at http://localhost:8000 (Docker: chap, worker, postgres, redis)
+Step-by-step guide for testing chapkit integration through the DHIS2 modeling app.
 
-## Steps to Reproduce
+## Prerequisites
 
-### 1. Verify chap-core stack is running
+- Docker running with DHIS2 (port 8080) and chap-core stack (chap, worker, postgres, redis on port 8000)
+- chap-core branch with chapkit self-registration feature
+
+## Step 1: Verify stack is running
 
 ```bash
 docker ps --format '{{.Names}} {{.Ports}}'
-# Expected: chap, worker, postgres, redis containers running
+# Expected: chap (8000), worker, postgres, redis, dhis2 (8080)
 ```
 
-### 2. Check initial state - no chapkit services registered
+## Step 2: Configure DHIS2 route (first time / after Docker restart)
 
-```bash
-curl -s http://localhost:8000/v2/services | jq
-# Returns: {"count":0,"services":[]}
+The modeling app needs a route to reach chap-core. If you see "Could not connect to CHAP":
 
-curl -s http://localhost:8000/v1/crud/model-templates | jq '.[].name'
-# Returns: 10 pre-seeded models, all with healthStatus: null
-```
+1. Open http://localhost:8080/apps/dhis2-chapmodeling-app#/settings
+2. Under "Route configuration", click the edit button (pencil icon)
+3. Set URL to `http://host.docker.internal:8000/**`
+4. Click Save
+5. Also click "Increase to 30 seconds" for the response timeout
+6. Verify "Status: Connected" and CHAP version appears
 
-### 3. Start chapkit test model with registration
+## Step 3: Start the chapkit test model
 
 ```bash
 cd tests/fixtures/chapkit_test_model
 uv sync
 SERVICEKIT_ORCHESTRATOR_URL=http://localhost:8000/v2/services/\$register \
-    uv run uvicorn main:app --host 127.0.0.1 --port 8090
+SERVICEKIT_PORT=8090 \
+    uv run uvicorn main:app --host 0.0.0.0 --port 8090
 ```
 
-### 4. Verify registration
+The `host="host.docker.internal"` is hardcoded in main.py as a workaround for the servicekit SERVICEKIT_HOST env var bug (see SERVICEKIT_BUGS.md).
+
+## Step 4: Verify registration
 
 ```bash
-curl -s http://localhost:8000/v2/services | jq
-# Should show chapkit-test-model registered
+# Check v2 registry
+curl -s http://localhost:8000/v2/services | jq '.services[].id'
+# Expected: "chapkit-test-model"
 
-curl -s http://localhost:8000/v1/crud/model-templates | jq '.[] | select(.name == "chapkit-test-model")'
-# Should show template with healthStatus: "live"
+# Trigger sync and check template
+curl -s http://localhost:8000/v1/crud/model-templates | jq '.[] | select(.name == "chapkit-test-model") | {name, healthStatus, requiredCovariates}'
+# Expected: healthStatus "live", requiredCovariates ["population", "rainfall", "mean_temperature"]
+
+# Check configured model was created
+curl -s http://localhost:8000/v1/crud/configured-models | jq '.[].name' | grep chapkit
+# Expected: "chapkit-test-model"
 ```
 
-### 5. Check in modeling app
+## Step 5: Run an evaluation with EWARS (reference)
 
-Navigate to Models page: http://localhost:8080/apps/dhis2-chapmodeling-app#/models
-The chapkit-test-model should appear in the list.
+This shows the full flow with a known working model.
 
-## Findings
+1. Navigate to http://localhost:8080/apps/dhis2-chapmodeling-app#/evaluate/new
+2. Fill in:
+   - **Name**: EWARS Chapkit Test
+   - **Period type**: Monthly
+   - **From period**: 2023-01
+   - **To period**: 2024-12
+   - **Organisation units**: Select level "Province" (18 provinces, Lao PDR)
+   - **Model**: Click "Select model" > choose "CHAP-EWARS Model" > Confirm
+3. Click "Configure sources" and map:
+   - Disease cases -> "Dengue Cases (Any) - Monthly"
+   - Population -> "Population by year"
+   - Rainfall -> "Precipitation (CHIRPS)"
+   - Mean temperature -> "Air temperature (ERA5-Land)"
+4. Click Save
+5. Click "Start dry run" - should say "Valid import: All 18 locations"
+6. Close dry run dialog
+7. Click "Start import" - redirects to Jobs page
+8. Wait ~5-6 minutes for job to complete (status: Running -> Successful)
 
-### Finding 1: No chapkit model visible in modeling app (initial)
-- **Status**: Expected - no chapkit service was running
-- **Cause**: The v2 service registry was empty (`count: 0`)
-- **Fix**: Start the test fixture model with `SERVICEKIT_ORCHESTRATOR_URL` pointing to chap-core
+## Step 6: Run an evaluation with Chapkit Test Model
 
-### Finding 2: Chapkit template registered but no configured model created
-After starting the test fixture model with registration:
+Same flow as Step 5 but select "Chapkit Test Model" instead of CHAP-EWARS:
 
-```bash
-SERVICEKIT_ORCHESTRATOR_URL=http://localhost:8000/v2/services/\$register \
-    uv run uvicorn main:app --host 127.0.0.1 --port 8090
-```
+1. Navigate to http://localhost:8080/apps/dhis2-chapmodeling-app#/evaluate/new
+2. Fill in same parameters (name, periods, org units)
+3. Click "Select model" > choose "Chapkit Test Model" > Confirm
+4. Click "Configure sources" and map same data items:
+   - Disease cases -> "Dengue Cases (Any) - Monthly"
+   - Population -> "Population by year"
+   - Rainfall -> "Precipitation (CHIRPS)"
+   - Mean temperature -> "Air temperature (ERA5-Land)"
+5. Save, dry run, start import
+6. Monitor job on Jobs page
 
-- Template appears in `GET /model-templates` with `healthStatus: "live"`
-- But no configured model was created
-- The model does NOT appear in the modeling app's Models page (which shows configured models)
+## Known Issues
 
-**Root cause 1: Wrong service URL registered**
-- Service auto-detected hostname as `mlaptop.local` and defaulted port to 8000
-- Actual service is at `127.0.0.1:8090`
-- Docker container tried `connect_tcp host='mlaptop.local' port=8000` and failed
-- Fix: Set `SERVICEKIT_HOST` and `SERVICEKIT_PORT` explicitly
+### Browser caching
+After registering a new chapkit service, the modeling app may not show it immediately. Hard refresh (Cmd+Shift+R) resolves this.
 
-**Root cause 2: `/api/v1/configs` endpoint returns 404**
-- `CHAPKitRestAPIWrapper.list_configs()` calls `/api/v1/configs` on the chapkit service
-- The chapkit test model doesn't have this endpoint (it's at a different path)
-- Docker logs: `GET /api/v1/configs HTTP/1.1 404`
-- This causes `_sync_chapkit_configured_models` to return early without creating any configured model
+### DHIS2 route configuration
+The route URL must use `host.docker.internal` when DHIS2 runs in Docker and chap-core is on the host or a different Docker network. The default `http://chap-core:8000/**` only works when both are on the same Docker compose network.
 
-### Finding 3: Service URL needs explicit host/port for Docker networking
-When chap-core runs in Docker and the chapkit service runs on the host:
-- The auto-detected hostname (e.g. `mlaptop.local`) may not be resolvable from inside Docker
-- `SERVICEKIT_HOST` env var was NOT picked up by servicekit (possible bug - `host_source=auto-detected` in logs despite env being set)
-- `SERVICEKIT_PORT` env var WAS picked up correctly
-- **Workaround**: Register manually with correct URL:
-  ```bash
-  curl -X POST http://localhost:8000/v2/services/\$register \
-    -H "Content-Type: application/json" \
-    -d '{"url": "http://host.docker.internal:8090", "info": <service info>}'
-  ```
+### SERVICEKIT_HOST env var ignored (servicekit bug)
+The `SERVICEKIT_HOST` environment variable is not respected by servicekit - it always auto-detects the hostname. Workaround: pass `host="host.docker.internal"` explicitly in `.with_registration()`. See SERVICEKIT_BUGS.md.
 
-### Finding 4: Configured model created after manual registration with correct URL
-- After manual registration with `http://host.docker.internal:8090`, chap-core's Docker container could reach the service
-- `list_configs()` returned `[]` (empty), so a default configured model was created
-- `curl http://localhost:8000/v1/crud/configured-models` shows `chapkit-test-model` (12 total)
-- BUT the modeling app at `#/models` still shows only 11 items
-- **Cause: browser/proxy caching** - hard refresh resolved it, model appears correctly
+### Zero covariates warning
+When a model has `required_covariates: []`, the dataset configuration shows "All data items mapped" but also "Please map all model covariates to valid data items". This is a frontend display bug - the form works correctly with just `disease_cases` mapped.
 
-### Finding 5: SERVICEKIT_HOST env var not respected by servicekit
-- Logs show `host_source=auto-detected` even when `SERVICEKIT_HOST=host.docker.internal` is exported
-- This is a **servicekit bug** - the env var should override auto-detection
-- Port env var (`SERVICEKIT_PORT`) works correctly (`port_source=env:SERVICEKIT_PORT`)
+### Data item mapping
+The modeling app maps model covariates to DHIS2 data elements/indicators. The covariate names in `required_covariates` must match what the app expects:
+- `population` -> "Population by year"
+- `rainfall` -> "Precipitation (CHIRPS)"
+- `mean_temperature` -> "Air temperature (ERA5-Land)"
+- `disease_cases` (target) -> "Dengue Cases (Any) - Monthly"

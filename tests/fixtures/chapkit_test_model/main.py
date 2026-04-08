@@ -55,6 +55,8 @@ info = MLServiceInfo(
         author_assessed_status=AssessedStatus.yellow,
     ),
     period_type=PeriodType.monthly,
+    required_covariates=["population", "rainfall", "mean_temperature"],
+    allow_free_additional_continuous_covariates=False,
 )
 
 hierarchy = ArtifactHierarchy(
@@ -71,6 +73,8 @@ app = (
         hierarchy=hierarchy,
         runner=runner,
     )
-    .with_registration()
+    .with_registration(
+        host="host.docker.internal",  # workaround: SERVICEKIT_HOST env var is ignored (see SERVICEKIT_BUGS.md)
+    )
     .build()
 )
