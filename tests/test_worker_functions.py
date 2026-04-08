@@ -49,7 +49,7 @@ def test_get_health_dataset():
                     geometry=Point(type="Point", coordinates=[0, 0]),  # type: ignore[reportArgumentType]
                     type="Feature",
                 )
-            ]
+            ],
         ),
         features=[
             DataList(
