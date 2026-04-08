@@ -215,3 +215,32 @@ def test_returns_200_when_redis_unavailable(client):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_template_archived_when_config_sync_never_succeeded(
+    client, register_service, fake_orchestrator, mock_wrapper_cls
+):
+    """A template whose initial config sync failed should still be archived when the service deregisters."""
+    # Config fetch fails on every attempt
+    mock_wrapper_cls.return_value.list_configs.side_effect = ConnectionError("service unreachable")
+
+    register_service()
+    client.get("/v1/crud/model-templates")
+
+    # Verify template exists but has no configured models
+    templates = client.get("/v1/crud/model-templates").json()
+    matching = [t for t in templates if t["name"] == "test-model"]
+    assert len(matching) == 1
+
+    configured = client.get("/v1/crud/configured-models").json()
+    chapkit_configured = [m for m in configured if m["name"] == "test-model"]
+    assert len(chapkit_configured) == 0
+
+    # Deregister the service
+    fake_orchestrator.deregister("test-model")
+
+    # Template should be archived even though it has no configured models
+    templates = client.get("/v1/crud/model-templates").json()
+    matching = [t for t in templates if t["name"] == "test-model"]
+    assert len(matching) == 1
+    assert matching[0]["archived"] is True
