@@ -35,7 +35,7 @@ SERVICEKIT_PORT=8090 \
     uv run uvicorn main:app --host 0.0.0.0 --port 8090
 ```
 
-The `host="host.docker.internal"` is hardcoded in main.py as a workaround for the servicekit SERVICEKIT_HOST env var bug (see SERVICEKIT_BUGS.md).
+Set `SERVICEKIT_HOST=host.docker.internal` so the service registers with a Docker-accessible URL (fixed in servicekit 0.8.2 / chapkit 0.16.7).
 
 ## Step 4: Verify registration
 
@@ -99,8 +99,8 @@ After registering a new chapkit service, the modeling app may not show it immedi
 ### DHIS2 route configuration
 The route URL must use `host.docker.internal` when DHIS2 runs in Docker and chap-core is on the host or a different Docker network. The default `http://chap-core:8000/**` only works when both are on the same Docker compose network.
 
-### SERVICEKIT_HOST env var ignored (servicekit bug)
-The `SERVICEKIT_HOST` environment variable is not respected by servicekit - it always auto-detects the hostname. Workaround: pass `host="host.docker.internal"` explicitly in `.with_registration()`. See SERVICEKIT_BUGS.md.
+### SERVICEKIT_HOST env var (fixed in chapkit 0.16.7)
+Previously the `SERVICEKIT_HOST` env var was ignored. Fixed in servicekit 0.8.2 / chapkit 0.16.7. Now `SERVICEKIT_HOST=host.docker.internal` works correctly.
 
 ### Zero covariates warning
 When a model has `required_covariates: []`, the dataset configuration shows "All data items mapped" but also "Please map all model covariates to valid data items". This is a frontend display bug - the form works correctly with just `disease_cases` mapped.

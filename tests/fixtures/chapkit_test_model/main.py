@@ -73,8 +73,6 @@ app = (
         hierarchy=hierarchy,
         runner=runner,
     )
-    .with_registration(
-        host="host.docker.internal",  # workaround: SERVICEKIT_HOST env var is ignored (see SERVICEKIT_BUGS.md)
-    )
+    .with_registration()
     .build()
 )
