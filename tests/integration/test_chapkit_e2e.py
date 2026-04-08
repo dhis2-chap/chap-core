@@ -13,9 +13,22 @@ from pathlib import Path
 
 import httpx
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
+from sqlmodel import SQLModel
+
+import chap_core.database.tables  # noqa: F401 - register all table models
+from chap_core.database.database import SessionWrapper
+from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
+from chap_core.rest_api.data_models import BackTestCreate
+from chap_core.rest_api.db_worker_functions import run_backtest
+from chap_core.rest_api.services.schemas import MLServiceInfo
 
 FIXTURE_DIR = Path(__file__).parent.parent / "fixtures" / "chapkit_test_model"
-EXAMPLE_CSV = Path(__file__).parent.parent.parent / "example_data" / "vietnam_monthly.csv"
+EXAMPLE_DATA = Path(__file__).parent.parent.parent / "example_data"
+EXAMPLE_CSV = EXAMPLE_DATA / "vietnam_monthly.csv"
+EXAMPLE_GEOJSON = EXAMPLE_DATA / "vietnam_monthly.geojson"
 
 
 def _find_free_port() -> int:
@@ -131,3 +144,38 @@ def test_chapkit_eval_cli(chapkit_service, tmp_path):
     assert result.returncode == 0, f"chap eval failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     assert output_file.exists(), "Output file was not created"
     assert output_file.stat().st_size > 0, "Output file is empty"
+
+
+@pytest.mark.slow
+def test_chapkit_backtest_via_worker_function(chapkit_service):
+    """Run a backtest against the live chapkit service using the DB worker function.
+
+    This mirrors the REST API backtest flow (POST /v1/crud/backtests/) but
+    calls run_backtest() directly, bypassing Celery.
+    """
+    # Set up in-memory database
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+
+    with SessionWrapper(engine) as session:
+        # Fetch service info and register as model template
+        info_response = httpx.get(f"{chapkit_service}/api/v1/info")
+        info = MLServiceInfo.model_validate(info_response.json())
+        template_config = ml_service_info_to_model_template_config(info, chapkit_service)
+        template_id = session.add_model_template_from_yaml_config(template_config)
+
+        # Create configured model (default config, uses_chapkit=True)
+        session.add_configured_model(template_id, ModelConfiguration(), uses_chapkit=True)
+
+        # Add dataset from example CSV
+        dataset_id = session.add_dataset_from_csv("vietnam_test", EXAMPLE_CSV, EXAMPLE_GEOJSON)
+
+        # Run backtest directly (bypasses Celery)
+        backtest_id = run_backtest(
+            BackTestCreate(dataset_id=dataset_id, model_id="chapkit-test-model"),
+            n_splits=2,
+            session=session,
+        )
+
+        assert backtest_id is not None
+        assert isinstance(backtest_id, int)
