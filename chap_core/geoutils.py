@@ -110,7 +110,7 @@ def buffer_point_features(collection: FeatureCollectionModel, distance: float):
         else:
             features.append(feature)
 
-    collection_buffered = FeatureCollectionModel(features=features)
+    collection_buffered = FeatureCollectionModel(type="FeatureCollection", features=features)
 
     return collection_buffered
 

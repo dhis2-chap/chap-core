@@ -1,34 +1,32 @@
 from typing import Any, Literal
 
 import numpy as np
+from geojson_pydantic import (
+    Feature as _Feature,
+)
+from geojson_pydantic import (
+    FeatureCollection as _FeatureCollection,
+)
+from geojson_pydantic import (
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+)
 from pydantic import BaseModel, Field
-from pydantic_geojson import (
-    FeatureCollectionModel as _FeatureCollectionModel,
-)
-from pydantic_geojson import (
-    FeatureModel as _FeatureModel,
-)
-from pydantic_geojson import (
-    LineStringModel,
-    MultiLineStringModel,
-    MultiPointModel,
-    MultiPolygonModel,
-    PointModel,
-    PolygonModel,
-)
 
 from chap_core.database.base_tables import DBModel
 
 
-class FeatureModel(_FeatureModel):
-    id: str | None = None
+class FeatureModel(_Feature):
+    id: str | None = None  # type: ignore[assignment]
     properties: dict[str, Any] | None = Field(default_factory=dict)  # type: ignore[assignment]
-    geometry: (
-        PointModel | MultiPointModel | LineStringModel | MultiLineStringModel | PolygonModel | MultiPolygonModel | None
-    ) = None  # type: ignore[assignment]
+    geometry: Point | MultiPoint | LineString | MultiLineString | Polygon | MultiPolygon | None = None  # type: ignore[assignment]
 
 
-class FeatureCollectionModel(_FeatureCollectionModel):
+class FeatureCollectionModel(_FeatureCollection):
     features: list[FeatureModel]  # type: ignore[assignment]
 
 
