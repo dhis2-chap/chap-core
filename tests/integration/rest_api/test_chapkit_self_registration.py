@@ -271,9 +271,16 @@ def test_re_registered_service_updates_template_metadata(client, register_servic
     matching = [t for t in templates if t["name"] == "test-model"]
     assert len(matching) == 1
     assert matching[0]["version"] == "1.0.0"
+    assert matching[0]["requiresGeo"] is False
 
-    # Re-register with updated version and display name
-    updated_info = {**MOCK_INFO_DICT, "version": "2.0.0", "display_name": "Updated Model"}
+    # Re-register with updated metadata
+    updated_info = {
+        **MOCK_INFO_DICT,
+        "version": "2.0.0",
+        "display_name": "Updated Model",
+        "requires_geo": True,
+        "required_covariates": ["rainfall"],
+    }
     fake_orchestrator.deregister("test-model")
     register_service(info_dict=updated_info)
 
@@ -282,3 +289,5 @@ def test_re_registered_service_updates_template_metadata(client, register_servic
     assert len(matching) == 1
     assert matching[0]["version"] == "2.0.0"
     assert matching[0]["displayName"] == "Updated Model"
+    assert matching[0]["requiresGeo"] is True
+    assert matching[0]["requiredCovariates"] == ["rainfall"]
