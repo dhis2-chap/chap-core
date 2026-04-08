@@ -88,5 +88,7 @@ def test_geojson_round_trip():
 
     assert len(restored.features) == 1
     assert restored.features[0].id == "loc_1"
+    assert restored.features[0].properties is not None
     assert restored.features[0].properties["name"] == "Location 1"
+    assert restored.features[0].geometry is not None
     assert restored.features[0].geometry.type == "Point"
