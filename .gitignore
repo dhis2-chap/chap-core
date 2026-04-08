@@ -53,3 +53,8 @@ chap_core.egg-info
 
 # === Helm ===
 charts/*/charts/*.tgz
+
+# Chapkit test fixture runtime files
+tests/fixtures/chapkit_test_model/.venv/
+tests/fixtures/chapkit_test_model/uv.lock
+tests/fixtures/chapkit_test_model/data/

@@ -1,0 +1,9 @@
+[project]
+name = "chapkit-test-model"
+version = "0.1.0"
+description = "Minimal chapkit model for chap-core integration testing"
+requires-python = ">=3.13"
+dependencies = [
+    "chapkit>=0.16",
+    "pandas>=2.1.4",
+]
