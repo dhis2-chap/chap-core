@@ -238,6 +238,7 @@ exclude = [
     "**/.venv",
     "runs",
     "external_models",
+    "tests/.github_cache",
 ]
 typeCheckingMode = "basic"
 useLibraryCodeForTypes = true
