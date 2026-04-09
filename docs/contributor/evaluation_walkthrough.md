@@ -2,7 +2,7 @@
 
 This walkthrough is for educational purposes. It breaks the evaluation pipeline
 into individual steps so you can see what happens at each stage. In practice,
-use the higher-level `Evaluation.create` (section 7) or the CLI `chap evaluate`
+use the higher-level `Evaluation.create` (section 7) or the CLI `chap eval`
 command rather than calling the lower-level splitting and prediction functions
 directly.
 

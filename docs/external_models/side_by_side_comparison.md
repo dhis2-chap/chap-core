@@ -6,4 +6,3 @@ The most powerful way of comparing models is to install the Chap modelling platf
 
 As a simpler setup, you can evaluate your own and other models using the [Chap command line interface](../chap-cli/evaluation-workflow.md) with the `chap eval` command, and then compare the resulting predictions using `chap export-metrics`. See the [Evaluation Workflow](../chap-cli/evaluation-workflow.md) for the recommended approach.
 
-> **Note:** The legacy `chap evaluate` command is deprecated and will be removed in v2.0. See the [legacy examples](chap_evaluate_examples.md) for reference.

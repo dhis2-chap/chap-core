@@ -2,7 +2,7 @@
 
 Note that this is a temporary solution and that this functionality will be integrated and expanded upon in the future, but it serves as a simple ad-hoc solution for now.
 
-Understanding why a model makes certain predictions is important both for building trust in forecasts and for guiding model development. This page describes how to extract and visualise explanatory information from your model within the Chap framework. This tutorial will explain how to alter your model code to save the desired files generated in the model code and where to find them after a run is complete. This tutorial assumes you are using `chap evaluate` from the CLI.
+Understanding why a model makes certain predictions is important both for building trust in forecasts and for guiding model development. This page describes how to extract and visualise explanatory information from your model within the Chap framework. This tutorial will explain how to alter your model code to save the desired files generated in the model code and where to find them after a run is complete. This tutorial assumes you are using `chap eval` from the CLI.
 
 We provide examples in both *R* and *Python*.
 
