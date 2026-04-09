@@ -501,7 +501,7 @@ def eval_cmd_hpo(
     do_hpo: Annotated[
         bool | None,
         Parameter(help="Wether or not to run HPO"),
-    ] = True, 
+    ] = True,
     metric: Annotated[
         str | None,
         Parameter(help="Metric to use for running HPO"),
