@@ -108,6 +108,6 @@ app = (
         hierarchy=hierarchy,
         runner=runner,
     )
-    .with_registration()
+    .with_registration(keepalive_interval=15)
     .build()
 )
