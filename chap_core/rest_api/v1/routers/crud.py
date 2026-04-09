@@ -513,8 +513,14 @@ def add_configured_model(
     session_wrapper = SessionWrapper(session=session)
     model_template_id = model_configuration.model_template_id
     configuration_name = model_configuration.name
+    # Inherit uses_chapkit from parent template so the model loads correctly at runtime
+    template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
+    uses_chapkit = template.uses_chapkit if template else False
     db_id = session_wrapper.add_configured_model(
-        model_template_id, ModelConfiguration(**model_configuration.model_dump()), configuration_name
+        model_template_id,
+        ModelConfiguration(**model_configuration.model_dump()),
+        configuration_name,
+        uses_chapkit=uses_chapkit,
     )
     return session.get(ConfiguredModelDB, db_id)
 
