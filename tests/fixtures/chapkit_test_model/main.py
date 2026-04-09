@@ -1,6 +1,7 @@
 """Minimal chapkit model for chap-core integration testing.
 
-Returns the mean of disease_cases from training data as predictions.
+Uses seasonal naive prediction: for each location, predict the same
+month's disease_cases value from the most recent year in training data.
 """
 
 from typing import Any
@@ -21,15 +22,40 @@ class TestConfig(BaseConfig):
     prediction_periods: int = 3
 
 
+def _extract_month(period_str: str) -> int:
+    """Extract month from period string like '2023-01' or '202301'."""
+    s = str(period_str)
+    if "-" in s:
+        return int(s.split("-")[1])
+    return int(s[4:6]) if len(s) >= 6 else 1
+
+
 async def on_train(
     config: TestConfig,
     data: DataFrame,
     geo: FeatureCollection | None = None,
 ) -> Any:
     df = data.to_pandas()
-    mean_cases = float(df["disease_cases"].mean()) if "disease_cases" in df.columns else 0.0
-    log.info("trained", mean_cases=mean_cases, rows=len(df))
-    return {"mean_cases": mean_cases}
+    if "disease_cases" not in df.columns:
+        log.warning("no disease_cases column, returning empty model")
+        return {"seasonal": {}, "fallback": 0.0}
+
+    # Build seasonal lookup: (location, month) -> last observed value
+    seasonal: dict[tuple[str, int], float] = {}
+    if "time_period" in df.columns and "location" in df.columns:
+        df = df.sort_values("time_period")
+        for _, row in df.iterrows():
+            loc = str(row["location"])
+            month = _extract_month(row["time_period"])
+            val = row["disease_cases"]
+            if val is not None and val == val:  # skip NaN
+                seasonal[(loc, month)] = float(val)
+
+    fallback = float(df["disease_cases"].mean()) if len(df) > 0 else 0.0
+    log.info(
+        "trained", locations=len({k[0] for k in seasonal}), months=len({k[1] for k in seasonal}), fallback=fallback
+    )
+    return {"seasonal": seasonal, "fallback": fallback}
 
 
 async def on_predict(
@@ -40,8 +66,17 @@ async def on_predict(
     geo: FeatureCollection | None = None,
 ) -> DataFrame:
     future_df = future.to_pandas()
-    future_df["sample_0"] = model["mean_cases"]
-    log.info("predicted", rows=len(future_df), value=model["mean_cases"])
+    seasonal = model["seasonal"]
+    fallback = model["fallback"]
+
+    predictions = []
+    for _, row in future_df.iterrows():
+        loc = str(row.get("location", ""))
+        month = _extract_month(row.get("time_period", "01"))
+        predictions.append(seasonal.get((loc, month), fallback))
+
+    future_df["sample_0"] = predictions
+    log.info("predicted", rows=len(future_df), unique_values=len(set(predictions)))
     return DataFrame.from_pandas(future_df)
 
 
