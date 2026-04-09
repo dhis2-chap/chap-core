@@ -2,7 +2,7 @@ name: Create and publish chap Docker image
 
 on:
   push:
-    branches: ["dev", "master"]
+    branches: ["dev", "master", "feat/helm2"]
     tags: ["1.*"]
 
 env:
@@ -50,6 +50,8 @@ jobs:
           if [[ "$REF" == "refs/heads/dev" ]]; then
             TAG="dev"
           elif [[ "$REF" == "refs/heads/master" ]]; then
+            TAG="latest"
+          elif [[ "$REF" == "refs/heads/feat/helm2" ]]; then
             TAG="latest"
           elif [[ "$REF" =~ ^refs/tags/1\..* ]]; then
             git fetch origin master --depth=1

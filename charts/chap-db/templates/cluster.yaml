@@ -1,0 +1,42 @@
+{{- if .Values.postgresql.cnpg.cluster.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "chap-db.fullname" . }}-postgres
+  labels:
+    {{- include "chap-db.labels" . | nindent 4 }}
+spec:
+  inheritedMetadata:
+    labels:
+      {{- with .Values.commonLabels }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+  instances: {{ .Values.postgresql.cnpg.cluster.instances }}
+  {{- if .Values.postgresql.cnpg.cluster.imageName }}
+  imageName: {{ .Values.postgresql.cnpg.cluster.imageName }}
+  {{- end }}
+  {{- if .Values.postgresql.cnpg.cluster.version }}
+  postgresVersion: {{ .Values.postgresql.cnpg.cluster.version | int }}
+  {{- end }}
+  storage:
+    size: {{ .Values.postgresql.cnpg.cluster.storageSize }}
+  {{- if .Values.postgresql.cnpg.cluster.database }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgresql.cnpg.cluster.database }}
+      owner: postgres
+      secret:
+        name: {{ include "chap-db.postgres.secretName" . }}
+  {{- end }}
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: {{ include "chap-db.postgres.secretName" . }}
+  {{- if .Values.postgresql.cnpg.cluster.pooler.enabled }}
+  pooler:
+    enabled: true
+  {{- end }}
+  {{- if .Values.postgresql.cnpg.cluster.monitoring.enabled }}
+  monitoring:
+    enabled: true
+  {{- end }}
+{{- end }}

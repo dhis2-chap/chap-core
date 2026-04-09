@@ -1,5 +1,6 @@
 import logging
 import traceback
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,9 +24,18 @@ openapi_tags = [
     {"name": "Services", "description": "Service registry (v2)"},
 ]
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from chap_core.database.database import create_db_and_tables
+
+    create_db_and_tables()
+    yield
+
+
 app = FastAPI(
     title="CHAP Core API",
     openapi_tags=openapi_tags,
+    lifespan=lifespan,
 )
 
 origins = [

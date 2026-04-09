@@ -1,5 +1,6 @@
 services:
   chap:
+    image: ghcr.io/dhis2-chap/chap-core:latest
     build: .
     init: true
     environment:
@@ -37,6 +38,7 @@ services:
         condition: service_healthy
 
   worker:
+    image: ghcr.io/dhis2-chap/chap-worker:latest
     init: true
     depends_on:
       postgres:
@@ -57,6 +59,12 @@ services:
       CHAP_RUNS_DIR: /data/runs
       PYTENSOR_FLAGS: "base_compiledir=/data/pytensor"
     command: "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks worker --loglevel=info"
+    healthcheck:
+      test: ["CMD-SHELL", "/app/.venv/bin/celery -A chap_core.rest_api.celery_tasks inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"

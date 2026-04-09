@@ -5,6 +5,11 @@ build:
     useBuildkit: true
   artifacts:
     - image: ghcr.io/dhis2-chap/chap-core
+      docker:
+        dockerfile: Dockerfile
+    - image: ghcr.io/dhis2-chap/chap-worker
+      docker:
+        dockerfile: Dockerfile.worker
 deploy:
   statusCheckDeadlineSeconds: 300
   tolerateFailuresUntilDeadline: true
@@ -15,12 +20,9 @@ deploy:
         namespace: chap
         createNamespace: true
         setValueTemplates:
-          image:
-            pullPolicy: Always
-          ingress:
-            enabled: false
-            hosts:
-              - host: "{{.HOST}}"
-                paths:
-                  - path: /
-                    pathType: ImplementationSpecific
+          chap-api.image.pullPolicy: Always
+          chap-worker.image.pullPolicy: Always
+          valkey.auth.aclUsers.default.password: "{{.REDIS_PASSWORD}}"
+          chap-api.googleServiceAccount.email: "{{.GOOGLE_SERVICE_ACCOUNT_EMAIL}}"
+          chap-api.googleServiceAccount.privateKey: "{{.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}}"
+          chap-api.ingress.enabled: "false"

@@ -1,33 +1,39 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "chap.fullname" . }}-worker
+  name: {{ include "chap-worker.fullname" . }}
   labels:
-    {{- include "chap.labels" . | nindent 4 }}
-    component: worker
+    {{- include "chap-worker.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.worker.replicaCount }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
-      {{- include "chap.selectorLabels" . | nindent 6 }}
-      component: worker
+      {{- include "chap-worker.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
-        {{- include "chap.labels" . | nindent 8 }}
-        component: worker
+        {{- include "chap-worker.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "chap.serviceAccountName" . }}
+      serviceAccountName: {{ include "chap-worker.serviceAccountName" . }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: {{ include "chap.fullname" . }}-worker
+        - name: {{ include "chap-worker.fullname" . }}
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -35,8 +41,16 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            {{- toYaml .Values.worker.command | nindent 12 }}
-          {{- with .Values.worker.resources }}
+            {{- toYaml .Values.command | nindent 12 }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -46,23 +60,18 @@ spec:
             - name: REDIS_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: {{ include "chap.fullname" . }}
+                  name: {{ include "chap-worker.fullname" . }}
                   key: REDIS_HOST
             - name: REDIS_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: {{ include "chap.fullname" . }}
+                  name: {{ include "chap-worker.fullname" . }}
                   key: REDIS_PORT
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  {{- if .Values.valkeyConnection.existingSecret }}
-                  name: {{ .Values.valkeyConnection.existingSecret }}
-                  key: {{ .Values.valkeyConnection.secretKeys.password }}
-                  {{- else }}
-                  name: {{ include "chap.fullname" . }}
-                  key: REDIS_PASSWORD
-                  {{- end }}
+                  name: {{ include "chap-worker.valkey.secretName" . }}
+                  key: {{ .Values.valkey.secretKeys.password }}
             - name: CELERY_BROKER
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
             - name: RENV_PATHS_ROOT
@@ -76,52 +85,35 @@ spec:
             - name: PYTENSOR_FLAGS
               value: "base_compiledir=/data/pytensor"
             - name: POSTGRES_USER
-              {{- if .Values.postgresql.existingSecret }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.postgresql.existingSecret }}
-                  key: {{ .Values.postgresql.secretKeys.username }}
-              {{- else if .Values.postgresql.managed.enabled }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "chap.fullname" . }}-postgres-app
-                  key: username
-              {{- else }}
-              value: postgres
-              {{- end }}
+                  name: {{ include "chap-worker.postgres.secretName" . }}
+                  key: {{ .Values.postgres.secretKeys.username }}
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  {{- if .Values.postgresql.existingSecret }}
-                  name: {{ .Values.postgresql.existingSecret }}
-                  key: {{ .Values.postgresql.secretKeys.password }}
-                  {{- else if .Values.postgresql.managed.enabled }}
-                  name: {{ include "chap.fullname" . }}-postgres-app
-                  key: password
-                  {{- else }}
-                  name: {{ include "chap.fullname" . }}
-                  key: POSTGRES_PASSWORD
-                  {{- end }}
+                  name: {{ include "chap-worker.postgres.secretName" . }}
+                  key: {{ .Values.postgres.secretKeys.password }}
             - name: POSTGRES_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: {{ include "chap.fullname" . }}
+                  name: {{ include "chap-worker.fullname" . }}
                   key: POSTGRES_HOST
             - name: POSTGRES_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: {{ include "chap.fullname" . }}
+                  name: {{ include "chap-worker.fullname" . }}
                   key: POSTGRES_PORT
             - name: POSTGRES_DB
               valueFrom:
                 configMapKeyRef:
-                  name: {{ include "chap.fullname" . }}
+                  name: {{ include "chap-worker.fullname" . }}
                   key: POSTGRES_DB
             - name: CHAP_DATABASE_URL
               value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
           envFrom:
             - configMapRef:
-                name: {{ include "chap.fullname" . }}
+                name: {{ include "chap-worker.fullname" . }}
           volumeMounts:
             - name: tmpfs
               mountPath: /tmp
@@ -135,9 +127,9 @@ spec:
               mountPath: /data/logs
             - name: pytensor
               mountPath: /data/pytensor
-          {{- with .Values.worker.volumeMounts }}
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- with .Values.volumeMounts }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
         - name: tmpfs
           emptyDir:
