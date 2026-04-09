@@ -111,6 +111,14 @@ Same flow as Step 5 but select "Chapkit Test Model" instead of CHAP-EWARS:
 5. Select it, map same covariates, dry run, start import
 6. Verify job completes successfully
 
+## Step 8: Test prediction
+
+1. Navigate to Predict > New prediction
+2. Fill in same parameters as evaluation (name, periods 2023-01 to 2024-12, Province level org units)
+3. Select "Chapkit Test Model", map same 4 data items
+4. Save, click "Start import"
+5. Monitor on Jobs page - should complete successfully
+
 ## Known Issues
 
 ### Browser caching
@@ -144,7 +152,8 @@ curl -X POST http://localhost:8000/v1/crud/configured-models \
 - Both can run evaluations successfully
 - The variant shows as "Chapkit Test Model [Variant-a]" in the UI
 
-### Verified evaluation results
-Both EWARS and Chapkit Test Model evaluations completed successfully:
-- EWARS: ~2 minutes (full INLA model)
-- Chapkit Test Model: ~30 seconds (returns mean of disease_cases)
+### Verified results
+All flows completed successfully through the modeling app:
+- Evaluation with default chapkit model: SUCCESS
+- Evaluation with variant-a configured model: SUCCESS
+- Prediction with chapkit model: SUCCESS
