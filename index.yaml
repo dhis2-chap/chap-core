@@ -16,4 +16,290 @@ entries:
     urls:
     - https://github.com/dhis2-chap/chap-core/releases/download/CHAP-0.1.0/CHAP-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-03T03:44:53.651084381Z"
+  chap:
+  - annotations:
+      category: Application
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-02T13:31:24.623546713Z"
+    dependencies:
+    - condition: chap-db.enabled
+      name: chap-db
+      repository: file://../chap-db
+      version: 0.1.3
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm
+      version: 0.9.2
+    - condition: chap-api.enabled
+      name: chap-api
+      repository: file://../chap-api
+      version: 0.1.8
+    - condition: chap-worker.enabled
+      name: chap-worker
+      repository: file://../chap-worker
+      version: 0.1.1
+    description: CHAP (Climate Health Analysis Platform) - Umbrella Chart
+    digest: 4478ee0ce5bb8455f478f06bd0b5fafee6a3785019a384742941a3fcab73069b
+    name: chap
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-0.3.2/chap-0.3.2.tgz
+    version: 0.3.2
+  - annotations:
+      category: Application
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-31T12:36:19.615288356Z"
+    dependencies:
+    - condition: chap-db.enabled
+      name: chap-db
+      repository: file://../chap-db
+      version: 0.1.1
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm
+      version: 0.9.2
+    - condition: chap-api.enabled
+      name: chap-api
+      repository: file://../chap-api
+      version: 0.1.1
+    - condition: chap-worker.enabled
+      name: chap-worker
+      repository: file://../chap-worker
+      version: 0.1.1
+    description: CHAP (Climate Health Analysis Platform) - Umbrella Chart
+    digest: ef44973eec8ed02743f01e9095b979596890aeb3eef1a318f14d39da742f060d
+    name: chap
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-0.3.1/chap-0.3.1.tgz
+    version: 0.3.1
+  - annotations:
+      category: Application
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-30T15:00:11.308983972Z"
+    dependencies:
+    - condition: chap-db.enabled
+      name: chap-db
+      repository: file://../chap-db
+      version: 0.1.0
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm
+      version: 0.9.2
+    - condition: chap-api.enabled
+      name: chap-api
+      repository: file://../chap-api
+      version: 0.1.0
+    - condition: chap-worker.enabled
+      name: chap-worker
+      repository: file://../chap-worker
+      version: 0.1.0
+    description: CHAP (Climate Health Analysis Platform) - Umbrella Chart
+    digest: 1bb4dc9b64d7b64e3c199ed3b91b7d0b9e063e239d122fa3ff6d78293304f8ec
+    name: chap
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-0.3.0/chap-0.3.0.tgz
+    version: 0.3.0
+  - annotations:
+      category: Application
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-30T14:34:21.192172362Z"
+    dependencies:
+    - condition: chap-db.enabled
+      name: chap-db
+      repository: file://../chap-db
+      version: 0.1.0
+    - condition: chap-valkey.enabled
+      name: chap-valkey
+      repository: file://../chap-valkey
+      version: 0.1.0
+    - condition: chap-api.enabled
+      name: chap-api
+      repository: file://../chap-api
+      version: 0.1.0
+    - condition: chap-worker.enabled
+      name: chap-worker
+      repository: file://../chap-worker
+      version: 0.1.0
+    description: CHAP (Climate Health Analysis Platform) - Umbrella Chart
+    digest: b4a2248d1f94730a56afdf3dd37e2b271a29cc7bf4e44220098458b4872ea2cd
+    name: chap
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-0.2.0/chap-0.2.0.tgz
+    version: 0.2.0
+  chap-api:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-02T13:31:24.774629088Z"
+    description: CHAP API - REST API Deployment
+    digest: 8bb4943795142155c35fb9757c74d03e82db93c82411c492f8221177dcb5a8af
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.8/chap-api-0.1.8.tgz
+    version: 0.1.8
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-01T17:37:41.277453268Z"
+    description: CHAP API - REST API Deployment
+    digest: 920009fdf87b06cb6d36b44422a3e110136f34ae27fd6640bc8a7990758b518c
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.7/chap-api-0.1.7.tgz
+    version: 0.1.7
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-01T17:01:59.742596613Z"
+    description: CHAP API - REST API Deployment
+    digest: a594f5036d94d7772bb2b92fae931e26d074d01bc0ca4df653db4f8ca4063dd6
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.6/chap-api-0.1.6.tgz
+    version: 0.1.6
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-01T14:49:16.649515473Z"
+    description: CHAP API - REST API Deployment
+    digest: 581014f58afdb032ac97c6d37184b4bc5021bb7cedf8cf3e9f2304951a601e0a
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.5/chap-api-0.1.5.tgz
+    version: 0.1.5
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-01T09:31:09.527039076Z"
+    description: CHAP API - REST API Deployment
+    digest: 341c9f21366c87e212a342aaca68a51299ed4894452a4f7b56379afb6bbf043f
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.4/chap-api-0.1.4.tgz
+    version: 0.1.4
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-01T07:34:34.363098447Z"
+    description: CHAP API - REST API Deployment
+    digest: 01a98e6ae86ac9c20bb0cd5c12e84fe4e1a8344b6055401dc73349cea826b3f2
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.2/chap-api-0.1.2.tgz
+    version: 0.1.2
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-31T12:36:19.764940562Z"
+    description: CHAP API - REST API Deployment
+    digest: df6c13a0c7c52b2e07dc84b5e2a2b71800c498f2e4d6c1233c95254beea199fd
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.1/chap-api-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-30T14:34:21.380952351Z"
+    description: CHAP API - REST API Deployment
+    digest: 0c97f3b193fe379ca656f0e0cff76d71bfd2ce66cae643d7e8b455594c304344
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.0/chap-api-0.1.0.tgz
+    version: 0.1.0
+  chap-db:
+  - annotations:
+      category: Infrastructure
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-01T16:42:25.497454055Z"
+    description: CHAP PostgreSQL database (CloudNativePG)
+    digest: 3b51240dc65baf80174ad15c6d20db4b4657b1fe9113e98e138e8fa0edb13329
+    name: chap-db
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-db-0.1.3/chap-db-0.1.3.tgz
+    version: 0.1.3
+  - annotations:
+      category: Infrastructure
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-04-01T04:33:19.654383565Z"
+    description: CHAP PostgreSQL database (CloudNativePG)
+    digest: de53844dc72fb984c14647686c6fa1af3d9035d4e2fbd4751d3005210c32e9ab
+    name: chap-db
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-db-0.1.2/chap-db-0.1.2.tgz
+    version: 0.1.2
+  - annotations:
+      category: Infrastructure
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-31T12:36:19.931227177Z"
+    description: CHAP PostgreSQL database (CloudNativePG)
+    digest: b0c6062049754e7a9ed0211f90a4a439bd6d076305221037d144d24df80e26b0
+    name: chap-db
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-db-0.1.1/chap-db-0.1.1.tgz
+    version: 0.1.1
+  - annotations:
+      category: Infrastructure
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-30T14:34:21.567366692Z"
+    description: CHAP PostgreSQL database (CloudNativePG)
+    digest: 5b8dbb4f3e345040f91e0e2a851aebb731266833bdc4c0d776fafa4d83f483c8
+    name: chap-db
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-db-0.1.0/chap-db-0.1.0.tgz
+    version: 0.1.0
+  chap-valkey:
+  - annotations:
+      category: Infrastructure
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-30T14:34:21.77075537Z"
+    dependencies:
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm
+      version: 0.9.2
+    description: CHAP Valkey cache and message broker
+    digest: 0e874e86174128a549781fbe59e87cffad22ac785d81ad773299dc4659dd8544
+    name: chap-valkey
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-valkey-0.1.0/chap-valkey-0.1.0.tgz
+    version: 0.1.0
+  chap-worker:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-31T12:36:20.110197378Z"
+    description: CHAP Worker - Celery Worker Deployment
+    digest: 7a8e03b14c8fda6c8958b38df4e430ce90001cb2496c1932193795a4bef0f1e5
+    name: chap-worker
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-worker-0.1.1/chap-worker-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-30T14:34:21.946107213Z"
+    description: CHAP Worker - Celery Worker Deployment
+    digest: 651e445c5c10435a8745e335c4b45daafd0a408556d139dd3ce94244acaba0b1
+    name: chap-worker
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-worker-0.1.0/chap-worker-0.1.0.tgz
+    version: 0.1.0
+generated: "2026-04-02T13:31:24.774680985Z"

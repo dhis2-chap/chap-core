@@ -3,8 +3,7 @@ import typing
 
 import numpy as np
 import pytest
-from pydantic_geojson import PointModel
-from pydantic_geojson._base import Coordinates
+from geojson_pydantic import Point
 from sqlmodel import select, Session
 
 from chap_core.api_types import FeatureCollectionModel, FeatureModel
@@ -46,15 +45,16 @@ def backtest_params():
 @pytest.fixture
 def geojson(org_units) -> FeatureCollectionModel:
     return FeatureCollectionModel(
+        type="FeatureCollection",
         features=[
             FeatureModel(
                 type="Feature",
                 id=ou,
                 properties={"name": ou},
-                geometry=PointModel(coordinates=Coordinates(0.0, 0.0)),
+                geometry=Point(type="Point", coordinates=[0.0, 0.0]),
             )
             for ou in org_units
-        ]
+        ],
     )
 
 

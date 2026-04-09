@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
+import pooch
 import yaml
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -86,6 +87,31 @@ def create_model_lists(model_configuration_yaml: str | None, model_name: str) ->
         model_list = [model_name]
         model_configuration_yaml_list = [model_configuration_yaml]
     return model_configuration_yaml_list, model_list
+
+
+def resolve_csv_path(dataset_csv: str | Path) -> tuple[Path, Path | None]:
+    """If dataset_csv is a URL, download it and return local path + optional geojson path.
+
+    For local paths, returns the path unchanged with no geojson path.
+    For URLs, downloads the CSV using pooch and also attempts to download
+    a companion .geojson file from the same URL with the extension replaced.
+    """
+    dataset_csv = str(dataset_csv)
+    if not dataset_csv.startswith(("http://", "https://")):
+        return Path(dataset_csv), None
+
+    logger.info(f"Downloading CSV from URL: {dataset_csv}")
+    local_path = Path(pooch.retrieve(dataset_csv, known_hash=None))
+
+    geojson_url = dataset_csv.replace(".csv", ".geojson")
+    geojson_path = None
+    try:
+        geojson_path = Path(pooch.retrieve(geojson_url, known_hash=None))
+        logger.info(f"Downloaded companion GeoJSON from: {geojson_url}")
+    except Exception:
+        logger.debug(f"No companion GeoJSON found at: {geojson_url}")
+
+    return local_path, geojson_path
 
 
 def discover_geojson(csv_path: Path) -> Path | None:

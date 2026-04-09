@@ -1,7 +1,7 @@
 import os
 
 import pandas as pd
-from pydantic_geojson import FeatureCollectionModel, FeatureModel
+from geojson_pydantic import Feature, FeatureCollection
 from unidecode import unidecode
 
 from chap_core.datatypes import FullData, HealthPopulationData, SimpleClimateData
@@ -19,12 +19,12 @@ out_base_filename = "%sera5/{country}_era5.csv" % base_folder
 full_data_basename = "%sfull_data/{country}.csv" % base_folder
 
 
-class DFeatureModel(FeatureModel):
-    properties: dict
+class DFeatureModel(Feature):
+    properties: dict  # type: ignore[assignment]
 
 
-class DFeatureCollectionModel(FeatureCollectionModel):
-    features: list[DFeatureModel]
+class DFeatureCollectionModel(FeatureCollection):
+    features: list[DFeatureModel]  # type: ignore[assignment]
 
 
 def to_camelcase(name: str) -> str:
@@ -82,7 +82,7 @@ def get_country_data(country_name, old_data=None):
         return None
     # names = [feature.properties['VARNAME_1'] for feature in features]
     data = gee_client.get_historical_era5(
-        DFeatureCollectionModel(features=features).model_dump(), periodes=period_range
+        DFeatureCollectionModel(type="FeatureCollection", features=features).model_dump(), periodes=period_range
     )
 
     data = DataSet({name: value for name, value in zip(names, data.values())})

@@ -16,6 +16,7 @@ from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, 
 from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.metrics_dashboard import MetricsDashboard
+from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import PredictedVsActualPlot
 from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import plot_backtest
@@ -94,6 +95,13 @@ def test_metrics_dashboard_directly(flat_observations, flat_forecasts, default_t
 def test_horizon_location_grid_directly(flat_observations, flat_forecasts_multiple_samples, default_transformer):
     """Test the horizon location grid plot with multiple-sample forecasts."""
     plot = HorizonLocationGridPlot()
+    chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
+    assert chart is not None
+
+
+def test_predicted_vs_actual_plot_directly(flat_observations, flat_forecasts_multiple_samples, default_transformer):
+    """Test the predicted vs actual scatter plot with multiple-sample forecasts."""
+    plot = PredictedVsActualPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
     assert chart is not None
 
@@ -178,6 +186,22 @@ def test_plot_backtest_cli(backtest: BackTest, tmp_path: Path, default_transform
 
     assert output_file.exists()
     assert output_file.stat().st_size > 0
+
+
+def test_eval_cmd_plot_flag(backtest: BackTest, tmp_path: Path, default_transformer):
+    """Test that eval_cmd's plot flag generates an HTML plot file."""
+    from chap_core.assessment.backtest_plots import create_plot_from_evaluation
+
+    evaluation = Evaluation.from_backtest(backtest)
+    nc_file = tmp_path / "evaluation.nc"
+    evaluation.to_file(nc_file)
+
+    plot_path = nc_file.with_suffix(".html")
+    chart = create_plot_from_evaluation("evaluation_plot", evaluation)
+    chart.save(str(plot_path))
+
+    assert plot_path.exists()
+    assert plot_path.stat().st_size > 0
 
 
 def test_generate_pdf_report(backtest: BackTest, tmp_path: Path):

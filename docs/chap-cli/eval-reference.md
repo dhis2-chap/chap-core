@@ -75,6 +75,30 @@ Control model execution environment:
 | `--model-configuration-yaml` | Path to YAML file with model-specific parameters | None |
 | `--historical-context-years` | Years of historical data to include for plotting context | 6 |
 | `--data-source-mapping` | Path to JSON file for column name mapping | None |
+| `--dry-run` | Write data files and print commands without executing the model | false |
+
+## Dry Run
+
+Use `--dry-run` to inspect what commands would be executed and verify data files without running the model. This writes all input data (training, historic, and future CSVs) to the run directory and prints the fully-assembled commands for each backtest split.
+
+```console
+chap eval \
+    --model-name ./my_model \
+    --dataset-csv ./data.csv \
+    --output-file ./eval.nc \
+    --dry-run
+```
+
+Example output:
+
+```
+[dry-run] cd runs/my_model/2025-01-15_10-30-00_abc123 && uv run python train.py training_data.csv model
+[dry-run] cd runs/my_model/2025-01-15_10-30-00_abc123 && uv run python predict.py model historic_data_2024-01-01.csv future_data_2024-01-01.csv predictions_2024-01-01.csv
+[dry-run] cd runs/my_model/2025-01-15_10-30-00_abc123 && uv run python predict.py model historic_data_2024-02-01.csv future_data_2024-02-01.csv predictions_2024-02-01.csv
+...
+```
+
+Each predict split writes its own date-suffixed data files, so you can inspect the exact inputs for any split. The printed commands can be copy-pasted into a terminal to run individual steps manually.
 
 ## Data Source Mapping
 
@@ -234,6 +258,16 @@ chap eval \
     --dataset-csv ./data.csv \
     --output-file ./eval.nc \
     --model-configuration-yaml ./model_config.yaml
+```
+
+### Dry Run
+
+```console
+chap eval \
+    --model-name ./my_model \
+    --dataset-csv ./data.csv \
+    --output-file ./eval.nc \
+    --dry-run
 ```
 
 ### Debug Mode with Logging
