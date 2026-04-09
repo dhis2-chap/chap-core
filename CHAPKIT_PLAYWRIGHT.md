@@ -92,10 +92,29 @@ Same flow as Step 5 but select "Chapkit Test Model" instead of CHAP-EWARS:
 5. Save, dry run, start import
 6. Monitor job on Jobs page
 
+## Step 7: Test multiple configured models (variant)
+
+1. Create a variant configured model via API:
+   ```bash
+   # Get the chapkit template ID
+   TEMPLATE_ID=$(curl -s http://localhost:8000/v1/crud/model-templates | \
+     python3 -c "import json,sys; [print(t['id']) for t in json.load(sys.stdin) if t['name']=='chapkit-test-model']")
+
+   # Create variant (uses_chapkit inherited from template)
+   curl -X POST http://localhost:8000/v1/crud/configured-models \
+     -H "Content-Type: application/json" \
+     -d "{\"name\": \"variant-a\", \"model_template_id\": $TEMPLATE_ID, \"user_option_values\": {}}"
+   ```
+2. Hard refresh the modeling app (Cmd+Shift+R)
+3. Navigate to Evaluate > New evaluation
+4. "Chapkit Test Model [Variant-a]" should appear as a separate selectable model
+5. Select it, map same covariates, dry run, start import
+6. Verify job completes successfully
+
 ## Known Issues
 
 ### Browser caching
-After registering a new chapkit service, the modeling app may not show it immediately. Hard refresh (Cmd+Shift+R) resolves this.
+After registering a new chapkit service or creating new configured models, the modeling app may not show them immediately. Hard refresh (Cmd+Shift+R) resolves this.
 
 ### DHIS2 route configuration
 The route URL must use `host.docker.internal` when DHIS2 runs in Docker and chap-core is on the host or a different Docker network. The default `http://chap-core:8000/**` only works when both are on the same Docker compose network.
@@ -111,12 +130,19 @@ The modeling app maps model covariates to DHIS2 data elements/indicators. The co
 - `mean_temperature` -> "Air temperature (ERA5-Land)"
 
 ### Multiple configured models per chapkit template
-Creating a second configured model from a chapkit template via `POST /configured-models` works correctly:
-- `uses_chapkit` is inherited from the template
-- The API returns both models with correct covariates
-- However, the modeling app's model selection dialog shows one card per template, not per configured model
-- The variant model is visible on the Models page but not selectable in the evaluation form
-- This is a frontend limitation, not a backend issue
+Creating additional configured models from a chapkit template works end-to-end:
+
+```bash
+# Create a variant via API (uses_chapkit inherited from template automatically)
+curl -X POST http://localhost:8000/v1/crud/configured-models \
+  -H "Content-Type: application/json" \
+  -d '{"name": "variant-a", "model_template_id": <template-id>, "user_option_values": {}}'
+```
+
+- `uses_chapkit` is inherited from the parent template
+- Both default and variant models appear in the model selection dialog (after hard refresh)
+- Both can run evaluations successfully
+- The variant shows as "Chapkit Test Model [Variant-a]" in the UI
 
 ### Verified evaluation results
 Both EWARS and Chapkit Test Model evaluations completed successfully:
