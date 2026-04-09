@@ -135,7 +135,7 @@ High-level evaluation abstraction:
 
 ## Code Flow: `Evaluation.create()`
 
-Step-by-step walkthrough of what happens when `Evaluation.create()` is called (e.g. from the CLI `chap evaluate` command):
+Step-by-step walkthrough of what happens when `Evaluation.create()` is called (e.g. from the CLI `chap eval` command):
 
 1. **`backtest()`** is called with the estimator and dataset
 2. Inside `backtest()`, **`train_test_generator()`** computes the split index and creates:
