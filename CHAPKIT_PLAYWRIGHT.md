@@ -110,6 +110,14 @@ The modeling app maps model covariates to DHIS2 data elements/indicators. The co
 - `rainfall` -> "Precipitation (CHIRPS)"
 - `mean_temperature` -> "Air temperature (ERA5-Land)"
 
+### Multiple configured models per chapkit template
+Creating a second configured model from a chapkit template via `POST /configured-models` works correctly:
+- `uses_chapkit` is inherited from the template
+- The API returns both models with correct covariates
+- However, the modeling app's model selection dialog shows one card per template, not per configured model
+- The variant model is visible on the Models page but not selectable in the evaluation form
+- This is a frontend limitation, not a backend issue
+
 ### Verified evaluation results
 Both EWARS and Chapkit Test Model evaluations completed successfully:
 - EWARS: ~2 minutes (full INLA model)
