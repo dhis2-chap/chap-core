@@ -2,7 +2,7 @@
 
 ### MLproject environment
 
-In the MLproject file you just created, you need to specify one environment CHAP will run your model within. The available options are uv (Python), renv environment (for R models) and docker. Below it is described how you set up each environment.
+In the MLproject file you just created, you need to specify one environment Chap will run your model within. The available options are uv (Python), renv environment (for R models) and docker. Below it is described how you set up each environment.
 
 ## Option 1) uv environment (Python)
 
@@ -36,7 +36,7 @@ Commands will be executed via `uv run`, which automatically handles the virtual 
 
 ## Option 2) R enviroment
 
-We reccomend to using renv to handle and specify dependenices for your R-models (link) When using renv, you only need to put this line in ML-project file
+We reccomend to use renv to handle and specify dependenices for your R-models (link) When using renv, you only need to put this line in the ML-project file:
 
 ```yaml
 renv_env: renv.lock
@@ -61,6 +61,31 @@ renv_env: renv.lock
           out_file: str
         command: "Rscript predict.R {model} {historic_data} {future_data} {out_file}"
     ```
+??? example "A brief introduction to renv commands"
+
+    1. Initialize renv in your R project:
+
+        ```r
+        renv::init()
+        ```
+
+    2. Install your required packages:
+
+        ```r
+        renv::install("dplyr")
+        renv::install("argparser")
+        # ... other packages
+        ```
+
+    3. Create the lockfile:
+
+        ```r
+        renv::snapshot()
+        ```
+
+    This creates `renv.lock` with exact versions of all dependencies, ensuring reproducible environments.
+
+    See the [minimalist R model example](https://github.com/dhis2-chap/chap-core/tree/master/minimalist_example_renv) for a complete working example.
 
 ## Option 3) Docker environment
 

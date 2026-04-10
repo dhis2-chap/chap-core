@@ -63,12 +63,10 @@ If you are an external contributor without write-access to the chap-core reposit
 It is also good to see if you can run chap evaluation on an external model. The recommended command is `chap eval`:
 
 ```bash
-chap eval --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-csv example_data/laos_subset.csv --output-file eval.nc --backtest-params.n-splits 2
+chap eval --model-name https://github.com/dhis2-chap/chap_auto_ewars --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --backtest-params.n-splits 2
 ```
 
 If the above command runs successfully, an `eval.nc` file will be generated with the results.
-
-> **Note:** The legacy `chap evaluate` command is deprecated and will be removed in v2.0.
 
 You have now successfully setup a development version of the chap-cli tool and you are ready to start developing.
 If you have any problems installing or setting up the environment, feel free to [contact us](https://github.com/dhis2-chap/chap-core/wiki>).

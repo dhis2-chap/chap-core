@@ -644,9 +644,9 @@ class Evaluation(EvaluationBase):
         for (location, time_period, horizon_distance), group in forecasts_df.groupby(
             ["location", "time_period", "horizon_distance"]
         ):
-            # Calculate last_seen_period from horizon_distance
+            # Calculate last_seen_period from 1-based horizon_distance
             period = TimePeriod.parse(str(time_period))
-            last_seen_period = period - (int(str(horizon_distance)) * period.time_delta)
+            last_seen_period = period - ((int(str(horizon_distance)) - 1) * period.time_delta)
 
             # Get all sample values for this forecast, sorted by sample number
             values = group.sort_values("sample")["forecast"].tolist()
