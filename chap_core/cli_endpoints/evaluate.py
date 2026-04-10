@@ -135,8 +135,8 @@ def evaluate_hpo(
             configs = load_search_space_from_config(configs)
             assert metric is not None, "metric must be specified for HPO"
             # objective = Objective(template, metric, prediction_length, n_splits)
-            # cheating to make it work with the new Objective
-            backtest_params = BackTestParams()
+            # now with the new Objective signature, with BackTestParams
+            backtest_params = BackTestParams(n_periods=prediction_length, n_splits=n_splits)
             objective = Objective(template, backtest_params, metric)
             model = HpoModel(RandomSearcher(2), objective, direction, configs)
 
