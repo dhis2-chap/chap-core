@@ -5,6 +5,7 @@ from sqlmodel import SQLModel
 from chap_core.assessment.metrics import (
     RMSEMetric,
     MAEMetric,
+    MAPEMetric,
     CRPSMetric,
     CRPSLog1pMetric,
     CRPSNormMetric,
@@ -35,6 +36,7 @@ from chap_core.datatypes import SamplesWithTruth
 ALL_METRIC_FACTORIES = [
     RMSEMetric,
     MAEMetric,
+    MAPEMetric,
     CRPSMetric,
     CRPSLog1pMetric,
     CRPSNormMetric,
@@ -176,6 +178,26 @@ def test_mae_aggregate(flat_forecasts, flat_observations):
     np.testing.assert_almost_equal(result["metric"].iloc[0], expected_mae, decimal=5)
 
 
+def test_mape_aggregate(flat_forecasts, flat_observations):
+    """Test MAPEMetric at global level computes a single value across all data."""
+    mape = MAPEMetric()
+    result = mape.get_global_metric(flat_observations, flat_forecasts)
+
+    assert len(result) == 1
+    assert "metric" in result.columns
+
+    # Manually compute expected: errors are [1, 1, 2, 2]
+    expected_mape = np.mean(
+        [
+            abs(11 - 10) / 11 * 100,
+            abs(13 - 12) / 13 * 100,
+            abs(19 - 21) / 19 * 100,
+            abs(21 - 23) / 21 * 100,
+        ]
+    )
+    np.testing.assert_almost_equal(result["metric"].iloc[0], expected_mape, decimal=5)
+
+
 def test_get_all_aggregated_metrics_from_backtest(backtest_weeks):
     """Test compute_all_aggregated_metrics_from_backtest returns expected metrics."""
     metrics = compute_all_aggregated_metrics_from_backtest(backtest_weeks)
@@ -288,6 +310,83 @@ def test_read_example_weekly_predictions(data_path):
     data = pd.read_csv(data_path / "example_weekly_predictions.csv")
     samples = SamplesWithTruth.from_pandas(data)
     print(type(samples.time_period))
+
+
+def test_mape_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
+    """Test that MAPEMetric computes errors from median of samples."""
+    mape = MAPEMetric()
+    result = mape.get_detailed_metric(flat_observations, flat_forecasts_multiple_samples)
+
+    # Median forecasts: loc1=[10, 12] (horizons 1, 2), loc2=[21, 23] (horizons 1, 2)
+    # Observations: loc1=[11, 13], loc2=[19, 21]
+    # Absolute Percentage Errors: loc1=[1, 1], loc2=[2, 2]
+    correct = pd.DataFrame(
+        {
+            "location": ["loc1", "loc1", "loc2", "loc2"],
+            "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
+            "horizon_distance": [1, 2, 1, 2],
+            "metric": [
+                abs(11 - 10) / 11 * 100,
+                abs(13 - 12) / 13 * 100,
+                abs(19 - 21) / 19 * 100,
+                abs(21 - 23) / 21 * 100,
+            ],
+        }
+    )
+
+    pd.testing.assert_frame_equal(
+        result.sort_values(["location", "horizon_distance"]).reset_index(drop=True),
+        correct.sort_values(["location", "horizon_distance"]).reset_index(drop=True),
+    )
+
+
+def test_mape_aggregate_uses_median_of_samples(flat_forecasts_multiple_samples, flat_observations):
+    """Test that MAPEMetric at global level computes errors from median of samples."""
+    mape = MAPEMetric()
+    result = mape.get_global_metric(flat_observations, flat_forecasts_multiple_samples)
+
+    # Median forecasts: [10, 12, 21, 23]
+    # Observations: [11, 13, 19, 21]
+    # Absolute errors: [1, 1, 2, 2]
+    expected_mape = np.mean(
+        [
+            abs(11 - 10) / 11 * 100,
+            abs(13 - 12) / 13 * 100,
+            abs(19 - 21) / 19 * 100,
+            abs(21 - 23) / 21 * 100,
+        ]
+    )
+    np.testing.assert_almost_equal(result["metric"].iloc[0], expected_mape, decimal=5)
+
+
+def test_mape_zero_observed_is_nan_and_excluded_from_global(flat_forecasts, flat_observations):
+    """MAPE returns NaN for zero observations and excludes them from global mean."""
+    mape = MAPEMetric()
+
+    observations_with_zero = flat_observations.copy()
+    observations_with_zero.loc[
+        (observations_with_zero["location"] == "loc1") & (observations_with_zero["time_period"] == "2023-W01"),
+        "disease_cases",
+    ] = 0.0
+
+    detailed = mape.get_detailed_metric(observations_with_zero, flat_forecasts)
+    zero_case = detailed.loc[
+        (detailed["location"] == "loc1")
+        & (detailed["time_period"] == "2023-W01")
+        & (detailed["horizon_distance"] == 1),
+        "metric",
+    ].iloc[0]
+    assert np.isnan(zero_case)
+
+    global_result = mape.get_global_metric(observations_with_zero, flat_forecasts)
+    expected_global = np.mean(
+        [
+            abs(13 - 12) / 13 * 100,
+            abs(19 - 21) / 19 * 100,
+            abs(21 - 23) / 21 * 100,
+        ]
+    )
+    np.testing.assert_almost_equal(global_result["metric"].iloc[0], expected_global, decimal=5)
 
 
 # --- Peak diff metric tests ---
