@@ -54,10 +54,14 @@ class FlatMetric(FlatDataWithHorizon):
 
 
 def horizon_diff(period: str, period2: str) -> int:
-    """Calculate the difference between two time periods in terms of time units."""
+    """Calculate the 1-based horizon distance between two time periods.
+
+    Returns the number of time steps from period2 to period, counting from 1.
+    E.g. if period2 is the last seen period and period is the next one, returns 1.
+    """
     tp = TimePeriod.parse(period)
     tp2 = TimePeriod.parse(period2)
-    return int((tp - tp2) // tp.time_delta)
+    return int((tp - tp2) // tp.time_delta) + 1
 
 
 def _convert_backtest_to_flat_forecasts(backtest_forecasts: list[BackTestForecast]) -> pd.DataFrame:
@@ -240,5 +244,5 @@ class DataDimension(StrEnum):
 DIM_REGISTRY: Mapping[DataDimension, tuple[type, Check | None]] = {
     DataDimension.location: (str, None),
     DataDimension.time_period: (str, None),
-    DataDimension.horizon_distance: (int, Check.ge(0)),
+    DataDimension.horizon_distance: (int, Check.ge(1)),
 }
