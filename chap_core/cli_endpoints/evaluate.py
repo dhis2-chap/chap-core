@@ -501,34 +501,22 @@ def eval_cmd_hpo(
     do_hpo: Annotated[
         bool | None,
         Parameter(help="Wether or not to run HPO"),
-    ] = True,
+    ] = False,
     metric: Annotated[
         str | None,
         Parameter(help="Metric to use for running HPO"),
     ] = "rmse",
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
+    HPO can be activated through the do_hpo argument, which will run a hyperparameter
+    optimization over the search space defined in the model template or in the provided
+    model_configuration_yaml file. The best configuration is selected based on the specified metric.
 
-    Runs a rolling-origin backtest evaluation on a disease prediction model and saves
-    results in NetCDF format for analysis with scientific tools. GeoJSON polygon files
-    are auto-discovered from files with the same name as the CSV but with .geojson extension.
-
-    The evaluation splits historical data into multiple train/test sets, trains the model
-    on each training set, and generates probabilistic forecasts that are compared against
-    actual observations. Results include predictions, observations, and computed metrics.
-
-    Examples:
+    Example:
         # Evaluate a GitHub-hosted model
-        chap eval --model-name https://github.com/dhis2-chap/minimalist_example_r \\
-            --dataset-csv ./data/vietnam.csv --output-file ./results/eval.nc
-
-        # Evaluate a chapkit model (REST API)
-        chap eval --model-name http://localhost:8000 --run-config.is-chapkit-model \\
-            --dataset-csv ./data/vietnam.csv --output-file ./results/eval.nc
-
-        # Use column name mapping when CSV columns don't match model expectations
-        chap eval --model-name ./my_model --dataset-csv ./data.csv \\
-            --output-file ./eval.nc --data-source-mapping ./column_mapping.json
+        chap eval-hpo --model-name https://github.com/dhis2-chap/minimalist_example \\
+            --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
+            --model-configuration-yaml ./chap_core/hpo/config3.yaml --do-hpo=True --metric sensitivity
     """
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
@@ -605,7 +593,7 @@ def eval_cmd_hpo(
             model_template=model_template_db,
             configuration=configuration.model_dump()
             if configuration
-            else {},  # if HPO configuration would be the search space and not a single config if it matters, hard to get a single config as this is before evaluation is ran, changed it so that when HPO configuration is set to None
+            else {},  # if HPO configuration would be the search space and not a single config, hard to get a single config as this is before evaluation is ran, so when doing HPO configuration is set to None
         )
 
         logger.info(

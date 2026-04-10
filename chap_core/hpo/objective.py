@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Literal
 
 from chap_core.api_types import BackTestParams
 from chap_core.assessment.evaluation import Evaluation
@@ -18,47 +17,20 @@ class Objective:
         self,
         model_template: ModelTemplate,
         backtest_params: BackTestParams,
-        metric: str = "MSE",
-        # prediction_length: int = 3,  # 6,
-        # n_splits: int = 4,
-        ignore_environment: bool = False,
-        debug: bool = False,
-        log_file: str | None = None,
-        run_directory_type: Literal["latest", "timestamp", "use_existing"] | None = "timestamp",
+        metric: str = "rmse",
+        historical_context_years: int = 6,
     ):
         self.model_template = model_template
         self.backtest_params = backtest_params
         self.metric = metric
-        # self.prediction_length = prediction_length
-        # self.n_splits = n_splits
-
-    # def __call__(self, config, dataset: DataSetType | None = None) -> float:
-    #     """
-    #     This method takes a concrete configuration produced by a Searcher,
-    #     runs model evaluation, and returns a scalar score of the selected metric.
-    #     """
-    #     logger.info("Validating model configuration")
-    #     model_configs = {"user_option_values": config}  # TODO: should prob be removed
-    #     model_config = ModelConfiguration.model_validate(model_configs)
-    #     logger.info("Validated model configuration")
-
-    #     model = self.model_template.get_model(model_config)  # type: ignore[arg-type]
-    #     model = model()
-    #     try:
-    #         # evaluate_model should handle CV/nested CV and return mean results
-    #         # stratified fold/splits
-    #         results = evaluate_model(
-    #             model,
-    #             dataset,  # type: ignore[arg-type]
-    #             prediction_length=self.prediction_length,
-    #             n_test_sets=self.n_splits,
-    #         )
-    #     except NoPredictionsError as e:
-    #         logger.error(f"No predictions were made: {e}")
-    #         return float("inf")
-    #     return float(results[0][self.metric])
+        self.historical_context_years = historical_context_years
 
     def __call__(self, config, dataset: DataSet) -> float:
+        """
+        This method takes a concrete configuration produced by a Searcher,
+        runs model evaluation, and returns a scalar score of the selected metric.
+        dry_run and plot from eval_cmd are not currently included.
+        """
         from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
         logger.info("Validating model configuration")
@@ -84,14 +56,15 @@ class Objective:
         logger.info(
             f"Running backtest with {self.backtest_params.n_splits} splits, {self.backtest_params.n_periods} periods, stride {self.backtest_params.stride}"
         )
-        historical_context_years = 6
+        logger.debug(f"Including {self.historical_context_years} years of historical context for plotting")
+
         evaluation = Evaluation.create(
             configured_model=configured_model_db,
             estimator=estimator,
             dataset=dataset,
             backtest_params=self.backtest_params,
-            backtest_name="hpo_run",
-            historical_context_years=historical_context_years,
+            backtest_name="hpo_evaluation",
+            historical_context_years=self.historical_context_years,
         )
 
         output_file = Path("./chap_core/hpo/hpo_eval.nc")
