@@ -14,7 +14,6 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 from chap_core.rest_api.v1.routers.dependencies import get_settings
-from chap_core.util import docker_available as _docker_available
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,6 @@ class SystemInfoResponse(BaseModel):
     server_date: str
     server_time_zone_id: str
     revision: str
-    docker_available: bool
 
 
 # --- Router ---
@@ -63,7 +61,6 @@ async def system_info() -> SystemInfoResponse:
 
     server_date = datetime.now(UTC).isoformat()
     revision = os.environ.get("GIT_REVISION", "")
-    docker_avail = _docker_available()
 
     return SystemInfoResponse(
         chap_core_version=chap_core_version,
@@ -71,7 +68,6 @@ async def system_info() -> SystemInfoResponse:
         server_date=server_date,
         server_time_zone_id="Etc/UTC",
         revision=revision,
-        docker_available=docker_avail,
     )
 
 
