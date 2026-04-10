@@ -59,9 +59,6 @@ dependencies = [
     "alembic>=1.14.0",
     "chapkit>=0.16",
     "cryptography>=46.0.5",
-    "stumpy>=1.14.1",
-    "pyts>=0.13.0",
-    "fastdtw>=0.3.4",
 ]
 
 [dependency-groups]
@@ -94,6 +91,13 @@ dev = [
     "types-psycopg2>=2.9.21.20251012",
     "types-shapely>=2.1.0.20250917",
     "types-geopandas>=1.1.2.20260120",
+]
+
+[project.optional-dependencies]
+explainability = [
+    "stumpy>=1.14.1",
+    "pyts>=0.13.0",
+    "fastdtw>=0.3.4",
 ]
 
 [project.urls]

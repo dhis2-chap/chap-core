@@ -355,7 +355,6 @@ dependencies = [
     { name = "diskcache" },
     { name = "docker" },
     { name = "fastapi" },
-    { name = "fastdtw" },
     { name = "geopandas" },
     { name = "geopy" },
     { name = "gitpython" },
@@ -384,13 +383,11 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "python-multipart" },
-    { name = "pyts" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "rq" },
     { name = "scikit-learn" },
     { name = "sqlmodel" },
-    { name = "stumpy" },
     { name = "topojson" },
     { name = "unidecode" },
     { name = "uvicorn" },
@@ -398,6 +395,13 @@ dependencies = [
     { name = "virtualenv" },
     { name = "vl-convert-python" },
     { name = "xarray" },
+]
+
+[package.optional-dependencies]
+explainability = [
+    { name = "fastdtw" },
+    { name = "pyts" },
+    { name = "stumpy" },
 ]
 
 [package.dev-dependencies]
@@ -444,7 +448,7 @@ requires-dist = [
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "fastapi", specifier = ">=0.118.0" },
-    { name = "fastdtw", specifier = ">=0.3.4" },
+    { name = "fastdtw", marker = "extra == 'explainability'", specifier = ">=0.3.4" },
     { name = "geopandas", specifier = ">=1.1.1" },
     { name = "geopy", specifier = ">=2.4.1" },
     { name = "gitpython", specifier = ">=3.1.45" },
@@ -472,13 +476,13 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
-    { name = "pyts", specifier = ">=0.13.0" },
+    { name = "pyts", marker = "extra == 'explainability'", specifier = ">=0.13.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "rq", specifier = ">=2.6.0" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "sqlmodel", specifier = ">=0.0.25" },
-    { name = "stumpy", specifier = ">=1.14.1" },
+    { name = "stumpy", marker = "extra == 'explainability'", specifier = ">=1.14.1" },
     { name = "topojson", specifier = ">=1.10" },
     { name = "unidecode", specifier = ">=1.4.0" },
     { name = "uvicorn", specifier = ">=0.37.0" },
@@ -487,6 +491,7 @@ requires-dist = [
     { name = "vl-convert-python", specifier = ">=1.8.0" },
     { name = "xarray", specifier = ">=2025.10.0" },
 ]
+provides-extras = ["explainability"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1180,7 +1185,7 @@ wheels = [
 name = "griffelib"
 version = "2.0.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ad/06/eccbd311c9e2b3ca45dbc063b93134c57a1ccc7607c5e545264ad092c4a9/griffelib-2.0.0.tar.gz", hash = "sha256:e504d637a089f5cab9b5daf18f7645970509bf4f53eda8d79ed71cce8bd97934", size = 166312, upload-time = "2026-03-23T21:06:55.954Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/82/74f4a3310cdabfbb10da554c3a672847f1ed33c6f61dd472681ce7f1fe67/griffelib-2.0.2.tar.gz", hash = "sha256:3cf20b3bc470e83763ffbf236e0076b1211bac1bc67de13daf494640f2de707e", size = 166461, upload-time = "2026-03-27T11:34:51.091Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/11/8c/c9138d881c79aa0ea9ed83cbd58d5ca75624378b38cee225dcf5c42cc91f/griffelib-2.0.2-py3-none-any.whl", hash = "sha256:925c857658fb1ba40c0772c37acbc2ab650bd794d9c1b9726922e36ea4117ea1", size = 142357, upload-time = "2026-03-27T11:34:46.275Z" },
 ]

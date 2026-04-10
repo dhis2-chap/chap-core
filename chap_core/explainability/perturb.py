@@ -10,11 +10,6 @@ import numpy as np
 import pandas as pd
 from scipy.signal import ShortTimeFFT, get_window
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
-
 logger = logging.getLogger(__name__)
 
 

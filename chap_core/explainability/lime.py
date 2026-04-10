@@ -22,8 +22,7 @@ from chap_core.time_period.date_util_wrapper import PeriodRange
 
 logger = logging.getLogger(__name__)
 
-_non_feature_names_plus_disease = _non_feature_names
-_non_feature_names_plus_disease.remove("disease_cases")
+_non_feature_names_plus_disease = _non_feature_names - {"disease_cases"}
 
 def avg_samples(
     data: DataSet,

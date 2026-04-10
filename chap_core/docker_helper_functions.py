@@ -36,10 +36,7 @@ def run_command_through_docker_container(
         working_dir_full_path = os.path.abspath(working_directory)
     except FileNotFoundError:
         logging.error(f"Could not find working dir {working_directory}.")
-        try:
-            logging.error(f"Current directory is {os.getcwd()}")
-        except FileNotFoundError:
-            logging.error("Current directory no longer exists (was deleted).")
+        logging.error(f"Current directory is {os.getcwd()}")
         raise
 
     logger.debug(

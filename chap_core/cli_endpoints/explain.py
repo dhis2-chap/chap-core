@@ -14,7 +14,6 @@ from chap_core.cli_endpoints._common import (
     load_dataset_from_csv,
 )
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.explainability import lime
 from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 
@@ -78,6 +77,11 @@ def explain_lime(
     # TODO: Fix too much printing in console when running
     logger.info(f"Evaluating model {model_name} using LIME")
 
+    if lime_params.adaptive:
+        from chap_core.explainability.lime import explain_adaptive as explain_fn
+    else:
+        from chap_core.explainability.lime import explain as explain_fn
+
     initialize_logging(run_config.debug, run_config.log_file)
 
     geojson_path = discover_geojson(dataset_csv)
@@ -107,7 +111,6 @@ def explain_lime(
 
         logger.info(f"Generating explanation for {location}, {horizon} time steps into the future.")
 
-        explain_fn = lime.explain_adaptive if lime_params.adaptive else lime.explain
 
         explain_fn(
             model=estimator,
