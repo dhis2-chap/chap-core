@@ -365,7 +365,7 @@ async def create_backtest(request: MakeBacktestRequest, database_url: str = Depe
         request.n_splits,
         request.stride,
         database_url=database_url,
-        **{JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: request.name},
+        **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
     )
 
     return JobResponse(id=job.id)

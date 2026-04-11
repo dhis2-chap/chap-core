@@ -218,7 +218,7 @@ async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(
         wf.run_backtest,
         backtest,
         database_url=database_url,
-        **{JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: backtest.name},
+        **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: backtest.name},
     )
 
     return JobResponse(id=job.id)
