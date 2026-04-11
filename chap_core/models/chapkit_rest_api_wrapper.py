@@ -103,6 +103,14 @@ class CHAPKitRestAPIWrapper:
         response = self._request("POST", "/api/v1/configs", json=config)
         return chapkit.ConfigOut.model_validate(response.json())
 
+    def delete_config(self, config_id: str) -> None:
+        """Delete a model configuration by id. Silently ignores failures."""
+        try:
+            self._request("DELETE", f"/api/v1/configs/{config_id}")
+        except Exception:
+            # Best-effort cleanup for probe configs etc.
+            pass
+
     def get_config_schema(self) -> dict[str, Any]:
         """Get JSON Schema for model configuration."""
         response = self._request("GET", "/api/v1/configs/$schema")
