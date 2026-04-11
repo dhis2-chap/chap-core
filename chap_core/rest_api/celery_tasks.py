@@ -33,10 +33,11 @@ class JobType(StrEnum):
     freely; only the string values are load-bearing.
     """
 
-    EVALUATION_LEGACY = "create_backtest"          # /v1/crud/backtests and /v1/analytics/create-backtest
-    EVALUATION = "create_backtest_from_data"       # /v1/analytics/create-backtest-with-data/
-    PREDICTION = "create_prediction"               # /v1/analytics/make-prediction
-    DATASET = "create_dataset"                     # /v1/analytics/make-dataset
+    EVALUATION_LEGACY = "create_backtest"  # /v1/crud/backtests and /v1/analytics/create-backtest
+    EVALUATION = "create_backtest_from_data"  # /v1/analytics/create-backtest-with-data/
+    PREDICTION = "create_prediction"  # /v1/analytics/make-prediction
+    DATASET = "create_dataset"  # /v1/analytics/make-dataset
+
 
 # We use get_task_logger to ensure we get the Celery-friendly logger
 # but you could also just use logging.getLogger(__name__) if you prefer.

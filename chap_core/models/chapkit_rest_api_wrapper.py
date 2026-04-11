@@ -1,5 +1,6 @@
 """Synchronous REST API wrapper for CHAPKit service."""
 
+import contextlib
 import logging
 import time
 from typing import Any, cast
@@ -105,11 +106,9 @@ class CHAPKitRestAPIWrapper:
 
     def delete_config(self, config_id: str) -> None:
         """Delete a model configuration by id. Silently ignores failures."""
-        try:
+        # Best-effort cleanup for probe configs etc.
+        with contextlib.suppress(Exception):
             self._request("DELETE", f"/api/v1/configs/{config_id}")
-        except Exception:
-            # Best-effort cleanup for probe configs etc.
-            pass
 
     def get_config_schema(self) -> dict[str, Any]:
         """Get JSON Schema for model configuration."""

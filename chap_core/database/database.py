@@ -332,29 +332,26 @@ class SessionWrapper:
         environments without Redis, etc.).
         """
         try:
-            from chap_core.rest_api.services.orchestrator import (
-                Orchestrator,
-                ServiceNotFoundError,
-            )
+            from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
             from chap_core.rest_api.v2.dependencies import get_redis
-
-            live = Orchestrator(redis_client=get_redis()).get(service_id)
         except ImportError:
             return stored_source_url
-        except Exception as exc:
-            # ServiceNotFoundError or redis unavailability: warn and fall back.
-            if exc.__class__.__name__ == "ServiceNotFoundError":
-                logger.warning(
-                    "Chapkit service %s not in v2 registry; falling back to stored source_url %s",
-                    service_id,
-                    stored_source_url,
-                )
-            else:
-                logger.debug(
-                    "Live orchestrator lookup failed for chapkit service %s",
-                    service_id,
-                    exc_info=True,
-                )
+
+        try:
+            live = Orchestrator(redis_client=get_redis()).get(service_id)
+        except ServiceNotFoundError:
+            logger.warning(
+                "Chapkit service %s not in v2 registry; falling back to stored source_url %s",
+                service_id,
+                stored_source_url,
+            )
+            return stored_source_url
+        except Exception:
+            logger.debug(
+                "Live orchestrator lookup failed for chapkit service %s",
+                service_id,
+                exc_info=True,
+            )
             return stored_source_url
 
         live_url = getattr(live, "url", None)
@@ -370,7 +367,7 @@ class SessionWrapper:
             )
             template.source_url = live_url
             self.session.commit()
-        return live_url
+        return cast("str", live_url)
 
     def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
         logger.info(f"Getting configured model with id {configured_model_id}")
