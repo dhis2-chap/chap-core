@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose force-restart
+.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose force-restart restart
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -87,5 +87,8 @@ dist: clean ## build source and wheel package
 install: clean ## sync dependencies and install package in development mode
 	uv sync
 
-force-restart: ## tear down, rebuild, and start docker compose from scratch
+force-restart: ## tear down, rebuild, and start docker compose from scratch (WIPES VOLUMES including chap-db)
 	docker compose -f compose.yml -f compose.ewars.yml down -v && docker compose -f compose.yml -f compose.ewars.yml build --no-cache && docker compose -f compose.yml -f compose.ewars.yml up --remove-orphans
+
+restart: ## soft restart docker compose (preserves volumes; rebuilds only on source changes)
+	docker compose -f compose.yml -f compose.ewars.yml down && docker compose -f compose.yml -f compose.ewars.yml up -d --build --remove-orphans

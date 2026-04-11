@@ -518,6 +518,7 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     version: str | None = None
     archived: bool = False
     health_status: str | None = None
+    uses_chapkit: bool = False
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])
