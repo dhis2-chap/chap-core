@@ -429,7 +429,7 @@ def eval_cmd(
             model_name=model_name,
             model_configuration=configuration.model_dump() if configuration else {},
             model_version=template.model_template_config.version or "unknown",
-            model_info=model_info or None,
+            model_info=model_info,
         )
 
         logger.info(f"Evaluation complete. Results saved to {output_file}")
