@@ -601,7 +601,7 @@ class Evaluation(EvaluationBase):
         """
         flat_data = self.to_flat()
 
-        model_template_json = model_info.model_dump_json(exclude_none=True) if model_info is not None else ""
+
 
         model_metadata = {
             "model_name": model_name or "",
@@ -610,8 +610,10 @@ class Evaluation(EvaluationBase):
             "split_periods": self.get_split_periods(),
             "org_units": self.get_org_units(),
             "historical_context_periods": self._historical_context_periods,
-            "model_info": model_template_json,
         }
+
+        if model_info is not None:
+            model_metadata["model_info"] = model_info.model_dump_json(exclude_none=True)
 
         ds = _flat_data_to_xarray(flat_data, model_metadata)
         ds.to_netcdf(filepath)
