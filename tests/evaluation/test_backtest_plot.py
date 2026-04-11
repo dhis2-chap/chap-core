@@ -111,7 +111,7 @@ def test_predicted_vs_actual_plot_directly(flat_observations, flat_forecasts_mul
     assert chart is not None
 
 
-def test_regional_rmse_distribtuion_plot_directly(
+def test_regional_rmse_distribution_plot_directly(
     flat_observations, flat_forecasts_multiple_samples, default_transformer
 ):
     """Test the regional error distribution boxplot plot with multiple-sample forecasts."""

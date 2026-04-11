@@ -21,7 +21,7 @@ def _compute_detailed_rmse(observations: pd.DataFrame, forecasts: pd.DataFrame) 
 
 @backtest_plot(
     plot_id="regional_rmse_distribution",
-    name="Regional RMSE distributioion",
+    name="Regional RMSE distribution",
     description="Boxplots showing RMSE error distributions by location with mean points.",
 )
 class RegionalRMSEDistributionPlot(BacktestPlotBase):
