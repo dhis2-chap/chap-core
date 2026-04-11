@@ -80,5 +80,4 @@ class RegionalRMSEDistributionPlot(BacktestPlotBase):
                 opacity=0.5,
                 color='royalblue'
             )
-            .properties(title="RMSE Distribution By Location")
         )
