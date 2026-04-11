@@ -49,7 +49,7 @@ from chap_core.database.model_templates_and_config_tables import (
 from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
-from chap_core.rest_api.celery_tasks import CeleryPool
+from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import BackTestCreate, BackTestRead, JobResponse
@@ -116,6 +116,40 @@ def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
     session.commit()
 
 
+def _resolve_chapkit_default_additional_covariates(client) -> list[str]:
+    """Probe a chapkit service for its BaseConfig `additional_continuous_covariates` default.
+
+    Chapkit's `/api/v1/configs/$schema` endpoint doesn't expose `default_factory`
+    values, so the only way to learn what the service considers a sensible default
+    covariate set is to materialize a config with an empty `data` dict and read
+    the pydantic-populated result back. We then delete the probe config to avoid
+    leaving cruft in the service's DB.
+
+    Returns an empty list on any failure — callers should treat the missing
+    defaults as "no additional covariates".
+    """
+    import time
+
+    probe_name = f"__chap_probe_defaults_{int(time.time() * 1000000)}__"
+    try:
+        probe = client.create_config({"name": probe_name, "data": {}})
+    except Exception:
+        logger.debug("Chapkit default probe POST failed", exc_info=True)
+        return []
+
+    try:
+        data = getattr(probe, "data", None) or {}
+        if hasattr(data, "model_dump"):
+            data = data.model_dump()
+        result = list(data.get("additional_continuous_covariates", []) or [])
+    except Exception:
+        logger.debug("Chapkit default probe response parse failed", exc_info=True)
+        result = []
+
+    client.delete_config(str(probe.id))
+    return result
+
+
 def _sync_chapkit_configured_models(
     session_wrapper: SessionWrapper,
     template_id: int,
@@ -127,6 +161,13 @@ def _sync_chapkit_configured_models(
     Skips if the template already has configured models (only syncs
     on first discovery). Creates a default configured model if the
     service has no configs.
+
+    `additional_continuous_covariates` for each configured model is seeded
+    from the chapkit service's `BaseConfig` defaults via a one-time probe
+    against `/api/v1/configs`. This matches the legacy config-file-driven
+    behaviour where the overlay YAML supplied the same field, and it is
+    what the modeling app reads to render the model card's covariate count
+    and the data-mapping dialog slots.
     """
     existing = session_wrapper.session.exec(
         select(ConfiguredModelDB).where(ConfiguredModelDB.model_template_id == template_id)
@@ -141,10 +182,12 @@ def _sync_chapkit_configured_models(
         logger.debug("Could not fetch configs from %s, will retry next sync", service_url)
         return
 
+    default_additional = _resolve_chapkit_default_additional_covariates(client)
+
     if not configs:
         session_wrapper.add_configured_model(
             template_id,
-            ModelConfiguration(user_option_values={}, additional_continuous_covariates=[]),
+            ModelConfiguration(user_option_values={}, additional_continuous_covariates=default_additional),
             "default",
             uses_chapkit=True,
         )
@@ -153,9 +196,16 @@ def _sync_chapkit_configured_models(
     for cfg in configs:
         # Chapkit manages its own config data; chap-core stores the
         # configured model as a reference only, with empty user options.
+        # Carry over `additional_continuous_covariates` from the config's
+        # own data when present; otherwise fall back to the service-level
+        # default probed above.
+        cfg_data = getattr(cfg, "data", None) or {}
+        if hasattr(cfg_data, "model_dump"):
+            cfg_data = cfg_data.model_dump()
+        cfg_additional = list(cfg_data.get("additional_continuous_covariates", []) or []) or default_additional
         session_wrapper.add_configured_model(
             template_id,
-            ModelConfiguration(user_option_values={}, additional_continuous_covariates=[]),
+            ModelConfiguration(user_option_values={}, additional_continuous_covariates=cfg_additional),
             cfg.name,
             uses_chapkit=True,
         )
@@ -214,7 +264,12 @@ class BackTestUpdate(DBModel):
 
 @router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
-    job = worker.queue_db(wf.run_backtest, backtest, database_url=database_url)
+    job = worker.queue_db(
+        wf.run_backtest,
+        backtest,
+        database_url=database_url,
+        **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: backtest.name},
+    )
 
     return JobResponse(id=job.id)
 
@@ -463,6 +518,7 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     version: str | None = None
     archived: bool = False
     health_status: str | None = None
+    uses_chapkit: bool = False
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])

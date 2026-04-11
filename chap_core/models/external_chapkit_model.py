@@ -8,6 +8,7 @@ from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper, Run
 from chap_core.models.chapkit_service_manager import ChapkitServiceManager, is_url
 from chap_core.models.external_model import ExternalModelBase
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import TimePeriod
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,14 @@ class ExternalChapkitModelTemplate:
         else:
             model_configuration = dict(model_configuration)
 
+        # chap-core's ConfiguredModelDB row has an `additional_continuous_covariates`
+        # column with a `default_factory=list`, so dumping the row produces an
+        # explicit `[]` that would override whatever default the chapkit service's
+        # own BaseConfig schema declares. Drop the key when empty so the service's
+        # schema default applies (e.g. ewars defaults to ["rainfall","mean_temperature"]).
+        if not model_configuration.get("additional_continuous_covariates"):
+            model_configuration.pop("additional_continuous_covariates", None)
+
         timestamp = int(time.time() * 1000000)
         if "name" not in model_configuration:
             name = f"{self.name}_config_{timestamp}"
@@ -333,7 +342,15 @@ class ExternalChapkitModel(ExternalModelBase):
         # get artifact from the client
         prediction_data = self.client.get_prediction_artifact_dataframe(artifact_id)
         pd = prediction_data.to_pandas()
-        # Sort by location and time_period to ensure consecutive periods
+        # Drop any predictions before the future window start. Some models (e.g. EWARS)
+        # run inference over the combined historic+future frame and emit predictions for
+        # every row with NA disease_cases, which includes missing-reporting months in
+        # historic data. Mirrors the legacy path in ExternalCommandLineModel.predict.
+        if "time_period" in pd.columns:
+            start_time = future_data.start_timestamp
+            time_periods = [TimePeriod.parse(s) for s in pd.time_period.astype(str)]
+            mask = [start_time <= tp.start_timestamp for tp in time_periods]
+            pd = pd[mask]
         if "time_period" in pd.columns and "location" in pd.columns:
             pd = pd.sort_values(by=["location", "time_period"]).reset_index(drop=True)
         return DataSet.from_pandas(pd, Samples)
