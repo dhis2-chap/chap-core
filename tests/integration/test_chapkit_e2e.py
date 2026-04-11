@@ -20,6 +20,7 @@ from sqlmodel import SQLModel
 import chap_core.database.tables  # noqa: F401 - register all table models
 from chap_core.database.database import SessionWrapper
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+from chap_core.database.tables import BackTest
 from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
 from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest
@@ -179,3 +180,16 @@ def test_chapkit_backtest_via_worker_function(chapkit_service):
 
         assert backtest_id is not None
         assert isinstance(backtest_id, int)
+
+        # Regression: run_backtest should populate aggregate_metrics on the
+        # backtest row so the `GET /v1/crud/backtests/{id}/full` response
+        # includes global CRPS/MAPE/RMSE/etc without needing a round-trip
+        # through the Vega visualization endpoints.
+        fetched = session.session.get(BackTest, backtest_id)
+        assert fetched is not None
+        assert fetched.aggregate_metrics, (
+            f"expected non-empty aggregate_metrics on backtest {backtest_id}, got {fetched.aggregate_metrics!r}"
+        )
+        assert any(k.startswith("crps") for k in fetched.aggregate_metrics), (
+            f"expected at least one CRPS variant in aggregate_metrics, got keys {list(fetched.aggregate_metrics)}"
+        )
