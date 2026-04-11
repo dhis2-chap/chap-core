@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose force-restart restart
+.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose force-restart restart chap-version
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -91,4 +91,7 @@ force-restart: ## tear down, rebuild, and start docker compose from scratch (WIP
 	docker compose -f compose.yml -f compose.ewars.yml down -v && docker compose -f compose.yml -f compose.ewars.yml build --no-cache && docker compose -f compose.yml -f compose.ewars.yml up --remove-orphans
 
 restart: ## soft restart docker compose (preserves volumes; rebuilds only on source changes)
-	docker compose -f compose.yml -f compose.ewars.yml down && docker compose -f compose.yml -f compose.ewars.yml up -d --build --remove-orphans
+	docker compose -f compose.yml -f compose.ewars.yml down && docker compose -f compose.yml -f compose.ewars.yml up -d --build --remove-orphans && $(MAKE) chap-version
+
+chap-version: ## print the chap_core version running inside the chap container
+	@docker compose -f compose.yml -f compose.ewars.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
