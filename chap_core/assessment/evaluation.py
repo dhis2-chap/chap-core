@@ -84,20 +84,22 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
     ds = xr.Dataset(data_vars)
 
     # Add global attributes
-    ds.attrs.update(
-        {
-            "title": "CHAP Model Evaluation Results",
-            "model_name": model_metadata.get("model_name", ""),
-            "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
-            "model_version": model_metadata.get("model_version", ""),
-            "created_date": datetime.datetime.now().isoformat(),
-            "split_periods": json.dumps(model_metadata.get("split_periods", [])),
-            "org_units": json.dumps(model_metadata.get("org_units", [])),
-            "historical_context_periods": model_metadata.get("historical_context_periods", 0),
-            "chap_version": CHAP_VERSION,
-            "model_info": model_metadata.get("model_info"),
-        }
-    )
+    attrs = {
+        "title": "CHAP Model Evaluation Results",
+        "model_name": model_metadata.get("model_name", ""),
+        "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
+        "model_version": model_metadata.get("model_version", ""),
+        "created_date": datetime.datetime.now().isoformat(),
+        "split_periods": json.dumps(model_metadata.get("split_periods", [])),
+        "org_units": json.dumps(model_metadata.get("org_units", [])),
+        "historical_context_periods": model_metadata.get("historical_context_periods", 0),
+        "chap_version": CHAP_VERSION,
+    }
+
+    if "model_info" in model_metadata:
+        attrs["model_info"] = model_metadata["model_info"]
+
+    ds.attrs.update(attrs)
 
     return ds
 
