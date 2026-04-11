@@ -88,7 +88,11 @@ def run_backtest(
 
     dataset = session.get_dataset(info.dataset_id)
 
-    configured_model = session.get_configured_model_by_name(info.model_id)
+    configured_model = session.get_configured_model_by_id_or_name(info.model_id)
+    # Normalise back to the name string so any downstream code that still
+    # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
+    # canonical value rather than the raw integer primary key.
+    info.model_id = configured_model.name
 
     # hack to get who ewars model to work, it requires n_peridos=3.
     # todo: should be removed in future when system for model specific backtest params is implemented

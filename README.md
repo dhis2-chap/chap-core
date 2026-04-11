@@ -28,3 +28,32 @@ If you find any bugs or issues when using this code base, we appreciate it if yo
 cp .env.example .env
 docker compose up
 ```
+
+### Rebuilding after a source change
+
+`docker compose up` will reuse an existing `chap-core-chap` image if one is
+already built — it does not automatically rebuild when you edit source. If
+you see a stale `chap_core.__version__` or a fix that clearly didn't land
+inside the running container, use one of:
+
+```shell
+make restart       # down && up -d --build (preserves volumes incl. chap-db)
+make force-restart # down -v && build --no-cache && up (WIPES VOLUMES)
+make chap-version  # print the chap_core version running inside the container
+```
+
+`make restart` is the right hammer 90% of the time. `make force-restart`
+also wipes the Postgres volume, so reach for it only when you need a clean
+slate. `make chap-version` is also printed automatically at the end of
+`make restart` so version drift is visible at a glance.
+
+### Running with the chapkit EWARS overlay
+
+The chapkit-based EWARS model ships as an opt-in compose overlay at
+`compose.ewars.yml`. Layer it onto `compose.yml` (not `compose.ghcr.yml`
+— those two are alternatives, not stackable) to run chap-core with the
+ewars service already self-registered:
+
+```shell
+docker compose -f compose.yml -f compose.ewars.yml up -d
+```
