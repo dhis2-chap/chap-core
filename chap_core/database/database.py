@@ -308,6 +308,21 @@ class SessionWrapper:
 
         return configured_model
 
+    def get_configured_model_by_id_or_name(self, configured_model_id_or_name: int | str) -> ConfiguredModelDB:
+        """Resolve a configured model from either its integer primary key or its name.
+
+        Exists so the public API can accept either shape on `POST /v1/crud/backtests/`
+        without forcing callers to know that the DB column stores the name string.
+        Integer ids raise ValueError if not found to stay consistent with the
+        name-based lookup above.
+        """
+        if isinstance(configured_model_id_or_name, int):
+            configured_model = self.session.get(ConfiguredModelDB, configured_model_id_or_name)
+            if configured_model is None:
+                raise ValueError(f"Configured model with id {configured_model_id_or_name} not found")
+            return configured_model
+        return self.get_configured_model_by_name(configured_model_id_or_name)
+
     def _resolve_chapkit_live_source_url(
         self,
         *,

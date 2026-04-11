@@ -264,6 +264,13 @@ class BackTestUpdate(DBModel):
 
 @router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
+    # `BackTestCreate.model_id` accepts either the configured-model name
+    # (what the DB column actually stores) or the integer primary key (what
+    # most API clients reach for because that's what GET /v1/crud/configured-models
+    # returns). The worker's run_backtest() normalises int -> name through
+    # `SessionWrapper.get_configured_model_by_id_or_name` before touching
+    # anything else, so the endpoint itself stays dumb and there's exactly
+    # one resolution point.
     job = worker.queue_db(
         wf.run_backtest,
         backtest,
