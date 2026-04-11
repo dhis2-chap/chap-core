@@ -88,4 +88,4 @@ install: clean ## sync dependencies and install package in development mode
 	uv sync
 
 force-restart: ## tear down, rebuild, and start docker compose from scratch
-	docker compose down -v && docker compose build --no-cache && docker compose up --remove-orphans
+	docker compose -f compose.yml -f compose.ewars.yml down -v && docker compose -f compose.yml -f compose.ewars.yml build --no-cache && docker compose -f compose.yml -f compose.ewars.yml up --remove-orphans
