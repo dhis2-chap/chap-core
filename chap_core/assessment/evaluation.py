@@ -597,6 +597,7 @@ class Evaluation(EvaluationBase):
             model_name: Name of the model (optional)
             model_configuration: Model configuration dictionary (optional)
             model_version: Model version string (optional)
+            model_info: ModelTemplateConfigV2 object containing model metadata (optional)
         """
         flat_data = self.to_flat()
 
