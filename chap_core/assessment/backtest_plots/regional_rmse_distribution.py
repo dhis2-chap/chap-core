@@ -66,7 +66,7 @@ class RegionalRMSEDistributionPlot(BacktestPlotBase):
             .encode(
                 x=alt.X("location:N", title="Location"),
                 y=alt.Y("mean_rmse:Q", title="RMSE"),
-                tooltip=["location:N", alt.Tooltip("mean_rmse:Q", format=".75f", title="Mean RMSE")],
+                tooltip=["location:N", alt.Tooltip("mean_rmse:Q", format=".2f", title="Mean RMSE")],
             )
         )
 
