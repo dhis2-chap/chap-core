@@ -62,7 +62,7 @@ class RegionalRMSEDistributionPlot(BacktestPlotBase):
 
         mean_points = (
             alt.Chart(mean_by_location)
-            .mark_point(color="#F58518", size=70, filled=True)
+            .mark_point(color="#F58518", size=50, filled=True)
             .encode(
                 x=alt.X("location:N", title="Location"),
                 y=alt.Y("mean_rmse:Q", title="RMSE"),
