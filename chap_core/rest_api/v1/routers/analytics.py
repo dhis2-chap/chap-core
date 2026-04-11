@@ -26,7 +26,7 @@ from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool
+from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
     BackTestCreate,
     BackTestRead,
@@ -89,7 +89,7 @@ def make_dataset(
         request.type,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: "create_dataset", JOB_NAME_KW: request.name},
+        **{JOB_TYPE_KW: JobType.DATASET, JOB_NAME_KW: request.name},
     )
 
     return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejections)
@@ -365,7 +365,7 @@ async def create_backtest(request: MakeBacktestRequest, database_url: str = Depe
         request.n_splits,
         request.stride,
         database_url=database_url,
-        **{JOB_TYPE_KW: "create_backtest", JOB_NAME_KW: request.name},
+        **{JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: request.name},
     )
 
     return JobResponse(id=job.id)
@@ -397,7 +397,7 @@ async def make_prediction(
         prediction_params=prediction_params,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: "create_prediction", JOB_NAME_KW: request.name},
+        **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
     )
     return JobResponse(id=job.id)
 
@@ -612,7 +612,7 @@ async def create_backtest_with_data(
         backtest_params=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
+        **{JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: request.name},
     )
     job_id = job.id
     return ImportSummaryResponse(id=job_id, imported_count=imported_count, rejected=rejections)

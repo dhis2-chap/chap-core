@@ -49,7 +49,7 @@ from chap_core.database.model_templates_and_config_tables import (
 from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
-from chap_core.rest_api.celery_tasks import CeleryPool
+from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import BackTestCreate, BackTestRead, JobResponse
@@ -214,7 +214,12 @@ class BackTestUpdate(DBModel):
 
 @router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
-    job = worker.queue_db(wf.run_backtest, backtest, database_url=database_url)
+    job = worker.queue_db(
+        wf.run_backtest,
+        backtest,
+        database_url=database_url,
+        **{JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: backtest.name},
+    )
 
     return JobResponse(id=job.id)
 

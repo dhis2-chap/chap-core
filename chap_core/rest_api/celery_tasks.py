@@ -4,6 +4,7 @@ import logging
 import os
 from collections.abc import Callable
 from datetime import datetime
+from enum import StrEnum
 from typing import TypeVar, cast
 
 import celery
@@ -19,6 +20,18 @@ from ..log_config import CHAP_LOGS_DIR, get_status_logger
 from ..util import load_redis
 
 ReturnType = TypeVar("ReturnType")
+
+
+class JobType(StrEnum):
+    """Canonical job type labels surfaced to the UI and the /v1/jobs filter.
+
+    Values must stay stable across chap-core and the modeling app frontend;
+    agree on any rename before changing.
+    """
+
+    EVALUATION = "Evaluation"
+    PREDICTION = "Prediction"
+    DATASET = "Dataset"
 
 # We use get_task_logger to ensure we get the Celery-friendly logger
 # but you could also just use logging.getLogger(__name__) if you prefer.
