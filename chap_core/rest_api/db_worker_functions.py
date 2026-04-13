@@ -126,6 +126,7 @@ def run_backtest(
     last_train_period = dataset.period_range[-1]
     evaluation = Evaluation.from_samples_with_truth(predictions_list, last_train_period, configured_model, info=info)
     backtest = evaluation.to_backtest()
+    backtest.model_db_id = configured_model.id
     session.add_backtest(backtest)
     # Populate the global aggregate metric values on the backtest row so that
     # GET /v1/crud/backtests/{id}/full can return CRPS/MAPE/RMSE/etc without
