@@ -31,6 +31,7 @@ from chap_core.database.dataset_tables import DataSet, Observation, ObservationB
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import BackTest, BackTestForecast
 from chap_core.datatypes import SamplesWithTruth
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.rest_api.data_models import BackTestCreate
 from chap_core.time_period import TimePeriod
 
@@ -83,19 +84,22 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
     ds = xr.Dataset(data_vars)
 
     # Add global attributes
-    ds.attrs.update(
-        {
-            "title": "CHAP Model Evaluation Results",
-            "model_name": model_metadata.get("model_name", ""),
-            "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
-            "model_version": model_metadata.get("model_version", ""),
-            "created_date": datetime.datetime.now().isoformat(),
-            "split_periods": json.dumps(model_metadata.get("split_periods", [])),
-            "org_units": json.dumps(model_metadata.get("org_units", [])),
-            "historical_context_periods": model_metadata.get("historical_context_periods", 0),
-            "chap_version": CHAP_VERSION,
-        }
-    )
+    attrs = {
+        "title": "CHAP Model Evaluation Results",
+        "model_name": model_metadata.get("model_name", ""),
+        "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
+        "model_version": model_metadata.get("model_version", ""),
+        "created_date": datetime.datetime.now().isoformat(),
+        "split_periods": json.dumps(model_metadata.get("split_periods", [])),
+        "org_units": json.dumps(model_metadata.get("org_units", [])),
+        "historical_context_periods": model_metadata.get("historical_context_periods", 0),
+        "chap_version": CHAP_VERSION,
+    }
+
+    if "model_info" in model_metadata:
+        attrs["model_info"] = model_metadata["model_info"]
+
+    ds.attrs.update(attrs)
 
     return ds
 
@@ -585,6 +589,7 @@ class Evaluation(EvaluationBase):
         model_name: str | None = None,
         model_configuration: dict | None = None,
         model_version: str | None = None,
+        model_info: ModelTemplateConfigV2 | None = None,
     ) -> None:
         """
         Export evaluation to NetCDF file using xarray.
@@ -594,8 +599,11 @@ class Evaluation(EvaluationBase):
             model_name: Name of the model (optional)
             model_configuration: Model configuration dictionary (optional)
             model_version: Model version string (optional)
+            model_info: ModelTemplateConfigV2 object containing model metadata (optional)
         """
         flat_data = self.to_flat()
+
+
 
         model_metadata = {
             "model_name": model_name or "",
@@ -605,6 +613,9 @@ class Evaluation(EvaluationBase):
             "org_units": self.get_org_units(),
             "historical_context_periods": self._historical_context_periods,
         }
+
+        if model_info is not None:
+            model_metadata["model_info"] = model_info.model_dump_json(exclude_none=True)
 
         ds = _flat_data_to_xarray(flat_data, model_metadata)
         ds.to_netcdf(filepath)
