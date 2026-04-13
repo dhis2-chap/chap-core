@@ -21,6 +21,26 @@ def _chapkit_period_to_chap(chapkit_period_type) -> PeriodType:
     return PeriodType(_CHAPKIT_PERIOD_MAP.get(value, value))
 
 
+def _parse_user_options_from_config_schema(config_schema: dict) -> dict:
+    """Extract user-tuneable options from a chapkit config schema response.
+
+    Legacy MLflow-era models store the schema under ``$defs.ModelConfiguration.properties``;
+    chapkit services expose it at the top-level ``properties`` key. Filters out
+    BaseConfig-reserved fields (``prediction_periods``, ``additional_continuous_covariates``)
+    that chap-core handles separately.
+    """
+    user_options: dict = {}
+    if "$defs" in config_schema and "ModelConfiguration" in config_schema["$defs"]:
+        user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
+    elif "properties" in config_schema:
+        user_options = dict(config_schema["properties"])
+
+    for reserved in ("prediction_periods", "additional_continuous_covariates"):
+        user_options.pop(reserved, None)
+
+    return user_options
+
+
 def ml_service_info_to_model_template_config(
     info: "Any",
     rest_api_url: str,
@@ -270,21 +290,8 @@ class ExternalChapkitModelTemplate:
         assert self.rest_api_url is not None
         model_info = self.client.info()
 
-        # Get user options from config schema. Legacy MLflow-era models
-        # store the schema under $defs.ModelConfiguration.properties;
-        # chapkit services expose it at the top-level properties key.
         config_schema = self.client.get_config_schema()
-        user_options: dict = {}
-        if "$defs" in config_schema and "ModelConfiguration" in config_schema["$defs"]:
-            user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
-        elif "properties" in config_schema:
-            user_options = dict(config_schema["properties"])
-
-        # Filter out BaseConfig-reserved fields that chap-core handles
-        # separately (prediction_periods drives the backtest split logic,
-        # additional_continuous_covariates is surfaced as its own UI section).
-        for reserved in ("prediction_periods", "additional_continuous_covariates"):
-            user_options.pop(reserved, None)
+        user_options = _parse_user_options_from_config_schema(config_schema)
 
         return ml_service_info_to_model_template_config(model_info, self.rest_api_url, user_options)
 
