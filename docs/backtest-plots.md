@@ -75,7 +75,7 @@ Add a new file under `chap_core/assessment/backtest_plots/`, e.g. `my_plot.py`.
 
 ### 2. Implement the class
 
-```python
+```console
 import altair as alt
 import pandas as pd
 
@@ -94,6 +94,7 @@ class MyCustomPlot(BacktestPlotBase):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
+        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
         # Your Altair chart logic here
         chart = alt.Chart(observations).mark_point().encode(
@@ -107,13 +108,13 @@ class MyCustomPlot(BacktestPlotBase):
 
 Add an import to `chap_core/assessment/backtest_plots/__init__.py` at the bottom (in the import block that loads all plot modules):
 
-```python
+```console
 from chap_core.assessment.backtest_plots import my_plot  # noqa: F401
 ```
 
 ### 4. Verify registration
 
-```bash
+```console
 # Check the plot appears in the listing
 curl -s http://localhost:8000/v1/visualization/backtest-plots/ | python3 -m json.tool
 ```
@@ -122,7 +123,7 @@ Your plot should appear in the list with the `id`, `displayName`, and `descripti
 
 ### 5. Render it
 
-```bash
+```console
 # Render against an existing backtest (replace 1 with your backtest ID)
 curl -s http://localhost:8000/v1/visualization/backtest-plots/my_custom_plot/1 | python3 -m json.tool
 ```
@@ -144,7 +145,7 @@ Note: there is also a separate `metric-plots` system for per-metric aggregation 
 
 Start the chap-core stack with a completed backtest:
 
-```bash
+```console
 cd chap-sdk/chap-core
 make force-restart     # fresh DB, builds from source
 # Wait for stack to be healthy
@@ -153,7 +154,7 @@ make chap-version
 
 Then run an evaluation (via the modeling app or API):
 
-```bash
+```console
 # Via API
 curl -sSL -X POST http://localhost:8000/v1/crud/backtests/ \
   -H "Content-Type: application/json" \
@@ -163,7 +164,7 @@ curl -sSL -X POST http://localhost:8000/v1/crud/backtests/ \
 
 ### Verify the plot listing
 
-```bash
+```console
 curl -s http://localhost:8000/v1/visualization/backtest-plots/ | \
   python3 -c "import json,sys; [print(p['id'], '-', p['displayName']) for p in json.load(sys.stdin)]"
 ```
@@ -172,7 +173,7 @@ Expected output includes your new plot ID.
 
 ### Render and preview
 
-```bash
+```console
 # Get the backtest ID
 BACKTEST_ID=$(curl -s http://localhost:8000/v1/crud/backtests | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['id'])")
 
@@ -212,7 +213,7 @@ For automated UI testing with the playwright MCP server, key patterns:
 
 ### Run linting and tests
 
-```bash
+```console
 make lint
 uv run pytest tests/ -q
 ```
