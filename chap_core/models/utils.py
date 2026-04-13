@@ -167,6 +167,13 @@ def get_model_template_from_directory_or_github_url(
             assert template.name is not None, template
         return template
 
+    if is_url(model_template_path) and not model_template_path.startswith("https://github.com"):
+        raise ValueError(
+            f"URL {model_template_path} was provided but could not be reached as a chapkit service. "
+            "Ensure the server is running and exposes /api/v1/info, "
+            "or use --run-config.is-chapkit-model to skip auto-detection."
+        )
+
     logger.debug(
         f"Getting model template from {model_template_path}. Ignore env: {ignore_env}. Base working dir: {base_working_dir}. Run dir type: {run_dir_type}"
     )

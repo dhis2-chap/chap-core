@@ -49,13 +49,182 @@ from chap_core.database.model_templates_and_config_tables import (
 from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
-from chap_core.rest_api.celery_tasks import CeleryPool
+from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import BackTestCreate, BackTestRead, JobResponse
 from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
+
+
+def _sync_live_chapkit_services(session: Session) -> set[str]:
+    """Sync live chapkit services from the v2 registry into the DB.
+
+    Queries the Redis-backed Orchestrator for registered services and
+    upserts each as a model template. For new templates (no configured
+    models yet), also fetches configs from the chapkit service and
+    creates configured models. Silently skips if Redis is unavailable.
+
+    Returns the set of live service IDs from the registry.
+    """
+    try:
+        from chap_core.rest_api.v2.dependencies import get_orchestrator
+
+        orchestrator = get_orchestrator()
+        service_list = orchestrator.get_all()
+    except Exception:
+        logger.debug("Could not reach service registry, skipping chapkit sync")
+        return set()
+
+    live_ids = {s.info.id for s in service_list.services}
+
+    if service_list.count > 0:
+        from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
+        from chap_core.models.external_chapkit_model import (
+            _parse_user_options_from_config_schema,
+            ml_service_info_to_model_template_config,
+        )
+
+        session_wrapper = SessionWrapper(session=session)
+        for service in service_list.services:
+            try:
+                # Fetch the config schema so user_options (n_lags, precision, etc.)
+                # are populated on the template row — both on first discovery and
+                # on every subsequent sync so schema changes propagate without a
+                # DB wipe.
+                user_options: dict = {}
+                try:
+                    client = CHAPKitRestAPIWrapper(service.url, timeout=5)
+                    schema = client.get_config_schema()
+                    user_options = _parse_user_options_from_config_schema(schema)
+                except Exception:
+                    logger.debug("Could not fetch config schema from %s", service.url)
+
+                config = ml_service_info_to_model_template_config(service.info, service.url, user_options)
+                template_id = session_wrapper.add_model_template_from_yaml_config(config)
+                # Mark template as chapkit-originated for archival tracking
+                template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()
+                template.uses_chapkit = True
+                session.commit()
+                _sync_chapkit_configured_models(session_wrapper, template_id, service.url, CHAPKitRestAPIWrapper)
+            except Exception:
+                logger.warning("Failed to sync chapkit service %s", service.id, exc_info=True)
+
+    _archive_stale_chapkit_templates(session, service_list)
+    return live_ids
+
+
+def _archive_stale_chapkit_templates(session: Session, service_list) -> None:
+    """Archive chapkit templates whose services are no longer live."""
+    live_names = {s.info.id for s in service_list.services}
+    chapkit_templates = session.exec(
+        select(ModelTemplateDB).where(
+            ModelTemplateDB.uses_chapkit == True,
+            ModelTemplateDB.archived == False,
+        )
+    ).all()
+    for template in chapkit_templates:
+        if template.name not in live_names:
+            template.archived = True
+            session.add(template)
+    session.commit()
+
+
+def _resolve_chapkit_default_additional_covariates(client) -> list[str]:
+    """Probe a chapkit service for its BaseConfig `additional_continuous_covariates` default.
+
+    Chapkit's `/api/v1/configs/$schema` endpoint doesn't expose `default_factory`
+    values, so the only way to learn what the service considers a sensible default
+    covariate set is to materialize a config with an empty `data` dict and read
+    the pydantic-populated result back. We then delete the probe config to avoid
+    leaving cruft in the service's DB.
+
+    Returns an empty list on any failure — callers should treat the missing
+    defaults as "no additional covariates".
+    """
+    import time
+
+    probe_name = f"__chap_probe_defaults_{int(time.time() * 1000000)}__"
+    try:
+        probe = client.create_config({"name": probe_name, "data": {}})
+    except Exception:
+        logger.debug("Chapkit default probe POST failed", exc_info=True)
+        return []
+
+    try:
+        data = getattr(probe, "data", None) or {}
+        if hasattr(data, "model_dump"):
+            data = data.model_dump()
+        result = list(data.get("additional_continuous_covariates", []) or [])
+    except Exception:
+        logger.debug("Chapkit default probe response parse failed", exc_info=True)
+        result = []
+
+    client.delete_config(str(probe.id))
+    return result
+
+
+def _sync_chapkit_configured_models(
+    session_wrapper: SessionWrapper,
+    template_id: int,
+    service_url: str,
+    wrapper_cls: type,
+) -> None:
+    """Sync configured models from a chapkit service into the DB.
+
+    Skips if the template already has configured models (only syncs
+    on first discovery). Creates a default configured model if the
+    service has no configs.
+
+    `additional_continuous_covariates` for each configured model is seeded
+    from the chapkit service's `BaseConfig` defaults via a one-time probe
+    against `/api/v1/configs`. This matches the legacy config-file-driven
+    behaviour where the overlay YAML supplied the same field, and it is
+    what the modeling app reads to render the model card's covariate count
+    and the data-mapping dialog slots.
+    """
+    existing = session_wrapper.session.exec(
+        select(ConfiguredModelDB).where(ConfiguredModelDB.model_template_id == template_id)
+    ).first()
+    if existing is not None:
+        return
+
+    client = wrapper_cls(service_url, timeout=5)
+    try:
+        configs = client.list_configs()
+    except Exception:
+        logger.debug("Could not fetch configs from %s, will retry next sync", service_url)
+        return
+
+    default_additional = _resolve_chapkit_default_additional_covariates(client)
+
+    if not configs:
+        session_wrapper.add_configured_model(
+            template_id,
+            ModelConfiguration(user_option_values={}, additional_continuous_covariates=default_additional),
+            "default",
+            uses_chapkit=True,
+        )
+        return
+
+    for cfg in configs:
+        # Chapkit manages its own config data; chap-core stores the
+        # configured model as a reference only, with empty user options.
+        # Carry over `additional_continuous_covariates` from the config's
+        # own data when present; otherwise fall back to the service-level
+        # default probed above.
+        cfg_data = getattr(cfg, "data", None) or {}
+        if hasattr(cfg_data, "model_dump"):
+            cfg_data = cfg_data.model_dump()
+        cfg_additional = list(cfg_data.get("additional_continuous_covariates", []) or []) or default_additional
+        session_wrapper.add_configured_model(
+            template_id,
+            ModelConfiguration(user_option_values={}, additional_continuous_covariates=cfg_additional),
+            cfg.name,
+            uses_chapkit=True,
+        )
+
 
 router = APIRouter(prefix="/crud")
 
@@ -110,7 +279,19 @@ class BackTestUpdate(DBModel):
 
 @router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
-    job = worker.queue_db(wf.run_backtest, backtest, database_url=database_url)
+    # `BackTestCreate.model_id` accepts either the configured-model name
+    # (what the DB column actually stores) or the integer primary key (what
+    # most API clients reach for because that's what GET /v1/crud/configured-models
+    # returns). The worker's run_backtest() normalises int -> name through
+    # `SessionWrapper.get_configured_model_by_id_or_name` before touching
+    # anything else, so the endpoint itself stays dumb and there's exactly
+    # one resolution point.
+    job = worker.queue_db(
+        wf.run_backtest,
+        backtest,
+        database_url=database_url,
+        **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: backtest.name},
+    )
 
     return JobResponse(id=job.id)
 
@@ -358,15 +539,27 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     required_covariates: list[str] = []
     version: str | None = None
     archived: bool = False
+    health_status: str | None = None
+    uses_chapkit: bool = False
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])
 async def list_model_templates(session: Session = Depends(get_session)):
     """
     Lists all model templates from the db, including archived.
+    Also syncs live chapkit services from the v2 service registry
+    into the database (upsert by name).
     """
+    live_ids = _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB)).all()
-    return model_templates
+
+    results = []
+    for t in model_templates:
+        read = ModelTemplateRead.model_validate(t)
+        if t.name in live_ids:
+            read.health_status = "live"
+        results.append(read)
+    return results
 
 
 ###########
@@ -398,8 +591,14 @@ def add_configured_model(
     session_wrapper = SessionWrapper(session=session)
     model_template_id = model_configuration.model_template_id
     configuration_name = model_configuration.name
+    # Inherit uses_chapkit from parent template so the model loads correctly at runtime
+    template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
+    uses_chapkit = template.uses_chapkit if template else False
     db_id = session_wrapper.add_configured_model(
-        model_template_id, ModelConfiguration(**model_configuration.model_dump()), configuration_name
+        model_template_id,
+        ModelConfiguration(**model_configuration.model_dump()),
+        configuration_name,
+        uses_chapkit=uses_chapkit,
     )
     return session.get(ConfiguredModelDB, db_id)
 

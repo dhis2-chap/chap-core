@@ -178,3 +178,46 @@ def test_seed_configured_models(engine):
 def test_seed_datasets_to_db(engine):
     with SessionWrapper(engine) as session:
         seed_example_datasets(session)
+
+
+@pytest.fixture
+def configured_model_fixture(engine, model_template_yaml_config):
+    """Seed a model template + configured model and return (engine, configured_model_id, configured_model_name)."""
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        cm_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
+    with Session(engine) as s:
+        cm = s.get(ConfiguredModelDB, cm_id)
+        assert cm is not None
+        name = cm.name
+    return engine, cm_id, name
+
+
+def test_resolve_configured_model_by_int_id(configured_model_fixture):
+    engine, cm_id, expected_name = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        result = session.get_configured_model_by_id_or_name(cm_id)
+        assert result.id == cm_id
+        assert result.name == expected_name
+
+
+def test_resolve_configured_model_by_string_name(configured_model_fixture):
+    engine, cm_id, expected_name = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        result = session.get_configured_model_by_id_or_name(expected_name)
+        assert result.id == cm_id
+        assert result.name == expected_name
+
+
+def test_resolve_configured_model_by_nonexistent_int_raises(configured_model_fixture):
+    engine, _, _ = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        with pytest.raises(ValueError, match="not found"):
+            session.get_configured_model_by_id_or_name(99999)
+
+
+def test_resolve_configured_model_by_nonexistent_name_raises(configured_model_fixture):
+    engine, _, _ = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        with pytest.raises(ValueError, match="not found"):
+            session.get_configured_model_by_id_or_name("no_such_model")

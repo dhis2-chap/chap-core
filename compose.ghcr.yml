@@ -1,3 +1,8 @@
+# Use this file INSTEAD OF compose.yml, not layered on top of it.
+# The two files define the same services -- compose.yml builds chap+worker
+# from the local source, compose.ghcr.yml pulls prebuilt images from GHCR.
+# Layering them breaks compose validation with duplicate security_opt /
+# cap_drop entries because compose appends list fields on overlay.
 services:
   chap:
     image: ghcr.io/dhis2-chap/chap-core:latest
@@ -24,6 +29,8 @@ services:
       - type: volume
         source: logs
         target: /data/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     depends_on:

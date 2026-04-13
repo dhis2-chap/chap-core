@@ -58,7 +58,14 @@ class ImportSummaryResponse(DBModel):
     rejected: list[ValidationError]
 
 
-class BackTestCreate(BackTestBase): ...
+class BackTestCreate(BackTestBase):
+    # Accept either the configured-model integer primary key or its string
+    # name. The underlying DB column (`BackTestBase.model_id`) is a string,
+    # but the `POST /v1/crud/backtests/` handler resolves an `int` to the
+    # corresponding name before persisting so the column stays consistent.
+    # See `chap_core.rest_api.v1.routers.crud.create_backtest` for the
+    # resolution path.
+    model_id: int | str  # type: ignore[assignment]
 
 
 class BackTestFull(BackTestRead):

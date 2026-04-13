@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from chap_core.api_types import BackTestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
+from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.data import DataSet as InMemoryDataSet
@@ -87,7 +88,11 @@ def run_backtest(
 
     dataset = session.get_dataset(info.dataset_id)
 
-    configured_model = session.get_configured_model_by_name(info.model_id)
+    configured_model = session.get_configured_model_by_id_or_name(info.model_id)
+    # Normalise back to the name string so any downstream code that still
+    # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
+    # canonical value rather than the raw integer primary key.
+    info.model_id = configured_model.name
 
     # hack to get who ewars model to work, it requires n_peridos=3.
     # todo: should be removed in future when system for model specific backtest params is implemented
@@ -121,7 +126,21 @@ def run_backtest(
     last_train_period = dataset.period_range[-1]
     evaluation = Evaluation.from_samples_with_truth(predictions_list, last_train_period, configured_model, info=info)
     backtest = evaluation.to_backtest()
+    backtest.model_db_id = configured_model.id
     session.add_backtest(backtest)
+    # Populate the global aggregate metric values on the backtest row so that
+    # GET /v1/crud/backtests/{id}/full can return CRPS/MAPE/RMSE/etc without
+    # the caller needing to round-trip through /v1/visualization/metric-plots.
+    # Per-forecast samples on BackTestForecast remain the source of truth for
+    # the visualization path; a failure here must not tank the whole backtest.
+    # This runs AFTER add_backtest because compute_all_aggregated_metrics_from_backtest
+    # reads `backtest.dataset.observations` via the Evaluation abstraction, and the
+    # `dataset` relationship only resolves once the row is attached + committed.
+    try:
+        backtest.aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
+        session.session.commit()
+    except Exception:
+        logger.warning("Failed to compute aggregate metrics for backtest; leaving empty", exc_info=True)
     db_id = backtest.id
     assert db_id is not None
     status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")

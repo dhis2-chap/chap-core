@@ -5,9 +5,10 @@ from chap_core.time_period import TimePeriod
 
 
 def horizon_diff(period: str, period2: str) -> int:
+    """Calculate the 1-based horizon distance between two time periods."""
     tp = TimePeriod.parse(period)
     tp2 = TimePeriod.parse(period2)
-    return int((tp - tp2) // tp.time_delta)
+    return int((tp - tp2) // tp.time_delta) + 1
 
 
 def create_metric_table(metrics: list[BackTestMetric]):
