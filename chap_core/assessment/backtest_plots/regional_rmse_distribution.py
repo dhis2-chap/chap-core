@@ -32,6 +32,7 @@ class RegionalRMSEDistributionPlot(BacktestPlotBase):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
+        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
         rmse_detailed = _compute_detailed_rmse(observations, forecasts)
 

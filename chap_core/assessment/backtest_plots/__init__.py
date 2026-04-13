@@ -53,10 +53,9 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 import altair as alt
+import pandas as pd
 
 if TYPE_CHECKING:
-    import pandas as pd
-
     from chap_core.database.tables import BackTest
 
 # Type alias for Altair chart types that plots can return
@@ -84,6 +83,7 @@ class BacktestPlotBase(ABC):
     name: str = ""
     description: str = ""
     needs_historical: bool = False
+    needs_covariates: bool = False
 
     @abstractmethod
     def plot(
@@ -91,6 +91,7 @@ class BacktestPlotBase(ABC):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
+        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
         """
         Generate the visualization from flat DataFrames.
@@ -118,6 +119,7 @@ def backtest_plot(
     name: str,
     description: str = "",
     needs_historical: bool = False,
+    needs_covariates: bool = False,
 ):
     """
     Decorator to register a backtest plot class.
@@ -154,6 +156,7 @@ def backtest_plot(
         cls.name = name
         cls.description = description
         cls.needs_historical = needs_historical
+        cls.needs_covariates = needs_covariates
 
         _backtest_plots_registry[plot_id] = cls
         return cls
@@ -254,9 +257,39 @@ def create_plot_from_backtest(plot_id: str, backtest: BackTest) -> ChartType:
     if plot_cls.needs_historical and flat_data.historical_observations is not None:
         historical_df = flat_data.historical_observations  # type: ignore[assignment]
 
+    # Extract covariates DataFrame if the plot needs them
+    covariates_df: pd.DataFrame | None = None
+    if plot_cls.needs_covariates and backtest.dataset is not None:
+        covariates_df = _extract_covariates(backtest)
+
     # Create plot instance and generate chart
     plotter = plot_cls()
-    return plotter.plot(observations_df, forecasts_df, historical_df)
+    return plotter.plot(observations_df, forecasts_df, historical_df, covariates_df)
+
+
+def _extract_covariates(backtest: BackTest) -> pd.DataFrame:
+    """Extract covariate data from a backtest's dataset observations.
+
+    Returns a wide-format DataFrame with columns: location, time_period,
+    and one column per covariate (e.g. rainfall, mean_temperature, population).
+    Excludes disease_cases since that's already in the observations DataFrame.
+    """
+    rows: list[dict] = [
+        {
+            "location": str(obs.org_unit),
+            "time_period": str(obs.period),
+            "feature": obs.feature_name,
+            "value": float(obs.value),
+        }
+        for obs in backtest.dataset.observations
+        if obs.feature_name and obs.feature_name != "disease_cases" and obs.value is not None
+    ]
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    # Pivot to wide format: one column per covariate
+    return df.pivot_table(index=["location", "time_period"], columns="feature", values="value").reset_index()
 
 
 def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
@@ -309,6 +342,7 @@ def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
 def _discover_plots():
     """Import all plot modules to trigger decorator registration."""
     from chap_core.assessment.backtest_plots import (
+        covariate_importance_plot,
         evaluation_plot,
         horizon_location_grid,
         metrics_dashboard,

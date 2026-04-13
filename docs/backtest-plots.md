@@ -262,6 +262,20 @@ The **Compare evaluations** page (`#/evaluate/compare`) and **Prediction details
 | `apps/modeling-app/src/components/PageContent/EvaluationDetails/MetricPlot/` | Fetches metric types from `/v1/visualization/metrics/`, renders via Vega |
 | `apps/modeling-app/src/features/settings/Experimental/` | Experimental feature toggle management |
 
+## CLIM-538 implementation notes (Uganda nutrition plots)
+
+### Plot 1: Predicted vs Actual (linear) — `predicted_vs_actual_linear`
+
+Implemented and working. Differences from Patrick's original screenshot to revisit after feedback:
+
+- **Coloring**: Patrick's tool colors by Risk Level (Normal/Alert/Alarm/Emergency thresholds). Our version colors by location. Risk-level coloring would require defining outbreak thresholds per model, which chap-core doesn't currently support.
+- **Summary metrics header**: Patrick's tool shows MAE, RMSE, CV Folds above the chart. Our version doesn't include these — they're available in `aggregateMetrics` on the backtest but not rendered in the chart title. Could be added as Altair text marks.
+- **Title**: Patrick uses "Predicted vs Actual — Walk-Forward CV" (walk-forward cross-validation = backtesting in CHAP terminology). Our title is "Predicted vs Actual (linear scale)".
+
+### Plot 2: Covariate Importance Radar — `covariate_importance`
+
+TODO — see PR #281 for implementation plan.
+
 ## Limitations
 
 - **No covariate data in the plot interface.** The flat DataFrames only contain `disease_cases` as the target. Plots needing covariate data (e.g. rainfall, mean_temperature for a correlation radar chart) would need to extend the `create_plot_from_backtest` function in `visualization.py` to also pass covariate columns from the dataset, or access the BackTest's dataset relationship directly.

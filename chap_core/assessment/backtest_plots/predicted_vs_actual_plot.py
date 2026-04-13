@@ -29,6 +29,7 @@ class PredictedVsActualPlot(BacktestPlotBase):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
+        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
         median_forecasts = (
             forecasts.groupby(["location", "time_period", "horizon_distance"])

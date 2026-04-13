@@ -28,6 +28,7 @@ class PredictedVsActualLinearPlot(BacktestPlotBase):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
+        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
         # Compute median forecast per (location, time_period) across all horizons
         median_forecasts = (
