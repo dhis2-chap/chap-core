@@ -102,6 +102,7 @@ def _create_baseline_schema(engine):
         conn.commit()
 
 
+@pytest.mark.slow
 class TestAlembicMigrations:
     """Test the full alembic migration chain against a real PostgreSQL database."""
 
