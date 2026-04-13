@@ -51,7 +51,7 @@ def _pg_container():
         pytest.skip("testcontainers[postgres] not installed")
 
     try:
-        container = PostgresContainer("postgres:16-alpine")
+        container = PostgresContainer("postgres:17-alpine")
         container.start()
         return container
     except Exception as e:
