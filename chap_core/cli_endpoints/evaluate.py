@@ -10,12 +10,14 @@ import yaml
 from cyclopts import Parameter
 
 from chap_core import get_temp_dir
-from chap_core.api_types import BackTestParams, RunConfig
+from chap_core.api_types import BackTestParams, EstimatorMode, EstimatorOptions, RunConfig
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.cli_endpoints._common import (
     create_model_lists,
     discover_geojson,
+    get_estimator,
+    get_hpo_estimator,
     get_model,
     load_dataset,
     load_dataset_from_csv,
@@ -498,14 +500,34 @@ def eval_cmd_hpo(
             'Format: {"model_name": "csv_column"}. Example: {"rainfall": "precipitation_mm"}'
         ),
     ] = None,
-    do_hpo: Annotated[
-        bool | None,
-        Parameter(help="Wether or not to run HPO"),
+    dry_run: Annotated[
+        bool,
+        Parameter(
+            help="Write data files and print commands without executing the model. "
+            "Useful for debugging model inputs and verifying command formatting."
+        ),
     ] = False,
-    metric: Annotated[
-        str | None,
-        Parameter(help="Metric to use for running HPO"),
-    ] = "rmse",
+    plot: Annotated[
+        bool,
+        Parameter(help="Generate an evaluation plot (HTML) alongside the NetCDF output"),
+    ] = False,
+    # do_hpo: Annotated[
+    #     bool | None,
+    #     Parameter(help="Wether or not to run HPO"),
+    # ] = True,
+    # metric: Annotated[
+    #     str | None,
+    #     Parameter(help="Metric to use for running HPO"),
+    # ] = "rmse",
+    estimator_options: Annotated[
+        EstimatorOptions,
+        Parameter(
+            help="Estimator behavior. Leave mode unset for a normal evaluation run. "
+            "Use --estimator-options.mode=hpo for hyperparameter optimization. "
+            "Use --estimator-options.mode=ensemble for ensemble learning. "
+            "Optionally --estimator-options.metric=<metric> for hpo and ensemble."
+        ),
+    ] = EstimatorOptions(),
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
     HPO can be activated through the do_hpo argument, which will run a hyperparameter
@@ -517,6 +539,11 @@ def eval_cmd_hpo(
         chap eval-hpo --model-name https://github.com/dhis2-chap/minimalist_example \\
             --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
             --model-configuration-yaml ./chap_core/hpo/config3.yaml --do-hpo=True --metric sensitivity
+
+        chap eval-hpo --model-name https://github.com/dhis2-chap/minimalist_example \\
+            --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
+            --model-configuration-yaml ./chap_core/hpo/config3.yaml --estimator-options.mode hpo \\
+            --estimator_options.metric sensitivity
     """
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
 
@@ -542,32 +569,28 @@ def eval_cmd_hpo(
         ignore_env=run_config.ignore_environment,
         run_dir_type=run_config.run_directory_type,
         is_chapkit_model=run_config.is_chapkit_model,
+        dry_run=dry_run and estimator_options.mode != EstimatorMode.HPO,
     )
 
     configuration = None
     with template:
-        if not do_hpo:
-            if model_configuration_yaml is not None:
-                logger.info(f"Loading model configuration from {model_configuration_yaml}")
-                configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
-
-            model = template.get_model(configuration)  # type: ignore[arg-type]
-            estimator = model()
+        estimator: ExternalModel | HpoModel | ExtendedPredictor
+        if estimator_options.mode is None:
+            estimator, configuration = get_estimator(template, model_configuration_yaml)
+        elif estimator_options.mode == EstimatorMode.HPO:
+            assert estimator_options.metric is not None
+            estimator = get_hpo_estimator(
+                template=template,
+                model_configuration_yaml=model_configuration_yaml,
+                backtest_params=backtest_params,
+                metric=estimator_options.metric,
+            )
+        elif estimator_options.mode == EstimatorMode.ENSEMBLE:
+            pass
         else:
-            if model_configuration_yaml is not None:
-                with open(model_configuration_yaml, encoding="utf-8") as f:
-                    config = yaml.safe_load(f)
-                if not isinstance(config, dict) or not config:
-                    raise ValueError("YAML must define a non-empty mapping of parameters")
-            else:
-                config = template.model_template_config.hpo_search_space
+            raise ValueError(f"Unsupported estimator mode: {estimator_options.mode}")
 
-            search_space = load_search_space_from_config(config)
-            assert metric is not None, "metric must be specified for HPO"
-            objective = Objective(template, backtest_params, metric)
-            estimator = HpoModel(RandomSearcher(2), objective, "minimize", search_space)
-
-        model_info = estimator.model_information
+        model_info = estimator.model_information  # type: ignore[union-attr]
         if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
             logger.warning("Model has not specified minimum and maximum predicted length")
         else:
@@ -600,6 +623,16 @@ def eval_cmd_hpo(
             f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
         )
         logger.debug(f"Including {historical_context_years} years of historical context for plotting")
+
+        if dry_run and estimator_options.mode != EstimatorMode.HPO:
+            from chap_core.assessment.prediction_evaluator import backtest
+
+            for _ in backtest(
+                estimator, dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
+            ):
+                pass
+            return
+
         evaluation = Evaluation.create(
             configured_model=configured_model_db,
             estimator=estimator,

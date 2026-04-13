@@ -1,3 +1,4 @@
+from enum import StrEnum
 from typing import Any, Literal
 
 import numpy as np
@@ -126,3 +127,21 @@ class EvaluationResponse(BaseModel):
 
 class PeriodObservation(BaseModel):
     time_period: str
+
+
+class EstimatorMode(StrEnum):
+    HPO = "hpo"
+    ENSEMBLE = "ensemble"
+
+
+class EstimatorOptions(BaseModel):  # check difference between BaseModel and DBModel
+    mode: EstimatorMode | None = Field(
+        default=None,
+        description=(
+            "Estimator mode: None = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning."
+        ),
+    )
+    metric: str | None = Field(
+        default="rmse",
+        description="Metric used for HPO or ensemble. Ignored if mode is None.",
+    )

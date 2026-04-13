@@ -8,9 +8,15 @@ import pandas as pd
 import pooch
 import yaml
 
+from chap_core.api_types import BackTestParams
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.file_io.example_data_set import datasets
 from chap_core.geometry import Polygons
+from chap_core.hpo.base import load_search_space_from_config
+from chap_core.hpo.hpoModel import HpoModel
+from chap_core.hpo.objective import Objective
+from chap_core.hpo.searcher import RandomSearcher
+from chap_core.models.external_model import ExternalModel
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import CHAP_RUNS_DIR
 from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
@@ -200,3 +206,51 @@ def load_dataset(
             )
             dataset = dataset[dataset_country]  # type: ignore[assignment]
     return dataset
+
+
+def get_estimator(
+    template: ModelTemplate,
+    model_configuration_yaml: Path | None,
+) -> tuple[ExternalModel, ModelConfiguration | None]:  # check if the types are correct
+    """
+    Build a plain estimator from a model template and optional configuration yaml file.
+    Returns both the estimator and the parsed configuration so callers can reuse the
+    configuration for metadata/export.
+    """
+    configuration = None
+    if model_configuration_yaml is not None:
+        logger.info(f"Loading model configuration from {model_configuration_yaml}")
+        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+
+    model = template.get_model(configuration)  # type: ignore[arg-type]
+    estimator = model()
+    return estimator, configuration
+
+
+def get_hpo_estimator(
+    template: ModelTemplate,
+    model_configuration_yaml: Path | None,
+    backtest_params: BackTestParams,
+    metric: str,
+) -> HpoModel:  # ckeck if HpoModel or HpoModelInterface
+    """
+    Build an HPO-backend estimator from either:
+    - an explicit YAML search space, or
+    - the template's built-in hpo_search_space
+    """
+    if model_configuration_yaml is not None:
+        logger.info(f"Loading model configuration from {model_configuration_yaml}")
+        with open(model_configuration_yaml, encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+        if not isinstance(config, dict) or not config:
+            raise ValueError("YAML must define a non-empty mapping of parameters")
+    else:
+        config = template.model_template_config.hpo_search_space
+
+    search_space = load_search_space_from_config(config)
+    # assert metric is not None, "metric must be specified for HPO"
+    objective = Objective(template, backtest_params, metric)
+
+    # Seacher object can be passed as argument: searcher: Searcher | None = None,
+    # return HpoModel(searcher or RandonSearcher(2) ...)
+    return HpoModel(RandomSearcher(2), objective, "minimize", search_space)

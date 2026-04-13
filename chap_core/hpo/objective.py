@@ -1,9 +1,10 @@
 import logging
 from pathlib import Path
+from uuid import uuid4
 
 from chap_core.api_types import BackTestParams
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.cli_endpoints.utils import export_metrics
+from chap_core.cli_endpoints.utils import calculate_metrics, export_metrics
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.models.model_template import ModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -19,11 +20,13 @@ class Objective:
         backtest_params: BackTestParams,
         metric: str = "rmse",
         historical_context_years: int = 6,
+        save_file: bool = False,
     ):
         self.model_template = model_template
         self.backtest_params = backtest_params
         self.metric = metric
         self.historical_context_years = historical_context_years
+        self.save_file = save_file
 
     def __call__(self, config, dataset: DataSet) -> float:
         """
@@ -40,6 +43,8 @@ class Objective:
         model = self.model_template.get_model(configuration)  # type: ignore[arg-type]
         estimator = model()
 
+        run_id = uuid4().hex[:8]  # short unique id like 'a1b2c3d4'
+
         model_template_db = ModelTemplateDB(
             id=self.model_template.model_template_config.name,
             name=self.model_template.model_template_config.name,
@@ -47,7 +52,7 @@ class Objective:
         )
 
         configured_model_db = ConfiguredModelDB(
-            id="cli_hpo_eval",
+            id=f"cli_hpo_eval_{run_id}",
             model_template_id=model_template_db.id,
             model_template=model_template_db,
             configuration=configuration.model_dump() if configuration else {},
@@ -63,26 +68,46 @@ class Objective:
             estimator=estimator,
             dataset=dataset,
             backtest_params=self.backtest_params,
-            backtest_name="hpo_evaluation",
+            backtest_name=f"hpo_evaluation_{run_id}",
             historical_context_years=self.historical_context_years,
         )
 
-        output_file = Path("./chap_core/hpo/hpo_eval.nc")
-        logger.info(f"Exporting evaluation to {output_file}")
-        evaluation.to_file(
-            filepath=output_file,
-            model_name="hpo_config",
-            model_configuration=configuration.model_dump() if configuration else {},
-            model_version=self.model_template.model_template_config.version or "unknown",
-        )
-        logger.info(f"Evaluation complete. Results saved to {output_file}")
+        if self.save_file:  # could use separate flags for results NetCDF and metrics CSV if desired
+            eval_file = Path(f"./chap_core/hpo/hpo_eval_{run_id}.nc")
+            metrics_file = Path(f"./chap_core/hpo/metrics_{run_id}.csv")
 
-        metrics_results = export_metrics(
-            input_files=[output_file],
-            output_file=Path("./chap_core/hpo/metrics.csv"),
+            logger.info(f"Exporting hpo evaluation to {eval_file}")
+            evaluation.to_file(
+                filepath=eval_file,
+                model_name=f"hpo_config_{run_id}",
+                model_configuration=configuration.model_dump() if configuration else {},
+                model_version=self.model_template.model_template_config.version or "unknown",
+            )
+            logger.info(f"Evaluation complete. Results saved to {eval_file}")
+
+            logger.info(
+                f"Exporting metrics to {metrics_file}"
+            )  # not sure if saving metrics should be option in objective evaluation
+            metrics_results = export_metrics(
+                input_files=[eval_file],
+                output_file=metrics_file,
+            )
+            logger.info(f"Metrics exported to {metrics_file}")
+
+        logger.info("Calculating metrics for objective evaluation")
+        metrics_results = calculate_metrics(
+            evaluation=evaluation,
         )
+        logger.info(f"Metrics calculation complete. Results: {metrics_results}")
 
         from chap_core.assessment.metrics import available_metrics
 
         print("metrics list:", list(available_metrics.keys()))
-        return float(metrics_results[0][self.metric])
+        print("metrics results:", metrics_results)
+
+        metric_value = metrics_results[self.metric]
+        if metric_value is None:
+            raise ValueError(f"Metric {self.metric} could not be calculated for this configuration.")
+        # return float(metrics_results[0][self.metric])
+        # return float(metrics_results[self.metric])
+        return float(metric_value)
