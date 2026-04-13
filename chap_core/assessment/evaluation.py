@@ -603,8 +603,6 @@ class Evaluation(EvaluationBase):
         """
         flat_data = self.to_flat()
 
-
-
         model_metadata = {
             "model_name": model_name or "",
             "model_configuration": model_configuration or {},

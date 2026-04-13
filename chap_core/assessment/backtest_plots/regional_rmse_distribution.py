@@ -45,7 +45,7 @@ class RegionalRMSEDistributionPlot(BacktestPlotBase):
 
         by_location = (
             alt.Chart(rmse_detailed)
-            .mark_boxplot(extent=1.5, size=30, median={'stroke': 'royalblue'})
+            .mark_boxplot(extent=1.5, size=30, median={"stroke": "royalblue"})
             .encode(
                 x=alt.X("location:N", title="Location"),
                 y=alt.Y("metric:Q", title="RMSE"),
@@ -76,8 +76,5 @@ class RegionalRMSEDistributionPlot(BacktestPlotBase):
             chart.configure_axis(labelFontSize=11, titleFontSize=12)
             .configure_legend(labelFontSize=11, titleFontSize=12)
             .configure_view(stroke=None)
-            .configure_mark(
-                opacity=0.5,
-                color='royalblue'
-            )
+            .configure_mark(opacity=0.5, color="royalblue")
         )
