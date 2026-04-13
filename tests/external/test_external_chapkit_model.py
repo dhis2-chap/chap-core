@@ -12,6 +12,7 @@ from chap_core.models.chapkit_service_manager import (
     is_url,
 )
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
+from chap_core.models.utils import get_model_template_from_directory_or_github_url
 
 model_url = "http://localhost:8003"
 
@@ -60,6 +61,18 @@ def test_chapkit_model_wrapping(service_available):
     template = ExternalChapkitModelTemplate(service_available)
     config = template.get_model_template_config()
     print(config)
+
+
+class TestUrlModelNameFallback:
+    """CLIM-559: URL model name should not fall back to filesystem path handling."""
+
+    def test_unreachable_url_raises_clear_error(self):
+        with pytest.raises(ValueError, match="could not be reached as a chapkit service"):
+            get_model_template_from_directory_or_github_url("http://127.0.0.1:19999")
+
+    def test_unreachable_https_url_raises_clear_error(self):
+        with pytest.raises(ValueError, match="could not be reached as a chapkit service"):
+            get_model_template_from_directory_or_github_url("https://nonexistent.example.com:9999")
 
 
 class TestIsUrl:
