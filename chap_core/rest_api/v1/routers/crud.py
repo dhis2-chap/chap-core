@@ -191,11 +191,25 @@ def _sync_chapkit_configured_models(
         return
 
     client = wrapper_cls(service_url, timeout=5)
-    try:
-        configs = client.list_configs()
-    except Exception:
-        logger.debug("Could not fetch configs from %s, will retry next sync", service_url)
-        return
+    configs = None
+    # The service may still be starting up — registration fires from the
+    # lifespan hook before all routes are fully mounted. Retry a few times
+    # with a short delay to cover the startup gap (~5-7s observed).
+    import time
+
+    for attempt in range(3):
+        try:
+            configs = client.list_configs()
+            break
+        except Exception:
+            if attempt < 2:
+                logger.debug("Config fetch from %s failed (attempt %d), retrying in 2s", service_url, attempt + 1)
+                time.sleep(2)
+            else:
+                logger.debug(
+                    "Could not fetch configs from %s after %d attempts, will retry next sync", service_url, attempt + 1
+                )
+                return
 
     default_additional = _resolve_chapkit_default_additional_covariates(client)
 
