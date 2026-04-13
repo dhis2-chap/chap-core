@@ -81,12 +81,27 @@ def _sync_live_chapkit_services(session: Session) -> set[str]:
 
     if service_list.count > 0:
         from chap_core.models.chapkit_rest_api_wrapper import CHAPKitRestAPIWrapper
-        from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
+        from chap_core.models.external_chapkit_model import (
+            _parse_user_options_from_config_schema,
+            ml_service_info_to_model_template_config,
+        )
 
         session_wrapper = SessionWrapper(session=session)
         for service in service_list.services:
             try:
-                config = ml_service_info_to_model_template_config(service.info, service.url)
+                # Fetch the config schema so user_options (n_lags, precision, etc.)
+                # are populated on the template row — both on first discovery and
+                # on every subsequent sync so schema changes propagate without a
+                # DB wipe.
+                user_options: dict = {}
+                try:
+                    client = CHAPKitRestAPIWrapper(service.url, timeout=5)
+                    schema = client.get_config_schema()
+                    user_options = _parse_user_options_from_config_schema(schema)
+                except Exception:
+                    logger.debug("Could not fetch config schema from %s", service.url)
+
+                config = ml_service_info_to_model_template_config(service.info, service.url, user_options)
                 template_id = session_wrapper.add_model_template_from_yaml_config(config)
                 # Mark template as chapkit-originated for archival tracking
                 template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()

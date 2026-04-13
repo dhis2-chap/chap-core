@@ -101,6 +101,93 @@ class TestChapkitServiceManager:
             _ = manager.url
 
 
+class TestGetModelTemplateConfig:
+    """Test that get_model_template_config extracts user_options from the chapkit config schema."""
+
+    def _make_template_with_schema(self, schema_response):
+        """Create a template with mocked client returning the given schema."""
+        from unittest.mock import MagicMock
+
+        from chap_core.rest_api.services.schemas import MLServiceInfo
+
+        template = ExternalChapkitModelTemplate("http://fake:8000")
+        template._is_url_mode = True
+        template.rest_api_url = "http://fake:8000"
+
+        mock_client = MagicMock()
+        mock_client.info.return_value = MLServiceInfo(
+            id="test-model",
+            display_name="Test Model",
+            version="1.0.0",
+            description="Test",
+            model_metadata={},
+            period_type="monthly",
+            required_covariates=["population"],
+        )
+        mock_client.get_config_schema.return_value = schema_response
+        template.client = mock_client
+        return template
+
+    def test_extracts_user_options_from_top_level_properties(self):
+        """Chapkit services expose config schema at the top level."""
+        schema = {
+            "properties": {
+                "prediction_periods": {"type": "integer", "default": 3},
+                "additional_continuous_covariates": {"type": "array", "items": {"type": "string"}},
+                "n_lags": {"type": "integer", "default": 3, "description": "Number of lags"},
+                "precision": {"type": "number", "default": 0.01, "description": "Precision"},
+            },
+            "title": "EwarsConfig",
+            "type": "object",
+        }
+        template = self._make_template_with_schema(schema)
+        config = template.get_model_template_config()
+        assert config.user_options is not None
+        assert "n_lags" in config.user_options
+        assert "precision" in config.user_options
+        assert config.user_options["n_lags"]["default"] == 3
+        assert config.user_options["precision"]["default"] == 0.01
+
+    def test_filters_reserved_fields(self):
+        """prediction_periods and additional_continuous_covariates are reserved."""
+        schema = {
+            "properties": {
+                "prediction_periods": {"type": "integer", "default": 3},
+                "additional_continuous_covariates": {"type": "array"},
+                "n_lags": {"type": "integer", "default": 3},
+            },
+            "type": "object",
+        }
+        template = self._make_template_with_schema(schema)
+        config = template.get_model_template_config()
+        assert config.user_options is not None
+        assert "prediction_periods" not in config.user_options
+        assert "additional_continuous_covariates" not in config.user_options
+        assert "n_lags" in config.user_options
+
+    def test_falls_back_to_defs_path(self):
+        """Legacy MLflow-era models store schema under $defs.ModelConfiguration."""
+        schema = {
+            "$defs": {
+                "ModelConfiguration": {
+                    "properties": {
+                        "max_epochs": {"type": "integer", "default": 10},
+                    }
+                }
+            }
+        }
+        template = self._make_template_with_schema(schema)
+        config = template.get_model_template_config()
+        assert config.user_options is not None
+        assert "max_epochs" in config.user_options
+
+    def test_empty_schema_returns_empty_user_options(self):
+        """No properties at all."""
+        template = self._make_template_with_schema({})
+        config = template.get_model_template_config()
+        assert config.user_options == {}
+
+
 class TestExternalChapkitModelTemplateDetection:
     def test_detects_url_mode(self):
         template = ExternalChapkitModelTemplate("http://localhost:8000")
