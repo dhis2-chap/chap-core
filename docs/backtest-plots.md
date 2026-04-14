@@ -267,11 +267,11 @@ The **Compare evaluations** page (`#/evaluate/compare`) and **Prediction details
 
 ### Plot 1: Predicted vs Actual (linear) — `predicted_vs_actual_linear`
 
-Scatter plot of predicted (median) vs observed values with OLS regression line. Uses a single uniform color to keep the chart area dominant.
+Scatter plot of predicted (median) vs observed values with OLS regression line, colored by location.
 
 Differences from the original reference to revisit after feedback:
 
-- **Risk-level coloring**: The reference colors by Risk Level (Normal/Alert/Alarm/Emergency thresholds). Our version uses a single color since chap-core doesn't define outbreak thresholds per model.
+- **Risk-level coloring**: The reference colors by Risk Level (Normal/Alert/Alarm/Emergency thresholds). Our version colors by location since chap-core doesn't define outbreak thresholds per model.
 - **Summary metrics header**: The reference shows MAE, RMSE, CV Folds above the chart. These are available in `aggregateMetrics` but not rendered as chart annotations.
 
 ### Plot 2: Covariate Importance Radar — `covariate_importance`

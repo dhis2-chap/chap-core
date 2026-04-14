@@ -69,7 +69,7 @@ def _build_radar_spec(corr_df: pd.DataFrame) -> dict:
         "description": "Covariate importance radar chart (signed Spearman r)",
         "width": 500,
         "height": 500,
-        "padding": {"top": 80, "left": 70, "right": 70, "bottom": 70},
+        "padding": {"top": 80, "left": 100, "right": 120, "bottom": 100},
         "autosize": {"type": "none", "contains": "padding"},
         "title": {
             "text": "Covariate Importance",
