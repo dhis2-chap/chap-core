@@ -212,6 +212,7 @@ def test_eval_cmd_plot_flag(backtest: BackTest, tmp_path: Path, default_transfor
 
     plot_path = nc_file.with_suffix(".html")
     chart = create_plot_from_evaluation("evaluation_plot", evaluation)
+    assert not isinstance(chart, dict)
     chart.save(str(plot_path))
 
     assert plot_path.exists()

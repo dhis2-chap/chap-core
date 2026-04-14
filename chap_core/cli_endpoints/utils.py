@@ -158,7 +158,11 @@ def plot_backtest(
     suffix = output_path.suffix.lower()
 
     logger.info(f"Saving plot to {output_file}")
-    if suffix == ".html" or suffix in (".png", ".svg", ".pdf"):
+    if isinstance(chart, dict):
+        # Raw Vega spec (e.g. radar charts)
+        with open(output_path, "w") as f:
+            json.dump(chart, f, indent=2)
+    elif suffix == ".html" or suffix in (".png", ".svg", ".pdf"):
         chart.save(str(output_path))
     elif suffix == ".json":
         with open(output_path, "w") as f:

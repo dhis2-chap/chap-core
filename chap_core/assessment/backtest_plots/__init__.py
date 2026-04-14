@@ -58,8 +58,12 @@ import pandas as pd
 if TYPE_CHECKING:
     from chap_core.database.tables import BackTest
 
-# Type alias for Altair chart types that plots can return
+# Type alias for Altair chart types
 ChartType = alt.Chart | alt.VConcatChart | alt.FacetChart | alt.LayerChart | alt.HConcatChart
+
+# Plot methods can return Altair charts or raw Vega spec dicts (for chart types
+# not supported by Vega-Lite, e.g. radar charts).
+PlotResult = ChartType | dict
 
 # Global registry for backtest plots
 _backtest_plots_registry: dict[str, type[BacktestPlotBase]] = {}
@@ -92,7 +96,7 @@ class BacktestPlotBase(ABC):
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
         covariates: pd.DataFrame | None = None,
-    ) -> ChartType:
+    ) -> PlotResult:
         """
         Generate the visualization from flat DataFrames.
 
@@ -213,7 +217,7 @@ def list_backtest_plots() -> list[dict]:
     ]
 
 
-def create_plot_from_backtest(plot_id: str, backtest: BackTest) -> ChartType:
+def create_plot_from_backtest(plot_id: str, backtest: BackTest) -> PlotResult:
     """
     Create a plot from a BackTest object.
 
@@ -292,7 +296,7 @@ def _extract_covariates(backtest: BackTest) -> pd.DataFrame:
     return df.pivot_table(index=["location", "time_period"], columns="feature", values="value").reset_index()
 
 
-def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
+def create_plot_from_evaluation(plot_id: str, evaluation) -> PlotResult:
     """
     Create a plot from an Evaluation object.
 

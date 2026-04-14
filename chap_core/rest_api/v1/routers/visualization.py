@@ -153,4 +153,8 @@ def generate_backtest_plots(visualization_name: str, backtest_id: int, session: 
         return {"error": "Backtest not found"}
 
     chart = create_plot_from_backtest(visualization_name, backtest)
+    # Raw Vega dicts (e.g. radar charts) are returned as-is;
+    # Altair charts are converted from Vega-Lite to Vega.
+    if isinstance(chart, dict):
+        return JSONResponse(chart)
     return JSONResponse(chart.to_dict(format="vega"))

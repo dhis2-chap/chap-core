@@ -60,6 +60,7 @@ class VisualDecisionMaker(DecisionMaker):
         # Generate and display plots for each evaluation
         for i, evaluation in enumerate(evaluations):
             chart = create_plot_from_evaluation("evaluation_plot", evaluation)
+            assert not isinstance(chart, dict)
 
             # Save to temp file and open in browser
             with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
