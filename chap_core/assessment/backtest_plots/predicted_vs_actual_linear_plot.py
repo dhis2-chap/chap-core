@@ -37,10 +37,9 @@ class PredictedVsActualLinearPlot(BacktestPlotBase):
 
         base = alt.Chart(merged)
 
-        scatter = base.mark_circle(size=50, opacity=0.6).encode(
+        scatter = base.mark_circle(size=50, opacity=0.6, color="steelblue").encode(
             x=alt.X("disease_cases:Q", title="Actual", scale=alt.Scale(domain=[0, axis_max])),
             y=alt.Y("median_forecast:Q", title="Predicted", scale=alt.Scale(domain=[0, axis_max])),
-            color=alt.Color("location:N", title="Location"),
             tooltip=[
                 alt.Tooltip("location:N"),
                 alt.Tooltip("time_period:N"),
@@ -62,7 +61,7 @@ class PredictedVsActualLinearPlot(BacktestPlotBase):
         )
 
         chart = alt.layer(scatter, regression_line, identity_line).properties(
-            width=350, height=350, title="Predicted vs Actual"
+            width=500, height=400, title="Predicted vs Actual"
         )
 
         return chart  # type: ignore[no-any-return]

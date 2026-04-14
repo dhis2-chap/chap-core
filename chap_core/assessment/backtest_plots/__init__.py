@@ -336,9 +336,13 @@ def create_plot_from_evaluation(plot_id: str, evaluation) -> PlotResult:
     if plot_cls.needs_historical and flat_data.historical_observations is not None:
         historical_df = flat_data.historical_observations  # type: ignore[assignment]
 
+    # Note: covariates are not available from Evaluation files (only from BackTest
+    # objects that have a dataset with observations). Pass None here.
+    covariates_df: pd.DataFrame | None = None
+
     # Create plot instance and generate chart
     plotter = plot_cls()
-    return plotter.plot(observations_df, forecasts_df, historical_df)
+    return plotter.plot(observations_df, forecasts_df, historical_df, covariates_df)
 
 
 # Import plot modules to trigger registration

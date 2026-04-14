@@ -1,9 +1,10 @@
 """
 Covariate importance radar chart using Spearman correlation.
 
-Shows a radar (spider) chart of absolute Spearman rank correlations between
+Shows a radar (spider) chart of signed Spearman rank correlations between
 each covariate and the target variable (disease_cases). Each axis represents
-a covariate, and the radial distance shows correlation strength (0-1).
+a covariate. Positive correlations are shown in blue, negative in red.
+The radial distance shows correlation magnitude (0-1), centered at zero.
 
 Uses a raw Vega spec since Altair/Vega-Lite do not support radial layouts.
 
@@ -45,24 +46,36 @@ def _empty_chart(message: str) -> PlotResult:
 def _build_radar_spec(corr_df: pd.DataFrame) -> dict:
     """Build a Vega radar chart spec from a correlation DataFrame.
 
+    Each covariate is rendered as a spoke. The radial distance represents
+    the absolute correlation magnitude. Positive correlations are blue,
+    negative are red - matching the reference design.
+
     Parameters
     ----------
     corr_df : pd.DataFrame
-        Must have columns: covariate (str), abs_correlation (float 0-1)
+        Must have columns: covariate (str), correlation (float -1..1)
     """
-    table_values = [{"key": row["covariate"], "value": row["abs_correlation"]} for _, row in corr_df.iterrows()]
+    table_values = [
+        {
+            "key": row["covariate"],
+            "value": abs(row["correlation"]),
+            "signed": row["correlation"],
+        }
+        for _, row in corr_df.iterrows()
+    ]
 
     return {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
-        "description": "Covariate importance radar chart (Spearman |r|)",
+        "description": "Covariate importance radar chart (signed Spearman r)",
         "width": 350,
         "height": 350,
-        "padding": 60,
+        "padding": {"top": 80, "left": 60, "right": 60, "bottom": 60},
         "autosize": {"type": "none", "contains": "padding"},
         "title": {
             "text": "Covariate Importance",
-            "subtitle": "Absolute Spearman correlation with disease cases",
+            "subtitle": "Spearman correlation with disease cases",
             "anchor": "middle",
+            "offset": 10,
         },
         "signals": [{"name": "radius", "update": "width / 2"}],
         "data": [
@@ -97,55 +110,6 @@ def _build_radar_spec(corr_df: pd.DataFrame) -> dict:
             }
         },
         "marks": [
-            # Filled radar polygon
-            {
-                "type": "line",
-                "name": "radar-line",
-                "from": {"data": "table"},
-                "encode": {
-                    "enter": {
-                        "interpolate": {"value": "linear-closed"},
-                        "x": {"signal": "scale('radial', datum.value) * cos(scale('angular', datum.key))"},
-                        "y": {"signal": "scale('radial', datum.value) * sin(scale('angular', datum.key))"},
-                        "stroke": {"value": "steelblue"},
-                        "strokeWidth": {"value": 2},
-                        "fill": {"value": "steelblue"},
-                        "fillOpacity": {"value": 0.15},
-                    }
-                },
-            },
-            # Data point dots
-            {
-                "type": "symbol",
-                "from": {"data": "table"},
-                "encode": {
-                    "enter": {
-                        "x": {"signal": "scale('radial', datum.value) * cos(scale('angular', datum.key))"},
-                        "y": {"signal": "scale('radial', datum.value) * sin(scale('angular', datum.key))"},
-                        "fill": {"value": "steelblue"},
-                        "size": {"value": 40},
-                        "tooltip": {
-                            "signal": "{'Covariate': datum.key, 'Correlation |r|': format(datum.value, '.3f')}"
-                        },
-                    }
-                },
-            },
-            # Value labels on each point
-            {
-                "type": "text",
-                "from": {"data": "table"},
-                "encode": {
-                    "enter": {
-                        "x": {"signal": "(scale('radial', datum.value) + 12) * cos(scale('angular', datum.key))"},
-                        "y": {"signal": "(scale('radial', datum.value) + 12) * sin(scale('angular', datum.key))"},
-                        "text": {"signal": "format(datum.value, '.2f')"},
-                        "align": {"value": "center"},
-                        "baseline": {"value": "middle"},
-                        "fontSize": {"value": 10},
-                        "fill": {"value": "#333"},
-                    }
-                },
-            },
             # Radial grid lines (spokes)
             {
                 "type": "rule",
@@ -160,6 +124,72 @@ def _build_radar_spec(corr_df: pd.DataFrame) -> dict:
                         "y2": {"signal": "radius * sin(scale('angular', datum.key))"},
                         "stroke": {"value": "#ddd"},
                         "strokeWidth": {"value": 1},
+                    }
+                },
+            },
+            # Outer boundary polygon
+            {
+                "type": "line",
+                "name": "outer-line",
+                "from": {"data": "radial-grid"},
+                "encode": {
+                    "enter": {
+                        "interpolate": {"value": "linear-closed"},
+                        "x": {"field": "x2"},
+                        "y": {"field": "y2"},
+                        "stroke": {"value": "#ddd"},
+                        "strokeWidth": {"value": 1},
+                    }
+                },
+            },
+            # Individual wedge bars per covariate (blue positive, red negative)
+            {
+                "type": "rule",
+                "from": {"data": "table"},
+                "zindex": 1,
+                "encode": {
+                    "enter": {
+                        "x": {"value": 0},
+                        "y": {"value": 0},
+                        "x2": {"signal": "scale('radial', datum.value) * cos(scale('angular', datum.key))"},
+                        "y2": {"signal": "scale('radial', datum.value) * sin(scale('angular', datum.key))"},
+                        "stroke": {"signal": "datum.signed >= 0 ? 'steelblue' : 'indianred'"},
+                        "strokeWidth": {"value": 8},
+                        "strokeCap": {"value": "round"},
+                        "tooltip": {"signal": "{'Covariate': datum.key, 'Spearman r': format(datum.signed, '+.3f')}"},
+                    }
+                },
+            },
+            # Data point dots at the end of each spoke
+            {
+                "type": "symbol",
+                "from": {"data": "table"},
+                "zindex": 2,
+                "encode": {
+                    "enter": {
+                        "x": {"signal": "scale('radial', datum.value) * cos(scale('angular', datum.key))"},
+                        "y": {"signal": "scale('radial', datum.value) * sin(scale('angular', datum.key))"},
+                        "fill": {"signal": "datum.signed >= 0 ? 'steelblue' : 'indianred'"},
+                        "size": {"value": 50},
+                        "tooltip": {"signal": "{'Covariate': datum.key, 'Spearman r': format(datum.signed, '+.3f')}"},
+                    }
+                },
+            },
+            # Signed value labels
+            {
+                "type": "text",
+                "from": {"data": "table"},
+                "zindex": 2,
+                "encode": {
+                    "enter": {
+                        "x": {"signal": "(scale('radial', datum.value) + 14) * cos(scale('angular', datum.key))"},
+                        "y": {"signal": "(scale('radial', datum.value) + 14) * sin(scale('angular', datum.key))"},
+                        "text": {"signal": "format(datum.signed, '+.3f')"},
+                        "align": {"value": "center"},
+                        "baseline": {"value": "middle"},
+                        "fontSize": {"value": 10},
+                        "fill": {"signal": "datum.signed >= 0 ? 'steelblue' : 'indianred'"},
+                        "fontWeight": {"value": "bold"},
                     }
                 },
             },
@@ -195,18 +225,57 @@ def _build_radar_spec(corr_df: pd.DataFrame) -> dict:
                     }
                 },
             },
-            # Outer boundary polygon
+            # Legend: positive indicator
             {
-                "type": "line",
-                "name": "outer-line",
-                "from": {"data": "radial-grid"},
+                "type": "symbol",
                 "encode": {
                     "enter": {
-                        "interpolate": {"value": "linear-closed"},
-                        "x": {"field": "x2"},
-                        "y": {"field": "y2"},
-                        "stroke": {"value": "#ddd"},
-                        "strokeWidth": {"value": 1},
+                        "x": {"signal": "radius + 30"},
+                        "y": {"signal": "-radius + 10"},
+                        "shape": {"value": "circle"},
+                        "fill": {"value": "steelblue"},
+                        "size": {"value": 80},
+                    }
+                },
+            },
+            {
+                "type": "text",
+                "encode": {
+                    "enter": {
+                        "x": {"signal": "radius + 40"},
+                        "y": {"signal": "-radius + 10"},
+                        "text": {"value": "Positive"},
+                        "align": {"value": "left"},
+                        "baseline": {"value": "middle"},
+                        "fontSize": {"value": 11},
+                        "fill": {"value": "#333"},
+                    }
+                },
+            },
+            # Legend: negative indicator
+            {
+                "type": "symbol",
+                "encode": {
+                    "enter": {
+                        "x": {"signal": "radius + 30"},
+                        "y": {"signal": "-radius + 28"},
+                        "shape": {"value": "circle"},
+                        "fill": {"value": "indianred"},
+                        "size": {"value": 80},
+                    }
+                },
+            },
+            {
+                "type": "text",
+                "encode": {
+                    "enter": {
+                        "x": {"signal": "radius + 40"},
+                        "y": {"signal": "-radius + 28"},
+                        "text": {"value": "Negative"},
+                        "align": {"value": "left"},
+                        "baseline": {"value": "middle"},
+                        "fontSize": {"value": 11},
+                        "fill": {"value": "#333"},
                     }
                 },
             },
@@ -218,8 +287,8 @@ def _build_radar_spec(corr_df: pd.DataFrame) -> dict:
     plot_id="covariate_importance",
     name="Covariate Importance",
     description=(
-        "Radar chart showing absolute Spearman correlation between each covariate "
-        "and disease cases. Larger area = stronger overall covariate signal."
+        "Radar chart showing Spearman correlation between each covariate "
+        "and disease cases. Blue = positive, red = negative."
     ),
     needs_covariates=True,
 )
@@ -249,7 +318,7 @@ class CovariateImportancePlot(BacktestPlotBase):
                 correlations.append(
                     {
                         "covariate": col.replace("_", " ").title(),
-                        "abs_correlation": abs(corr_value),
+                        "correlation": corr_value,
                     }
                 )
 
@@ -257,6 +326,6 @@ class CovariateImportancePlot(BacktestPlotBase):
             return _empty_chart("Insufficient data to compute correlations")
 
         corr_df = pd.DataFrame(correlations)
-        corr_df = corr_df.sort_values("abs_correlation", ascending=False).reset_index(drop=True)
+        corr_df = corr_df.sort_values("correlation", key=abs, ascending=False).reset_index(drop=True)
 
         return _build_radar_spec(corr_df)

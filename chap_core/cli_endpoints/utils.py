@@ -13,6 +13,20 @@ import yaml
 from cyclopts import Parameter
 
 from chap_core.assessment.dataset_splitting import train_test_generator
+
+
+def _save_vega_html(spec: dict, output_path: Path) -> None:
+    """Save a raw Vega spec as a self-contained HTML file."""
+    html = f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+</head><body>
+<div id="vis"></div>
+<script>vegaEmbed = undefined; new vega.View(vega.parse({json.dumps(spec)}), {{renderer: 'canvas'}}).initialize('#vis').run();</script>
+</body></html>"""
+    output_path.write_text(html)
+
+
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.file_io.example_data_set import datasets
@@ -160,8 +174,11 @@ def plot_backtest(
     logger.info(f"Saving plot to {output_file}")
     if isinstance(chart, dict):
         # Raw Vega spec (e.g. radar charts)
-        with open(output_path, "w") as f:
-            json.dump(chart, f, indent=2)
+        if suffix == ".html":
+            _save_vega_html(chart, output_path)
+        else:
+            with open(output_path, "w") as f:
+                json.dump(chart, f, indent=2)
     elif suffix == ".html" or suffix in (".png", ".svg", ".pdf"):
         chart.save(str(output_path))
     elif suffix == ".json":
