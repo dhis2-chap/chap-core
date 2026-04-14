@@ -317,6 +317,15 @@ def eval_cmd(
         bool,
         Parameter(help="Generate an evaluation plot (HTML) alongside the NetCDF output"),
     ] = False,
+    estimator_options: Annotated[
+        EstimatorOptions,
+        Parameter(
+            help="Estimator behavior. Leave mode unset for a normal evaluation run. "
+            "Use --estimator-options.mode=hpo for hyperparameter optimization. "
+            "Use --estimator-options.mode=ensemble for ensemble learning. "
+            "Optionally --estimator-options.metric=<metric> for hpo and ensemble."
+        ),
+    ] = EstimatorOptions(),
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
@@ -359,10 +368,8 @@ def eval_cmd(
     geojson_path = url_geojson_path or discover_geojson(csv_path)
     dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
 
-    configuration = None
-    if model_configuration_yaml is not None:
-        logger.info(f"Loading model configuration from {model_configuration_yaml}")
-        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+    if dry_run and estimator_options.mode != EstimatorMode.NORMAL:
+        estimator_options = EstimatorOptions(mode=EstimatorMode.NORMAL, metric=estimator_options.metric)
 
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
@@ -374,9 +381,21 @@ def eval_cmd(
         dry_run=dry_run,
     )
 
+    configuration = None
     with template:
-        model = template.get_model(configuration)  # type: ignore[arg-type]
-        estimator = model()
+        estimator: ExternalModel | HpoModel | ExtendedPredictor
+        if estimator_options.mode == EstimatorMode.NORMAL:
+            estimator, configuration = get_estimator(template, model_configuration_yaml)
+        elif estimator_options.mode == EstimatorMode.HPO:
+            assert estimator_options.metric is not None
+            estimator = get_hpo_estimator(
+                template=template,
+                model_configuration_yaml=model_configuration_yaml,
+                backtest_params=backtest_params,
+                metric=estimator_options.metric,
+            )
+        elif estimator_options.mode == EstimatorMode.ENSEMBLE:
+            raise NotImplementedError("Ensemble mode is not yet implemented")
 
         model_info = estimator.model_information
         if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
@@ -402,6 +421,7 @@ def eval_cmd(
             id="cli_eval",
             model_template_id=model_template_db.id,
             model_template=model_template_db,
+            # if HPO configuration is the search space and not a single config, therefore when HPO configuration is set to None
             configuration=configuration.model_dump() if configuration else {},
         )
 
@@ -447,211 +467,6 @@ def eval_cmd(
             chart = create_plot_from_evaluation("evaluation_plot", evaluation)
             chart.save(str(plot_path))
             logger.info(f"Plot saved to {plot_path}")
-
-
-def eval_cmd_hpo(
-    model_name: Annotated[
-        str,
-        Parameter(
-            help="Model path (local directory), GitHub URL, or chapkit service URL. "
-            "Examples: /path/to/model, https://github.com/org/model, http://localhost:8000"
-        ),
-    ],
-    dataset_csv: Annotated[
-        Path,
-        Parameter(
-            help="Path to CSV file containing disease data with columns: time_period, "
-            "location, disease_cases, and climate covariates (rainfall, temperature, etc.)"
-        ),
-    ],
-    output_file: Annotated[
-        Path,
-        Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
-    ],
-    backtest_params: Annotated[
-        BackTestParams,
-        Parameter(
-            help="Backtest configuration. Use --backtest-params.n-periods for forecast horizon, "
-            "--backtest-params.n-splits for number of train/test splits, "
-            "--backtest-params.stride for step size between splits"
-        ),
-    ] = BackTestParams(n_periods=3, n_splits=7, stride=1),
-    run_config: Annotated[
-        RunConfig,
-        Parameter(
-            help="Model execution configuration. Use --run-config.is-chapkit-model for chapkit models, "
-            "--run-config.debug for verbose logging, --run-config.ignore-environment to skip env setup"
-        ),
-    ] = RunConfig(),
-    model_configuration_yaml: Annotated[
-        Path | None,
-        Parameter(help="Path to YAML file with model-specific configuration parameters"),
-    ] = None,
-    historical_context_years: Annotated[
-        int,
-        Parameter(
-            help="Years of historical data to include for plotting context. "
-            "Calculated as periods based on dataset frequency (e.g., 6 years = 312 weeks or 72 months)"
-        ),
-    ] = 6,
-    data_source_mapping: Annotated[
-        Path | None,
-        Parameter(
-            help="Path to JSON file mapping model covariate names to CSV column names. "
-            'Format: {"model_name": "csv_column"}. Example: {"rainfall": "precipitation_mm"}'
-        ),
-    ] = None,
-    dry_run: Annotated[
-        bool,
-        Parameter(
-            help="Write data files and print commands without executing the model. "
-            "Useful for debugging model inputs and verifying command formatting."
-        ),
-    ] = False,
-    plot: Annotated[
-        bool,
-        Parameter(help="Generate an evaluation plot (HTML) alongside the NetCDF output"),
-    ] = False,
-    # do_hpo: Annotated[
-    #     bool | None,
-    #     Parameter(help="Wether or not to run HPO"),
-    # ] = True,
-    # metric: Annotated[
-    #     str | None,
-    #     Parameter(help="Metric to use for running HPO"),
-    # ] = "rmse",
-    estimator_options: Annotated[
-        EstimatorOptions,
-        Parameter(
-            help="Estimator behavior. Leave mode unset for a normal evaluation run. "
-            "Use --estimator-options.mode=hpo for hyperparameter optimization. "
-            "Use --estimator-options.mode=ensemble for ensemble learning. "
-            "Optionally --estimator-options.metric=<metric> for hpo and ensemble."
-        ),
-    ] = EstimatorOptions(),
-):
-    """Evaluate a model using backtesting and export results to NetCDF format.
-    HPO can be activated through the do_hpo argument, which will run a hyperparameter
-    optimization over the search space defined in the model template or in the provided
-    model_configuration_yaml file. The best configuration is selected based on the specified metric.
-
-    Example:
-        # Evaluate a GitHub-hosted model
-        chap eval-hpo --model-name https://github.com/dhis2-chap/minimalist_example \\
-            --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
-            --model-configuration-yaml ./chap_core/hpo/config3.yaml --do-hpo=True --metric sensitivity
-
-        chap eval-hpo --model-name https://github.com/dhis2-chap/minimalist_example \\
-            --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
-            --model-configuration-yaml ./chap_core/hpo/config3.yaml --estimator-options.mode hpo \\
-            --estimator_options.metric sensitivity
-    """
-    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-
-    logger.info(f"Evaluating model {model_name} with xarray/NetCDF output")
-
-    initialize_logging(run_config.debug, run_config.log_file)
-
-    column_mapping = None
-    if data_source_mapping is not None:
-        import json
-
-        logger.info(f"Loading column mapping from {data_source_mapping}")
-        with open(data_source_mapping) as f:
-            column_mapping = json.load(f)
-
-    geojson_path = discover_geojson(dataset_csv)
-    dataset = load_dataset_from_csv(dataset_csv, geojson_path, column_mapping)
-
-    logger.info(f"Loading model template from {model_name}")
-    template = ModelTemplate.from_directory_or_github_url(
-        model_name,
-        base_working_dir=CHAP_RUNS_DIR,
-        ignore_env=run_config.ignore_environment,
-        run_dir_type=run_config.run_directory_type,
-        is_chapkit_model=run_config.is_chapkit_model,
-        dry_run=dry_run and estimator_options.mode != EstimatorMode.HPO,
-    )
-
-    configuration = None
-    with template:
-        estimator: ExternalModel | HpoModel | ExtendedPredictor
-        if estimator_options.mode is None:
-            estimator, configuration = get_estimator(template, model_configuration_yaml)
-        elif estimator_options.mode == EstimatorMode.HPO:
-            assert estimator_options.metric is not None
-            estimator = get_hpo_estimator(
-                template=template,
-                model_configuration_yaml=model_configuration_yaml,
-                backtest_params=backtest_params,
-                metric=estimator_options.metric,
-            )
-        elif estimator_options.mode == EstimatorMode.ENSEMBLE:
-            pass
-        else:
-            raise ValueError(f"Unsupported estimator mode: {estimator_options.mode}")
-
-        model_info = estimator.model_information  # type: ignore[union-attr]
-        if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
-            logger.warning("Model has not specified minimum and maximum predicted length")
-        else:
-            if model_info.min_prediction_length > backtest_params.n_periods:
-                raise ValueError(
-                    f"The desired prediction length of {backtest_params.n_periods} is less than the model's minimum prediction length of {model_info.min_prediction_length}"
-                )
-            elif model_info.max_prediction_length < backtest_params.n_periods:
-                logger.warning(
-                    f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
-                )
-                estimator = ExtendedPredictor(estimator, backtest_params.n_periods)
-
-        model_template_db = ModelTemplateDB(
-            id=template.model_template_config.name,
-            name=template.model_template_config.name,
-            version=template.model_template_config.version or "unknown",
-        )
-
-        configured_model_db = ConfiguredModelDB(
-            id="cli_eval",
-            model_template_id=model_template_db.id,
-            model_template=model_template_db,
-            configuration=configuration.model_dump()
-            if configuration
-            else {},  # if HPO configuration would be the search space and not a single config, hard to get a single config as this is before evaluation is ran, so when doing HPO configuration is set to None
-        )
-
-        logger.info(
-            f"Running backtest with {backtest_params.n_splits} splits, {backtest_params.n_periods} periods, stride {backtest_params.stride}"
-        )
-        logger.debug(f"Including {historical_context_years} years of historical context for plotting")
-
-        if dry_run and estimator_options.mode != EstimatorMode.HPO:
-            from chap_core.assessment.prediction_evaluator import backtest
-
-            for _ in backtest(
-                estimator, dataset, backtest_params.n_periods, backtest_params.n_splits, backtest_params.stride
-            ):
-                pass
-            return
-
-        evaluation = Evaluation.create(
-            configured_model=configured_model_db,
-            estimator=estimator,
-            dataset=dataset,
-            backtest_params=backtest_params,
-            backtest_name=f"{model_name}_evaluation",
-            historical_context_years=historical_context_years,
-        )
-
-        logger.info(f"Exporting evaluation to {output_file}")
-        evaluation.to_file(
-            filepath=output_file,
-            model_name=model_name,
-            model_configuration=configuration.model_dump() if configuration else {},
-            model_version=template.model_template_config.version or "unknown",
-        )
-
-        logger.info(f"Evaluation complete. Results saved to {output_file}")
 
 
 def evaluate2(
@@ -731,4 +546,3 @@ def register_commands(app):
     app.command()(evaluate)
     app.command()(evaluate2)
     app.command(name="eval")(eval_cmd)
-    app.command(name="eval-hpo")(eval_cmd_hpo)

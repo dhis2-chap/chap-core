@@ -130,18 +130,19 @@ class PeriodObservation(BaseModel):
 
 
 class EstimatorMode(StrEnum):
+    NORMAL = "normal"
     HPO = "hpo"
     ENSEMBLE = "ensemble"
 
 
 class EstimatorOptions(BaseModel):  # check difference between BaseModel and DBModel
-    mode: EstimatorMode | None = Field(
-        default=None,
+    mode: EstimatorMode = Field(
+        default=EstimatorMode.NORMAL,
         description=(
-            "Estimator mode: None = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning."
+            "Estimator mode: 'normal' = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning."
         ),
     )
     metric: str | None = Field(
         default="rmse",
-        description="Metric used for HPO or ensemble. Ignored if mode is None.",
+        description="Metric used for HPO or ensemble. Ignored in normal mode.",
     )

@@ -238,7 +238,7 @@ def export_metrics(
 
         # Load evaluation and compute metrics
         evaluation = Evaluation.from_file(input_file)
-        flat_data = evaluation.to_flat()
+        # flat_data = evaluation.to_flat()
 
         row = {
             "filename": input_file.name,
@@ -246,25 +246,27 @@ def export_metrics(
             "model_version": model_version,
         }
 
-        historical_obs = flat_data.historical_observations
-        historical_df: pd.DataFrame | None = (
-            pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
-        )
+        # historical_obs = flat_data.historical_observations
+        # historical_df: pd.DataFrame | None = (
+        #     pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
+        # )
 
-        for metric_id in metrics_to_compute:
-            metric_cls = available_metrics[metric_id]
-            metric = metric_cls(historical_observations=historical_df)
-            if not metric.is_applicable(flat_data.observations):
-                row[metric_id] = None
-                continue
-            metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
-            if len(metric_df) == 1:
-                row[metric_id] = float(metric_df["metric"].iloc[0])
-            else:
-                logger.warning(f"Metric {metric_id} returned {len(metric_df)} rows, expected 1. Skipping.")
-                row[metric_id] = None
+        metrics_dict = calculate_metrics(evaluation=evaluation, metric_ids=metrics_to_compute, row=row)
 
-        results.append(row)
+        # for metric_id in metrics_to_compute:
+        #     metric_cls = available_metrics[metric_id]
+        #     metric = metric_cls(historical_observations=historical_df)
+        #     if not metric.is_applicable(flat_data.observations):
+        #         row[metric_id] = None
+        #         continue
+        #     metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
+        #     if len(metric_df) == 1:
+        #         row[metric_id] = float(metric_df["metric"].iloc[0])
+        #     else:
+        #         logger.warning(f"Metric {metric_id} returned {len(metric_df)} rows, expected 1. Skipping.")
+        #         row[metric_id] = None
+
+        results.append(metrics_dict)
 
     # Create DataFrame and write to CSV
     df = pd.DataFrame(results)
@@ -274,8 +276,9 @@ def export_metrics(
 
 def calculate_metrics(
     evaluation: Evaluation,
-    metric_ids: list[str] | None = None,
-) -> dict[str, float | None]:
+    metric_ids: list[str],
+    row: dict[str, str] | None = None,
+) -> dict[str, float | str | None]:
     """
     Calculate metrics from an evaluation instance with backtest results
     and return a dictionary of metric_id to metric value.
@@ -286,41 +289,31 @@ def calculate_metrics(
     """
     from chap_core.assessment.metrics import available_metrics
 
-    # All unified metrics support global aggregation
-    all_metric_ids = list(available_metrics.keys())
-
-    # Filter to requested metrics (if specified)
-    if metric_ids is not None:
-        invalid_ids = set(metric_ids) - set(all_metric_ids)
-        if invalid_ids:
-            available = ", ".join(all_metric_ids)
-            raise ValueError(f"Invalid metric IDs: {invalid_ids}. Available metrics: {available}")
-        metrics_to_compute = metric_ids
-    else:
-        metrics_to_compute = all_metric_ids
+    result: dict[str, float | str | None] = (
+        {} if row is None else dict(row)
+    )  # create new dict to avoid mutating input row
 
     flat_data = evaluation.to_flat()
-    results: dict[str, float | None] = {}
 
     historical_obs = flat_data.historical_observations
     historical_df: pd.DataFrame | None = (
         pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
     )
 
-    for metric_id in metrics_to_compute:
+    for metric_id in metric_ids:
         metric_cls = available_metrics[metric_id]
         metric = metric_cls(historical_observations=historical_df)
         if not metric.is_applicable(flat_data.observations):
-            results[metric_id] = None
+            result[metric_id] = None
             continue
         metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
         if len(metric_df) == 1:
-            results[metric_id] = float(metric_df["metric"].iloc[0])
+            result[metric_id] = float(metric_df["metric"].iloc[0])
         else:
             logger.warning(f"Metric {metric_id} returned {len(metric_df)} rows, expected 1. Skipping.")
-            results[metric_id] = None
+            result[metric_id] = None
 
-    return results
+    return result
 
 
 def register_commands(app):
