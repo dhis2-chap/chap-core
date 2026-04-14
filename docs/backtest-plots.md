@@ -267,23 +267,26 @@ The **Compare evaluations** page (`#/evaluate/compare`) and **Prediction details
 
 ### Plot 1: Predicted vs Actual (linear) — `predicted_vs_actual_linear`
 
-Implemented and working. Differences from Patrick's original screenshot to revisit after feedback:
+Scatter plot of predicted (median) vs observed values with OLS regression line. Uses a single uniform color to keep the chart area dominant.
 
-- **Coloring**: Patrick's tool colors by Risk Level (Normal/Alert/Alarm/Emergency thresholds). Our version colors by location. Risk-level coloring would require defining outbreak thresholds per model, which chap-core doesn't currently support.
-- **Summary metrics header**: Patrick's tool shows MAE, RMSE, CV Folds above the chart. Our version doesn't include these — they're available in `aggregateMetrics` on the backtest but not rendered in the chart title. Could be added as Altair text marks.
-- **Title**: Patrick uses "Predicted vs Actual — Walk-Forward CV" (walk-forward cross-validation = backtesting in CHAP terminology). Our title is "Predicted vs Actual (linear scale)".
+Differences from the original reference to revisit after feedback:
+
+- **Risk-level coloring**: The reference colors by Risk Level (Normal/Alert/Alarm/Emergency thresholds). Our version uses a single color since chap-core doesn't define outbreak thresholds per model.
+- **Summary metrics header**: The reference shows MAE, RMSE, CV Folds above the chart. These are available in `aggregateMetrics` but not rendered as chart annotations.
 
 ### Plot 2: Covariate Importance Radar — `covariate_importance`
 
-TODO — see PR #281 for implementation plan.
+Radar/spider chart showing signed Spearman rank correlations between each covariate and disease cases. Blue spokes = positive correlation, red = negative. Uses a raw Vega spec since Altair/Vega-Lite does not support radial layouts.
+
+This plot requires covariate data and is only available via `create_plot_from_backtest()` (not from evaluation files). The `needs_covariates=True` flag on the decorator triggers covariate extraction from the BackTest's dataset.
 
 ## Limitations
 
-- **No covariate data in the plot interface.** The flat DataFrames only contain `disease_cases` as the target. Plots needing covariate data (e.g. rainfall, mean_temperature for a correlation radar chart) would need to extend the `create_plot_from_backtest` function in `visualization.py` to also pass covariate columns from the dataset, or access the BackTest's dataset relationship directly.
+- **Covariate data is only available from BackTest objects.** Plots with `needs_covariates=True` (e.g. `covariate_importance`) cannot be generated from evaluation files — `create_plot_from_evaluation()` will raise `ValueError`. The `_extract_covariates()` helper in `__init__.py` handles extraction from `BackTest.dataset.observations`.
 
-- **Altair only.** All plots must return Altair chart objects — no matplotlib, plotly, or custom HTML. The API serializes via `chart.to_dict(format="vega")`.
+- **Altair and raw Vega.** Most plots return Altair chart objects serialized via `chart.to_dict(format="vega")`. Plots needing chart types not supported by Vega-Lite (e.g. radar charts) can return raw Vega spec dicts instead. The API endpoint and CLI handle both types.
 
-- **No interactivity beyond Vega-Lite.** The frontend renders the Vega-Lite spec as-is. Tooltips and basic Vega-Lite selections work; custom JavaScript callbacks do not.
+- **No interactivity beyond Vega.** The frontend renders the Vega spec as-is. Tooltips work; custom JavaScript callbacks do not.
 
 ## Reference: pattern from `predicted_vs_actual_plot.py`
 

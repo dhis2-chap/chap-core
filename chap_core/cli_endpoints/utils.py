@@ -141,7 +141,7 @@ def plot_backtest(
     ],
     output_file: Annotated[
         Path,
-        Parameter(help="Path to output file (supports .html, .png, .svg, .pdf)"),
+        Parameter(help="Path to output file (.html, .json; Altair plots also support .png, .svg, .pdf)"),
     ],
     plot_type: Annotated[
         str,
