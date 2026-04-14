@@ -315,6 +315,9 @@ class CovariateImportancePlot(BacktestPlotBase):
             if len(valid) > 3:
                 result = stats.spearmanr(valid["disease_cases"], valid[col])
                 corr_value = float(result.statistic)  # type: ignore[union-attr]
+                # Skip constant covariates/targets where spearmanr returns NaN
+                if pd.isna(corr_value):
+                    continue
                 correlations.append(
                     {
                         "covariate": col.replace("_", " ").title(),

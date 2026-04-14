@@ -325,6 +325,12 @@ def create_plot_from_evaluation(plot_id: str, evaluation) -> PlotResult:
         available = ", ".join(_backtest_plots_registry.keys())
         raise ValueError(f"Unknown plot type: {plot_id}. Available: {available}")
 
+    if plot_cls.needs_covariates:
+        raise ValueError(
+            f"Plot '{plot_id}' requires covariate data which is only available "
+            f"from BackTest objects (use create_plot_from_backtest instead)"
+        )
+
     flat_data = evaluation.to_flat()
 
     # Get flat DataFrames - FlatObserved/FlatForecasts are already DataFrames
@@ -336,13 +342,9 @@ def create_plot_from_evaluation(plot_id: str, evaluation) -> PlotResult:
     if plot_cls.needs_historical and flat_data.historical_observations is not None:
         historical_df = flat_data.historical_observations  # type: ignore[assignment]
 
-    # Note: covariates are not available from Evaluation files (only from BackTest
-    # objects that have a dataset with observations). Pass None here.
-    covariates_df: pd.DataFrame | None = None
-
     # Create plot instance and generate chart
     plotter = plot_cls()
-    return plotter.plot(observations_df, forecasts_df, historical_df, covariates_df)
+    return plotter.plot(observations_df, forecasts_df, historical_df)
 
 
 # Import plot modules to trigger registration

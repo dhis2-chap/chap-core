@@ -173,12 +173,16 @@ def plot_backtest(
 
     logger.info(f"Saving plot to {output_file}")
     if isinstance(chart, dict):
-        # Raw Vega spec (e.g. radar charts)
+        # Raw Vega spec (e.g. radar charts) - only .html and .json are supported
         if suffix == ".html":
             _save_vega_html(chart, output_path)
-        else:
+        elif suffix == ".json":
             with open(output_path, "w") as f:
                 json.dump(chart, f, indent=2)
+        else:
+            raise ValueError(
+                f"Raw Vega plots (e.g. covariate_importance) only support .html and .json output, got {suffix}"
+            )
     elif suffix == ".html" or suffix in (".png", ".svg", ".pdf"):
         chart.save(str(output_path))
     elif suffix == ".json":
