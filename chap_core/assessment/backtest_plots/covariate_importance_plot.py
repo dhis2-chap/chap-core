@@ -67,9 +67,9 @@ def _build_radar_spec(corr_df: pd.DataFrame) -> dict:
     return {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
         "description": "Covariate importance radar chart (signed Spearman r)",
-        "width": 350,
-        "height": 350,
-        "padding": {"top": 80, "left": 60, "right": 60, "bottom": 60},
+        "width": 450,
+        "height": 450,
+        "padding": {"top": 80, "left": 70, "right": 70, "bottom": 70},
         "autosize": {"type": "none", "contains": "padding"},
         "title": {
             "text": "Covariate Importance",
