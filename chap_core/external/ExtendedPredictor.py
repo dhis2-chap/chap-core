@@ -1,3 +1,5 @@
+import copy
+
 import pandas as pd
 
 from chap_core.datatypes import Samples
@@ -12,7 +14,12 @@ class ExtendedPredictor(ConfiguredModel):
 
     @property
     def model_information(self):
-        return self._config_model.model_information
+        inner = self._config_model.model_information
+        if inner is None:
+            return None
+        adapted = copy.copy(inner)
+        adapted.max_prediction_length = self._desired_scope
+        return adapted
 
     def train(self, train_data: DataSet, extra_args=None):
         self._config_model.train(train_data, extra_args)

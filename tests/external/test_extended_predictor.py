@@ -161,6 +161,20 @@ def test_extended_predictor_initialization():
     assert extended_predictor._desired_scope == desired_scope
 
 
+def test_extended_predictor_adapts_model_information():
+    """Test that model_information reflects the extended prediction capability."""
+    mock_model = MockModel(min_pred_length=2, max_pred_length=4)
+    desired_scope = 10
+
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope)
+    info = extended_predictor.model_information
+
+    assert info.max_prediction_length == desired_scope
+    assert info.min_prediction_length == 2
+    # Inner model's information should be unchanged
+    assert mock_model.model_information.max_prediction_length == 4
+
+
 def test_extended_predictor_train():
     """Test that training is delegated to the underlying model and returns self."""
     mock_model = MockModel()
