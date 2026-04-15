@@ -175,6 +175,16 @@ def test_extended_predictor_adapts_model_information():
     assert mock_model.model_information.max_prediction_length == 4
 
 
+def test_extended_predictor_returns_none_when_inner_model_information_is_none():
+    """Test that model_information returns None when the inner model has no info."""
+    mock_model = Mock(spec=ConfiguredModel)
+    mock_model.model_information = None
+
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=6)
+
+    assert extended_predictor.model_information is None
+
+
 def test_extended_predictor_train():
     """Test that training is delegated to the underlying model and returns self."""
     mock_model = MockModel()
