@@ -82,7 +82,7 @@ The `nlag` parameter in `get_crossbasis` controls how many lag periods are inclu
 
 Validation happens in `chap_core/database/model_templates_and_config_tables.py` (lines 77-87):
 
-```python
+```text
 @classmethod
 def _validate_model_configuration(cls, user_options, user_option_values):
     schema = {
@@ -100,7 +100,7 @@ This uses `jsonschema.validate()` which natively supports `oneOf`, `anyOf`, and 
 
 In `chap_core/hpo/base.py` (lines 61-103), `load_search_space_from_config()` parses the search space YAML into `Int` or `Float` dataclasses. It expects flat scalar parameters only:
 
-```python
+```text
 def load_search_space_from_config(config: dict) -> dict[str, Any]:
     space: dict[str, Any] = {}
     for name, spec in config.items():
@@ -114,7 +114,7 @@ The HPO searchers (`GridSearcher`, `RandomSearcher`, `TPESearcher`) all work wit
 
 In `chap_core/hpo/hpoModel.py` (line 108), best params are wrapped directly:
 
-```python
+```text
 self._best_config = {"user_option_values": best_params}
 ```
 
