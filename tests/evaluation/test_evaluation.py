@@ -3,6 +3,8 @@
 import pandas as pd
 import pytest
 
+import altair as alt
+
 from chap_core.assessment.evaluation import Evaluation, EvaluationBase, FlatEvaluationData, ModelCard
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
@@ -10,6 +12,8 @@ from chap_core.assessment.flat_representations import (
     convert_backtest_observations_to_flat_observations,
     convert_backtest_to_flat_forecasts,
 )
+from chap_core.assessment.metrics import RMSEMetric
+from chap_core.plotting.evaluation_plot import MetricByHorizonAndLocationMean
 
 
 class TestFlatEvaluationData:
@@ -149,6 +153,17 @@ class TestEvaluation:
         required_cols = ["location", "time_period", "disease_cases"]
         for col in required_cols:
             assert col in flat_data.observations.columns
+
+    def test_make_plot_returns_altair_chart(self, backtest):
+        """Test that make_plot returns an altair Chart."""
+        evaluation = Evaluation.from_backtest(backtest)
+
+        result = evaluation.make_plot(
+            plotting_class=MetricByHorizonAndLocationMean,
+            metric=RMSEMetric(),
+        )
+
+        assert isinstance(result, alt.Chart)
 
     class TestModelCard:
         """Tests for ModelCard class"""

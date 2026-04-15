@@ -19,6 +19,10 @@ import xarray as xr
 
 if TYPE_CHECKING:
     from chap_core.api_types import BackTestParams
+    from chap_core.assessment.metrics.base import Metric
+    from chap_core.plotting.evaluation_plot import MetricPlotV2
+
+import altair as alt
 
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
@@ -707,6 +711,13 @@ class Evaluation(EvaluationBase):
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
         )
+
+    def make_plot(
+        self, plotting_class: type["MetricPlotV2"], metric: "Metric", geojson: dict | None = None
+    ) -> alt.Chart:
+        flat_data = self.to_flat()
+        metric_data = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
+        return plotting_class(metric_data, geojson).plot()
 
 
 @dataclass
