@@ -135,7 +135,7 @@ class EstimatorMode(StrEnum):
     ENSEMBLE = "ensemble"
 
 
-class EstimatorOptions(BaseModel):  # check difference between BaseModel and DBModel
+class EstimatorOptions(BaseModel):
     mode: EstimatorMode = Field(
         default=EstimatorMode.NORMAL,
         description=(

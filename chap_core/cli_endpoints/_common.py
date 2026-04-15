@@ -15,7 +15,7 @@ from chap_core.geometry import Polygons
 from chap_core.hpo.base import load_search_space_from_config
 from chap_core.hpo.hpoModel import HpoModel
 from chap_core.hpo.objective import Objective
-from chap_core.hpo.searcher import RandomSearcher
+from chap_core.hpo.searcher import RandomSearcher, Searcher
 from chap_core.models.external_model import ExternalModel
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import CHAP_RUNS_DIR
@@ -211,7 +211,7 @@ def load_dataset(
 def get_estimator(
     template: ModelTemplate,
     model_configuration_yaml: Path | None,
-) -> tuple[ExternalModel, ModelConfiguration | None]:  # check if the types are correct
+) -> tuple[ExternalModel, ModelConfiguration | None]:
     """
     Build a plain estimator from a model template and optional configuration yaml file.
     Returns both the estimator and the parsed configuration so callers can reuse the
@@ -232,7 +232,8 @@ def get_hpo_estimator(
     model_configuration_yaml: Path | None,
     backtest_params: BackTestParams,
     metric: str,
-) -> HpoModel:  # ckeck if HpoModel or HpoModelInterface
+    searcher: Searcher | None = None,
+) -> HpoModel:
     """
     Build an HPO-backend estimator from either:
     - an explicit YAML search space, or
@@ -248,9 +249,10 @@ def get_hpo_estimator(
         config = template.model_template_config.hpo_search_space
 
     search_space = load_search_space_from_config(config)
-    # assert metric is not None, "metric must be specified for HPO"
     objective = Objective(template, backtest_params, metric)
 
     # Seacher object can be passed as argument: searcher: Searcher | None = None,
     # return HpoModel(searcher or RandonSearcher(2) ...)
-    return HpoModel(RandomSearcher(2), objective, "minimize", search_space)
+    if searcher is None:
+        searcher = RandomSearcher(3)
+    return HpoModel(searcher, objective, "minimize", search_space)

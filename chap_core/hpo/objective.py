@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from chap_core.api_types import BackTestParams
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.cli_endpoints.utils import calculate_metrics
+from chap_core.assessment.metrics import calculate_metrics
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.models.model_template import ModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -20,13 +20,13 @@ class Objective:
         backtest_params: BackTestParams,
         metric: str = "rmse",
         historical_context_years: int = 6,
-        save_file: bool = False,
+        eval_output_dir: Path | None = None,
     ):
         self.model_template = model_template
         self.backtest_params = backtest_params
         self.metric = metric
         self.historical_context_years = historical_context_years
-        self.save_file = save_file
+        self.eval_output_dir = eval_output_dir
 
     def __call__(self, config, dataset: DataSet) -> float:
         """
@@ -75,11 +75,10 @@ class Objective:
         except Exception:
             logger.exception(f"Evaluation failed for configuration {config}")
             raise
-        # Knut: except Exception as e
-        # raise exception from e
 
-        if self.save_file:
-            eval_file = Path(f"./chap_core/hpo/hpo_eval_{run_id}.nc")
+        if self.eval_output_dir is not None:
+            self.eval_output_dir.mkdir(parents=True, exist_ok=True)
+            eval_file = self.eval_output_dir / f"hpo_eval_{run_id}.nc"
 
             logger.info(f"Exporting hpo evaluation to {eval_file}")
             evaluation.to_file(
@@ -96,11 +95,6 @@ class Objective:
             metric_ids=[self.metric],
         )
         logger.info(f"Metrics calculation complete. Results: {metrics_results}")
-
-        from chap_core.assessment.metrics import available_metrics
-
-        print("metrics list:", list(available_metrics.keys()))
-        print("metrics results:", metrics_results)
 
         metric_value = metrics_results[self.metric]
         if metric_value is None:

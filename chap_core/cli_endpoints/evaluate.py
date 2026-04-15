@@ -318,14 +318,14 @@ def eval_cmd(
         Parameter(help="Generate an evaluation plot (HTML) alongside the NetCDF output"),
     ] = False,
     estimator_options: Annotated[
-        EstimatorOptions,
+        EstimatorOptions | None,
         Parameter(
             help="Estimator behavior. Leave mode unset for a normal evaluation run. "
             "Use --estimator-options.mode=hpo for hyperparameter optimization. "
             "Use --estimator-options.mode=ensemble for ensemble learning. "
             "Optionally --estimator-options.metric=<metric> for hpo and ensemble."
         ),
-    ] = EstimatorOptions(),
+    ] = None,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
@@ -336,6 +336,11 @@ def eval_cmd(
     The evaluation splits historical data into multiple train/test sets, trains the model
     on each training set, and generates probabilistic forecasts that are compared against
     actual observations. Results include predictions, observations, and computed metrics.
+
+    HPO can be activated through estimator_options.mode, which will run a hyperparameter
+    optimization over the search space defined in the model template or in the provided
+    model_configuration_yaml file. The best configuration is selected based on the specified
+    estimator_options.metric.
 
     Examples:
         # Evaluate a GitHub-hosted model
@@ -349,8 +354,19 @@ def eval_cmd(
         # Use column name mapping when CSV columns don't match model expectations
         chap eval --model-name ./my_model --dataset-csv ./data.csv \\
             --output-file ./eval.nc --data-source-mapping ./column_mapping.json
+
+        # Evaluate with hyperparameter optimization
+        chap eval --model-name https://github.com/dhis2-chap/minimalist_example \\
+            --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
+            --model-configuration-yaml ./chap_core/hpo/config3.yaml --estimator-options.mode hpo \\
+            --estimator_options.metric sensitivity
     """
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+
+    # The same can be done for backtest_params and run_config,
+    # or have them depend on cyclopts
+    if estimator_options is None:
+        estimator_options = EstimatorOptions()
 
     logger.info(f"Evaluating model {model_name} with xarray/NetCDF output")
 
@@ -369,6 +385,9 @@ def eval_cmd(
     dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
 
     if dry_run and estimator_options.mode != EstimatorMode.NORMAL:
+        logger.warning(
+            "Dry run does not support estimator_options.mode=%s; forcing mode='normal'.", estimator_options.mode.value
+        )
         estimator_options = EstimatorOptions(mode=EstimatorMode.NORMAL, metric=estimator_options.metric)
 
     logger.info(f"Loading model template from {model_name}")
@@ -393,6 +412,7 @@ def eval_cmd(
                 model_configuration_yaml=model_configuration_yaml,
                 backtest_params=backtest_params,
                 metric=estimator_options.metric,
+                searcher=RandomSearcher(2),
             )
         elif estimator_options.mode == EstimatorMode.ENSEMBLE:
             raise NotImplementedError("Ensemble mode is not yet implemented")
@@ -421,7 +441,6 @@ def eval_cmd(
             id="cli_eval",
             model_template_id=model_template_db.id,
             model_template=model_template_db,
-            # if HPO configuration is the search space and not a single config, therefore when HPO configuration is set to None
             configuration=configuration.model_dump() if configuration else {},
         )
 
