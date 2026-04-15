@@ -218,8 +218,11 @@ def test_extended_predictor_with_external_model_interface():
 
     assert extended_predictor._config_model == external_model
     assert extended_predictor._desired_scope == 6
-    assert extended_predictor._config_model.model_information.min_prediction_length == 2  # type: ignore[reportAttributeAccessIssue]
-    assert extended_predictor._config_model.model_information.max_prediction_length == 4  # type: ignore[reportAttributeAccessIssue]
+    # Wrapper adapts max_prediction_length to desired_scope
+    assert extended_predictor.model_information.max_prediction_length == 6
+    assert extended_predictor.model_information.min_prediction_length == 2
+    # Inner model is unchanged
+    assert external_model.model_information.max_prediction_length == 4
 
 
 def test_update_historic_data_includes_all_locations():
