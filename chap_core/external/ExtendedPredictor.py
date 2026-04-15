@@ -10,6 +10,10 @@ class ExtendedPredictor(ConfiguredModel):
         self._config_model = configured_model
         self._desired_scope = desired_scope
 
+    @property
+    def model_information(self):
+        return self._config_model.model_information
+
     def train(self, train_data: DataSet, extra_args=None):
         self._config_model.train(train_data, extra_args)
         return self
@@ -25,13 +29,15 @@ class ExtendedPredictor(ConfiguredModel):
         if "parent" in future_df.columns:
             future_df = future_df.drop(columns=["parent"])
 
-        model_information = self._config_model.model_information  # type: ignore[attr-defined]
+        model_information = self._config_model.model_information
 
         assert model_information is not None
 
         min_pred_length = model_information.min_prediction_length
         max_pred_length = model_information.max_prediction_length
 
+        assert min_pred_length is not None
+        assert max_pred_length is not None
         assert self._desired_scope >= min_pred_length
 
         remaining_time_periods = self._desired_scope

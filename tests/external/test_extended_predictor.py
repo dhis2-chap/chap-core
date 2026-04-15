@@ -12,11 +12,15 @@ class MockModel(ConfiguredModel):
     """Mock model that returns simple predictions for testing."""
 
     def __init__(self, min_pred_length=2, max_pred_length=4):
-        self.model_information = ModelTemplateConfigV2(
+        self._model_information = ModelTemplateConfigV2(
             name="mock_model", min_prediction_length=min_pred_length, max_prediction_length=max_pred_length
         )
         self.trained = False
         self.predict_call_count = 0
+
+    @property
+    def model_information(self):
+        return self._model_information
 
     def train(self, train_data: DataSet, extra_args=None):
         self.trained = True
@@ -46,7 +50,7 @@ class TrackingMockModel(ConfiguredModel):
     """
 
     def __init__(self, locations, future_periods, min_pred_length=2, max_pred_length=3):
-        self.model_information = ModelTemplateConfigV2(
+        self._model_information = ModelTemplateConfigV2(
             name="tracking_mock",
             min_prediction_length=min_pred_length,
             max_prediction_length=max_pred_length,
@@ -54,6 +58,10 @@ class TrackingMockModel(ConfiguredModel):
         self.locations = locations
         self.future_periods = future_periods
         self.call_history = []
+
+    @property
+    def model_information(self):
+        return self._model_information
 
     def train(self, train_data: DataSet, extra_args=None):
         return self

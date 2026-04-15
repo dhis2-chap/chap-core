@@ -71,6 +71,10 @@ class ExternalWebModel(ExternalModelBase):
         return self._name
 
     @property
+    def model_information(self):
+        return None
+
+    @property
     def configuration(self):
         return self._configuration
 
