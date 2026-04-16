@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import pandas as pd
 import yaml
@@ -16,8 +16,6 @@ from chap_core.cli_endpoints._common import (
     discover_geojson,
     get_estimator,
     get_hpo_estimator,
-    get_model,
-    load_dataset,
     load_dataset_from_csv,
     resolve_csv_path,
 )
@@ -37,6 +35,9 @@ from chap_core.models.utils import CHAP_RUNS_DIR
 from chap_core.predictor import ModelType
 from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
+if TYPE_CHECKING:
+    from chap_core.models.external_model import ExternalModel
 
 logger = logging.getLogger(__name__)
 
