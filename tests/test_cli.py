@@ -1,9 +1,7 @@
-import warnings
-
 from chap_core.api import forecast
 import pytest
 from chap_core.util import docker_available
-from chap_core.cli_endpoints.evaluate import evaluate_hpo, eval_cmd, evaluate2
+from chap_core.cli_endpoints.evaluate import eval_cmd, evaluate_hpo
 from chap_core.cli_endpoints.utils import sanity_check_model
 
 
@@ -22,10 +20,8 @@ def test_hpo_evaluate(data_path):
         dataset_name="hydromet_5_filtered",
         model_configuration_yaml=hpo_config_yaml,
     )
-    # chap evaluate-hpo --model_name ../../chtorch --dataset_name hydromet_5_filtered --model_configuration_yaml config1.yaml
 
 
-# @pytest.mark.xfail(reason="Not implemented yet")
 def test_eval_cmd(tmp_path):
     from chap_core.file_io.example_data_set import datasets
     from chap_core.api_types import BackTestParams, RunConfig
@@ -95,31 +91,3 @@ def test_eval_cmd_with_data_source_mapping(tmp_path):
 
     # Verify output file was created
     assert output_file.exists()
-
-
-def test_evaluate2_deprecation_warning(tmp_path):
-    from chap_core.api_types import BackTestParams, RunConfig
-    from chap_core.file_io.example_data_set import datasets
-
-    dataset = datasets["hydromet_5_filtered"].load()
-    csv_path = tmp_path / "test_data.csv"
-    dataset.to_csv(csv_path)
-
-    backtest_params = BackTestParams(n_periods=3, n_splits=2, stride=1)
-    run_config = RunConfig()
-    output_file = tmp_path / "evaluation.nc"
-
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        evaluate2(
-            model_name="https://github.com/dhis2-chap/minimalist_example_lag",
-            dataset_csv=csv_path,
-            output_file=output_file,
-            backtest_params=backtest_params,
-            run_config=run_config,
-        )
-        deprecation_warnings = [
-            x for x in w if issubclass(x.category, DeprecationWarning) and "evaluate2" in str(x.message)
-        ]
-        assert len(deprecation_warnings) == 1
-        assert "eval" in str(deprecation_warnings[0].message)
