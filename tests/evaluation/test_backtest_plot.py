@@ -181,12 +181,22 @@ def test_all_registered_plots_from_backtest(plot_id: str, simulated_backtest: Ba
     assert chart is not None
 
 
-@pytest.mark.parametrize("plot_id", list(get_backtest_plots_registry().keys()))
+@pytest.mark.parametrize(
+    "plot_id",
+    [pid for pid, cls in get_backtest_plots_registry().items() if not cls.needs_covariates],
+)
 def test_all_registered_plots_from_evaluation(plot_id: str, simulated_backtest: BackTest, default_transformer):
     """Test that all registered plots can be successfully generated from an Evaluation."""
     evaluation = Evaluation.from_backtest(simulated_backtest)
     chart = create_plot_from_evaluation(plot_id, evaluation)
     assert chart is not None
+
+
+def test_covariate_plot_rejected_from_evaluation(simulated_backtest: BackTest, default_transformer):
+    """Covariate-dependent plots should raise ValueError from evaluation-file workflow."""
+    evaluation = Evaluation.from_backtest(simulated_backtest)
+    with pytest.raises(ValueError, match="requires covariate data"):
+        create_plot_from_evaluation("covariate_importance", evaluation)
 
 
 def test_plot_backtest_cli(backtest: BackTest, tmp_path: Path, default_transformer):
@@ -212,6 +222,7 @@ def test_eval_cmd_plot_flag(backtest: BackTest, tmp_path: Path, default_transfor
 
     plot_path = nc_file.with_suffix(".html")
     chart = create_plot_from_evaluation("evaluation_plot", evaluation)
+    assert not isinstance(chart, dict)
     chart.save(str(plot_path))
 
     assert plot_path.exists()

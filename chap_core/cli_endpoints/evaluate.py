@@ -440,6 +440,7 @@ def eval_cmd(
             plot_path = output_file.with_suffix(".html")
             logger.info(f"Generating evaluation plot to {plot_path}")
             chart = create_plot_from_evaluation("evaluation_plot", evaluation)
+            assert not isinstance(chart, dict)
             chart.save(str(plot_path))
             logger.info(f"Plot saved to {plot_path}")
 

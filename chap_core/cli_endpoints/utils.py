@@ -13,6 +13,20 @@ import yaml
 from cyclopts import Parameter
 
 from chap_core.assessment.dataset_splitting import train_test_generator
+
+
+def _save_vega_html(spec: dict, output_path: Path) -> None:
+    """Save a raw Vega spec as a self-contained HTML file."""
+    html = f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+</head><body>
+<div id="vis"></div>
+<script>vegaEmbed = undefined; new vega.View(vega.parse({json.dumps(spec)}), {{renderer: 'canvas'}}).initialize('#vis').run();</script>
+</body></html>"""
+    output_path.write_text(html)
+
+
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.file_io.example_data_set import datasets
@@ -127,7 +141,7 @@ def plot_backtest(
     ],
     output_file: Annotated[
         Path,
-        Parameter(help="Path to output file (supports .html, .png, .svg, .pdf)"),
+        Parameter(help="Path to output file (.html, .json; Altair plots also support .png, .svg, .pdf)"),
     ],
     plot_type: Annotated[
         str,
@@ -158,7 +172,18 @@ def plot_backtest(
     suffix = output_path.suffix.lower()
 
     logger.info(f"Saving plot to {output_file}")
-    if suffix == ".html" or suffix in (".png", ".svg", ".pdf"):
+    if isinstance(chart, dict):
+        # Raw Vega spec (e.g. radar charts) - only .html and .json are supported
+        if suffix == ".html":
+            _save_vega_html(chart, output_path)
+        elif suffix == ".json":
+            with open(output_path, "w") as f:
+                json.dump(chart, f, indent=2)
+        else:
+            raise ValueError(
+                f"Raw Vega plots (e.g. covariate_importance) only support .html and .json output, got {suffix}"
+            )
+    elif suffix == ".html" or suffix in (".png", ".svg", ".pdf"):
         chart.save(str(output_path))
     elif suffix == ".json":
         with open(output_path, "w") as f:
