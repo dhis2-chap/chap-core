@@ -28,7 +28,7 @@ def test_objective_calls_evaluation_create_and_returns_metric(monkeypatch):
     class FakeUUID:
         hex = "a1b2c3d4e5f6g7h8"
 
-    monkeypatch.setatts(obj_module, "uuid4", lambda: FakeUUID(), raising=True)
+    monkeypatch.setattr(obj_module, "uuid4", lambda: FakeUUID(), raising=True)
 
     def fake_create(cls, **kwargs):
         captured["create_kwargs"] = kwargs
@@ -73,3 +73,8 @@ def test_objective_calls_evaluation_create_and_returns_metric(monkeypatch):
         "evaluation": fake_evaluation,
         "metric_ids": ["MSE"],
     }
+
+if __name__ == "__main__":
+    import sys, pytest
+
+    sys.exit(pytest.main([__file__]))
