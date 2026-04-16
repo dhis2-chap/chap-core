@@ -1,7 +1,6 @@
 """Evaluation commands for CHAP CLI."""
 
 import logging
-import warnings
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -14,7 +13,6 @@ from chap_core.api_types import BackTestParams, EstimatorMode, EstimatorOptions,
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.cli_endpoints._common import (
-    create_model_lists,
     discover_geojson,
     get_estimator,
     get_hpo_estimator,
@@ -22,7 +20,6 @@ from chap_core.cli_endpoints._common import (
     load_dataset,
     load_dataset_from_csv,
     resolve_csv_path,
-    save_results,
 )
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
@@ -35,7 +32,6 @@ from chap_core.hpo.hpoModel import Direction, HpoModel
 from chap_core.hpo.objective import Objective
 from chap_core.hpo.searcher import RandomSearcher
 from chap_core.log_config import initialize_logging
-from chap_core.models.external_model import ExternalModel
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import CHAP_RUNS_DIR
 from chap_core.predictor import ModelType
@@ -185,71 +181,6 @@ def evaluate_hpo(
 
     dataframe.to_csv(csvname, index=False, header=False)
     logger.info(f"Evaluation complete. Results saved to {csvname}")
-
-    return results_dict
-
-
-def evaluate(
-    model_name: ModelType | str,
-    dataset_name: DataSetType | None = None,
-    dataset_country: str | None = None,
-    dataset_csv: Path | None = None,
-    polygons_json: Path | None = None,
-    polygons_id_field: str | None = "id",
-    prediction_length: int = 6,
-    n_splits: int = 7,
-    report_filename: str | None = str(get_temp_dir() / "report.pdf"),
-    ignore_environment: bool = False,
-    debug: bool = False,
-    log_file: str | None = None,
-    run_directory_type: Literal["latest", "timestamp", "use_existing"] | None = "timestamp",
-    model_configuration_yaml: str | None = None,
-    is_chapkit_model: bool = False,
-):
-    """Deprecated: Use `eval` instead. Will be removed in v2.0."""
-    warnings.warn(
-        "The 'evaluate' command is deprecated and will be removed in v2.0. Use 'eval' instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    initialize_logging(debug, log_file)
-    logger.info(f"Evaluating model {model_name}")
-    dataset = load_dataset(dataset_country, dataset_csv, dataset_name, polygons_id_field, polygons_json)
-    model_configuration_yaml_list, model_list = create_model_lists(model_configuration_yaml, model_name)
-    logger.info(f"Model configuration: {model_configuration_yaml_list}")
-    results_dict = {}
-    for name, configuration in zip(model_list, model_configuration_yaml_list, strict=False):
-        model = get_model(configuration, ignore_environment, is_chapkit_model, name, run_directory_type)
-        assert isinstance(model, ExternalModel)
-        model_info = model.model_information
-        if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
-            logger.warning("Model has not specified minimum and maximum predicted length")
-        else:
-            if model_info.min_prediction_length > prediction_length:
-                raise ValueError(
-                    f"The desired prediction length of {prediction_length} is less than the model's minimum prediction length of {model_info.min_prediction_length}"
-                )
-            elif model_info.max_prediction_length < prediction_length:
-                logger.warning(
-                    f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {prediction_length}. This is done iteratively, and may worsen model performance"
-                )
-                model = ExtendedPredictor(model, prediction_length)
-
-        try:
-            results = evaluate_model(
-                model,
-                dataset,
-                prediction_length=prediction_length,
-                n_test_sets=n_splits,
-                report_filename=report_filename,
-            )
-        except NoPredictionsError as e:
-            logger.error(f"No predictions were made: {e}")
-            return
-        results_dict[name] = results
-
-    assert report_filename is not None
-    save_results(report_filename, results_dict)
 
     return results_dict
 
@@ -488,80 +419,7 @@ def eval_cmd(
             logger.info(f"Plot saved to {plot_path}")
 
 
-def evaluate2(
-    model_name: Annotated[
-        str,
-        Parameter(
-            help="Model path (local directory), GitHub URL, or chapkit service URL. "
-            "Examples: /path/to/model, https://github.com/org/model, http://localhost:8000"
-        ),
-    ],
-    dataset_csv: Annotated[
-        str,
-        Parameter(
-            help="Path or URL to CSV file containing disease data with columns: time_period, "
-            "location, disease_cases, and climate covariates (rainfall, temperature, etc.)"
-        ),
-    ],
-    output_file: Annotated[
-        Path,
-        Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
-    ],
-    backtest_params: Annotated[
-        BackTestParams,
-        Parameter(
-            help="Backtest configuration. Use --backtest-params.n-periods for forecast horizon, "
-            "--backtest-params.n-splits for number of train/test splits, "
-            "--backtest-params.stride for step size between splits"
-        ),
-    ] = BackTestParams(n_periods=3, n_splits=7, stride=1),
-    run_config: Annotated[
-        RunConfig,
-        Parameter(
-            help="Model execution configuration. Use --run-config.is-chapkit-model for chapkit models, "
-            "--run-config.debug for verbose logging, --run-config.ignore-environment to skip env setup"
-        ),
-    ] = RunConfig(),
-    model_configuration_yaml: Annotated[
-        Path | None,
-        Parameter(help="Path to YAML file with model-specific configuration parameters"),
-    ] = None,
-    historical_context_years: Annotated[
-        int,
-        Parameter(
-            help="Years of historical data to include for plotting context. "
-            "Calculated as periods based on dataset frequency (e.g., 6 years = 312 weeks or 72 months)"
-        ),
-    ] = 6,
-    data_source_mapping: Annotated[
-        Path | None,
-        Parameter(
-            help="Path to JSON file mapping model covariate names to CSV column names. "
-            'Format: {"model_name": "csv_column"}. Example: {"rainfall": "precipitation_mm"}'
-        ),
-    ] = None,
-):
-    """Deprecated: Use `eval` instead. Will be removed in v2.0."""
-    warnings.warn(
-        "The 'evaluate2' command is deprecated and will be removed in v2.0. Use 'eval' instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return eval_cmd(
-        model_name=model_name,
-        dataset_csv=dataset_csv,
-        output_file=output_file,
-        backtest_params=backtest_params,
-        run_config=run_config,
-        model_configuration_yaml=model_configuration_yaml,
-        historical_context_years=historical_context_years,
-        data_source_mapping=data_source_mapping,
-    )
-
-
 def register_commands(app):
     """Register evaluate commands with the CLI app."""
     app.command()(evaluate_hpo)
-    app.command()(evaluate)
-    app.command()(evaluate2)
     app.command(name="eval")(eval_cmd)
