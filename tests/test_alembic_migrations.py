@@ -42,6 +42,12 @@ _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("modeltemplatedb", "archived"),
 ]
 
+# Tables added by alembic migrations (not in the baseline schema).
+# These are dropped after create_all so the migration can re-create them.
+_TABLES_ADDED_BY_MIGRATIONS = [
+    "configuredmodelwithdatasource",
+]
+
 
 def _pg_container():
     """Create and start a PostgreSQL testcontainer."""
@@ -97,6 +103,8 @@ def _create_baseline_schema(engine):
     SQLModel.metadata.create_all(engine)
 
     with engine.connect() as conn:
+        for table in _TABLES_ADDED_BY_MIGRATIONS:
+            conn.execute(sa.text(f"DROP TABLE IF EXISTS {table}"))
         for table, column in _COLUMNS_ADDED_BY_MIGRATIONS:
             conn.execute(sa.text(f"ALTER TABLE {table} DROP COLUMN IF EXISTS {column}"))
         conn.commit()
