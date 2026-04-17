@@ -674,7 +674,6 @@ async def create_configured_model_with_data_source_from_backtest(
         org_units=dataset.org_units or [],
         data_source_mapping=dataset.data_sources or [],
         period_type=dataset.period_type,
-        covariates=dataset.covariates or [],
     )
     session.add(record)
     session.commit()

@@ -65,7 +65,6 @@ class ConfiguredModelWithDataSource(DBModel, table=True):
         sa_column=Column(PydanticListType(DataSource)),
     )
     period_type: str | None = None
-    covariates: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class ConfiguredModelWithDataSourceRead(DBModel):
@@ -77,7 +76,6 @@ class ConfiguredModelWithDataSourceRead(DBModel):
     org_units: list[str]
     data_source_mapping: list[DataSource]
     period_type: str | None
-    covariates: list[str]
 
 
 OldBackTestRead = _BackTestRead
