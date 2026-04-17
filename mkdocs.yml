@@ -120,6 +120,7 @@ nav:
           - Setup: contributor/chap-contributor-setup.md
           - Windows Setup: contributor/windows_contributors.md
           - Code Overview: contributor/code_overview.md
+          - REST API and Database: contributor/rest_api_and_database.md
           - MLproject Configuration: contributor/mlproject_configuration.md
           - Vocabulary: contributor/vocabulary.md
           - Testing: contributor/testing.md
