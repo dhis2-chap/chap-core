@@ -34,6 +34,11 @@ class LinearInterpolation:
 
         v_left = float(hist_df[feature_name].iloc[left])
         v_right = float(hist_df[feature_name].iloc[right])
+
+        if not np.isfinite(v_left) or not np.isfinite(v_right):
+            logger.warning("NaN boundary value for feature '%s'; falling back to zeros", feature_name)
+            return [0.0] * (end - start)
+
         vals = np.linspace(v_left, v_right, length)
 
         segment_vals = vals[start - left : end - left]
@@ -61,8 +66,11 @@ class LocalMean:
 
     def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
         start, end = indices
-        mean = float(np.mean(hist_df[feature_name].iloc[start:end]))
-        return [mean] * length
+        segment = hist_df[feature_name].iloc[start:end]
+        if segment.isna().all():
+            logger.warning("All-NaN local segment for feature '%s'; falling back to zeros", feature_name)
+            return [0.0] * length
+        return [float(np.nanmean(segment))] * length
 
 
 class GlobalMean:
@@ -73,8 +81,11 @@ class GlobalMean:
         self.rng = rng
 
     def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
-        mean = float(np.mean(hist_df[feature_name]))
-        return [mean] * length
+        series = hist_df[feature_name]
+        if series.isna().all():
+            logger.warning("All-NaN global series for feature '%s'; falling back to zeros", feature_name)
+            return [0.0] * length
+        return [float(np.nanmean(series))] * length
 
 
 class RandomUniform:
@@ -192,11 +203,6 @@ class FourierReplacement:
         return segment.tolist()
 
 
-"""
-Linear transform, constant transform, random background is from "agnostic local explanations [...]"
-Local mean, global mean, random uniform is from "LOMATCE"
-Fourier is from LimeSegment
-
-"""
-
-# TODO: cprofile
+# Linear transform, constant transform, random background is from "agnostic local explanations [...]"
+# Local mean, global mean, random uniform is from "LOMATCE"
+# Fourier is from LimeSegment

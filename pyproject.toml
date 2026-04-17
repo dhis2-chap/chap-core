@@ -131,6 +131,8 @@ fixable = ["ALL"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ALL"]
 "__init__.py" = ["F401"]
+# lime.py uses intentional wildcard imports to allow easy swapping of pipeline modules
+"chap_core/explainability/lime.py" = ["F403", "F405"]
 
 [tool.ruff.format]
 quote-style = "double"

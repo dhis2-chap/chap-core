@@ -194,7 +194,7 @@ class MatrixProfileSortedSlopeSegmentation:
         boundary_candidates = order[jump_pos + 1]
         boundary_candidates = np.sort(boundary_candidates)
 
-        boundaries = [0] + boundary_candidates.tolist() + [data_len]
+        boundaries = [0, *boundary_candidates.tolist(), data_len]
 
         num_segs = len(boundaries) - 1
         for seg_i in range(num_segs):
@@ -249,9 +249,7 @@ class MatrixProfileBinSegmentation:
             point_bins[t] = int(np.min(cover)) if self.mode == "min" else int(np.max(cover))
 
         boundaries = [0]
-        for i in range(1, data_len):
-            if point_bins[i] != point_bins[i - 1]:
-                boundaries.append(i)
+        boundaries.extend(i for i in range(1, data_len) if point_bins[i] != point_bins[i - 1])
         boundaries.append(data_len)
 
         num_segs = len(boundaries) - 1
@@ -326,9 +324,7 @@ class SaxTransformSegmentation:
                 break
 
         boundaries = [0]
-        for i in range(1, n):
-            if best_symbols[i] != best_symbols[i - 1]:
-                boundaries.append(i)
+        boundaries.extend(i for i in range(1, n) if best_symbols[i] != best_symbols[i - 1])
         boundaries.append(n)
 
         num_segs = len(boundaries) - 1
@@ -399,7 +395,7 @@ class NNSegmentation:
         boundaries = [c for c, _ in top]
         boundaries = sorted(boundaries)
 
-        boundaries = [0] + boundaries + [data_len]
+        boundaries = [0, *boundaries, data_len]
 
         num_segs = len(boundaries) - 1
         for seg_i in range(num_segs):
@@ -443,7 +439,7 @@ All transformations above, save inverse exponential, come from TS-Mule paper
 
 NNSegment comes from the LimeSegment paper. This algo segments the series into overlapping windows of size m,
 and finds the index of the most similar window. Intuitively, if we are in a region of "stability" or regularity
-in values, moving along to the next time step's window would result in its most similar window being the 
+in values, moving along to the next time step's window would result in its most similar window being the
 window one over of the previous index of most similar. When this doesn't hold, we are probably in a regime
 change and can add a candidate boundary. Select actual boundaries based on those windows which are most different
 from neighbors (as function of mean and variance)

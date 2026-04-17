@@ -10,7 +10,9 @@ from scipy.spatial.distance import euclidean
 from sklearn.metrics import pairwise_distances
 
 
-class SampleModel(Protocol):
+class WeighterModel(Protocol):
+    takes_mask: bool
+
     def get_weights(self, X: np.ndarray, x0_row: np.ndarray) -> list[float]: ...
 
 

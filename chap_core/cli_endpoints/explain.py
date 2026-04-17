@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class LimeParams(BaseModel):
     """Configuration for the LIME explainability pipeline."""
 
-    granularity: int = 8
+    granularity: int = 10
     num_perturbations: int = 300
     surrogate_name: str = "ridge"
     segmenter_name: str = "uniform"
@@ -32,13 +32,13 @@ class LimeParams(BaseModel):
     seed: int | None = None
     timed: bool = False
     adaptive: bool = False
+    last_n: int | None = None
 
 
-# TODO: Move LIME parameters to pydantic class
 def explain_lime(
-    model_name: Annotated[
-        str,
-        Parameter(help="Model identifier (path or GitHub URL)"),
+    model_path: Annotated[
+        Path,
+        Parameter(help="Path to a trained model run directory"),
     ],
     dataset_csv: Annotated[
         Path,
@@ -70,12 +70,16 @@ def explain_lime(
         Path | None,
         Parameter(help="Path to YAML file with model configuration"),
     ] = None,
+    save: Annotated[
+        bool,
+        Parameter(help="Save explanation as a markdown file under runs/explainability/"),
+    ] = True,
 ):
     """
     Explain a model prediction by providing variable contribution weighting.
     """
     # TODO: Fix too much printing in console when running
-    logger.info(f"Evaluating model {model_name} using LIME")
+    logger.info(f"Evaluating model {model_path} using LIME")
 
     if lime_params.adaptive:
         from chap_core.explainability.lime import explain_adaptive as explain_fn
@@ -92,12 +96,11 @@ def explain_lime(
         logger.info(f"Loading model configuration from {model_configuration_yaml}")
         configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
 
-    logger.info(f"Loading model template from {model_name}")
+    logger.info(f"Loading model template from {model_path}")
     template = ModelTemplate.from_directory_or_github_url(
-        model_name,
-        base_working_dir=Path("./runs/"),
+        model_path,
         ignore_env=run_config.ignore_environment,
-        run_dir_type=run_config.run_directory_type,
+        run_dir_type="use_existing",
         is_chapkit_model=run_config.is_chapkit_model,
     )
 
@@ -105,12 +108,7 @@ def explain_lime(
         model = template.get_model(configuration)
         estimator = model()
 
-        # TODO: In the future, should load an already trained pickle object or something
-        logger.info("Training model...")
-        estimator.train(dataset)
-
         logger.info(f"Generating explanation for {location}, {horizon} time steps into the future.")
-
 
         explain_fn(
             model=estimator,
@@ -125,9 +123,9 @@ def explain_lime(
             seed=lime_params.seed,
             timed=lime_params.timed,
             granularity=lime_params.granularity,
+            last_n=lime_params.last_n,
+            save=save,
         )
-
-        # TODO: Plot results and save as csv or figure o.s.
 
 
 def register_commands(app):

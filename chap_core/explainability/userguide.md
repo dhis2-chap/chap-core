@@ -35,7 +35,7 @@ Multiple strategies have been put forward for optimally perturbing time series d
 
 #### Surrogate
 
-As mentioned, the LIME algorithm works by training an explainable model - called the surrogate model - on a perturbed dataset in the neighborhood of the original input, so that it behaves similarly to the original black box model around that original prediction. The most common surrogate model is a linear regression model, but decision trees are also a viable explainable alternative, though the latter only produces absolute weighted values, saying nothing about the direction of impact. Currently, this module only implements linear regression models, in the form of ridge.
+As mentioned, the LIME algorithm works by training an explainable model - called the surrogate model - on a perturbed dataset in the neighborhood of the original input, so that it behaves similarly to the original black box model around that original prediction. The most common surrogate model is a linear regression model, but decision trees are also a viable explainable alternative, though the latter only produces absolute weighted values, saying nothing about the direction of impact. Currently, this module implements two linear regression surrogates: ridge regression and Bayesian linear regression.
 
 
 #### Distance
@@ -47,11 +47,11 @@ When training the surrogate model, you want to weight the training dataset accor
 
 #### Prerequisites
 
-[TODO, currently the model is trained within the lime pipeline, in the future the pipeline will take the pickle or something similar as input]
+A trained model run directory is required. This is the timestamped directory created under `runs/` after running `chap evaluate` or `chap backtest` (e.g. `runs/minimalist_example_lag/2026-04-10_12-59-28_de080a0e`). The directory must contain both the `MLproject` file and a trained `model` file.
 
 #### Running LIME
 
-The LIME pipeline from the explainability module is available through the command line interface (CLI) using the ```explain-lime``` command. It is run by calling the explain command along with the name of the model to explain, the location of the dataset on which to explain, the location on which to explain, and the number of time steps into the future on which to explain (called the horizon).
+The LIME pipeline from the explainability module is available through the command line interface (CLI) using the ```explain-lime``` command. It is run by calling the explain command along with the path to a trained model run directory, the location of the dataset on which to explain, the location on which to explain, and the number of time steps into the future on which to explain (called the horizon).
 
 As previously mentioned, the LIME algorithm only works for local explanations, i.e. on a particular prediction. For a time series predictor, one particular prediction is defined by the input data for a particular location, for a specific dataset, at a specific time in the future (since the model may predict for several time steps into the future; all considered individual predictions).
 
@@ -61,14 +61,14 @@ An example of a simple run with the ```explain``` command is:
 
 
 ```bash
-chap explain-lime --model_name https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6 --dataset_csv example_data/nicaragua_weekly_data.csv --location boaco --horizon 3
+chap explain-lime --model_path runs/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6/2026-04-10_12-38-46_dcada249 --dataset_csv example_data/nicaragua_weekly_data.csv --location boaco --horizon 3
 ```
 
 Additionally, there are multiple arguments with which to customize the LIME pipeline, using the lime-params prefix:
 
 ### Options
 
-#### ```granularity``` (Default: 6)
+#### ```granularity``` (Default: 10)
 The number of segments to divide the time series input into, if the segmenter does not calculate this automatically.
 
 #### ```segmenter_name``` (Default: uniform)
@@ -95,8 +95,9 @@ Name of the perturbation strategy to use. In all cases, the perturbed segment ha
 
 
 #### ```surrogate_name``` (Default: ridge)
-Name of the surrogate model to use. Currently only has one implementation:
-- **"ridge"**: A ridge regression model, where the importance weighting is calculated from the weights of the model
+Name of the surrogate model to use. May take any of the following:
+- **"ridge"**: A ridge regression model, where the importance weighting is calculated from the weights of the model.
+- **"bayesian"** (also **"blr"**, **"bayesian_linear"**): A Bayesian linear regression model. Used internally by the adaptive pipeline; can also be selected for the standard pipeline.
 
 
 #### ```weighter_name``` (Default: pairwise)
@@ -108,6 +109,12 @@ Name of the perturbation weighting strategy to use. May take any of the followin
 #### ```num_perturbations``` (Default: 300)
 Number of perturbations to create for the training of the surrogate model. A higher number will result in a longer running time, as each perturbation must be run through the model for an output, but will also result in a more accurate explanation.
 
+#### ```seed``` (Default: None)
+Integer seed for the random number generator. When set, results are reproducible across runs with the same configuration. When left unset, each run uses a different random seed.
+
+#### ```last_n``` (Default: None)
+If set, only the last `last_n` time steps of the location's historical data are used for the explanation. Useful for focusing the explanation on recent history or for reducing computation time on long series.
+
 #### ```timed``` (Default: False)
 Flag for whether to print timing debug logs during execution.
 
@@ -118,7 +125,7 @@ Flag for whether to run the LIME pipeline adaptively or non-adaptively.
 An example run using all options is:
 
 ```bash
-chap explain-lime   --model_name https://github.com/sandvelab/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6   --dataset_csv example_data/nicaragua_weekly_data.csv   --location boaco   --horizon 3   --lime-params.surrogate-name ridge   --lime-params.segmenter-name uniform   --lime-params.sampler-name fourier   --lime-params.granularity 8   --lime-params.num-perturbations 50   --lime-params.timed   --lime-params.adaptive
+chap explain-lime   --model_path runs/chap_auto_ewars_weekly@737446a7accf61725d4fe0ffee009a682e7457f6/2026-04-10_12-38-46_dcada249   --dataset_csv example_data/nicaragua_weekly_data.csv   --location boaco   --horizon 3   --lime-params.surrogate-name ridge   --lime-params.segmenter-name uniform   --lime-params.sampler-name fourier   --lime-params.granularity 8   --lime-params.num-perturbations 50   --lime-params.timed   --lime-params.adaptive
 ```
 
 

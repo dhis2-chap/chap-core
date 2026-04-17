@@ -2,10 +2,10 @@
 Script for plotting generated importance weighting with LIME
 """
 
-
 import matplotlib.colors as mcolors
 import pandas as pd
 from matplotlib import pyplot as plt
+from matplotlib.gridspec import GridSpec
 
 
 def parse_coefficients(
@@ -35,57 +35,73 @@ def plot_importance(
     coefficients: list[tuple[str, float]], hist_df: pd.DataFrame, fut_df: pd.DataFrame, segment_indices: dict[str, list]
 ):
     temp_columns, static_columns = parse_coefficients(coefficients)
+
     max_temp = max((abs(v) for inner in temp_columns.values() for v in inner.values()), default=0.0)
     max_static = max((abs(v) for v in static_columns.values()), default=0.0)
-    max_val = max(max_temp, max_static, 1.0)  # Colour intensity relative
-
-    num_temp_columns = len(temp_columns.keys())
-
-    # Define figures and axes
-    fig, axes = plt.subplots(
-        nrows=num_temp_columns,
-        ncols=1,
-        sharex=True,  # Makes the plots share the same x axos
-        figsize=(12, 8),
-        constrained_layout=True,
-    )
+    max_val = max(max_temp, max_static, 1.0)
 
     cmap = plt.cm.RdYlGn
     norm = mcolors.Normalize(vmin=-max_val, vmax=max_val)
 
-    # Plot data historic and future
-    for i, col in enumerate(temp_columns.keys()):  # TODO: Again, is the df sorted here?
-        if col in hist_df.columns:
+    sorted_vars = sorted(temp_columns.keys())
+    has_static = bool(static_columns)
+    n_rows = len(sorted_vars) + (1 if has_static else 0)
+
+    fig = plt.figure(figsize=(14, max(4, n_rows * 2)), constrained_layout=True)
+    gs = GridSpec(n_rows, 2, figure=fig, width_ratios=[85, 15])
+
+    first_ax_hist = None
+    for i, col in enumerate(sorted_vars):
+        ax_hist = fig.add_subplot(gs[i, 0], sharex=first_ax_hist)
+        ax_fut = fig.add_subplot(gs[i, 1])
+        if first_ax_hist is None:
+            first_ax_hist = ax_hist
+
+        # Historical
+        hist_indices = segment_indices.get(col)
+        if col in hist_df.columns and hist_indices is not None:
             y = hist_df[col].tolist()
-            x = range(len(y))
-            axes[i].plot(x, y)
+            ax_hist.plot(range(len(y)), y)
+            for lag, (startx, endx) in hist_indices.items():
+                ax_hist.axvline(x=endx, color="darkgray", linestyle="--", linewidth=1.0)
+                value = temp_columns[col].get(lag, 0.0)
+                ax_hist.axvspan(startx, endx, facecolor=cmap(norm(value)), alpha=0.3, zorder=0)
         else:
-            y = []
+            ax_hist.axis("off")
 
-        if col in fut_df.columns:
+        ax_hist.set_title(col, fontsize=9)
+        ax_hist.tick_params(labelsize=7)
+
+        # Future: single bar (horizon=1) or line + axvspan coloring (horizon>=2)
+        fut_coeffs = {abs(lag): val for lag, val in temp_columns[col].items() if lag < 0}
+        if col in fut_df.columns and fut_coeffs:
             y_fut = fut_df[col].tolist()
-            x_fut = range(len(y), len(y) + len(y_fut))
-            axes[i].plot(x_fut, y_fut, color="orange")
+            if len(y_fut) == 1:
+                color = cmap(norm(fut_coeffs.get(1, 0.0)))
+                ax_fut.bar(0, y_fut[0], color=color, alpha=0.6, edgecolor="none")
+            else:
+                ax_fut.plot(range(len(y_fut)), y_fut)
+                for j in range(len(y_fut)):
+                    color = cmap(norm(fut_coeffs.get(j + 1, 0.0)))
+                    ax_fut.axvspan(j - 0.5, j + 0.5, facecolor=color, alpha=0.3, zorder=0)
+                for j in range(len(y_fut) - 1):
+                    ax_fut.axvline(x=j + 0.5, color="darkgray", linestyle="--", linewidth=1.0)
+            ax_fut.set_xticks(range(len(y_fut)))
+            ax_fut.set_xticklabels([f"+{k + 1}" for k in range(len(y_fut))], fontsize=7)
+            ax_fut.set_title("future", fontsize=8)
+            ax_fut.tick_params(labelsize=7)
+        else:
+            ax_fut.axis("off")
 
-        axes[i].set_title(f"Variable: {col}")
-        axes[i].set_xlabel("Time steps")
-
-        # Plot vertical bars at segment indices
-        for lag, (startx, endx) in segment_indices[col].items():
-            axes[i].axvline(x=endx, color="darkgray", linestyle="--", linewidth=1.5)
-
-            # Colour background according to importance weighting
-            value = temp_columns[col][lag]
-            color = cmap(norm(value))
-
-            axes[i].axvspan(startx, endx, facecolor=color, alpha=0.3, linewidth=0, zorder=0)
+    # Static features: one colored box per feature in the bottom row
+    if has_static:
+        ax_static = fig.add_subplot(gs[n_rows - 1, :])
+        names = sorted(static_columns.keys())
+        colors = [cmap(norm(static_columns[n])) for n in names]
+        ax_static.bar(range(len(names)), [1] * len(names), color=colors, alpha=0.6, edgecolor="none")
+        ax_static.set_xticks(range(len(names)))
+        ax_static.set_xticklabels(names, fontsize=9)
+        ax_static.set_yticks([])
+        ax_static.set_title("Static features", fontsize=9)
 
     plt.show()
-
-
-# STILL TODO:
-## Plot future segments
-## Sort variables alphabetically (or sim.) so axes always appear in same order
-## Plot static variables
-## Is plot a good way to present this info anyway?
-## Could do some counterfactual equidistant spacing?
