@@ -47,6 +47,28 @@ def weekly_dataset():
     return ds
 
 
+def test_iter_locations(monthly_dataset):
+    locs = list(monthly_dataset.iter_locations())
+    assert len(locs) == 2
+    assert isinstance(locs[0], DataSet)
+
+    all_locations = [list(ds.locations())[0] for ds in locs]
+    assert set(all_locations) == {"Oslo", "Bergen"}
+
+
+def test_rename_location_success(monthly_dataset):
+    renamed_ds = monthly_dataset.rename_location("Oslo", "Trondheim")
+    
+    assert "Trondheim" in renamed_ds.locations()
+    assert "Oslo" not in renamed_ds.locations()
+    assert "Oslo" in monthly_dataset.locations()
+
+
+def test_rename_non_existent_location_raises_error(monthly_dataset):
+    with pytest.raises(ValueError, match="Location NonExistent not found"):
+        monthly_dataset.rename_location("NonExistent", "NewName")
+
+
 def test_frequency(monthly_dataset):
     assert monthly_dataset.frequency == "M"
 
