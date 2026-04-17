@@ -2,18 +2,20 @@
 
 import logging
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import pandas as pd
 import yaml
 from cyclopts import Parameter
 
 from chap_core import get_temp_dir
-from chap_core.api_types import BackTestParams, RunConfig
+from chap_core.api_types import BackTestParams, EstimatorMode, EstimatorOptions, RunConfig
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.cli_endpoints._common import (
     discover_geojson,
+    get_estimator,
+    get_hpo_estimator,
     load_dataset_from_csv,
     resolve_csv_path,
 )
@@ -33,6 +35,9 @@ from chap_core.models.utils import CHAP_RUNS_DIR
 from chap_core.predictor import ModelType
 from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
+if TYPE_CHECKING:
+    from chap_core.models.external_model import ExternalModel
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +133,10 @@ def evaluate_hpo(
 
             configs = load_search_space_from_config(configs)
             assert metric is not None, "metric must be specified for HPO"
-            objective = Objective(template, metric, prediction_length, n_splits)
+            # objective = Objective(template, metric, prediction_length, n_splits)
+            # now with the new Objective signature, with BackTestParams
+            backtest_params = BackTestParams(n_periods=prediction_length, n_splits=n_splits)
+            objective = Objective(template, backtest_params, metric)
             model = HpoModel(RandomSearcher(2), objective, direction, configs)
 
         model_info = model.model_information
@@ -241,6 +249,15 @@ def eval_cmd(
         bool,
         Parameter(help="Generate an evaluation plot (HTML) alongside the NetCDF output"),
     ] = False,
+    estimator_options: Annotated[
+        EstimatorOptions | None,
+        Parameter(
+            help="Estimator behavior. Leave mode unset for a normal evaluation run. "
+            "Use --estimator-options.mode=hpo for hyperparameter optimization. "
+            "Use --estimator-options.mode=ensemble for ensemble learning. "
+            "Optionally --estimator-options.metric=<metric> for hpo and ensemble."
+        ),
+    ] = None,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
@@ -251,6 +268,11 @@ def eval_cmd(
     The evaluation splits historical data into multiple train/test sets, trains the model
     on each training set, and generates probabilistic forecasts that are compared against
     actual observations. Results include predictions, observations, and computed metrics.
+
+    HPO can be activated through estimator_options.mode, which will run a hyperparameter
+    optimization over the search space defined in the model template or in the provided
+    model_configuration_yaml file. The best configuration is selected based on the specified
+    estimator_options.metric.
 
     Examples:
         # Evaluate a GitHub-hosted model
@@ -264,8 +286,19 @@ def eval_cmd(
         # Use column name mapping when CSV columns don't match model expectations
         chap eval --model-name ./my_model --dataset-csv ./data.csv \\
             --output-file ./eval.nc --data-source-mapping ./column_mapping.json
+
+        # Evaluate with hyperparameter optimization
+        chap eval --model-name https://github.com/dhis2-chap/minimalist_example \\
+            --dataset-csv ./example_data/vietnam_monthly.csv --output-file ./chap_core/hpo/eval.nc \\
+            --model-configuration-yaml ./chap_core/hpo/config3.yaml --estimator-options.mode hpo \\
+            --estimator_options.metric sensitivity
     """
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+
+    # The same can be done for backtest_params and run_config,
+    # or have them depend on cyclopts
+    if estimator_options is None:
+        estimator_options = EstimatorOptions()
 
     logger.info(f"Evaluating model {model_name} with xarray/NetCDF output")
 
@@ -283,10 +316,11 @@ def eval_cmd(
     geojson_path = url_geojson_path or discover_geojson(csv_path)
     dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
 
-    configuration = None
-    if model_configuration_yaml is not None:
-        logger.info(f"Loading model configuration from {model_configuration_yaml}")
-        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+    if dry_run and estimator_options.mode != EstimatorMode.NORMAL:
+        logger.warning(
+            "Dry run does not support estimator_options.mode=%s; forcing mode='normal'.", estimator_options.mode.value
+        )
+        estimator_options = EstimatorOptions(mode=EstimatorMode.NORMAL, metric=estimator_options.metric)
 
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
@@ -298,9 +332,22 @@ def eval_cmd(
         dry_run=dry_run,
     )
 
+    configuration = None
     with template:
-        model = template.get_model(configuration)  # type: ignore[arg-type]
-        estimator = model()
+        estimator: ExternalModel | HpoModel | ExtendedPredictor
+        if estimator_options.mode == EstimatorMode.NORMAL:
+            estimator, configuration = get_estimator(template, model_configuration_yaml)
+        elif estimator_options.mode == EstimatorMode.HPO:
+            assert estimator_options.metric is not None
+            estimator = get_hpo_estimator(
+                template=template,
+                model_configuration_yaml=model_configuration_yaml,
+                backtest_params=backtest_params,
+                metric=estimator_options.metric,
+                searcher=RandomSearcher(2),
+            )
+        elif estimator_options.mode == EstimatorMode.ENSEMBLE:
+            raise NotImplementedError("Ensemble mode is not yet implemented")
 
         model_info = estimator.model_information
         if model_info.min_prediction_length is None or model_info.max_prediction_length is None:

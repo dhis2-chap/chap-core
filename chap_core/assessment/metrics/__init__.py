@@ -201,3 +201,45 @@ def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str
 
     logger.info(f"Computed metrics: {list(results.keys())}")
     return results
+
+
+def calculate_metrics(
+    evaluation: Evaluation,
+    metric_ids: list[str],
+    row: dict[str, str] | None = None,
+) -> dict[str, float | str | None]:
+    """
+    Calculate metrics from an evaluation instance with backtest results
+    and return a dictionary of metric_id to metric value.
+
+    Args:
+        evaluation: Evaluation instance with backtest results
+        metric_ids: Optional list of metric IDs to compute. If None, all metrics are computed at AGGREGATE level.
+    """
+    from chap_core.assessment.metrics import available_metrics
+
+    result: dict[str, float | str | None] = (
+        {} if row is None else dict(row)
+    )  # create new dict to avoid mutating input row
+
+    flat_data = evaluation.to_flat()
+
+    historical_obs = flat_data.historical_observations
+    historical_df: pd.DataFrame | None = (
+        pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
+    )
+
+    for metric_id in metric_ids:
+        metric_cls = available_metrics[metric_id]
+        metric = metric_cls(historical_observations=historical_df)
+        if not metric.is_applicable(flat_data.observations):
+            result[metric_id] = None
+            continue
+        metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
+        if len(metric_df) == 1:
+            result[metric_id] = float(metric_df["metric"].iloc[0])
+        else:
+            logger.warning(f"Metric {metric_id} returned {len(metric_df)} rows, expected 1. Skipping.")
+            result[metric_id] = None
+
+    return result
