@@ -32,7 +32,6 @@ def upgrade() -> None:
         sa.Column("org_units", sa.JSON(), nullable=True),
         sa.Column("data_source_mapping", sa.JSON(), nullable=True),
         sa.Column("period_type", sa.String(), nullable=True),
-        sa.Column("covariates", sa.JSON(), nullable=True),
         sa.ForeignKeyConstraint(["configured_model_id"], ["configuredmodeldb.id"]),
     )
 
