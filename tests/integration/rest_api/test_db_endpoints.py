@@ -405,8 +405,8 @@ def test_create_configured_model_with_data_source_from_backtest(clean_engine, de
     assert data["startPeriod"] == "202201"
     assert data["orgUnits"] == ["Oslo", "Bergen"]
     assert data["periodType"] == "month"
-    assert len(data["dataSourceMapping"]) == 1
-    assert data["dataSourceMapping"][0]["covariate"] == "rainfall"
+    assert len(data["dataSources"]) == 1
+    assert data["dataSources"][0]["covariate"] == "rainfall"
     assert data["configuredModel"] is not None
 
     response = client.get("/v1/crud/configured-models-with-data-source")
