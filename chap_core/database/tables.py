@@ -10,7 +10,7 @@ from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship
 
 from chap_core.database.base_tables import DBModel, PeriodID
-from chap_core.database.dataset_tables import DataSet, DataSetInfo
+from chap_core.database.dataset_tables import DataSet, DataSetInfo, DataSource, PydanticListType
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 
 
@@ -50,6 +50,32 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
     name: str
     id: int
     model_template: ModelTemplateDB
+
+
+class ConfiguredModelWithDataSource(DBModel, table=True):
+    id: int | None = Field(primary_key=True, default=None)
+    name: str
+    created: datetime.datetime | None = None
+    configured_model_id: int = Field(foreign_key="configuredmodeldb.id")
+    configured_model: Optional["ConfiguredModelDB"] = Relationship()
+    start_period: PeriodID | None = None
+    org_units: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    data_sources: list[DataSource] = Field(
+        default_factory=list,
+        sa_column=Column(PydanticListType(DataSource)),
+    )
+    period_type: str | None = None
+
+
+class ConfiguredModelWithDataSourceRead(DBModel):
+    id: int
+    name: str
+    created: datetime.datetime | None
+    configured_model: ConfiguredModelRead | None
+    start_period: PeriodID | None
+    org_units: list[str]
+    data_sources: list[DataSource]
+    period_type: str | None
 
 
 OldBackTestRead = _BackTestRead

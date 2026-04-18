@@ -14,6 +14,7 @@ Magic is used to make the returned objects camelCase while internal objects are 
 
 """
 
+import datetime
 import json
 import logging
 from functools import partial
@@ -46,7 +47,13 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BackTest, Prediction, PredictionInfo
+from chap_core.database.tables import (
+    BackTest,
+    ConfiguredModelWithDataSource,
+    ConfiguredModelWithDataSourceRead,
+    Prediction,
+    PredictionInfo,
+)
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
@@ -615,6 +622,70 @@ async def delete_configured_model(
     session.add(configured_model)
     session.commit()
     return {"message": "deleted"}
+
+
+###########
+# configured models with data source
+
+
+@router.get(
+    "/configured-models-with-data-source",
+    response_model=list[ConfiguredModelWithDataSourceRead],
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+async def list_configured_models_with_data_source(session: Session = Depends(get_session)):
+    records = session.exec(
+        select(ConfiguredModelWithDataSource).options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).all()
+    return records
+
+
+@router.post(
+    "/configured-models-with-data-source/from-backtest/{backtestId}",
+    response_model=ConfiguredModelWithDataSourceRead,
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+async def create_configured_model_with_data_source_from_backtest(
+    backtest_id: Annotated[int, Path(alias="backtestId")],
+    session: Session = Depends(get_session),
+):
+    backtest = session.exec(
+        select(BackTest)
+        .where(BackTest.id == backtest_id)
+        .options(
+            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="BackTest not found")
+
+    dataset = backtest.dataset
+    record = ConfiguredModelWithDataSource(
+        name=backtest.name or f"from-backtest-{backtest_id}",
+        created=datetime.datetime.now(),
+        configured_model_id=backtest.model_db_id,
+        start_period=dataset.first_period,
+        org_units=dataset.org_units or [],
+        data_sources=dataset.data_sources or [],
+        period_type=dataset.period_type,
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+    result = session.exec(
+        select(ConfiguredModelWithDataSource)
+        .where(ConfiguredModelWithDataSource.id == record.id)
+        .options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    return result
 
 
 ###########
