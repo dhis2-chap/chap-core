@@ -60,7 +60,7 @@ class ConfiguredModelWithDataSource(DBModel, table=True):
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
     start_period: PeriodID | None = None
     org_units: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    data_source_mapping: list[DataSource] = Field(
+    data_sources: list[DataSource] = Field(
         default_factory=list,
         sa_column=Column(PydanticListType(DataSource)),
     )
@@ -74,7 +74,7 @@ class ConfiguredModelWithDataSourceRead(DBModel):
     configured_model: ConfiguredModelRead | None
     start_period: PeriodID | None
     org_units: list[str]
-    data_source_mapping: list[DataSource]
+    data_sources: list[DataSource]
     period_type: str | None
 
 

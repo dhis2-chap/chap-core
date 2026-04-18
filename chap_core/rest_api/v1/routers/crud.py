@@ -14,6 +14,7 @@ Magic is used to make the returned objects camelCase while internal objects are 
 
 """
 
+import datetime
 import json
 import logging
 from functools import partial
@@ -652,8 +653,6 @@ async def create_configured_model_with_data_source_from_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     session: Session = Depends(get_session),
 ):
-    import datetime
-
     backtest = session.exec(
         select(BackTest)
         .where(BackTest.id == backtest_id)
@@ -672,7 +671,7 @@ async def create_configured_model_with_data_source_from_backtest(
         configured_model_id=backtest.model_db_id,
         start_period=dataset.first_period,
         org_units=dataset.org_units or [],
-        data_source_mapping=dataset.data_sources or [],
+        data_sources=dataset.data_sources or [],
         period_type=dataset.period_type,
     )
     session.add(record)
