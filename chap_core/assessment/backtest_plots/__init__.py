@@ -313,7 +313,6 @@ def _discover_plots():
         horizon_location_grid,
         metrics_dashboard,
         predicted_vs_actual_plot,
-        regional_rmse_distribution,
         sample_bias_plot,
     )
 
