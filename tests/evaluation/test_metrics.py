@@ -20,8 +20,9 @@ from chap_core.assessment.metrics import (
     WinklerScore25_75Metric,
     DataDimension,
     compute_all_aggregated_metrics_from_backtest,
-    compute_all_detailed_metrics_from_backtest,
+    compute_all_detailed_metrics,
 )
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakPeriodLagMetric
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 import pytest
@@ -206,9 +207,10 @@ def test_get_all_aggregated_metrics_from_backtest(backtest_weeks):
     assert metrics["sample_count"] == 24.0
 
 
-def test_compute_all_detailed_metrics_from_backtest(backtest_weeks):
-    """Test compute_all_detailed_metrics_from_backtest returns a long-format DataFrame."""
-    df = compute_all_detailed_metrics_from_backtest(backtest_weeks)
+def test_compute_all_detailed_metrics(backtest_weeks):
+    """Test compute_all_detailed_metrics returns a long-format DataFrame."""
+    evaluation = Evaluation.from_backtest(backtest_weeks)
+    df = compute_all_detailed_metrics(evaluation)
     assert list(df.columns) == ["metric_id", "location", "time_period", "horizon_distance", "metric"]
     assert len(df) > 0
     assert "sample_count" in set(df["metric_id"])

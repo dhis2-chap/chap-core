@@ -27,7 +27,8 @@ from starlette.responses import StreamingResponse
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
-from chap_core.assessment.metrics import compute_all_detailed_metrics_from_backtest
+from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metrics import compute_all_detailed_metrics
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
@@ -274,21 +275,26 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
     return backtest
 
 
-@router.get("/backtests/{backtestId}/metrics/csv", tags=["Backtests"])
-async def get_backtest_metrics_csv(
-    backtest_id: Annotated[int, Path(alias="backtestId")],
+@router.get("/metric/csv", tags=["Metrics"])
+async def get_metrics_csv(
+    backtest_id: Annotated[int, Query(alias="backtestId")],
     session: Session = Depends(get_session),
 ):
     """
-    Download per-location / per-time_period / per-horizon metric values for a
-    backtest as a long-format CSV. Every applicable metric in
+    Download per-location / per-time_period / per-horizon metric values as a
+    long-format CSV. Every applicable metric in
     `chap_core.assessment.metrics.available_metrics` is included as rows.
+
+    Currently takes a single backtest via the `backtestId` query parameter; the
+    path is scoped to `/metric/` so it can be extended to accept multiple
+    evaluations later without a breaking change.
     """
     backtest = session.get(BackTest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
 
-    df = compute_all_detailed_metrics_from_backtest(backtest)
+    evaluation = Evaluation.from_backtest(backtest)
+    df = compute_all_detailed_metrics(evaluation)
     df["time_period"] = df["time_period"].astype(str)
 
     csv_content = df.to_csv(index=False)

@@ -88,8 +88,8 @@ def test_dataset_df(override_session):
     # assert "cases" in df[0], df[0].keys()
 
 
-def test_backtest_metrics_csv(override_session):
-    response = client.get("/v1/crud/backtests/1/metrics/csv")
+def test_metrics_csv(override_session):
+    response = client.get("/v1/crud/metric/csv", params={"backtestId": 1})
     assert response.status_code == 200, response.text
     assert response.headers["content-type"].startswith("text/csv")
     lines = response.text.strip().splitlines()
@@ -99,8 +99,8 @@ def test_backtest_metrics_csv(override_session):
     assert {"crps", "mae", "rmse"}.issubset(metric_ids)
 
 
-def test_backtest_metrics_csv_missing(override_session):
-    response = client.get("/v1/crud/backtests/9999/metrics/csv")
+def test_metrics_csv_missing(override_session):
+    response = client.get("/v1/crud/metric/csv", params={"backtestId": 9999})
     assert response.status_code == 404
 
 
