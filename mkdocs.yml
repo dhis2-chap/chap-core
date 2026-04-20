@@ -46,7 +46,11 @@ markdown_extensions:
   - md_in_html
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -120,6 +124,7 @@ nav:
           - Setup: contributor/chap-contributor-setup.md
           - Windows Setup: contributor/windows_contributors.md
           - Code Overview: contributor/code_overview.md
+          - Architecture Diagrams: contributor/architecture_diagrams.md
           - REST API and Database: contributor/rest_api_and_database.md
           - MLproject Configuration: contributor/mlproject_configuration.md
           - Vocabulary: contributor/vocabulary.md
