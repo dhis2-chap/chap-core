@@ -229,18 +229,7 @@ class SessionWrapper:
                 raise
 
             # add display name for configuration (not stored in db)
-            # stitch together template displayName with configured name stub
-            template_display_name = configured_model.model_template.display_name
-            if ":" in configured_model.name:
-                # configured model name is already stitched together as template_name:configuration_name
-                configuration_stub = configured_model.name.split(":")[-1]
-                # combine model template with configuration name to make the name unique
-                configuration_display_name = configuration_stub.replace("_", " ").capitalize()
-                display_name = f"{template_display_name} [{configuration_display_name}]"
-            else:
-                # default configurations just use the display name of their model template
-                display_name = template_display_name
-            configured_data["display_name"] = display_name
+            configured_data["display_name"] = configured_model.display_name
 
             # merge json data and add to results
             # NOTE: the sequence is important, starting with template data and add/overwrite with configured model data

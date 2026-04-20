@@ -73,6 +73,21 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     archived: bool = Field(default=False)
     uses_chapkit: bool = Field(default=False)
 
+    @property
+    def display_name(self) -> str:
+        """Derived display name stitched from the template and (optionally) a configuration stub.
+
+        Configured models whose name contains ``:`` were created as
+        ``<template_name>:<configuration_name>`` (see ``SessionWrapper.add_configured_model``);
+        default configurations reuse their template's name verbatim.
+        """
+        template_display_name = self.model_template.display_name
+        if ":" not in self.name:
+            return template_display_name
+        configuration_stub = self.name.rsplit(":", 1)[-1]
+        configuration_display_name = configuration_stub.replace("_", " ").capitalize()
+        return f"{template_display_name} [{configuration_display_name}]"
+
     @classmethod
     def _validate_model_configuration(cls, user_options, user_option_values):
         logger.debug("Validating model configuration")
@@ -94,3 +109,36 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
             logger.error(f"Validation error in model configuration: {e}")
             raise ValueError(f"Invalid user options: {e.message}") from e
         return model
+
+
+class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
+    """Read view for ``ModelTemplateDB`` used by the REST API."""
+
+    name: str
+    id: int
+    user_options: dict | None = None
+    required_covariates: list[str] = []
+    version: str | None = None
+    archived: bool = False
+    health_status: str | None = None
+    uses_chapkit: bool = False
+
+
+class ConfiguredModelInfoRead(DBModel):
+    """Detailed read view for a single configured model.
+
+    Exposes the stored configuration (user option values, additional
+    covariates) alongside the parent model template, so the frontend can
+    render the user-option schema (e.g. the ``n_lags`` dynamic list) next
+    to the chosen values without stitching together multiple list calls.
+    """
+
+    id: int
+    name: str
+    display_name: str
+    model_template_id: int
+    user_option_values: dict | None = None
+    additional_continuous_covariates: list[str] = []
+    archived: bool = False
+    uses_chapkit: bool = False
+    model_template: ModelTemplateRead

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = "==3.13.*"
 resolution-markers = [
     "platform_machine == 'ARM64' and sys_platform == 'win32'",
@@ -450,6 +450,7 @@ requires-dist = [
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "fastapi", specifier = ">=0.135.3" },
+    { name = "fastdtw", marker = "extra == 'explainability'", specifier = ">=0.3.4" },
     { name = "geojson-pydantic", specifier = ">=2.1.1" },
     { name = "geopandas", specifier = ">=1.1.1" },
     { name = "geopy", specifier = ">=2.4.1" },

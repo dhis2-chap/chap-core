@@ -14,11 +14,12 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelInfoRead, ModelTemplateRead
 from chap_core.database.tables import BackTest, PredictionInfo, PredictionRead, BackTestRead
 from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, FetchRequest
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
-from chap_core.rest_api.v1.routers.crud import DatasetCreate, ModelConfigurationCreate, ModelTemplateRead
+from chap_core.rest_api.v1.routers.crud import DatasetCreate, ModelConfigurationCreate
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -551,6 +552,22 @@ def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
 
     response = client.post("/v1/crud/configured-models", json=config.model_dump())
     assert response.status_code == 200, response.json()
+
+
+def test_get_configured_model_info(celery_session_worker, dependency_overrides):
+    configured = get_content("/v1/crud/configured-models")
+    default = next(m for m in configured if m["name"] == "chap_ewars_monthly")
+
+    response = client.get(f"/v1/crud/configured-models/{default['id']}")
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    for key in ("id", "name", "displayName", "modelTemplateId", "modelTemplate"):
+        assert key in body, body.keys()
+    info = ConfiguredModelInfoRead.model_validate(body)
+    assert info.name == "chap_ewars_monthly"
+
+    missing = client.get("/v1/crud/configured-models/999999")
+    assert missing.status_code == 404, missing.json()
 
 
 def get_content(url):

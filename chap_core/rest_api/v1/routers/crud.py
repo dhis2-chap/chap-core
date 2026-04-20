@@ -41,10 +41,10 @@ from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import (
     ConfiguredModelDB,
+    ConfiguredModelInfoRead,
     ModelConfiguration,
     ModelTemplateDB,
-    ModelTemplateInformation,
-    ModelTemplateMetaData,
+    ModelTemplateRead,
 )
 from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
@@ -526,23 +526,6 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 # model templates
 
 
-class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
-    """
-    ModelTemplateRead is a read model for the ModelTemplateDB.
-    It is used to return the model template in a readable format.
-    """
-
-    # TODO: should probably be moved somewhere else?
-    name: str
-    id: int
-    user_options: dict | None = None
-    required_covariates: list[str] = []
-    version: str | None = None
-    archived: bool = False
-    health_status: str | None = None
-    uses_chapkit: bool = False
-
-
 @router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])
 async def list_model_templates(session: Session = Depends(get_session)):
     """
@@ -573,6 +556,26 @@ def list_configured_models(session: Session = Depends(get_session)):
 
     # return
     return configured_models_read
+
+
+@router_get(
+    "/configured-models/{configuredModelId}",
+    response_model=ConfiguredModelInfoRead,
+    tags=["Models"],
+)
+def get_configured_model_info(
+    configured_model_id: Annotated[int, Path(alias="configuredModelId")],
+    session: Session = Depends(get_session),
+):
+    """Return the detail view for a single configured model, including its template."""
+    configured_model = session.exec(
+        select(ConfiguredModelDB)
+        .where(ConfiguredModelDB.id == configured_model_id)
+        .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
+    ).first()
+    if configured_model is None:
+        raise HTTPException(status_code=404, detail="Configured model not found")
+    return configured_model
 
 
 class ModelConfigurationCreate(DBModel):
