@@ -203,6 +203,44 @@ def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str
     return results
 
 
+def compute_all_detailed_metrics_from_backtest(backtest: BackTest) -> pd.DataFrame:
+    """
+    Compute all applicable metrics at detailed resolution for a backtest.
+
+    Returns a long-format DataFrame with one row per
+    (metric_id, location, time_period, horizon_distance). Metrics that
+    are not applicable or fail to compute are skipped so a single broken
+    metric doesn't take down the whole export.
+    """
+    logger.info(f"Computing detailed metrics for backtest {backtest.id}")
+
+    evaluation = Evaluation.from_backtest(backtest)
+    flat_data = evaluation.to_flat()
+
+    historical_obs = flat_data.historical_observations
+    historical_df: pd.DataFrame | None = (
+        pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
+    )
+
+    frames: list[pd.DataFrame] = []
+    for metric_id, metric_factory in available_metrics.items():
+        metric = metric_factory(historical_observations=historical_df)
+        if not metric.is_applicable(flat_data.observations):
+            continue
+        try:
+            detailed = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
+        except Exception:
+            logger.exception("Failed to compute detailed metric %s for backtest %s", metric_id, backtest.id)
+            continue
+        detailed = detailed.copy()
+        detailed.insert(0, "metric_id", metric_id)
+        frames.append(detailed)
+
+    if not frames:
+        return pd.DataFrame(columns=["metric_id", "location", "time_period", "horizon_distance", "metric"])
+    return pd.concat(frames, ignore_index=True)
+
+
 def calculate_metrics(
     evaluation: Evaluation,
     metric_ids: list[str],
