@@ -104,10 +104,12 @@ def _create_baseline_schema(engine):
     SQLModel.metadata.create_all(engine)
 
     with engine.connect() as conn:
-        for table in _TABLES_ADDED_BY_MIGRATIONS:
-            conn.execute(sa.text(f"DROP TABLE IF EXISTS {table}"))
+        # Drop columns before tables so FKs pointing at soon-to-be-dropped
+        # tables are removed first.
         for table, column in _COLUMNS_ADDED_BY_MIGRATIONS:
             conn.execute(sa.text(f"ALTER TABLE {table} DROP COLUMN IF EXISTS {column}"))
+        for table in _TABLES_ADDED_BY_MIGRATIONS:
+            conn.execute(sa.text(f"DROP TABLE IF EXISTS {table}"))
         conn.commit()
 
 
