@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 openapi_tags = [
     {"name": "System", "description": "Health checks and system information"},
     {"name": "Backtests", "description": "Create, manage, and query backtests and evaluation results"},
+    {"name": "Metrics", "description": "Compute and export evaluation metrics"},
     {"name": "Predictions", "description": "Create, manage, and query predictions"},
     {"name": "Datasets", "description": "Create, manage, and export datasets"},
     {"name": "Models", "description": "Model templates and configured models"},
