@@ -69,3 +69,29 @@ class MlFlowTrainPredictRunner(TrainPredictRunner):
             entry_point="predict",
             parameters=params,
         )
+
+    def report(self, model_file_name, historic_data, output_file, polygons_file_name=None):
+        logging.debug(f"Running report with output to {output_file}")
+        params = {
+            "historic_data": str(historic_data),
+            "model": str(model_file_name),
+            "out_file": str(output_file),
+        }
+        extra_params = {
+            "model_config": str(self.model_configuration_filename) if self.model_configuration_filename else None,
+        }
+        params.update({key: val for key, val in extra_params.items() if key in self.extra_params and val is not None})
+        try:
+            return mlflow.projects.run(
+                str(self.model_path),
+                entry_point="report",
+                parameters=params,
+            )
+        except ShellCommandException as e:
+            logger.error(
+                "Error running mlflow project, might be due to missing pyenv (See: https://github.com/pyenv/pyenv#installation)"
+            )
+            raise ModelFailedException(str(e)) from e
+        except mlflow.exceptions.ExecutionException as e:
+            logger.error("Execution of model failed for some reason. Check the logs for more information")
+            raise ModelFailedException(str(e)) from e

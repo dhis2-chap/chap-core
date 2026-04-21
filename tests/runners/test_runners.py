@@ -1,9 +1,10 @@
 from pathlib import Path
 from unittest.mock import patch, MagicMock, ANY
 
-from chap_core.exceptions import CommandLineException
+from chap_core.exceptions import CommandLineException, ModelFailedException
 from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.runners.docker_runner import DockerRunner
+from chap_core.runners.mlflow_runner import MlFlowTrainPredictRunner
 from chap_core.runners.uv_runner import UvRunner, UvTrainPredictRunner
 from chap_core.runners.renv_runner import RenvRunner, RenvTrainPredictRunner
 from chap_core.runners.conda_runner import CondaRunner, CondaTrainPredictRunner
@@ -235,6 +236,34 @@ def test_conda_runner_fails_without_env_file(tmp_path):
     runner = CondaRunner(tmp_path, "environment.yaml")
     with pytest.raises(FileNotFoundError, match="environment.yaml"):
         runner.run_command("python main.py train data.csv model.pkl")
+
+
+def test_mlflow_runner_report_invokes_report_entry_point(tmp_path):
+    runner = MlFlowTrainPredictRunner(model_path=tmp_path)
+    with patch("mlflow.projects.run") as mock_run:
+        mock_run.return_value = MagicMock()
+        runner.report(
+            model_file_name="/abs/path/to/model",
+            historic_data="historic.csv",
+            output_file="/abs/out/report.pdf",
+        )
+        mock_run.assert_called_once()
+        _, kwargs = mock_run.call_args
+        assert kwargs["entry_point"] == "report"
+        assert kwargs["parameters"] == {
+            "model": "/abs/path/to/model",
+            "historic_data": "historic.csv",
+            "out_file": "/abs/out/report.pdf",
+        }
+
+
+def test_mlflow_runner_report_wraps_execution_errors(tmp_path):
+    import mlflow.exceptions
+
+    runner = MlFlowTrainPredictRunner(model_path=tmp_path)
+    with patch("mlflow.projects.run", side_effect=mlflow.exceptions.ExecutionException("boom")):
+        with pytest.raises(ModelFailedException):
+            runner.report("model", "historic.csv", "out.pdf")
 
 
 def test_runner_selection_with_conda_env(tmp_path):

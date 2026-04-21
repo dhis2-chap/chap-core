@@ -5,7 +5,7 @@ import pandas as pd
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import HealthData, Samples
-from chap_core.exceptions import CommandLineException, ModelFailedException, NoPredictionsError
+from chap_core.exceptions import CommandLineException, InvalidModelException, ModelFailedException, NoPredictionsError
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.geometry import Polygons
 from chap_core.models.configured_model import ConfiguredModel
@@ -303,3 +303,40 @@ class ExternalModel(ExternalModelBase):
             raise ModelFailedException(f"Error while parsing predictions: {e}") from e
 
         return d
+
+    def report(
+        self,
+        historic_data: DataSet,
+        out_file: Path,
+        model_artifact: Path | None = None,
+    ) -> None:
+        """Generate a PDF report using the model's report entry point.
+
+        If ``model_artifact`` is provided, that path is passed as the ``{model}``
+        parameter. Otherwise the in-memory model file from a prior ``train()`` call is used.
+        """
+        if self._model_information is None or self._model_information.entry_points is None:
+            raise InvalidModelException("Model has no entry points configured; cannot generate report")
+        if self._model_information.entry_points.report is None:
+            raise InvalidModelException(f"Model '{self._name}' does not define a 'report' entry point")
+
+        historic_data = self._apply_generated_features(historic_data)
+
+        historic_data_name = Path(self._working_dir) / "report_historic_data.csv"
+        adapted = self._adapt_data(historic_data.to_pandas(), frequency=self._get_frequency(historic_data))
+        adapted.to_csv(historic_data_name)
+
+        model_path_arg = str(model_artifact) if model_artifact is not None else self._model_file_name
+
+        try:
+            self._runner.report(
+                model_path_arg,
+                "report_historic_data.csv",
+                str(out_file),
+                "polygons.geojson" if self._polygons_file_name is not None else None,
+            )
+        except CommandLineException as e:
+            logger.error("Error generating report, command failed")
+            raise ModelFailedException(str(e)) from e
+
+        self._runner.teardown()
