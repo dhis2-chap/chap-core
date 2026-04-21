@@ -139,9 +139,9 @@ def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_ov
 
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
-    data = dataset_create.model_dump_json()
+    data = dataset_create.model_dump(mode="json")
     print(json.dumps(data, indent=2))
-    response = client.post("/v1/crud/datasets", content=data)
+    response = client.post("/v1/crud/datasets", json=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get(f"/v1/crud/datasets/{db_id}")
@@ -453,8 +453,8 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     fetch_request = []  # [FetchRequest(feature_name=fetched_feature, data_source_name=data_source["name"])]
     request = create_make_data_request(example_polygons, fetch_request, provided_features)
     request = MakePredictionRequest(model_id=model.name, **request.model_dump())
-    data = request.model_dump_json()
-    response = client.post("/v1/analytics/make-prediction", content=data)
+    data = request.model_dump(mode="json")
+    response = client.post("/v1/analytics/make-prediction", json=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get("/v1/crud/predictions")
