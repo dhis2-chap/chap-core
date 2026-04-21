@@ -43,11 +43,10 @@ spec:
                   --connect-timeout 10 \
                   --max-time 30 \
                   --data "$PAYLOAD" \
-                  "https://${hostname}/api/42/routes")
+                  "https://${hostname}/api/{{ .Values.dhis2.apiVersion }}/routes")
                 HTTP_CODE=$(printf '%s' "$RESPONSE" | tail -1)
                 BODY=$(printf '%s' "$RESPONSE" | head -n -1)
-                # TODO: Support other DHIS2 versions than 42
-                echo "POST https://${hostname}/api/42/routes -> HTTP $HTTP_CODE: $BODY"
+                echo "POST https://${hostname}/api/{{ .Values.dhis2.apiVersion }}/routes -> HTTP $HTTP_CODE: $BODY"
                 if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
                   echo "Route registered: HTTP $HTTP_CODE"
                   exit 0
