@@ -65,6 +65,7 @@ class ConfiguredModelWithDataSource(DBModel, table=True):
         sa_column=Column(PydanticListType(DataSource)),
     )
     period_type: str | None = None
+    predictions: list["Prediction"] = Relationship(back_populates="configured_model_with_data_source")
 
 
 class ConfiguredModelWithDataSourceRead(DBModel):
@@ -115,12 +116,19 @@ class Prediction(PredictionBase, table=True):
     dataset: DataSet = Relationship()
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
+    configured_model_with_data_source_id: int | None = Field(
+        default=None, foreign_key="configuredmodelwithdatasource.id", nullable=True
+    )
+    configured_model_with_data_source: Optional["ConfiguredModelWithDataSource"] = Relationship(
+        back_populates="predictions"
+    )
 
 
 class PredictionInfo(PredictionBase):
     id: int
     configured_model: ConfiguredModelDB | None
     dataset: DataSetMeta
+    configured_model_with_data_source: ConfiguredModelWithDataSourceRead | None = None
 
 
 # PredictionInfo = PredictionBase.get_read_class()
@@ -128,6 +136,10 @@ class PredictionInfo(PredictionBase):
 
 class PredictionRead(PredictionInfo):
     forecasts: list[ForecastRead]
+
+
+class ConfiguredModelWithDataSourceReadWithPredictions(ConfiguredModelWithDataSourceRead):
+    predictions: list[PredictionInfo] = []
 
 
 class PredictionSamplesEntry(ForecastBase, table=True):

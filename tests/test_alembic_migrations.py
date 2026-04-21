@@ -40,6 +40,7 @@ ALEMBIC_INI = PROJECT_ROOT / "alembic.ini"
 # SQLModel metadata then drop these columns so the migration can re-add them.
 _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("modeltemplatedb", "archived"),
+    ("prediction", "configured_model_with_data_source_id"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).

@@ -51,6 +51,7 @@ from chap_core.database.tables import (
     BackTest,
     ConfiguredModelWithDataSource,
     ConfiguredModelWithDataSourceRead,
+    ConfiguredModelWithDataSourceReadWithPredictions,
     Prediction,
     PredictionInfo,
 )
@@ -641,6 +642,34 @@ async def list_configured_models_with_data_source(session: Session = Depends(get
         )
     ).all()
     return records
+
+
+@router.get(
+    "/configured-models-with-data-source/{configuredModelWithDataSourceId}",
+    response_model=ConfiguredModelWithDataSourceReadWithPredictions,
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+async def get_configured_model_with_data_source(
+    configured_model_with_data_source_id: Annotated[int, Path(alias="configuredModelWithDataSourceId")],
+    session: Session = Depends(get_session),
+):
+    record = session.exec(
+        select(ConfiguredModelWithDataSource)
+        .where(ConfiguredModelWithDataSource.id == configured_model_with_data_source_id)
+        .options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
+            .selectinload(Prediction.dataset)  # type: ignore[arg-type]
+            .defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
+            .selectinload(Prediction.configured_model)  # type: ignore[arg-type]
+            .selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    if record is None:
+        raise HTTPException(status_code=404, detail="ConfiguredModelWithDataSource not found")
+    return record
 
 
 @router.post(
