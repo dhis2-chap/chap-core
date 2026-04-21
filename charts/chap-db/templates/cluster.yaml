@@ -28,7 +28,7 @@ spec:
       secret:
         name: {{ include "chap-db.postgres.secretName" . }}
   {{- end }}
-  enableSuperuserAccess: true
+  enableSuperuserAccess: {{ .Values.postgresql.cnpg.cluster.enableSuperuserAccess }}
   superuserSecret:
     name: {{ include "chap-db.postgres.secretName" . }}
   {{- if .Values.postgresql.cnpg.cluster.pooler.enabled }}

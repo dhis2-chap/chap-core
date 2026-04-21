@@ -19,6 +19,7 @@ postgresql:
       storageSize: 10Gi
       version: "17"
       database: chap_core
+      enableSuperuserAccess: true
       imageName: ""
       pooler:
         enabled: false
