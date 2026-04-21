@@ -14,7 +14,6 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.dataset_tables import DataSource
 from chap_core.database.tables import BackTest, PredictionInfo, PredictionRead, BackTestRead
 from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, FetchRequest
 from chap_core.rest_api.app import app
@@ -371,42 +370,18 @@ def test_list_configured_models_with_data_source_empty(clean_engine, dependency_
     assert response.json() == []
 
 
-def test_create_configured_model_with_data_source_from_backtest(clean_engine, dependency_overrides):
-    with Session(clean_engine) as session:
-        dataset = DataSet(
-            name="ds_with_sources",
-            type="testing",
-            created=datetime.now(),
-            covariates=["rainfall", "temperature"],
-            first_period="202201",
-            org_units=["Oslo", "Bergen"],
-            data_sources=[DataSource(covariate="rainfall", data_element_id="DE001")],
-            period_type="month",
-        )
-        session.add(dataset)
-        session.commit()
-        ds_id = dataset.id
+def test_create_configured_model_with_data_source_from_backtest(override_session, seeded_session):
+    backtest = seeded_session.exec(select(BackTest)).first()
+    assert backtest is not None, "seeded_session should contain a backtest"
+    seeded_dataset = backtest.dataset
 
-        backtest = BackTest(
-            dataset_id=ds_id,
-            name="bt_for_config",
-            model_id="naive_model",
-            model_db_id=1,
-            org_units=["Oslo", "Bergen"],
-            split_periods=["202201"],
-        )
-        session.add(backtest)
-        session.commit()
-        bt_id = backtest.id
-
-    response = client.post(f"/v1/crud/configured-models-with-data-source/from-backtest/{bt_id}")
+    response = client.post(f"/v1/crud/configured-models-with-data-source/from-backtest/{backtest.id}")
     assert response.status_code == 200, response.json()
     data = response.json()
-    assert data["startPeriod"] == "202201"
-    assert data["orgUnits"] == ["Oslo", "Bergen"]
-    assert data["periodType"] == "month"
-    assert len(data["dataSources"]) == 1
-    assert data["dataSources"][0]["covariate"] == "rainfall"
+    assert data["startPeriod"] == seeded_dataset.first_period
+    assert data["orgUnits"] == seeded_dataset.org_units
+    assert data["periodType"] == seeded_dataset.period_type
+    assert len(data["dataSources"]) == len(seeded_dataset.data_sources)
     assert data["configuredModel"] is not None
 
     response = client.get("/v1/crud/configured-models-with-data-source")
