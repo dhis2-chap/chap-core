@@ -1,6 +1,5 @@
 services:
   chap:
-    image: ghcr.io/dhis2-chap/chap-core:latest
     build: .
     init: true
     environment:
@@ -38,7 +37,6 @@ services:
         condition: service_healthy
 
   worker:
-    image: ghcr.io/dhis2-chap/chap-worker:latest
     init: true
     depends_on:
       postgres:
