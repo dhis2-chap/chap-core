@@ -116,7 +116,7 @@ googleServiceAccount:
   privateKey: ""
 
 dhis2:
-  enabled: true
+  enabled: false
   hostname: ""
   apiVersion: "42"
   username: "system"
