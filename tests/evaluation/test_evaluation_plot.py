@@ -12,7 +12,15 @@ from chap_core.plotting.evaluation_plot import (
     MetricMapV2,
     RegionalMetricDistributionPlot,
     make_plot_from_backtest_object,
+    make_plot_from_evaluation_object,
 )
+from chap_core.assessment.evaluation import Evaluation
+
+from chap_core.plotting.evaluation_plot import (
+    MetricByHorizonAndLocationMean,
+)
+
+import altair as alt
 
 
 @pytest.fixture
@@ -86,3 +94,14 @@ def test_regional_metric_distribution_plot_returns_message_on_empty_data(backtes
     assert any(
         "No valid rows available for boxplot statistics" in json.dumps(dataset) for dataset in spec["datasets"].values()
     )
+
+
+def test_make_plot_from_evaluation_object(backtest):
+    """Test that make_plot returns an altair Chart."""
+    evaluation = Evaluation.from_backtest(backtest)
+
+    result = make_plot_from_evaluation_object(
+        evaluation, plotting_class=MetricByHorizonAndLocationMean, metric=RMSEMetric()
+    )
+
+    assert isinstance(result, alt.Chart)

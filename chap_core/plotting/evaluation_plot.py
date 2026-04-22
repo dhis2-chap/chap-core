@@ -305,3 +305,11 @@ def make_plot_from_backtest_object(
     flat_data = evaluation.to_flat()
     metric_data = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
     return plotting_class(metric_data, geojson).plot_spec()
+
+
+def make_plot_from_evaluation_object(
+    evaluation: Evaluation, plotting_class: type["MetricPlotV2"], metric: "Metric", geojson: dict | None = None
+) -> alt.Chart:
+    flat_data = evaluation.to_flat()
+    metric_data = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
+    return plotting_class(metric_data, geojson).plot()
