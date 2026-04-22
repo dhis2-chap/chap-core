@@ -121,3 +121,5 @@ dhis2:
   apiVersion: "42"
   username: "system"
   password: "System123"
+  registerJob:
+    backoffLimit: 10
