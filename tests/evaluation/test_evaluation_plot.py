@@ -6,7 +6,19 @@ import pytest
 
 from chap_core.assessment.metrics import CRPSMetric, RMSEMetric
 from chap_core.database.tables import BackTestMetric
-from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricMapV2, make_plot_from_backtest_object
+from chap_core.plotting.evaluation_plot import (
+    MetricByHorizonV2Mean,
+    MetricMapV2,
+    make_plot_from_backtest_object,
+    make_plot_from_evaluation_object,
+)
+from chap_core.assessment.evaluation import Evaluation
+
+from chap_core.plotting.evaluation_plot import (
+    MetricByHorizonAndLocationMean,
+)
+
+import altair as alt
 
 
 @pytest.fixture
@@ -53,3 +65,14 @@ def test_evaluation_plot_from_backtest_object(backtest_weeks_large, plot_class):
     make_plot_from_backtest_object(
         simulated_backtest, plot_class, CRPSMetric(), geojson=simulated_backtest.dataset.geojson
     )
+
+
+def test_make_plot_from_evaluation_object(backtest):
+    """Test that make_plot returns an altair Chart."""
+    evaluation = Evaluation.from_backtest(backtest)
+
+    result = make_plot_from_evaluation_object(
+        evaluation, plotting_class=MetricByHorizonAndLocationMean, metric=RMSEMetric()
+    )
+
+    assert isinstance(result, alt.Chart)
