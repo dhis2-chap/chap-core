@@ -30,31 +30,33 @@ from chap_core.api_types import FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compute_all_detailed_metrics
 from chap_core.data import DataSet as InMemoryDataSet
-from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import (
     DataSet,
     DataSetCreateInfo,
     DataSetInfo,
     DataSetWithObservations,
-    ObservationBase,
 )
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.model_templates_and_config_tables import (
-    ConfiguredModelDB,
-    ModelConfiguration,
-    ModelTemplateDB,
-    ModelTemplateInformation,
-    ModelTemplateMetaData,
-)
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
-from ...data_models import BackTestCreate, BackTestRead, JobResponse
+from ...data_models import (
+    BackTestCreate,
+    BackTestRead,
+    BackTestUpdate,
+    DataBaseResponse,
+    DatasetCreate,
+    JobResponse,
+    ModelConfigurationCreate,
+    ModelTemplateRead,
+    PredictionCreate,
+)
 from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
@@ -305,10 +307,6 @@ async def get_metrics_csv(
     )
 
 
-class BackTestUpdate(DBModel):
-    name: str | None = None
-
-
 @router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
 async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
     # `BackTestCreate.model_id` accepts either the configured-model name
@@ -409,12 +407,6 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
 # predictions
 
 
-class PredictionCreate(DBModel):
-    dataset_id: int
-    estimator_id: str
-    n_periods: int
-
-
 @router.get("/predictions", response_model=list[PredictionInfo], tags=["Predictions"])
 async def get_predictions(session: Session = Depends(get_session)):
     session_wrapper = SessionWrapper(session=session)
@@ -452,15 +444,6 @@ async def delete_prediction(
 
 ###########
 # datasets
-
-
-class DataBaseResponse(DBModel):
-    id: int
-
-
-class DatasetCreate(DataSetCreateInfo):
-    observations: list[ObservationBase]
-    geojson: FeatureCollectionModel
 
 
 @router.get("/datasets", response_model=list[DataSetInfo], tags=["Datasets"])
@@ -558,23 +541,6 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 # model templates
 
 
-class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
-    """
-    ModelTemplateRead is a read model for the ModelTemplateDB.
-    It is used to return the model template in a readable format.
-    """
-
-    # TODO: should probably be moved somewhere else?
-    name: str
-    id: int
-    user_options: dict | None = None
-    required_covariates: list[str] = []
-    version: str | None = None
-    archived: bool = False
-    health_status: str | None = None
-    uses_chapkit: bool = False
-
-
 @router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])
 async def list_model_templates(session: Session = Depends(get_session)):
     """
@@ -605,13 +571,6 @@ def list_configured_models(session: Session = Depends(get_session)):
 
     # return
     return configured_models_read
-
-
-class ModelConfigurationCreate(DBModel):
-    name: str
-    model_template_id: int
-    user_option_values: dict | None = None
-    additional_continuous_covariates: list[str] = []
 
 
 @router.post("/configured-models", response_model=ConfiguredModelDB, tags=["Models"])
