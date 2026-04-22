@@ -2,12 +2,12 @@ apiVersion: v2
 name: chap
 description: CHAP (Climate Health Analysis Platform) - Umbrella Chart
 type: application
-version: 0.3.2
+version: 0.3.3
 appVersion: "1.0.0"
 
 dependencies:
   - name: chap-db
-    version: 0.1.3
+    version: 0.1.4
     repository: "file://../chap-db"
     condition: chap-db.enabled
   - name: valkey
@@ -15,7 +15,7 @@ dependencies:
     repository: "https://valkey.io/valkey-helm"
     condition: valkey.enabled
   - name: chap-api
-    version: 0.1.8
+    version: 0.1.9
     repository: "file://../chap-api"
     condition: chap-api.enabled
   - name: chap-worker
