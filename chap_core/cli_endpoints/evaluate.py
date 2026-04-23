@@ -2,16 +2,12 @@
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated
 
-import pandas as pd
-import yaml
 from cyclopts import Parameter
 
-from chap_core import get_temp_dir
 from chap_core.api_types import BackTestParams, EstimatorMode, EstimatorOptions, RunConfig
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.prediction_evaluator import evaluate_model
 from chap_core.cli_endpoints._common import (
     discover_geojson,
     get_estimator,
@@ -19,171 +15,17 @@ from chap_core.cli_endpoints._common import (
     load_dataset_from_csv,
     resolve_csv_path,
 )
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.datatypes import FullData
-from chap_core.exceptions import NoPredictionsError
 from chap_core.external.ExtendedPredictor import ExtendedPredictor
-from chap_core.file_io.example_data_set import DataSetType, datasets
-from chap_core.geometry import Polygons
-from chap_core.hpo.base import load_search_space_from_config
-from chap_core.hpo.hpoModel import Direction, HpoModel
-from chap_core.hpo.objective import Objective
 from chap_core.hpo.searcher import RandomSearcher
 from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import CHAP_RUNS_DIR
-from chap_core.predictor import ModelType
-from chap_core.spatio_temporal_data.multi_country_dataset import MultiCountryDataSet
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 if TYPE_CHECKING:
+    from chap_core.hpo.hpoModel import HpoModel
     from chap_core.models.external_model import ExternalModel
 
 logger = logging.getLogger(__name__)
-
-
-def evaluate_hpo(
-    model_name: ModelType | str,
-    dataset_name: DataSetType | None = None,
-    dataset_country: str | None = None,
-    dataset_csv: Path | None = None,
-    polygons_json: Path | None = None,
-    polygons_id_field: str | None = "id",
-    prediction_length: int = 3,
-    n_splits: int = 7,
-    report_filename: str | None = str(get_temp_dir() / "report.pdf"),
-    ignore_environment: bool = False,
-    debug: bool = False,
-    log_file: str | None = None,
-    run_directory_type: Literal["latest", "timestamp", "use_existing"] | None = "timestamp",
-    model_configuration_yaml: str | None = None,
-    metric: str | None = "MSE",
-    direction: Direction = "minimize",
-    do_hpo: bool | None = True,
-):
-    """
-    Same as evaluate, but has three added arguments and a if check on argument do_hpo.
-    """
-    initialize_logging(debug, log_file)
-    if dataset_name is None:
-        assert dataset_csv is not None, "Must specify a dataset name or a dataset csv file"
-        logging.info(f"Loading dataset from {dataset_csv}")
-        dataset = DataSet.from_csv(dataset_csv, FullData)
-        if polygons_json is not None:
-            logging.info(f"Loading polygons from {polygons_json}")
-            polygons = Polygons.from_file(polygons_json, id_property=polygons_id_field)
-            polygons.filter_locations(dataset.locations())
-            dataset.set_polygons(polygons.data)
-    else:
-        logger.info(f"Evaluating model {model_name} on dataset {dataset_name}")
-
-        example_ds = datasets[dataset_name]
-        dataset = example_ds.load()
-
-        if isinstance(dataset, MultiCountryDataSet):
-            assert dataset_country is not None, "Must specify a country for multi country datasets"
-            assert dataset_country in dataset.countries, (
-                f"Country {dataset_country} not found in dataset. Countries: {dataset.countries}"
-            )
-            dataset = dataset[dataset_country]  # type: ignore[assignment]
-
-    model_configuration_yaml_list: list[str | None]
-    if "," in model_name:
-        model_list = model_name.split(",")
-        model_configuration_yaml_list = [None for _ in model_list]
-        if model_configuration_yaml is not None:
-            model_configuration_yaml_list = list(model_configuration_yaml.split(","))
-            assert len(model_list) == len(model_configuration_yaml_list), (
-                "Number of model configurations does not match number of models"
-            )
-    else:
-        model_list = [model_name]
-        model_configuration_yaml_list = [model_configuration_yaml]
-
-    logging.info(f"Model configuration: {model_configuration_yaml_list}")
-
-    results_dict = {}
-    for name, configuration in zip(model_list, model_configuration_yaml_list, strict=False):
-        template = ModelTemplate.from_directory_or_github_url(
-            name,
-            base_working_dir=CHAP_RUNS_DIR,
-            ignore_env=ignore_environment,
-            run_dir_type=run_directory_type,
-        )
-        logging.info(f"Model template loaded: {template}")
-        if not do_hpo:
-            model_config: ModelConfiguration | None = None
-            if configuration is not None:
-                logger.info(f"Loading model configuration from yaml file {configuration}")
-                model_config = ModelConfiguration.model_validate(yaml.safe_load(open(configuration)))
-                logger.info(f"Loaded model configuration from yaml file: {model_config}")
-
-            model = template.get_model(model_config)  # type: ignore[arg-type]
-            model = model()
-        else:
-            if configuration is not None:
-                logger.info(f"Loading model configuration from yaml file {configuration}")
-                with open(configuration, encoding="utf-8") as f:
-                    configs = yaml.safe_load(f)
-                if not isinstance(configs, dict) or not configs:
-                    raise ValueError("YAML must define a non-empty mapping of parameters")
-                logger.info(f"Loaded model base configurations from yaml file: {configs}")
-            else:
-                configs = template.model_template_config.hpo_search_space
-
-            configs = load_search_space_from_config(configs)
-            assert metric is not None, "metric must be specified for HPO"
-            # objective = Objective(template, metric, prediction_length, n_splits)
-            # now with the new Objective signature, with BackTestParams
-            backtest_params = BackTestParams(n_periods=prediction_length, n_splits=n_splits)
-            objective = Objective(template, backtest_params, metric)
-            model = HpoModel(RandomSearcher(2), objective, direction, configs)
-
-        model_info = model.model_information
-        if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
-            logger.warning("Model has not specified minimum and maximum predicted length")
-        else:
-            if model_info.min_prediction_length > prediction_length:
-                raise ValueError(
-                    f"The desired prediction length of {prediction_length} is less than the model's minimum prediction length of {model_info.min_prediction_length}"
-                )
-            elif model_info.max_prediction_length < prediction_length:
-                logger.warning(
-                    f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {prediction_length}. This is done iteratively, and may worsen model performance"
-                )
-                model = ExtendedPredictor(model, prediction_length)
-
-        try:
-            results = evaluate_model(
-                estimator=model,
-                data=dataset,
-                prediction_length=prediction_length,
-                n_test_sets=n_splits,
-                report_filename=report_filename,
-            )
-        except NoPredictionsError as e:
-            logger.error(f"No predictions were made: {e}")
-            return
-        print(f"Results: {results}")
-        results_dict[name] = results
-
-    data = []
-    first_model = True
-    for key, value in results_dict.items():
-        aggregate_metric_dist = value[0]
-        row = [key, *aggregate_metric_dist.values()]
-        if first_model:
-            data.append(["Model", *list(aggregate_metric_dist.keys())])
-            first_model = False
-        data.append(row)
-    dataframe = pd.DataFrame(data)
-    assert report_filename is not None
-    csvname = Path(report_filename).with_suffix(".csv")
-
-    dataframe.to_csv(csvname, index=False, header=False)
-    logger.info(f"Evaluation complete. Results saved to {csvname}")
-
-    return results_dict
 
 
 def eval_cmd(
@@ -422,5 +264,4 @@ def eval_cmd(
 
 def register_commands(app):
     """Register evaluate commands with the CLI app."""
-    app.command()(evaluate_hpo)
     app.command(name="eval")(eval_cmd)
