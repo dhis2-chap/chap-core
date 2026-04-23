@@ -41,6 +41,7 @@ site/
 /logs/*
 runs/
 mlruns/
+mlflow.db
 
 # === Project-Specific ===
 config/configured_models/*
