@@ -10,13 +10,13 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
-from packaging.version import Version
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+from packaging.version import Version
 
 if TYPE_CHECKING:
     from chap_core.api_types import BackTestParams
