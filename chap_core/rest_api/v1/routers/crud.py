@@ -60,7 +60,7 @@ from chap_core.database.tables import (
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
-from chap_core.rest_api.experimental import EXPERIMENTAL_NOTE
+from chap_core.rest_api.experimental import api_experimental
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import BackTestCreate, BackTestRead, JobResponse
@@ -667,8 +667,8 @@ async def delete_configured_model(
     response_model=list[ConfiguredModelWithDataSourceRead],
     response_model_by_alias=True,
     tags=["Models"],
-    description=EXPERIMENTAL_NOTE,
 )
+@api_experimental
 async def list_configured_models_with_data_source(session: Session = Depends(get_session)):
     records = session.exec(
         select(ConfiguredModelWithDataSource).options(
@@ -683,8 +683,8 @@ async def list_configured_models_with_data_source(session: Session = Depends(get
     response_model=ConfiguredModelWithDataSourceReadWithPredictions,
     response_model_by_alias=True,
     tags=["Models"],
-    description=EXPERIMENTAL_NOTE,
 )
+@api_experimental
 async def get_configured_model_with_data_source(
     configured_model_with_data_source_id: Annotated[int, Path(alias="configuredModelWithDataSourceId")],
     session: Session = Depends(get_session),
@@ -712,8 +712,8 @@ async def get_configured_model_with_data_source(
     response_model=ConfiguredModelWithDataSourceRead,
     response_model_by_alias=True,
     tags=["Models"],
-    description=EXPERIMENTAL_NOTE,
 )
+@api_experimental
 async def create_configured_model_with_data_source_from_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     session: Session = Depends(get_session),
