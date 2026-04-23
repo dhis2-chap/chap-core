@@ -23,6 +23,7 @@ from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import BackTest, BackTestForecast, ConfiguredModelWithDataSource, Prediction
 from chap_core.datatypes import create_tsdataclass
+from chap_core.rest_api.experimental import EXPERIMENTAL_NOTE
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -408,7 +409,12 @@ class MakePredictionWithDataSourceRequest(DatasetMakeRequest):
     meta_data: dict = {}
 
 
-@router.post("/make-prediction-with-data-source", response_model=JobResponse, tags=["Predictions"])
+@router.post(
+    "/make-prediction-with-data-source",
+    response_model=JobResponse,
+    tags=["Predictions"],
+    description=EXPERIMENTAL_NOTE,
+)
 async def make_prediction_with_data_source(
     request: MakePredictionWithDataSourceRequest,
     session: Session = Depends(get_session),
