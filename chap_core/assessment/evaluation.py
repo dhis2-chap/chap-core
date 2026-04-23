@@ -10,6 +10,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
+from packaging.version import Version
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -648,6 +649,9 @@ class Evaluation(EvaluationBase):
         )
 
         forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))
+
+        if Version(ds.chap_version) <= Version("1.1.1"):
+            forecasts_df["horizon_distance"] = forecasts_df["horizon_distance"] + 1
 
         # Group by (location, time_period, horizon_distance) to create BackTestForecast objects
         for (location, time_period, horizon_distance), group in forecasts_df.groupby(
