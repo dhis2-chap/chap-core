@@ -1,4 +1,3 @@
-pytest_plugins = ["tests.evaluation.conftest"]
 from chap_core.cli_endpoints.generate_modelcard import generate_modelcard
 from chap_core.assessment.evaluation import Evaluation
 
