@@ -88,6 +88,22 @@ def test_dataset_df(override_session):
     # assert "cases" in df[0], df[0].keys()
 
 
+def test_metrics_csv(override_session):
+    response = client.get("/v1/crud/metric/csv", params={"backtestId": 1})
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/csv")
+    lines = response.text.strip().splitlines()
+    assert lines[0] == "metric_id,location,time_period,horizon_distance,metric"
+    assert len(lines) > 1
+    metric_ids = {line.split(",", 1)[0] for line in lines[1:]}
+    assert {"crps", "mae", "rmse"}.issubset(metric_ids)
+
+
+def test_metrics_csv_missing(override_session):
+    response = client.get("/v1/crud/metric/csv", params={"backtestId": 9999})
+    assert response.status_code == 404
+
+
 def test_backtest_plot(override_session, tmp_path):
     response = client.get("/v1/visualization/backtest-plots/evaluation_plot/1")
     assert response.status_code == 200, response.json()
