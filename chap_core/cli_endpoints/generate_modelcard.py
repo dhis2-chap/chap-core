@@ -379,8 +379,8 @@ def generate_modelcard(
         md.append("")
     md.append("#### Regional RMSE distribution \n\n![RMSE by region](detailedRMSE_plot.png)\n")
     md.append("")
+    md.append("[RMSE interactive chart](detailedRMSE_plot.html)")
     if geojson_path:
-        md.append("[RMSE interactive chart](detailedRMSE_plot.html)")
         md.append("")
         md.append("#### Aggregate MAPE Map by Region \n\n![Aggregate MAPE Map by region](mape_map.png)\n")
         md.append("")
