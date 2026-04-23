@@ -58,7 +58,7 @@ def test_iter_locations(monthly_dataset):
 
 def test_rename_location_success(monthly_dataset):
     renamed_ds = monthly_dataset.rename_location("Oslo", "Trondheim")
-    
+
     assert "Trondheim" in renamed_ds.locations()
     assert "Oslo" not in renamed_ds.locations()
     assert "Oslo" in monthly_dataset.locations()
