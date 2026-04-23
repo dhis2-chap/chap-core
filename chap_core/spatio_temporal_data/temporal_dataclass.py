@@ -500,14 +500,12 @@ class DataSet[FeaturesT]:
         if isinstance(file_name, (str, Path)):
             path = Path(file_name).with_suffix(".geojson")
             if path.exists():
-                with open(path) as f:
-                    obj.set_polygons(FeatureCollectionModel.model_validate_json(f.read()))
+                obj.set_polygons(Polygons.from_file(path).feature_collection())
             else:
                 path = Path(file_name).with_suffix(".json")
                 if path.exists():
                     polygons = Polygons.from_file(path, id_property="NAME_1")
-                    with open(path) as f:
-                        obj.set_polygons(polygons.feature_collection())
+                    obj.set_polygons(polygons.feature_collection())
         if isinstance(file_name, (str, PurePath)):
             meta_data = DataSetMetaData(name=str(Path(file_name).stem), filename=str(file_name))
             obj.metadata = meta_data

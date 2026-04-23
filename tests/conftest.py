@@ -242,6 +242,40 @@ def dumped_weekly_data_paths(weekly_full_data, tmp_path):
 
 
 @pytest.fixture
+def csv_with_sibling_geojson_id_in_properties(tmp_path):
+    """CSV path whose sibling .geojson stores feature id under properties.id
+    (no top-level id). Exercises the DataSet.from_csv autodiscovery path."""
+    csv_path = tmp_path / "data.csv"
+    pd.DataFrame(
+        {
+            "time_period": ["2020-01", "2020-02", "2020-01", "2020-02"],
+            "location": ["A", "A", "B", "B"],
+            "disease_cases": [1, 2, 3, 4],
+        }
+    ).to_csv(csv_path, index=False)
+    (tmp_path / "data.geojson").write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"id": "A"},
+                        "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {"id": "B"},
+                        "geometry": {"type": "Polygon", "coordinates": [[[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]]},
+                    },
+                ],
+            }
+        )
+    )
+    return csv_path
+
+
+@pytest.fixture
 def request_json(data_path):
     return open(data_path / "v1_api/request.json", "r").read()
 
