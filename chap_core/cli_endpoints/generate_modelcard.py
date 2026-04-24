@@ -65,6 +65,7 @@ class ModelCardContext:
     contact_email: str | None
     citation_info: str | None
     include_geojson_maps: bool
+    documentation_url: str
 
 
 def is_url(path_or_url: str | Path) -> bool:
@@ -438,7 +439,9 @@ def _render_additional_sections(context: ModelCardContext) -> list[str]:
             "",
             "## Glossary [optional]",
             "",
-            "## More information [optional]",
+            "## More information",
+            "",
+            f"- Documentation URL: {context.documentation_url}",
             "",
             "## Model Card Authors [optional]",
             "",
@@ -521,6 +524,7 @@ def generate_modelcard(
     organization_logo_url = meta_data.organization_logo_url if meta_data and meta_data.organization_logo_url else None
     citation_info = meta_data.citation_info if meta_data and meta_data.citation_info else None
     contact_email = meta_data.contact_email if meta_data and meta_data.contact_email else None
+    documentation_url = meta_data.documentation_url if meta_data and meta_data.documentation_url else MISSING
     display_name = _normalize_metadata_value(meta_data.display_name, "display_name") if meta_data else None
     author_note = _normalize_metadata_value(meta_data.author_note, "author_note") if meta_data else None
     description = _normalize_metadata_value(meta_data.description, "description") if meta_data else None
@@ -574,6 +578,7 @@ def generate_modelcard(
         contact_email=contact_email,
         citation_info=citation_info,
         include_geojson_maps=bool(geojson_path),
+        documentation_url=documentation_url,
     )
 
     output_path.write_text(render_modelcard(modelcard_context), encoding="utf-8")
