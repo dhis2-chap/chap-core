@@ -235,7 +235,7 @@ def generate_modelcard(
     attrs = _load_dataset_attrs(evaluation_path)
 
     model_name = attrs["model_name"]
-    model_info: ModelTemplateConfigV2 = attrs["model_info"]
+    model_info: ModelTemplateConfigV2 | None = attrs["model_info"]
     model_version_attr = attrs["model_version_attr"]
     created_date_attr = attrs["created_date_attr"]
     model_config = attrs["model_config"]
