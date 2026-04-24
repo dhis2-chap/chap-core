@@ -634,6 +634,8 @@ class Evaluation(EvaluationBase):
         """
         ds = xr.open_dataset(filepath)
 
+        ds = cls._ensure_backcompatibility(ds)
+
         flat_data = _xarray_to_flat_data(ds)
 
         split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
@@ -649,9 +651,6 @@ class Evaluation(EvaluationBase):
         )
 
         forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))
-
-        if Version(ds.chap_version) <= Version("1.1.1"):
-            forecasts_df["horizon_distance"] = forecasts_df["horizon_distance"] + 1
 
         # Group by (location, time_period, horizon_distance) to create BackTestForecast objects
         for (location, time_period, horizon_distance), group in forecasts_df.groupby(
@@ -711,6 +710,18 @@ class Evaluation(EvaluationBase):
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
         )
+
+    @staticmethod
+    def _ensure_backcompatibility(ds: xr.Dataset) -> xr.Dataset:
+        """
+        Ensure backwards compatibility for datasets created with older CHAP versions.
+
+        Update horizon_distance coordinate in older datasets where it was stored as 0-based instead of 1-based.
+        """
+
+        if Version(ds.attrs.get("chap_version", "0.0.0")) <= Version("1.1.1"):
+            ds = ds.assign_coords(horizon_distance=ds.horizon_distance + 1)
+        return ds
 
 
 @dataclass
