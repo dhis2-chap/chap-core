@@ -486,6 +486,12 @@ def generate_modelcard(
     Optionally generates MAP based plots showing aggregate RMSE and MAPE given a geojson file.
     """
 
+    if not evaluation_path.exists():
+        raise FileNotFoundError(f"Evaluation file not found at: {evaluation_path}")
+
+    if geojson_path and not geojson_path.exists():
+        raise FileNotFoundError(f"GeoJSON file not found at: {geojson_path}")
+
     attrs = _load_dataset_attrs(evaluation_path)
 
     model_name = attrs["model_name"]
