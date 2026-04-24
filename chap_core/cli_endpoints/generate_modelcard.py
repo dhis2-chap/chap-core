@@ -15,6 +15,7 @@ from chap_core.assessment.metrics import (
     RMSEMetric,
     compute_all_aggregated_metrics_from_backtest,
 )
+from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.plotting.evaluation_plot import (
     MetricByTimePeriodV2Mean,
@@ -29,6 +30,13 @@ except ImportError:
     CHAP_VERSION = "unknown"
 
 MISSING = "More Information Needed"
+
+PLACEHOLDER_METADATA_VALUES = {
+    "display_name": ModelTemplateMetaData.model_fields["display_name"].default,
+    "description": ModelTemplateMetaData.model_fields["description"].default,
+    "author_note": ModelTemplateMetaData.model_fields["author_note"].default,
+    "author": ModelTemplateMetaData.model_fields["author"].default,
+}
 
 
 def is_url(path_or_url: str | Path) -> bool:
@@ -101,6 +109,20 @@ def _load_dataset_attrs(evaluation_path: Path) -> dict[str, Any]:
             "model_config": _parse_model_config(ds.attrs.get("model_configuration")),
             "historical_context_periods": int(ds.attrs.get("historical_context_periods", 0)),
         }
+
+
+def _normalize_metadata_value(value: str | None, field_name: str) -> str | None:
+    if not value:
+        return None
+
+    stripped_value = value.strip()
+    if not stripped_value:
+        return None
+
+    if stripped_value == PLACEHOLDER_METADATA_VALUES.get(field_name):
+        return None
+
+    return stripped_value
 
 
 def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_path: Path | None) -> None:
@@ -209,7 +231,7 @@ def generate_modelcard(
     attrs = _load_dataset_attrs(evaluation_path)
 
     model_name = attrs["model_name"]
-    model_info = attrs["model_info"]
+    model_info: ModelTemplateConfigV2 = attrs["model_info"]
     model_version_attr = attrs["model_version_attr"]
     created_date_attr = attrs["created_date_attr"]
     model_config = attrs["model_config"]
@@ -229,7 +251,7 @@ def generate_modelcard(
     created_date = backtest.created or created_date_attr
 
     meta_data = model_info.meta_data if model_info else None
-    author = meta_data.author if meta_data and meta_data.author else None
+    author = _normalize_metadata_value(meta_data.author, "author") if meta_data else None
     organization = meta_data.organization if meta_data and meta_data.organization else None
     author_assessed_status = (
         meta_data.author_assessed_status.value if meta_data and meta_data.author_assessed_status else None
@@ -237,6 +259,9 @@ def generate_modelcard(
     organization_logo_url = meta_data.organization_logo_url if meta_data and meta_data.organization_logo_url else None
     citation_info = meta_data.citation_info if meta_data and meta_data.citation_info else None
     contact_email = meta_data.contact_email if meta_data and meta_data.contact_email else None
+    display_name = _normalize_metadata_value(meta_data.display_name, "display_name") if meta_data else None
+    author_note = _normalize_metadata_value(meta_data.author_note, "author_note") if meta_data else None
+    description = _normalize_metadata_value(meta_data.description, "description") if meta_data else None
 
     _save_evaluation_plots(evaluation, output_dir, geojson_path)
     results_summary = _build_results_summary(backtest)
@@ -244,15 +269,13 @@ def generate_modelcard(
     output_path = output_file.with_suffix(".md")
 
     md: list[str] = []
-    display_name = (
-        meta_data.display_name
-        if meta_data and meta_data.display_name
-        else (model_info.name if model_info and model_info.name else (model_name or "Unknown Model"))
+    display_name = display_name or (
+        model_info.name if model_info and model_info.name else (model_name or "Unknown Model")
     )
     md.append(f"# Model card for: {display_name}")
     md.append("")
-    if (meta_data) and (meta_data.author_note):
-        md.append(meta_data.author_note)
+    if author_note:
+        md.append(author_note)
         md.append("")
 
     md.append("## Model details")
@@ -260,8 +283,8 @@ def generate_modelcard(
 
     md.append("### Model description")
     md.append("")
-    if meta_data and meta_data.description:
-        md.append(meta_data.description)
+    if description:
+        md.append(description)
 
     # Not in HF template, but important regardless:
     model_version = model_info.version if model_info and model_info.version else (model_version_attr or MISSING)
