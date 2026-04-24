@@ -16,11 +16,10 @@ class TestModelCardGenerator:
         )
 
         output_file = tmp_path / "modelcard.md"
-        generate_modelcard(evaluation_path, tmp_path / "modelcard.md")
+        generate_modelcard(evaluation_path, output_file)
 
         assert output_file.exists()
         assert output_file.suffix == ".md"
 
-        with open(output_file) as file:
-            content = file.read()
-            assert content.__contains__("![Evaluation plot](eval_plot.png)")
+        content = output_file.read_text()
+        assert "![Evaluation plot](eval_plot.png)" in content
