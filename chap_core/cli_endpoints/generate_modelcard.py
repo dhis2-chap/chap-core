@@ -253,9 +253,7 @@ def generate_modelcard(
     meta_data = model_info.meta_data if model_info else None
     author = _normalize_metadata_value(meta_data.author, "author") if meta_data else None
     organization = meta_data.organization if meta_data and meta_data.organization else None
-    author_assessed_status = (
-        meta_data.author_assessed_status.value if meta_data and meta_data.author_assessed_status else None
-    )
+    author_assessed_status = meta_data.author_assessed_status.value if meta_data else None
     organization_logo_url = meta_data.organization_logo_url if meta_data and meta_data.organization_logo_url else None
     citation_info = meta_data.citation_info if meta_data and meta_data.citation_info else None
     contact_email = meta_data.contact_email if meta_data and meta_data.contact_email else None
