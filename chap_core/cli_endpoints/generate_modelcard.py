@@ -188,6 +188,8 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
 
     if geojson_path:
         geojson = json.loads(geojson_path.read_text(encoding="utf-8"))
+        if not isinstance(geojson, dict) or "features" not in geojson:
+            raise ValueError(f"Invalid GeoJSON at {geojson_path}: expected a 'features' key.")
 
         outline = (
             alt.Chart(alt.Data(values=geojson["features"]))
