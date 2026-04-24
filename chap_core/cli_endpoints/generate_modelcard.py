@@ -116,7 +116,7 @@ def _parse_model_config(model_config_raw: object) -> dict[str, Any]:
         try:
             parsed = json.loads(model_config_raw)
         except json.JSONDecodeError:
-            logger.error("An error occured when parsing model config")
+            logger.error("An error occurred when parsing model config")
             return {}
         if isinstance(parsed, dict):
             return cast("dict[str, Any]", parsed)
@@ -187,6 +187,7 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
     detailed_crps_norm_plot.save(output_dir / "detailedCRPSNorm_plot.html", scale_factor=2.0)
 
     if geojson_path:
+        logger.info("Creating map plots using geojson file")
         geojson = json.loads(geojson_path.read_text(encoding="utf-8"))
         if not isinstance(geojson, dict) or "features" not in geojson:
             raise ValueError(f"Invalid GeoJSON at {geojson_path}: expected a 'features' key.")
@@ -491,6 +492,8 @@ def generate_modelcard(
     Optionally generates MAP based plots showing aggregate RMSE and MAPE given a geojson file.
     """
 
+    logger.info(f"Generating Model Card from {evaluation_path}")
+
     if not evaluation_path.exists():
         raise FileNotFoundError(f"Evaluation file not found at: {evaluation_path}")
 
@@ -531,6 +534,7 @@ def generate_modelcard(
     author_note = _normalize_metadata_value(meta_data.author_note, "author_note") if meta_data else None
     description = _normalize_metadata_value(meta_data.description, "description") if meta_data else None
 
+    logger.info(f"Saving evaluation plots to {output_dir.absolute()}")
     _save_evaluation_plots(evaluation, output_dir, geojson_path)
     results_summary = _build_results_summary(backtest)
 
@@ -584,6 +588,7 @@ def generate_modelcard(
     )
 
     output_path.write_text(render_modelcard(modelcard_context), encoding="utf-8")
+    logger.info(f"Model card written to {output_path}")
 
 
 def register_commands(app):
