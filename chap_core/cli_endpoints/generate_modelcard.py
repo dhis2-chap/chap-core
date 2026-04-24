@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Annotated, Any, cast
 
@@ -30,6 +31,8 @@ except ImportError:
     CHAP_VERSION = "unknown"
 
 MISSING = "More Information Needed"
+
+logger = logging.getLogger(__name__)
 
 PLACEHOLDER_METADATA_VALUES = {
     "display_name": ModelTemplateMetaData.model_fields["display_name"].default,
@@ -87,12 +90,15 @@ def _parse_model_config(model_config_raw: object) -> dict[str, Any]:
         try:
             parsed = json.loads(model_config_raw)
         except json.JSONDecodeError:
+            logger.error("An error occured when parsing model config")
             return {}
         if isinstance(parsed, dict):
             return cast("dict[str, Any]", parsed)
+        logger.warning("The NetCDF model config is an invalid structure")
         return {}
     if isinstance(model_config_raw, dict):
         return cast("dict[str, Any]", model_config_raw)
+    logger.warning("The NetCDF file has no model_configuration attr")
     return {}
 
 
