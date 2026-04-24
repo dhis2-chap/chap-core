@@ -1,6 +1,7 @@
 import importlib.metadata
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, cast
 
@@ -38,6 +39,32 @@ PLACEHOLDER_METADATA_VALUES = {
     "author_note": ModelTemplateMetaData.model_fields["author_note"].default,
     "author": ModelTemplateMetaData.model_fields["author"].default,
 }
+
+
+@dataclass(frozen=True)
+class ModelCardContext:
+    display_name: str
+    author_note: str | None
+    description: str | None
+    model_version: str
+    developed_by: str
+    organization_logo_url: str | None
+    author_assessed_status: str | None
+    source_url: str
+    chap_version: str
+    created_date: str | None
+    org_units_count: int
+    supported_period_type: str
+    required_covariates: str
+    allow_free_additional_continuous_covariates: str
+    split_periods: str
+    historical_context_periods: int
+    user_option_value_lines: list[str]
+    additional_covariates: str
+    results_summary: str
+    contact_email: str | None
+    citation_info: str | None
+    include_geojson_maps: bool
 
 
 def is_url(path_or_url: str | Path) -> bool:
@@ -209,6 +236,233 @@ def _build_results_summary(backtest) -> str:
     )
 
 
+def _render_title_section(context: ModelCardContext) -> list[str]:
+    lines = [f"# Model card for: {context.display_name}"]
+    lines.append("")
+    if context.author_note:
+        lines.append(context.author_note)
+        lines.append("")
+    return lines
+
+
+def _render_model_details_section(context: ModelCardContext) -> list[str]:
+    lines = ["## Model details", "", "### Model description", ""]
+    if context.description:
+        lines.append(context.description)
+
+    lines.extend(
+        [
+            f"- **Model Version:** {context.model_version}",
+            f"- **Developed by:** {context.developed_by}",
+            f"- **Organization URL:** {MISSING}",
+            f"- **Author assessed status:** {format_author_assessed_status(context.author_assessed_status)}",
+            f"- **Funded by [optional]:** {MISSING}",
+            f"- **Shared by [optional]:** {MISSING}",
+            f"- **Model type:** {MISSING}",
+            f"- **License:** {MISSING}",
+            f"- **Finetuned from model: [optional]** {MISSING}",
+        ]
+    )
+
+    if context.organization_logo_url and is_url(context.organization_logo_url):
+        lines.extend(
+            [
+                f'<div><img src="{context.organization_logo_url}" alt="Organization logo" width="120" style="display: block;" align="right"/></div>',
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "### Model Sources [optional]",
+            f"- **Repository:** {context.source_url}",
+            f"- **Paper [optional]:** {MISSING}",
+            f"- **Demo[optional]:** {MISSING}",
+        ]
+    )
+
+    if context.chap_version:
+        lines.append(f"- **CHAP version:** `{context.chap_version}`")
+
+    lines.extend(
+        [
+            "",
+            "## Uses",
+            "",
+            "### Direct use: ",
+            "### Downstream use (optional): ",
+            "### Out-of-scope use: ",
+            "",
+            "## Bias, Risks and Limitations",
+            "",
+            "### Recommendations: ",
+            "",
+        ]
+    )
+    return lines
+
+
+def _render_training_section(context: ModelCardContext) -> list[str]:
+    lines = ["## Training details", "", "### Training data", ""]
+    lines.append(f"- Created date: {context.created_date}")
+    lines.append(f"- Number of organization units: {context.org_units_count}")
+    lines.append(f"- Supported period type: {context.supported_period_type}")
+    lines.append(f"- Required covariates: {context.required_covariates}")
+    lines.append(f"- Allow free additional covariates: {context.allow_free_additional_continuous_covariates}")
+    lines.extend(
+        [
+            "",
+            "### Training procedure",
+            "",
+            "#### Preprocessing [optional]",
+            "- Splitting historical data into multiple train/test sets using rolling-origin backtesting",
+            f"- Split periods: {context.split_periods}",
+            f"- Historical context periods: {context.historical_context_periods}",
+            "",
+            "#### Training Hyperparameters",
+        ]
+    )
+    lines.extend(context.user_option_value_lines)
+    lines.append(f"- **Additional covariates:** {context.additional_covariates}")
+    lines.extend(["- **Training regime:**", "#### Speeds, Sizes, Times [optional]"])
+    return lines
+
+
+def _render_evaluation_section(context: ModelCardContext) -> list[str]:
+    lines = [
+        "## Evaluation",
+        "",
+        "### Testing Data, Factors & Metrics",
+        "",
+        "#### Testing Data",
+        "",
+        "#### Factors",
+        "",
+        "#### Metrics",
+        "",
+        "##### Aggregate Metrics",
+        "",
+        "Metrics Summary",
+        "",
+        context.results_summary,
+        "",
+        "#### Forecast vs Observations",
+        "",
+        "![Evaluation plot](eval_plot.png)",
+        "",
+        "[Evaluation interactive chart](eval_plot.html)",
+        "",
+        "#### Coverage within 25-75% by time period\n\n![Coverage 25-75](isWithin25th75hDetailed_plot.png)\n",
+        "[Coverage interactive chart](isWithin25th75hDetailed_plot.html)",
+        "#### CRPS Normalized by time period\n\n![CRPS normalized](detailedCRPSNorm_plot.png)\n",
+        "[CRPS interactive chart](detailedCRPSNorm_plot.html)",
+        "#### Regional breakdown",
+    ]
+
+    if context.include_geojson_maps:
+        lines.extend(
+            [
+                "#### Aggregate RMSE Map by Region \n\n![Aggregate RMSE Map by region](rmse_map.png)\n",
+                "",
+                "[Interactive RMSE Map chart](rmse_map.html)",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "#### Regional RMSE distribution \n\n![RMSE by region](detailedRMSE_plot.png)\n",
+            "",
+            "[RMSE interactive chart](detailedRMSE_plot.html)",
+        ]
+    )
+
+    if context.include_geojson_maps:
+        lines.extend(
+            [
+                "",
+                "#### Aggregate MAPE Map by Region \n\n![Aggregate MAPE Map by region](mape_map.png)\n",
+                "",
+                "[Interactive MAPE Map chart](mape_map.html)",
+            ]
+        )
+
+    lines.extend(
+        [
+            "",
+            "#### Regional MAPE distribution\n\n![MAPE by region](detailedMAPE_plot.png)\n",
+            "",
+            "[MAPE interactive chart](detailedMAPE_plot.html)",
+            "### Results",
+            "",
+            "#### Summary",
+        ]
+    )
+    return lines
+
+
+def _render_additional_sections(context: ModelCardContext) -> list[str]:
+    lines = ["## Model examination [optional]", "", "## Environmental Impact", ""]
+    lines.append(
+        "Carbon emissions can be estimated using the [Machine Learning Impact calculator](https://mlco2.github.io/impact#compute) presented in [Lacoste et al. (2019)](https://arxiv.org/abs/1910.09700)."
+    )
+    lines.extend(
+        [
+            "- **Hardware Type:**",
+            "- **Hours used:**",
+            "- **Cloud Provider:**",
+            "- **Compute Region:**",
+            "- **Carbon Emitted:**",
+            "",
+            "## Technical Specifications [optional]",
+            "",
+            "### Model Architecture and Objective",
+            "### Compute Infrastructure",
+            "#### Hardware",
+            "#### Software",
+            "",
+            "## Citation [optional]",
+            "",
+            "**BibTeX:**",
+            "",
+            "**APA:**",
+            "",
+        ]
+    )
+
+    if context.citation_info:
+        lines.append(context.citation_info)
+
+    lines.extend(
+        [
+            "",
+            "## Glossary [optional]",
+            "",
+            "## More information [optional]",
+            "",
+            "## Model Card Authors [optional]",
+            "",
+            "## Model card contact",
+            "",
+        ]
+    )
+    if context.contact_email:
+        lines.append(f"- Contact email: {context.contact_email}")
+    else:
+        lines.append("- Contact email: ")
+    return lines
+
+
+def render_modelcard(context: ModelCardContext) -> str:
+    md: list[str] = []
+    md.extend(_render_title_section(context))
+    md.extend(_render_model_details_section(context))
+    md.extend(_render_training_section(context))
+    md.extend(_render_evaluation_section(context))
+    md.extend(_render_additional_sections(context))
+    return "\n".join(md).rstrip() + "\n"
+
+
 def generate_modelcard(
     evaluation_path: Annotated[
         Path,
@@ -268,202 +522,55 @@ def generate_modelcard(
     _save_evaluation_plots(evaluation, output_dir, geojson_path)
     results_summary = _build_results_summary(backtest)
 
-    output_path = output_file.with_suffix(".md")
-
-    md: list[str] = []
-    display_name = display_name or (
-        model_info.name if model_info and model_info.name else (model_name or "Unknown Model")
-    )
-    md.append(f"# Model card for: {display_name}")
-    md.append("")
-    if author_note:
-        md.append(author_note)
-        md.append("")
-
-    md.append("## Model details")
-    md.append("")
-
-    md.append("### Model description")
-    md.append("")
-    if description:
-        md.append(description)
-
-    # Not in HF template, but important regardless:
     model_version = model_info.version if model_info and model_info.version else (model_version_attr or MISSING)
-    md.append(f"- **Model Version:** {model_version}")
     developed_by = ", ".join(value for value in [author, organization] if value) or MISSING
-    md.append(f"- **Developed by:** {developed_by}".rstrip())
-    md.append(f"- **Organization URL:** {MISSING}")
-    md.append(f"- **Author assessed status:** {format_author_assessed_status(author_assessed_status)}")
-    md.append(f"- **Funded by [optional]:** {MISSING}")
-    md.append(f"- **Shared by [optional]:** {MISSING}")
-    md.append(f"- **Model type:** {MISSING}")
-    md.append(f"- **License:** {MISSING}")
-    md.append(f"- **Finetuned from model: [optional]** {MISSING}")
-    if organization_logo_url and is_url(organization_logo_url):
-        md.append(
-            f'<div><img src="{organization_logo_url}" alt="Organization logo" width="120" style="display: block;" align="right"/></div>'
-        )
-        md.append("")
-
-    md.append("### Model Sources [optional]")
     source_url = (
         model_info.source_url
         if model_info and model_info.source_url
         else (model_name if model_name and is_url(model_name) else MISSING)
     )
-    md.append(f"- **Repository:** {source_url}")
-    md.append(f"- **Paper [optional]:** {MISSING}")
-    md.append(f"- **Demo[optional]:** {MISSING}")
+    output_path = output_file.with_suffix(".md")
 
-    if chap_version:
-        md.append(f"- **CHAP version:** `{chap_version}`")
-
-    md.append("")
-    md.append("## Uses")
-    md.append("")
-    md.append("### Direct use: ")
-    md.append("### Downstream use (optional): ")
-    md.append("### Out-of-scope use: ")
-    md.append("")
-
-    md.append("## Bias, Risks and Limitations")
-    md.append("")
-    md.append("### Recommendations: ")
-    md.append("")
-
-    md.append("## Training details")
-    md.append("")
-
-    md.append("### Training data")
-    md.append("")
-    md.append(f"- Created date: {created_date}")
-    md.append(f"- Number of organization units: {len(org_units)}")
-    if model_info:
-        md.append(f"- Supported period type: `{model_info.supported_period_type.value}`")
-        md.append(f"- Required covariates: {', '.join(model_info.required_covariates) or 'none'}")
-        md.append(f"- Allow free additional covariates: `{model_info.allow_free_additional_continuous_covariates}`")
-    else:
-        md.append(f"- Supported period type: {MISSING}")
-        md.append(f"- Required covariates: {MISSING}")
-        md.append(f"- Allow free additional covariates: {MISSING}")
-    md.append("")
-    md.append("### Training procedure")
-    md.append("")
-    md.append("#### Preprocessing [optional]")
-    md.append("- Splitting historical data into multiple train/test sets using rolling-origin backtesting")
-    md.append(f"- Split periods: {', '.join(map(str, split_periods))}")
-    md.append(f"- Historical context periods: {historical_context_periods}")
-    md.append("")
-    md.append("#### Training Hyperparameters")
-    if isinstance(hyperparameters, dict) and hyperparameters:
-        md.append("- **User option values:**")
-        md.extend([f"  - `{key}`: `{hyperparameters[key]}`" for key in sorted(hyperparameters)])
-    else:
-        md.append(f"- **User option values:** {MISSING}")
-
-    if isinstance(additional_covariates, list) and additional_covariates:
-        md.append(f"- **Additional covariates:** {', '.join(str(v) for v in additional_covariates)}")
-    else:
-        md.append("- **Additional covariates:** none")
-
-    md.append("- **Training regime:**")
-    md.append("#### Speeds, Sizes, Times [optional]")
-
-    md.append("## Evaluation")
-    md.append("")
-    md.append("### Testing Data, Factors & Metrics")
-    md.append("")
-    md.append("#### Testing Data")
-    md.append("")
-    md.append("#### Factors")
-    md.append("")
-    md.append("#### Metrics")
-    md.append("")
-    md.append("##### Aggregate Metrics")
-    md.append("")
-    md.append("Metrics Summary")
-    md.append("")
-    md.append(results_summary)
-    md.append("")
-    md.append("#### Forecast vs Observations")
-    md.append("")
-    md.append("![Evaluation plot](eval_plot.png)")
-    md.append("")
-    md.append("[Evaluation interactive chart](eval_plot.html)")
-    md.append("")
-    md.append("#### Coverage within 25-75% by time period\n\n![Coverage 25-75](isWithin25th75hDetailed_plot.png)\n")
-    md.append("[Coverage interactive chart](isWithin25th75hDetailed_plot.html)")
-    md.append("#### CRPS Normalized by time period\n\n![CRPS normalized](detailedCRPSNorm_plot.png)\n")
-    md.append("[CRPS interactive chart](detailedCRPSNorm_plot.html)")
-    md.append("#### Regional breakdown")
-    if geojson_path:
-        md.append("#### Aggregate RMSE Map by Region \n\n![Aggregate RMSE Map by region](rmse_map.png)\n")
-        md.append("")
-        md.append("[Interactive RMSE Map chart](rmse_map.html)")
-        md.append("")
-    md.append("#### Regional RMSE distribution \n\n![RMSE by region](detailedRMSE_plot.png)\n")
-    md.append("")
-    md.append("[RMSE interactive chart](detailedRMSE_plot.html)")
-    if geojson_path:
-        md.append("")
-        md.append("#### Aggregate MAPE Map by Region \n\n![Aggregate MAPE Map by region](mape_map.png)\n")
-        md.append("")
-        md.append("[Interactive MAPE Map chart](mape_map.html)")
-    md.append("")
-    md.append("#### Regional MAPE distribution\n\n![MAPE by region](detailedMAPE_plot.png)\n")
-    md.append("")
-    md.append("[MAPE interactive chart](detailedMAPE_plot.html)")
-    md.append("### Results")
-    md.append("")
-    md.append("#### Summary")
-
-    md.append("## Model examination [optional]")
-
-    md.append("## Environmental Impact")
-    md.append("")
-    md.append(
-        "Carbon emissions can be estimated using the [Machine Learning Impact calculator](https://mlco2.github.io/impact#compute) presented in [Lacoste et al. (2019)](https://arxiv.org/abs/1910.09700)."
+    display_name = display_name or (
+        model_info.name if model_info and model_info.name else (model_name or "Unknown Model")
     )
-    md.append("- **Hardware Type:**")
-    md.append("- **Hours used:**")
-    md.append("- **Cloud Provider:**")
-    md.append("- **Compute Region:**")
-    md.append("- **Carbon Emitted:**")
+    user_option_value_lines = (
+        ["- **User option values:**", *[f"  - `{key}`: `{hyperparameters[key]}`" for key in sorted(hyperparameters)]]
+        if isinstance(hyperparameters, dict) and hyperparameters
+        else [f"- **User option values:** {MISSING}"]
+    )
+    modelcard_context = ModelCardContext(
+        display_name=display_name,
+        author_note=author_note,
+        description=description,
+        model_version=model_version,
+        developed_by=developed_by,
+        organization_logo_url=organization_logo_url,
+        author_assessed_status=author_assessed_status,
+        source_url=source_url,
+        chap_version=chap_version,
+        created_date=str(created_date) if created_date is not None else None,
+        org_units_count=len(org_units),
+        supported_period_type=f"`{model_info.supported_period_type.value}`" if model_info else MISSING,
+        required_covariates=", ".join(model_info.required_covariates) or "none" if model_info else MISSING,
+        allow_free_additional_continuous_covariates=(
+            f"`{model_info.allow_free_additional_continuous_covariates}`" if model_info else MISSING
+        ),
+        split_periods=", ".join(map(str, split_periods)),
+        historical_context_periods=historical_context_periods,
+        user_option_value_lines=user_option_value_lines,
+        additional_covariates=(
+            ", ".join(str(v) for v in additional_covariates)
+            if isinstance(additional_covariates, list) and additional_covariates
+            else "none"
+        ),
+        results_summary=results_summary,
+        contact_email=contact_email,
+        citation_info=citation_info,
+        include_geojson_maps=bool(geojson_path),
+    )
 
-    md.append("## Technical Specifications [optional]")
-    md.append("")
-    md.append("### Model Architecture and Objective")
-    md.append("### Compute Infrastructure")
-    md.append("#### Hardware")
-    md.append("#### Software")
-
-    md.append("## Citation [optional]")
-    md.append("")
-    md.append("**BibTeX:**")
-    md.append("")
-    md.append("**APA:**")
-    md.append("")
-    if citation_info:
-        md.append(citation_info)
-
-    md.append("## Glossary [optional]")
-    md.append("")
-
-    md.append("## More information [optional]")
-    md.append("")
-
-    md.append("## Model Card Authors [optional]")
-    md.append("")
-
-    md.append("## Model card contact")
-    md.append("")
-    if contact_email:
-        md.append(f"- Contact email: {contact_email}")
-    else:
-        md.append("- Contact email: ")
-
-    output_path.write_text("\n".join(md).rstrip() + "\n", encoding="utf-8")
+    output_path.write_text(render_modelcard(modelcard_context), encoding="utf-8")
 
 
 def register_commands(app):
