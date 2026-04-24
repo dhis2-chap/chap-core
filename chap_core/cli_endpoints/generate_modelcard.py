@@ -1,3 +1,4 @@
+import importlib.metadata
 import json
 import logging
 from pathlib import Path
@@ -25,10 +26,7 @@ from chap_core.plotting.evaluation_plot import (
     make_plot_from_evaluation_object,
 )
 
-try:
-    from chap_core import __version__ as CHAP_VERSION
-except ImportError:
-    CHAP_VERSION = "unknown"
+CHAP_VERSION = importlib.metadata.version("chap-core")
 
 MISSING = "More Information Needed"
 
