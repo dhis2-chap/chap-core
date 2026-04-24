@@ -248,6 +248,13 @@ class SessionWrapper:
             merged_data = {**template_data, **configured_data}
             configured_models_data.append(merged_data)
 
+            # hack for hpo frontend
+            if configured_model.model_template.hpo_search_space is not None or True: 
+                hpo_data = merged_data.copy()
+                hpo_data["name"] = f'{merged_data["name"]}:hpo'
+                hpo_data["display_name"] = f'{template_display_name} [Hpo]'
+                configured_models_data.append(hpo_data)
+
         # debug
         # import json
         # for m in configured_models_data:
