@@ -1,4 +1,6 @@
+import itertools
 from pathlib import Path
+from turtle import back
 
 import altair
 import pandas as pd
@@ -21,6 +23,7 @@ from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import plot_backtest
 from chap_core.database.tables import BackTest
+from tests.evaluation.conftest import backtest, old_backtest, simulated_backtest
 
 
 @pytest.fixture(scope="module")
@@ -159,18 +162,33 @@ def test_evaluation_plot_monthly_data(default_transformer):
     chart = plot.plot(observations, forecasts)
     assert chart is not None
 
-
-@pytest.mark.parametrize("plot_id", list(get_backtest_plots_registry().keys()))
-def test_all_registered_plots_from_backtest(plot_id: str, simulated_backtest: BackTest, default_transformer):
+@pytest.mark.parametrize(
+    "plot_id, backtest", 
+    list(
+        itertools.product(
+            list(get_backtest_plots_registry().keys()), 
+            ["simulated_backtest", "old_backtest"]
+            )
+        )
+)
+def test_all_registered_plots_from_backtest(plot_id: str, backtest: BackTest, default_transformer, request):
     """Test that all registered plots can be successfully generated from a BackTest."""
-    chart = create_plot_from_backtest(plot_id, simulated_backtest)
+    chart = create_plot_from_backtest(plot_id, request.getfixturevalue(backtest))
     assert chart is not None
 
 
-@pytest.mark.parametrize("plot_id", list(get_backtest_plots_registry().keys()))
-def test_all_registered_plots_from_evaluation(plot_id: str, simulated_backtest: BackTest, default_transformer):
+@pytest.mark.parametrize(
+    "plot_id, backtest", 
+    list(
+        itertools.product(
+            list(get_backtest_plots_registry().keys()), 
+            ["simulated_backtest", "old_backtest"]
+            )
+        )
+)
+def test_all_registered_plots_from_evaluation(plot_id: str, backtest: BackTest, default_transformer, request):
     """Test that all registered plots can be successfully generated from an Evaluation."""
-    evaluation = Evaluation.from_backtest(simulated_backtest)
+    evaluation = Evaluation.from_backtest(request.getfixturevalue(backtest))
     chart = create_plot_from_evaluation(plot_id, evaluation)
     assert chart is not None
 
