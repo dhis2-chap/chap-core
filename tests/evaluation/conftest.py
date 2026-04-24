@@ -291,18 +291,11 @@ def simulated_backtest(simulated_dataset, data_dims):
     return backtest
 
 
-# @pytest.fixture
-# def simulated_input_file(simulated_backtest, tmp_path):
-#     evaluation = Evaluation.from_backtest(simulated_backtest)
-#     path = tmp_path / "evaluation.nc"
-#     evaluation.to_file(path)
-#     return path
-
-
 @pytest.fixture
 def old_backtest_file(tmp_path):
     """Creates an old format backtest file corresponding to chap-core versions <= 1.1.1 for testing backward compatibility."""
     import shutil
+
     shutil.copy(Path(__file__).parent / "data" / "backtest_file_version_le_1.1.1.nc", tmp_path / "tmp_backtest.nc")
     yield tmp_path / "tmp_backtest.nc"
     (tmp_path / "tmp_backtest.nc").unlink()

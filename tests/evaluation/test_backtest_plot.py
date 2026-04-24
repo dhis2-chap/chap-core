@@ -162,14 +162,10 @@ def test_evaluation_plot_monthly_data(default_transformer):
     chart = plot.plot(observations, forecasts)
     assert chart is not None
 
+
 @pytest.mark.parametrize(
-    "plot_id, backtest", 
-    list(
-        itertools.product(
-            list(get_backtest_plots_registry().keys()), 
-            ["simulated_backtest", "old_backtest"]
-            )
-        )
+    "plot_id, backtest",
+    list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
 )
 def test_all_registered_plots_from_backtest(plot_id: str, backtest: BackTest, default_transformer, request):
     """Test that all registered plots can be successfully generated from a BackTest."""
@@ -178,13 +174,8 @@ def test_all_registered_plots_from_backtest(plot_id: str, backtest: BackTest, de
 
 
 @pytest.mark.parametrize(
-    "plot_id, backtest", 
-    list(
-        itertools.product(
-            list(get_backtest_plots_registry().keys()), 
-            ["simulated_backtest", "old_backtest"]
-            )
-        )
+    "plot_id, backtest",
+    list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
 )
 def test_all_registered_plots_from_evaluation(plot_id: str, backtest: BackTest, default_transformer, request):
     """Test that all registered plots can be successfully generated from an Evaluation."""
