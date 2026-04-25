@@ -74,6 +74,7 @@ def test_objective_calls_evaluation_create_and_returns_metric(monkeypatch):
         "metric_ids": ["MSE"],
     }
 
+
 if __name__ == "__main__":
     import sys, pytest
 
