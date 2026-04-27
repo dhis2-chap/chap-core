@@ -27,7 +27,7 @@ def _message_chart(message: str) -> ChartType:
         alt.Chart(pd.DataFrame({"text": [message]}))
         .mark_text(fontSize=14, color="#666")
         .encode(text="text:N")
-        .properties(width=600, height=120, title="Covariate Importance")
+        .properties(width="container", height=120, title="Covariate Importance")
     )
 
 
@@ -97,4 +97,8 @@ class CovariateImportancePlot(BacktestPlotBase):
 
         zero_rule = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color="#888", strokeWidth=1).encode(y="y:Q")
 
-        return (bars + zero_rule).properties(width=600, height=400, title="Covariate Importance")  # type: ignore[no-any-return]
+        return (  # type: ignore[no-any-return]
+            (bars + zero_rule)
+            .properties(width="container", height=500, title="Covariate Importance")
+            .configure_view(strokeWidth=0)
+        )
