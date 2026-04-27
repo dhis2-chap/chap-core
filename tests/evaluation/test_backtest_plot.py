@@ -1,3 +1,4 @@
+import itertools
 from pathlib import Path
 
 import altair
@@ -160,17 +161,23 @@ def test_evaluation_plot_monthly_data(default_transformer):
     assert chart is not None
 
 
-@pytest.mark.parametrize("plot_id", list(get_backtest_plots_registry().keys()))
-def test_all_registered_plots_from_backtest(plot_id: str, simulated_backtest: BackTest, default_transformer):
+@pytest.mark.parametrize(
+    "plot_id, _backtest",
+    list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
+)
+def test_all_registered_plots_from_backtest(plot_id: str, _backtest: BackTest, default_transformer, request):
     """Test that all registered plots can be successfully generated from a BackTest."""
-    chart = create_plot_from_backtest(plot_id, simulated_backtest)
+    chart = create_plot_from_backtest(plot_id, request.getfixturevalue(_backtest))
     assert chart is not None
 
 
-@pytest.mark.parametrize("plot_id", list(get_backtest_plots_registry().keys()))
-def test_all_registered_plots_from_evaluation(plot_id: str, simulated_backtest: BackTest, default_transformer):
+@pytest.mark.parametrize(
+    "plot_id, _backtest",
+    list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
+)
+def test_all_registered_plots_from_evaluation(plot_id: str, _backtest: BackTest, default_transformer, request):
     """Test that all registered plots can be successfully generated from an Evaluation."""
-    evaluation = Evaluation.from_backtest(simulated_backtest)
+    evaluation = Evaluation.from_backtest(request.getfixturevalue(_backtest))
     chart = create_plot_from_evaluation(plot_id, evaluation)
     assert chart is not None
 
