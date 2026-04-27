@@ -14,10 +14,17 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.tables import BackTest, PredictionInfo, PredictionRead, BackTestRead
+from chap_core.database.tables import (
+    BackTest,
+    BackTestRead,
+    ConfiguredModelWithDataSource,
+    Prediction,
+    PredictionInfo,
+    PredictionRead,
+)
 from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, FetchRequest
 from chap_core.rest_api.app import app
-from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
+from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest, MakePredictionWithDataSourceRequest
 from chap_core.rest_api.v1.routers.crud import DatasetCreate, ModelConfigurationCreate, ModelTemplateRead
 
 logger = logging.getLogger(__name__)
@@ -139,9 +146,9 @@ def test_add_non_full_dataset(celery_session_worker, clean_engine, dependency_ov
 
 
 def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_create: DatasetCreate):
-    data = dataset_create.model_dump_json()
+    data = dataset_create.model_dump(mode="json")
     print(json.dumps(data, indent=2))
-    response = client.post("/v1/crud/datasets", content=data)
+    response = client.post("/v1/crud/datasets", json=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get(f"/v1/crud/datasets/{db_id}")
@@ -364,6 +371,115 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
     assert response.json() == {"orgUnits": ["Bergen"], "splitPeriods": ["202202"]}, response.json()
 
 
+def test_list_configured_models_with_data_source_empty(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/configured-models-with-data-source")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_create_configured_model_with_data_source_from_backtest(override_session, seeded_session):
+    backtest = seeded_session.exec(select(BackTest)).first()
+    assert backtest is not None, "seeded_session should contain a backtest"
+    seeded_dataset = backtest.dataset
+
+    response = client.post(f"/v1/crud/configured-models-with-data-source/from-backtest/{backtest.id}")
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert data["startPeriod"] == seeded_dataset.first_period
+    assert data["orgUnits"] == seeded_dataset.org_units
+    assert data["periodType"] == seeded_dataset.period_type
+    assert len(data["dataSources"]) == len(seeded_dataset.data_sources)
+    assert data["configuredModel"] is not None
+
+    response = client.get("/v1/crud/configured-models-with-data-source")
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+
+
+def test_create_configured_model_with_data_source_from_nonexistent_backtest(clean_engine, dependency_overrides):
+    response = client.post("/v1/crud/configured-models-with-data-source/from-backtest/99999")
+    assert response.status_code == 404
+
+
+def test_get_configured_model_with_data_source_by_id_includes_predictions(override_session, seeded_session):
+    backtest = seeded_session.exec(select(BackTest)).first()
+    assert backtest is not None, "seeded_session should contain a backtest"
+
+    response = client.post(f"/v1/crud/configured-models-with-data-source/from-backtest/{backtest.id}")
+    assert response.status_code == 200, response.json()
+    created_id = response.json()["id"]
+
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None, "seeded_session should contain a prediction"
+    prediction.configured_model_with_data_source_id = created_id
+    seeded_session.add(prediction)
+    seeded_session.commit()
+
+    response = client.get(f"/v1/crud/configured-models-with-data-source/{created_id}")
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert data["id"] == created_id
+    assert len(data["predictions"]) == 1
+    assert "forecasts" not in data["predictions"][0]
+    assert data["predictions"][0]["id"] == prediction.id
+
+
+def test_get_configured_model_with_data_source_by_id_not_found(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/configured-models-with-data-source/99999")
+    assert response.status_code == 404
+
+
+def test_make_prediction_with_data_source_nonexistent_id(clean_engine, dependency_overrides, example_polygons):
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = MakePredictionWithDataSourceRequest(
+        configured_model_with_data_source_id=99999, **request.model_dump()
+    ).model_dump(mode="json")
+    response = client.post("/v1/analytics/make-prediction-with-data-source", json=payload)
+    assert response.status_code == 404
+
+
+def test_full_prediction_with_data_source_flow(
+    celery_session_worker, clean_engine, dependency_overrides, example_polygons
+):
+    model_list = client.get("/v1/crud/models").json()
+    models = [ModelSpecRead.model_validate(m) for m in model_list]
+    model = next(m for m in models if m.name == "naive_model")
+    assert model.id is not None
+    provided_features = [f.name for f in model.covariates] + ["disease_cases"]
+    request = create_make_data_request(example_polygons, [], provided_features)
+
+    with Session(clean_engine) as session:
+        record = ConfiguredModelWithDataSource(
+            name="config-with-ds",
+            created=datetime.now(),
+            configured_model_id=model.id,
+            org_units=[f.id for f in example_polygons.features],
+            data_sources=[],
+        )
+        session.add(record)
+        session.commit()
+        session.refresh(record)
+        config_id = record.id
+
+    payload = MakePredictionWithDataSourceRequest(
+        configured_model_with_data_source_id=config_id, **request.model_dump()
+    ).model_dump(mode="json")
+    response = client.post("/v1/analytics/make-prediction-with-data-source", json=payload)
+    assert response.status_code == 200, response.json()
+    prediction_db_id = await_result_id(response.json()["id"])
+
+    response = client.get(f"/v1/crud/predictions/{prediction_db_id}")
+    assert response.status_code == 200, response.json()
+    info = PredictionInfo.model_validate(response.json())
+    assert info.configured_model_with_data_source is not None
+    assert info.configured_model_with_data_source.id == config_id
+
+    response = client.get(f"/v1/crud/configured-models-with-data-source/{config_id}")
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert any(p["id"] == prediction_db_id for p in data["predictions"])
+
+
 def _make_dataset(
     make_dataset_request,
     wanted_field_names=["rainfall", "disease_cases", "population", "mean_temperature"],
@@ -423,8 +539,8 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     fetch_request = []  # [FetchRequest(feature_name=fetched_feature, data_source_name=data_source["name"])]
     request = create_make_data_request(example_polygons, fetch_request, provided_features)
     request = MakePredictionRequest(model_id=model.name, **request.model_dump())
-    data = request.model_dump_json()
-    response = client.post("/v1/analytics/make-prediction", content=data)
+    data = request.model_dump(mode="json")
+    response = client.post("/v1/analytics/make-prediction", json=data)
     assert response.status_code == 200, response.json()
     db_id = await_result_id(response.json()["id"])
     response = client.get("/v1/crud/predictions")
