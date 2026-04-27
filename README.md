@@ -12,11 +12,11 @@ This is the main repository for the Chap modelling platform.
 
 ## Code documentation
 
-The main documentation for the modelling platform is located at [https://chap.dhis2.org/chap-documentation/](https://chap.dhis2.org/chap-documentation/).
+The main documentation for the modelling platform is located at [https://chap.dhis2.org/chap-modeling-platform/](https://chap.dhis2.org/chap-modeling-platform/).
 
 ## Development / contribution
 
-Information about how to contributre to the the Chap Modelling Platform: [https://github.com/orgs/dhis2-chap/projects/4](https://chap.dhis2.org/chap-documentation/contributor/).
+Information about how to contribute to the Chap Modelling Platform: [https://chap.dhis2.org/chap-modeling-platform/contributor/](https://chap.dhis2.org/chap-modeling-platform/contributor/).
 
 ## Issues/Bugs
 
