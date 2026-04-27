@@ -1,6 +1,6 @@
 services:
   ewars:
-    image: ghcr.io/chap-models/chapkit_ewars_template:latest
+    image: ghcr.io/chap-models/chapkit_ewars_model:latest
     platform: linux/amd64
     pull_policy: always
     ports:

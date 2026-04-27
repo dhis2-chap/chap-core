@@ -12,11 +12,15 @@ class MockModel(ConfiguredModel):
     """Mock model that returns simple predictions for testing."""
 
     def __init__(self, min_pred_length=2, max_pred_length=4):
-        self.model_information = ModelTemplateConfigV2(
+        self._model_information = ModelTemplateConfigV2(
             name="mock_model", min_prediction_length=min_pred_length, max_prediction_length=max_pred_length
         )
         self.trained = False
         self.predict_call_count = 0
+
+    @property
+    def model_information(self):
+        return self._model_information
 
     def train(self, train_data: DataSet, extra_args=None):
         self.trained = True
@@ -46,7 +50,7 @@ class TrackingMockModel(ConfiguredModel):
     """
 
     def __init__(self, locations, future_periods, min_pred_length=2, max_pred_length=3):
-        self.model_information = ModelTemplateConfigV2(
+        self._model_information = ModelTemplateConfigV2(
             name="tracking_mock",
             min_prediction_length=min_pred_length,
             max_prediction_length=max_pred_length,
@@ -54,6 +58,10 @@ class TrackingMockModel(ConfiguredModel):
         self.locations = locations
         self.future_periods = future_periods
         self.call_history = []
+
+    @property
+    def model_information(self):
+        return self._model_information
 
     def train(self, train_data: DataSet, extra_args=None):
         return self
@@ -153,6 +161,30 @@ def test_extended_predictor_initialization():
     assert extended_predictor._desired_scope == desired_scope
 
 
+def test_extended_predictor_adapts_model_information():
+    """Test that model_information reflects the extended prediction capability."""
+    mock_model = MockModel(min_pred_length=2, max_pred_length=4)
+    desired_scope = 10
+
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope)
+    info = extended_predictor.model_information
+
+    assert info.max_prediction_length == desired_scope
+    assert info.min_prediction_length == 2
+    # Inner model's information should be unchanged
+    assert mock_model.model_information.max_prediction_length == 4
+
+
+def test_extended_predictor_returns_none_when_inner_model_information_is_none():
+    """Test that model_information returns None when the inner model has no info."""
+    mock_model = Mock(spec=ConfiguredModel)
+    mock_model.model_information = None
+
+    extended_predictor = ExtendedPredictor(mock_model, desired_scope=6)
+
+    assert extended_predictor.model_information is None
+
+
 def test_extended_predictor_train():
     """Test that training is delegated to the underlying model and returns self."""
     mock_model = MockModel()
@@ -196,8 +228,11 @@ def test_extended_predictor_with_external_model_interface():
 
     assert extended_predictor._config_model == external_model
     assert extended_predictor._desired_scope == 6
-    assert extended_predictor._config_model.model_information.min_prediction_length == 2  # type: ignore[reportAttributeAccessIssue]
-    assert extended_predictor._config_model.model_information.max_prediction_length == 4  # type: ignore[reportAttributeAccessIssue]
+    # Wrapper adapts max_prediction_length to desired_scope
+    assert extended_predictor.model_information.max_prediction_length == 6
+    assert extended_predictor.model_information.min_prediction_length == 2
+    # Inner model is unchanged
+    assert external_model.model_information.max_prediction_length == 4
 
 
 def test_update_historic_data_includes_all_locations():

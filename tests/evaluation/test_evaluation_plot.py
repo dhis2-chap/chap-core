@@ -5,8 +5,22 @@ import pandas as pd
 import pytest
 
 from chap_core.assessment.metrics import CRPSMetric, RMSEMetric
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.tables import BackTestMetric
-from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricMapV2, make_plot_from_backtest_object
+from chap_core.plotting.evaluation_plot import (
+    MetricByHorizonV2Mean,
+    MetricMapV2,
+    RegionalMetricDistributionPlot,
+    make_plot_from_backtest_object,
+    make_plot_from_evaluation_object,
+)
+from chap_core.assessment.evaluation import Evaluation
+
+from chap_core.plotting.evaluation_plot import (
+    MetricByHorizonAndLocationMean,
+)
+
+import altair as alt
 
 
 @pytest.fixture
@@ -53,3 +67,41 @@ def test_evaluation_plot_from_backtest_object(backtest_weeks_large, plot_class):
     make_plot_from_backtest_object(
         simulated_backtest, plot_class, CRPSMetric(), geojson=simulated_backtest.dataset.geojson
     )
+
+
+def test_regional_metric_distribution_plot_contains_boxplot_and_mean_points(backtest_weeks):
+    evaluation = Evaluation.from_backtest(backtest_weeks)
+    flat_data = evaluation.to_flat()
+    metric_data = CRPSMetric().get_detailed_metric(flat_data.observations, flat_data.forecasts)
+
+    spec = RegionalMetricDistributionPlot(metric_data).plot().to_dict()
+
+    assert "layer" in spec
+    assert any(layer.get("mark", {}).get("type") == "boxplot" for layer in spec["layer"])
+    assert any(layer.get("mark", {}).get("type") == "point" for layer in spec["layer"])
+
+
+def test_regional_metric_distribution_plot_returns_message_on_empty_data(backtest_weeks):
+    evaluation = Evaluation.from_backtest(backtest_weeks)
+    flat_data = evaluation.to_flat()
+    metric_data = CRPSMetric().get_detailed_metric(flat_data.observations, flat_data.forecasts)
+    empty_metric_data = metric_data.iloc[0:0]
+
+    spec = RegionalMetricDistributionPlot(empty_metric_data).plot().to_dict()
+
+    assert spec["mark"]["type"] == "text"
+    assert "datasets" in spec
+    assert any(
+        "No valid rows available for boxplot statistics" in json.dumps(dataset) for dataset in spec["datasets"].values()
+    )
+
+
+def test_make_plot_from_evaluation_object(backtest):
+    """Test that make_plot returns an altair Chart."""
+    evaluation = Evaluation.from_backtest(backtest)
+
+    result = make_plot_from_evaluation_object(
+        evaluation, plotting_class=MetricByHorizonAndLocationMean, metric=RMSEMetric()
+    )
+
+    assert isinstance(result, alt.Chart)

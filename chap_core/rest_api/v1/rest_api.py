@@ -7,7 +7,7 @@ from chap_core.rest_api.v1.routers import analytics, crud, visualization
 
 from . import jobs
 
-initialize_logging(True, "logs/rest_api.log")
+initialize_logging()
 logger = logging.getLogger(__name__)
 logger.info("Logging initialized")
 

@@ -1,6 +1,6 @@
 [project]
 name = "chap_core"
-version = "1.5.0.dev2"
+version = "2.0.0.dev1"
 description = "Climate Health Analysis Platform (CHAP)"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -57,7 +57,7 @@ dependencies = [
     "optuna>=4.5.0",
     "httpx>=0.28.1",
     "alembic>=1.14.0",
-    "chapkit>=0.17.1",
+    "chapkit>=0.23",
     "cryptography>=46.0.7",
 ]
 
@@ -95,6 +95,13 @@ dev = [
     "testcontainers[postgres]>=4.10.0",
 ]
 
+[project.optional-dependencies]
+explainability = [
+    "stumpy>=1.14.1",
+    "pyts>=0.13.0",
+    "fastdtw>=0.3.4",
+]
+
 [project.urls]
 Homepage = "https://github.com/dhis2/chap-core"
 
@@ -125,6 +132,8 @@ fixable = ["ALL"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ALL"]
 "__init__.py" = ["F401"]
+# lime.py uses intentional wildcard imports to allow easy swapping of pipeline modules
+"chap_core/explainability/lime.py" = ["F403", "F405"]
 
 [tool.ruff.format]
 quote-style = "double"

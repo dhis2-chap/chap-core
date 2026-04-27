@@ -14,7 +14,6 @@ from chap_core.assessment.backtest_plots import (
 )
 from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods
 from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
-from chap_core.assessment.backtest_plots.regional_rmse_distribution import RegionalRMSEDistributionPlot
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.metrics_dashboard import MetricsDashboard
 from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import PredictedVsActualPlot
@@ -38,7 +37,6 @@ def test_backtest_plot_registry():
     assert "metrics_dashboard" in registry
     assert "ratio_of_samples_above_truth" in registry
     assert "evaluation_plot" in registry
-    assert "regional_rmse_distribution" in registry
 
     # Check that all registered plots are subclasses of BacktestPlotBase
     for plot_id, plot_cls in registry.items():
@@ -55,9 +53,6 @@ def test_get_backtest_plot():
 
     plot_cls = get_backtest_plot("evaluation_plot")
     assert plot_cls is EvaluationPlot
-
-    plot_cls = get_backtest_plot("regional_rmse_distribution")
-    assert plot_cls is RegionalRMSEDistributionPlot
 
     # Test non-existent plot
     assert get_backtest_plot("non_existent") is None
@@ -107,15 +102,6 @@ def test_horizon_location_grid_directly(flat_observations, flat_forecasts_multip
 def test_predicted_vs_actual_plot_directly(flat_observations, flat_forecasts_multiple_samples, default_transformer):
     """Test the predicted vs actual scatter plot with multiple-sample forecasts."""
     plot = PredictedVsActualPlot()
-    chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
-    assert chart is not None
-
-
-def test_regional_rmse_distribution_plot_directly(
-    flat_observations, flat_forecasts_multiple_samples, default_transformer
-):
-    """Test the regional error distribution boxplot plot with multiple-sample forecasts."""
-    plot = RegionalRMSEDistributionPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
     assert chart is not None
 

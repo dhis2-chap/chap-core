@@ -358,7 +358,6 @@ def _discover_plots():
         metrics_dashboard,
         predicted_vs_actual_linear_plot,
         predicted_vs_actual_plot,
-        regional_rmse_distribution,
         sample_bias_plot,
     )
 

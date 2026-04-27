@@ -1,11 +1,13 @@
 import logging
-from typing import Literal
+from pathlib import Path
+from uuid import uuid4
 
-from chap_core.assessment.prediction_evaluator import evaluate_model
+from chap_core.api_types import BackTestParams
+from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metrics import calculate_metrics
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.exceptions import NoPredictionsError
-from chap_core.file_io.example_data_set import DataSetType
 from chap_core.models.model_template import ModelTemplate
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -15,41 +17,86 @@ class Objective:
     def __init__(
         self,
         model_template: ModelTemplate,
-        metric: str = "MSE",
-        prediction_length: int = 3,  # 6,
-        n_splits: int = 4,
-        ignore_environment: bool = False,
-        debug: bool = False,
-        log_file: str | None = None,
-        run_directory_type: Literal["latest", "timestamp", "use_existing"] | None = "timestamp",
+        backtest_params: BackTestParams,
+        metric: str = "rmse",
+        historical_context_years: int = 6,
+        eval_output_dir: Path | None = None,
     ):
         self.model_template = model_template
+        self.backtest_params = backtest_params
         self.metric = metric
-        self.prediction_length = prediction_length
-        self.n_splits = n_splits
+        self.historical_context_years = historical_context_years
+        self.eval_output_dir = eval_output_dir
 
-    def __call__(self, config, dataset: DataSetType | None = None) -> float:
+    def __call__(self, config, dataset: DataSet) -> float:
         """
         This method takes a concrete configuration produced by a Searcher,
         runs model evaluation, and returns a scalar score of the selected metric.
+        dry_run and plot from eval_cmd are not currently included.
         """
+        from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+
         logger.info("Validating model configuration")
         model_configs = {"user_option_values": config}  # TODO: should prob be removed
-        model_config = ModelConfiguration.model_validate(model_configs)
-        logger.info("Validated model configuration")
+        configuration = ModelConfiguration.model_validate(model_configs)
 
-        model = self.model_template.get_model(model_config)  # type: ignore[arg-type]
-        model = model()
+        model = self.model_template.get_model(configuration)  # type: ignore[arg-type]
+        estimator = model()
+
+        run_id = uuid4().hex[:8]  # short unique id like 'a1b2c3d4'
+
+        model_template_db = ModelTemplateDB(
+            id=self.model_template.model_template_config.name,
+            name=self.model_template.model_template_config.name,
+            version=self.model_template.model_template_config.version or "unknown",
+        )
+
+        configured_model_db = ConfiguredModelDB(
+            id=f"cli_hpo_eval_{run_id}",
+            model_template_id=model_template_db.id,
+            model_template=model_template_db,
+            configuration=configuration.model_dump() if configuration else {},
+        )
+
+        logger.info(
+            f"Running backtest with {self.backtest_params.n_splits} splits, {self.backtest_params.n_periods} periods, stride {self.backtest_params.stride}"
+        )
+        logger.debug(f"Including {self.historical_context_years} years of historical context for plotting")
+
         try:
-            # evaluate_model should handle CV/nested CV and return mean results
-            # stratified fold/splits
-            results = evaluate_model(
-                model,
-                dataset,  # type: ignore[arg-type]
-                prediction_length=self.prediction_length,
-                n_test_sets=self.n_splits,
+            evaluation = Evaluation.create(
+                configured_model=configured_model_db,
+                estimator=estimator,
+                dataset=dataset,
+                backtest_params=self.backtest_params,
+                backtest_name=f"hpo_evaluation_{run_id}",
+                historical_context_years=self.historical_context_years,
             )
-        except NoPredictionsError as e:
-            logger.error(f"No predictions were made: {e}")
-            return float("inf")
-        return float(results[0][self.metric])
+        except Exception:
+            logger.exception(f"Evaluation failed for configuration {config}")
+            raise
+
+        if self.eval_output_dir is not None:
+            self.eval_output_dir.mkdir(parents=True, exist_ok=True)
+            eval_file = self.eval_output_dir / f"hpo_eval_{run_id}.nc"
+
+            logger.info(f"Exporting hpo evaluation to {eval_file}")
+            evaluation.to_file(
+                filepath=eval_file,
+                model_name=f"hpo_config_{run_id}",
+                model_configuration=configuration.model_dump() if configuration else {},
+                model_version=self.model_template.model_template_config.version or "unknown",
+            )
+            logger.info(f"Evaluation complete. Results saved to {eval_file}")
+
+        logger.info("Calculating metrics for objective evaluation")
+        metrics_results = calculate_metrics(
+            evaluation=evaluation,
+            metric_ids=[self.metric],
+        )
+        logger.info(f"Metrics calculation complete. Results: {metrics_results}")
+
+        metric_value = metrics_results[self.metric]
+        if metric_value is None:
+            raise ValueError(f"Metric {self.metric} could not be calculated for this configuration.")
+        return float(metric_value)

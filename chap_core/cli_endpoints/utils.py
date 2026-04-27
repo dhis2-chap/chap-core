@@ -4,7 +4,7 @@ import dataclasses
 import json
 import logging
 from pathlib import Path
-from typing import Annotated, cast
+from typing import Annotated
 
 import numpy as np
 import pandas as pd
@@ -13,20 +13,8 @@ import yaml
 from cyclopts import Parameter
 
 from chap_core.assessment.dataset_splitting import train_test_generator
-
-
-def _save_vega_html(spec: dict, output_path: Path) -> None:
-    """Save a raw Vega spec as a self-contained HTML file."""
-    html = f"""<!DOCTYPE html>
-<html><head>
-<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-</head><body>
-<div id="vis"></div>
-<script>vegaEmbed = undefined; new vega.View(vega.parse({json.dumps(spec)}), {{renderer: 'canvas'}}).initialize('#vis').run();</script>
-</body></html>"""
-    output_path.write_text(html)
-
-
+from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metrics import calculate_metrics
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import FullData
 from chap_core.file_io.example_data_set import datasets
@@ -134,6 +122,18 @@ def _get_plot_type_help() -> str:
     return f"Type of plot to generate. Available: {plot_list}"
 
 
+def _save_vega_html(spec: dict, output_path: Path) -> None:
+    """Save a raw Vega spec as a self-contained HTML file."""
+    html = f"""<!DOCTYPE html>
+<html><head>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+</head><body>
+<div id="vis"></div>
+<script>vegaEmbed = undefined; new vega.View(vega.parse({json.dumps(spec)}), {{renderer: 'canvas'}}).initialize('#vis').run();</script>
+</body></html>"""
+    output_path.write_text(html)
+
+
 def plot_backtest(
     input_file: Annotated[
         Path,
@@ -155,7 +155,6 @@ def plot_backtest(
         create_plot_from_evaluation,
         get_backtest_plots_registry,
     )
-    from chap_core.assessment.evaluation import Evaluation
 
     registry = get_backtest_plots_registry()
     if plot_type not in registry:
@@ -205,7 +204,6 @@ def generate_pdf_report(input_file: Path, output_file: Path):
         input_file: Path to NetCDF file containing evaluation data (from eval)
         output_file: Path to output PDF file
     """
-    from chap_core.assessment.evaluation import Evaluation
     from chap_core.assessment.prediction_evaluator import generate_pdf_from_evaluation
 
     logger.info(f"Loading evaluation from {input_file}")
@@ -233,7 +231,6 @@ def export_metrics(
         output_file: Path to output CSV file
         metric_ids: Optional list of metric IDs to compute. If None, all metrics are computed at AGGREGATE level.
     """
-    from chap_core.assessment.evaluation import Evaluation
     from chap_core.assessment.metrics import available_metrics
 
     # All unified metrics support global aggregation
@@ -262,7 +259,6 @@ def export_metrics(
 
         # Load evaluation and compute metrics
         evaluation = Evaluation.from_file(input_file)
-        flat_data = evaluation.to_flat()
 
         row = {
             "filename": input_file.name,
@@ -270,25 +266,8 @@ def export_metrics(
             "model_version": model_version,
         }
 
-        historical_obs = flat_data.historical_observations
-        historical_df: pd.DataFrame | None = (
-            pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
-        )
-
-        for metric_id in metrics_to_compute:
-            metric_cls = available_metrics[metric_id]
-            metric = metric_cls(historical_observations=historical_df)
-            if not metric.is_applicable(flat_data.observations):
-                row[metric_id] = None
-                continue
-            metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
-            if len(metric_df) == 1:
-                row[metric_id] = float(metric_df["metric"].iloc[0])
-            else:
-                logger.warning(f"Metric {metric_id} returned {len(metric_df)} rows, expected 1. Skipping.")
-                row[metric_id] = None
-
-        results.append(row)
+        metrics_dict = calculate_metrics(evaluation=evaluation, metric_ids=metrics_to_compute, row=row)
+        results.append(metrics_dict)
 
     # Create DataFrame and write to CSV
     df = pd.DataFrame(results)

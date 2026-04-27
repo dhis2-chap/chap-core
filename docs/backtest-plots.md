@@ -64,7 +64,6 @@ Note: covariate data (rainfall, mean_temperature, population) is NOT available i
 | `horizon_location_grid` | `HorizonLocationGridPlot` | `horizon_location_grid.py` | Grid of locations × horizons with forecast intervals + metrics |
 | `metrics_dashboard` | `MetricsDashboardPlot` | `metrics_dashboard.py` | Multi-metric overview by horizon and time |
 | `predicted_vs_actual` | `PredictedVsActualPlot` | `predicted_vs_actual_plot.py` | Scatter plot (median predicted vs actual, log1p space, faceted by horizon) |
-| `regional_rmse_distribution` | `RegionalRmseDistributionPlot` | `regional_rmse_distribution.py` | RMSE distribution across regions |
 | `ratio_of_samples_above_truth` | `SampleBiasPlot` | `sample_bias_plot.py` | Forecast bias relative to observations |
 
 ## How to add a new plot
