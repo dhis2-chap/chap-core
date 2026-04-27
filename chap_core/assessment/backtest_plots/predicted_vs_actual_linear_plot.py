@@ -1,12 +1,15 @@
 """
 Predicted vs actual scatter plot in linear space.
 
-Each point is one (location, time_period) pair: actual disease cases on the
-x-axis, the median forecast on the y-axis, colored by location. A black
-dashed identity line (y = x) acts as a visual reference for perfect
-prediction — points above the line indicate over-prediction, points below
-indicate under-prediction. Linear axes (no log transform) make over- and
-under-prediction at high case counts immediately visible.
+Each point is one (location, time_period, horizon) forecast: actual disease
+cases on the x-axis, the median across forecast samples on the y-axis,
+colored by location. Horizons are pooled into a single panel — the same
+(location, time_period) target may appear multiple times if it was forecast
+at more than one horizon. A black dashed identity line (y = x) acts as a
+visual reference for perfect prediction; points above the line indicate
+over-prediction, points below indicate under-prediction. Linear axes
+(no log transform) make over- and under-prediction at high case counts
+immediately visible.
 """
 
 import altair as alt
@@ -34,7 +37,7 @@ class PredictedVsActualLinearPlot(BacktestPlotBase):
         historical_observations: pd.DataFrame | None = None,
         covariates: pd.DataFrame | None = None,
     ) -> ChartType:
-        merged = median_forecasts_joined_with_observations(forecasts, observations, by_horizon=False)
+        merged = median_forecasts_joined_with_observations(forecasts, observations, by_horizon=True)
 
         axis_max = max(merged["median_forecast"].max(), merged["disease_cases"].max()) * 1.05
 
@@ -48,6 +51,7 @@ class PredictedVsActualLinearPlot(BacktestPlotBase):
                 tooltip=[
                     alt.Tooltip("location:N"),
                     alt.Tooltip("time_period:N"),
+                    alt.Tooltip("horizon_distance:O", title="Horizon"),
                     alt.Tooltip("disease_cases:Q", format=".0f", title="Actual"),
                     alt.Tooltip("median_forecast:Q", format=".0f", title="Predicted"),
                 ],
