@@ -86,10 +86,10 @@ install: clean ## sync dependencies and install package in development mode
 	uv sync
 
 force-restart: ## tear down, rebuild, and start docker compose from scratch (WIPES VOLUMES including chap-db)
-	docker compose -f compose.yml -f compose.ewars.yml down -v && docker compose -f compose.yml -f compose.ewars.yml build --no-cache && docker compose -f compose.yml -f compose.ewars.yml up --remove-orphans
+	docker compose -f compose.yml -f compose.chapkit.yml down -v && docker compose -f compose.yml -f compose.chapkit.yml build --no-cache && docker compose -f compose.yml -f compose.chapkit.yml up --remove-orphans
 
 restart: ## soft restart docker compose (preserves volumes; rebuilds only on source changes)
-	docker compose -f compose.yml -f compose.ewars.yml down && docker compose -f compose.yml -f compose.ewars.yml up -d --build --remove-orphans && $(MAKE) chap-version
+	docker compose -f compose.yml -f compose.chapkit.yml down && docker compose -f compose.yml -f compose.chapkit.yml up -d --build --remove-orphans && $(MAKE) chap-version
 
 chap-version: ## print the chap_core version running inside the chap container
-	@docker compose -f compose.yml -f compose.ewars.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
+	@docker compose -f compose.yml -f compose.chapkit.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"
