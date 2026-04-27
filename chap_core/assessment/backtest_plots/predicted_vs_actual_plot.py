@@ -18,6 +18,24 @@ def _nice_tick_values(data_max: float) -> np.ndarray:
     return np.array([v for v in candidates if v <= data_max * 1.1])
 
 
+def median_forecasts_joined_with_observations(
+    forecasts: pd.DataFrame,
+    observations: pd.DataFrame,
+    *,
+    by_horizon: bool,
+) -> pd.DataFrame:
+    """Aggregate forecast samples to medians and inner-join with observed disease cases.
+
+    by_horizon=True keeps horizon_distance in the groupby (one median per
+    location/time_period/horizon — used by the faceted log1p plot).
+    by_horizon=False pools across horizon (one median per location/time_period —
+    used by the linear scatter).
+    """
+    group_cols = ["location", "time_period", "horizon_distance"] if by_horizon else ["location", "time_period"]
+    median = forecasts.groupby(group_cols).agg(median_forecast=("forecast", "median")).reset_index()
+    return median.merge(observations, on=["location", "time_period"], how="inner")
+
+
 @backtest_plot(
     plot_id="predicted_vs_actual",
     name="Predicted vs Actual",
@@ -29,14 +47,9 @@ class PredictedVsActualPlot(BacktestPlotBase):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
+        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
-        median_forecasts = (
-            forecasts.groupby(["location", "time_period", "horizon_distance"])
-            .agg(median_forecast=("forecast", "median"))
-            .reset_index()
-        )
-
-        merged = median_forecasts.merge(observations, on=["location", "time_period"], how="inner")
+        merged = median_forecasts_joined_with_observations(forecasts, observations, by_horizon=True)
         merged["log1p_predicted"] = np.log1p(merged["median_forecast"])
         merged["log1p_actual"] = np.log1p(merged["disease_cases"])
 
