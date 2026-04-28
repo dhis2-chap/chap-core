@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.dataset_tables import DataSetWithObservations, Observation, DataSet
 from chap_core.database.tables import BackTestRead, OldBackTestRead, BackTestForecast, BackTest, BackTestMetric
 from chap_core.simulation.naive_simulator import DatasetDimensions, AdditiveSimulator, BacktestSimulator
@@ -288,6 +289,21 @@ def simulated_dataset(data_dims, dummy_geojson):
 def simulated_backtest(simulated_dataset, data_dims):
     backtest = BacktestSimulator().simulate(simulated_dataset, data_dims)
     return backtest
+
+
+@pytest.fixture
+def old_backtest_file(tmp_path):
+    """Creates an old format backtest file corresponding to chap-core versions <= 1.1.1 for testing backward compatibility."""
+    import shutil
+
+    shutil.copy(Path(__file__).parent / "data" / "backtest_file_version_le_1.1.1.nc", tmp_path / "tmp_backtest.nc")
+    yield tmp_path / "tmp_backtest.nc"
+    (tmp_path / "tmp_backtest.nc").unlink()
+
+
+@pytest.fixture
+def old_backtest(old_backtest_file):
+    return Evaluation.from_file(old_backtest_file).to_backtest()
 
 
 @pytest.fixture

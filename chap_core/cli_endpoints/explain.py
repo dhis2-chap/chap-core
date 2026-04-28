@@ -105,7 +105,7 @@ def explain_lime(
     )
 
     with template:
-        model = template.get_model(configuration)
+        model = template.get_model(configuration)  # type: ignore[arg-type]
         estimator = model()
 
         logger.info(f"Generating explanation for {location}, {horizon} time steps into the future.")

@@ -10,7 +10,7 @@ Run an evaluation against the minimalist example model, using an example dataset
 chap eval \
     --model-name https://github.com/dhis2-chap/minimalist_example_uv \
     --dataset-csv https://raw.githubusercontent.com/dhis2-chap/chap-core/master/example_data/laos_subset.csv \
-    --output-file eval.nc \
+    --output-file /tmp/chap/temp/eval.nc \
     --backtest-params.n-splits 2 \
     --backtest-params.n-periods 1 \
     --plot
@@ -18,6 +18,6 @@ chap eval \
 
 ## Verification
 
-If the command completes and writes `eval.nc` and `eval.html`, your Chap installation is working: it can resolve a GitHub-hosted model, set up its environment, run a rolling-origin backtest on a remote dataset, and plot the results.
+If the command completes and writes `/tmp/chap/temp/eval.nc` and `/tmp/chap/temp/eval.html`, your Chap installation is working: it can resolve a GitHub-hosted model, set up its environment, run a rolling-origin backtest on a remote dataset, and plot the results.
 
 The next step is to integrate your own model into Chap.

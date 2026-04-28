@@ -19,8 +19,9 @@ from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.tables import BackTest, BackTestForecast, Prediction
+from chap_core.database.tables import BackTest, BackTestForecast, ConfiguredModelWithDataSource, Prediction
 from chap_core.datatypes import create_tsdataclass
+from chap_core.rest_api.experimental import api_experimental
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -363,6 +364,64 @@ async def make_prediction(
         request.name,
         dataset_create_info=dataset_info,
         prediction_params=prediction_params,
+        database_url=database_url,
+        worker_config=worker_settings,
+        **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+    )
+    return JobResponse(id=job.id)
+
+
+class MakePredictionWithDataSourceRequest(DatasetMakeRequest):
+    configured_model_with_data_source_id: int
+    n_periods: int = 3
+    meta_data: dict = {}
+
+
+@router.post(
+    "/make-prediction-with-data-source",
+    response_model=JobResponse,
+    tags=["Predictions"],
+)
+@api_experimental
+async def make_prediction_with_data_source(
+    request: MakePredictionWithDataSourceRequest,
+    session: Session = Depends(get_session),
+    database_url=Depends(get_database_url),
+    worker_settings=Depends(get_settings),
+):
+    record = session.exec(
+        select(ConfiguredModelWithDataSource)
+        .where(ConfiguredModelWithDataSource.id == request.configured_model_with_data_source_id)
+        .options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    if record is None:
+        raise HTTPException(status_code=404, detail="ConfiguredModelWithDataSource not found")
+    if record.configured_model is None:
+        raise HTTPException(status_code=400, detail="ConfiguredModelWithDataSource has no configured_model")
+    model_id = record.configured_model.name
+
+    request.type = "prediction"
+    feature_names = list({entry.feature_name for entry in request.provided_data})
+    dataclass = create_tsdataclass(feature_names)
+    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if "population" in feature_names:
+        provided_data = provided_data.interpolate(["population"])
+    provided_data, _rejections = _validate_full_dataset(feature_names, provided_data)
+    provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+    if request.data_to_be_fetched:
+        raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
+    dataset_info = DataSetCreateInfo(**request.model_dump()).model_dump()
+    prediction_params = PredictionParams(model_id=model_id, n_periods=request.n_periods)
+    job = worker.queue_db(
+        wf.predict_pipeline_from_composite_dataset,
+        feature_names,
+        provided_data.model_dump(),
+        request.name,
+        dataset_create_info=dataset_info,
+        prediction_params=prediction_params,
+        configured_model_with_data_source_id=request.configured_model_with_data_source_id,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},

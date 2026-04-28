@@ -48,3 +48,11 @@ def test_aggregate_to_parent(vietnam_dataset):
     )
     a = samples_with_truth.aggregate_to_parent(field_name="samples")
     print(a)
+
+
+def test_from_csv_autodiscovers_geojson_with_id_in_properties(csv_with_sibling_geojson_id_in_properties):
+    """Regression for CLIM-609: when the sibling .geojson has feature id under
+    properties.id rather than the top-level id field, DataSet.from_csv must
+    still populate feature ids so dataset locations are not filtered out."""
+    dataset = DataSet.from_csv(csv_with_sibling_geojson_id_in_properties)
+    assert set(dataset.locations()) == {"A", "B"}
