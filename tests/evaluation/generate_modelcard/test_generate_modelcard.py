@@ -29,6 +29,10 @@ class TestModelCardGenerator:
         assert "![Evaluation plot](eval_plot.png)" in content
         assert "![RMSE by region](detailedRMSE_plot.png)" in content
         assert "![MAPE by region](detailedMAPE_plot.png)" in content
+        assert "# Model card for: TestModel" in content
+        assert "More Information Needed" in content
+        assert "Organization URL:" not in content
+        assert "Example metric:" not in content
 
     def test_generate_modelcard_with_geojson_creates_plots(self, backtest, dummy_geojson, tmp_path):
         evaluation = Evaluation.from_backtest(backtest)

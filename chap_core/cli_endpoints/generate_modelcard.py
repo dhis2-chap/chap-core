@@ -19,6 +19,7 @@ from chap_core.assessment.metrics import (
     compute_all_aggregated_metrics_from_backtest,
 )
 from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
+from chap_core.database.tables import BackTest
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.plotting.evaluation_plot import (
     MetricByTimePeriodV2Mean,
@@ -223,14 +224,13 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
         mape_map_plot.save(output_dir / "mape_map.html", scale_factor=2.0)
 
 
-def _build_results_summary(backtest) -> str:
+def _build_results_summary(backtest: BackTest) -> str:
     metrics = compute_all_aggregated_metrics_from_backtest(backtest)
     return "\n".join(
         [
             f"Ratio above truth: {metrics.get('ratio_above_truth')}\n",
             f"CRPS: {metrics.get('crps')}\n",
             f"CRPS Normalized: {metrics.get('crps_norm')}\n",
-            f"Example metric: {metrics.get('example_metric')}\n",
             f"RMSE (aggregate): {metrics.get('rmse')}\n",
             f"MAE (aggregate): {metrics.get('mae')}\n",
             f"Coverage within 10-90%: {metrics.get('coverage_10_90')}\n",
@@ -258,7 +258,6 @@ def _render_model_details_section(context: ModelCardContext) -> list[str]:
         [
             f"- **Model Version:** {context.model_version}",
             f"- **Developed by:** {context.developed_by}",
-            f"- **Organization URL:** {MISSING}",
             f"- **Author assessed status:** {format_author_assessed_status(context.author_assessed_status)}",
             f"- **Funded by [optional]:** {MISSING}",
             f"- **Shared by [optional]:** {MISSING}",
@@ -516,7 +515,6 @@ def generate_modelcard(
     output_dir = output_file.parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    chap_version = CHAP_VERSION
     org_units = evaluation.get_org_units()
     split_periods = evaluation.get_split_periods()
     backtest = evaluation.to_backtest()
@@ -524,12 +522,12 @@ def generate_modelcard(
 
     meta_data = model_info.meta_data if model_info else None
     author = _normalize_metadata_value(meta_data.author, "author") if meta_data else None
-    organization = meta_data.organization if meta_data and meta_data.organization else None
+    organization = meta_data.organization if meta_data else None
     author_assessed_status = meta_data.author_assessed_status.value if meta_data else None
-    organization_logo_url = meta_data.organization_logo_url if meta_data and meta_data.organization_logo_url else None
-    citation_info = meta_data.citation_info if meta_data and meta_data.citation_info else None
-    contact_email = meta_data.contact_email if meta_data and meta_data.contact_email else None
-    documentation_url = meta_data.documentation_url if meta_data and meta_data.documentation_url else MISSING
+    organization_logo_url = meta_data.organization_logo_url if meta_data else None
+    citation_info = meta_data.citation_info if meta_data else None
+    contact_email = meta_data.contact_email if meta_data else None
+    documentation_url = (meta_data.documentation_url if meta_data else None) or MISSING
     display_name = _normalize_metadata_value(meta_data.display_name, "display_name") if meta_data else None
     author_note = _normalize_metadata_value(meta_data.author_note, "author_note") if meta_data else None
     description = _normalize_metadata_value(meta_data.description, "description") if meta_data else None
@@ -545,7 +543,6 @@ def generate_modelcard(
         if model_info and model_info.source_url
         else (model_name if model_name and is_url(model_name) else MISSING)
     )
-    output_path = output_file.with_suffix(".md")
 
     display_name = display_name or (
         model_info.name if model_info and model_info.name else (model_name or "Unknown Model")
@@ -564,7 +561,7 @@ def generate_modelcard(
         organization_logo_url=organization_logo_url,
         author_assessed_status=author_assessed_status,
         source_url=source_url,
-        chap_version=chap_version,
+        chap_version=CHAP_VERSION,
         created_date=str(created_date) if created_date is not None else None,
         org_units_count=len(org_units),
         supported_period_type=f"`{model_info.supported_period_type.value}`" if model_info else MISSING,
@@ -587,8 +584,8 @@ def generate_modelcard(
         documentation_url=documentation_url,
     )
 
-    output_path.write_text(render_modelcard(modelcard_context), encoding="utf-8")
-    logger.info(f"Model card written to {output_path}")
+    output_file.write_text(render_modelcard(modelcard_context), encoding="utf-8")
+    logger.info(f"Model card written to {output_file}")
 
 
 def register_commands(app):
