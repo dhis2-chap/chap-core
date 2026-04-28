@@ -12,11 +12,11 @@ This is the main repository for the Chap modelling platform.
 
 ## Code documentation
 
-The main documentation for the modelling platform is located at [https://chap.dhis2.org/chap-documentation/](https://chap.dhis2.org/chap-documentation/).
+The main documentation for the modelling platform is located at [https://chap.dhis2.org/chap-modeling-platform/](https://chap.dhis2.org/chap-modeling-platform/).
 
 ## Development / contribution
 
-Information about how to contributre to the the Chap Modelling Platform: [https://github.com/orgs/dhis2-chap/projects/4](https://chap.dhis2.org/chap-documentation/contributor/).
+Information about how to contribute to the Chap Modelling Platform: [https://chap.dhis2.org/chap-modeling-platform/contributor/](https://chap.dhis2.org/chap-modeling-platform/contributor/).
 
 ## Issues/Bugs
 
@@ -47,12 +47,23 @@ also wipes the Postgres volume, so reach for it only when you need a clean
 slate. `make chap-version` is also printed automatically at the end of
 `make restart` so version drift is visible at a glance.
 
-### Running with the chapkit EWARS overlay
+### Running with chapkit model overlays
 
-The chapkit-based EWARS model ships as an opt-in compose overlay at
-`compose.ewars.yml`. Layer it onto `compose.yml` (not `compose.ghcr.yml`
-— those two are alternatives, not stackable) to run chap-core with the
-ewars service already self-registered:
+Chapkit-based models ship as opt-in compose overlays. Layer one onto
+`compose.yml` (not `compose.ghcr.yml` — those two are alternatives, not
+stackable) to run chap-core with the chapkit services already
+self-registered.
+
+The recommended overlay is `compose.chapkit.yml`, an umbrella file that
+includes every chapkit-converted model. As more models are converted to
+chapkit, they get added here so a single `-f` flag pulls them all in:
+
+```shell
+docker compose -f compose.yml -f compose.chapkit.yml up -d
+```
+
+If you only want the EWARS service, use the single-model overlay
+`compose.ewars.yml` instead:
 
 ```shell
 docker compose -f compose.yml -f compose.ewars.yml up -d

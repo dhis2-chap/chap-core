@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 import pandas as pd
 import xarray as xr
+from packaging.version import Version
 
 if TYPE_CHECKING:
     from chap_core.api_types import BackTestParams
@@ -633,6 +634,8 @@ class Evaluation(EvaluationBase):
         """
         ds = xr.open_dataset(filepath)
 
+        ds = cls._ensure_backcompatibility(ds)
+
         flat_data = _xarray_to_flat_data(ds)
 
         split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
@@ -707,6 +710,18 @@ class Evaluation(EvaluationBase):
             historical_observations=historical_observations,
             historical_context_periods=historical_context_periods,
         )
+
+    @staticmethod
+    def _ensure_backcompatibility(ds: xr.Dataset) -> xr.Dataset:
+        """
+        Ensure backwards compatibility for datasets created with older CHAP versions.
+
+        Update horizon_distance coordinate in older datasets where it was stored as 0-based instead of 1-based.
+        """
+
+        if Version(ds.attrs.get("chap_version", "0.0.0")) <= Version("1.1.1"):
+            ds = ds.assign_coords(horizon_distance=ds.horizon_distance + 1)
+        return ds
 
 
 @dataclass

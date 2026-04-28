@@ -14,6 +14,7 @@ Magic is used to make the returned objects camelCase while internal objects are 
 
 """
 
+import datetime
 import json
 import logging
 from functools import partial
@@ -27,6 +28,8 @@ from starlette.responses import StreamingResponse
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
+from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metrics import compute_all_detailed_metrics
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
@@ -46,10 +49,18 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateRead,
 )
-from chap_core.database.tables import BackTest, Prediction, PredictionInfo
+from chap_core.database.tables import (
+    BackTest,
+    ConfiguredModelWithDataSource,
+    ConfiguredModelWithDataSourceRead,
+    ConfiguredModelWithDataSourceReadWithPredictions,
+    Prediction,
+    PredictionInfo,
+)
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
+from chap_core.rest_api.experimental import api_experimental
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import BackTestCreate, BackTestRead, JobResponse
@@ -271,6 +282,36 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
     if backtest is None:
         raise HTTPException(status_code=404, detail="BackTest not found")
     return backtest
+
+
+@router.get("/metric/csv", tags=["Metrics"])
+async def get_metrics_csv(
+    backtest_id: Annotated[int, Query(alias="backtestId")],
+    session: Session = Depends(get_session),
+):
+    """
+    Download per-location / per-time_period / per-horizon metric values as a
+    long-format CSV. Every applicable metric in
+    `chap_core.assessment.metrics.available_metrics` is included as rows.
+
+    Currently takes a single backtest via the `backtestId` query parameter; the
+    path is scoped to `/metric/` so it can be extended to accept multiple
+    evaluations later without a breaking change.
+    """
+    backtest = session.get(BackTest, backtest_id)
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="BackTest not found")
+
+    evaluation = Evaluation.from_backtest(backtest)
+    df = compute_all_detailed_metrics(evaluation)
+    df["time_period"] = df["time_period"].astype(str)
+
+    csv_content = df.to_csv(index=False)
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=backtest_{backtest_id}_metrics.csv"},
+    )
 
 
 class BackTestUpdate(DBModel):
@@ -563,6 +604,7 @@ def list_configured_models(session: Session = Depends(get_session)):
     response_model=ConfiguredModelInfoRead,
     tags=["Models"],
 )
+@api_experimental
 def get_configured_model_info(
     configured_model_id: Annotated[int, Path(alias="configuredModelId")],
     session: Session = Depends(get_session),
@@ -618,6 +660,101 @@ async def delete_configured_model(
     session.add(configured_model)
     session.commit()
     return {"message": "deleted"}
+
+
+###########
+# configured models with data source
+
+
+@router.get(
+    "/configured-models-with-data-source",
+    response_model=list[ConfiguredModelWithDataSourceRead],
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+@api_experimental
+async def list_configured_models_with_data_source(session: Session = Depends(get_session)):
+    records = session.exec(
+        select(ConfiguredModelWithDataSource).options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).all()
+    return records
+
+
+@router.get(
+    "/configured-models-with-data-source/{configuredModelWithDataSourceId}",
+    response_model=ConfiguredModelWithDataSourceReadWithPredictions,
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+@api_experimental
+async def get_configured_model_with_data_source(
+    configured_model_with_data_source_id: Annotated[int, Path(alias="configuredModelWithDataSourceId")],
+    session: Session = Depends(get_session),
+):
+    record = session.exec(
+        select(ConfiguredModelWithDataSource)
+        .where(ConfiguredModelWithDataSource.id == configured_model_with_data_source_id)
+        .options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
+            .selectinload(Prediction.dataset)  # type: ignore[arg-type]
+            .defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
+            .selectinload(Prediction.configured_model)  # type: ignore[arg-type]
+            .selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    if record is None:
+        raise HTTPException(status_code=404, detail="ConfiguredModelWithDataSource not found")
+    return record
+
+
+@router.post(
+    "/configured-models-with-data-source/from-backtest/{backtestId}",
+    response_model=ConfiguredModelWithDataSourceRead,
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+@api_experimental
+async def create_configured_model_with_data_source_from_backtest(
+    backtest_id: Annotated[int, Path(alias="backtestId")],
+    session: Session = Depends(get_session),
+):
+    backtest = session.exec(
+        select(BackTest)
+        .where(BackTest.id == backtest_id)
+        .options(
+            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="BackTest not found")
+
+    dataset = backtest.dataset
+    record = ConfiguredModelWithDataSource(
+        name=backtest.name or f"from-backtest-{backtest_id}",
+        created=datetime.datetime.now(),
+        configured_model_id=backtest.model_db_id,
+        start_period=dataset.first_period,
+        org_units=dataset.org_units or [],
+        data_sources=dataset.data_sources or [],
+        period_type=dataset.period_type,
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+    result = session.exec(
+        select(ConfiguredModelWithDataSource)
+        .where(ConfiguredModelWithDataSource.id == record.id)
+        .options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    return result
 
 
 ###########

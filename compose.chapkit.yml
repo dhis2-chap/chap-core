@@ -1,0 +1,10 @@
+# Umbrella overlay for all chapkit-converted model services.
+# Includes every per-model overlay so a single -f flag pulls them all in.
+# Add new chapkit-based models here as they are converted.
+# Requires Docker Compose v2.20+ for the `include` directive.
+
+include:
+  - compose.ewars.yml
+  # add more chapkit overlays here as models are converted
+  # - compose.multistep.yml
+  # - compose.chtorch.yml

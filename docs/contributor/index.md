@@ -24,6 +24,7 @@ This section provides documentation for contributors to the Chap platform.
 - [Development Tools](development_tools.md) - Tools for development
 
 ## Extending Chap
+- [Adding CLI Commands](adding_cli_commands.md) - How to add a new `chap` subcommand
 - [Creating Custom Backtest Plots](creating_custom_backtest_plots.md) - How to create custom visualizations
 - [Creating Custom Metrics](creating_custom_metrics.md) - How to create custom evaluation metrics
 

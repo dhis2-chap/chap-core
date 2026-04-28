@@ -99,6 +99,7 @@ class TestOpenAPITags:
         expected = [
             "System",
             "Backtests",
+            "Metrics",
             "Predictions",
             "Datasets",
             "Models",

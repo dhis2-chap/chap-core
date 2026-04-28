@@ -43,6 +43,7 @@
     v1: "d666546c3975994183a6386468af217aba06b6c5"
     v2: 'main'
     v3: 'e4520a2123a3228c10947f2b25029c3f7190e320'
+    v4: 'cb4edc53ce3ed1353ae5b60a501b23095d8430fc'
   configurations:
     default:
       user_option_values:
@@ -90,6 +91,7 @@
   versions:
     v1: "@chap"
     uv: "@2efbf3a870a5070b3570e3091ca25271d09d373a"
+    uv2: "@3f80f90d2f5efd5af4b9c250d1e583f1cefc1f39"
 
 - url: https://github.com/dhis2-chap/chap_pymc
   versions:
