@@ -15,6 +15,7 @@ from chap_core.cli_endpoints import (
     evaluate,
     explain,
     forecast,
+    generate_modelcard,
     preference_learn,
     utils,
     validate,
@@ -36,6 +37,7 @@ forecast.register_commands(app)
 preference_learn.register_commands(app)
 utils.register_commands(app)
 validate.register_commands(app)
+generate_modelcard.register_commands(app)
 
 
 def main():
