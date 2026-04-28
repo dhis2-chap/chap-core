@@ -1,8 +1,12 @@
 from pydantic import BaseModel
 
-from chap_core.api_types import FeatureCollectionModel
+from chap_core.api_types import BackTestParams, FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
+from chap_core.database.model_templates_and_config_tables import (
+    ModelTemplateInformation,
+    ModelTemplateMetaData,
+)
 from chap_core.database.tables import BackTestBase, BackTestForecast, BackTestMetric, BackTestRead
 
 
@@ -71,3 +75,93 @@ class BackTestCreate(BackTestBase):
 class BackTestFull(BackTestRead):
     metrics: list[BackTestMetric]
     forecasts: list[BackTestForecast]
+
+
+class BacktestDomain(DBModel):
+    org_units: list[str]
+    split_periods: list[str]
+
+
+class ChapDataSource(DBModel):
+    name: str
+    display_name: str
+    supported_features: list[str]
+    description: str
+    dataset: str
+
+
+class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
+    meta_data: dict = {}
+
+
+class MakeBacktestRequest(BackTestParams):
+    name: str
+    model_id: str
+    dataset_id: int
+
+
+class MakeBacktestWithDataRequest(DatasetMakeRequest, BackTestParams):
+    name: str
+    model_id: str
+
+
+class DataBaseResponse(DBModel):
+    id: int
+
+
+class DatasetCreate(DataSetCreateInfo):
+    observations: list[ObservationBase]
+    geojson: FeatureCollectionModel
+
+
+class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
+    """
+    ModelTemplateRead is a read model for the ModelTemplateDB.
+    It is used to return the model template in a readable format.
+    """
+
+    name: str
+    id: int
+    user_options: dict | None = None
+    required_covariates: list[str] = []
+    version: str | None = None
+    archived: bool = False
+    health_status: str | None = None
+    uses_chapkit: bool = False
+
+
+class ConfiguredModelInfoRead(DBModel):
+    """Detailed read view for a single configured model.
+
+    Exposes the stored configuration (user option values, additional
+    covariates) alongside the parent model template, so the frontend can
+    render the user-option schema (e.g. the ``n_lags`` dynamic list) next
+    to the chosen values without stitching together multiple list calls.
+    """
+
+    id: int
+    name: str
+    display_name: str
+    model_template_id: int
+    user_option_values: dict | None = None
+    additional_continuous_covariates: list[str] = []
+    archived: bool = False
+    uses_chapkit: bool = False
+    model_template: ModelTemplateRead
+
+
+class ModelConfigurationCreate(DBModel):
+    name: str
+    model_template_id: int
+    user_option_values: dict | None = None
+    additional_continuous_covariates: list[str] = []
+
+
+class PredictionCreate(DBModel):
+    dataset_id: int
+    estimator_id: str
+    n_periods: int
+
+
+class BackTestUpdate(DBModel):
+    name: str | None = None

@@ -14,7 +14,6 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.model_templates_and_config_tables import ConfiguredModelInfoRead, ModelTemplateRead
 from chap_core.database.tables import (
     BackTest,
     BackTestRead,
@@ -23,10 +22,18 @@ from chap_core.database.tables import (
     PredictionInfo,
     PredictionRead,
 )
-from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, FetchRequest
+from chap_core.rest_api.data_models import (
+    BackTestFull,
+    ConfiguredModelInfoRead,
+    DatasetCreate,
+    DatasetMakeRequest,
+    FetchRequest,
+    MakePredictionRequest,
+    ModelConfigurationCreate,
+    ModelTemplateRead,
+)
 from chap_core.rest_api.app import app
-from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest, MakePredictionWithDataSourceRequest
-from chap_core.rest_api.v1.routers.crud import DatasetCreate, ModelConfigurationCreate
+from chap_core.rest_api.v1.routers.analytics import MakePredictionWithDataSourceRequest
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

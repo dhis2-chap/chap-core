@@ -109,36 +109,3 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
             logger.error(f"Validation error in model configuration: {e}")
             raise ValueError(f"Invalid user options: {e.message}") from e
         return model
-
-
-class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
-    """Read view for ``ModelTemplateDB`` used by the REST API."""
-
-    name: str
-    id: int
-    user_options: dict | None = None
-    required_covariates: list[str] = []
-    version: str | None = None
-    archived: bool = False
-    health_status: str | None = None
-    uses_chapkit: bool = False
-
-
-class ConfiguredModelInfoRead(DBModel):
-    """Detailed read view for a single configured model.
-
-    Exposes the stored configuration (user option values, additional
-    covariates) alongside the parent model template, so the frontend can
-    render the user-option schema (e.g. the ``n_lags`` dynamic list) next
-    to the chosen values without stitching together multiple list calls.
-    """
-
-    id: int
-    name: str
-    display_name: str
-    model_template_id: int
-    user_option_values: dict | None = None
-    additional_continuous_covariates: list[str] = []
-    archived: bool = False
-    uses_chapkit: bool = False
-    model_template: ModelTemplateRead
