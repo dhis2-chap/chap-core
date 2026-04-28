@@ -16,16 +16,19 @@ from chap_core.plotting.evaluation_plot import (
 )
 from chap_core.assessment.evaluation import Evaluation
 
-from chap_core.plotting.evaluation_plot import (
-    MetricByHorizonAndLocationMean,
-)
+from chap_core.assessment.metric_plots.horizon_location_mean import MetricByHorizonAndLocationMean
 
 import altair as alt
 
 
+@pytest.fixture(autouse=True)
+def default_altair_transformer():
+    alt.data_transformers.enable("default")
+    yield
+
+
 @pytest.fixture
 def rwanda_geojson():
-    path = Path("/Users/knutdr/Data/ch_data/rainfall_pop_temp_cases.json")
     path = Path("rainfall_pop_temp_cases.json")
     if not path.exists():
         pytest.skip("Local data not found")

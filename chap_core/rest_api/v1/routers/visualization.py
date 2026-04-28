@@ -11,15 +11,13 @@ from chap_core.assessment.backtest_plots import (
     get_backtest_plots_registry,
     list_backtest_plots,
 )
+from chap_core.assessment.metric_plots import get_metric_plots_registry, list_metric_plots
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet
 from chap_core.database.tables import BackTest
 from chap_core.plotting.dataset_plot import create_plot_from_dataset, get_dataset_plots_registry, list_dataset_plots
 from chap_core.plotting.evaluation_plot import (
-    MetricByHorizonV2Mean,
-    MetricMapV2,
-    MetricPlotV2,
     VisualizationInfo,
     make_plot_from_backtest_object,
 )
@@ -31,12 +29,6 @@ router = APIRouter(prefix="/visualization", tags=["Visualizations"])
 
 router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 
-# Type annotation for registry - concrete subclasses with visualization_info
-metric_plots_registry: dict[str, type[MetricPlotV2]] = {
-    MetricByHorizonV2Mean.visualization_info.id: MetricByHorizonV2Mean,
-    MetricMapV2.visualization_info.id: MetricMapV2,
-}
-
 
 # List visualizations
 @router.get("/metric-plots/{backtest_id}", response_model=list[VisualizationInfo])
@@ -44,7 +36,9 @@ def get_avilable_metric_plots(backtest_id: int):
     """
     List available visualizations
     """
-    return [cls.visualization_info for cls in metric_plots_registry.values()]
+    return [
+        VisualizationInfo(id=p["id"], display_name=p["name"], description=p["description"]) for p in list_metric_plots()
+    ]
 
 
 class VisualizationParams(DBModel):
@@ -87,12 +81,13 @@ def generate_visualization(
     if metric_id not in available_metrics:
         return {"error": f"Metric {metric_id} not found"}
 
-    if visualization_name not in metric_plots_registry:
+    registry = get_metric_plots_registry()
+    if visualization_name not in registry:
         return {"error": f"Visualization {visualization_name} not found"}
 
     geojson_str = backtest.dataset.geojson
     geojson = json.loads(geojson_str) if geojson_str else None
-    plot_class = metric_plots_registry[visualization_name]
+    plot_class = registry[visualization_name]
     metric = available_metrics[metric_id]()
     plot_spec = make_plot_from_backtest_object(backtest, plot_class, metric, geojson)
     return JSONResponse(plot_spec)
