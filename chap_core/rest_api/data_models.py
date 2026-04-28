@@ -130,6 +130,26 @@ class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData
     uses_chapkit: bool = False
 
 
+class ConfiguredModelInfoRead(DBModel):
+    """Detailed read view for a single configured model.
+
+    Exposes the stored configuration (user option values, additional
+    covariates) alongside the parent model template, so the frontend can
+    render the user-option schema (e.g. the ``n_lags`` dynamic list) next
+    to the chosen values without stitching together multiple list calls.
+    """
+
+    id: int
+    name: str
+    display_name: str
+    model_template_id: int
+    user_option_values: dict | None = None
+    additional_continuous_covariates: list[str] = []
+    archived: bool = False
+    uses_chapkit: bool = False
+    model_template: ModelTemplateRead
+
+
 class ModelConfigurationCreate(DBModel):
     name: str
     model_template_id: int

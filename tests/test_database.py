@@ -193,6 +193,21 @@ def configured_model_fixture(engine, model_template_yaml_config):
     return engine, cm_id, name
 
 
+def test_configured_model_display_name(engine, model_template_yaml_config):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        default_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
+        named_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}), "detail_view")
+
+    template_display_name = model_template_yaml_config.meta_data.display_name
+    with Session(engine) as s:
+        default = s.get(ConfiguredModelDB, default_id)
+        named = s.get(ConfiguredModelDB, named_id)
+        assert default is not None and named is not None
+        assert default.display_name == template_display_name
+        assert named.display_name == f"{template_display_name} [Detail view]"
+
+
 def test_resolve_configured_model_by_int_id(configured_model_fixture):
     engine, cm_id, expected_name = configured_model_fixture
     with SessionWrapper(engine) as session:

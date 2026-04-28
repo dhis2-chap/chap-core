@@ -24,6 +24,7 @@ from chap_core.database.tables import (
 )
 from chap_core.rest_api.data_models import (
     BackTestFull,
+    ConfiguredModelInfoRead,
     DatasetCreate,
     DatasetMakeRequest,
     FetchRequest,
@@ -674,6 +675,22 @@ def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
 
     response = client.post("/v1/crud/configured-models", json=config.model_dump())
     assert response.status_code == 200, response.json()
+
+
+def test_get_configured_model_info(celery_session_worker, dependency_overrides):
+    configured = get_content("/v1/crud/configured-models")
+    default = next(m for m in configured if m["name"] == "chap_ewars_monthly")
+
+    response = client.get(f"/v1/crud/configured-models/{default['id']}")
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    for key in ("id", "name", "displayName", "modelTemplateId", "modelTemplate"):
+        assert key in body, body.keys()
+    info = ConfiguredModelInfoRead.model_validate(body)
+    assert info.name == "chap_ewars_monthly"
+
+    missing = client.get("/v1/crud/configured-models/999999")
+    assert missing.status_code == 404, missing.json()
 
 
 def get_content(url):

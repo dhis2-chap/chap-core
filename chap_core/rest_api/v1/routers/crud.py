@@ -59,6 +59,7 @@ from ...data_models import (
     BackTestCreate,
     BackTestRead,
     BackTestUpdate,
+    ConfiguredModelInfoRead,
     DataBaseResponse,
     DatasetCreate,
     JobResponse,
@@ -580,6 +581,28 @@ def list_configured_models(session: Session = Depends(get_session)):
 
     # return
     return configured_models_read
+
+
+@router_get(
+    "/configured-models/{configuredModelId}",
+    response_model=ConfiguredModelInfoRead,
+    tags=["Models"],
+)
+@api_experimental
+def get_configured_model_info(
+    configured_model_id: Annotated[int, Path(alias="configuredModelId")],
+    session: Session = Depends(get_session),
+):
+    """Return the detail view for a single configured model, including its template."""
+    configured_model = session.exec(
+        select(ConfiguredModelDB)
+        .where(ConfiguredModelDB.id == configured_model_id)
+        .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
+    ).first()
+    if configured_model is None:
+        raise HTTPException(status_code=404, detail="Configured model not found")
+    return configured_model
+
 
 
 @router.post("/configured-models", response_model=ConfiguredModelDB, tags=["Models"])

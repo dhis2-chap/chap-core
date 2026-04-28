@@ -73,6 +73,21 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     archived: bool = Field(default=False)
     uses_chapkit: bool = Field(default=False)
 
+    @property
+    def display_name(self) -> str:
+        """Derived display name stitched from the template and (optionally) a configuration stub.
+
+        Configured models whose name contains ``:`` were created as
+        ``<template_name>:<configuration_name>`` (see ``SessionWrapper.add_configured_model``);
+        default configurations reuse their template's name verbatim.
+        """
+        template_display_name = self.model_template.display_name
+        if ":" not in self.name:
+            return template_display_name
+        configuration_stub = self.name.rsplit(":", 1)[-1]
+        configuration_display_name = configuration_stub.replace("_", " ").capitalize()
+        return f"{template_display_name} [{configuration_display_name}]"
+
     @classmethod
     def _validate_model_configuration(cls, user_options, user_option_values):
         logger.debug("Validating model configuration")
