@@ -60,6 +60,21 @@ markdown_extensions:
 
 docs_dir: docs
 
+exclude_docs: |
+  CLAUDE.md
+  kigali-workshop/kigali-workshop-material/tuesday-afternoon-backup.md
+
+not_in_nav: |
+  features_overview.md
+  contributor/adding_cli_commands.md
+  contributor/creating_custom_backtest_plots.md
+  contributor/creating_custom_metrics.md
+  contributor/evaluation_walkthrough_exec.md
+  external_models/surplus_after_refactoring.md
+  feature_tutorials/index.md
+  feature_tutorials/extended_predictor.md
+  kigali-workshop/index.md
+
 nav:
   - Getting Started: index.md
   - DHIS2 Implementers:
