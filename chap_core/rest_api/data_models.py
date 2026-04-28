@@ -1,6 +1,4 @@
-from typing import Annotated
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from chap_core.api_types import BackTestParams, FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
@@ -77,21 +75,6 @@ class BackTestCreate(BackTestBase):
 class BackTestFull(BackTestRead):
     metrics: list[BackTestMetric]
     forecasts: list[BackTestForecast]
-
-
-class EvaluationEntryRequest(BaseModel):
-    backtest_id: int
-    quantiles: list[Annotated[float, Field(ge=0, le=1)]]
-
-
-class MetaDataEntry(BaseModel):
-    element_id: str
-    element_name: str
-    feature_name: str
-
-
-class MetaData(BaseModel):
-    data_name_mapping: list[MetaDataEntry]
 
 
 class BacktestDomain(DBModel):
