@@ -9,16 +9,14 @@ import pandas as pd
 import yaml
 
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metric_plots.horizon_location_mean import MetricByHorizonAndLocationMean
+from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
+from chap_core.assessment.metric_plots.horizon_sum import MetricByHorizonV2Sum
+from chap_core.assessment.metric_plots.metric_map import MetricMapV2
+from chap_core.assessment.metric_plots.time_period_location_mean import MetricByTimePeriodAndLocationV2Mean
+from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
+from chap_core.assessment.metric_plots.time_period_sum import MetricByTimePeriodV2Sum
 from chap_core.assessment.metrics import available_metrics
-from chap_core.plotting.evaluation_plot import (
-    MetricByHorizonAndLocationMean,
-    MetricByHorizonV2Mean,
-    MetricByHorizonV2Sum,
-    MetricByTimePeriodAndLocationV2Mean,
-    MetricByTimePeriodV2Mean,
-    MetricByTimePeriodV2Sum,
-    MetricMapV2,
-)
 
 METRIC_PLOT_TYPES = {
     "metric_by_horizon_mean": MetricByHorizonV2Mean,

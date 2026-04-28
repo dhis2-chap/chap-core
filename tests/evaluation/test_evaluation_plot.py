@@ -7,16 +7,14 @@ import pytest
 from chap_core.assessment.metrics import CRPSMetric, RMSEMetric
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.tables import BackTestMetric
+from chap_core.assessment.metric_plots.horizon_location_mean import MetricByHorizonAndLocationMean
+from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
+from chap_core.assessment.metric_plots.metric_map import MetricMapV2
+from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
 from chap_core.plotting.evaluation_plot import (
-    MetricByHorizonV2Mean,
-    MetricMapV2,
-    RegionalMetricDistributionPlot,
     make_plot_from_backtest_object,
     make_plot_from_evaluation_object,
 )
-from chap_core.assessment.evaluation import Evaluation
-
-from chap_core.assessment.metric_plots.horizon_location_mean import MetricByHorizonAndLocationMean
 
 import altair as alt
 

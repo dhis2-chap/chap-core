@@ -3,7 +3,7 @@ import pandas as pd
 from chap_core.assessment.flat_representations import FlatMetric
 from chap_core.database.tables import BackTest, BackTestMetric
 from chap_core.assessment.metric_table import create_metric_table
-from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean
+from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
 
 
 def test_create_metric_table(backtest_metrics: list[BackTestMetric]):

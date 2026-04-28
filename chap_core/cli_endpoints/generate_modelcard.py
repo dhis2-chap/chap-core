@@ -1,4 +1,3 @@
-import importlib.metadata
 import json
 import logging
 from dataclasses import dataclass
@@ -9,8 +8,12 @@ import altair as alt
 import xarray as xr
 from cyclopts import Parameter
 
+from chap_core import __version__ as CHAP_VERSION
 from chap_core.assessment.backtest_plots import create_plot_from_evaluation
 from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metric_plots.metric_map import MetricMapV2
+from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
+from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
 from chap_core.assessment.metrics import (
     Coverage25_75Metric,
     CRPSNormMetric,
@@ -21,14 +24,7 @@ from chap_core.assessment.metrics import (
 from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
 from chap_core.database.tables import BackTest
 from chap_core.external.model_configuration import ModelTemplateConfigV2
-from chap_core.plotting.evaluation_plot import (
-    MetricByTimePeriodV2Mean,
-    MetricMapV2,
-    RegionalMetricDistributionPlot,
-    make_plot_from_evaluation_object,
-)
-
-CHAP_VERSION = importlib.metadata.version("chap-core")
+from chap_core.plotting.evaluation_plot import make_plot_from_evaluation_object
 
 MISSING = "More Information Needed"
 
