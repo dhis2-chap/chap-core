@@ -22,10 +22,17 @@ from chap_core.database.tables import (
     PredictionInfo,
     PredictionRead,
 )
-from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, FetchRequest
+from chap_core.rest_api.data_models import (
+    BackTestFull,
+    DatasetCreate,
+    DatasetMakeRequest,
+    FetchRequest,
+    MakePredictionRequest,
+    ModelConfigurationCreate,
+    ModelTemplateRead,
+)
 from chap_core.rest_api.app import app
-from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest, MakePredictionWithDataSourceRequest
-from chap_core.rest_api.v1.routers.crud import DatasetCreate, ModelConfigurationCreate, ModelTemplateRead
+from chap_core.rest_api.v1.routers.analytics import MakePredictionWithDataSourceRequest
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
