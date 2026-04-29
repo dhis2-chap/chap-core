@@ -17,6 +17,7 @@ from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, 
 from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.metrics_dashboard import MetricsDashboard
+from chap_core.assessment.backtest_plots.predicted_vs_actual_linear_plot import PredictedVsActualLinearPlot
 from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import PredictedVsActualPlot
 from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
@@ -103,6 +104,15 @@ def test_horizon_location_grid_directly(flat_observations, flat_forecasts_multip
 def test_predicted_vs_actual_plot_directly(flat_observations, flat_forecasts_multiple_samples, default_transformer):
     """Test the predicted vs actual scatter plot with multiple-sample forecasts."""
     plot = PredictedVsActualPlot()
+    chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
+    assert chart is not None
+
+
+def test_predicted_vs_actual_linear_plot_directly(
+    flat_observations, flat_forecasts_multiple_samples, default_transformer
+):
+    """Test the linear predicted vs actual scatter plot with multiple-sample forecasts."""
+    plot = PredictedVsActualLinearPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
     assert chart is not None
 
