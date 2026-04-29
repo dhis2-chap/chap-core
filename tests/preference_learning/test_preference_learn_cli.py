@@ -176,7 +176,7 @@ learning_rate:
 
         with patch("chap_core.cli_endpoints.preference_learn.discover_geojson") as mock_geojson:
             with patch("chap_core.cli_endpoints.preference_learn.load_dataset_from_csv") as mock_load:
-                with patch("chap_core.cli_endpoints.preference_learn.ModelTemplate") as mock_template:
+                with patch("chap_core.models.model_template.ModelTemplate") as mock_template:
                     mock_geojson.return_value = None
                     mock_load.return_value = MagicMock()
 

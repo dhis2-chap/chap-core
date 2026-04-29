@@ -16,7 +16,7 @@ def test_resolve_csv_path_url(tmp_path):
     csv_file = tmp_path / "data.csv"
     csv_file.write_text("a,b\n1,2\n")
 
-    with patch("chap_core.cli_endpoints._common.pooch.retrieve") as mock_retrieve:
+    with patch("pooch.retrieve") as mock_retrieve:
         mock_retrieve.side_effect = lambda url, **kwargs: (
             str(csv_file) if ".csv" in url else (_ for _ in ()).throw(Exception("not found"))
         )
@@ -40,7 +40,7 @@ def test_resolve_csv_path_url_with_geojson(tmp_path):
             return str(geojson_file)
         raise Exception("not found")
 
-    with patch("chap_core.cli_endpoints._common.pooch.retrieve", side_effect=mock_retrieve):
+    with patch("pooch.retrieve", side_effect=mock_retrieve):
         path, geojson = resolve_csv_path("https://example.com/data.csv")
 
     assert path == csv_file
