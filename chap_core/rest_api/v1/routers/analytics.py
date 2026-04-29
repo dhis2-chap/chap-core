@@ -3,7 +3,6 @@ from typing import Annotated, Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -17,7 +16,6 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
@@ -30,10 +28,15 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
     BackTestCreate,
+    BacktestDomain,
     BackTestRead,
+    ChapDataSource,
     DatasetMakeRequest,
     ImportSummaryResponse,
     JobResponse,
+    MakeBacktestRequest,
+    MakeBacktestWithDataRequest,
+    MakePredictionRequest,
     PredictionParams,
     ValidationError,
 )
@@ -43,21 +46,6 @@ router = APIRouter(prefix="/analytics")
 
 logger = logging.getLogger(__name__)
 worker: CeleryPool[Any] = CeleryPool()
-
-
-class EvaluationEntryRequest(BaseModel):
-    backtest_id: int
-    quantiles: list[Annotated[float, Field(ge=0, le=1)]]
-
-
-class MetaDataEntry(BaseModel):
-    element_id: str
-    element_name: str
-    feature_name: str
-
-
-class MetaData(BaseModel):
-    data_name_mapping: list[MetaDataEntry]
 
 
 @router.post("/make-dataset", response_model=ImportSummaryResponse, tags=["Datasets"])
@@ -221,11 +209,6 @@ def get_compatible_backtests(
     return backtests
 
 
-class BacktestDomain(DBModel):
-    org_units: list[str]
-    split_periods: list[str]
-
-
 @router.get("/backtest-overlap/{backtestId1}/{backtestId2}", response_model=BacktestDomain, tags=["Backtests"])
 def get_backtest_overlap(
     backtest_id1: Annotated[int, Path(alias="backtestId1")],
@@ -340,21 +323,6 @@ async def get_evaluation_entries(
         for forecast in forecasts_list
         for q in quantiles
     ]
-
-
-class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
-    meta_data: dict = {}
-
-
-class MakeBacktestRequest(BackTestParams):
-    name: str
-    model_id: str
-    dataset_id: int
-
-
-class MakeBacktestWithDataRequest(DatasetMakeRequest, BackTestParams):
-    name: str
-    model_id: str
 
 
 @router.post("/create-backtest", response_model=JobResponse, tags=["Backtests"])
@@ -532,14 +500,6 @@ async def get_actual_cases(
         data_list = [DataElement(pe=pe, ou="adm0", value=value) for pe, value in summed_values.items()]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(featureId="disease_cases", dhis2Id="disease_cases", data=data_list)
-
-
-class ChapDataSource(DBModel):
-    name: str
-    display_name: str
-    supported_features: list[str]
-    description: str
-    dataset: str
 
 
 data_sources = [

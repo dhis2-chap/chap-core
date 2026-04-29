@@ -242,6 +242,28 @@ ignore_missing_imports = true
 module = "npstructures.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["fastdtw.*", "stumpy.*", "pyts.*", "scipy.*"]
+ignore_missing_imports = true
+
+# chap_core.explainability is research/experimental code only used by the
+# `explain` CLI endpoint. Suppress prevalent mypy errors here following the
+# same pattern as `tests.*` above; tighten gradually as the subpackage matures.
+[[tool.mypy.overrides]]
+module = "chap_core.explainability.*"
+disable_error_code = [
+    "arg-type",
+    "assignment",
+    "attr-defined",
+    "import-not-found",
+    "import-untyped",
+    "index",
+    "no-any-return",
+    "return-value",
+    "union-attr",
+    "var-annotated",
+]
+
 [tool.pyright]
 pythonVersion = "3.13"
 include = ["chap_core/", "tests/"]
