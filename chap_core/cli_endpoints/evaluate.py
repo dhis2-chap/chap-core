@@ -1,13 +1,14 @@
 """Evaluation commands for CHAP CLI."""
 
+from __future__ import annotations
+
 import logging
-from pathlib import Path
+from pathlib import Path  # noqa: TC003 — used at runtime via cyclopts get_type_hints()
 from typing import TYPE_CHECKING, Annotated
 
 from cyclopts import Parameter
 
 from chap_core.api_types import BackTestParams, EstimatorMode, EstimatorOptions, RunConfig
-from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints._common import (
     discover_geojson,
     get_estimator,
@@ -15,13 +16,9 @@ from chap_core.cli_endpoints._common import (
     load_dataset_from_csv,
     resolve_csv_path,
 )
-from chap_core.external.ExtendedPredictor import ExtendedPredictor
-from chap_core.hpo.searcher import RandomSearcher
-from chap_core.log_config import initialize_logging
-from chap_core.models.model_template import ModelTemplate
-from chap_core.models.utils import CHAP_RUNS_DIR
 
 if TYPE_CHECKING:
+    from chap_core.external.ExtendedPredictor import ExtendedPredictor
     from chap_core.hpo.hpoModel import HpoModel
     from chap_core.models.external_model import ExternalModel
 
@@ -135,7 +132,13 @@ def eval_cmd(
             --model-configuration-yaml ./chap_core/hpo/config3.yaml --estimator-options.mode hpo \\
             --estimator_options.metric sensitivity
     """
+    from chap_core.assessment.evaluation import Evaluation
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
+    from chap_core.external.ExtendedPredictor import ExtendedPredictor
+    from chap_core.hpo.searcher import RandomSearcher
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.models.utils import CHAP_RUNS_DIR
 
     # The same can be done for backtest_params and run_config,
     # or have them depend on cyclopts

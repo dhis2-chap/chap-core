@@ -1,32 +1,19 @@
+from __future__ import annotations
+
+import functools
 import importlib.metadata
 import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Annotated, Any, cast
+from pathlib import Path  # noqa: TC003 — used at runtime via cyclopts get_type_hints()
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
-import altair as alt
-import xarray as xr
 from cyclopts import Parameter
 
-from chap_core.assessment.backtest_plots import create_plot_from_evaluation
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.metrics import (
-    Coverage25_75Metric,
-    CRPSNormMetric,
-    MAPEMetric,
-    RMSEMetric,
-    compute_all_aggregated_metrics_from_backtest,
-)
-from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
-from chap_core.database.tables import BackTest
-from chap_core.external.model_configuration import ModelTemplateConfigV2
-from chap_core.plotting.evaluation_plot import (
-    MetricByTimePeriodV2Mean,
-    MetricMapV2,
-    RegionalMetricDistributionPlot,
-    make_plot_from_evaluation_object,
-)
+if TYPE_CHECKING:
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.database.tables import BackTest
+    from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 CHAP_VERSION = importlib.metadata.version("chap-core")
 
@@ -34,12 +21,18 @@ MISSING = "More Information Needed"
 
 logger = logging.getLogger(__name__)
 
-PLACEHOLDER_METADATA_VALUES = {
-    "display_name": ModelTemplateMetaData.model_fields["display_name"].default,
-    "description": ModelTemplateMetaData.model_fields["description"].default,
-    "author_note": ModelTemplateMetaData.model_fields["author_note"].default,
-    "author": ModelTemplateMetaData.model_fields["author"].default,
-}
+
+@functools.cache
+def _placeholder_metadata_values() -> dict[str, str | None]:
+    """Defaults from ModelTemplateMetaData fields, used to detect un-edited placeholders."""
+    from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
+
+    return {
+        "display_name": ModelTemplateMetaData.model_fields["display_name"].default,
+        "description": ModelTemplateMetaData.model_fields["description"].default,
+        "author_note": ModelTemplateMetaData.model_fields["author_note"].default,
+        "author": ModelTemplateMetaData.model_fields["author"].default,
+    }
 
 
 @dataclass(frozen=True)
@@ -106,6 +99,8 @@ def format_author_assessed_status(status: str | None) -> str:
 def _safe_parse_model_info(model_info_json: str) -> ModelTemplateConfigV2 | None:
     if not model_info_json:
         return None
+    from chap_core.external.model_configuration import ModelTemplateConfigV2
+
     try:
         return ModelTemplateConfigV2.model_validate_json(model_info_json)
     except (ValueError, TypeError):
@@ -130,6 +125,8 @@ def _parse_model_config(model_config_raw: object) -> dict[str, Any]:
 
 
 def _load_dataset_attrs(evaluation_path: Path) -> dict[str, Any]:
+    import xarray as xr
+
     with xr.open_dataset(evaluation_path) as ds:
         raw_model_info = ds.attrs.get("model_info", "")
         model_info_json = raw_model_info if isinstance(raw_model_info, str) else ""
@@ -152,13 +149,29 @@ def _normalize_metadata_value(value: str | None, field_name: str) -> str | None:
     if not stripped_value:
         return None
 
-    if stripped_value == PLACEHOLDER_METADATA_VALUES.get(field_name):
+    if stripped_value == _placeholder_metadata_values().get(field_name):
         return None
 
     return stripped_value
 
 
 def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_path: Path | None) -> None:
+    import altair as alt
+
+    from chap_core.assessment.backtest_plots import create_plot_from_evaluation
+    from chap_core.assessment.metrics import (
+        Coverage25_75Metric,
+        CRPSNormMetric,
+        MAPEMetric,
+        RMSEMetric,
+    )
+    from chap_core.plotting.evaluation_plot import (
+        MetricByTimePeriodV2Mean,
+        MetricMapV2,
+        RegionalMetricDistributionPlot,
+        make_plot_from_evaluation_object,
+    )
+
     evaluation_plot = create_plot_from_evaluation("evaluation_plot", evaluation)
     evaluation_plot.save(output_dir / "eval_plot.png", scale_factor=2.0)
     evaluation_plot.save(output_dir / "eval_plot.html", scale_factor=2.0)
@@ -225,6 +238,8 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
 
 
 def _build_results_summary(backtest: BackTest) -> str:
+    from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
+
     metrics = compute_all_aggregated_metrics_from_backtest(backtest)
     return "\n".join(
         [
@@ -490,6 +505,7 @@ def generate_modelcard(
 
     Optionally generates MAP based plots showing aggregate RMSE and MAPE given a geojson file.
     """
+    from chap_core.assessment.evaluation import Evaluation
 
     logger.info(f"Generating Model Card from {evaluation_path}")
 
