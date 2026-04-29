@@ -1,27 +1,17 @@
 """Utility commands for CHAP CLI."""
 
+from __future__ import annotations
+
 import dataclasses
 import json
 import logging
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
-import numpy as np
-import pandas as pd
-import xarray as xr
-import yaml
 from cyclopts import Parameter
 
-from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.metrics import calculate_metrics
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.datatypes import FullData
-from chap_core.file_io.example_data_set import datasets
-from chap_core.log_config import initialize_logging
-from chap_core.models.utils import get_model_template_from_directory_or_github_url
-from chap_core.plotting.dataset_plot import get_dataset_plots_registry
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+if TYPE_CHECKING:
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +26,16 @@ def sanity_check_model(
     """
     Check that a model can be loaded, trained and used to make predictions
     """
+    import numpy as np
+    import yaml
+
+    from chap_core.assessment.dataset_splitting import train_test_generator
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.datatypes import FullData
+    from chap_core.file_io.example_data_set import datasets
+    from chap_core.models.utils import get_model_template_from_directory_or_github_url
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
     if dataset_path is None:
         dataset = datasets["hydromet_5_filtered"].load()
     else:
@@ -95,6 +95,8 @@ def test(**base_kwargs):
     """
     Simple test-command to check that the chap command works
     """
+    from chap_core.log_config import initialize_logging
+
     initialize_logging()
 
     logger.debug("Debug message")
@@ -102,6 +104,9 @@ def test(**base_kwargs):
 
 
 def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plot"):
+    from chap_core.plotting.dataset_plot import get_dataset_plots_registry
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
     registry = get_dataset_plots_registry()
     if plot_name not in registry:
         available = ", ".join(registry.keys())
@@ -143,6 +148,7 @@ def plot_backtest(
         create_plot_from_evaluation,
         get_backtest_plots_registry,
     )
+    from chap_core.assessment.evaluation import Evaluation
 
     registry = get_backtest_plots_registry()
     if plot_type not in registry:
@@ -181,6 +187,7 @@ def generate_pdf_report(input_file: Path, output_file: Path):
         input_file: Path to NetCDF file containing evaluation data (from eval)
         output_file: Path to output PDF file
     """
+    from chap_core.assessment.evaluation import Evaluation
     from chap_core.assessment.prediction_evaluator import generate_pdf_from_evaluation
 
     logger.info(f"Loading evaluation from {input_file}")
@@ -208,7 +215,11 @@ def export_metrics(
         output_file: Path to output CSV file
         metric_ids: Optional list of metric IDs to compute. If None, all metrics are computed at AGGREGATE level.
     """
-    from chap_core.assessment.metrics import available_metrics
+    import pandas as pd
+    import xarray as xr
+
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.assessment.metrics import available_metrics, calculate_metrics
 
     # All unified metrics support global aggregation
     all_metric_ids = list(available_metrics.keys())
