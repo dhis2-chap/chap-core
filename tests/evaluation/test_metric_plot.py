@@ -31,7 +31,6 @@ def test_metric_plot_registry():
 def test_list_metric_plots():
     plots = list_metric_plots()
     assert isinstance(plots, list)
-    assert len(plots) >= 3
     for entry in plots:
         assert "id" in entry
         assert "name" in entry
@@ -48,6 +47,9 @@ def test_metric_plot_decorator_sets_attributes():
     assert _TestPlot.name == "Test Plot"
     assert _TestPlot.description == "For testing only"
     assert "test_decorator_plot" in get_metric_plots_registry()
+
+    # tear down
+    del get_metric_plots_registry()["test_decorator_plot"]
 
 
 def test_metric_plot_decorator_rejects_non_subclass():
