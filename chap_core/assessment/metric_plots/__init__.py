@@ -33,9 +33,8 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING
 
-import altair as alt
-
 if TYPE_CHECKING:
+    import altair as alt
     import pandas as pd
 
 # Global registry for metric plots
