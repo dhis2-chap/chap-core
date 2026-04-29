@@ -35,8 +35,6 @@ from typing import TYPE_CHECKING
 
 import altair as alt
 
-alt.renderers.enable("browser")
-
 if TYPE_CHECKING:
     import pandas as pd
 
