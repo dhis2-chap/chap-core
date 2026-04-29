@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose force-restart restart chap-version
+.PHONY: clean coverage dist docs help install lint lint/flake8 regen-plot-help test-chapkit-compose force-restart restart chap-version
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -74,8 +74,8 @@ coverage: ## run tests with coverage reporting
 	@uv run coverage xml
 	@echo "Coverage report: htmlcov/index.html"
 
-docs: ## generate MkDocs HTML documentation
-	uv run mkdocs build
+docs: ## generate MkDocs HTML documentation (strict: warnings fail the build)
+	uv run mkdocs build --strict
 	@echo "Docs: site/index.html"
 
 dist: clean ## build source and wheel package
@@ -84,6 +84,9 @@ dist: clean ## build source and wheel package
 
 install: clean ## sync dependencies and install package in development mode
 	uv sync
+
+regen-plot-help: ## regenerate chap_core/cli_endpoints/generated_plot_ids.py from @backtest_plot decorators
+	@uv run python scripts/regenerate_plot_help.py
 
 force-restart: ## tear down, rebuild, and start docker compose from scratch (WIPES VOLUMES including chap-db)
 	docker compose -f compose.yml -f compose.chapkit.yml down -v && docker compose -f compose.yml -f compose.chapkit.yml build --no-cache && docker compose -f compose.yml -f compose.chapkit.yml up --remove-orphans

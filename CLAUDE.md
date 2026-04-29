@@ -14,3 +14,5 @@
 12. When writing tests, avoid creating new test data inline. Use existing fixtures from conftest.py files whenever possible. Only create new fixtures in conftest.py if testing edge cases not covered by existing fixtures. This improves test maintainability and reduces duplication.
 13. Never access private variables
 14. When creating Jira issues, always set at least one component
+15. When adding or removing a `@backtest_plot(...)` registration under `chap_core/assessment/backtest_plots/`, run `make regen-plot-help` and commit the regenerated `chap_core/cli_endpoints/generated_plot_ids.py`. The `tests/test_generated_plot_ids.py` lock-in test will fail otherwise.
+16. `chap_core/__init__.py` exposes `data`, `fetch`, `ModelTemplateInterface`, and `is_debug_mode` lazily via PEP 562 `__getattr__` to keep CLI startup fast. When adding a new public re-export at the package root, register it in the lazy table (`_LAZY_SUBMODULES` or `_LAZY_FROM`) rather than as an eager top-level import, and make sure the symbol is also reachable under `if TYPE_CHECKING:` so static type checkers still see it.

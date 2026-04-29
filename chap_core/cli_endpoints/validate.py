@@ -1,18 +1,22 @@
 """Validate commands for CHAP CLI."""
 
+from __future__ import annotations
+
 import itertools
 import json
 import logging
 import sys
-from pathlib import Path
-from typing import Annotated
+from pathlib import Path  # noqa: TC003 — used at runtime via cyclopts get_type_hints()
+from typing import TYPE_CHECKING, Annotated
 
-import pandas as pd
 from cyclopts import Parameter
 
 from chap_core.cli_endpoints._common import discover_geojson, load_dataset_from_csv
-from chap_core.models.model_template import ModelTemplate
-from chap_core.services.dataset_validation import ValidationIssue, validate_dataset
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from chap_core.services.dataset_validation import ValidationIssue
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +54,11 @@ def validate_cmd(
         chap validate --dataset-csv ./data/vietnam.csv \\
             --model-name https://github.com/dhis2-chap/minimalist_example_r
     """
+    import pandas as pd
+
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.services.dataset_validation import validate_dataset
+
     column_mapping = None
     if data_source_mapping is not None:
         logger.info(f"Loading column mapping from {data_source_mapping}")
