@@ -248,7 +248,7 @@ class SessionWrapper:
             merged_data = {**template_data, **configured_data}
             configured_models_data.append(merged_data)
 
-            # hack for hpo frontend
+            # hack for hpo frontend without touching database
             if configured_model.model_template.hpo_search_space is not None or True: 
                 hpo_data = merged_data.copy()
                 hpo_data["name"] = f'{merged_data["name"]}:hpo'
@@ -431,6 +431,41 @@ class SessionWrapper:
         if model_template is None:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
+
+    def get_model_template_with_code(self, model_template_id: int) -> ModelTemplate:
+        model_template_db = self.get_model_template(model_template_id)
+        if model_template_db.uses_chapkit:
+            # raise TypeError(
+            #     f"Model template {model_template_db.name} is a chapkit template. "
+            #     "Use ExternalChapkitModelTemplate instead of ModelTemplate."
+            # )
+            source_url = self._resolve_chapkit_live_source_url(
+                service_id=template_name,
+                stored_source_url=configured_model.model_template.source_url,
+                template=configured_model.model_template,
+            )
+            logger.info(f"Assuming chapkit model at {source_url}")
+            assert source_url is not None
+            return ExternalChapkitModelTemplate(source_url)
+
+        source_url = model_template_db.source_url
+        if source_url is None or model_template_db.name == "naive_model":
+            raise ValueError(
+                f"Model template {model_template_db.name} has no source_url, "
+                "so it cannot be converted into a ModelTemplate."
+            )
+        
+        ignore_env = (
+            model_template_db.name.startswith("chap_ewars") or model_template_db.name == "ewars_template"
+        ) # TODO: seems hacky, how to fix?
+        
+        return cast(
+            "ModelTemplate",
+            ModelTemplate.from_directory_or_github_url(
+                source_url,
+                ignore_env=ignore_env,
+            )
+        )
 
     def get_backtest_with_truth(self, backtest_id: int) -> BackTest:
         backtest = self.session.get(BackTest, backtest_id)

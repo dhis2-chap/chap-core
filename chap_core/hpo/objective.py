@@ -17,7 +17,7 @@ class Objective:
     def __init__(
         self,
         model_template: ModelTemplate,
-        backtest_params: BackTestParams,
+        backtest_params: BackTestParams | None = None,
         metric: str = "rmse",
         historical_context_years: int = 6,
         eval_output_dir: Path | None = None,
@@ -57,6 +57,9 @@ class Objective:
             model_template=model_template_db,
             configuration=configuration.model_dump() if configuration else {},
         )
+
+        if self.backtest_params is None:
+            self.backtest_params = BackTestParams()
 
         logger.info(
             f"Running backtest with {self.backtest_params.n_splits} splits, {self.backtest_params.n_periods} periods, stride {self.backtest_params.stride}"

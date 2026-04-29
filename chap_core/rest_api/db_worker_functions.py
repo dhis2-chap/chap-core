@@ -18,6 +18,10 @@ from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BackTestCreate, FetchRequest, PredictionParams
+from chap_core.hpo.hpoModel import HpoModel 
+from chap_core.hpo.objective import Objective
+from chap_core.hpo.searcher import RandomSearcher
+from chap_core.hpo.base import load_search_space_from_config
 
 # from chap_core.rest_api.v1.routers.crud import BackTestCreate
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
@@ -114,7 +118,27 @@ def run_backtest(
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
-    estimator = session.get_configured_model_with_code(configured_model.id)
+
+    # hpo logic
+    print("----------------------------------info:", info)
+    print("model_id:", info.model_id)
+    print("model template source:", configured_model.model_template.source_url)
+    if True or info.name is not None and "hpo" in info.name:
+        # template_db = configured_model.model_template
+        template = session.get_model_template_with_code(configured_model.model_template_id)
+        configuration = template.hpo_search_space 
+        # remove later
+        import yaml
+        with open("./chap_core/hpo/config3.yaml", encoding="utf-8") as f:
+            configuration = yaml.safe_load(f)
+        if configuration is None:
+            raise ValueError(f"Model template {template.name} deos not have hpo search space defined")
+        search_space = load_search_space_from_config(configuration)
+        objective = Objective(model_template=template)
+        estimator = HpoModel(searcher=RandomSearcher(2), objective=objective, model_configuration=search_space)
+    else:
+        estimator = session.get_configured_model_with_code(configured_model.id)
+    
     predictions_list = _backtest(
         estimator,
         dataset,
