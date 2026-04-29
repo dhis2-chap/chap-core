@@ -14,3 +14,4 @@
 12. When writing tests, avoid creating new test data inline. Use existing fixtures from conftest.py files whenever possible. Only create new fixtures in conftest.py if testing edge cases not covered by existing fixtures. This improves test maintainability and reduces duplication.
 13. Never access private variables
 14. When creating Jira issues, always set at least one component
+15. When adding or removing a `@backtest_plot(...)` registration under `chap_core/assessment/backtest_plots/`, run `make regen-plot-help` and commit the regenerated `chap_core/cli_endpoints/generated_plot_ids.py`. The `tests/test_generated_plot_ids.py` lock-in test will fail otherwise.

@@ -10,10 +10,14 @@ from typing import TYPE_CHECKING, Annotated
 
 from cyclopts import Parameter
 
+from chap_core.cli_endpoints.generated_plot_ids import BACKTEST_PLOT_IDS
+
 if TYPE_CHECKING:
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
+
+PLOT_TYPE_HELP = "Type of plot to generate. Available: " + ", ".join(f'"{plot_id}"' for plot_id in BACKTEST_PLOT_IDS)
 
 
 @dataclasses.dataclass
@@ -118,15 +122,6 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plo
     fig.show()
 
 
-def _get_plot_type_help() -> str:
-    """Generate help text listing available plot types from the registry."""
-    from chap_core.assessment.backtest_plots import list_backtest_plots
-
-    plots = list_backtest_plots()
-    plot_list = ", ".join(f'"{p["id"]}"' for p in plots)
-    return f"Type of plot to generate. Available: {plot_list}"
-
-
 def plot_backtest(
     input_file: Annotated[
         Path,
@@ -138,7 +133,7 @@ def plot_backtest(
     ],
     plot_type: Annotated[
         str,
-        Parameter(help=_get_plot_type_help()),
+        Parameter(help=PLOT_TYPE_HELP),
     ] = "metrics_dashboard",
 ):
     """
