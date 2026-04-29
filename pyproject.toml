@@ -36,7 +36,6 @@ dependencies = [
     "requests>=2.33.1",
     "rq>=2.6.0",
     "scikit-learn>=1.7.2",
-    "scipy>=1.17.1",
     "topojson>=1.10",
     "unidecode>=1.4.0",
     "uvicorn>=0.44.0",

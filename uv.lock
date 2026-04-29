@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = "==3.13.*"
 resolution-markers = [
     "platform_machine == 'ARM64' and sys_platform == 'win32'",
@@ -387,7 +387,6 @@ dependencies = [
     { name = "requests" },
     { name = "rq" },
     { name = "scikit-learn" },
-    { name = "scipy" },
     { name = "sqlmodel" },
     { name = "topojson" },
     { name = "unidecode" },
@@ -484,7 +483,6 @@ requires-dist = [
     { name = "requests", specifier = ">=2.33.1" },
     { name = "rq", specifier = ">=2.6.0" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
-    { name = "scipy", specifier = ">=1.17.1" },
     { name = "sqlmodel", specifier = ">=0.0.38" },
     { name = "stumpy", marker = "extra == 'explainability'", specifier = ">=1.14.1" },
     { name = "topojson", specifier = ">=1.10" },

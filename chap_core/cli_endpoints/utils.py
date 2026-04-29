@@ -113,16 +113,12 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plo
     fig.show()
 
 
-def _evaluation_compatible_plot_ids() -> list[str]:
-    """Plot IDs that can be rendered from a NetCDF Evaluation file (no covariates)."""
+def _get_plot_type_help() -> str:
+    """Generate help text listing available plot types from the registry."""
     from chap_core.assessment.backtest_plots import list_backtest_plots
 
-    return [p["id"] for p in list_backtest_plots() if not p["needs_covariates"]]
-
-
-def _get_plot_type_help() -> str:
-    """Generate help text listing plot types compatible with NetCDF Evaluation input."""
-    plot_list = ", ".join(f'"{pid}"' for pid in _evaluation_compatible_plot_ids())
+    plots = list_backtest_plots()
+    plot_list = ", ".join(f'"{p["id"]}"' for p in plots)
     return f"Type of plot to generate. Available: {plot_list}"
 
 
@@ -145,18 +141,13 @@ def plot_backtest(
     """
     from chap_core.assessment.backtest_plots import (
         create_plot_from_evaluation,
-        get_backtest_plot,
+        get_backtest_plots_registry,
     )
 
-    available_ids = _evaluation_compatible_plot_ids()
-    if plot_type not in available_ids:
-        plot_cls = get_backtest_plot(plot_type)
-        if plot_cls is not None and plot_cls.needs_covariates:
-            raise ValueError(
-                f"Plot '{plot_type}' requires covariate data which is not available "
-                f"from a NetCDF Evaluation file. Run it via the BackTest API instead."
-            )
-        raise ValueError(f"Unknown plot type: {plot_type}. Available: {', '.join(available_ids)}")
+    registry = get_backtest_plots_registry()
+    if plot_type not in registry:
+        available = ", ".join(registry.keys())
+        raise ValueError(f"Unknown plot type: {plot_type}. Available: {available}")
 
     logger.info(f"Loading evaluation from {input_file}")
     evaluation = Evaluation.from_file(input_file)

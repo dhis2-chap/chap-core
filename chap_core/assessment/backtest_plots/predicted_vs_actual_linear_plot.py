@@ -35,7 +35,6 @@ class PredictedVsActualLinearPlot(BacktestPlotBase):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
-        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
         merged = median_forecasts_joined_with_observations(forecasts, observations, by_horizon=True)
 
@@ -64,8 +63,6 @@ class PredictedVsActualLinearPlot(BacktestPlotBase):
             .encode(x="v:Q", y="v:Q")
         )
 
-        chart = alt.layer(scatter, identity_line).properties(
-            width="container", height=500, title="Predicted vs Actual"
-        )
+        chart = alt.layer(scatter, identity_line).properties(width="container", height=500, title="Predicted vs Actual")
 
         return chart  # type: ignore[no-any-return]

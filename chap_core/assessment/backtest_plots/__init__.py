@@ -53,9 +53,10 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 import altair as alt
-import pandas as pd
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from chap_core.database.tables import BackTest
 
 # Type alias for Altair chart types that plots can return
@@ -83,7 +84,6 @@ class BacktestPlotBase(ABC):
     name: str = ""
     description: str = ""
     needs_historical: bool = False
-    needs_covariates: bool = False
 
     @abstractmethod
     def plot(
@@ -91,7 +91,6 @@ class BacktestPlotBase(ABC):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
-        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
         """
         Generate the visualization from flat DataFrames.
@@ -106,10 +105,6 @@ class BacktestPlotBase(ABC):
         historical_observations : pd.DataFrame, optional
             Historical observations before split periods, with columns:
             location, time_period, disease_cases. Only provided if needs_historical=True.
-        covariates : pd.DataFrame, optional
-            Wide-format covariate observations with columns: location, time_period,
-            and one column per covariate (e.g. rainfall, mean_temperature, population).
-            Only provided if needs_covariates=True.
 
         Returns
         -------
@@ -123,7 +118,6 @@ def backtest_plot(
     name: str,
     description: str = "",
     needs_historical: bool = False,
-    needs_covariates: bool = False,
 ):
     """
     Decorator to register a backtest plot class.
@@ -138,10 +132,6 @@ def backtest_plot(
         Description of what the plot shows
     needs_historical : bool, optional
         Whether this plot needs historical observations for context.
-        Default is False.
-    needs_covariates : bool, optional
-        Whether this plot needs covariate observations (e.g. rainfall, mean_temperature).
-        Only available when creating from a BackTest object, not an Evaluation.
         Default is False.
 
     Example
@@ -164,7 +154,6 @@ def backtest_plot(
         cls.name = name
         cls.description = description
         cls.needs_historical = needs_historical
-        cls.needs_covariates = needs_covariates
 
         _backtest_plots_registry[plot_id] = cls
         return cls
@@ -216,37 +205,9 @@ def list_backtest_plots() -> list[dict]:
             "name": cls.name,
             "description": cls.description,
             "needs_historical": cls.needs_historical,
-            "needs_covariates": cls.needs_covariates,
         }
         for cls in _backtest_plots_registry.values()
     ]
-
-
-def _extract_covariates(backtest: BackTest) -> pd.DataFrame:
-    """Extract covariate observations from a backtest's dataset into a wide-format DataFrame.
-
-    Returns a DataFrame with columns: location, time_period, and one column per
-    covariate (e.g. rainfall, mean_temperature, population). Excludes disease_cases
-    since that's already provided as the observations DataFrame.
-
-    Returns an empty DataFrame if the dataset has no non-disease_cases observations.
-    """
-    if backtest.dataset is None:
-        return pd.DataFrame()
-    rows = [
-        {
-            "location": str(obs.org_unit),
-            "time_period": str(obs.period),
-            "feature": obs.feature_name,
-            "value": float(obs.value),
-        }
-        for obs in backtest.dataset.observations
-        if obs.feature_name and obs.feature_name != "disease_cases" and obs.value is not None
-    ]
-    if not rows:
-        return pd.DataFrame()
-    df = pd.DataFrame(rows)
-    return df.pivot_table(index=["location", "time_period"], columns="feature", values="value").reset_index()
 
 
 def create_plot_from_backtest(plot_id: str, backtest: BackTest) -> ChartType:
@@ -293,14 +254,9 @@ def create_plot_from_backtest(plot_id: str, backtest: BackTest) -> ChartType:
     if plot_cls.needs_historical and flat_data.historical_observations is not None:
         historical_df = flat_data.historical_observations  # type: ignore[assignment]
 
-    # Extract covariates if the plot needs them
-    covariates_df: pd.DataFrame | None = None
-    if plot_cls.needs_covariates:
-        covariates_df = _extract_covariates(backtest)
-
     # Create plot instance and generate chart
     plotter = plot_cls()
-    return plotter.plot(observations_df, forecasts_df, historical_df, covariates_df)
+    return plotter.plot(observations_df, forecasts_df, historical_df)
 
 
 def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
@@ -332,12 +288,6 @@ def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
         available = ", ".join(_backtest_plots_registry.keys())
         raise ValueError(f"Unknown plot type: {plot_id}. Available: {available}")
 
-    if plot_cls.needs_covariates:
-        raise ValueError(
-            f"Plot '{plot_id}' requires covariate data which is only available "
-            f"from BackTest objects (use create_plot_from_backtest instead)"
-        )
-
     flat_data = evaluation.to_flat()
 
     # Get flat DataFrames - FlatObserved/FlatForecasts are already DataFrames
@@ -359,7 +309,6 @@ def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
 def _discover_plots():
     """Import all plot modules to trigger decorator registration."""
     from chap_core.assessment.backtest_plots import (
-        covariate_importance_plot,
         evaluation_plot,
         horizon_location_grid,
         metrics_dashboard,

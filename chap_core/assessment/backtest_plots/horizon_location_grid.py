@@ -166,7 +166,6 @@ class HorizonLocationGridPlot(BacktestPlotBase):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
-        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
         flat_obs = FlatObserved(observations)
         flat_fc = FlatForecasts(forecasts)

@@ -13,7 +13,6 @@ from chap_core.assessment.backtest_plots import (
     create_plot_from_evaluation,
     BacktestPlotBase,
 )
-from chap_core.assessment.backtest_plots.covariate_importance_plot import CovariateImportancePlot
 from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods
 from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
 from chap_core.plotting.backtest_plot import clean_time
@@ -72,7 +71,6 @@ def test_list_backtest_plots():
         assert "name" in plot
         assert "description" in plot
         assert "needs_historical" in plot
-        assert "needs_covariates" in plot
 
 
 def test_evaluation_plot_directly(flat_observations, flat_forecasts, default_transformer):
@@ -116,32 +114,6 @@ def test_predicted_vs_actual_linear_plot_directly(
     """Test the linear predicted vs actual scatter plot with multiple-sample forecasts."""
     plot = PredictedVsActualLinearPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
-    assert chart is not None
-
-
-def test_covariate_importance_plot_directly(flat_observations, flat_forecasts, default_transformer):
-    """Test the covariate importance column chart with a small inline covariates DataFrame."""
-    covariates = pd.DataFrame(
-        {
-            "location": ["loc1", "loc1", "loc2", "loc2"],
-            "time_period": ["2023-W01", "2023-W02", "2023-W01", "2023-W02"],
-            "rainfall": [1.0, 4.0, 2.0, 8.0],
-            "mean_temperature": [25.0, 22.0, 28.0, 24.0],
-        }
-    )
-    plot = CovariateImportancePlot()
-    chart = plot.plot(
-        pd.DataFrame(flat_observations),
-        pd.DataFrame(flat_forecasts),
-        covariates=covariates,
-    )
-    assert chart is not None
-
-
-def test_covariate_importance_plot_handles_missing_covariates(flat_observations, flat_forecasts, default_transformer):
-    """Test the covariate importance plot returns a message chart when no covariates are passed."""
-    plot = CovariateImportancePlot()
-    chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts), covariates=None)
     assert chart is not None
 
 
@@ -214,20 +186,10 @@ def test_all_registered_plots_from_backtest(plot_id: str, _backtest: BackTest, d
     list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
 )
 def test_all_registered_plots_from_evaluation(plot_id: str, _backtest: BackTest, default_transformer, request):
-    """Test that all registered plots can be successfully generated from an Evaluation.
-
-    Plots that require covariate observations are not supported via Evaluation
-    (covariates only live on the BackTest dataset) — verify they raise instead.
-    """
-    plot_cls = get_backtest_plot(plot_id)
-    assert plot_cls is not None
+    """Test that all registered plots can be successfully generated from an Evaluation."""
     evaluation = Evaluation.from_backtest(request.getfixturevalue(_backtest))
-    if plot_cls.needs_covariates:
-        with pytest.raises(ValueError, match="requires covariate data"):
-            create_plot_from_evaluation(plot_id, evaluation)
-    else:
-        chart = create_plot_from_evaluation(plot_id, evaluation)
-        assert chart is not None
+    chart = create_plot_from_evaluation(plot_id, evaluation)
+    assert chart is not None
 
 
 def test_plot_backtest_cli(backtest: BackTest, tmp_path: Path, default_transformer):

@@ -47,7 +47,6 @@ class PredictedVsActualPlot(BacktestPlotBase):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
-        covariates: pd.DataFrame | None = None,
     ) -> ChartType:
         merged = median_forecasts_joined_with_observations(forecasts, observations, by_horizon=True)
         merged["log1p_predicted"] = np.log1p(merged["median_forecast"])
