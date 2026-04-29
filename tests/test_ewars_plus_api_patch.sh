@@ -19,4 +19,9 @@ docker run --rm \
   chap-core/ewars_plus_api:clim-617 \
   Rscript /home/app/tests/test_bind_rows_assembly.R
 
+echo "=== Running in-image regression test (test_idx_end_match.R) ==="
+docker run --rm \
+  chap-core/ewars_plus_api:clim-617 \
+  Rscript /home/app/tests/test_idx_end_match.R
+
 echo "=== ewars_plus_api patch smoke test PASSED ==="
