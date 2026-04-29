@@ -44,8 +44,27 @@ ewars_plus:
 
 `docker compose up -d ewars_plus` will build the image on first run.
 
+## Regression test
+
+`tests/test_bind_rows_assembly.R` exercises the assembly logic on synthetic
+per-year frames (no real CV needed). It asserts the old
+`foreach(.combine = rbind)` errors with the original message and the new
+`dplyr::bind_rows` produces the expected union-of-columns shape.
+
+Run the full smoke from the repo root:
+
+```sh
+tests/test_ewars_plus_api_patch.sh
+```
+
+which builds the image and runs the test inside it. The test is also baked
+into the image, so `docker run --rm chap-core/ewars_plus_api:clim-617
+Rscript /home/app/tests/test_bind_rows_assembly.R` works on the existing
+container too.
+
 ## Updating the upstream base
 
 If a new `maquins/ewars_plus_api` tag is published, update the `FROM` line in
-`Dockerfile` and re-test against the v3 Malawi reproduction payload (see
-CLIM-615 / CLIM-617 for details).
+`Dockerfile`, re-run `tests/test_ewars_plus_api_patch.sh`, and re-verify
+end-to-end against the Malawi reproduction payload (see CLIM-615 / CLIM-617
+for details).
