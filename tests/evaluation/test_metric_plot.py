@@ -1,5 +1,6 @@
 import altair as alt
 import pytest
+from pathlib import Path
 
 from chap_core.assessment.metric_plots import (
     MetricPlotBase,
@@ -59,10 +60,10 @@ def test_metric_plot_decorator_rejects_non_subclass():
 
 @pytest.mark.parametrize(
     "plot_cls",
-    [MetricByHorizonV2Mean, RegionalMetricDistributionPlot],
+    get_metric_plots_registry().values(),
 )
-def test_registered_plot_produces_chart(plot_cls, metric_data):
-    chart = plot_cls(metric_data).plot_from_df()
+def test_registered_plot_produces_chart(plot_cls, metric_data, dummy_geojson):
+    chart = plot_cls(metric_data, dummy_geojson).plot_from_df()
     assert chart is not None
 
 

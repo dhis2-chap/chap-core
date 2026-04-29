@@ -2,9 +2,14 @@ from typing import cast
 
 import altair as alt
 
-from chap_core.assessment.metric_plots import MetricPlotBase
+from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
 
 
+@metric_plot(
+    plot_id="metric_by_horizon_and_location_mean",
+    name="Horizon and Location Plot",
+    description="Shows the aggregated metric by both forecast horizon and location",
+)
 class MetricByHorizonAndLocationMean(MetricPlotBase):
     """Mean metric grouped by both horizon distance and location."""
 

@@ -2,9 +2,14 @@ from typing import cast
 
 import altair as alt
 
-from chap_core.assessment.metric_plots import MetricPlotBase
+from chap_core.assessment.metric_plots import MetricPlotBase, metric_plot
 
 
+@metric_plot(
+    plot_id="metric_by_time_period_and_location_mean",
+    name="Time Period and Location Plot",
+    description="Shows the aggregated metric by both time period and location",
+)
 class MetricByTimePeriodAndLocationV2Mean(MetricPlotBase):
     """Mean metric grouped by time period and location."""
 
