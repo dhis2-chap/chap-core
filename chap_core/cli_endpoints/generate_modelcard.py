@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Annotated, Any, cast
 
 from cyclopts import Parameter
 
-from chap_core import __version__ as CHAP_VERSION
 from chap_core.assessment.backtest_plots import create_plot_from_evaluation
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import (
@@ -172,11 +171,9 @@ def _normalize_metadata_value(value: str | None, field_name: str) -> str | None:
 def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_path: Path | None) -> None:
     import altair as alt
 
-    from chap_core.plotting.evaluation_plot import (
-        MetricByTimePeriodV2Mean,
-        MetricMapV2,
-        RegionalMetricDistributionPlot,
-    )
+    from chap_core.assessment.metric_plots.metric_map import MetricMapV2
+    from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
+    from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
 
     evaluation_plot = create_plot_from_evaluation("evaluation_plot", evaluation)
     evaluation_plot.save(output_dir / "eval_plot.png", scale_factor=2.0)
