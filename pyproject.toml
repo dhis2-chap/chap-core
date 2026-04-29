@@ -162,6 +162,9 @@ filterwarnings = [
     # Suppress ResourceWarnings from SQLAlchemy - connections are properly cleaned up
     # but Python's garbage collector complains about timing
     "ignore::ResourceWarning",
+    # gluonts.json prefers orjson/ujson and warns at import when neither is
+    # installed; chap-core does not exercise gluonts JSON I/O paths.
+    "ignore:Using `json`-module for json-handling:UserWarning:gluonts.json",
 ]
 markers = [
     "slow: marks tests as slow running",
