@@ -1,10 +1,11 @@
 """Evaluation commands for CHAP CLI."""
 
+from __future__ import annotations
+
 import logging
-from pathlib import Path
+from pathlib import Path  # noqa: TC003 — used at runtime via cyclopts get_type_hints()
 from typing import Annotated
 
-import yaml
 from cyclopts import Parameter
 from pydantic import BaseModel
 
@@ -13,9 +14,6 @@ from chap_core.cli_endpoints._common import (
     discover_geojson,
     load_dataset_from_csv,
 )
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.log_config import initialize_logging
-from chap_core.models.model_template import ModelTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +76,12 @@ def explain_lime(
     """
     Explain a model prediction by providing variable contribution weighting.
     """
+    import yaml
+
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.model_template import ModelTemplate
+
     # TODO: Fix too much printing in console when running
     logger.info(f"Evaluating model {model_path} using LIME")
 
