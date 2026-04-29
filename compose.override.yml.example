@@ -15,8 +15,11 @@ services:
     restart: unless-stopped
 
   # ewars plus
+  # Built locally from external_models/ewars_plus_api_patch/ which overlays
+  # the CLIM-617 get_preds bind_rows fix on top of maquins/ewars_plus_api:Upload.
   ewars_plus:
-    image: maquins/ewars_plus_api:Upload
+    build: ./external_models/ewars_plus_api_patch
+    image: chap-core/ewars_plus_api:clim-617
     container_name: ewars_plus
     ports:
       - "3288:3288"
