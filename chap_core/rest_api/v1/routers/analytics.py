@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal, overload
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
@@ -84,8 +84,14 @@ def make_dataset(
     return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejections)
 
 
-def _read_dataset(request):
+@overload
+def _read_dataset(request, *, dry_run: Literal[False] = False) -> tuple[list[str], DataSet]: ...
+@overload
+def _read_dataset(request, *, dry_run: bool) -> tuple[list[str], DataSet | None]: ...
+def _read_dataset(request, *, dry_run: bool = False) -> tuple[list[str], DataSet | None]:
     if not request.provided_data:
+        if dry_run:
+            return [], None
         raise HTTPException(status_code=400, detail="No observation data provided.")
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
@@ -122,14 +128,24 @@ def _find_locations_with_complete_covariates(
     return locations_to_keep, rejected_list
 
 
+@overload
 def _validate_full_dataset(
-    feature_names, provided_data, target_name="disease_cases"
-) -> tuple[DataSet, list[ValidationError]]:
+    feature_names, provided_data, target_name: str = "disease_cases", *, dry_run: Literal[False] = False
+) -> tuple[DataSet, list[ValidationError]]: ...
+@overload
+def _validate_full_dataset(
+    feature_names, provided_data, target_name: str = "disease_cases", *, dry_run: bool
+) -> tuple[DataSet | None, list[ValidationError]]: ...
+def _validate_full_dataset(
+    feature_names, provided_data, target_name="disease_cases", *, dry_run: bool = False
+) -> tuple[DataSet | None, list[ValidationError]]:
     n_locations = len(provided_data.locations())
     locations_to_keep, rejected_list = _find_locations_with_complete_covariates(
         provided_data, feature_names, target_name
     )
     if not locations_to_keep:
+        if dry_run:
+            return None, rejected_list
         raise HTTPException(
             status_code=400,
             detail={
@@ -583,8 +599,14 @@ async def create_backtest_with_data(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
-    feature_names, provided_data_processed = _read_dataset(request)
-    provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
+    feature_names, provided_data_processed = _read_dataset(request, dry_run=dry_run)
+    if provided_data_processed is None:
+        return ImportSummaryResponse(id=None, imported_count=0, rejected=[])
+    provided_data_processed, rejections = _validate_full_dataset(
+        feature_names, provided_data_processed, dry_run=dry_run
+    )
+    if provided_data_processed is None:
+        return ImportSummaryResponse(id=None, imported_count=0, rejected=rejections)
     backtest_params = BackTestParams(**request.model_dump())
     train_set, _ = train_test_generator(
         provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
