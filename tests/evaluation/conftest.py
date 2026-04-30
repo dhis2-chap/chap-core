@@ -7,7 +7,7 @@ import pytest
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.dataset_tables import DataSetWithObservations, Observation, DataSet
-from chap_core.database.tables import BackTestRead, OldBackTestRead, BackTestForecast, BackTest, BackTestMetric
+from chap_core.database.tables import BacktestRead, OldBacktestRead, BacktestForecast, Backtest, BacktestMetric
 from chap_core.simulation.naive_simulator import DatasetDimensions, AdditiveSimulator, BacktestSimulator
 
 
@@ -16,8 +16,8 @@ def data_folder():
     return Path(__file__).parent / "data"
 
 
-class BacktestOW(OldBackTestRead):
-    forecasts: list[BackTestForecast]
+class BacktestOW(OldBacktestRead):
+    forecasts: list[BacktestForecast]
 
 
 @pytest.fixture(autouse=True)
@@ -126,7 +126,7 @@ def dataset_weeks_large():
 @pytest.fixture
 def forecasts():
     return [
-        BackTestForecast(
+        BacktestForecast(
             id=t * 2 * 2 + loc * 2 + ls,
             backtest_id=1,
             period=f"2022-0{t + 1}",
@@ -144,7 +144,7 @@ def forecasts():
 @pytest.fixture
 def forecasts_weeks():
     return [
-        BackTestForecast(
+        BacktestForecast(
             id=t * 2 * 2 + loc * 2 + ls,
             backtest_id=1,
             period=f"2022W0{t + 1}",
@@ -167,7 +167,7 @@ def forecasts_weeks_large():
     with 100 samples per forecast for stress testing.
     """
     return [
-        BackTestForecast(
+        BacktestForecast(
             id=t * 20 + loc,
             backtest_id=1,
             period=periods_weeks_large[t],
@@ -183,13 +183,13 @@ def forecasts_weeks_large():
 
 @pytest.fixture
 def backtest(dataset, forecasts):
-    return BackTest(
+    return Backtest(
         id=1,
         dataset_id=dataset.id,
         dataset=dataset,
         model_id="Test Model",
         model_db_id=1,
-        name="Test BackTest",
+        name="Test Backtest",
         created=None,
         aggregate_metrics={},
         forecasts=forecasts,
@@ -199,13 +199,13 @@ def backtest(dataset, forecasts):
 
 @pytest.fixture
 def backtest_weeks(dataset_weeks, forecasts_weeks):
-    return BackTest(
+    return Backtest(
         id=1,
         dataset_id=dataset_weeks.id,
         dataset=dataset_weeks,
         model_id="Test Model",
         model_db_id=1,
-        name="Test BackTest",
+        name="Test Backtest",
         created=None,
         aggregate_metrics={},
         forecasts=forecasts_weeks,
@@ -216,13 +216,13 @@ def backtest_weeks(dataset_weeks, forecasts_weeks):
 @pytest.fixture
 def backtest_weeks_large(dataset_weeks_large, forecasts_weeks_large):
     """Large backtest with 5 years of weekly forecasts for 20 org units."""
-    return BackTest(
+    return Backtest(
         id=1,
         dataset_id=dataset_weeks_large.id,
         dataset=dataset_weeks_large,
         model_id="Test Model Large",
         model_db_id=1,
-        name="Large Test BackTest",
+        name="Large Test Backtest",
         created=None,
         aggregate_metrics={},
         forecasts=forecasts_weeks_large,
@@ -232,14 +232,14 @@ def backtest_weeks_large(dataset_weeks_large, forecasts_weeks_large):
 
 @pytest.fixture
 def backtest_empty(dataset):
-    """BackTest with no forecasts for edge case testing."""
-    return BackTest(
+    """Backtest with no forecasts for edge case testing."""
+    return Backtest(
         id=1,
         dataset_id=dataset.id,
         dataset=dataset,
         model_id="Test Model",
         model_db_id=1,
-        name="Empty Test BackTest",
+        name="Empty Test Backtest",
         created=None,
         aggregate_metrics={},
         forecasts=[],
@@ -252,7 +252,7 @@ def backtest_empty(dataset):
 @pytest.fixture
 def backtest_metrics(forecasts):
     return [
-        BackTestMetric(
+        BacktestMetric(
             id=forecast.id,
             backtest_id=forecast.backtest_id,
             metric_id="MAE",

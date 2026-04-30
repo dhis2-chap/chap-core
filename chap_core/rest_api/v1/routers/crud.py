@@ -42,7 +42,7 @@ from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 from chap_core.database.tables import (
-    BackTest,
+    Backtest,
     ConfiguredModelWithDataSource,
     ConfiguredModelWithDataSourceRead,
     ConfiguredModelWithDataSourceReadWithPredictions,
@@ -56,9 +56,9 @@ from chap_core.rest_api.experimental import api_experimental
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
-    BackTestCreate,
-    BackTestRead,
-    BackTestUpdate,
+    BacktestCreate,
+    BacktestRead,
+    BacktestUpdate,
     ConfiguredModelInfoRead,
     DataBaseResponse,
     DatasetCreate,
@@ -250,40 +250,40 @@ worker: CeleryPool[Any] = CeleryPool()
 # backtests
 
 
-@router.get("/backtests", response_model=list[BackTestRead], tags=["Backtests"])  # This should be called list
+@router.get("/backtests", response_model=list[BacktestRead], tags=["Backtests"])  # This should be called list
 async def get_backtests(session: Session = Depends(get_session)):
     """
     Returns a list of backtests/evaluations with only the id and name
     """
     backtests = session.exec(
-        select(BackTest).options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        select(Backtest).options(
+            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).all()
     return backtests
 
 
-@router_get("/backtests/{backtestId}/full", response_model=BackTest, tags=["Backtests"])
+@router_get("/backtests/{backtestId}/full", response_model=Backtest, tags=["Backtests"])
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     return backtest
 
 
-@router_get("/backtests/{backtestId}/info", response_model=BackTestRead, tags=["Backtests"])
+@router_get("/backtests/{backtestId}/info", response_model=BacktestRead, tags=["Backtests"])
 def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.exec(
-        select(BackTest)
-        .where(BackTest.id == backtest_id)
+        select(Backtest)
+        .where(Backtest.id == backtest_id)
         .options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).first()
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     return backtest
 
 
@@ -301,9 +301,9 @@ async def get_metrics_csv(
     path is scoped to `/metric/` so it can be extended to accept multiple
     evaluations later without a breaking change.
     """
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
 
     evaluation = Evaluation.from_backtest(backtest)
     df = compute_all_detailed_metrics(evaluation)
@@ -318,8 +318,8 @@ async def get_metrics_csv(
 
 
 @router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
-async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
-    # `BackTestCreate.model_id` accepts either the configured-model name
+async def create_backtest(backtest: BacktestCreate, database_url: str = Depends(get_database_url)):
+    # `BacktestCreate.model_id` accepts either the configured-model name
     # (what the DB column actually stores) or the integer primary key (what
     # most API clients reach for because that's what GET /v1/crud/configured-models
     # returns). The worker's run_backtest() normalises int -> name through
@@ -340,23 +340,23 @@ async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(
 async def delete_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     session.delete(backtest)
     session.commit()
     return {"message": "deleted"}
 
 
-@router.patch("/backtests/{backtestId}", response_model=BackTestRead, tags=["Backtests"])
+@router.patch("/backtests/{backtestId}", response_model=BacktestRead, tags=["Backtests"])
 async def update_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")],
-    backtest_update: BackTestUpdate,
+    backtest_update: BacktestUpdate,
     session: Session = Depends(get_session),
 ):
-    db_backtest = session.get(BackTest, backtest_id)
+    db_backtest = session.get(Backtest, backtest_id)
     if not db_backtest:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
 
     update_data = backtest_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -367,11 +367,11 @@ async def update_backtest(
 
     # Reload with eager loading to avoid lazy-load issues
     db_backtest = session.exec(
-        select(BackTest)
-        .where(BackTest.id == backtest_id)
+        select(Backtest)
+        .where(Backtest.id == backtest_id)
         .options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).first()
     return db_backtest
@@ -405,7 +405,7 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
             ) from None
 
     for backtest_id in backtest_ids_list:
-        backtest = session.get(BackTest, backtest_id)
+        backtest = session.get(Backtest, backtest_id)
         if backtest is not None:
             session.delete(backtest)
             deleted_count += 1
@@ -700,15 +700,15 @@ async def create_configured_model_with_data_source_from_backtest(
     session: Session = Depends(get_session),
 ):
     backtest = session.exec(
-        select(BackTest)
-        .where(BackTest.id == backtest_id)
+        select(Backtest)
+        .where(Backtest.id == backtest_id)
         .options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).first()
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
 
     dataset = backtest.dataset
     record = ConfiguredModelWithDataSource(

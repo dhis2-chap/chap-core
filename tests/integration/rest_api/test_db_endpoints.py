@@ -15,15 +15,15 @@ from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, 
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import (
-    BackTest,
-    BackTestRead,
+    Backtest,
+    BacktestRead,
     ConfiguredModelWithDataSource,
     Prediction,
     PredictionInfo,
     PredictionRead,
 )
 from chap_core.rest_api.data_models import (
-    BackTestFull,
+    BacktestFull,
     ConfiguredModelInfoRead,
     DatasetCreate,
     DatasetMakeRequest,
@@ -114,7 +114,7 @@ def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides
     dataset_response = client.get("/v1/crud/datasets")
 
     assert response.status_code == 200, response.json()
-    BackTestFull.model_validate(response.json())
+    BacktestFull.model_validate(response.json())
     split_period, org_units = None, []
     if do_filter:
         split_period = "2022W30"
@@ -337,7 +337,7 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
         session.commit()
 
         ds_id = dataset.id
-        backtest = BackTest(
+        backtest = Backtest(
             dataset_id=ds_id,
             name="testing",
             model_id="naive_model",
@@ -345,7 +345,7 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
             org_units=["Oslo", "Bergen"],
             split_periods=["202201", "202202"],
         )
-        matching = BackTest(
+        matching = Backtest(
             dataset_id=ds_id,
             name="testing2",
             model_id="chap_auto_ewars",
@@ -353,7 +353,7 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
             org_units=["Bergen", "Trondheim"],
             split_periods=["202202", "202203"],
         )
-        non_matching = BackTest(
+        non_matching = Backtest(
             dataset_id=ds_id,
             name="testing3",
             model_id="auto_regressive_monthly",
@@ -387,7 +387,7 @@ def test_list_configured_models_with_data_source_empty(clean_engine, dependency_
 
 
 def test_create_configured_model_with_data_source_from_backtest(override_session, seeded_session):
-    backtest = seeded_session.exec(select(BackTest)).first()
+    backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None, "seeded_session should contain a backtest"
     seeded_dataset = backtest.dataset
 
@@ -411,7 +411,7 @@ def test_create_configured_model_with_data_source_from_nonexistent_backtest(clea
 
 
 def test_get_configured_model_with_data_source_by_id_includes_predictions(override_session, seeded_session):
-    backtest = seeded_session.exec(select(BackTest)).first()
+    backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None, "seeded_session should contain a backtest"
 
     response = client.post(f"/v1/crud/configured-models-with-data-source/from-backtest/{backtest.id}")
@@ -637,7 +637,7 @@ def _check_backtest_with_data(request_payload, expected_rejections=None, dry_run
     db_id = await_result_id(job_id, timeout=180)
     response = client.get(f"/v1/crud/backtests/{db_id}/info")
     assert response.status_code == 200, response.json()
-    backtest_info = BackTestRead.model_validate(response.json())
+    backtest_info = BacktestRead.model_validate(response.json())
     assert len(backtest_info.dataset.data_sources) > 0, backtest_info.dataset
     assert len(backtest_info.dataset.org_units) > 0, backtest_info.dataset
     assert backtest_info.dataset.last_period is not None, backtest_info.dataset
@@ -710,10 +710,10 @@ def test_all_backtest_plots_via_api(override_session, seeded_session):
     assert len(plot_types) > 0, "No backtest plot types registered"
 
     # Get a backtest ID from the seeded database
-    from chap_core.database.tables import BackTest
+    from chap_core.database.tables import Backtest
     from sqlmodel import select
 
-    backtests = seeded_session.exec(select(BackTest)).all()
+    backtests = seeded_session.exec(select(Backtest)).all()
     assert len(backtests) > 0, "No backtests in seeded database"
     backtest_id = backtests[0].id
 

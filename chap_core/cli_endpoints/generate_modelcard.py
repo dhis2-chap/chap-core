@@ -12,7 +12,7 @@ from cyclopts import Parameter
 
 if TYPE_CHECKING:
     from chap_core.assessment.evaluation import Evaluation
-    from chap_core.database.tables import BackTest
+    from chap_core.database.tables import Backtest
     from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 CHAP_VERSION = importlib.metadata.version("chap-core")
@@ -237,7 +237,7 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
         mape_map_plot.save(output_dir / "mape_map.html", scale_factor=2.0)
 
 
-def _build_results_summary(backtest: BackTest) -> str:
+def _build_results_summary(backtest: Backtest) -> str:
     from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 
     metrics = compute_all_aggregated_metrics_from_backtest(backtest)

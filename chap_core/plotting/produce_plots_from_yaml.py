@@ -145,7 +145,7 @@ def build_from_yaml(yaml_str: str, backtest, **context):
     else:
         if backtest is None:
             raise ValueError(
-                "build_from_yaml: either provide a real BackTest or pass "
+                "build_from_yaml: either provide a real Backtest or pass "
                 "'flat_observations' and 'flat_forecasts' in context."
             )
         evaluation = Evaluation.from_backtest(backtest)
@@ -225,7 +225,7 @@ class DatasetStub:
         self.observations = observations
 
 
-class BackTestStub:
+class BacktestStub:
     def __init__(self, forecasts, dataset):
         self.forecasts = forecasts
         self.dataset = dataset

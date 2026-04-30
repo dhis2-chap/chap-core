@@ -29,7 +29,7 @@ import pytest
 import pandas as pd
 
 from chap_core.database.database import SessionWrapper
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 from chap_core.datatypes import SamplesWithTruth
 
 

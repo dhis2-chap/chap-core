@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from sqlmodel import select, Session
 
-from chap_core.database.tables import BackTest
-from chap_core.rest_api.data_models import BackTestFull
+from chap_core.database.tables import Backtest
+from chap_core.rest_api.data_models import BacktestFull
 from chap_core.rest_api.v1.routers.visualization import (
     get_available_metrics,
     generate_visualization,
@@ -33,7 +33,7 @@ def load_backtest():
         pytest.skip("Weird backtest data not available")
     json_data = json.load(open(path))
     print(json_data.keys())
-    return BackTestFull.model_validate(json_data)
+    return BacktestFull.model_validate(json_data)
 
 
 @pytest.fixture
@@ -74,7 +74,7 @@ def test_generate_backtest_plot(seeded_session, visualization_name="metrics_dash
 
 @pytest.fixture
 def backtest_ids(seeded_session):
-    backtests = seeded_session.exec(select(BackTest)).all()
+    backtests = seeded_session.exec(select(Backtest)).all()
     return [bt.id for bt in backtests]
 
 

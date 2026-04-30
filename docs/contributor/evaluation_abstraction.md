@@ -8,7 +8,7 @@ This document describes the proposed refactoring to create a database-agnostic E
 
 Currently, the codebase has two different approaches to handling model evaluations:
 
-1. **REST API**: Uses the `BackTest` database model (tied to SQLModel/database)
+1. **REST API**: Uses the `Backtest` database model (tied to SQLModel/database)
 2. **CLI**: Uses GluonTS Evaluator directly without database persistence
 
 This duplication leads to:
@@ -20,14 +20,14 @@ This duplication leads to:
 
 ### Database Model Structure
 
-The current BackTest implementation is defined in `chap_core/database/tables.py:39-47`:
+The current Backtest implementation is defined in `chap_core/database/tables.py:39-47`:
 
 ```python
-class BackTest(_BackTestRead, table=True):
+class Backtest(_BacktestRead, table=True):
     id: Optional[int] = Field(primary_key=True, default=None)
     dataset: DataSet = Relationship()
-    forecasts: List["BackTestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
-    metrics: List["BackTestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)
+    forecasts: List["BacktestForecast"] = Relationship(back_populates="backtest", cascade_delete=True)
+    metrics: List["BacktestMetric"] = Relationship(back_populates="backtest", cascade_delete=True)
     aggregate_metrics: Dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
@@ -35,11 +35,11 @@ class BackTest(_BackTestRead, table=True):
 
 **Key components:**
 
-1. **BackTestForecast** (`tables.py:113-118`): Stores individual forecast predictions
+1. **BacktestForecast** (`tables.py:113-118`): Stores individual forecast predictions
    - Fields: `period`, `org_unit`, `values` (samples), `last_train_period`, `last_seen_period`
    - One record per location-period-split combination
 
-2. **BackTestMetric** (`tables.py:121-137`): Deprecated, not used in new metric system
+2. **BacktestMetric** (`tables.py:121-137`): Deprecated, not used in new metric system
 
 3. **Related metadata**:
    - `org_units: List[str]` - evaluated locations
@@ -58,20 +58,20 @@ Location: `chap_core/rest_api/v1/routers/analytics.py` and `chap_core/rest_api/d
    └─> Queue worker: run_backtest()
        └─> Load dataset and configured model
        └─> Call _backtest() -> returns Iterable[DataSet[SamplesWithTruth]]
-       └─> session.add_evaluation_results() -> persists to BackTest table
+       └─> session.add_evaluation_results() -> persists to Backtest table
        └─> Returns backtest.id
 ```
 
 **Data Consumption:**
 
 1. **GET /evaluation-entry** (`analytics.py:217-284`):
-   - Queries BackTestForecast records
+   - Queries BacktestForecast records
    - Returns quantiles for specified split_period and org_units
    - Can aggregate to "adm0" level
 
 2. **Metric Computation** (`assessment/metrics/__init__.py:84-102`):
    ```python
-   def compute_all_aggregated_metrics_from_backtest(backtest: BackTest):
+   def compute_all_aggregated_metrics_from_backtest(backtest: Backtest):
        flat_forecasts = convert_backtest_to_flat_forecasts(backtest.forecasts)
        flat_observations = convert_backtest_observations_to_flat_observations(
            backtest.dataset.observations
@@ -83,7 +83,7 @@ Location: `chap_core/rest_api/v1/routers/analytics.py` and `chap_core/rest_api/d
 
 3. **Visualization** (`plotting/evaluation_plot.py:236-243`):
    ```python
-   def make_plot_from_backtest_object(backtest: BackTest, plotting_class, metric):
+   def make_plot_from_backtest_object(backtest: Backtest, plotting_class, metric):
        flat_forecasts = convert_backtest_to_flat_forecasts(backtest.forecasts)
        flat_observations = convert_backtest_observations_to_flat_observations(
            backtest.dataset.observations
@@ -92,7 +92,7 @@ Location: `chap_core/rest_api/v1/routers/analytics.py` and `chap_core/rest_api/d
        return plotting_class(metric_data).plot_spec()
    ```
 
-**Key Pattern**: BackTest DB object → Flat DataFrame representation → Metrics/Visualization
+**Key Pattern**: Backtest DB object → Flat DataFrame representation → Metrics/Visualization
 
 ### CLI Workflow
 
@@ -113,7 +113,7 @@ Location: `chap_core/cli.py:189-309` and `chap_core/assessment/prediction_evalua
 ```
 
 **Key Differences from REST API:**
-- No BackTest database model used
+- No Backtest database model used
 - Results stay in memory as Python dicts/tuples
 - Direct use of GluonTS evaluation
 - CSV export instead of database storage
@@ -149,8 +149,8 @@ region_A  | 2024-02     | 51.5
 
 **Conversion Functions:**
 
-1. `convert_backtest_to_flat_forecasts(backtest_forecasts: List[BackTestForecast])`:
-   - Converts BackTestForecast records to FlatForecasts DataFrame
+1. `convert_backtest_to_flat_forecasts(backtest_forecasts: List[BacktestForecast])`:
+   - Converts BacktestForecast records to FlatForecasts DataFrame
    - Calculates `horizon_distance` from period differences
    - Unpacks sample arrays into individual rows
 
@@ -190,8 +190,8 @@ This is the in-memory format returned by `_backtest()` and then persisted to dat
 │      ↓                                                        │
 │  session.add_evaluation_results()                            │
 │      ↓                                                        │
-│  BackTest (DB) ← ── ── stored in database                    │
-│      ├─> BackTestForecast records                            │
+│  Backtest (DB) ← ── ── stored in database                    │
+│      ├─> BacktestForecast records                            │
 │      └─> DataSet relationship                                │
 │      ↓                                                        │
 │  convert_backtest_to_flat_*()                                │
@@ -292,14 +292,14 @@ class EvaluationBase(ABC):
 
     @classmethod
     @abstractmethod
-    def from_backtest(cls, backtest: "BackTest") -> "EvaluationBase":
+    def from_backtest(cls, backtest: "Backtest") -> "EvaluationBase":
         """
-        Create Evaluation from database BackTest object.
+        Create Evaluation from database Backtest object.
 
         All implementations must support loading from database.
 
         Args:
-            backtest: Database BackTest object (with relationships loaded)
+            backtest: Database Backtest object (with relationships loaded)
 
         Returns:
             Evaluation instance
@@ -309,44 +309,44 @@ class EvaluationBase(ABC):
 
 ### Concrete Implementation: Evaluation
 
-Wraps existing BackTest database model to implement the abstract interface:
+Wraps existing Backtest database model to implement the abstract interface:
 
 ```python
 class Evaluation(EvaluationBase):
     """
-    Evaluation implementation backed by database BackTest model.
+    Evaluation implementation backed by database Backtest model.
 
-    This wraps an existing BackTest object and provides the
+    This wraps an existing Backtest object and provides the
     EvaluationBase interface without modifying the database schema.
     """
 
-    def __init__(self, backtest: BackTest):
+    def __init__(self, backtest: Backtest):
         """
         Args:
-            backtest: Database BackTest object
+            backtest: Database Backtest object
         """
         self._backtest = backtest
         self._flat_data_cache = None
 
     @classmethod
-    def from_backtest(cls, backtest: BackTest) -> "Evaluation":
+    def from_backtest(cls, backtest: Backtest) -> "Evaluation":
         """
-        Create Evaluation from database BackTest object.
+        Create Evaluation from database Backtest object.
 
         Args:
-            backtest: Database BackTest object (with relationships loaded)
+            backtest: Database Backtest object (with relationships loaded)
 
         Returns:
             Evaluation instance
         """
         return cls(backtest)
 
-    def to_backtest(self) -> BackTest:
+    def to_backtest(self) -> Backtest:
         """
-        Get underlying database BackTest object.
+        Get underlying database Backtest object.
 
         Returns:
-            BackTest database model
+            Backtest database model
         """
         return self._backtest
 
@@ -374,11 +374,11 @@ class Evaluation(EvaluationBase):
         return self._flat_data_cache
 
     def get_org_units(self) -> List[str]:
-        """Get locations from BackTest metadata."""
+        """Get locations from Backtest metadata."""
         return self._backtest.org_units
 
     def get_split_periods(self) -> List[str]:
-        """Get split periods from BackTest metadata."""
+        """Get split periods from Backtest metadata."""
         return self._backtest.split_periods
 ```
 
@@ -412,14 +412,14 @@ class InMemoryEvaluation(EvaluationBase):
         self._split_periods = split_periods
 
     @classmethod
-    def from_backtest(cls, backtest: BackTest) -> "InMemoryEvaluation":
+    def from_backtest(cls, backtest: Backtest) -> "InMemoryEvaluation":
         """
-        Create InMemoryEvaluation from database BackTest object.
+        Create InMemoryEvaluation from database Backtest object.
 
         Converts database representation to in-memory format.
 
         Args:
-            backtest: Database BackTest object (with relationships loaded)
+            backtest: Database Backtest object (with relationships loaded)
 
         Returns:
             InMemoryEvaluation instance
@@ -479,18 +479,18 @@ class InMemoryEvaluation(EvaluationBase):
         """Return stored split_periods."""
         return self._split_periods
 
-    def to_backtest(self, session: SessionWrapper, info: BackTestCreate) -> BackTest:
+    def to_backtest(self, session: SessionWrapper, info: BacktestCreate) -> Backtest:
         """
-        Persist to database as BackTest.
+        Persist to database as Backtest.
 
         Args:
             session: Database session wrapper
-            info: Metadata for creating BackTest record
+            info: Metadata for creating Backtest record
 
         Returns:
-            Persisted BackTest object
+            Persisted Backtest object
         """
-        # Convert flat representations to BackTest structure
+        # Convert flat representations to Backtest structure
         # (implementation details omitted for brevity)
         pass
 ```
@@ -528,7 +528,7 @@ split_periods = evaluation.get_split_periods()
 
 ```python
 # Current approach
-def make_plot_from_backtest_object(backtest: BackTest, metric):
+def make_plot_from_backtest_object(backtest: Backtest, metric):
     flat_forecasts = convert_backtest_to_flat_forecasts(backtest.forecasts)
     flat_observations = convert_backtest_observations_to_flat_observations(
         backtest.dataset.observations
@@ -651,7 +651,7 @@ results_cli, results_db = compare_evaluations(eval_from_cli, eval1)
 ┌───────────────┴──────────────┐  ┌──────────┴────────────────────┐
 │   Evaluation         │  │   InMemoryEvaluation          │
 ├──────────────────────────────┤  ├───────────────────────────────┤
-│  - _backtest: BackTest       │  │  - _flat_data:                │
+│  - _backtest: Backtest       │  │  - _flat_data:                │
 │  - _flat_data_cache          │  │      FlatEvaluationData       │
 │                              │  │  - _org_units: List[str]      │
 │                              │  │  - _split_periods: List[str]  │
@@ -666,7 +666,7 @@ results_cli, results_db = compare_evaluations(eval_from_cli, eval1)
          │ wraps                             │ stores
          ▼                                   ▼
 ┌──────────────────────────────┐  ┌───────────────────────────────┐
-│  BackTest (DB Model)         │  │  FlatEvaluationData           │
+│  Backtest (DB Model)         │  │  FlatEvaluationData           │
 │  + forecasts: List[...]      │  │  (in-memory)                  │
 │  + dataset: DataSet          │  │                               │
 │  + org_units: List[str]      │  │                               │
@@ -683,7 +683,7 @@ results_cli, results_db = compare_evaluations(eval_from_cli, eval1)
 3. **Flexibility**: Easy to add new implementations (e.g., for different storage backends, remote APIs, etc.)
 
 4. **Migration Path**: Can introduce gradually without breaking existing code:
-   - Start with Evaluation wrapping existing BackTest
+   - Start with Evaluation wrapping existing Backtest
    - Update visualization/metrics to accept EvaluationBase
    - Later add InMemoryEvaluation for CLI
    - Eventually unify REST API and CLI workflows
@@ -737,16 +737,16 @@ The implementation will be done in phases to minimize risk and allow for increme
    - Abstract classmethod: `from_backtest(backtest) -> EvaluationBase`
 
 3. **`Evaluation`** (concrete implementation):
-   - Constructor: `__init__(self, backtest: BackTest)`
+   - Constructor: `__init__(self, backtest: Backtest)`
    - Classmethod: `from_backtest(backtest) -> Evaluation`
-   - Method: `to_backtest() -> BackTest` (return wrapped object)
+   - Method: `to_backtest() -> Backtest` (return wrapped object)
    - Method: `to_flat() -> FlatEvaluationData` (with caching)
    - Method: `get_org_units() -> List[str]`
    - Method: `get_split_periods() -> List[str]`
 
 **Testing**:
 - Create `tests/test_evaluation.py`
-- Test `Evaluation.from_backtest()` with mock BackTest
+- Test `Evaluation.from_backtest()` with mock Backtest
 - Test `to_flat()` returns correct types and data
 - Test metadata accessors work correctly
 - Verify conversion matches existing `convert_backtest_to_flat_*()` functions
@@ -760,7 +760,7 @@ The implementation will be done in phases to minimize risk and allow for increme
 
 **Success Criteria**:
 - All tests pass
-- Can create `Evaluation` from database `BackTest` object
+- Can create `Evaluation` from database `Backtest` object
 - Can convert to flat representations correctly
 - Code is documented with docstrings
 - No existing code is modified
@@ -825,11 +825,11 @@ The implementation will be done in phases to minimize risk and allow for increme
    - Backtest is already established in codebase
 
 2. **Aggregate Metrics**: Should EvaluationBase include `get_aggregate_metrics()`?
-   - Pro: Matches BackTest schema which has `aggregate_metrics` field
+   - Pro: Matches Backtest schema which has `aggregate_metrics` field
    - Con: Metrics should be computed on-demand, not stored in evaluation
 
 3. **Model Information**: Should Evaluation include model configuration?
-   - Currently BackTest has `model_db_id` and `configured_model` relationship
+   - Currently Backtest has `model_db_id` and `configured_model` relationship
    - For database-agnostic design, should this be optional metadata?
 
 4. **Serialization**: Should we add methods like `to_json()`, `from_json()`?
@@ -845,7 +845,7 @@ The implementation will be done in phases to minimize risk and allow for increme
 
 Key files that would be affected by this refactoring:
 
-- `chap_core/database/tables.py` - BackTest model (unchanged, wrapped by Evaluation)
+- `chap_core/database/tables.py` - Backtest model (unchanged, wrapped by Evaluation)
 - `chap_core/assessment/flat_representations.py` - Conversion functions (reused by implementations)
 - `chap_core/assessment/metrics/` - Metric computation (updated to accept EvaluationBase)
 - `chap_core/plotting/evaluation_plot.py` - Visualization (updated to accept EvaluationBase)

@@ -22,7 +22,7 @@ from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import Predict
 from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import plot_backtest
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 
 
 @pytest.fixture(scope="module")
@@ -175,8 +175,8 @@ def test_evaluation_plot_monthly_data(default_transformer):
     "plot_id, _backtest",
     list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
 )
-def test_all_registered_plots_from_backtest(plot_id: str, _backtest: BackTest, default_transformer, request):
-    """Test that all registered plots can be successfully generated from a BackTest."""
+def test_all_registered_plots_from_backtest(plot_id: str, _backtest: Backtest, default_transformer, request):
+    """Test that all registered plots can be successfully generated from a Backtest."""
     chart = create_plot_from_backtest(plot_id, request.getfixturevalue(_backtest))
     assert chart is not None
 
@@ -185,14 +185,14 @@ def test_all_registered_plots_from_backtest(plot_id: str, _backtest: BackTest, d
     "plot_id, _backtest",
     list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
 )
-def test_all_registered_plots_from_evaluation(plot_id: str, _backtest: BackTest, default_transformer, request):
+def test_all_registered_plots_from_evaluation(plot_id: str, _backtest: Backtest, default_transformer, request):
     """Test that all registered plots can be successfully generated from an Evaluation."""
     evaluation = Evaluation.from_backtest(request.getfixturevalue(_backtest))
     chart = create_plot_from_evaluation(plot_id, evaluation)
     assert chart is not None
 
 
-def test_plot_backtest_cli(backtest: BackTest, tmp_path: Path, default_transformer):
+def test_plot_backtest_cli(backtest: Backtest, tmp_path: Path, default_transformer):
     """Test the CLI plot_backtest function."""
     evaluation = Evaluation.from_backtest(backtest)
     input_file = tmp_path / "evaluation.nc"
@@ -205,7 +205,7 @@ def test_plot_backtest_cli(backtest: BackTest, tmp_path: Path, default_transform
     assert output_file.stat().st_size > 0
 
 
-def test_eval_cmd_plot_flag(backtest: BackTest, tmp_path: Path, default_transformer):
+def test_eval_cmd_plot_flag(backtest: Backtest, tmp_path: Path, default_transformer):
     """Test that eval_cmd's plot flag generates an HTML plot file."""
     from chap_core.assessment.backtest_plots import create_plot_from_evaluation
 
@@ -221,7 +221,7 @@ def test_eval_cmd_plot_flag(backtest: BackTest, tmp_path: Path, default_transfor
     assert plot_path.stat().st_size > 0
 
 
-def test_generate_pdf_report(backtest: BackTest, tmp_path: Path):
+def test_generate_pdf_report(backtest: Backtest, tmp_path: Path):
     from chap_core.cli_endpoints.utils import generate_pdf_report
 
     evaluation = Evaluation.from_backtest(backtest)
