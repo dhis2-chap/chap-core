@@ -10,20 +10,6 @@ from typing import TYPE_CHECKING, Annotated, Any, cast
 
 from cyclopts import Parameter
 
-from chap_core.assessment.backtest_plots import create_plot_from_evaluation
-from chap_core.assessment.evaluation import Evaluation
-from chap_core.assessment.metrics import (
-    Coverage25_75Metric,
-    CRPSNormMetric,
-    MAPEMetric,
-    RMSEMetric,
-    compute_all_aggregated_metrics_from_backtest,
-)
-from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
-from chap_core.database.tables import BackTest
-from chap_core.external.model_configuration import ModelTemplateConfigV2
-from chap_core.plotting.evaluation_plot import make_plot_from_evaluation_object
-
 if TYPE_CHECKING:
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.database.tables import BackTest
@@ -39,6 +25,7 @@ logger = logging.getLogger(__name__)
 @functools.cache
 def _placeholder_metadata_values() -> dict[str, str | None]:
     """Defaults from ModelTemplateMetaData fields, used to detect un-edited placeholders."""
+    from chap_core.database.model_templates_and_config_tables import ModelTemplateMetaData
 
     return {
         "display_name": ModelTemplateMetaData.model_fields["display_name"].default,
@@ -171,9 +158,17 @@ def _normalize_metadata_value(value: str | None, field_name: str) -> str | None:
 def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_path: Path | None) -> None:
     import altair as alt
 
+    from chap_core.assessment.backtest_plots import create_plot_from_evaluation
     from chap_core.assessment.metric_plots.metric_map import MetricMapV2
     from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
     from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
+    from chap_core.assessment.metrics import (
+        Coverage25_75Metric,
+        CRPSNormMetric,
+        MAPEMetric,
+        RMSEMetric,
+    )
+    from chap_core.plotting.evaluation_plot import make_plot_from_evaluation_object
 
     evaluation_plot = create_plot_from_evaluation("evaluation_plot", evaluation)
     evaluation_plot.save(output_dir / "eval_plot.png", scale_factor=2.0)
@@ -241,6 +236,8 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
 
 
 def _build_results_summary(backtest: BackTest) -> str:
+
+    from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 
     metrics = compute_all_aggregated_metrics_from_backtest(backtest)
     return "\n".join(

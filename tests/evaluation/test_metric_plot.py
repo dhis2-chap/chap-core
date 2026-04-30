@@ -37,7 +37,12 @@ def test_list_metric_plots():
         assert "description" in entry
 
 
-def test_metric_plot_decorator_sets_attributes():
+def test_metric_plot_decorator_sets_attributes(monkeypatch):
+    import chap_core.assessment.metric_plots as _mp
+
+    isolated_registry: dict = {}
+    monkeypatch.setattr(_mp, "_metric_plots_registry", isolated_registry)
+
     @metric_plot(plot_id="test_decorator_plot", name="Test Plot", description="For testing only")
     class _TestPlot(MetricPlotBase):
         def plot_from_df(self, title: str = "") -> alt.Chart:
@@ -47,9 +52,6 @@ def test_metric_plot_decorator_sets_attributes():
     assert _TestPlot.name == "Test Plot"
     assert _TestPlot.description == "For testing only"
     assert "test_decorator_plot" in get_metric_plots_registry()
-
-    # tear down
-    del get_metric_plots_registry()["test_decorator_plot"]
 
 
 def test_metric_plot_decorator_rejects_non_subclass():
