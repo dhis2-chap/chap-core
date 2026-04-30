@@ -18,7 +18,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 from chap_core.datatypes import HealthPopulationData
 from chap_core.external.model_configuration import (
     CommandConfig,
@@ -27,7 +27,7 @@ from chap_core.external.model_configuration import (
     ModelTemplateConfigV2,
 )
 from chap_core.models.external_model import ExternalModel
-from chap_core.rest_api.data_models import BackTestCreate
+from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest, run_prediction
 from chap_core.testing.testing import assert_dataset_equal
 
@@ -69,9 +69,9 @@ def test_backtest(engine_with_dataset):
     with Session(engine_with_dataset) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
     with SessionWrapper(engine_with_dataset) as session:
-        res = run_backtest(BackTestCreate(model_id="naive_model", dataset_id=dataset_id), 12, 2, 1, session=session)
+        res = run_backtest(BacktestCreate(model_id="naive_model", dataset_id=dataset_id), 12, 2, 1, session=session)
     with Session(engine_with_dataset) as session:
-        backtests = session.exec(select(BackTest)).all()
+        backtests = session.exec(select(Backtest)).all()
         assert len(backtests) == 1
         backtest = backtests[0]
         assert backtest.dataset_id == dataset_id

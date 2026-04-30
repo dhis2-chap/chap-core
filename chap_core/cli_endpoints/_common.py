@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     import pandas as pd
 
-    from chap_core.api_types import BackTestParams
+    from chap_core.api_types import BacktestParams
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.hpo.hpoModel import HpoModel
     from chap_core.hpo.searcher import Searcher
@@ -249,7 +249,7 @@ def get_estimator(
 def get_hpo_estimator(
     template: ModelTemplate,
     model_configuration_yaml: Path | None,
-    backtest_params: BackTestParams,
+    backtest_params: BacktestParams,
     metric: str,
     searcher: Searcher | None = None,
 ) -> HpoModel:

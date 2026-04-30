@@ -7,7 +7,7 @@ import yaml
 
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import available_metrics
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 from chap_core.plotting.evaluation_plot import (
     MetricByHorizonAndLocationMean,
     MetricByHorizonV2Mean,
@@ -151,14 +151,14 @@ def _build_plot_component(comp: dict, context: dict):
     return text_chart(f"Unknown plot kind: {comp_type}", line_length=60)
 
 
-def build_from_yaml(yaml_str: str, backtest: BackTest, **context):
+def build_from_yaml(yaml_str: str, backtest: Backtest, **context):
     configuration = yaml.safe_load(yaml_str)
 
     title = configuration.get("title")
     rows_spec = configuration.get("configuration", [])
 
     if backtest is None:
-        raise ValueError("build_from_yaml requires a real BackTest object.")
+        raise ValueError("build_from_yaml requires a real Backtest object.")
 
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()

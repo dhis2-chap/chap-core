@@ -145,6 +145,6 @@ Step-by-step walkthrough of what happens when `Evaluation.create()` is called (e
 4. For each test split, the predictor generates samples and they are **merged with ground truth** into `SamplesWithTruth` objects
 5. Back in `create()`, **`train_test_generator()`** is called again to determine the last training period
 6. **`from_samples_with_truth()`** assembles an `Evaluation` object containing:
-     - `BackTest` with all forecasts and observations
+     - `Backtest` with all forecasts and observations
      - Historical observations for plotting context
 7. The `Evaluation` can then be **exported** to NetCDF, used for metric computation, or visualized

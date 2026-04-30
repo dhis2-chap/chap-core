@@ -14,10 +14,10 @@ from chap_core.assessment.representations import (
     Samples,
 )
 from chap_core.database.dataset_tables import ObservationBase
-from chap_core.database.tables import BackTestForecast
+from chap_core.database.tables import BacktestForecast
 
 
-def convert_to_multi_location_forecast(backTestList: list[BackTestForecast]) -> dict[str, MultiLocationForecast]:
+def convert_to_multi_location_forecast(backTestList: list[BacktestForecast]) -> dict[str, MultiLocationForecast]:
     # Group samples by location
     all_splitpoint_timeseries = {}
     backTestList = sorted(backTestList, key=lambda x: x.last_seen_period)
@@ -28,7 +28,7 @@ def convert_to_multi_location_forecast(backTestList: list[BackTestForecast]) -> 
     return all_splitpoint_timeseries
 
 
-def convert_single_splitpoint_to_multi_location_forecast(backTestList: list[BackTestForecast]) -> MultiLocationForecast:
+def convert_single_splitpoint_to_multi_location_forecast(backTestList: list[BacktestForecast]) -> MultiLocationForecast:
     location_forecasts: dict[str, list[Samples]] = defaultdict(list)
     for forecast in backTestList:
         location_key = str(forecast.org_unit)  # Or use forecast.backtest.location if available

@@ -57,7 +57,7 @@ import altair as alt
 if TYPE_CHECKING:
     import pandas as pd
 
-    from chap_core.database.tables import BackTest
+    from chap_core.database.tables import Backtest
 
 # Type alias for Altair chart types that plots can return
 ChartType = alt.Chart | alt.VConcatChart | alt.FacetChart | alt.LayerChart | alt.HConcatChart
@@ -210,18 +210,18 @@ def list_backtest_plots() -> list[dict]:
     ]
 
 
-def create_plot_from_backtest(plot_id: str, backtest: BackTest) -> ChartType:
+def create_plot_from_backtest(plot_id: str, backtest: Backtest) -> ChartType:
     """
-    Create a plot from a BackTest object.
+    Create a plot from a Backtest object.
 
-    This function handles conversion from BackTest to flat DataFrames and
+    This function handles conversion from Backtest to flat DataFrames and
     instantiates the appropriate plot class.
 
     Parameters
     ----------
     plot_id : str
         The unique identifier of the plot to create
-    backtest : BackTest
+    backtest : Backtest
         The backtest object containing forecast and observation data
 
     Returns
@@ -241,7 +241,7 @@ def create_plot_from_backtest(plot_id: str, backtest: BackTest) -> ChartType:
         available = ", ".join(_backtest_plots_registry.keys())
         raise ValueError(f"Unknown plot type: {plot_id}. Available: {available}")
 
-    # Convert BackTest to flat DataFrames via Evaluation
+    # Convert Backtest to flat DataFrames via Evaluation
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()
 

@@ -80,7 +80,7 @@ class EvaluationEntry(PredictionEntry):
     splitPeriod: str
 
 
-class BackTestParams(DBModel):
+class BacktestParams(DBModel):
     n_periods: int = 3
     n_splits: int = 7
     stride: int = 1

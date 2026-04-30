@@ -14,7 +14,7 @@ from chap_core.assessment.backtest_plots import (
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSet
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 from chap_core.plotting.dataset_plot import create_plot_from_dataset, get_dataset_plots_registry, list_dataset_plots
 from chap_core.plotting.evaluation_plot import (
     MetricByHorizonV2Mean,
@@ -80,7 +80,7 @@ def get_available_metrics(backtest_id: int):
 def generate_visualization(
     visualization_name: str, backtest_id: int, metric_id: str, session: Session = Depends(get_session)
 ):
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.get(Backtest, backtest_id)
     if not backtest:
         return {"error": "Backtest not found"}
 
@@ -127,17 +127,17 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
     return JSONResponse(chart)
 
 
-class BackTestPlotType(DBModel):
+class BacktestPlotType(DBModel):
     id: str
     display_name: str
     description: str = ""
 
 
-@router.get("/backtest-plots/", response_model=list[BackTestPlotType])
+@router.get("/backtest-plots/", response_model=list[BacktestPlotType])
 def list_backtest_plot_types():
     plots = list_backtest_plots()
     return [
-        BackTestPlotType(id=plot["id"], display_name=plot["name"], description=plot["description"]) for plot in plots
+        BacktestPlotType(id=plot["id"], display_name=plot["name"], description=plot["description"]) for plot in plots
     ]
 
 
@@ -148,7 +148,7 @@ def generate_backtest_plots(visualization_name: str, backtest_id: int, session: 
         available = ", ".join(registry.keys())
         return {"error": f"Visualization {visualization_name} not found. Available: {available}"}
 
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.get(Backtest, backtest_id)
     if not backtest:
         return {"error": "Backtest not found"}
 

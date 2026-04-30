@@ -59,7 +59,7 @@ class TestEvaluation:
         assert isinstance(evaluation, EvaluationBase)
 
     def test_to_backtest_returns_wrapped_object(self, backtest):
-        """Test that to_backtest returns the original BackTest object."""
+        """Test that to_backtest returns the original Backtest object."""
         evaluation = Evaluation.from_backtest(backtest)
 
         result = evaluation.to_backtest()
@@ -67,7 +67,7 @@ class TestEvaluation:
         assert result is backtest
 
     def test_get_org_units_returns_correct_data(self, backtest):
-        """Test that get_org_units returns the org_units from BackTest."""
+        """Test that get_org_units returns the org_units from Backtest."""
         evaluation = Evaluation.from_backtest(backtest)
 
         org_units = evaluation.get_org_units()
@@ -75,7 +75,7 @@ class TestEvaluation:
         assert org_units == backtest.org_units
 
     def test_get_split_periods_returns_correct_data(self, backtest):
-        """Test that get_split_periods returns the split_periods from BackTest."""
+        """Test that get_split_periods returns the split_periods from Backtest."""
         evaluation = Evaluation.from_backtest(backtest)
 
         split_periods = evaluation.get_split_periods()
