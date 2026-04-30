@@ -604,7 +604,6 @@ def get_configured_model_info(
     return configured_model
 
 
-
 @router.post("/configured-models", response_model=ConfiguredModelDB, tags=["Models"])
 def add_configured_model(
     model_configuration: ModelConfigurationCreate,
