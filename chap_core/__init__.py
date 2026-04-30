@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 # gluonts.json emits a UserWarning at import when neither orjson nor ujson
 # is installed; chap_core does not exercise gluonts JSON I/O paths, so the
 # warning is benign noise. Filter must be installed before any gluonts
-# import happens transitively (CLIM-649).
+# import happens transitively.
 warnings.filterwarnings(
     "ignore",
     message=r"Using `json`-module for json-handling",
