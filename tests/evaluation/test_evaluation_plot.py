@@ -7,25 +7,26 @@ import pytest
 from chap_core.assessment.metrics import CRPSMetric, RMSEMetric
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.tables import BackTestMetric
+from chap_core.assessment.metric_plots.horizon_location_mean import MetricByHorizonAndLocationMean
+from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
+from chap_core.assessment.metric_plots.metric_map import MetricMapV2
+from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
 from chap_core.plotting.evaluation_plot import (
-    MetricByHorizonV2Mean,
-    MetricMapV2,
-    RegionalMetricDistributionPlot,
     make_plot_from_backtest_object,
     make_plot_from_evaluation_object,
-)
-from chap_core.assessment.evaluation import Evaluation
-
-from chap_core.plotting.evaluation_plot import (
-    MetricByHorizonAndLocationMean,
 )
 
 import altair as alt
 
 
+@pytest.fixture(autouse=True)
+def default_altair_transformer():
+    alt.data_transformers.enable("default")
+    yield
+
+
 @pytest.fixture
 def rwanda_geojson():
-    path = Path("/Users/knutdr/Data/ch_data/rainfall_pop_temp_cases.json")
     path = Path("rainfall_pop_temp_cases.json")
     if not path.exists():
         pytest.skip("Local data not found")

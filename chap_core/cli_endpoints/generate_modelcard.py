@@ -159,18 +159,16 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
     import altair as alt
 
     from chap_core.assessment.backtest_plots import create_plot_from_evaluation
+    from chap_core.assessment.metric_plots.metric_map import MetricMapV2
+    from chap_core.assessment.metric_plots.regional_distribution import RegionalMetricDistributionPlot
+    from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
     from chap_core.assessment.metrics import (
         Coverage25_75Metric,
         CRPSNormMetric,
         MAPEMetric,
         RMSEMetric,
     )
-    from chap_core.plotting.evaluation_plot import (
-        MetricByTimePeriodV2Mean,
-        MetricMapV2,
-        RegionalMetricDistributionPlot,
-        make_plot_from_evaluation_object,
-    )
+    from chap_core.plotting.evaluation_plot import make_plot_from_evaluation_object
 
     evaluation_plot = create_plot_from_evaluation("evaluation_plot", evaluation)
     evaluation_plot.save(output_dir / "eval_plot.png", scale_factor=2.0)
@@ -238,6 +236,7 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
 
 
 def _build_results_summary(backtest: BackTest) -> str:
+
     from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 
     metrics = compute_all_aggregated_metrics_from_backtest(backtest)
