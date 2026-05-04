@@ -1,11 +1,11 @@
 # report Command Reference
 
-The `report` command runs a model's optional `report` entry point to produce a PDF document describing the trained model (diagnostics, fitted-effect plots, posterior summaries, or whatever the model author chooses to emit).
+The `report` command trains a model on a dataset and runs the model's optional `report` entry point to produce a PDF document describing the trained model (diagnostics, fitted-effect plots, posterior summaries, or whatever the model author chooses to emit).
 
 ## Synopsis
 
 ```console
-chap report <MODEL_PATH> <MODEL_ARTIFACT> <DATASET_CSV> <OUT_FILE> [OPTIONS]
+chap report <MODEL_PATH> <DATASET_CSV> <OUT_FILE> [OPTIONS]
 ```
 
 ## Description
@@ -14,8 +14,9 @@ chap report <MODEL_PATH> <MODEL_ARTIFACT> <DATASET_CSV> <OUT_FILE> [OPTIONS]
 
 1. Loads the model template from a local MLProject directory or a GitHub URL.
 2. Loads historic data from a CSV file (auto-discovering the matching `.geojson` if present).
-3. Invokes the MLProject's `report` entry point with the supplied trained-model artifact and the historic data.
-4. Writes the resulting PDF to `out_file`.
+3. Trains the model on the dataset by invoking the MLProject's `train` entry point.
+4. Invokes the MLProject's `report` entry point with the freshly trained model and the same historic data.
+5. Writes the resulting PDF to `out_file`.
 
 The model must declare a `report` entry point in its `MLproject` file. See [Additional Configuration → Report Entry Point](../external_models/additional_configuration.md#report-entry-point). Models that do not define `report` will fail with an explicit error.
 
@@ -24,7 +25,6 @@ The model must declare a `report` entry point in its `MLproject` file. See [Addi
 | Parameter | Description |
 |-----------|-------------|
 | `model_path` | Path to an MLProject directory or a GitHub URL pointing to one |
-| `model_artifact` | Path to a previously trained model artifact (the file `train` wrote) |
 | `dataset_csv` | Path to a CSV file with historic data in the standard Chap format |
 | `out_file` | Output path for the generated PDF report |
 
@@ -54,7 +54,6 @@ If the model declares `user_options` and the `report` entry point lists `model_c
 ```console
 chap report \
     ./my_model \
-    ./runs/my_model/latest/model \
     ./data/vietnam.csv \
     ./reports/vietnam_report.pdf
 ```
@@ -64,7 +63,6 @@ With debug logging:
 ```console
 chap report \
     https://github.com/dhis2-chap/my_model \
-    ./model_artifact \
     ./data.csv \
     ./report.pdf \
     --run-config.debug \
@@ -74,4 +72,4 @@ chap report \
 ## See Also
 
 - [Additional Configuration → Report Entry Point](../external_models/additional_configuration.md#report-entry-point) — defining the entry point in `MLproject`
-- [eval Reference](eval-reference.md) — sibling command that produces the trained-model artifact during backtesting
+- [eval Reference](eval-reference.md) — sibling command for rolling-origin backtest evaluation

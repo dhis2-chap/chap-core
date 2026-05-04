@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 def report(
     model_path: Annotated[Path, Parameter(help="Path to an MLProject directory or GitHub URL")],
-    model_artifact: Annotated[Path, Parameter(help="Path to the pre-trained model artifact")],
     dataset_csv: Annotated[Path, Parameter(help="Path to CSV file with historic data")],
     out_file: Annotated[Path, Parameter(help="Output path for the generated PDF report")],
     run_config: Annotated[RunConfig, Parameter(help="Model execution configuration")] = RunConfig(),
@@ -27,7 +26,7 @@ def report(
         Parameter(help="Path to YAML file with model configuration"),
     ] = None,
 ):
-    """Generate a PDF report from a trained MLProject model via its ``report`` entry point."""
+    """Train an MLProject model on the supplied dataset and generate a PDF report via its ``report`` entry point."""
     initialize_logging(run_config.debug, run_config.log_file)
 
     geojson_path = discover_geojson(dataset_csv)
@@ -48,8 +47,10 @@ def report(
     with template:
         model = template.get_model(configuration)  # type: ignore[arg-type]
         estimator = model()
-        logger.info(f"Generating report for model artifact {model_artifact}")
-        estimator.report(dataset, out_file, model_artifact=model_artifact)
+        logger.info("Training model before generating report")
+        estimator.train(dataset)
+        logger.info("Generating report")
+        estimator.report(dataset, out_file)
 
     logger.info(f"Report written to {out_file}")
 
