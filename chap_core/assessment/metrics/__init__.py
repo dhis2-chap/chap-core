@@ -23,7 +23,7 @@ from chap_core.assessment.metrics.base import (
     MetricSpec,
     ProbabilisticMetric,
 )
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 
 logger = logging.getLogger(__name__)
 
@@ -166,12 +166,12 @@ __all__ = [
 ]
 
 
-def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str, float]:
+def compute_all_aggregated_metrics_from_backtest(backtest: Backtest) -> dict[str, float]:
     """
     Compute all available metrics as global aggregated values for a backtest.
 
     Args:
-        backtest: The BackTest object to compute metrics for
+        backtest: The Backtest object to compute metrics for
 
     Returns:
         Dictionary mapping metric_id to the aggregated metric value

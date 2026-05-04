@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 regen-plot-help test-chapkit-compose force-restart restart chap-version
+.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help test-chapkit-compose force-restart restart chap-version
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -32,6 +32,16 @@ lint: ## check and fix code style with ruff, run type checking
 	uv run ruff check --fix
 	@echo "Formatting code..."
 	uv run ruff format
+	@echo "Type checking (mypy)..."
+	uv run mypy
+	@echo "Type checking (pyright)..."
+	uv run pyright
+
+check: ## non-mutating lint + type checks (used in CI)
+	@echo "Ruff check..."
+	uv run ruff check
+	@echo "Ruff format check..."
+	uv run ruff format --check
 	@echo "Type checking (mypy)..."
 	uv run mypy
 	@echo "Type checking (pyright)..."

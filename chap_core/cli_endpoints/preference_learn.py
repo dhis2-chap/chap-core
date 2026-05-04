@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import BaseModel
 
-from chap_core.api_types import BackTestParams, RunConfig
+from chap_core.api_types import BacktestParams, RunConfig
 from chap_core.cli_endpoints._common import (
     discover_geojson,
     load_dataset_from_csv,
@@ -71,7 +71,7 @@ def _compute_metrics(evaluation: Evaluation) -> dict:
 def _create_evaluation(
     model_candidate: ModelCandidate,
     dataset,
-    backtest_params: BackTestParams,
+    backtest_params: BacktestParams,
     run_config: RunConfig,
 ) -> Evaluation:
     """
@@ -141,7 +141,7 @@ def preference_learn(
     dataset_csv: Path,
     search_space_yaml: Path | None = None,
     state_file: Path = Path("preference_state.json"),
-    backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
+    backtest_params: BacktestParams = BacktestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfig = RunConfig(),
     learning_params: PreferenceLearningParams = PreferenceLearningParams(),
 ):

@@ -12,7 +12,7 @@ from cyclopts import Parameter
 
 if TYPE_CHECKING:
     from chap_core.assessment.evaluation import Evaluation
-    from chap_core.database.tables import BackTest
+    from chap_core.database.tables import Backtest
     from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 CHAP_VERSION = importlib.metadata.version("chap-core")

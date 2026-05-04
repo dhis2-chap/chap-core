@@ -30,7 +30,7 @@ from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
 from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
-from .tables import BackTest, Prediction, PredictionSamplesEntry
+from .tables import Backtest, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -414,8 +414,8 @@ class SessionWrapper:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
 
-    def get_backtest_with_truth(self, backtest_id: int) -> BackTest:
-        backtest = self.session.get(BackTest, backtest_id)
+    def get_backtest_with_truth(self, backtest_id: int) -> Backtest:
+        backtest = self.session.get(Backtest, backtest_id)
         if backtest is None:
             raise ValueError(f"Backtest with id {backtest_id} not found")
         dataset = backtest.dataset
@@ -426,7 +426,7 @@ class SessionWrapper:
             raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
         return backtest
 
-    def add_backtest(self, backtest: BackTest) -> None:
+    def add_backtest(self, backtest: Backtest) -> None:
         self.session.add(backtest)
         self.session.commit()
 

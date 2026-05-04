@@ -130,7 +130,7 @@ sequenceDiagram
     O-->>W: base_url or stored fallback
     W->>M: train + predict per fold
     M-->>W: samples / forecasts
-    W->>DB: insert BackTest + BackTestForecast + BackTestMetric
+    W->>DB: insert Backtest + BacktestForecast + BacktestMetric
     W->>Q: set job_meta status = SUCCESS
 
     FE->>API: GET /v1/jobs/{id}
@@ -144,8 +144,8 @@ sequenceDiagram
 ## Class diagram
 
 Main domain classes and their relationships as persisted in PostgreSQL.
-All tables inherit from `DBModel` (SQLModel + camelCase aliasing). `BackTest`
-and `Prediction` are the two "run" concepts — a `BackTest` is a retrospective
+All tables inherit from `DBModel` (SQLModel + camelCase aliasing). `Backtest`
+and `Prediction` are the two "run" concepts — a `Backtest` is a retrospective
 evaluation over known data, a `Prediction` is a forward forecast. Both carry
 forecast samples and reference the `DataSet` and `ConfiguredModelDB` they were
 produced from.
@@ -184,21 +184,21 @@ classDiagram
         +deleted: bool
     }
 
-    class BackTest {
+    class Backtest {
         +name: str
         +created: datetime
         +aggregationLevel: str
         +splitPeriods: list
     }
 
-    class BackTestForecast {
+    class BacktestForecast {
         +period: str
         +orgUnit: str
         +lastTrainPeriod: str
         +values: list~float~
     }
 
-    class BackTestMetric {
+    class BacktestMetric {
         +metricId: str
         +period: str
         +orgUnit: str
@@ -226,20 +226,20 @@ classDiagram
     DBModel <|-- Observation
     DBModel <|-- ModelTemplateDB
     DBModel <|-- ConfiguredModelDB
-    DBModel <|-- BackTest
-    DBModel <|-- BackTestForecast
-    DBModel <|-- BackTestMetric
+    DBModel <|-- Backtest
+    DBModel <|-- BacktestForecast
+    DBModel <|-- BacktestMetric
     DBModel <|-- Prediction
     DBModel <|-- PredictionSamplesEntry
     DBModel <|-- DebugEntry
 
     DataSet "1" --> "*" Observation : observations
     ModelTemplateDB "1" --> "*" ConfiguredModelDB : configurations
-    DataSet "1" --> "*" BackTest : backtests
+    DataSet "1" --> "*" Backtest : backtests
     DataSet "1" --> "*" Prediction : predictions
-    ConfiguredModelDB "1" --> "*" BackTest : runs
+    ConfiguredModelDB "1" --> "*" Backtest : runs
     ConfiguredModelDB "1" --> "*" Prediction : runs
-    BackTest "1" --> "*" BackTestForecast : forecasts
-    BackTest "1" --> "*" BackTestMetric : metrics
+    Backtest "1" --> "*" BacktestForecast : forecasts
+    Backtest "1" --> "*" BacktestMetric : metrics
     Prediction "1" --> "*" PredictionSamplesEntry : samples
 ```

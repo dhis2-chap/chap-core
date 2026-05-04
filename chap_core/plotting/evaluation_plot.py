@@ -4,7 +4,7 @@ from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metric_plots import MetricPlotBase
 from chap_core.assessment.metrics.base import Metric
 from chap_core.database.base_tables import DBModel
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 
 
 class VisualizationInfo(DBModel):

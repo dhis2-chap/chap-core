@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import (
-    BackTestParams,
+    BacktestParams,
     DataElement,
     DataList,
     EvaluationEntry,
@@ -19,7 +19,7 @@ from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.tables import BackTest, BackTestForecast, ConfiguredModelWithDataSource, Prediction
+from chap_core.database.tables import Backtest, BacktestForecast, ConfiguredModelWithDataSource, Prediction
 from chap_core.datatypes import create_tsdataclass
 from chap_core.rest_api.experimental import api_experimental
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -27,9 +27,9 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
-    BackTestCreate,
+    BacktestCreate,
     BacktestDomain,
-    BackTestRead,
+    BacktestRead,
     ChapDataSource,
     DatasetMakeRequest,
     ImportSummaryResponse,
@@ -183,27 +183,27 @@ def _filter_dataset_by_locations(
     return dataset.__class__(new_data, polygons=dataset.polygons, metadata=dataset.metadata)
 
 
-@router.get("/compatible-backtests/{backtestId}", response_model=list[BackTestRead], tags=["Backtests"])
+@router.get("/compatible-backtests/{backtestId}", response_model=list[BacktestRead], tags=["Backtests"])
 def get_compatible_backtests(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
     """Return a list of backtests that are compatible for comparison with the given backtest"""
     logger.info(f"Checking compatible backtests for {backtest_id}")
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     org_units = set(backtest.org_units)
     split_periods = set(backtest.split_periods)
     res = session.exec(
-        select(BackTest.id, BackTest.org_units, BackTest.split_periods).where(BackTest.id != backtest_id)
+        select(Backtest.id, Backtest.org_units, Backtest.split_periods).where(Backtest.id != backtest_id)
     ).all()
     ids = [bt_id for bt_id, o, s in res if set(o) & org_units and set(s) & split_periods]
     backtests = session.exec(
-        select(BackTest)
-        .where(BackTest.id.in_(ids))  # type: ignore[union-attr, attr-defined]
+        select(Backtest)
+        .where(Backtest.id.in_(ids))  # type: ignore[union-attr, attr-defined]
         .options(
-            selectinload(BackTest.dataset).defer(DataSetTable.geojson),  # type: ignore[arg-type]
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.dataset).defer(DataSetTable.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).all()
     return backtests
@@ -216,12 +216,12 @@ def get_backtest_overlap(
     session: Session = Depends(get_session),
 ):
     """Return the org units and split periods that are common between two backtests"""
-    backtest1 = session.get(BackTest, backtest_id1)
-    backtest2 = session.get(BackTest, backtest_id2)
+    backtest1 = session.get(Backtest, backtest_id1)
+    backtest2 = session.get(Backtest, backtest_id2)
     if backtest1 is None:
-        raise HTTPException(status_code=404, detail="BackTest 1 not found")
+        raise HTTPException(status_code=404, detail="Backtest 1 not found")
     if backtest2 is None:
-        raise HTTPException(status_code=404, detail="BackTest 2 not found")
+        raise HTTPException(status_code=404, detail="Backtest 2 not found")
     org_units1 = list(set(backtest1.org_units) & set(backtest2.org_units))
     split_periods1 = list(set(backtest1.split_periods) & set(backtest2.split_periods))
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
@@ -272,15 +272,15 @@ async def get_evaluation_entries(
         f"Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} "
     )
     if backtest_id is not None:
-        backtest = session.get(BackTest, backtest_id)
+        backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     org_units_set: set[str] | None = None
     if org_units is not None:
         org_units_set = set(org_units)
         logger.info("Filtering evaluation entries to org_units: %s", org_units_set)
 
-    cls = BackTestForecast
+    cls = BacktestForecast
     expr = select(cls).where(cls.backtest_id == backtest_id)
     if split_period:
         expr = expr.where(cls.last_seen_period == split_period)
@@ -290,7 +290,7 @@ async def get_evaluation_entries(
 
     logger.info(forecasts_result)
 
-    forecasts_list: list[BackTestForecast]
+    forecasts_list: list[BacktestForecast]
     if return_summed:
         # sum forecasts over all regions
         summed_forecasts: dict[tuple[str, str], Any] = {}
@@ -301,7 +301,7 @@ async def get_evaluation_entries(
             summed_forecasts[key] += np.array(forecast.values)
 
         forecasts_list = [
-            BackTestForecast(
+            BacktestForecast(
                 period=key[0],
                 org_unit="adm0",
                 last_seen_period=key[1],
@@ -329,7 +329,7 @@ async def get_evaluation_entries(
 async def create_backtest(request: MakeBacktestRequest, database_url: str = Depends(get_database_url)):
     job = worker.queue_db(
         wf.run_backtest,
-        BackTestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
+        BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
         request.n_periods,
         request.n_splits,
         request.stride,
@@ -464,10 +464,10 @@ async def get_actual_cases(
         # returning sum of forecasts for all regions
         return_summed = True
     if not is_dataset_id:
-        backtest = session.get(BackTest, backtest_id)
+        backtest = session.get(Backtest, backtest_id)
         logger.info(f"Backtest: {backtest}")
         if backtest is None:
-            raise HTTPException(status_code=404, detail="BackTest not found")
+            raise HTTPException(status_code=404, detail="Backtest not found")
         dataset_id = backtest.dataset_id
     else:
         dataset_id = backtest_id
@@ -585,7 +585,7 @@ async def create_backtest_with_data(
 ):
     feature_names, provided_data_processed = _read_dataset(request)
     provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
-    backtest_params = BackTestParams(**request.model_dump())
+    backtest_params = BacktestParams(**request.model_dump())
     train_set, _ = train_test_generator(
         provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
     )
@@ -618,7 +618,7 @@ async def create_backtest_with_data(
             status_code=400, detail="data_to_be_fetched is not supported when providing data for backtest"
         )
 
-    bt_params = BackTestParams(**request.model_dump()).model_dump()
+    bt_params = BacktestParams(**request.model_dump()).model_dump()
     dataset_create_info = DataSetCreateInfo(**request.model_dump()).model_dump()
     dataset_create_info["type"] = "evaluation"
     job = worker.queue_db(

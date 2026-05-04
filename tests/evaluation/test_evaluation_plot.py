@@ -40,7 +40,7 @@ def rwanda_orgunits(rwanda_geojson) -> list[str]:
 
 
 @pytest.fixture
-def rwanda_metrics(rwanda_orgunits) -> list[BackTestMetric]:
+def rwanda_metrics(rwanda_orgunits) -> list[BacktestMetric]:
     time_periods = ["2022-02", "2022-03"]
     rows = [
         {"location": ou, "time_period": tp, "horizon_distance": 1, "metric": float((i * o + o) % 5)}

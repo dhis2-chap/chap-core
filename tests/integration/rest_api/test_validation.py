@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from chap_core.datatypes import create_tsdataclass
 from chap_core.rest_api.app import app
-from chap_core.api_types import BackTestParams
+from chap_core.api_types import BacktestParams
 from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.rest_api.v1.routers.analytics import (
     _filter_dataset_by_locations,
@@ -62,7 +62,7 @@ def test_validate_target_in_first_train_split_rejects_all_nan_location():
     # n_periods=3, n_splits=2, stride=1 -> first train split ends at index -(3 + 1*1 + 1) = -5
     # i.e. first train split = periods 2020-01 to 2020-06 (inclusive)
     # loc2 has NaN for 2020-01 to 2020-04 but has 5.0 at 2020-05, so it should pass
-    params = BackTestParams(n_periods=3, n_splits=2, stride=1)
+    params = BacktestParams(n_periods=3, n_splits=2, stride=1)
     train_set, _ = train_test_generator(dataset, params.n_periods, params.n_splits, stride=params.stride)
     locations_to_keep, rejected = _find_locations_with_target_data(train_set)
     filtered = _filter_dataset_by_locations(dataset, locations_to_keep)
@@ -89,7 +89,7 @@ def test_validate_target_in_first_train_split_rejects_when_no_data():
     dataset = DataSet({"loc1": data_good, "loc2": data_bad})
 
     # first train split = periods 2020-01 to 2020-06 -> loc2 is all NaN there
-    params = BackTestParams(n_periods=3, n_splits=2, stride=1)
+    params = BacktestParams(n_periods=3, n_splits=2, stride=1)
     train_set, _ = train_test_generator(dataset, params.n_periods, params.n_splits, stride=params.stride)
     locations_to_keep, rejected = _find_locations_with_target_data(train_set)
     filtered = _filter_dataset_by_locations(dataset, locations_to_keep)

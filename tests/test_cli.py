@@ -14,7 +14,7 @@ def test_forecast_github_model():
 
 def test_eval_cmd(tmp_path):
     from chap_core.file_io.example_data_set import datasets
-    from chap_core.api_types import BackTestParams, RunConfig
+    from chap_core.api_types import BacktestParams, RunConfig
 
     # Export hydromet dataset to CSV for testing
     dataset = datasets["hydromet_5_filtered"].load()
@@ -22,7 +22,7 @@ def test_eval_cmd(tmp_path):
     dataset.to_csv(csv_path)
 
     # Prepare parameters
-    backtest_params = BackTestParams(n_periods=3, n_splits=2, stride=1)
+    backtest_params = BacktestParams(n_periods=3, n_splits=2, stride=1)
     run_config = RunConfig()
 
     # Run eval_cmd with CSV
@@ -44,7 +44,7 @@ def test_eval_cmd_with_data_source_mapping(tmp_path):
 
     import pandas as pd
 
-    from chap_core.api_types import BackTestParams, RunConfig
+    from chap_core.api_types import BacktestParams, RunConfig
     from chap_core.file_io.example_data_set import datasets
 
     # Export hydromet dataset to CSV for testing
@@ -65,7 +65,7 @@ def test_eval_cmd_with_data_source_mapping(tmp_path):
         json.dump(mapping, f)
 
     # Prepare parameters
-    backtest_params = BackTestParams(n_periods=3, n_splits=2, stride=1)
+    backtest_params = BacktestParams(n_periods=3, n_splits=2, stride=1)
     run_config = RunConfig()
 
     # Run eval_cmd with the mapping
