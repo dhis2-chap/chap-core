@@ -107,6 +107,7 @@ class TestOpenAPITags:
             "Jobs",
             "Debug",
             "Services",
+            "XAI",
         ]
         assert tag_names == expected
 

@@ -99,6 +99,11 @@ explainability = [
     "stumpy>=1.14.1",
     "pyts>=0.13.0",
     "fastdtw>=0.3.4",
+    "xgboost>=3.2.0",
+    "lightgbm>=4.6.0",
+    "catboost>=1.2.10",
+    "shap>=0.51.0",
+    "lime>=0.2.0.1",
 ]
 
 [project.urls]
@@ -261,6 +266,14 @@ disable_error_code = [
     "union-attr",
     "var-annotated",
 ]
+
+[[tool.mypy.overrides]]
+module = "shap.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "lime.*"
+ignore_missing_imports = true
 
 [tool.pyright]
 pythonVersion = "3.13"

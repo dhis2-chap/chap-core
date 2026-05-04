@@ -1,3 +1,4 @@
+import datetime
 import inspect
 import logging
 from functools import wraps
@@ -15,6 +16,7 @@ from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSetCreateInfo
+from chap_core.database.xai_tables import PredictionExplanation
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BackTestCreate, FetchRequest, PredictionParams
@@ -23,6 +25,8 @@ from chap_core.rest_api.data_models import BackTestCreate, FetchRequest, Predict
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
+from chap_core.time_period.date_util_wrapper import TimePeriod
+from chap_core.xai.method_registry import NATIVE_SHAP
 
 logger = logging.getLogger(__name__)
 status_logger = get_status_logger()
@@ -147,6 +151,95 @@ def run_backtest(
     return db_id
 
 
+def _build_native_shap_metadata(native_shap: dict) -> dict:
+    """Pre-compute global explanation from native SHAP data for Prediction.meta_data."""
+    feature_names = native_shap.get("feature_names", [])
+    values = native_shap.get("values", [])
+    n_samples = len(values)
+
+    # Mean absolute SHAP per feature
+    shap_matrix = (
+        np.array([v["shap_values"] for v in values], dtype=float) if values else np.zeros((0, len(feature_names)))
+    )
+    mean_abs = np.mean(np.abs(shap_matrix), axis=0) if n_samples > 0 else np.zeros(len(feature_names))
+    mean_signed = np.mean(shap_matrix, axis=0) if n_samples > 0 else np.zeros(len(feature_names))
+
+    top_features = sorted(
+        [
+            {
+                "feature_name": fn,
+                "importance": float(mean_abs[i]),
+                "direction": "positive" if mean_signed[i] >= 0 else "negative",
+            }
+            for i, fn in enumerate(feature_names)
+        ],
+        key=lambda x: x["importance"],
+        reverse=True,
+    )
+
+    return {
+        "xai": {
+            "global_by_method": {
+                NATIVE_SHAP: {
+                    "topFeatures": top_features,
+                    "computedAt": datetime.datetime.now(datetime.UTC).isoformat(),
+                    "nSamples": n_samples,
+                    "stabilityScore": None,
+                    "surrogateQuality": None,
+                }
+            }
+        },
+    }
+
+
+def _store_native_shap_explanations(native_shap: dict, prediction_id: int, session: SessionWrapper) -> None:
+    """Pre-populate PredictionExplanation rows from native SHAP values."""
+    feature_names = native_shap.get("feature_names", [])
+    for entry in native_shap.get("values", []):
+        shap_vals = entry["shap_values"]
+        feature_values = entry.get("feature_values") or {}
+        expected_value = float(entry.get("expected_value", native_shap.get("expected_value", 0.0)))
+        actual_prediction = expected_value + float(np.sum(shap_vals))
+        feature_attributions = [
+            {
+                "feature_name": fn,
+                "importance": float(shap_vals[i]),
+                "direction": "positive" if shap_vals[i] >= 0 else "negative",
+                "baseline_value": None,
+                "actual_value": (
+                    float(raw_feature_value) if (raw_feature_value := feature_values.get(fn)) is not None else None
+                ),
+            }
+            for i, fn in enumerate(feature_names)
+        ]
+        raw_period = str(entry["time_period"])
+        parse_input = raw_period
+        if len(raw_period) == 7 and raw_period[4] == "-" and raw_period[5:].isdigit():
+            parse_input = raw_period[:4] + raw_period[5:]
+        try:
+            stored_period = str(TimePeriod.parse(parse_input).id)
+        except Exception:
+            stored_period = parse_input
+        explanation = PredictionExplanation(
+            prediction_id=prediction_id,
+            org_unit=entry["location"],
+            period=stored_period,
+            method=NATIVE_SHAP,
+            output_statistic="median",
+            params={},
+            result={
+                "feature_attributions": feature_attributions,
+                "baseline_prediction": expected_value,
+                "actual_prediction": actual_prediction,
+                "surrogate_quality": None,
+                "covariate_provenance": None,
+            },
+            status="completed",
+        )
+        session.session.add(explanation)
+    session.session.commit()
+
+
 def run_prediction(
     model_id: str,
     dataset_id: str,
@@ -167,14 +260,27 @@ def run_prediction(
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id)
     predictions = forecast_ahead(estimator, dataset, n_periods)
+
+    metadata: dict = {}
+    native_shap = predictions.native_shap
+    if native_shap is not None:
+        metadata = _build_native_shap_metadata(native_shap)
+        status_logger.info("Native SHAP values detected; pre-computing global explanation")
+
     db_id = session.add_predictions(
         predictions,
         dataset_id,
         model_id,
         name,
+        metadata,
         configured_model_with_data_source_id=configured_model_with_data_source_id,
     )
     assert db_id is not None
+
+    if native_shap is not None:
+        _store_native_shap_explanations(native_shap, db_id, session)
+        status_logger.info("Native SHAP local explanations stored")
+
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     return db_id
 

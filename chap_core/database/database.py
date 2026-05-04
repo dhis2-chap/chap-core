@@ -31,6 +31,7 @@ from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 from .tables import BackTest, Prediction, PredictionSamplesEntry
+from .xai_tables import PredictionExplanation  # noqa: F401
 
 logger = logging.getLogger(__name__)
 engine = None

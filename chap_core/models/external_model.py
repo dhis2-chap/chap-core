@@ -1,6 +1,8 @@
 import logging
+import os
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -13,6 +15,110 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import Month, TimePeriod
 
 logger = logging.getLogger(__name__)
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    """Parse a positive integer environment variable, raising a clear error on failure."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"{name}={raw!r} must be a positive integer") from exc
+    if value <= 0:
+        raise ValueError(f"{name}={raw!r} must be a positive integer")
+    return value
+
+
+def _numeric_columns(df: pd.DataFrame, cols: list[str], kind: str) -> np.ndarray:
+    """Coerce the given dataframe columns to a float numpy matrix, attributing errors per-column."""
+    out = []
+    for c in cols:
+        try:
+            out.append(pd.to_numeric(df[c], errors="raise"))
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"shap_values.csv column '{c}' ({kind}) contains non-numeric data: {exc}") from exc
+    return np.column_stack([s.to_numpy(dtype=float, copy=False) for s in out])
+
+
+def _parse_shap_csv(shap_file: Path) -> dict:
+    """Parse shap_values.csv into a structured dict.
+
+    Validates size and column counts (configurable via CHAP_NATIVE_SHAP_MAX_BYTES
+    and CHAP_NATIVE_SHAP_MAX_FEATURES environment variables) before reading,
+    rejects NaNs in both shap__ and value__ columns, and uses vectorised numpy
+    access instead of iterrows.
+    """
+    max_bytes = _positive_int_env("CHAP_NATIVE_SHAP_MAX_BYTES", 50 * 1024 * 1024)
+    max_features = _positive_int_env("CHAP_NATIVE_SHAP_MAX_FEATURES", 500)
+
+    size = shap_file.stat().st_size
+    if size > max_bytes:
+        raise ValueError(f"shap_values.csv ({size} bytes) exceeds CHAP_NATIVE_SHAP_MAX_BYTES={max_bytes}")
+
+    shap_df = pd.read_csv(shap_file)
+    required = {"location", "time_period", "expected_value"}
+    missing_required = sorted(required - set(shap_df.columns))
+    if missing_required:
+        raise ValueError(f"Missing required columns in shap_values.csv: {missing_required}")
+
+    shap_prefixed = [c for c in shap_df.columns if c.startswith("shap__")]
+    if not shap_prefixed:
+        raise ValueError("shap_values.csv must contain at least one 'shap__<feature>' column")
+    if len(shap_prefixed) > max_features:
+        raise ValueError(
+            f"shap_values.csv has too many SHAP feature columns ({len(shap_prefixed)} > "
+            f"CHAP_NATIVE_SHAP_MAX_FEATURES={max_features})"
+        )
+
+    feature_names = [c[len("shap__") :] for c in shap_prefixed]
+    missing_value_columns = [f"value__{f}" for f in feature_names if f"value__{f}" not in shap_df.columns]
+    if missing_value_columns:
+        raise ValueError(
+            "shap_values.csv must include matching value columns for every SHAP feature. "
+            f"Missing: {missing_value_columns}"
+        )
+
+    shap_cols = [f"shap__{f}" for f in feature_names]
+    value_cols = [f"value__{f}" for f in feature_names]
+
+    shap_matrix = _numeric_columns(shap_df, shap_cols, "shap")
+    value_matrix = _numeric_columns(shap_df, value_cols, "value")
+
+    if np.isnan(shap_matrix).any():
+        bad = np.argwhere(np.isnan(shap_matrix))[0]
+        raise ValueError(
+            f"shap_values.csv contains NaN value in shap column '{shap_cols[int(bad[1])]}' at row={int(bad[0])}"
+        )
+    if np.isnan(value_matrix).any():
+        bad = np.argwhere(np.isnan(value_matrix))[0]
+        raise ValueError(
+            f"shap_values.csv contains NaN feature value at row={int(bad[0])} column='{value_cols[int(bad[1])]}'"
+        )
+
+    locations = shap_df["location"].astype(str).to_numpy()
+    periods = shap_df["time_period"].astype(str).to_numpy()
+    expected_values = shap_df["expected_value"].astype(float).to_numpy()
+
+    values_df = pd.DataFrame(
+        {
+            "location": locations,
+            "time_period": periods,
+            "expected_value": expected_values,
+        }
+    )
+    values_df["shap_values"] = shap_matrix.tolist()
+    feature_values_records = pd.DataFrame(value_matrix, columns=feature_names).to_dict("records")
+    values_df["feature_values"] = pd.Series(feature_values_records, dtype=object)
+    values = values_df.to_dict("records")
+
+    global_expected = float(expected_values.mean()) if len(expected_values) else 0.0
+    return {
+        "feature_names": feature_names,
+        "expected_value": global_expected,
+        "values": values,
+    }
 
 
 def _extract_week_number(period_str: str) -> int:
@@ -133,6 +239,7 @@ class ExternalModel(ExternalModelBase):
         configuration: ModelConfiguration | None = None,
         model_information: ModelTemplateConfigV2 | None = None,
         dry_run=False,
+        provides_native_shap: bool = False,
     ):
         self._runner = runner  # MlFlowTrainPredictRunner(model_path)
         # self.model_path = model_path
@@ -153,6 +260,7 @@ class ExternalModel(ExternalModelBase):
         # self._config_filename = "model_config.yaml"
         self._model_information = model_information
         self._dry_run = dry_run
+        self._provides_native_shap = provides_native_shap
 
     @property
     def name(self):
@@ -301,5 +409,18 @@ class ExternalModel(ExternalModelBase):
             logging.error(f"Error while parsing predictions: {df}")
             logging.error(f"Error message: {e}")
             raise ModelFailedException(f"Error while parsing predictions: {e}") from e
+
+        provides_native_shap = self._provides_native_shap or (
+            self._model_information is not None and self._model_information.provides_native_shap
+        )
+        if provides_native_shap:
+            shap_file = Path(self._working_dir) / "shap_values.csv"
+            if shap_file.exists():
+                try:
+                    native_shap = _parse_shap_csv(shap_file)
+                    d.native_shap = native_shap
+                    logger.info("Loaded native SHAP values from shap_values.csv")
+                except Exception as exc:
+                    logger.warning("Failed to parse shap_values.csv: %s", exc)
 
         return d

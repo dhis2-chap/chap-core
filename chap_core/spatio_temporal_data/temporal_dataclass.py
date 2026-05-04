@@ -168,6 +168,7 @@ class DataSet[FeaturesT]:
         self._polygons = polygons
         self._parent_dict = None
         self.metadata = metadata
+        self.native_shap: dict | None = None
 
     def field_names(self):
         return [
