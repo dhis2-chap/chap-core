@@ -6,7 +6,7 @@ import pytest
 
 from chap_core.assessment.metrics import CRPSMetric, RMSEMetric
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.database.tables import BackTestMetric
+from chap_core.database.tables import BacktestMetric
 from chap_core.assessment.metric_plots.horizon_location_mean import MetricByHorizonAndLocationMean
 from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
 from chap_core.assessment.metric_plots.metric_map import MetricMapV2

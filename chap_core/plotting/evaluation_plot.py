@@ -14,7 +14,7 @@ class VisualizationInfo(DBModel):
 
 
 def make_plot_from_backtest_object(
-    backtest: BackTest, plotting_class: type[MetricPlotBase], metric: Metric, geojson: dict | None = None
+    backtest: Backtest, plotting_class: type[MetricPlotBase], metric: Metric, geojson: dict | None = None
 ) -> dict:
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()

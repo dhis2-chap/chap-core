@@ -14,7 +14,7 @@ from chap_core.assessment.metric_plots.time_period_location_mean import MetricBy
 from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
 from chap_core.assessment.metric_plots.time_period_sum import MetricByTimePeriodV2Sum
 from chap_core.assessment.metrics import available_metrics
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 
 alt.data_transformers.enable("vegafusion")
 
