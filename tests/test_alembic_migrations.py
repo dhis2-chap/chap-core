@@ -25,9 +25,9 @@ from chap_core.database.model_templates_and_config_tables import (  # noqa: F401
     ModelTemplateDB,
 )
 from chap_core.database.tables import (  # noqa: F401
-    BackTest,
-    BackTestForecast,
-    BackTestMetric,
+    Backtest,
+    BacktestForecast,
+    BacktestMetric,
     Prediction,
     PredictionSamplesEntry,
 )

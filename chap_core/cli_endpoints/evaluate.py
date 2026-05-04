@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Annotated
 
 from cyclopts import Parameter
 
-from chap_core.api_types import BackTestParams, EstimatorMode, EstimatorOptions, RunConfig
+from chap_core.api_types import BacktestParams, EstimatorMode, EstimatorOptions, RunConfig
 from chap_core.cli_endpoints._common import (
     discover_geojson,
     get_estimator,
@@ -45,13 +45,13 @@ def eval_cmd(
         Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
     ],
     backtest_params: Annotated[
-        BackTestParams,
+        BacktestParams,
         Parameter(
             help="Backtest configuration. Use --backtest-params.n-periods for forecast horizon, "
             "--backtest-params.n-splits for number of train/test splits, "
             "--backtest-params.stride for step size between splits"
         ),
-    ] = BackTestParams(n_periods=3, n_splits=7, stride=1),
+    ] = BacktestParams(n_periods=3, n_splits=7, stride=1),
     run_config: Annotated[
         RunConfig,
         Parameter(

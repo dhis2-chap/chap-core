@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
 from chap_core.database.dataset_tables import DataSet
-from chap_core.database.tables import BackTestRead
+from chap_core.database.tables import BacktestRead
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -60,7 +60,7 @@ def test_get_prediction_entries(override_session):
 
 
 def test_get_backtest(override_session):
-    backtest: BackTestRead = client.get_obj("/v1/crud/backtests/1/info", __model__=BackTestRead)
+    backtest: BacktestRead = client.get_obj("/v1/crud/backtests/1/info", __model__=BacktestRead)
     dataset = backtest.dataset
     assert dataset.data_sources is not None
     assert dataset.data_sources[0].covariate == "mean_temperature"

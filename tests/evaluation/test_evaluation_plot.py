@@ -6,7 +6,7 @@ import pytest
 
 from chap_core.assessment.metrics import CRPSMetric, RMSEMetric
 from chap_core.assessment.evaluation import Evaluation
-from chap_core.database.tables import BackTestMetric
+from chap_core.database.tables import BacktestMetric
 from chap_core.plotting.evaluation_plot import (
     MetricByHorizonV2Mean,
     MetricMapV2,
@@ -39,7 +39,7 @@ def rwanda_orgunits(rwanda_geojson) -> list[str]:
 
 
 @pytest.fixture
-def rwanda_metrics(rwanda_orgunits) -> list[BackTestMetric]:
+def rwanda_metrics(rwanda_orgunits) -> list[BacktestMetric]:
     time_periods = ["2022-02", "2022-03"]
     rows = [
         {"location": ou, "time_period": tp, "horizon_distance": 1, "metric": float((i * o + o) % 5)}

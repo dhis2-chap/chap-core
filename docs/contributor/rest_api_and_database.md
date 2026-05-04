@@ -158,7 +158,7 @@ The tables are spread across several files:
 |------|--------|---------|
 | `base_tables.py` | `DBModel` (base) | Base class with camelCase config |
 | `dataset_tables.py` | `DataSet`, `Observation` | Imported health/climate datasets |
-| `tables.py` | `BackTest`, `Prediction`, `BackTestForecast`, `PredictionSamplesEntry`, `BackTestMetric` | Evaluation and prediction results |
+| `tables.py` | `Backtest`, `Prediction`, `BacktestForecast`, `PredictionSamplesEntry`, `BacktestMetric` | Evaluation and prediction results |
 | `model_templates_and_config_tables.py` | `ModelTemplateDB`, `ConfiguredModelDB` | Model definitions and configurations |
 | `model_spec_tables.py` | `ModelSpecRead` | Read model for backwards-compatible API responses |
 | `debug.py` | `DebugEntry` | Debug/diagnostic entries |
@@ -168,12 +168,12 @@ The tables are spread across several files:
 ```
 ModelTemplateDB  1--*  ConfiguredModelDB
 DataSet          1--*  Observation
-DataSet          1--*  BackTest
+DataSet          1--*  Backtest
 DataSet          1--*  Prediction
-BackTest         1--*  BackTestForecast
-BackTest         1--*  BackTestMetric
+Backtest         1--*  BacktestForecast
+Backtest         1--*  BacktestMetric
 Prediction       1--*  PredictionSamplesEntry
-ConfiguredModelDB 1--* BackTest
+ConfiguredModelDB 1--* Backtest
 ConfiguredModelDB 1--* Prediction
 ```
 
@@ -182,7 +182,7 @@ ConfiguredModelDB 1--* Prediction
 The codebase uses a pattern where table models have companion "read" classes for API
 responses. For example:
 
-- `BackTest` (table) -> `BackTestRead` (API response, includes nested dataset/model info)
+- `Backtest` (table) -> `BacktestRead` (API response, includes nested dataset/model info)
 - `Prediction` (table) -> `PredictionInfo` (API response)
 - `DataSet` (table) -> `DataSetInfo` (list response), `DataSetWithObservations` (detail response)
 
@@ -318,7 +318,7 @@ shortcut to apply this to all GET endpoints.
 | `rest_api/worker_functions.py` | WorkerConfig and related utilities |
 | `database/database.py` | Engine creation, SessionWrapper, migrations |
 | `database/base_tables.py` | DBModel base class with camelCase config |
-| `database/tables.py` | BackTest, Prediction, forecast tables |
+| `database/tables.py` | Backtest, Prediction, forecast tables |
 | `database/dataset_tables.py` | DataSet, Observation tables |
 | `database/model_templates_and_config_tables.py` | ModelTemplateDB, ConfiguredModelDB |
 | `database/model_spec_tables.py` | ModelSpecRead (backwards-compatible read model) |

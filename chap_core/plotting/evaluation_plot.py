@@ -7,7 +7,7 @@ import pandas as pd
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics.base import Metric
 from chap_core.database.base_tables import DBModel
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 
 alt.renderers.enable("browser")
 
@@ -298,7 +298,7 @@ class MetricMapV2(MetricPlotV2):
 
 
 def make_plot_from_backtest_object(
-    backtest: BackTest, plotting_class: type[MetricPlotV2], metric: Metric, geojson: dict | None = None
+    backtest: Backtest, plotting_class: type[MetricPlotV2], metric: Metric, geojson: dict | None = None
 ) -> dict:
     # Convert to flat representation using Evaluation abstraction
     evaluation = Evaluation.from_backtest(backtest)

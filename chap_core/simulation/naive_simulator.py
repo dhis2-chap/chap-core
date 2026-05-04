@@ -12,7 +12,7 @@ import pydantic
 from numpy.random import normal, poisson
 
 from chap_core.database.dataset_tables import DataSet, Observation
-from chap_core.database.tables import BackTest, BackTestForecast
+from chap_core.database.tables import Backtest, BacktestForecast
 
 
 class SimulationParams(pydantic.BaseModel):
@@ -83,10 +83,10 @@ class BacktestSimulator:
     def __init__(self, params: ForecastParams = ForecastParams()):
         self._params = params
 
-    def simulate(self, dataset: DataSet, dataset_dims: DatasetDimensions) -> BackTest:
+    def simulate(self, dataset: DataSet, dataset_dims: DatasetDimensions) -> Backtest:
         periods = dataset_dims.time_periods[-(self._params.prediction_length + self._params.n_splits - 1) :]
         split_periods = periods[: self._params.n_splits]
-        backtest = BackTest(
+        backtest = Backtest(
             dataset=dataset, model_id="Naive Forecast", org_units=dataset_dims.locations, split_periods=split_periods
         )
         forecasts = []
@@ -107,7 +107,7 @@ class BacktestSimulator:
             rate = np.maximum(rate, 0)
             samples = poisson(rate).astype(float)
             forecasts.append(
-                BackTestForecast(
+                BacktestForecast(
                     values=samples.tolist(),
                     last_seen_period=split_period,
                     last_train_period=split_period,

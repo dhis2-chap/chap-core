@@ -1,12 +1,12 @@
 import pytest
 import pandas as pd
 from chap_core.assessment.flat_representations import FlatMetric
-from chap_core.database.tables import BackTest, BackTestMetric
+from chap_core.database.tables import Backtest, BacktestMetric
 from chap_core.assessment.metric_table import create_metric_table
 from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean
 
 
-def test_create_metric_table(backtest_metrics: list[BackTestMetric]):
+def test_create_metric_table(backtest_metrics: list[BacktestMetric]):
     table = create_metric_table(backtest_metrics)
 
     assert len(table["last_seen_period"]) > 0
@@ -14,7 +14,7 @@ def test_create_metric_table(backtest_metrics: list[BackTestMetric]):
 
 
 # @pytest.fixture
-# def metric_table(backtest_metrics: list[BackTestMetric]):
+# def metric_table(backtest_metrics: list[BacktestMetric]):
 #   return create_metric_table(backtest_metrics)
 
 

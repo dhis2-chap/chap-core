@@ -1,13 +1,13 @@
 from pydantic import BaseModel
 
-from chap_core.api_types import BackTestParams, FeatureCollectionModel
+from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_tables import DataSetCreateInfo, ObservationBase
 from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BackTestBase, BackTestForecast, BackTestMetric, BackTestRead
+from chap_core.database.tables import BacktestBase, BacktestForecast, BacktestMetric, BacktestRead
 
 
 class PredictionBase(BaseModel):
@@ -62,9 +62,9 @@ class ImportSummaryResponse(DBModel):
     rejected: list[ValidationError]
 
 
-class BackTestCreate(BackTestBase):
+class BacktestCreate(BacktestBase):
     # Accept either the configured-model integer primary key or its string
-    # name. The underlying DB column (`BackTestBase.model_id`) is a string,
+    # name. The underlying DB column (`BacktestBase.model_id`) is a string,
     # but the `POST /v1/crud/backtests/` handler resolves an `int` to the
     # corresponding name before persisting so the column stays consistent.
     # See `chap_core.rest_api.v1.routers.crud.create_backtest` for the
@@ -72,9 +72,9 @@ class BackTestCreate(BackTestBase):
     model_id: int | str  # type: ignore[assignment]
 
 
-class BackTestFull(BackTestRead):
-    metrics: list[BackTestMetric]
-    forecasts: list[BackTestForecast]
+class BacktestFull(BacktestRead):
+    metrics: list[BacktestMetric]
+    forecasts: list[BacktestForecast]
 
 
 class BacktestDomain(DBModel):
@@ -94,13 +94,13 @@ class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
     meta_data: dict = {}
 
 
-class MakeBacktestRequest(BackTestParams):
+class MakeBacktestRequest(BacktestParams):
     name: str
     model_id: str
     dataset_id: int
 
 
-class MakeBacktestWithDataRequest(DatasetMakeRequest, BackTestParams):
+class MakeBacktestWithDataRequest(DatasetMakeRequest, BacktestParams):
     name: str
     model_id: str
 
@@ -163,5 +163,5 @@ class PredictionCreate(DBModel):
     n_periods: int
 
 
-class BackTestUpdate(DBModel):
+class BacktestUpdate(DBModel):
     name: str | None = None

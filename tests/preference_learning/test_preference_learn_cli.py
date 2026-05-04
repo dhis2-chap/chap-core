@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from chap_core.api_types import BackTestParams, RunConfig
+from chap_core.api_types import BacktestParams, RunConfig
 from chap_core.cli_endpoints.preference_learn import (
     PreferenceLearningParams,
     preference_learn,
@@ -95,7 +95,7 @@ learning_rate:
             dataset_csv=dataset_csv,
             search_space_yaml=search_space_yaml,
             state_file=state_file,
-            backtest_params=BackTestParams(n_periods=2, n_splits=2, stride=1),
+            backtest_params=BacktestParams(n_periods=2, n_splits=2, stride=1),
             run_config=RunConfig(),
             learning_params=learning_params,
         )
@@ -159,7 +159,7 @@ learning_rate:
             model_name="test_model",
             dataset_csv=dataset_csv,
             state_file=state_file,
-            backtest_params=BackTestParams(n_periods=2, n_splits=2, stride=1),
+            backtest_params=BacktestParams(n_periods=2, n_splits=2, stride=1),
             run_config=RunConfig(),
             learning_params=learning_params,
         )
