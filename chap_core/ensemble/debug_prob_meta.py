@@ -1,28 +1,30 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from chap_core.datatypes import FullData, Samples
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.api_types import RunConfig
 from chap_core.assessment.metrics.crps import CRPSMetric
 from chap_core.cli_endpoints._common import (
-    load_dataset_from_csv,
     discover_geojson,
+    load_dataset_from_csv,
 )
+from chap_core.datatypes import FullData, Samples
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import CHAP_RUNS_DIR
-from chap_core.api_types import RunConfig
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 @dataclass
 class BaseModelInfo:
     """Holder info om en basemodell vi vil inspisere."""
-    name: str        # bare et lesbart navn
-    path_or_url: str # lokal sti eller GitHub-URL
+
+    name: str  # bare et lesbart navn
+    path_or_url: str  # lokal sti eller GitHub-URL
 
 
 def split_inner_train_val(
@@ -34,9 +36,7 @@ def split_inner_train_val(
     men som ren funksjon.
     """
     df = data.to_pandas()
-    all_periods = (
-        df["time_period"].dropna().astype(str).sort_values().unique()
-    )
+    all_periods = df["time_period"].dropna().astype(str).sort_values().unique()
 
     if len(all_periods) <= inner_val_periods:
         split_idx = len(all_periods) // 2
@@ -141,7 +141,7 @@ def _samples_matrix_from_df(df_pred: pd.DataFrame) -> np.ndarray:
     # Sorter kolonnene etter nummeret i sample_i for deterministisk rekkefølge
     sample_cols_sorted = sorted(
         sample_cols,
-        key=lambda c: int(c.split("_")[1])  # "sample_123" -> 123
+        key=lambda c: int(c.split("_")[1]),  # "sample_123" -> 123
     )
     arr = df_pred[sample_cols_sorted].to_numpy()  # shape (T, S)
     return arr
@@ -216,13 +216,7 @@ def _wide_samples_to_long_fc_df(fc_df: pd.DataFrame) -> pd.DataFrame:
         value_name="forecast",
     )
     # sample-kolonnen er f.eks. 'sample_3' -> gjør om til int 3
-    long_df["sample"] = (
-        long_df["sample"]
-        .astype(str)
-        .str.split("_")
-        .str[1]
-        .astype(int)
-    )
+    long_df["sample"] = long_df["sample"].astype(str).str.split("_").str[1].astype(int)
     return long_df
 
 

@@ -5,10 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 
 if TYPE_CHECKING:
-    import pandas as pd
-
     from chap_core.datatypes import Samples
 
 
@@ -16,6 +15,7 @@ class SampleExtractor:
     @staticmethod
     def samples_to_flat(preds_ds: Samples) -> pd.DataFrame:
         df = preds_ds.to_pandas()
+        df = pd.DataFrame(df)
         if "forecast" in df.columns:
             pred_col = "forecast"
         elif "value" in df.columns:
@@ -36,9 +36,11 @@ class SampleExtractor:
         return out.rename(columns={pred_col: "forecast"})
 
     @staticmethod
-    def reshape_samples(preds_ds: Samples, df_ref: pd.DataFrame, target_n: int, rng: np.random.Generator | None = None) -> np.ndarray:
-        rng = np.random.default_rng()
-        df_pred = preds_ds.to_pandas()
+    def reshape_samples(
+        preds_ds: Samples, df_ref: pd.DataFrame, target_n: int, rng: np.random.Generator | None = None
+    ) -> np.ndarray:
+        rng = rng or np.random.default_rng()
+        df_pred = pd.DataFrame(preds_ds.to_pandas())
 
         # Alltid align på location/time_period først
         key_cols = ["location", "time_period"]

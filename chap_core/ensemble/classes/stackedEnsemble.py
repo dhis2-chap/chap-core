@@ -14,12 +14,7 @@ class StackedEnsemble:
     - For tidsserier: sett use_time_series_split=True for å unngå lekkasje.
     """
 
-    def __init__(self,
-                 base_models,
-                 meta_model,
-                 n_folds=5,
-                 use_time_series_split=False,
-                 random_state=42):
+    def __init__(self, base_models, meta_model, n_folds=5, use_time_series_split=False, random_state=42):
         self.base_models = base_models
         self.meta_model = meta_model
         self.n_folds = n_folds
@@ -55,11 +50,7 @@ class StackedEnsemble:
         if self.use_time_series_split:
             splitter = TimeSeriesSplit(n_splits=self.n_folds)
         else:
-            splitter = KFold(
-                n_splits=self.n_folds,
-                shuffle=True,
-                random_state=self.random_state
-            )
+            splitter = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
 
         # For hver basemodell, lag out-of-fold-prediksjoner
         for m_idx, base_model in enumerate(self.base_models):

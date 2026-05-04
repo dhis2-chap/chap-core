@@ -41,7 +41,9 @@ class EnsemblePredictor:
 
         if self._prob:
             base_samp = [
-                _SampleExtractor.reshape_samples(p.predict(historic_data, future_data), df_future, self._n_samples,  rng=self._rng)
+                _SampleExtractor.reshape_samples(
+                    p.predict(historic_data, future_data), df_future, self._n_samples, rng=self._rng
+                )
                 for p in self._predictors
             ]
             ens_samp = self._meta.predict(base_samp)  # type: ignore[arg-type]

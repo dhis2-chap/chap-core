@@ -43,7 +43,9 @@ def evaluate_ensemble_v2(
     polygons_id_field: Annotated[str, Parameter(help="GeoJSON ID field.")] = "id",
     report_filename: Annotated[Path, Parameter(help="Report CSV base filename.")] = Path("ensemble_v2_report.csv"),
     output_file: Annotated[Path | None, Parameter(help="NetCDF output path.")] = None,
-    backtest_params: Annotated[BackTestParams, Parameter(help="Backtest configuration.")] = BackTestParams(n_periods=3, n_splits=7, stride=1),
+    backtest_params: Annotated[BackTestParams, Parameter(help="Backtest configuration.")] = BackTestParams(
+        n_periods=3, n_splits=7, stride=1
+    ),
     run_config: Annotated[RunConfig, Parameter(help="Run configuration.")] = RunConfig(),
     model_configuration_yaml: Annotated[Path | None, Parameter(help="Common model config YAML.")] = None,
     data_source_mapping: Annotated[Path | None, Parameter(help="JSON column mapping.")] = None,
@@ -158,5 +160,3 @@ def evaluate_ensemble_v2(
 
 def register_commands_v2(app):
     app.command(name="evaluate-ensemble-v2")(evaluate_ensemble_v2)
-
-

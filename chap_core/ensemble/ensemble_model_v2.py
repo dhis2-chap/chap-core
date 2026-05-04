@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -172,14 +173,16 @@ class EnsembleModel(ConfiguredModel):
             names.append(name)
         return names
 
-    def train(self, train_data: DataSet, extra_args: Any = None) -> "EnsemblePredictor":
+    def train(self, train_data: DataSet, extra_args: Any = None) -> EnsemblePredictor:
         df = train_data.to_pandas()
         all_periods = sorted(df["time_period"].dropna().astype(str).unique())
         if len(all_periods) <= self.inner_val_periods:
             split_idx = len(all_periods) // 2
         else:
             split_idx = len(all_periods) - self.inner_val_periods
-        logger.info("Inner split: %d periods, train=%d, val=%d", len(all_periods), split_idx, len(all_periods) - split_idx)
+        logger.info(
+            "Inner split: %d periods, train=%d, val=%d", len(all_periods), split_idx, len(all_periods) - split_idx
+        )
 
         train_mask = df["time_period"].astype(str).isin(set(all_periods[:split_idx]))
         inner_train = DataSet.from_pandas(df[train_mask], FullData, fill_missing=True)

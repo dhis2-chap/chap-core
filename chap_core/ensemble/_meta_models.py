@@ -53,7 +53,8 @@ class NonNegativeMetaModel:
         self.intercept_: float = 0.0
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> NonNegativeMetaModel:
-        coef, _ = nnls(X, y)  # type: ignore[misc]
+        coef_raw, _ = nnls(X, y)  # type: ignore[misc]
+        coef = np.asarray(coef_raw, float)
         s = coef.sum()
         self.coef_ = coef / s if s > 0 else coef
         return self
@@ -61,7 +62,7 @@ class NonNegativeMetaModel:
     def predict(self, X: np.ndarray) -> np.ndarray:
         if self.coef_ is None:
             raise ValueError("Meta-model not fitted")
-        return np.dot(X, self.coef_)
+        return np.asarray(np.dot(X, self.coef_), float)
 
 
 class ProbabilisticMetaModel:
@@ -74,9 +75,7 @@ class ProbabilisticMetaModel:
         target_shape = X_samples[0].shape
         for i, s in enumerate(X_samples):
             if s.shape != target_shape:
-                raise ValueError(
-                    f"Sample shape mismatch: X_samples[0]={target_shape}, X_samples[{i}]={s.shape}"
-                )
+                raise ValueError(f"Sample shape mismatch: X_samples[0]={target_shape}, X_samples[{i}]={s.shape}")
 
         y = np.asarray(y, float).reshape(-1)
 
@@ -104,9 +103,14 @@ class ProbabilisticMetaModel:
         if self.verbose:
             logger.info("Probabilistic meta-model fit: CRPS=%.4f, success=%s", res.fun, res.success)
 
+        n = len(X_samples)
         coef = np.asarray(res.x, float)
-        coef = np.maximum(coef, 0.0)
-        coef /= (coef.sum() + 1e-12)
+        if (not res.success) or (coef.shape != (n,)) or (not np.all(np.isfinite(coef))):
+            logger.warning("Probabilistic meta-model fit failed; falling back to uniform weights")
+            coef = np.ones(n, dtype=float) / n
+        else:
+            coef = np.maximum(coef, 0.0)
+            coef /= coef.sum() + 1e-12
 
         self.coef_ = coef
         return self
@@ -117,4 +121,4 @@ class ProbabilisticMetaModel:
         if len(X_samples) != len(self.coef_):
             raise ValueError(f"Expected {len(self.coef_)} sample arrays, got {len(X_samples)}")
         ens = sum(self.coef_[i] * X_samples[i] for i in range(len(X_samples)))
-        return np.maximum(ens, 0.0)
+        return np.asarray(np.maximum(ens, 0.0), float)

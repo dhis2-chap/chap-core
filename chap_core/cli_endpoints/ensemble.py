@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Annotated, Any, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 import pandas as pd
 import yaml
@@ -32,8 +32,12 @@ from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import CHAP_RUNS_DIR
 
+if TYPE_CHECKING:
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
 logger = logging.getLogger(__name__)
 
+# Public exports for star-imports and tooling.
 __all__ = [
     "_evaluate_ensemble_core",
     "_save_reports",
@@ -50,7 +54,7 @@ def _load_dataset(
     polygons_json: Path | None,
     polygons_id_field: str,
     data_source_mapping: Path | None,
-) -> object:
+) -> DataSet[Any]:
     if dataset_name:
         return load_dataset(
             dataset_country=dataset_country,
@@ -77,7 +81,7 @@ def _compute_metrics(flat: Any, ensemble_method: str) -> tuple[str, dict[str, fl
     for metric_id, metric_cls in available_metrics.items():
         metric = metric_cls()
         try:
-            df_metric = metric.get_global_metric(flat.observations, forecasts_df)
+            df_metric = metric.get_global_metric(flat.observations, cast("Any", forecasts_df))
             if len(df_metric) == 1:
                 metrics_dict[metric_id] = float(df_metric["metric"].iloc[0])
         except Exception as exc:
@@ -118,11 +122,12 @@ def _evaluate_ensemble_core(
     model_template_id: str,
     configured_model_id: str,
     backtest_name: str,
+    use_residual_bootstrap: bool,
 ) -> dict[str, tuple[dict[str, float | str], pd.DataFrame]]:
     initialize_logging(run_config.debug, run_config.log_file)
     logger.info("Evaluating ensemble with base models: %s", base_model_names)
 
-    dataset = _load_dataset(
+    dataset: DataSet[Any] = _load_dataset(
         dataset_name=dataset_name,
         dataset_country=dataset_country,
         dataset_csv=dataset_csv,
@@ -174,7 +179,7 @@ def _evaluate_ensemble_core(
         inner_val_periods=12,
         target_col="disease_cases",
         n_samples=100,
-        use_residual_bootstrap=False,
+        use_residual_bootstrap=use_residual_bootstrap,
         random_state=random_state,
     )
 
@@ -205,7 +210,7 @@ def _evaluate_ensemble_core(
     flat = evaluation.to_flat()
     model_key, metrics_dict, forecasts_df = _compute_metrics(flat, ensemble_method)
     results: dict[str, tuple[dict[str, float | str], pd.DataFrame]] = {model_key: (metrics_dict, forecasts_df)}
-    _save_reports(report_filename, results, forecasts_df)
+    _save_reports(report_filename, cast("dict[str, tuple[dict[str, float | str], object]]", results), forecasts_df)
     return results
 
 
@@ -242,6 +247,10 @@ def evaluate_ensemble(
         int | None,
         Parameter(help="Random seed for ensemble-meta-modellen (f.eks. 42)."),
     ] = 42,
+    use_residual_bootstrap: Annotated[
+        bool,
+        Parameter(help="Bruk residual bootstrap for deterministiske ensembles for å generere samples."),
+    ] = False,
     data_source_mapping: Annotated[Path | None, Parameter(help="Optional JSON kolonne-mapping.")] = None,
     historical_context_years: Annotated[
         int,
@@ -262,6 +271,7 @@ def evaluate_ensemble(
         run_config=run_config,
         model_configuration_yaml=model_configuration_yaml,
         random_state=random_state,
+        use_residual_bootstrap=use_residual_bootstrap,
         data_source_mapping=data_source_mapping,
         historical_context_years=historical_context_years,
         model_template_id="ensemble_model",

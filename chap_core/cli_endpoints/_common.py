@@ -173,4 +173,3 @@ def load_dataset(
             )
             dataset = dataset[dataset_country]  # type: ignore[assignment]
     return dataset
-

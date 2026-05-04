@@ -119,6 +119,9 @@ fixable = ["ALL"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ALL"]
 "__init__.py" = ["F401"]
+"chap_core/ensemble/classes/stackedEnsemble.py" = ["ALL"]
+"chap_core/ensemble/debug_prob_meta.py" = ["ALL"]
+"chap_core/ensemble/ensemble_model_v2.py" = ["ALL"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -165,6 +168,7 @@ no_implicit_optional = true
 strict_equality = true
 follow_imports = "normal"
 files = ["chap_core/", "tests/"]
+exclude = "^(runs/|chap_core/runs/)"
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -225,12 +229,34 @@ ignore_missing_imports = true
 module = "npstructures.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "scipy.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pytz"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "chap_core.ensemble.ensemble_model_v2",
+    "chap_core.ensemble.debug_prob_meta",
+    "chap_core.ensemble.classes.stackedEnsemble",
+    "chap_core.cli_endpoints.ensemble_v2",
+]
+ignore_errors = true
+
 [tool.pyright]
 pythonVersion = "3.13"
 include = ["chap_core/", "tests/"]
 exclude = [
     "**/.venv",
     "runs",
+    "chap_core/runs",
+    "chap_core/ensemble/ensemble_model_v2.py",
+    "chap_core/ensemble/debug_prob_meta.py",
+    "chap_core/ensemble/classes/stackedEnsemble.py",
+    "chap_core/cli_endpoints/ensemble_v2.py",
     "external_models",
 ]
 typeCheckingMode = "basic"

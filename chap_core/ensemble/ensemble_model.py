@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -45,6 +45,8 @@ class EnsembleModel(ConfiguredModel):
             raise ValueError("Need at least one base model")
         if method not in ("deterministic", "probabilistic"):
             raise ValueError(method)
+        if use_residual_bootstrap and method != "deterministic":
+            raise ValueError("Residual bootstrap is only supported for deterministic ensembles")
         self.method = method
         self.inner_val_periods = inner_val_periods
         self.target_col = target_col
@@ -53,7 +55,7 @@ class EnsembleModel(ConfiguredModel):
         self.meta_model: NonNegativeMetaModel | ProbabilisticMetaModel | None = meta_model
         self.weights: np.ndarray | None = None
         self._base_residuals: list[np.ndarray] = []
-        self.random_state: int = random_state
+        self.random_state: int | None = random_state
 
     def _base_names(self) -> list[str]:
         names: list[str] = []
@@ -142,16 +144,18 @@ class EnsembleModel(ConfiguredModel):
         y_clean = y_val[mask]
         if self.method == "probabilistic":
             assert meta_list is not None
-            X_clean = [m[mask, :] for m in meta_list]
+            X_clean_samples = [m[mask, :] for m in meta_list]
             if self.meta_model is None:
                 self.meta_model = ProbabilisticMetaModel(verbose=True)
-            self.meta_model.fit(X_clean, y_clean)
+            meta_model_prob = cast("ProbabilisticMetaModel", self.meta_model)
+            meta_model_prob.fit(X_clean_samples, y_clean)
         else:
             assert meta_mat is not None
-            X_clean = meta_mat[mask, :]
+            X_clean_mat = meta_mat[mask, :]
             if self.meta_model is None:
                 self.meta_model = NonNegativeMetaModel()
-            self.meta_model.fit(X_clean, y_clean)
+            meta_model_det = cast("NonNegativeMetaModel", self.meta_model)
+            meta_model_det.fit(X_clean_mat, y_clean)
 
         assert self.meta_model is not None
         coef = np.maximum(np.asarray(self.meta_model.coef_, float), 0.0)  # type: ignore[arg-type]
@@ -247,6 +251,7 @@ class EnsembleEstimator(EnsembleModel):
         return pred
 
 
+# Public exports for star-imports and tooling.
 __all__ = [
     "BaseModelSpec",
     "EnsembleEstimator",
@@ -257,4 +262,3 @@ __all__ = [
     "_crps_score",
     "crps_ensemble",
 ]
-
