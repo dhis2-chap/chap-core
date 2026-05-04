@@ -113,13 +113,12 @@ def test_external_model_report_invokes_runner(weekly_full_data, tmp_path):
         model_information=_report_model_template_config(with_report=True),
     )
     out_file = tmp_path / "report.pdf"
-    model_artifact = tmp_path / "trained_model"
 
-    model.report(weekly_full_data, out_file, model_artifact=model_artifact)
+    model.report(weekly_full_data, out_file)
 
     runner.report.assert_called_once()
     args, _ = runner.report.call_args
-    assert args[0] == str(model_artifact)
+    assert args[0] == "model"
     assert args[1] == "report_historic_data.csv"
     assert args[2] == str(out_file)
     assert (tmp_path / "report_historic_data.csv").exists()

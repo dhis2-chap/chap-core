@@ -304,16 +304,10 @@ class ExternalModel(ExternalModelBase):
 
         return d
 
-    def report(
-        self,
-        historic_data: DataSet,
-        out_file: Path,
-        model_artifact: Path | None = None,
-    ) -> None:
+    def report(self, historic_data: DataSet, out_file: Path) -> None:
         """Generate a PDF report using the model's report entry point.
 
-        If ``model_artifact`` is provided, that path is passed as the ``{model}``
-        parameter. Otherwise the in-memory model file from a prior ``train()`` call is used.
+        Uses the in-memory model file written by a prior ``train()`` call.
         """
         if self._model_information is None or self._model_information.entry_points is None:
             raise InvalidModelException("Model has no entry points configured; cannot generate report")
@@ -326,11 +320,9 @@ class ExternalModel(ExternalModelBase):
         adapted = self._adapt_data(historic_data.to_pandas(), frequency=self._get_frequency(historic_data))
         adapted.to_csv(historic_data_name)
 
-        model_path_arg = str(model_artifact) if model_artifact is not None else self._model_file_name
-
         try:
             self._runner.report(
-                model_path_arg,
+                self._model_file_name,
                 "report_historic_data.csv",
                 str(out_file),
                 "polygons.geojson" if self._polygons_file_name is not None else None,

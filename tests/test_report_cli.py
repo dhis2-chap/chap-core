@@ -36,6 +36,5 @@ def test_report_cli_trains_then_reports(dumped_weekly_data_paths, tmp_path):
         next(c for c in mock_estimator.method_calls if c[0] == "report")
     )
     assert train_call_index < report_call_index
-    args, kwargs = mock_estimator.report.call_args
+    args, _ = mock_estimator.report.call_args
     assert args[1] == out_file
-    assert "model_artifact" not in kwargs
