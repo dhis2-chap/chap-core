@@ -238,6 +238,35 @@ def test_conda_runner_fails_without_env_file(tmp_path):
         runner.run_command("python main.py train data.csv model.pkl")
 
 
+def test_command_line_runner_report_formats_command():
+    """Test that CommandLineTrainPredictRunner.report() formats and runs the report command."""
+    with patch.object(CommandLineRunner, "run_command") as mock_run:
+        mock_run.return_value = "done"
+        from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
+
+        runner = CommandLineTrainPredictRunner(
+            CommandLineRunner(Path(".")),
+            train_command="python train.py {train_data} {model}",
+            predict_command="python predict.py {model} {historic_data} {future_data} {out_file}",
+            report_command="python report.py {model} {historic_data} {out_file}",
+        )
+        runner.report("model.pkl", "historic.csv", "report.pdf")
+        mock_run.assert_called_once_with("python report.py model.pkl historic.csv report.pdf")
+
+
+def test_command_line_runner_report_raises_when_no_command():
+    """Test that CommandLineTrainPredictRunner.report() raises NotImplementedError when no report command is set."""
+    from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
+
+    runner = CommandLineTrainPredictRunner(
+        CommandLineRunner(Path(".")),
+        train_command="python train.py {train_data} {model}",
+        predict_command="python predict.py {model} {historic_data} {future_data} {out_file}",
+    )
+    with pytest.raises(NotImplementedError):
+        runner.report("model.pkl", "historic.csv", "report.pdf")
+
+
 def test_mlflow_runner_report_invokes_report_entry_point(tmp_path):
     runner = MlFlowTrainPredictRunner(model_path=tmp_path)
     with patch("mlflow.projects.run") as mock_run:

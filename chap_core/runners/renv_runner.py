@@ -60,8 +60,9 @@ class RenvTrainPredictRunner(CommandLineTrainPredictRunner):
         train_command: str,
         predict_command: str,
         model_configuration_filename: str | None = None,
+        report_command: str | None = None,
     ):
-        super().__init__(runner, train_command, predict_command, model_configuration_filename)
+        super().__init__(runner, train_command, predict_command, model_configuration_filename, report_command)
 
     def teardown(self):
         self._runner.teardown()
