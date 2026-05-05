@@ -115,7 +115,7 @@ def eval_cmd(
 
     Examples:
         # Evaluate a GitHub-hosted model
-        chap eval --model-name https://github.com/dhis2-chap/minimalist_example_r \\
+        chap eval --model-name https://github.com/dhis2-chap/minimalist_example_uv \\
             --dataset-csv ./data/vietnam.csv --output-file ./results/eval.nc
 
         # Evaluate a chapkit model (REST API)
