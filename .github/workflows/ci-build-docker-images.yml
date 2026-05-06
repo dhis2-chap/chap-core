@@ -53,7 +53,7 @@ jobs:
             TAG="latest"
           elif [[ "$REF" =~ ^refs/tags/1\..* ]]; then
             git fetch origin master --depth=1
-            TAG_COMMIT=$(git rev-parse "$REF")
+            TAG_COMMIT=$(git rev-parse "$REF^{}")
             if git merge-base --is-ancestor "$TAG_COMMIT" origin/master; then
               TAG="${REF#refs/tags/}"
             else
