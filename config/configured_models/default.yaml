@@ -48,7 +48,7 @@
   configurations:
     default:
       user_option_values:
-        n_lags: 3
+        n_lags: [3]
         precision: 1
       additional_continuous_covariates:
         - rainfall
