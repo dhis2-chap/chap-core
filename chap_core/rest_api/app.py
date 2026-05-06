@@ -26,6 +26,7 @@ openapi_tags = [
     {"name": "Services", "description": "Service registry (v2)"},
 ]
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from chap_core.database.database import create_db_and_tables
