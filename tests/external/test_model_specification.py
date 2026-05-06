@@ -79,3 +79,36 @@ entry_points:
 
     assert template.model_template_config.min_prediction_length == 2
     assert template.model_template_config.max_prediction_length == 6
+
+
+def test_mlproject_max_prediction_length_only_parses_with_min_none(tmp_path):
+    """Real models in the wild (e.g. chap-models/Vietnam-dengue-superensemble) declare
+    only max_prediction_length and leave min_prediction_length unset. Both halves of
+    the contract must be visible on the parsed config: max as the declared int, min as None."""
+    from chap_core.models.utils import get_model_template_from_mlproject_file
+
+    mlproject_yaml = """name: vietnam_style_model
+max_prediction_length: 1
+docker_env:
+  image: ghcr.io/dhis2-chap/docker_r_inla:master
+entry_points:
+  train:
+    parameters:
+      train_data: path
+      model: str
+    command: "Rscript train.R {train_data} {model}"
+  predict:
+    parameters:
+      model: str
+      historic_data: path
+      future_data: path
+      out_file: path
+    command: "Rscript predict.R {model} {historic_data} {future_data} {out_file}"
+"""
+    mlproject_file = tmp_path / "MLproject"
+    mlproject_file.write_text(mlproject_yaml)
+
+    template = get_model_template_from_mlproject_file(mlproject_file)
+
+    assert template.model_template_config.max_prediction_length == 1
+    assert template.model_template_config.min_prediction_length is None
