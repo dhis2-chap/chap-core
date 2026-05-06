@@ -78,6 +78,8 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: ${{ steps.tag.outputs.TAGS }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ matrix.image_name }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ matrix.image_name }}:buildcache,mode=max
           build-args: |
             GIT_REVISION=${{ github.sha }}
 
