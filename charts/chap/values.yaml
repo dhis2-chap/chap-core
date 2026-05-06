@@ -43,12 +43,14 @@ chap-api:
     tag: ""
   replicaCount: 1
   command:
-    - uvicorn
+    - gunicorn
+    - -c
+    - gunicorn.conf.py
+    - -k
+    - uvicorn.workers.UvicornWorker
     - chap_core.rest_api.app:app
-    - --host
-    - 0.0.0.0
-    - --port
-    - "8000"
+    - --bind
+    - 0.0.0.0:8000
   resources: {}
   volumeMounts: []
   serviceAccount:
@@ -107,9 +109,6 @@ chap-api:
     existingSecret: "chap-valkey-auth"
     secretKeys:
       password: default-password
-  googleServiceAccount:
-    email: ""
-    privateKey: ""
   commonLabels: {}
 
 chap-worker:
