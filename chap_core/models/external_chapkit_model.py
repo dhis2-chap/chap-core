@@ -205,10 +205,18 @@ class ExternalChapkitModelTemplate:
             )
             return False
 
-    def get_model(self, model_configuration: dict) -> "ExternalChapkitModel":
+    def get_model(
+        self,
+        model_configuration: dict,
+        prediction_length: int | None = None,
+    ) -> "ExternalChapkitModel":
         """
         Sends the model configuration for storing in the model (by sending to the model rest api).
         This returns a configuration id back that we can use to identify the model.
+
+        ``prediction_length`` is accepted for interface compatibility with
+        ``ModelTemplate.get_model``; chapkit models receive the horizon at
+        train/predict time via :class:`RunInfo` instead of via this method.
         """
         self._ensure_initialized()
         assert self.client is not None
