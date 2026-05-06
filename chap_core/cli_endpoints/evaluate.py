@@ -195,18 +195,23 @@ def eval_cmd(
             raise NotImplementedError("Ensemble mode is not yet implemented")
 
         model_info = estimator.model_information
-        if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
+        if model_info.min_prediction_length is None and model_info.max_prediction_length is None:
             logger.warning("Model has not specified minimum and maximum predicted length")
-        else:
-            if model_info.min_prediction_length > backtest_params.n_periods:
-                raise ValueError(
-                    f"The desired prediction length of {backtest_params.n_periods} is less than the model's minimum prediction length of {model_info.min_prediction_length}"
-                )
-            elif model_info.max_prediction_length < backtest_params.n_periods:
-                logger.warning(
-                    f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
-                )
-                estimator = ExtendedPredictor(estimator, backtest_params.n_periods)
+        if (
+            model_info.min_prediction_length is not None
+            and model_info.min_prediction_length > backtest_params.n_periods
+        ):
+            raise ValueError(
+                f"The desired prediction length of {backtest_params.n_periods} is less than the model's minimum prediction length of {model_info.min_prediction_length}"
+            )
+        if (
+            model_info.max_prediction_length is not None
+            and model_info.max_prediction_length < backtest_params.n_periods
+        ):
+            logger.warning(
+                f"Wrapping model to extend prediction length from {model_info.max_prediction_length} to {backtest_params.n_periods}. This is done iteratively, and may worsen model performance"
+            )
+            estimator = ExtendedPredictor(estimator, backtest_params.n_periods)
 
         model_template_db = ModelTemplateDB(
             id=template.model_template_config.name,

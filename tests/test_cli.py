@@ -130,6 +130,46 @@ def test_eval_cmd_wraps_in_extended_predictor_when_n_periods_above_max(tmp_path)
     assert isinstance(forwarded, ExtendedPredictor)
 
 
+def test_eval_cmd_wraps_when_only_max_set_and_below_n_periods(tmp_path):
+    """Real models often declare max_prediction_length but leave min unset
+    (e.g. chap-models/Vietnam-dengue-superensemble declares max=1, no min).
+    The dispatch must still honour the declared max even when min is None."""
+    from chap_core.api_types import BacktestParams, RunConfig
+    from chap_core.external.ExtendedPredictor import ExtendedPredictor
+
+    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=2)
+    stack, eval_mock = _patched_eval_chain(fake_estimator)
+    with stack:
+        eval_cmd(
+            model_name="dummy",
+            dataset_csv="dummy.csv",
+            output_file=tmp_path / "out.nc",
+            backtest_params=BacktestParams(n_periods=5, n_splits=2, stride=1),
+            run_config=RunConfig(),
+        )
+
+    assert eval_mock.create.call_count == 1
+    forwarded = eval_mock.create.call_args.kwargs["estimator"]
+    assert isinstance(forwarded, ExtendedPredictor)
+
+
+def test_eval_cmd_raises_when_only_min_set_and_above_n_periods(tmp_path):
+    """The min-bound check must also fire when only min is declared and max is None."""
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    fake_estimator = _make_fake_estimator(min_prediction_length=5, max_prediction_length=None)
+    stack, _ = _patched_eval_chain(fake_estimator)
+    with stack:
+        with pytest.raises(ValueError, match="minimum prediction length"):
+            eval_cmd(
+                model_name="dummy",
+                dataset_csv="dummy.csv",
+                output_file=tmp_path / "out.nc",
+                backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+                run_config=RunConfig(),
+            )
+
+
 def test_eval_cmd_does_not_wrap_when_bounds_unspecified(tmp_path):
     """When the model declares neither min nor max, dispatch logs a warning and forwards
     the original estimator unchanged."""
