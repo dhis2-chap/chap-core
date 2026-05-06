@@ -174,28 +174,3 @@ def get_available_models(base_covariates) -> list[ModelSpec]:
         ),
     ]
     """
-
-
-# todo: can probably be deleted
-def seed_with_session_wrapper(session_wrapper, get_models_func=get_available_models):
-    """Seed a database using with the default models"""
-    seeded_feature_types = [
-        FeatureType(name="rainfall", display_name="Precipitation", description="Precipitation in mm"),
-        FeatureType(
-            name="mean_temperature", display_name="Mean Temperature", description="A measurement of mean temperature"
-        ),
-        FeatureType(name="population", display_name="Population", description="Population"),
-        target_type,
-    ]
-
-    db_models = [
-        session_wrapper.create_if_not_exists(feature_type, id_name="name") for feature_type in seeded_feature_types
-    ]
-
-    base_covariates = [db_models[0], db_models[1], db_models[2]]
-
-    models = get_models_func(base_covariates)
-
-    if models is not None:
-        for model in models:
-            session_wrapper.create_if_not_exists(model, id_name="name")
