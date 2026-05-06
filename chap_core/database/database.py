@@ -30,7 +30,7 @@ from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
 from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
-from .tables import BackTest, Prediction, PredictionSamplesEntry
+from .tables import Backtest, Prediction, PredictionSamplesEntry
 
 logger = logging.getLogger(__name__)
 engine = None
@@ -229,18 +229,7 @@ class SessionWrapper:
                 raise
 
             # add display name for configuration (not stored in db)
-            # stitch together template displayName with configured name stub
-            template_display_name = configured_model.model_template.display_name
-            if ":" in configured_model.name:
-                # configured model name is already stitched together as template_name:configuration_name
-                configuration_stub = configured_model.name.split(":")[-1]
-                # combine model template with configuration name to make the name unique
-                configuration_display_name = configuration_stub.replace("_", " ").capitalize()
-                display_name = f"{template_display_name} [{configuration_display_name}]"
-            else:
-                # default configurations just use the display name of their model template
-                display_name = template_display_name
-            configured_data["display_name"] = display_name
+            configured_data["display_name"] = configured_model.display_name
 
             # merge json data and add to results
             # NOTE: the sequence is important, starting with template data and add/overwrite with configured model data
@@ -308,6 +297,82 @@ class SessionWrapper:
 
         return configured_model
 
+    def get_configured_model_by_id_or_name(self, configured_model_id_or_name: int | str) -> ConfiguredModelDB:
+        """Resolve a configured model from either its integer primary key or its name.
+
+        Exists so the public API can accept either shape on `POST /v1/crud/backtests/`
+        without forcing callers to know that the DB column stores the name string.
+        Integer ids raise ValueError if not found to stay consistent with the
+        name-based lookup above.
+        """
+        if isinstance(configured_model_id_or_name, int):
+            configured_model = self.session.get(ConfiguredModelDB, configured_model_id_or_name)
+            if configured_model is None:
+                raise ValueError(f"Configured model with id {configured_model_id_or_name} not found")
+            return configured_model
+        return self.get_configured_model_by_name(configured_model_id_or_name)
+
+    def _resolve_chapkit_live_source_url(
+        self,
+        *,
+        service_id: str,
+        stored_source_url: str | None,
+        template: ModelTemplateDB,
+    ) -> str | None:
+        """Prefer the live chapkit URL from the v2 service registry over the DB row.
+
+        Container recreations change the auto-detected docker hostname each time,
+        and the lazy `_sync_live_chapkit_services` hook only fires on
+        `GET /v1/crud/model-templates`. Without this the celery worker can grab
+        a stale `source_url` and fail with `httpx.ConnectError: Name or service
+        not known` as soon as a chapkit container has been recreated since the
+        last template list.
+
+        Looks up the Orchestrator (Redis) by `service_id` (= template name, which
+        is the chapkit service id). If the live URL differs from the stored one,
+        writes the fresh value back onto the template row so subsequent lookups
+        are consistent. Falls back to `stored_source_url` on any failure so we
+        preserve the existing behaviour for non-registry code paths (tests,
+        environments without Redis, etc.).
+        """
+        try:
+            from chap_core.rest_api.services.orchestrator import Orchestrator, ServiceNotFoundError
+            from chap_core.rest_api.v2.dependencies import get_redis
+        except ImportError:
+            return stored_source_url
+
+        try:
+            live = Orchestrator(redis_client=get_redis()).get(service_id)
+        except ServiceNotFoundError:
+            logger.warning(
+                "Chapkit service %s not in v2 registry; falling back to stored source_url %s",
+                service_id,
+                stored_source_url,
+            )
+            return stored_source_url
+        except Exception:
+            logger.debug(
+                "Live orchestrator lookup failed for chapkit service %s",
+                service_id,
+                exc_info=True,
+            )
+            return stored_source_url
+
+        live_url = getattr(live, "url", None)
+        if not live_url:
+            return stored_source_url
+
+        if live_url != stored_source_url:
+            logger.info(
+                "Refreshing stale chapkit source_url for %s: %s -> %s",
+                service_id,
+                stored_source_url,
+                live_url,
+            )
+            template.source_url = live_url
+            self.session.commit()
+        return cast("str", live_url)
+
     def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
         logger.info(f"Getting configured model with id {configured_model_id}")
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
@@ -322,9 +387,14 @@ class SessionWrapper:
         )  # TODO: seems hacky, how to fix?
 
         if configured_model.uses_chapkit:
-            logger.info(f"Assuming chapkit model at {configured_model.model_template.source_url}")
-            assert configured_model.model_template.source_url is not None
-            template = ExternalChapkitModelTemplate(configured_model.model_template.source_url)
+            source_url = self._resolve_chapkit_live_source_url(
+                service_id=template_name,
+                stored_source_url=configured_model.model_template.source_url,
+                template=configured_model.model_template,
+            )
+            logger.info(f"Assuming chapkit model at {source_url}")
+            assert source_url is not None
+            template = ExternalChapkitModelTemplate(source_url)
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")
             return template.get_model(configured_model)  # type: ignore[arg-type, return-value]
@@ -344,8 +414,8 @@ class SessionWrapper:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
 
-    def get_backtest_with_truth(self, backtest_id: int) -> BackTest:
-        backtest = self.session.get(BackTest, backtest_id)
+    def get_backtest_with_truth(self, backtest_id: int) -> Backtest:
+        backtest = self.session.get(Backtest, backtest_id)
         if backtest is None:
             raise ValueError(f"Backtest with id {backtest_id} not found")
         dataset = backtest.dataset
@@ -356,11 +426,19 @@ class SessionWrapper:
             raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
         return backtest
 
-    def add_backtest(self, backtest: BackTest) -> None:
+    def add_backtest(self, backtest: Backtest) -> None:
         self.session.add(backtest)
         self.session.commit()
 
-    def add_predictions(self, predictions, dataset_id, model_id, name, metadata: dict | None = None):
+    def add_predictions(
+        self,
+        predictions,
+        dataset_id,
+        model_id,
+        name,
+        metadata: dict | None = None,
+        configured_model_with_data_source_id: int | None = None,
+    ):
         if metadata is None:
             metadata = {}
         n_periods = len(next(iter(predictions.values())))
@@ -382,6 +460,7 @@ class SessionWrapper:
             forecasts=samples_,
             org_units=org_units,
             model_db_id=model_db_id,
+            configured_model_with_data_source_id=configured_model_with_data_source_id,
         )
         self.session.add(prediction)
         self.session.commit()

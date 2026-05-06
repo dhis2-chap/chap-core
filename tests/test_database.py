@@ -18,7 +18,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 from chap_core.datatypes import HealthPopulationData
 from chap_core.external.model_configuration import (
     CommandConfig,
@@ -27,7 +27,7 @@ from chap_core.external.model_configuration import (
     ModelTemplateConfigV2,
 )
 from chap_core.models.external_model import ExternalModel
-from chap_core.rest_api.data_models import BackTestCreate
+from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest, run_prediction
 from chap_core.testing.testing import assert_dataset_equal
 
@@ -69,9 +69,9 @@ def test_backtest(engine_with_dataset):
     with Session(engine_with_dataset) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
     with SessionWrapper(engine_with_dataset) as session:
-        res = run_backtest(BackTestCreate(model_id="naive_model", dataset_id=dataset_id), 12, 2, 1, session=session)
+        res = run_backtest(BacktestCreate(model_id="naive_model", dataset_id=dataset_id), 12, 2, 1, session=session)
     with Session(engine_with_dataset) as session:
-        backtests = session.exec(select(BackTest)).all()
+        backtests = session.exec(select(Backtest)).all()
         assert len(backtests) == 1
         backtest = backtests[0]
         assert backtest.dataset_id == dataset_id
@@ -178,3 +178,61 @@ def test_seed_configured_models(engine):
 def test_seed_datasets_to_db(engine):
     with SessionWrapper(engine) as session:
         seed_example_datasets(session)
+
+
+@pytest.fixture
+def configured_model_fixture(engine, model_template_yaml_config):
+    """Seed a model template + configured model and return (engine, configured_model_id, configured_model_name)."""
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        cm_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
+    with Session(engine) as s:
+        cm = s.get(ConfiguredModelDB, cm_id)
+        assert cm is not None
+        name = cm.name
+    return engine, cm_id, name
+
+
+def test_configured_model_display_name(engine, model_template_yaml_config):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        default_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
+        named_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}), "detail_view")
+
+    template_display_name = model_template_yaml_config.meta_data.display_name
+    with Session(engine) as s:
+        default = s.get(ConfiguredModelDB, default_id)
+        named = s.get(ConfiguredModelDB, named_id)
+        assert default is not None and named is not None
+        assert default.display_name == template_display_name
+        assert named.display_name == f"{template_display_name} [Detail view]"
+
+
+def test_resolve_configured_model_by_int_id(configured_model_fixture):
+    engine, cm_id, expected_name = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        result = session.get_configured_model_by_id_or_name(cm_id)
+        assert result.id == cm_id
+        assert result.name == expected_name
+
+
+def test_resolve_configured_model_by_string_name(configured_model_fixture):
+    engine, cm_id, expected_name = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        result = session.get_configured_model_by_id_or_name(expected_name)
+        assert result.id == cm_id
+        assert result.name == expected_name
+
+
+def test_resolve_configured_model_by_nonexistent_int_raises(configured_model_fixture):
+    engine, _, _ = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        with pytest.raises(ValueError, match="not found"):
+            session.get_configured_model_by_id_or_name(99999)
+
+
+def test_resolve_configured_model_by_nonexistent_name_raises(configured_model_fixture):
+    engine, _, _ = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        with pytest.raises(ValueError, match="not found"):
+            session.get_configured_model_by_id_or_name("no_such_model")

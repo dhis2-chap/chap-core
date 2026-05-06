@@ -1,27 +1,23 @@
 """Utility commands for CHAP CLI."""
 
+from __future__ import annotations
+
 import dataclasses
 import json
 import logging
 from pathlib import Path
-from typing import Annotated, cast
+from typing import TYPE_CHECKING, Annotated
 
-import numpy as np
-import pandas as pd
-import xarray as xr
-import yaml
 from cyclopts import Parameter
 
-from chap_core.assessment.dataset_splitting import train_test_generator
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.datatypes import FullData
-from chap_core.file_io.example_data_set import datasets
-from chap_core.log_config import initialize_logging
-from chap_core.models.utils import get_model_template_from_directory_or_github_url
-from chap_core.plotting.dataset_plot import get_dataset_plots_registry
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.cli_endpoints.generated_plot_ids import BACKTEST_PLOT_IDS
+
+if TYPE_CHECKING:
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
+
+PLOT_TYPE_HELP = "Type of plot to generate. Available: " + ", ".join(f'"{plot_id}"' for plot_id in BACKTEST_PLOT_IDS)
 
 
 @dataclasses.dataclass
@@ -34,6 +30,16 @@ def sanity_check_model(
     """
     Check that a model can be loaded, trained and used to make predictions
     """
+    import numpy as np
+    import yaml
+
+    from chap_core.assessment.dataset_splitting import train_test_generator
+    from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.datatypes import FullData
+    from chap_core.file_io.example_data_set import datasets
+    from chap_core.models.utils import get_model_template_from_directory_or_github_url
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
     if dataset_path is None:
         dataset = datasets["hydromet_5_filtered"].load()
     else:
@@ -93,6 +99,8 @@ def test(**base_kwargs):
     """
     Simple test-command to check that the chap command works
     """
+    from chap_core.log_config import initialize_logging
+
     initialize_logging()
 
     logger.debug("Debug message")
@@ -100,6 +108,9 @@ def test(**base_kwargs):
 
 
 def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plot"):
+    from chap_core.plotting.dataset_plot import get_dataset_plots_registry
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
     registry = get_dataset_plots_registry()
     if plot_name not in registry:
         available = ", ".join(registry.keys())
@@ -109,15 +120,6 @@ def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plo
     plotter = plot_cls.from_dataset(ds)
     fig = plotter.plot()
     fig.show()
-
-
-def _get_plot_type_help() -> str:
-    """Generate help text listing available plot types from the registry."""
-    from chap_core.assessment.backtest_plots import list_backtest_plots
-
-    plots = list_backtest_plots()
-    plot_list = ", ".join(f'"{p["id"]}"' for p in plots)
-    return f"Type of plot to generate. Available: {plot_list}"
 
 
 def plot_backtest(
@@ -131,7 +133,7 @@ def plot_backtest(
     ],
     plot_type: Annotated[
         str,
-        Parameter(help=_get_plot_type_help()),
+        Parameter(help=PLOT_TYPE_HELP),
     ] = "metrics_dashboard",
 ):
     """
@@ -208,8 +210,11 @@ def export_metrics(
         output_file: Path to output CSV file
         metric_ids: Optional list of metric IDs to compute. If None, all metrics are computed at AGGREGATE level.
     """
+    import pandas as pd
+    import xarray as xr
+
     from chap_core.assessment.evaluation import Evaluation
-    from chap_core.assessment.metrics import available_metrics
+    from chap_core.assessment.metrics import available_metrics, calculate_metrics
 
     # All unified metrics support global aggregation
     all_metric_ids = list(available_metrics.keys())
@@ -237,7 +242,6 @@ def export_metrics(
 
         # Load evaluation and compute metrics
         evaluation = Evaluation.from_file(input_file)
-        flat_data = evaluation.to_flat()
 
         row = {
             "filename": input_file.name,
@@ -245,25 +249,8 @@ def export_metrics(
             "model_version": model_version,
         }
 
-        historical_obs = flat_data.historical_observations
-        historical_df: pd.DataFrame | None = (
-            pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
-        )
-
-        for metric_id in metrics_to_compute:
-            metric_cls = available_metrics[metric_id]
-            metric = metric_cls(historical_observations=historical_df)
-            if not metric.is_applicable(flat_data.observations):
-                row[metric_id] = None
-                continue
-            metric_df = metric.get_global_metric(flat_data.observations, flat_data.forecasts)
-            if len(metric_df) == 1:
-                row[metric_id] = float(metric_df["metric"].iloc[0])
-            else:
-                logger.warning(f"Metric {metric_id} returned {len(metric_df)} rows, expected 1. Skipping.")
-                row[metric_id] = None
-
-        results.append(row)
+        metrics_dict = calculate_metrics(evaluation=evaluation, metric_ids=metrics_to_compute, row=row)
+        results.append(metrics_dict)
 
     # Create DataFrame and write to CSV
     df = pd.DataFrame(results)

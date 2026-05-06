@@ -4,6 +4,7 @@ import logging
 import os
 from collections.abc import Callable
 from datetime import datetime
+from enum import StrEnum
 from typing import TypeVar, cast
 
 import celery
@@ -19,6 +20,24 @@ from ..log_config import CHAP_LOGS_DIR, get_status_logger
 from ..util import load_redis
 
 ReturnType = TypeVar("ReturnType")
+
+
+class JobType(StrEnum):
+    """Canonical job type strings surfaced to the UI and the /v1/jobs filter.
+
+    Values are the public contract with the modeling app frontend (see
+    `apps/modeling-app/src/hooks/useJobs.ts:JOB_TYPES`). The string values
+    look legacy/verbose because they match the FE's existing keys. Do not
+    rename the values in isolation -- coordinate a synchronized release
+    with the frontend before changing them. Rename the enum members
+    freely; only the string values are load-bearing.
+    """
+
+    EVALUATION_LEGACY = "create_backtest"  # /v1/crud/backtests and /v1/analytics/create-backtest
+    EVALUATION = "create_backtest_from_data"  # /v1/analytics/create-backtest-with-data/
+    PREDICTION = "create_prediction"  # /v1/analytics/make-prediction
+    DATASET = "create_dataset"  # /v1/analytics/make-dataset
+
 
 # We use get_task_logger to ensure we get the Celery-friendly logger
 # but you could also just use logging.getLogger(__name__) if you prefer.

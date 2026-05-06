@@ -10,7 +10,7 @@ from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.data_models import FullPredictionResponse
 
-initialize_logging(True, "logs/rest_api.log")
+initialize_logging()
 logger = logging.getLogger(__name__)
 logger.info("Logging initialized")
 

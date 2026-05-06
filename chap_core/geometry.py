@@ -3,7 +3,7 @@ import logging
 
 import pooch
 import pycountry
-from pydantic_geojson import FeatureCollectionModel, FeatureModel
+from geojson_pydantic import Feature, FeatureCollection
 from unidecode import unidecode
 
 from .api_types import (
@@ -16,11 +16,11 @@ from .api_types import (
 logger = logging.getLogger(__name__)
 
 
-class PFeatureModel(FeatureModel):
-    properties: dict
+class PFeatureModel(Feature):
+    properties: dict  # type: ignore[assignment]
 
 
-class PFeatureCollectionModel(FeatureCollectionModel):
+class PFeatureCollectionModel(FeatureCollection):
     features: list[PFeatureModel]  # type: ignore[assignment]
 
 
@@ -83,7 +83,7 @@ def add_id(feature, admin_level=1, lookup_dict=None):
     return DFeatureModel(**feature.model_dump(), id=feature_id)
 
 
-def get_area_polygons(country: str, regions: list[str] | None = None, admin_level: int = 1) -> FeatureCollectionModel:
+def get_area_polygons(country: str, regions: list[str] | None = None, admin_level: int = 1) -> FeatureCollection:
     """
     Get the polygons for the specified regions in the specified country (only ADMIN1 supported)
     Returns only the regions that are found in the data
@@ -177,7 +177,7 @@ class Polygons:
         return self.to_geojson()
 
     @property
-    def data(self) -> FeatureCollectionModel:
+    def data(self) -> FeatureCollection:
         return self._polygons  # type: ignore[no-any-return]
 
     @property
@@ -233,7 +233,7 @@ class Polygons:
         Filter the polygons to only include the specified locations
         """
         filtered = [feature for feature in self._polygons.features if feature.id in locations]
-        return Polygons(DFeatureCollectionModel(features=filtered))
+        return Polygons(DFeatureCollectionModel(type="FeatureCollection", features=filtered))
 
     @classmethod
     def _add_ids(cls, features: DFeatureCollectionModel, id_property: str):
@@ -270,7 +270,7 @@ class Polygons:
             logger.warning(f"Skipped {errors} geojson features due to failed validation")
 
         # create pydantic feature collection and add ids
-        feature_collection = DFeatureCollectionModel(features=features)
+        feature_collection = DFeatureCollectionModel(type="FeatureCollection", features=features)
         feature_collection = cls._add_ids(feature_collection, id_property)
 
         # init class object

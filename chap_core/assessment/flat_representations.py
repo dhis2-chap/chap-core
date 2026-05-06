@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from chap_core.database.dataset_tables import ObservationBase
-    from chap_core.database.tables import BackTestForecast
+    from chap_core.database.tables import BacktestForecast
 
 
 class FlatData(DataFrameModel):
@@ -54,19 +54,23 @@ class FlatMetric(FlatDataWithHorizon):
 
 
 def horizon_diff(period: str, period2: str) -> int:
-    """Calculate the difference between two time periods in terms of time units."""
+    """Calculate the 1-based horizon distance between two time periods.
+
+    Returns the number of time steps from period2 to period, counting from 1.
+    E.g. if period2 is the last seen period and period is the next one, returns 1.
+    """
     tp = TimePeriod.parse(period)
     tp2 = TimePeriod.parse(period2)
-    return int((tp - tp2) // tp.time_delta)
+    return int((tp - tp2) // tp.time_delta) + 1
 
 
-def _convert_backtest_to_flat_forecasts(backtest_forecasts: list[BackTestForecast]) -> pd.DataFrame:
+def _convert_backtest_to_flat_forecasts(backtest_forecasts: list[BacktestForecast]) -> pd.DataFrame:
     """
-    Convert a list of BackTestForecast objects to a flat DataFrame format
+    Convert a list of BacktestForecast objects to a flat DataFrame format
     conforming to ForecastFlatDataSchema.
 
     Args:
-        backtest_forecasts: List of BackTestForecast objects containing forecasts
+        backtest_forecasts: List of BacktestForecast objects containing forecasts
 
     Returns:
         pd.DataFrame with columns: location, time_period, horizon_distance, sample, forecast
@@ -79,7 +83,7 @@ def _convert_backtest_to_flat_forecasts(backtest_forecasts: list[BackTestForecas
         # from the last period we had data for
         horizon_distance = horizon_diff(str(forecast.period), str(forecast.last_seen_period))
 
-        # Each BackTestForecast contains multiple sample values
+        # Each BacktestForecast contains multiple sample values
         # We need to create one row per sample
 
         df = _create_df(forecast, horizon_distance)
@@ -110,7 +114,7 @@ def _convert_backtest_to_flat_forecasts(backtest_forecasts: list[BackTestForecas
     return pd.DataFrame(df)
 
 
-def _create_df(forecast: BackTestForecast, horizon_distance: int):
+def _create_df(forecast: BacktestForecast, horizon_distance: int):
     df = pd.DataFrame(
         {
             "location": str(forecast.org_unit),
@@ -124,7 +128,7 @@ def _create_df(forecast: BackTestForecast, horizon_distance: int):
 
 
 def convert_backtest_to_flat_forecasts(
-    backtest_forecasts: list[BackTestForecast], *, validate: bool = True
+    backtest_forecasts: list[BacktestForecast], *, validate: bool = True
 ) -> pd.DataFrame:
     import numpy as np
     import pandas as pd
@@ -240,5 +244,5 @@ class DataDimension(StrEnum):
 DIM_REGISTRY: Mapping[DataDimension, tuple[type, Check | None]] = {
     DataDimension.location: (str, None),
     DataDimension.time_period: (str, None),
-    DataDimension.horizon_distance: (int, Check.ge(0)),
+    DataDimension.horizon_distance: (int, Check.ge(1)),
 }

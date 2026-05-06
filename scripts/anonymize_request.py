@@ -3,8 +3,7 @@ import json
 import numpy as np
 
 from chap_core.api_types import RequestV2
-from chap_core.rest_api.data_models import DatasetMakeRequest
-from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
+from chap_core.rest_api.data_models import DatasetMakeRequest, MakePredictionRequest
 
 
 def old():

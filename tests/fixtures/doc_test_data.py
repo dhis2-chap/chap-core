@@ -64,8 +64,6 @@ IMPORTABLE_CLASSES = [
 # CLI commands that should have working --help
 CLI_HELP_COMMANDS = [
     ["chap", "--help"],
-    ["chap", "evaluate", "--help"],
-    ["chap", "evaluate2", "--help"],
     ["chap", "eval", "--help"],
     ["chap", "plot-backtest", "--help"],
     ["chap", "export-metrics", "--help"],

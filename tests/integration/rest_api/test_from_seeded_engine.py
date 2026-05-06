@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
 from chap_core.database.dataset_tables import DataSet
-from chap_core.database.tables import BackTestRead
+from chap_core.database.tables import BacktestRead
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.dependencies import get_session
 
@@ -60,7 +60,7 @@ def test_get_prediction_entries(override_session):
 
 
 def test_get_backtest(override_session):
-    backtest: BackTestRead = client.get_obj("/v1/crud/backtests/1/info", __model__=BackTestRead)
+    backtest: BacktestRead = client.get_obj("/v1/crud/backtests/1/info", __model__=BacktestRead)
     dataset = backtest.dataset
     assert dataset.data_sources is not None
     assert dataset.data_sources[0].covariate == "mean_temperature"
@@ -86,6 +86,22 @@ def test_dataset_df(override_session):
     assert len(df) > 10
     # assert "mean_temperature" in df[0], df[0].keys()
     # assert "cases" in df[0], df[0].keys()
+
+
+def test_metrics_csv(override_session):
+    response = client.get("/v1/crud/metric/csv", params={"backtestId": 1})
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/csv")
+    lines = response.text.strip().splitlines()
+    assert lines[0] == "metric_id,location,time_period,horizon_distance,metric"
+    assert len(lines) > 1
+    metric_ids = {line.split(",", 1)[0] for line in lines[1:]}
+    assert {"crps", "mae", "rmse"}.issubset(metric_ids)
+
+
+def test_metrics_csv_missing(override_session):
+    response = client.get("/v1/crud/metric/csv", params={"backtestId": 9999})
+    assert response.status_code == 404
 
 
 def test_backtest_plot(override_session, tmp_path):

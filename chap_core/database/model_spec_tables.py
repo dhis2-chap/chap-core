@@ -36,6 +36,9 @@ class ModelSpecRead(ModelSpecBase):
     covariates: list[FeatureType]
     target: FeatureType
     archived: bool = False
+    uses_chapkit: bool = False
+    user_option_values: dict | None = None
+    additional_continuous_covariates: list[str] = []
 
 
 target_type = FeatureType(name="disease_cases", display_name="Disease Cases", description="Disease Cases")

@@ -2,7 +2,7 @@
 
 This walkthrough is for educational purposes. It breaks the evaluation pipeline
 into individual steps so you can see what happens at each stage. In practice,
-use the higher-level `Evaluation.create` (section 7) or the CLI `chap evaluate`
+use the higher-level `Evaluation.create` (section 7) or the CLI `chap eval`
 command rather than calling the lower-level splitting and prediction functions
 directly.
 
@@ -212,10 +212,10 @@ attributes with the model metadata needed by the evaluation:
 Run the evaluation:
 
 ```python
-from chap_core.api_types import BackTestParams
+from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 
-backtest_params = BackTestParams(n_periods=3, n_splits=4, stride=1)
+backtest_params = BacktestParams(n_periods=3, n_splits=4, stride=1)
 evaluation = Evaluation.create(estimator.configured_model_db, estimator, dataset, backtest_params)
 ```
 

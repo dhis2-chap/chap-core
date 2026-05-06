@@ -6,9 +6,10 @@ from typing import get_type_hints
 import numpy as np
 from pydantic import BaseModel
 
-from chap_core.api_types import BackTestParams
+from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.forecast import forecast_ahead
+from chap_core.assessment.metrics import compute_all_aggregated_metrics_from_backtest
 from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.data import DataSet as InMemoryDataSet
@@ -16,9 +17,9 @@ from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
-from chap_core.rest_api.data_models import BackTestCreate, FetchRequest, PredictionParams
+from chap_core.rest_api.data_models import BacktestCreate, FetchRequest, PredictionParams
 
-# from chap_core.rest_api.v1.routers.crud import BackTestCreate
+# from chap_core.rest_api.v1.routers.crud import BacktestCreate
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import Month
@@ -75,7 +76,7 @@ def validate_and_filter_dataset_for_evaluation(
 
 # @convert_dicts_to_models
 def run_backtest(
-    info: BackTestCreate,
+    info: BacktestCreate,
     n_periods: int | None = None,
     n_splits: int = 10,
     stride: int = 1,
@@ -87,7 +88,11 @@ def run_backtest(
 
     dataset = session.get_dataset(info.dataset_id)
 
-    configured_model = session.get_configured_model_by_name(info.model_id)
+    configured_model = session.get_configured_model_by_id_or_name(info.model_id)
+    # Normalise back to the name string so any downstream code that still
+    # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
+    # canonical value rather than the raw integer primary key.
+    info.model_id = configured_model.name
 
     # hack to get who ewars model to work, it requires n_peridos=3.
     # todo: should be removed in future when system for model specific backtest params is implemented
@@ -121,7 +126,21 @@ def run_backtest(
     last_train_period = dataset.period_range[-1]
     evaluation = Evaluation.from_samples_with_truth(predictions_list, last_train_period, configured_model, info=info)
     backtest = evaluation.to_backtest()
+    backtest.model_db_id = configured_model.id
     session.add_backtest(backtest)
+    # Populate the global aggregate metric values on the backtest row so that
+    # GET /v1/crud/backtests/{id}/full can return CRPS/MAPE/RMSE/etc without
+    # the caller needing to round-trip through /v1/visualization/metric-plots.
+    # Per-forecast samples on BacktestForecast remain the source of truth for
+    # the visualization path; a failure here must not tank the whole backtest.
+    # This runs AFTER add_backtest because compute_all_aggregated_metrics_from_backtest
+    # reads `backtest.dataset.observations` via the Evaluation abstraction, and the
+    # `dataset` relationship only resolves once the row is attached + committed.
+    try:
+        backtest.aggregate_metrics = compute_all_aggregated_metrics_from_backtest(backtest)
+        session.session.commit()
+    except Exception:
+        logger.warning("Failed to compute aggregate metrics for backtest; leaving empty", exc_info=True)
     db_id = backtest.id
     assert db_id is not None
     status_logger.info(f"Backtest completed successfully. Results saved with ID {db_id}")
@@ -134,6 +153,7 @@ def run_prediction(
     n_periods: int | None,
     name: str,
     session: SessionWrapper,
+    configured_model_with_data_source_id: int | None = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
@@ -147,7 +167,13 @@ def run_prediction(
     assert configured_model.id is not None, "configured_model.id is required"
     estimator = session.get_configured_model_with_code(configured_model.id)
     predictions = forecast_ahead(estimator, dataset, n_periods)
-    db_id = session.add_predictions(predictions, dataset_id, model_id, name)
+    db_id = session.add_predictions(
+        predictions,
+        dataset_id,
+        model_id,
+        name,
+        configured_model_with_data_source_id=configured_model_with_data_source_id,
+    )
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     return db_id
@@ -209,6 +235,7 @@ def predict_pipeline_from_composite_dataset(
     prediction_params: PredictionParams,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
+    configured_model_with_data_source_id: int | None = None,
 ) -> int:
     """
     This is the main pipeline function to run prediction from a dataset.
@@ -220,7 +247,14 @@ def predict_pipeline_from_composite_dataset(
         dataset_info=dataset_create_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json()
     )
 
-    result: int = run_prediction(prediction_params.model_id, dataset_id, prediction_params.n_periods, name, session)
+    result: int = run_prediction(
+        prediction_params.model_id,
+        dataset_id,
+        prediction_params.n_periods,
+        name,
+        session,
+        configured_model_with_data_source_id=configured_model_with_data_source_id,
+    )
     return result
 
 
@@ -231,13 +265,13 @@ def run_backtest_from_dataset(
     backtest_name: str,
     model_id: str,
     dataset_info: DataSetCreateInfo,
-    backtest_params: BackTestParams,
+    backtest_params: BacktestParams,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
     dataset_id = session.add_dataset(dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json())
-    backtest_create_info = BackTestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)
+    backtest_create_info = BacktestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)
     if ds.frequency == "W" and backtest_params.stride < 4:
         logging.warning("Setting stride to 4 since its weekly data")
         backtest_params.stride = 4

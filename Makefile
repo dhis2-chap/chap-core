@@ -1,4 +1,4 @@
-.PHONY: clean coverage dist docs help install lint lint/flake8 test-chapkit-compose force-restart
+.PHONY: clean coverage dist docs help install lint lint/flake8 check regen-plot-help test-chapkit-compose force-restart restart chap-version
 .DEFAULT_GOAL := help
 
 define PRINT_HELP_PYSCRIPT
@@ -37,6 +37,16 @@ lint: ## check and fix code style with ruff, run type checking
 	@echo "Type checking (pyright)..."
 	uv run pyright
 
+check: ## non-mutating lint + type checks (used in CI)
+	@echo "Ruff check..."
+	uv run ruff check
+	@echo "Ruff format check..."
+	uv run ruff format --check
+	@echo "Type checking (mypy)..."
+	uv run mypy
+	@echo "Type checking (pyright)..."
+	uv run pyright
+
 test: ## run tests quickly with minimal output
 	uv run pytest -q
 
@@ -61,8 +71,6 @@ test-timed: ## run tests showing timing for 20 slowest tests
 test-all: ## run comprehensive test suite with examples and coverage
 	mkdir -p target runs
 	./tests/test_docker_compose_integration_flow.sh
-	CHAP_DEBUG=true uv run chap evaluate --model-name https://github.com/sandvelab/monthly_ar_model@89f070dbe6e480d1e594e99b3407f812f9620d6d --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --prediction-length 3
-	CHAP_DEBUG=true uv run chap evaluate --model-name external_models/naive_python_model_with_mlproject_file_and_docker/ --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --n-splits 2 --model-configuration-yaml external_models/naive_python_model_with_mlproject_file_and_docker/example_model_configuration.yaml
 
 	#./tests/test_docker_compose_flow.sh   # this runs pytests inside a docker container, can be skipped
 	CHAP_DEBUG=true uv run pytest --log-cli-level=INFO -o log_cli=true -v --durations=0 --cov=climate_health --cov-report html --run-slow
@@ -76,8 +84,8 @@ coverage: ## run tests with coverage reporting
 	@uv run coverage xml
 	@echo "Coverage report: htmlcov/index.html"
 
-docs: ## generate MkDocs HTML documentation
-	uv run mkdocs build
+docs: ## generate MkDocs HTML documentation (strict: warnings fail the build)
+	uv run mkdocs build --strict
 	@echo "Docs: site/index.html"
 
 dist: clean ## build source and wheel package
@@ -87,5 +95,14 @@ dist: clean ## build source and wheel package
 install: clean ## sync dependencies and install package in development mode
 	uv sync
 
-force-restart: ## tear down, rebuild, and start docker compose from scratch
-	docker compose down -v && docker compose build --no-cache && docker compose up --remove-orphans
+regen-plot-help: ## regenerate chap_core/cli_endpoints/generated_plot_ids.py from @backtest_plot decorators
+	@uv run python scripts/regenerate_plot_help.py
+
+force-restart: ## tear down, rebuild, and start docker compose from scratch (WIPES VOLUMES including chap-db)
+	docker compose -f compose.yml -f compose.chapkit.yml down -v && docker compose -f compose.yml -f compose.chapkit.yml build --no-cache && docker compose -f compose.yml -f compose.chapkit.yml up --remove-orphans
+
+restart: ## soft restart docker compose (preserves volumes; rebuilds only on source changes)
+	docker compose -f compose.yml -f compose.chapkit.yml down && docker compose -f compose.yml -f compose.chapkit.yml up -d --build --remove-orphans && $(MAKE) chap-version
+
+chap-version: ## print the chap_core version running inside the chap container
+	@docker compose -f compose.yml -f compose.chapkit.yml exec -T chap python -c 'import chap_core; print(f"chap_core running in container: {chap_core.__version__}")' 2>/dev/null || echo "chap container not running"

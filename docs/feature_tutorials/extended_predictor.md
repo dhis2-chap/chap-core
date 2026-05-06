@@ -43,5 +43,3 @@ rm -f ./extended_predictor_test.nc
 ```
 
 When the requested `n-periods` exceeds the model's `max_prediction_length`, Chap automatically uses `ExtendedPredictor` to make iterative predictions.
-
-> **Note:** The legacy `chap evaluate` command is deprecated and will be removed in v2.0. Use `chap eval` instead.

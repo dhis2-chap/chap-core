@@ -2,7 +2,6 @@ import logging
 from typing import Any, Literal, cast
 
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.file_io.example_data_set import DataSetType
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 from .base import write_yaml
@@ -36,7 +35,7 @@ class HpoModel(HpoModelInterface):
         self._leaderboard: list[dict[str, Any]] = []
         self._predictor: Any = None
 
-    def train(self, dataset: DataSetType | None) -> Any:  # type: ignore[override]
+    def train(self, dataset: DataSet) -> Any:  # type: ignore[override]
         """
         Calls get_leaderboard to find the optimal configuration.
         Then trains the tuned model on the whole input dataset (train + validation).
@@ -61,7 +60,7 @@ class HpoModel(HpoModelInterface):
         assert self._predictor is not None, "Model not trained yet"
         return cast("DataSet[Any]", self._predictor.predict(historic_data, future_data))
 
-    def get_leaderboard(self, dataset: DataSetType | None) -> list[dict[str, Any]]:
+    def get_leaderboard(self, dataset: DataSet) -> list[dict[str, Any]]:
         """
         Runs hyperparameter optimization over the search space.
         Returns a sorted list of configurations together with their score.

@@ -1,34 +1,33 @@
+from enum import StrEnum
 from typing import Any, Literal
 
 import numpy as np
+from geojson_pydantic import (
+    Feature as _Feature,
+)
+from geojson_pydantic import (
+    FeatureCollection as _FeatureCollection,
+)
+from geojson_pydantic import (
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+)
 from pydantic import BaseModel, Field
-from pydantic_geojson import (
-    FeatureCollectionModel as _FeatureCollectionModel,
-)
-from pydantic_geojson import (
-    FeatureModel as _FeatureModel,
-)
-from pydantic_geojson import (
-    LineStringModel,
-    MultiLineStringModel,
-    MultiPointModel,
-    MultiPolygonModel,
-    PointModel,
-    PolygonModel,
-)
 
 from chap_core.database.base_tables import DBModel
 
 
-class FeatureModel(_FeatureModel):
-    id: str | None = None
+class FeatureModel(_Feature):
+    id: str | None = None  # type: ignore[assignment]
     properties: dict[str, Any] | None = Field(default_factory=dict)  # type: ignore[assignment]
-    geometry: (
-        PointModel | MultiPointModel | LineStringModel | MultiLineStringModel | PolygonModel | MultiPolygonModel | None
-    ) = None  # type: ignore[assignment]
+    geometry: Point | MultiPoint | LineString | MultiLineString | Polygon | MultiPolygon | None = None  # type: ignore[assignment]
 
 
-class FeatureCollectionModel(_FeatureCollectionModel):
+class FeatureCollectionModel(_FeatureCollection):
     features: list[FeatureModel]  # type: ignore[assignment]
 
 
@@ -81,7 +80,7 @@ class EvaluationEntry(PredictionEntry):
     splitPeriod: str
 
 
-class BackTestParams(DBModel):
+class BacktestParams(DBModel):
     n_periods: int = 3
     n_splits: int = 7
     stride: int = 1
@@ -128,3 +127,22 @@ class EvaluationResponse(BaseModel):
 
 class PeriodObservation(BaseModel):
     time_period: str
+
+
+class EstimatorMode(StrEnum):
+    NORMAL = "normal"
+    HPO = "hpo"
+    ENSEMBLE = "ensemble"
+
+
+class EstimatorOptions(BaseModel):
+    mode: EstimatorMode = Field(
+        default=EstimatorMode.NORMAL,
+        description=(
+            "Estimator mode: 'normal' = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning."
+        ),
+    )
+    metric: str | None = Field(
+        default="rmse",
+        description="Metric used for HPO or ensemble. Ignored in normal mode.",
+    )

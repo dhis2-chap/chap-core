@@ -21,6 +21,10 @@ class DummyConfig(BaseModel):
 class DummyModel(ConfiguredModel):
     covariate_names: list[str] = ["rainfall", "mean_temperature", "population"]
 
+    @property
+    def model_information(self):
+        return None
+
     def __init__(self, config: ModelConfiguration):
         self._config = DummyConfig.model_validate(config.user_option_values)
 

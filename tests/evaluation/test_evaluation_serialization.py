@@ -10,6 +10,7 @@ import xarray as xr
 
 from chap_core.assessment.evaluation import Evaluation, FlatEvaluationData
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
+from chap_core.external.model_configuration import ModelTemplateConfigV2
 
 
 class TestEvaluationSerialization:
@@ -71,6 +72,35 @@ class TestEvaluationSerialization:
         assert ds.attrs["model_version"] == "2.1.0"
         assert "created_date" in ds.attrs
         assert "chap_version" in ds.attrs
+
+        ds.close()
+
+    def test_to_file_includes_model_info(self, backtest, tmp_path):
+        """Test that to_file includes model_info in metadata."""
+        evaluation = Evaluation.from_backtest(backtest)
+        output_file = tmp_path / "test_evaluation_with_model_info.nc"
+
+        model_info = ModelTemplateConfigV2(
+            name="test-model",
+            version="1.2.3",
+            source_url="https://example.com/model",
+        )
+
+        evaluation.to_file(
+            filepath=output_file,
+            model_name="TestModel",
+            model_info=model_info,
+        )
+
+        ds = xr.open_dataset(output_file)
+
+        assert "model_info" in ds.attrs
+        assert ds.attrs["model_info"]
+
+        parsed_model_info = ModelTemplateConfigV2.model_validate_json(ds.attrs["model_info"])
+        assert parsed_model_info.name == model_info.name
+        assert parsed_model_info.version == model_info.version
+        assert parsed_model_info.source_url == model_info.source_url
 
         ds.close()
 
