@@ -44,28 +44,17 @@ jobs:
       - name: Determine Docker image tag
         id: tag
         run: |
-          REF="${GITHUB_REF}"
-          TAG=""
-
-          if [[ "$REF" == "refs/heads/dev" ]]; then
+          if [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
             TAG="dev"
-          elif [[ "$REF" == "refs/heads/master" ]]; then
+          elif [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
             TAG="latest"
-          elif [[ "$REF" =~ ^refs/tags/1\..* ]]; then
-            git fetch origin master --depth=1
-            TAG_COMMIT=$(git rev-parse "$REF^{}")
-            if git merge-base --is-ancestor "$TAG_COMMIT" origin/master; then
-              TAG="${REF#refs/tags/}"
-            else
-              echo "❌ Tag does not point to a commit on master. Skipping image build."
-              exit 0
-            fi
           else
-            echo "No valid branch or tag for image publishing"
-            exit 0
+            git fetch origin master --depth=1
+            TAG_COMMIT=$(git rev-parse "$GITHUB_REF^{}")
+            git merge-base --is-ancestor "$TAG_COMMIT" origin/master \
+              || { echo "Tag does not point to master"; exit 1; }
+            TAG="${GITHUB_REF#refs/tags/}"
           fi
-
-          # Output the full tag for the Docker build step
           echo "TAGS=${{ env.REGISTRY }}/${{ matrix.image_name }}:$TAG" >> "$GITHUB_OUTPUT"
         shell: bash
 
