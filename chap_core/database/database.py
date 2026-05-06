@@ -100,11 +100,11 @@ class SessionWrapper:
 
 
     def return_model_template(self, model_name: str, existing_template: ModelTemplateDB | None) -> ModelTemplateDB | None:
-        logger.info(f"Model template with name {model_template.name} already exists. Returning existing id")
+        logger.info(f"Model template with name {model_name} already exists. Returning existing id")
         return cast("int", existing_template.id)
 
     
-    def update_model_template(self, existing_template_id: int, new_model_template: ModelTemplateDB) -> None:
+    def update_model_template(self, existing_template: ModelTemplateDB, new_model_template: ModelTemplateDB) -> None:
         logger.info(f"Model template with name {new_model_template.name} already exists. Updating it")
         # Update the existing template with new data
         for key, value in new_model_template.model_dump().items():
@@ -122,19 +122,24 @@ class SessionWrapper:
         self.session.add(model_template)
         self.session.commit()
 
+        print(model_template.id)
         # return id
         return cast("int", model_template.id)
 
 
-    def add_or_update_model_template(self, model_template: ModelTemplateDB, add: bool) -> int:
+    def add_or_update_model_template(self, model_template: ModelTemplateDB, update: bool) -> int:
         model_name = model_template.name
         existing_template = self.if_exists(model_name)
         if existing_template:
-            if add:
-                self.return_model_template(model_name, existing_template)
+            print(f"Model template with name {model_name} already exists.")
+            if update:
+                print(f"Updating existing model template with name {model_name}.")
+                self.update_model_template(existing_template, new_model_template=model_template)
             else:
-                self.update_model_template(existing_template.id, new_model_template=model_template)
+                print(f"Returning existing model template with name {model_name}.")
+                self.return_model_template(model_name, existing_template)
         else:
+            print(f"Model template with name {model_name} does not exist. Adding it")
             self.add_model_template(model_template)
 
 
@@ -144,7 +149,7 @@ class SessionWrapper:
         info = d.pop("meta_data")
         d = d | info
         model_template = ModelTemplateDB(**d)
-        return self.add_or_update_model_template(model_template, add=False)
+        return self.add_or_update_model_template(model_template, update=True)
 
 
     def add_configured_model(
