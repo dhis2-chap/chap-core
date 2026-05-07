@@ -98,7 +98,7 @@ class ExtendedPredictor(ConfiguredModel):
         sample_cols = [col for col in new_rows.columns if col.startswith("sample_")]
 
         # Replace them with a single column "disease_cases" as the average
-        new_rows["disease_cases"] = new_rows[sample_cols].mean(axis=1).round().astype(int)
+        new_rows["disease_cases"] = new_rows[sample_cols].median(axis=1).round().astype(int)
 
         # Drop the original sample columns
         new_rows = new_rows.drop(columns=sample_cols)
