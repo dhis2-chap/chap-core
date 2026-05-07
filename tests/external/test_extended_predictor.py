@@ -472,6 +472,54 @@ def test_single_location_prediction():
     assert len(result_df["time_period"].unique()) == 5
 
 
+def test_covariates_preserved_in_historic_data_between_iterations():
+    """Covariates from future_data must not become NaN in historic data passed to later iterations."""
+    recorded_historic: list[pd.DataFrame] = []
+
+    class SamplesOnlyModel(ConfiguredModel):
+        _model_information = ModelTemplateConfigV2(name="m", min_prediction_length=1, max_prediction_length=2)
+
+        @property
+        def model_information(self):
+            return self._model_information
+
+        def train(self, train_data, extra_args=None):
+            return self
+
+        def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
+            recorded_historic.append(historic_data.to_pandas().copy())
+            rows = [
+                {"time_period": r["time_period"], "location": r["location"], "sample_0": 50.0}
+                for _, r in future_data.to_pandas().iterrows()
+            ]
+            return DataSet.from_pandas(pd.DataFrame(rows))  # type: ignore[reportArgumentType]
+
+    historic_data = DataSet.from_pandas(
+        pd.DataFrame(
+            {
+                "time_period": ["2020-01", "2020-02"],
+                "location": ["A", "A"],
+                "disease_cases": [10, 15],
+                "rainfall": [50.0, 60.0],
+            }
+        )
+    )  # type: ignore[reportArgumentType]
+    future_data = DataSet.from_pandas(
+        pd.DataFrame(
+            {
+                "time_period": ["2020-03", "2020-04", "2020-05", "2020-06"],
+                "location": ["A"] * 4,
+                "rainfall": [70.0, 80.0, 90.0, 100.0],
+            }
+        )
+    )  # type: ignore[reportArgumentType]
+
+    ExtendedPredictor(SamplesOnlyModel(), desired_scope=4).predict(historic_data, future_data)
+
+    assert len(recorded_historic) >= 2
+    assert not recorded_historic[1]["rainfall"].isna().any(), "Rainfall must not be NaN in extended historic data"
+
+
 def test_update_historic_data_averages_samples():
     """Verify disease_cases is computed as the mean of sample columns."""
     mock_model = MockModel()
