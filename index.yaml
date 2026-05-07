@@ -21,6 +21,35 @@ entries:
       category: Application
     apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-05-07T08:56:55.578043437Z"
+    dependencies:
+    - condition: chap-db.enabled
+      name: chap-db
+      repository: file://../chap-db
+      version: 0.1.4
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm
+      version: 0.9.2
+    - condition: chap-api.enabled
+      name: chap-api
+      repository: file://../chap-api
+      version: 0.1.10
+    - condition: chap-worker.enabled
+      name: chap-worker
+      repository: file://../chap-worker
+      version: 0.1.1
+    description: CHAP (Climate Health Analysis Platform) - Umbrella Chart
+    digest: 7214613956938c607d78c91c62dee09c6a8d322fdded3aa8ff2a064413bc849f
+    name: chap
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-0.3.4/chap-0.3.4.tgz
+    version: 0.3.4
+  - annotations:
+      category: Application
+    apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-04-22T07:22:21.779954366Z"
     dependencies:
     - condition: chap-db.enabled
@@ -163,6 +192,16 @@ entries:
     - https://github.com/dhis2-chap/chap-core/releases/download/chap-0.2.0/chap-0.2.0.tgz
     version: 0.2.0
   chap-api:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-05-07T08:56:55.818645504Z"
+    description: CHAP API - REST API Deployment
+    digest: 5b196bd963584e8444e2654adbf410fc7ac496577eea80b7df2c298a2143b543
+    name: chap-api
+    type: application
+    urls:
+    - https://github.com/dhis2-chap/chap-core/releases/download/chap-api-0.1.10/chap-api-0.1.10.tgz
+    version: 0.1.10
   - apiVersion: v2
     appVersion: 1.0.0
     created: "2026-04-22T07:22:21.975786005Z"
@@ -353,4 +392,4 @@ entries:
     urls:
     - https://github.com/dhis2-chap/chap-core/releases/download/chap-worker-0.1.0/chap-worker-0.1.0.tgz
     version: 0.1.0
-generated: "2026-04-22T07:22:22.155155243Z"
+generated: "2026-05-07T08:56:56.298139035Z"
