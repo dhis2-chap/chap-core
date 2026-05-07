@@ -50,7 +50,7 @@ def _load_dataset(
     *,
     dataset_name: str | None,
     dataset_country: str | None,
-    dataset_csv: Path | None,
+    dataset_csv: str | Path | None,
     polygons_json: Path | None,
     polygons_id_field: str,
     data_source_mapping: Path | None,
@@ -71,8 +71,18 @@ def _load_dataset(
     if data_source_mapping is not None:
         with open(data_source_mapping) as f:
             column_mapping = json.load(f)
-    geojson = polygons_json or discover_geojson(dataset_csv)
-    return load_dataset_from_csv(dataset_csv, geojson, column_mapping)
+
+    # dataset_csv can be either a local file path (Path or string) or a URL
+    if polygons_json is not None:
+        geojson = polygons_json
+    elif isinstance(dataset_csv, Path):
+        geojson = discover_geojson(dataset_csv)
+    else:
+        # If we have a URL, we do not try to auto-discover GeoJSON
+        geojson = None
+
+    csv_arg = str(dataset_csv) if isinstance(dataset_csv, Path) else dataset_csv
+    return load_dataset_from_csv(csv_arg, geojson, column_mapping)
 
 
 def _compute_metrics(flat: Any, ensemble_method: str) -> tuple[str, dict[str, float | str], pd.DataFrame]:
@@ -113,7 +123,7 @@ def _evaluate_ensemble_core(
     ensemble_method: str,
     dataset_name: str | None,
     dataset_country: str | None,
-    dataset_csv: Path | None,
+    dataset_csv: str | Path | None,
     polygons_json: Path | None,
     polygons_id_field: str,
     report_filename: Path,
@@ -235,7 +245,7 @@ def evaluate_ensemble(
     ] = "probabilistic",
     dataset_name: Annotated[str | None, Parameter(help="Name of a built-in dataset.")] = None,
     dataset_country: Annotated[str | None, Parameter(help="Country for multi-country datasets.")] = None,
-    dataset_csv: Annotated[Path | None, Parameter(help="CSV file with disease data.")] = None,
+    dataset_csv: Annotated[str | None, Parameter(help="CSV file with disease data.")] = None,
     polygons_json: Annotated[Path | None, Parameter(help="Optional GeoJSON file.")] = None,
     polygons_id_field: Annotated[str, Parameter(help="ID field in GeoJSON.")] = "id",
     report_filename: Annotated[Path, Parameter(help="Base filename for report outputs.")] = Path("ensemble_report.csv"),
