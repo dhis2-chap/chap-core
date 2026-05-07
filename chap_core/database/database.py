@@ -90,21 +90,16 @@ class SessionWrapper:
     def list_all(self, model):
         return self.session.exec(select(model)).all()
 
-
     def if_exists(self, model_name: str) -> ModelTemplateDB | None:
         # check if model template already exists
-        existing_template = self.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)
-        ).first()
+        existing_template = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).first()
         return existing_template
 
-
-    def return_model_template(self, model_name: str, existing_template: ModelTemplateDB | None) -> ModelTemplateDB | None:
+    def return_model_template_id(self, model_name: str, existing_template: ModelTemplateDB) -> int:
         logger.info(f"Model template with name {model_name} already exists. Returning existing id")
         return cast("int", existing_template.id)
 
-    
-    def update_model_template(self, existing_template: ModelTemplateDB, new_model_template: ModelTemplateDB) -> None:
+    def update_model_template(self, existing_template: ModelTemplateDB, new_model_template: ModelTemplateDB) -> int:
         logger.info(f"Model template with name {new_model_template.name} already exists. Updating it")
         # Update the existing template with new data except id
         data = new_model_template.model_dump(exclude={"id"})
@@ -116,7 +111,6 @@ class SessionWrapper:
         self.session.commit()
         return cast("int", existing_template.id)
 
-
     def add_model_template(self, model_template: ModelTemplateDB) -> int:
         # add db entry
         logger.info(f"Adding model template: {model_template}")
@@ -125,7 +119,6 @@ class SessionWrapper:
         # return id
         return cast("int", model_template.id)
 
-
     def add_or_update_model_template(self, model_template: ModelTemplateDB, update: bool) -> int:
         model_name = model_template.name
         existing_template = self.if_exists(model_name)
@@ -133,10 +126,9 @@ class SessionWrapper:
             if update:
                 return self.update_model_template(existing_template, new_model_template=model_template)
             else:
-                return self.return_model_template(model_name, existing_template)
+                return self.return_model_template_id(model_name, existing_template)
         else:
             return self.add_model_template(model_template)
-
 
     def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
         # convert yaml config to model template db object and add to db
@@ -145,7 +137,6 @@ class SessionWrapper:
         d = d | info
         model_template = ModelTemplateDB(**d)
         return self.add_or_update_model_template(model_template, update=True)
-
 
     def add_configured_model(
         self,
