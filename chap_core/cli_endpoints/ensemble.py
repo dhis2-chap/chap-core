@@ -107,8 +107,16 @@ def _save_reports(
     report_filename: Path,
     results: dict[str, tuple[dict[str, float | str], object]],
 ) -> None:
-    save_results(str(report_filename), results)
+    model_key, (metrics_dict, _df) = next(iter(results.items()))
+    df_metrics = pd.DataFrame([metrics_dict])
+    df_metrics.insert(0, "ensemble_model", model_key)
+    df_metrics.to_csv(report_filename, index=False)
 
+#def _save_reports(
+    #report_filename: Path,
+    #results: dict[str, tuple[dict[str, float | str], object]],
+#) -> None:
+    #save_results(str(report_filename), results)
 
 def _write_meta_report(report_filename: Path, model_names: list[str], weights: Sequence[float]) -> None:
     report_path = report_filename.with_name("ensemble_meta_report.csv")
