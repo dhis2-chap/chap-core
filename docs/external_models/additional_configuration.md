@@ -60,17 +60,25 @@ Configuration values can be provided via the `--model-configuration-yaml` CLI fl
 chap eval my_model data.csv results.nc --model-configuration-yaml config.yaml
 ```
 
-The configuration YAML file should contain the parameter values:
+The configuration YAML is a `ModelConfiguration` document with two top-level keys:
+
+- `user_option_values` — a mapping whose keys must match the parameter names declared in your MLproject `user_options`
+- `additional_continuous_covariates` — an optional list of extra continuous covariates (only meaningful when the template sets `allow_free_additional_continuous_covariates: true`)
 
 ```yaml
-n_lag_periods: 5
-learning_rate: 0.01
+user_option_values:
+  n_lag_periods: 5
+  learning_rate: 0.01
+additional_continuous_covariates:
+  - rainfall
+  - mean_temperature
 ```
 
 ### Validation rules
 
-- Options without a `default` value are required and must be provided
-- Only options defined in `user_options` are allowed in the configuration file
+- The top-level YAML must contain only `user_option_values` and `additional_continuous_covariates`. Any other top-level key raises a validation error — flat YAMLs like `n_lag_periods: 5` at the root are rejected.
+- Options without a `default` value are required and must be provided under `user_option_values`
+- Only options defined in `user_options` are allowed under `user_option_values`
 - Values must match the specified type (e.g., integers for `integer` type)
 
 ### Examples in the codebase

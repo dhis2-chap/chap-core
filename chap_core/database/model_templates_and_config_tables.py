@@ -2,6 +2,7 @@ import logging
 from enum import Enum
 
 import jsonschema
+from pydantic import ConfigDict
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -59,6 +60,8 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
 
 
 class ModelConfiguration(SQLModel):
+    model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
+
     user_option_values: dict | None = Field(sa_column=Column(JSON), default_factory=dict)
     additional_continuous_covariates: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
