@@ -25,12 +25,18 @@ def get_train_predict_runner_from_model_template_config(
     skip_environment=False,
     model_configuration: Optional["ModelConfiguration"] = None,
     dry_run=False,
+    prediction_length: int | None = None,
 ) -> TrainPredictRunner:
     """
     Utility function that returns a suitbale runner for a model given a ModelTemplateConfig (which contains information
     about what runner the Template says that its models shold use)
     Returns a TrainPredictRunner (e.g. a MlFlowTrainPredictRunner or a DockerTrainPredictRunner) by parsing
     the config for the template.
+
+    When ``prediction_length`` is provided it is written as a root-level
+    ``prediction_length`` key in ``model_configuration_for_run.yaml`` so that
+    MLproject-based external models (mlflow / uv / conda / docker / renv) can
+    read it from the same config file at both train and predict time.
     """
     if model_template_config.docker_env is not None:
         runner_type = "docker"
@@ -52,6 +58,14 @@ def get_train_predict_runner_from_model_template_config(
     model_configuration_file = working_dir / yaml_filename
     with open(model_configuration_file, "w") as file:
         config_dict = model_configuration.model_dump() if model_configuration is not None else {}
+        if prediction_length is not None:
+            if "prediction_length" in config_dict:
+                logger.warning(
+                    "Overriding prediction_length=%r from ModelConfiguration with chap-provided value %r",
+                    config_dict["prediction_length"],
+                    prediction_length,
+                )
+            config_dict["prediction_length"] = int(prediction_length)
         yaml.dump(config_dict, file)
 
     if skip_environment or runner_type in ("docker", "uv", "renv", "conda"):

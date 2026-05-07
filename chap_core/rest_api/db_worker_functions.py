@@ -114,7 +114,7 @@ def run_backtest(
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
     assert configured_model.id is not None, "configured_model.id is required"
-    estimator = session.get_configured_model_with_code(configured_model.id)
+    estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
     predictions_list = _backtest(
         estimator,
         dataset,
@@ -165,7 +165,7 @@ def run_prediction(
     status_logger.info(f"Training model and generating {n_periods} period forecast")
     configured_model = session.get_configured_model_by_name(model_id)
     assert configured_model.id is not None, "configured_model.id is required"
-    estimator = session.get_configured_model_with_code(configured_model.id)
+    estimator = session.get_configured_model_with_code(configured_model.id, prediction_length=n_periods)
     predictions = forecast_ahead(estimator, dataset, n_periods)
     db_id = session.add_predictions(
         predictions,

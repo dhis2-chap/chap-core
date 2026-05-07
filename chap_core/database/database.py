@@ -373,7 +373,9 @@ class SessionWrapper:
             self.session.commit()
         return cast("str", live_url)
 
-    def get_configured_model_with_code(self, configured_model_id: int) -> ConfiguredModel:
+    def get_configured_model_with_code(
+        self, configured_model_id: int, prediction_length: int | None = None
+    ) -> ConfiguredModel:
         logger.info(f"Getting configured model with id {configured_model_id}")
         configured_model = self.session.get(ConfiguredModelDB, configured_model_id)
         if configured_model is None:
@@ -397,7 +399,7 @@ class SessionWrapper:
             template = ExternalChapkitModelTemplate(source_url)
             logger.info(f"template: {template}")
             logger.info(f"configured_model: {configured_model}")
-            return template.get_model(configured_model)  # type: ignore[arg-type, return-value]
+            return template.get_model(configured_model, prediction_length=prediction_length)  # type: ignore[arg-type, return-value]
         else:
             logger.info(f"Assuming github model at {configured_model.model_template.source_url}")
             return cast(
@@ -405,7 +407,7 @@ class SessionWrapper:
                 ModelTemplate.from_directory_or_github_url(
                     configured_model.model_template.source_url,
                     ignore_env=ignore_env,
-                ).get_model(configured_model),  # type: ignore[arg-type]
+                ).get_model(configured_model, prediction_length=prediction_length),  # type: ignore[arg-type]
             )
 
     def get_model_template(self, model_template_id: int) -> ModelTemplateDB:
