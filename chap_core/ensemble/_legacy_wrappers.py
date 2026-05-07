@@ -21,8 +21,16 @@ class _TemplateWithConfig:
         self._config = config
 
     def get_model(self, _: Any = None) -> Any:
-        # Alltid videresend config til template; None betyr “default config”
+        # Always forward the config; None means "default config".
         return self._template.get_model(self._config)
 
-    def __getattr__(self, item: str) -> Any:
-        return getattr(self._template, item)
+    @property
+    def name(self) -> str | None:
+        return getattr(self._template, "name", None)
+
+    @property
+    def repo(self) -> str | None:
+        return getattr(self._template, "repo", None)
+
+    def __str__(self) -> str:
+        return str(self._template)

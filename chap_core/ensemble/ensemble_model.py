@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -13,7 +12,6 @@ from chap_core.ensemble._legacy_wrappers import BaseModelSpec, _TemplateWithConf
 from chap_core.ensemble._meta_models import (
     NonNegativeMetaModel,
     ProbabilisticMetaModel,
-    _crps_score,
     crps_ensemble,
 )
 from chap_core.ensemble._predictor import EnsemblePredictor
@@ -71,7 +69,7 @@ class EnsembleModel(ConfiguredModel):
         return names
 
     def train(self, train_data: DataSet, extra_args: Any = None) -> EnsemblePredictor:
-        # Lokal RNG for reproduserbarhet
+        # Local RNG for reproducibility.
         rng = np.random.default_rng(self.random_state)
 
         df = train_data.to_pandas()
@@ -92,7 +90,10 @@ class EnsembleModel(ConfiguredModel):
         inner_train = DataSet.from_pandas(df[train_mask], FullData, fill_missing=True)
         val_data = DataSet.from_pandas(df[~train_mask], FullData, fill_missing=True)
 
-        ests = [t.get_model(None)() for t in self.base_templates]  # type: ignore[call-arg]
+        ests: list[Any] = []
+        for tmpl in self.base_templates:
+            est_cls = cast("type[Any]", tmpl.get_model(None))
+            ests.append(est_cls())
         preds_inner = [e.train(inner_train) for e in ests]
 
         df_val = val_data.to_pandas()
@@ -116,7 +117,7 @@ class EnsembleModel(ConfiguredModel):
                     p.predict(inner_train, val_data),
                     df_val,
                     self.n_samples,
-                    rng=rng,  # <- bruker samme rng
+                    rng=rng,  # keep a shared RNG for reproducibility
                 )
                 for p in preds_inner
             ]
@@ -158,7 +159,8 @@ class EnsembleModel(ConfiguredModel):
             meta_model_det.fit(X_clean_mat, y_clean)
 
         assert self.meta_model is not None
-        coef = np.maximum(np.asarray(self.meta_model.coef_, float), 0.0)  # type: ignore[arg-type]
+        coef_raw = cast("np.ndarray", self.meta_model.coef_)
+        coef = np.maximum(np.asarray(coef_raw, float), 0.0)
         s = coef.sum()
         self.weights = coef / s * 100.0 if s > 0 else np.full(len(coef), 100.0 / len(coef))
 
@@ -167,16 +169,11 @@ class EnsembleModel(ConfiguredModel):
         logger.info("Meta-weights (percent): %s", self.weights)
         for name, w in zip(names, self.weights, strict=True):
             logger.info("  %s: %.2f%%", name, w)
-        try:
-            report_path = Path("ensemble_meta_report.csv")
-            header = "Model," + ",".join(names) + "\n"
-            row = "ensemble_meta," + ",".join(f"{float(w):.6f}" for w in self.weights) + "\n"
-            report_path.write_text(header + row, encoding="utf-8")
-            logger.info("Saved ensemble meta report to %s", report_path.resolve())
-        except Exception as e:  # pragma: no cover
-            logger.warning("Failed to write ensemble_meta_report.csv: %s", e)
 
-        full_ests = [t.get_model(None)() for t in self.base_templates]  # type: ignore[call-arg]
+        full_ests: list[Any] = []
+        for tmpl in self.base_templates:
+            est_cls = cast("type[Any]", tmpl.get_model(None))
+            full_ests.append(est_cls())
         full_predictors = [e.train(train_data) for e in full_ests]
 
         return EnsemblePredictor(
@@ -186,7 +183,7 @@ class EnsembleModel(ConfiguredModel):
             n_samples=self.n_samples,
             use_residual_bootstrap=self.use_residual_bootstrap,
             base_residuals=self._base_residuals,
-            rng=rng,  # <- send rng videre
+            rng=rng,  # forward the shared RNG
         )
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet:
@@ -213,7 +210,7 @@ class EnsembleEstimator(EnsembleModel):
         if base_model_templates is not None:
             specs.extend(BaseModelSpec(template=t, config=None) for t in base_model_templates)
         if not specs:
-            raise ValueError("EnsembleEstimator krever minst en base-modell.")
+            raise ValueError("EnsembleEstimator requires at least one base model.")
 
         self._base_specs = specs
         method = "probabilistic" if probabilistic_meta_model else "deterministic"
@@ -240,18 +237,9 @@ class EnsembleEstimator(EnsembleModel):
 
     def train(self, train_data: DataSet, extra_args: Any = None) -> EnsemblePredictor:
         pred = super().train(train_data, extra_args)
-        try:
-            names = self._base_names()
-            if self.weights is not None:
-                header = "Model," + ",".join(names) + "\n"
-                row = "ensemble_meta," + ",".join(f"{float(w):.6f}" for w in self.weights) + "\n"
-                Path("ensemble_meta_report.csv").write_text(header + row, encoding="utf-8")
-        except Exception as exc:  # pragma: no cover
-            logger.warning("Failed to write ensemble_meta_report.csv: %s", exc)
         return pred
 
 
-# Public exports for star-imports and tooling.
 __all__ = [
     "BaseModelSpec",
     "EnsembleEstimator",
@@ -259,6 +247,5 @@ __all__ = [
     "EnsemblePredictor",
     "NonNegativeMetaModel",
     "ProbabilisticMetaModel",
-    "_crps_score",
     "crps_ensemble",
 ]

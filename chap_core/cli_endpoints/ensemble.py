@@ -33,14 +33,14 @@ from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import CHAP_RUNS_DIR
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
 
 # Public exports for star-imports and tooling.
 __all__ = [
-    "_evaluate_ensemble_core",
-    "_save_reports",
     "evaluate_ensemble",
     "register_commands",
 ]
@@ -84,7 +84,7 @@ def _compute_metrics(flat: Any, ensemble_method: str) -> tuple[str, dict[str, fl
             df_metric = metric.get_global_metric(flat.observations, cast("Any", forecasts_df))
             if len(df_metric) == 1:
                 metrics_dict[metric_id] = float(df_metric["metric"].iloc[0])
-        except Exception as exc:
+        except (ValueError, KeyError, TypeError) as exc:
             logger.warning("Failed to compute metric %s: %s", metric_id, exc)
 
     model_key = f"ensemble_{ensemble_method}"
@@ -96,10 +96,15 @@ def _compute_metrics(flat: Any, ensemble_method: str) -> tuple[str, dict[str, fl
 def _save_reports(
     report_filename: Path,
     results: dict[str, tuple[dict[str, float | str], object]],
-    forecasts: pd.DataFrame,
 ) -> None:
-    del forecasts
     save_results(str(report_filename), results)
+
+
+def _write_meta_report(report_filename: Path, model_names: list[str], weights: Sequence[float]) -> None:
+    report_path = report_filename.with_name("ensemble_meta_report.csv")
+    header = "Model," + ",".join(model_names) + "\n"
+    row = "ensemble_meta," + ",".join(f"{float(w):.6f}" for w in weights) + "\n"
+    report_path.write_text(header + row, encoding="utf-8")
 
 
 def _evaluate_ensemble_core(
@@ -188,7 +193,7 @@ def _evaluate_ensemble_core(
         id=configured_model_id,
         model_template_id=model_db.id,
         model_template=model_db,
-        configuration={},  # flere base-modeller, derfor ingen enkel samlet config
+        configuration={},  # Multiple base models, so no single merged config.
     )
 
     evaluation = Evaluation.create(
@@ -206,31 +211,36 @@ def _evaluate_ensemble_core(
 
     if ensemble.weights is not None:
         logger.info("Ensemble base model weights (percent): %s", ensemble.weights)
+        try:
+            _write_meta_report(report_filename, base_model_list, ensemble.weights.tolist())
+            logger.info("Saved ensemble meta report to %s", report_filename.with_name("ensemble_meta_report.csv"))
+        except OSError as exc:
+            logger.warning("Failed to write ensemble meta report: %s", exc)
 
     flat = evaluation.to_flat()
     model_key, metrics_dict, forecasts_df = _compute_metrics(flat, ensemble_method)
     results: dict[str, tuple[dict[str, float | str], pd.DataFrame]] = {model_key: (metrics_dict, forecasts_df)}
-    _save_reports(report_filename, cast("dict[str, tuple[dict[str, float | str], object]]", results), forecasts_df)
+    _save_reports(report_filename, cast("dict[str, tuple[dict[str, float | str], object]]", results))
     return results
 
 
 def evaluate_ensemble(
     base_model_names: Annotated[
         str,
-        Parameter(help="Kommaseparert liste med base-modeller (lokale mapper eller GitHub-URLs)."),
+        Parameter(help="Comma-separated list of base models (local folders or GitHub URLs)."),
     ],
     ensemble_method: Annotated[
         str,
-        Parameter(help="Valg av ensemble-metode: 'deterministic' eller 'probabilistic'."),
+        Parameter(help="Ensemble method: 'deterministic' or 'probabilistic'."),
     ] = "probabilistic",
-    dataset_name: Annotated[str | None, Parameter(help="Navn på innebygd datasett.")] = None,
-    dataset_country: Annotated[str | None, Parameter(help="Land for multi-country datasett.")] = None,
-    dataset_csv: Annotated[Path | None, Parameter(help="CSV med disease data.")] = None,
-    polygons_json: Annotated[Path | None, Parameter(help="Optional GeoJSON-fil.")] = None,
-    polygons_id_field: Annotated[str | None, Parameter(help="ID-felt i GeoJSON.")] = "id",
-    report_filename: Annotated[Path, Parameter(help="Basisnavn for rapport.")] = Path("ensemble_report.csv"),
+    dataset_name: Annotated[str | None, Parameter(help="Name of a built-in dataset.")] = None,
+    dataset_country: Annotated[str | None, Parameter(help="Country for multi-country datasets.")] = None,
+    dataset_csv: Annotated[Path | None, Parameter(help="CSV file with disease data.")] = None,
+    polygons_json: Annotated[Path | None, Parameter(help="Optional GeoJSON file.")] = None,
+    polygons_id_field: Annotated[str, Parameter(help="ID field in GeoJSON.")] = "id",
+    report_filename: Annotated[Path, Parameter(help="Base filename for report outputs.")] = Path("ensemble_report.csv"),
     output_file: Annotated[Path | None, Parameter(help="Output NetCDF path.")] = None,
-    backtest_params: Annotated[BackTestParams, Parameter(help="Backtest-konfigurasjon.")] = BackTestParams(
+    backtest_params: Annotated[BackTestParams, Parameter(help="Backtest configuration.")] = BackTestParams(
         n_periods=3, n_splits=7, stride=1
     ),
     run_config: Annotated[RunConfig, Parameter(help="Model execution config.")] = RunConfig(),
@@ -238,23 +248,23 @@ def evaluate_ensemble(
         str | None,
         Parameter(
             help=(
-                "Valgfri kommaseparert liste med YAML-filer for base-modellkonfigurasjoner. "
-                "Må ha samme rekkefølge/lengde som --base-model-names."
+                "Optional comma-separated list of YAML files for base model configurations. "
+                "Must match --base-model-names order/length."
             )
         ),
     ] = None,
     random_state: Annotated[
         int | None,
-        Parameter(help="Random seed for ensemble-meta-modellen (f.eks. 42)."),
+        Parameter(help="Random seed for the ensemble meta model (e.g. 42)."),
     ] = 42,
     use_residual_bootstrap: Annotated[
         bool,
-        Parameter(help="Bruk residual bootstrap for deterministiske ensembles for å generere samples."),
+        Parameter(help="Use residual bootstrap to generate samples for deterministic ensembles."),
     ] = False,
-    data_source_mapping: Annotated[Path | None, Parameter(help="Optional JSON kolonne-mapping.")] = None,
+    data_source_mapping: Annotated[Path | None, Parameter(help="Optional JSON column mapping.")] = None,
     historical_context_years: Annotated[
         int,
-        Parameter(help="Historisk kontekst (år)."),
+        Parameter(help="Historical context (years)."),
     ] = 6,
 ):
     return _evaluate_ensemble_core(
@@ -264,7 +274,7 @@ def evaluate_ensemble(
         dataset_country=dataset_country,
         dataset_csv=dataset_csv,
         polygons_json=polygons_json,
-        polygons_id_field=polygons_id_field or "id",
+        polygons_id_field=polygons_id_field,
         report_filename=report_filename,
         output_file=output_file,
         backtest_params=backtest_params,

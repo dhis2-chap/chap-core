@@ -42,10 +42,10 @@ class SampleExtractor:
         rng = rng or np.random.default_rng()
         df_pred = pd.DataFrame(preds_ds.to_pandas())
 
-        # Alltid align på location/time_period først
+        # Always align on location/time_period first.
         key_cols = ["location", "time_period"]
         if not all(c in df_pred.columns for c in key_cols):
-            # fall tilbake: bruk bare rekkefølgen; dette er mindre robust
+            # Fall back to row order; this is less robust.
             sample_cols = [c for c in df_pred.columns if c.startswith("sample_")]
             if sample_cols:
                 mat = df_pred[sample_cols].to_numpy(float)
@@ -55,7 +55,7 @@ class SampleExtractor:
                 pts = merged["forecast"].to_numpy()
                 return np.tile(pts.reshape(-1, 1), (1, target_n))
         else:
-            # Align ved merge
+            # Align via merge.
             sample_cols = [c for c in df_pred.columns if c.startswith("sample_")]
             if sample_cols:
                 merged = df_ref[key_cols].merge(df_pred[key_cols + sample_cols], on=key_cols, how="left")

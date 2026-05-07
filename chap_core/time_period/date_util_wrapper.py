@@ -13,7 +13,7 @@ from bionumpy.bnpdataclass import BNPDataClass
 from dateutil.parser import parse as _parse
 from dateutil.relativedelta import relativedelta
 from numpy.typing import NDArray
-from pytz import utc  # type: ignore[import-untyped]
+from pytz import utc
 
 from chap_core.exceptions import InvalidDateError
 

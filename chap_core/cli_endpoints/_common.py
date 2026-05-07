@@ -67,7 +67,7 @@ def save_results(report_filename: str, results_dict: dict[Any, Any]) -> None:
         results.to_csv(csvname_full, index=False)
         logger.info(f"Wrote detailed results for {model_name} to {csvname_full}")
 
-    metrics_df.to_csv(csvname, index=False, header=True)
+    metrics_df.to_csv(csvname, index=False, header=False)
     logger.info(f"Evaluation complete. Results saved to {csvname}")
 
 

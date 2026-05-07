@@ -53,7 +53,7 @@ class NonNegativeMetaModel:
         self.intercept_: float = 0.0
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> NonNegativeMetaModel:
-        coef_raw, _ = nnls(X, y)  # type: ignore[misc]
+        coef_raw, _ = nnls(X, y)
         coef = np.asarray(coef_raw, float)
         s = coef.sum()
         self.coef_ = coef / s if s > 0 else coef
@@ -103,7 +103,6 @@ class ProbabilisticMetaModel:
         if self.verbose:
             logger.info("Probabilistic meta-model fit: CRPS=%.4f, success=%s", res.fun, res.success)
 
-        n = len(X_samples)
         coef = np.asarray(res.x, float)
         if (not res.success) or (coef.shape != (n,)) or (not np.all(np.isfinite(coef))):
             logger.warning("Probabilistic meta-model fit failed; falling back to uniform weights")

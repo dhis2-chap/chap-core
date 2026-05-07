@@ -7,6 +7,7 @@ evaluation results, enabling better code reuse between REST API and CLI workflow
 
 import datetime
 import json
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -607,7 +608,16 @@ class Evaluation(EvaluationBase):
         }
 
         ds = _flat_data_to_xarray(flat_data, model_metadata)
-        ds.to_netcdf(filepath)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "error",
+                message="numpy.ndarray size changed, may indicate binary incompatibility.*",
+                category=RuntimeWarning,
+            )
+            try:
+                ds.to_netcdf(filepath)
+            except RuntimeWarning:
+                ds.to_netcdf(filepath, engine="scipy")
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> "Evaluation":
@@ -622,7 +632,16 @@ class Evaluation(EvaluationBase):
         Returns:
             Evaluation instance
         """
-        ds = xr.open_dataset(filepath)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "error",
+                message="numpy.ndarray size changed, may indicate binary incompatibility.*",
+                category=RuntimeWarning,
+            )
+            try:
+                ds = xr.open_dataset(filepath)
+            except RuntimeWarning:
+                ds = xr.open_dataset(filepath, engine="scipy")
 
         flat_data = _xarray_to_flat_data(ds)
 
