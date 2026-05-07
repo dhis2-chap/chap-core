@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def add_model_template(model_template: ModelTemplateDB, session_wrapper: SessionWrapper) -> int:
-    template_id = session_wrapper.add_model_template(model_template)
+    template_id = session_wrapper.add_or_update_model_template(model_template, update=False)
     return template_id
 
 
@@ -119,7 +119,7 @@ def seed_configured_models_from_config_dir(
 
     # add naive model template
     naive_template = get_naive_model_template()
-    naive_template_id = add_or_update_model_template(naive_template, wrapper, update=False)
+    naive_template_id = add_model_template(naive_template, wrapper)
     # and naive configured model
     add_configured_model(
         naive_template_id,

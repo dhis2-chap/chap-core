@@ -106,8 +106,9 @@ class SessionWrapper:
     
     def update_model_template(self, existing_template: ModelTemplateDB, new_model_template: ModelTemplateDB) -> None:
         logger.info(f"Model template with name {new_model_template.name} already exists. Updating it")
-        # Update the existing template with new data
-        for key, value in new_model_template.model_dump().items():
+        # Update the existing template with new data except id
+        data = new_model_template.model_dump(exclude={"id"})
+        for key, value in data.items():
             if hasattr(existing_template, key):
                 setattr(existing_template, key, value)
         # Unarchive if it was previously archived
@@ -121,8 +122,6 @@ class SessionWrapper:
         logger.info(f"Adding model template: {model_template}")
         self.session.add(model_template)
         self.session.commit()
-
-        print(model_template.id)
         # return id
         return cast("int", model_template.id)
 
@@ -131,16 +130,12 @@ class SessionWrapper:
         model_name = model_template.name
         existing_template = self.if_exists(model_name)
         if existing_template:
-            print(f"Model template with name {model_name} already exists.")
             if update:
-                print(f"Updating existing model template with name {model_name}.")
-                self.update_model_template(existing_template, new_model_template=model_template)
+                return self.update_model_template(existing_template, new_model_template=model_template)
             else:
-                print(f"Returning existing model template with name {model_name}.")
-                self.return_model_template(model_name, existing_template)
+                return self.return_model_template(model_name, existing_template)
         else:
-            print(f"Model template with name {model_name} does not exist. Adding it")
-            self.add_model_template(model_template)
+            return self.add_model_template(model_template)
 
 
     def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
