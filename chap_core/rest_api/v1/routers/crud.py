@@ -618,7 +618,10 @@ def add_configured_model(
     uses_chapkit = template.uses_chapkit if template else False
     db_id = session_wrapper.add_configured_model(
         model_template_id,
-        ModelConfiguration(**model_configuration.model_dump()),
+        ModelConfiguration(
+            user_option_values=model_configuration.user_option_values,
+            additional_continuous_covariates=model_configuration.additional_continuous_covariates,
+        ),
         configuration_name,
         uses_chapkit=uses_chapkit,
     )
