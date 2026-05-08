@@ -56,6 +56,8 @@ class EnsemblePredictor:
             merged = df_future[key_cols].merge(df_pred, on=key_cols, how="left")
             meta_cols.append(merged["forecast"].to_numpy())
         X_meta_future = np.column_stack(meta_cols)
+        if np.any(np.isnan(X_meta_future)):
+            raise ValueError("Missing base model predictions for one or more rows")
         meta_det = cast("NonNegativeMetaModel", self._meta)
         y_point = meta_det.predict(X_meta_future)
 
@@ -92,6 +94,8 @@ class EnsemblePredictor:
             df_loc["time_period"] = df_loc["time_period"].astype(str)
             tp_values = [str(tp_val) for tp_val in tp.topandas()]
             df_loc = df_loc.set_index("time_period").reindex(tp_values).reset_index()
+            if df_loc["forecast"].isna().any():
+                raise ValueError(f"Missing deterministic forecasts for location {loc!r}")
             preds_loc = df_loc["forecast"].to_numpy()
             if len(preds_loc) != len(tp_values):
                 raise ValueError(f"Length mismatch for location {loc!r}")

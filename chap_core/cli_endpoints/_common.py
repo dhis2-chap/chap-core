@@ -106,7 +106,7 @@ def discover_geojson(csv_path: Path) -> Path | None:
 
 
 def load_dataset_from_csv(
-    csv_path: Path,
+    csv_path: str | Path,
     geojson_path: Path | None = None,
     column_mapping: dict[str, str] | None = None,
 ) -> DataSet:
@@ -114,7 +114,7 @@ def load_dataset_from_csv(
     Load dataset from CSV file with optional GeoJSON polygons.
 
     Args:
-        csv_path: Path to CSV file with disease data
+        csv_path: Path or URL to CSV file with disease data
         geojson_path: Optional path to GeoJSON file with polygon boundaries
         column_mapping: Optional mapping from covariate names (keys) to CSV column names (values).
             If provided, columns will be renamed before creating the DataSet.

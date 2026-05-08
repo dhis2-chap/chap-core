@@ -244,7 +244,6 @@ __all__ = [
     "BaseModelSpec",
     "EnsembleEstimator",
     "EnsembleModel",
-    "EnsemblePredictor",
     "NonNegativeMetaModel",
     "ProbabilisticMetaModel",
     "crps_ensemble",

@@ -632,16 +632,7 @@ class Evaluation(EvaluationBase):
         Returns:
             Evaluation instance
         """
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "error",
-                message="numpy.ndarray size changed, may indicate binary incompatibility.*",
-                category=RuntimeWarning,
-            )
-            try:
-                ds = xr.open_dataset(filepath)
-            except RuntimeWarning:
-                ds = xr.open_dataset(filepath, engine="scipy")
+        ds = xr.open_dataset(filepath)
 
         flat_data = _xarray_to_flat_data(ds)
 

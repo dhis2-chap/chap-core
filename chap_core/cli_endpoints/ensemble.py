@@ -74,7 +74,7 @@ def _load_dataset(
 
     # dataset_csv can be either a local file path (Path or string) or a URL
     if polygons_json is not None:
-        geojson = polygons_json
+        geojson: Path | None = polygons_json
     elif isinstance(dataset_csv, Path):
         geojson = discover_geojson(dataset_csv)
     else:
@@ -107,16 +107,8 @@ def _save_reports(
     report_filename: Path,
     results: dict[str, tuple[dict[str, float | str], object]],
 ) -> None:
-    model_key, (metrics_dict, _df) = next(iter(results.items()))
-    df_metrics = pd.DataFrame([metrics_dict])
-    df_metrics.insert(0, "ensemble_model", model_key)
-    df_metrics.to_csv(report_filename, index=False)
+    save_results(str(report_filename), results)
 
-#def _save_reports(
-    #report_filename: Path,
-    #results: dict[str, tuple[dict[str, float | str], object]],
-#) -> None:
-    #save_results(str(report_filename), results)
 
 def _write_meta_report(report_filename: Path, model_names: list[str], weights: Sequence[float]) -> None:
     report_path = report_filename.with_name("ensemble_meta_report.csv")
