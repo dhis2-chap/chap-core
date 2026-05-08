@@ -25,6 +25,7 @@ openapi_tags = [
     {"name": "Services", "description": "Service registry (v2)"},
 ]
 
+
 app = FastAPI(
     title="CHAP Core API",
     openapi_tags=openapi_tags,

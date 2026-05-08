@@ -23,3 +23,7 @@ class InvalidDateError(Exception): ...
 
 class ChapkitServiceStartupError(Exception):
     """Raised when a chapkit model service fails to start."""
+
+
+class DockerUnavailableError(Exception):
+    """Raised when the Docker daemon cannot be reached."""

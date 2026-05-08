@@ -236,3 +236,24 @@ def test_resolve_configured_model_by_nonexistent_name_raises(configured_model_fi
     with SessionWrapper(engine) as session:
         with pytest.raises(ValueError, match="not found"):
             session.get_configured_model_by_id_or_name("no_such_model")
+
+
+def test_model_configuration_rejects_flat_yaml_keys():
+    """Flat YAMLs like ``n_lag_periods: 5`` at the top level used to be silently dropped
+    because pydantic ignored unknown fields. They must now raise a validation error so
+    users learn to wrap parameters under ``user_option_values``."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ModelConfiguration.model_validate({"n_lag_periods": 5})
+
+
+def test_model_configuration_accepts_nested_format():
+    config = ModelConfiguration.model_validate(
+        {
+            "user_option_values": {"n_lag_periods": 5},
+            "additional_continuous_covariates": ["rainfall"],
+        }
+    )
+    assert config.user_option_values == {"n_lag_periods": 5}
+    assert config.additional_continuous_covariates == ["rainfall"]

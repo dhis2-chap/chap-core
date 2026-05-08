@@ -1,8 +1,18 @@
 """Top-level package for chap-core."""
 
+import os
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+# Force matplotlib to a non-interactive backend by default. Some Linux
+# environments (notably Fedora) auto-select the Tk backend, which aborts
+# with "bit out of range 0 - FD_SETSIZE on fd_set" when stdlib tkinter
+# is loaded under high file-descriptor counts. Agg has no GUI dependency
+# and works on every platform we ship to. setdefault lets a user override
+# (e.g. for interactive notebooks) by exporting MPLBACKEND themselves.
+# Must run before matplotlib is imported anywhere.
+os.environ.setdefault("MPLBACKEND", "Agg")
 
 # gluonts.json emits a UserWarning at import when neither orjson nor ujson
 # is installed; chap_core does not exercise gluonts JSON I/O paths, so the

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "chap-db.fullname" . }}
+  labels:
+    {{- include "chap-db.labels" . | nindent 4 }}
+data:
+  {{- if .Values.postgresql.cnpg.cluster.enabled }}
+  POSTGRES_HOST: {{ include "chap-db.fullname" . }}-postgres-rw
+  POSTGRES_DB: {{ .Values.postgresql.cnpg.cluster.database | quote }}
+  {{- else if .Values.postgresql.external.enabled }}
+  POSTGRES_HOST: {{ .Values.postgresql.external.host | quote }}
+  POSTGRES_DB: {{ .Values.postgresql.external.database | quote }}
+  {{- end }}
+  POSTGRES_PORT: "5432"

@@ -1,16 +1,8 @@
-{{/*
-Expand the name of the chart.
-*/}}
-{{- define "chap.name" -}}
+{{- define "chap-api.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
-*/}}
-{{- define "chap.fullname" -}}
+{{- define "chap-api.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -23,40 +15,47 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 {{- end }}
 
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "chap.chart" -}}
+{{- define "chap-api.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/*
-Common labels
-*/}}
-{{- define "chap.labels" -}}
-helm.sh/chart: {{ include "chap.chart" . }}
-{{ include "chap.selectorLabels" . }}
+{{- define "chap-api.labels" -}}
+helm.sh/chart: {{ include "chap-api.chart" . }}
+{{ include "chap-api.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- with .Values.commonLabels }}
+{{ toYaml . -}}
+{{- end }}
 {{- end }}
 
-{{/*
-Selector labels
-*/}}
-{{- define "chap.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "chap.name" . }}
+{{- define "chap-api.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "chap-api.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "chap.serviceAccountName" -}}
+{{- define "chap-api.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "chap.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "chap-api.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{- define "chap-api.postgres.secretName" -}}
+{{- if .Values.postgres.existingSecret }}
+{{- .Values.postgres.existingSecret }}
+{{- else }}
+{{- include "chap-api.fullname" . }}-postgres
+{{- end }}
+{{- end }}
+
+{{- define "chap-api.valkey.secretName" -}}
+{{- if .Values.valkey.existingSecret }}
+{{- .Values.valkey.existingSecret }}
+{{- else }}
+{{- include "chap-api.fullname" . }}-valkey
 {{- end }}
 {{- end }}
