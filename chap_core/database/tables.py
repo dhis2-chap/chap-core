@@ -44,6 +44,15 @@ class Backtest(_BacktestRead, table=True):
     aggregate_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
+    configured_model_with_data_sources: list["ConfiguredModelWithDataSource"] = Relationship(back_populates="backtest")
+
+    @property
+    def prediction_setup_id(self) -> int | None:
+        for config in self.configured_model_with_data_sources:
+            setup = config.prediction_setup
+            if setup is not None and not setup.archived and not config.archived:
+                return setup.id
+        return None
 
 
 class ConfiguredModelRead(ModelConfiguration, DBModel):
@@ -54,10 +63,11 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
 
 class ConfiguredModelWithDataSource(DBModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
-    name: str
     created: datetime.datetime | None = None
     configured_model_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
+    backtest_id: int = Field(foreign_key="backtest.id")
+    backtest: Optional["Backtest"] = Relationship(back_populates="configured_model_with_data_sources")
     start_period: PeriodID | None = None
     org_units: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     data_sources: list[DataSource] = Field(
@@ -65,18 +75,65 @@ class ConfiguredModelWithDataSource(DBModel, table=True):
         sa_column=Column(PydanticListType(DataSource)),
     )
     period_type: str | None = None
-    predictions: list["Prediction"] = Relationship(back_populates="configured_model_with_data_source")
+    archived: bool = Field(default=False)
+    prediction_setup: Optional["PredictionSetup"] = Relationship(
+        back_populates="configured_model_with_data_source",
+        sa_relationship_kwargs={"uselist": False},
+    )
 
 
 class ConfiguredModelWithDataSourceRead(DBModel):
     id: int
-    name: str
     created: datetime.datetime | None
     configured_model: ConfiguredModelRead | None
+    backtest_id: int
     start_period: PeriodID | None
     org_units: list[str]
     data_sources: list[DataSource]
     period_type: str | None
+    archived: bool = False
+
+
+class PredictionSchedule(DBModel):
+    expression: str | None = None
+    enabled: bool = False
+
+
+class DataImportMapping(DBModel):
+    quantile_key: str
+    data_element_id: str
+
+
+class PredictionSetup(DBModel, table=True):
+    id: int | None = Field(primary_key=True, default=None)
+    name: str
+    created: datetime.datetime | None = None
+    configured_model_with_data_source_id: int = Field(foreign_key="configuredmodelwithdatasource.id")
+    configured_model_with_data_source: Optional["ConfiguredModelWithDataSource"] = Relationship(
+        back_populates="prediction_setup"
+    )
+    schedule_expression: str | None = None
+    schedule_enabled: bool = Field(default=False)
+    data_import_mappings: list[DataImportMapping] = Field(
+        default_factory=list,
+        sa_column=Column(PydanticListType(DataImportMapping)),
+    )
+    archived: bool = Field(default=False)
+    predictions: list["Prediction"] = Relationship(back_populates="prediction_setup")
+
+    @property
+    def schedule(self) -> PredictionSchedule:
+        return PredictionSchedule(expression=self.schedule_expression, enabled=self.schedule_enabled)
+
+
+class PredictionSetupRead(DBModel):
+    id: int
+    name: str
+    created: datetime.datetime | None
+    configured_model_with_data_source: ConfiguredModelWithDataSourceRead
+    schedule: PredictionSchedule
+    data_import_mappings: list[DataImportMapping]
+    archived: bool = False
 
 
 OldBacktestRead = _BacktestRead
@@ -86,6 +143,7 @@ class BacktestRead(_BacktestRead):
     dataset: DataSetMeta
     aggregate_metrics: dict[str, float]
     configured_model: ConfiguredModelRead | None
+    prediction_setup_id: int | None = None
 
 
 class ForecastBase(DBModel):
@@ -116,19 +174,15 @@ class Prediction(PredictionBase, table=True):
     dataset: DataSet = Relationship()
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
-    configured_model_with_data_source_id: int | None = Field(
-        default=None, foreign_key="configuredmodelwithdatasource.id", nullable=True
-    )
-    configured_model_with_data_source: Optional["ConfiguredModelWithDataSource"] = Relationship(
-        back_populates="predictions"
-    )
+    prediction_setup_id: int | None = Field(default=None, foreign_key="predictionsetup.id", nullable=True)
+    prediction_setup: Optional["PredictionSetup"] = Relationship(back_populates="predictions")
 
 
 class PredictionInfo(PredictionBase):
     id: int
     configured_model: ConfiguredModelDB | None
     dataset: DataSetMeta
-    configured_model_with_data_source: ConfiguredModelWithDataSourceRead | None = None
+    prediction_setup_id: int | None = None
 
 
 # PredictionInfo = PredictionBase.get_read_class()
@@ -138,7 +192,7 @@ class PredictionRead(PredictionInfo):
     forecasts: list[ForecastRead]
 
 
-class ConfiguredModelWithDataSourceReadWithPredictions(ConfiguredModelWithDataSourceRead):
+class PredictionSetupReadWithPredictions(PredictionSetupRead):
     predictions: list[PredictionInfo] = []
 
 

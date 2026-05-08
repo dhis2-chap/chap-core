@@ -29,6 +29,7 @@ from chap_core.database.tables import (  # noqa: F401
     BacktestForecast,
     BacktestMetric,
     Prediction,
+    PredictionSetup,
     PredictionSamplesEntry,
 )
 

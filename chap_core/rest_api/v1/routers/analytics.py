@@ -19,7 +19,13 @@ from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.tables import Backtest, BacktestForecast, ConfiguredModelWithDataSource, Prediction
+from chap_core.database.tables import (
+    Backtest,
+    BacktestForecast,
+    ConfiguredModelWithDataSource,
+    Prediction,
+    PredictionSetup,
+)
 from chap_core.datatypes import create_tsdataclass
 from chap_core.rest_api.experimental import api_experimental
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -372,7 +378,7 @@ async def make_prediction(
 
 
 class MakePredictionWithDataSourceRequest(DatasetMakeRequest):
-    configured_model_with_data_source_id: int
+    prediction_setup_id: int
     n_periods: int = 3
     meta_data: dict = {}
 
@@ -389,15 +395,22 @@ async def make_prediction_with_data_source(
     database_url=Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
-    record = session.exec(
-        select(ConfiguredModelWithDataSource)
-        .where(ConfiguredModelWithDataSource.id == request.configured_model_with_data_source_id)
+    setup = session.exec(
+        select(PredictionSetup)
+        .where(PredictionSetup.id == request.prediction_setup_id, PredictionSetup.archived == False)
+        .join(ConfiguredModelWithDataSource)
+        .where(ConfiguredModelWithDataSource.archived == False)
         .options(
-            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(PredictionSetup.configured_model_with_data_source)  # type: ignore[arg-type]
+            .selectinload(ConfiguredModelWithDataSource.configured_model)  # type: ignore[arg-type]
+            .selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).first()
+    if setup is None:
+        raise HTTPException(status_code=404, detail="PredictionSetup not found")
+    record = setup.configured_model_with_data_source
     if record is None:
-        raise HTTPException(status_code=404, detail="ConfiguredModelWithDataSource not found")
+        raise HTTPException(status_code=400, detail="PredictionSetup has no configured_model_with_data_source")
     if record.configured_model is None:
         raise HTTPException(status_code=400, detail="ConfiguredModelWithDataSource has no configured_model")
     model_id = record.configured_model.name
@@ -421,7 +434,7 @@ async def make_prediction_with_data_source(
         request.name,
         dataset_create_info=dataset_info,
         prediction_params=prediction_params,
-        configured_model_with_data_source_id=request.configured_model_with_data_source_id,
+        prediction_setup_id=request.prediction_setup_id,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},

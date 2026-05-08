@@ -22,6 +22,7 @@ from typing import Annotated, Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
+from pydantic import Field as PydanticField
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 from starlette.responses import StreamingResponse
@@ -31,6 +32,7 @@ from chap_core.api_types import FeatureCollectionModel
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compute_all_detailed_metrics
 from chap_core.data import DataSet as InMemoryDataSet
+from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import (
     DataSet,
@@ -44,10 +46,13 @@ from chap_core.database.model_templates_and_config_tables import ConfiguredModel
 from chap_core.database.tables import (
     Backtest,
     ConfiguredModelWithDataSource,
-    ConfiguredModelWithDataSourceRead,
-    ConfiguredModelWithDataSourceReadWithPredictions,
+    DataImportMapping,
     Prediction,
     PredictionInfo,
+    PredictionSchedule,
+    PredictionSetup,
+    PredictionSetupRead,
+    PredictionSetupReadWithPredictions,
 )
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
@@ -246,6 +251,36 @@ router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This m
 worker: CeleryPool[Any] = CeleryPool()
 
 
+def _backtest_read_options() -> list[Any]:
+    return [
+        selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+        selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        selectinload(Backtest.configured_model_with_data_sources).selectinload(  # type: ignore[arg-type]
+            ConfiguredModelWithDataSource.prediction_setup  # type: ignore[arg-type]
+        ),
+    ]
+
+
+def _prediction_setup_options(include_predictions: bool = False) -> list[Any]:
+    options: list[Any] = [
+        selectinload(PredictionSetup.configured_model_with_data_source)  # type: ignore[arg-type]
+        .selectinload(ConfiguredModelWithDataSource.configured_model)  # type: ignore[arg-type]
+        .selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+    ]
+    if include_predictions:
+        options.extend(
+            [
+                selectinload(PredictionSetup.predictions)  # type: ignore[arg-type]
+                .selectinload(Prediction.dataset)  # type: ignore[arg-type]
+                .defer(DataSet.geojson),  # type: ignore[arg-type]
+                selectinload(PredictionSetup.predictions)  # type: ignore[arg-type]
+                .selectinload(Prediction.configured_model)  # type: ignore[arg-type]
+                .selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            ]
+        )
+    return options
+
+
 ###########
 # backtests
 
@@ -255,12 +290,7 @@ async def get_backtests(session: Session = Depends(get_session)):
     """
     Returns a list of backtests/evaluations with only the id and name
     """
-    backtests = session.exec(
-        select(Backtest).options(
-            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
-    ).all()
+    backtests = session.exec(select(Backtest).options(*_backtest_read_options())).all()
     return backtests
 
 
@@ -275,12 +305,7 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], se
 @router_get("/backtests/{backtestId}/info", response_model=BacktestRead, tags=["Backtests"])
 def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.exec(
-        select(Backtest)
-        .where(Backtest.id == backtest_id)
-        .options(
-            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
+        select(Backtest).where(Backtest.id == backtest_id).options(*_backtest_read_options())
     ).first()
     if backtest is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
@@ -367,12 +392,7 @@ async def update_backtest(
 
     # Reload with eager loading to avoid lazy-load issues
     db_backtest = session.exec(
-        select(Backtest)
-        .where(Backtest.id == backtest_id)
-        .options(
-            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
+        select(Backtest).where(Backtest.id == backtest_id).options(*_backtest_read_options())
     ).first()
     return db_backtest
 
@@ -618,10 +638,7 @@ def add_configured_model(
     uses_chapkit = template.uses_chapkit if template else False
     db_id = session_wrapper.add_configured_model(
         model_template_id,
-        ModelConfiguration(
-            user_option_values=model_configuration.user_option_values,
-            additional_continuous_covariates=model_configuration.additional_continuous_covariates,
-        ),
+        ModelConfiguration(**model_configuration.model_dump()),
         configuration_name,
         uses_chapkit=uses_chapkit,
     )
@@ -643,98 +660,162 @@ async def delete_configured_model(
 
 
 ###########
-# configured models with data source
+# prediction setups
 
 
-@router.get(
-    "/configured-models-with-data-source",
-    response_model=list[ConfiguredModelWithDataSourceRead],
-    response_model_by_alias=True,
-    tags=["Models"],
-)
-@api_experimental
-async def list_configured_models_with_data_source(session: Session = Depends(get_session)):
-    records = session.exec(
-        select(ConfiguredModelWithDataSource).options(
-            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
-    ).all()
-    return records
+class PredictionSetupCreate(DBModel):
+    backtest_id: int
+    name: str
+    schedule: PredictionSchedule | None = None
+    data_import_mappings: list[DataImportMapping] = PydanticField(default_factory=list)
 
 
-@router.get(
-    "/configured-models-with-data-source/{configuredModelWithDataSourceId}",
-    response_model=ConfiguredModelWithDataSourceReadWithPredictions,
-    response_model_by_alias=True,
-    tags=["Models"],
-)
-@api_experimental
-async def get_configured_model_with_data_source(
-    configured_model_with_data_source_id: Annotated[int, Path(alias="configuredModelWithDataSourceId")],
-    session: Session = Depends(get_session),
-):
-    record = session.exec(
-        select(ConfiguredModelWithDataSource)
-        .where(ConfiguredModelWithDataSource.id == configured_model_with_data_source_id)
-        .options(
-            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
-            .selectinload(Prediction.dataset)  # type: ignore[arg-type]
-            .defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
-            .selectinload(Prediction.configured_model)  # type: ignore[arg-type]
-            .selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+def _validate_prediction_setup_schedule(schedule: PredictionSchedule) -> None:
+    if not schedule.enabled:
+        return
+    if schedule.expression is None:
+        raise HTTPException(status_code=422, detail="Enabled schedules require a cron expression")
+    if len(schedule.expression.split()) != 5:
+        raise HTTPException(status_code=422, detail="Schedule expression must be standard five-field cron")
+    try:
+        from croniter import croniter  # type: ignore[import-untyped]
+
+        croniter(schedule.expression)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail="Invalid schedule expression") from e
+
+
+def _active_prediction_setup_for_backtest(session: Session, backtest_id: int) -> PredictionSetup | None:
+    return session.exec(
+        select(PredictionSetup)
+        .join(ConfiguredModelWithDataSource)
+        .where(
+            ConfiguredModelWithDataSource.backtest_id == backtest_id,
+            ConfiguredModelWithDataSource.archived == False,
+            PredictionSetup.archived == False,
         )
     ).first()
-    if record is None:
-        raise HTTPException(status_code=404, detail="ConfiguredModelWithDataSource not found")
-    return record
 
 
 @router.post(
-    "/configured-models-with-data-source/from-backtest/{backtestId}",
-    response_model=ConfiguredModelWithDataSourceRead,
+    "/prediction-setups",
+    response_model=DataBaseResponse,
     response_model_by_alias=True,
     tags=["Models"],
 )
 @api_experimental
-async def create_configured_model_with_data_source_from_backtest(
-    backtest_id: Annotated[int, Path(alias="backtestId")],
-    session: Session = Depends(get_session),
-):
+async def create_prediction_setup(request: PredictionSetupCreate, session: Session = Depends(get_session)):
+    schedule = request.schedule or PredictionSchedule()
+    _validate_prediction_setup_schedule(schedule)
+
     backtest = session.exec(
-        select(Backtest)
-        .where(Backtest.id == backtest_id)
-        .options(
-            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
+        select(Backtest).where(Backtest.id == request.backtest_id).options(*_backtest_read_options())
     ).first()
     if backtest is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
+    if _active_prediction_setup_for_backtest(session, request.backtest_id) is not None:
+        raise HTTPException(status_code=409, detail="Backtest already has an active prediction setup")
 
     dataset = backtest.dataset
-    record = ConfiguredModelWithDataSource(
-        name=backtest.name or f"from-backtest-{backtest_id}",
+    config = ConfiguredModelWithDataSource(
         created=datetime.datetime.now(),
         configured_model_id=backtest.model_db_id,
+        backtest_id=request.backtest_id,
         start_period=dataset.first_period,
         org_units=dataset.org_units or [],
         data_sources=dataset.data_sources or [],
         period_type=dataset.period_type,
     )
-    session.add(record)
+    session.add(config)
+    session.flush()
+    assert config.id is not None
+    setup = PredictionSetup(
+        name=request.name,
+        created=datetime.datetime.now(),
+        configured_model_with_data_source_id=config.id,
+        schedule_expression=schedule.expression,
+        schedule_enabled=schedule.enabled,
+        data_import_mappings=request.data_import_mappings,
+    )
+    session.add(setup)
     session.commit()
-    session.refresh(record)
+    session.refresh(setup)
+    assert setup.id is not None
+    return DataBaseResponse(id=setup.id)
 
-    result = session.exec(
-        select(ConfiguredModelWithDataSource)
-        .where(ConfiguredModelWithDataSource.id == record.id)
-        .options(
-            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+
+@router.get(
+    "/prediction-setups",
+    response_model=list[PredictionSetupRead],
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+@api_experimental
+async def list_prediction_setups(session: Session = Depends(get_session)):
+    return session.exec(
+        select(PredictionSetup)
+        .join(ConfiguredModelWithDataSource)
+        .where(
+            PredictionSetup.archived == False,
+            ConfiguredModelWithDataSource.archived == False,
         )
+        .options(*_prediction_setup_options())
+    ).all()
+
+
+@router.get(
+    "/prediction-setups/{predictionSetupId}",
+    response_model=PredictionSetupReadWithPredictions,
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+@api_experimental
+async def get_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    include_archived: Annotated[bool, Query(alias="includeArchived")] = False,
+    session: Session = Depends(get_session),
+):
+    statement = (
+        select(PredictionSetup)
+        .join(ConfiguredModelWithDataSource)
+        .where(PredictionSetup.id == prediction_setup_id)
+        .options(*_prediction_setup_options(include_predictions=True))
+    )
+    if not include_archived:
+        statement = statement.where(
+            PredictionSetup.archived == False,
+            ConfiguredModelWithDataSource.archived == False,
+        )
+    setup = session.exec(statement).first()
+    if setup is None:
+        raise HTTPException(status_code=404, detail="PredictionSetup not found")
+    return setup
+
+
+@router.delete("/prediction-setups/{predictionSetupId}", tags=["Models"])
+@api_experimental
+async def delete_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    session: Session = Depends(get_session),
+):
+    setup = session.exec(
+        select(PredictionSetup)
+        .where(PredictionSetup.id == prediction_setup_id, PredictionSetup.archived == False)
+        .options(*_prediction_setup_options())
     ).first()
-    return result
+    if (
+        setup is None
+        or setup.configured_model_with_data_source is None
+        or setup.configured_model_with_data_source.archived
+    ):
+        raise HTTPException(status_code=404, detail="PredictionSetup not found")
+
+    setup.archived = True
+    setup.configured_model_with_data_source.archived = True
+    session.add(setup.configured_model_with_data_source)
+    session.add(setup)
+    session.commit()
+    return {"message": "deleted"}
 
 
 ###########

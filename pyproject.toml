@@ -58,6 +58,7 @@ dependencies = [
     "alembic>=1.14.0",
     "chapkit>=0.23",
     "cryptography>=46.0.7",
+    "croniter>=6.2.2",
 ]
 
 [dependency-groups]
