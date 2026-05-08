@@ -64,6 +64,23 @@ class ExtendedPredictor(ConfiguredModel):
                 DataSet.from_pandas(historic_df), DataSet.from_pandas(future_slice)
             )
             new_prediction_pandas = new_prediction.to_pandas()
+
+            # Carry covariate columns from future_slice into predictions so that
+            # the rows appended to historic_df are not missing covariate values.
+            covariate_cols = [
+                col
+                for col in future_slice.columns
+                if col not in ("time_period", "location")
+                and not col.startswith("sample_")
+                and col not in new_prediction_pandas.columns
+            ]
+            if covariate_cols:
+                new_prediction_pandas = new_prediction_pandas.merge(
+                    future_slice[["time_period", "location", *covariate_cols]],
+                    on=["time_period", "location"],
+                    how="left",
+                )
+
             predictions = pd.concat([predictions, new_prediction_pandas])
             if remaining_time_periods > max_pred_length:
                 if remaining_time_periods <= 2 * max_pred_length:
