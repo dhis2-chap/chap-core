@@ -36,6 +36,13 @@ def test_validation_no_differences():
         _validate_datasets(original, cf, ["rainfall"])
 
 
+def test_validation_no_differences_row_order_independent():
+    original = _make_df(["A"], ["2022-01", "2022-02"])
+    cf = original.iloc[::-1].reset_index(drop=True)  # same data, reversed row order
+    with pytest.raises(ValueError, match="No differences"):
+        _validate_datasets(original, cf, ["rainfall"])
+
+
 @pytest.mark.slow
 def test_causal_cmd_integration(tmp_path):
     import pandas as pd

@@ -39,7 +39,10 @@ def _validate_datasets(original_df: pd.DataFrame, cf_df: pd.DataFrame, counterfa
         if col not in cf_df.columns:
             raise ValueError(f"Column '{col}' not found in counterfactual dataset.")
 
-    identical_cols = [col for col in counterfactual_columns if original_df[col].equals(cf_df[col])]
+    key = ["location", "time_period"]
+    original_aligned = original_df.set_index(key)[counterfactual_columns].sort_index()
+    cf_aligned = cf_df.set_index(key)[counterfactual_columns].sort_index()
+    identical_cols = [col for col in counterfactual_columns if original_aligned[col].equals(cf_aligned[col])]
     if identical_cols:
         raise ValueError(f"No differences found in counterfactual columns: {identical_cols}")
 
