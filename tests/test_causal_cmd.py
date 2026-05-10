@@ -50,15 +50,14 @@ def test_causal_cmd_integration(tmp_path):
 
     # Build counterfactual by modifying the rainfall column
     df = pd.read_csv(original_csv)
-    df["rainfall"] = df["rainfall"] * 1.5
+    df["rainfall"] = df["rainfall"] + 10.0
     cf_csv = tmp_path / "counterfactual.csv"
     df.to_csv(cf_csv, index=False)
 
-    # Use the last period of the first location as the split point
-    first_location = next(iter(dataset.keys()))
-    periods = list(dataset[first_location].time_period)
-    # Leave a small prediction window (last 3 periods)
-    split_period = str(periods[-3])
+    # Leave a small prediction window (last 3 periods); read strings from CSV
+    # to avoid dealing with TimePeriod.__str__ giving 'Month(2019-10)' instead of '2019-10'
+    periods = sorted(df["time_period"].unique())
+    split_period = periods[-3]
 
     output_file = tmp_path / "causal_out.nc"
     causal_cmd(
