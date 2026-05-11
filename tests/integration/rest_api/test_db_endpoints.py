@@ -678,6 +678,18 @@ def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
     assert response.status_code == 200, response.json()
 
 
+def test_add_configured_model_without_user_option_values(dependency_overrides):
+    """Omitting userOptionValues should not 500; a template with no required user
+    options should accept an empty configuration."""
+    content = get_content("/v1/crud/model-templates")
+    model = next(m for m in content if m["name"] == "naive_model")
+    payload = {"name": "naive_without_options", "modelTemplateId": model["id"]}
+
+    response = client.post("/v1/crud/configured-models", json=payload)
+    assert response.status_code == 200, response.json()
+    assert response.json()["userOptionValues"] == {}
+
+
 def test_get_configured_model_info(celery_session_worker, dependency_overrides):
     configured = get_content("/v1/crud/configured-models")
     default = next(m for m in configured if m["name"] == "chap_ewars_monthly")
