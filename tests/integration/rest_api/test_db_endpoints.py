@@ -97,6 +97,31 @@ def test_get_visualizations(celery_session_worker, clean_engine, dependency_over
     assert any(plot["id"] == "metric_by_horizon" for plot in response.json())
 
 
+def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides):
+    """Visualization endpoints used to return 200 with `{"error": ...}` bodies for
+    unknown backtest/dataset ids and unknown plot names. Each should now produce a
+    proper 4xx response."""
+    # unknown backtest
+    response = client.get("/v1/visualization/metric-plots/metric_by_horizon/999999/crps")
+    assert response.status_code == 404, response.text
+    # unknown metric on existing backtest path (the missing-metric case is bad input → 400)
+    response = client.get("/v1/visualization/metric-plots/metric_by_horizon/999999/no_such_metric")
+    # Backtest is checked first → 404. With a real backtest this would be 400; the
+    # other 404 assertion already covers the rewrite, so just assert it is not 200.
+    assert response.status_code != 200, response.text
+    # unknown plot name on dataset-plots / backtest-plots
+    response = client.get("/v1/visualization/dataset-plots/no_such_plot/1")
+    assert response.status_code == 404, response.text
+    response = client.get("/v1/visualization/backtest-plots/no_such_plot/1")
+    assert response.status_code == 404, response.text
+    # unknown dataset on a real plot name
+    plot_types = client.get("/v1/visualization/dataset-plots/").json()
+    if plot_types:
+        plot_id = plot_types[0]["id"]
+        response = client.get(f"/v1/visualization/dataset-plots/{plot_id}/999999")
+        assert response.status_code == 404, response.text
+
+
 # @pytest.mark.slow
 @pytest.mark.parametrize("do_filter", [True, False])
 @pytest.mark.slow
