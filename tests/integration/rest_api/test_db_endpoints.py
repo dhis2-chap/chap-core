@@ -421,6 +421,33 @@ def test_get_backtest_bare_route_unknown_id_returns_404(clean_engine, dependency
     assert response.status_code == 404, response.text
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("nPeriods", 0),
+        ("nPeriods", -1),
+        ("nSplits", 0),
+        ("nSplits", -2),
+        ("stride", 0),
+        ("stride", -1),
+    ],
+)
+def test_create_backtest_rejects_non_positive_params(field, value, clean_engine, dependency_overrides):
+    """n_periods, n_splits and stride must be >= 1; Pydantic validation should
+    reject anything <= 0 with 422 before the handler runs."""
+    payload = {
+        "name": "x",
+        "datasetId": 1,
+        "modelId": "naive_model",
+        "nPeriods": 3,
+        "nSplits": 2,
+        "stride": 1,
+    }
+    payload[field] = value
+    response = client.post("/v1/analytics/create-backtest", json=payload)
+    assert response.status_code == 422, response.text
+
+
 def test_create_backtest_unknown_dataset_returns_404(clean_engine, dependency_overrides):
     """Both /v1/crud/backtests and /v1/analytics/create-backtest should reject
     bogus dataset ids synchronously rather than queueing a job that fails later."""

@@ -46,7 +46,7 @@ class JobResponse(BaseModel):
 
 class PredictionParams(DBModel):
     model_id: str
-    n_periods: int = 3
+    n_periods: int = Field(default=3, gt=0)
 
 
 class ValidationError(DBModel):
