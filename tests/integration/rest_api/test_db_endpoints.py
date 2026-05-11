@@ -757,3 +757,19 @@ def test_get_dataset_csv(override_session, seeded_session):
     assert len(lines) > 1, "CSV should have header and data rows"
     header = lines[0]
     assert "time_period" in header, f"Expected time_period in header, got: {header}"
+
+
+def test_get_dataset_df_with_nans(override_session, seeded_session):
+    """Datasets containing NaN observations must round-trip through /df as JSON.
+    Previously pandas NaN floats leaked into the response and triggered a 500
+    because they are not JSON-serialisable."""
+    dataset = seeded_session.exec(select(DataSet).where(DataSet.name == "dataset_with_nans")).one()
+
+    response = client.get(f"/v1/crud/datasets/{dataset.id}/df")
+    assert response.status_code == 200, response.text
+
+    records = response.json()
+    assert len(records) > 0
+    assert any(record.get("disease_cases") is None for record in records), (
+        "Expected at least one None disease_cases value in the response"
+    )
