@@ -105,7 +105,7 @@ class IntegrationTest:
         return response.json()
 
     def get_models(self):
-        model_url = self._chap_url + "/v1/crud/models"
+        model_url = self._chap_url + "/v1/crud/configured-models"
         models = self._get(model_url)
         # hacky remove autoreg weekly
         # TODO: delete after new version is published

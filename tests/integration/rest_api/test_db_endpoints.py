@@ -193,24 +193,10 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     assert "orgUnit" in response.json()["observations"][0], response.json()["observations"][0].keys()
 
 
-def test_list_models_alias(celery_session_worker, dependency_overrides):
-    # alias for list configured models
+def test_list_models_alias_is_gone(clean_engine, dependency_overrides):
+    """The /v1/crud/models alias was removed; /configured-models is the only path."""
     response = client.get("/v1/crud/models")
-    assert response.status_code == 200, response.json()
-    assert isinstance(response.json(), list)
-    for m in response.json():
-        logger.info(m)
-    assert len(response.json()) > 0
-    assert "id" in response.json()[0]
-    for attr_name in ("displayName", "id", "description"):
-        """Check these here to make sure camelCase in response"""
-        assert attr_name in response.json()[0], response.json()[0].keys()
-    models = [ModelSpecRead.model_validate(m) for m in response.json()]
-    assert "chap_ewars_monthly" in (m.name for m in models)
-    ewars_model = next(m for m in models if m.name == "chap_ewars_monthly")
-    assert "population" in (f.name for f in ewars_model.covariates)
-    assert ewars_model.source_url is not None
-    assert ewars_model.source_url.startswith("https:/")
+    assert response.status_code == 404, response.text
 
 
 def test_list_configured_models(celery_session_worker, dependency_overrides):
@@ -546,7 +532,7 @@ def test_make_prediction_with_data_source_nonexistent_id(clean_engine, dependenc
 def test_full_prediction_with_data_source_flow(
     celery_session_worker, clean_engine, dependency_overrides, example_polygons
 ):
-    model_list = client.get("/v1/crud/models").json()
+    model_list = client.get("/v1/crud/configured-models").json()
     models = [ModelSpecRead.model_validate(m) for m in model_list]
     model = next(m for m in models if m.name == "naive_model")
     assert model.id is not None
@@ -633,7 +619,7 @@ def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path)
 
 
 def test_full_prediction_flow(celery_session_worker, dependency_overrides, example_polygons):
-    model_list = client.get("/v1/crud/models").json()
+    model_list = client.get("/v1/crud/configured-models").json()
     models = [ModelSpecRead.model_validate(m) for m in model_list]
     model = next(m for m in models if m.name == "naive_model")
     features = [f.name for f in model.covariates]

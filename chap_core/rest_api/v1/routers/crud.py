@@ -754,25 +754,6 @@ async def create_configured_model_with_data_source_from_backtest(
     return result
 
 
-###########
-# models (alias for configured models)
-
-
-@router.get("/models", response_model=list[ModelSpecRead], tags=["Models"])
-def list_models(session: Session = Depends(get_session)):
-    """List all models from the db (alias for configured models)"""
-    return list_configured_models(session)
-
-
-@router.post("/models", response_model=ConfiguredModelDB, tags=["Models"])
-def add_model(
-    model_configuration: ModelConfigurationCreate,
-    session: Session = Depends(get_session),
-):
-    """Add a model to the database (alias for configured models)"""
-    return add_configured_model(model_configuration, session)
-
-
 #############
 # other misc
 
