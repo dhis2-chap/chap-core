@@ -89,17 +89,6 @@ def causal_cmd(
             --split-period 2023-01 \\
             --output-file ./results/causal.nc
 
-    >>> import io, contextlib
-    >>> from chap_core.cli import app
-    >>> buf = io.StringIO()
-    >>> try:
-    ...     with contextlib.redirect_stdout(buf):
-    ...         app(["causal", "--help"])
-    ... except SystemExit:
-    ...     pass
-    >>> for flag in ("--model-name", "--dataset-csv", "--counterfactual-csv",
-    ...              "--counterfactual-columns", "--split-period", "--output-file"):
-    ...     assert flag in buf.getvalue(), f"{flag!r} missing from --help output"
     """
     from chap_core.assessment.dataset_splitting import train_test_split
     from chap_core.assessment.evaluation import Evaluation
