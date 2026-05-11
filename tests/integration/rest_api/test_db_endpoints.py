@@ -678,6 +678,12 @@ def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
     assert response.status_code == 200, response.json()
 
 
+def test_add_configured_model_unknown_template_returns_404(dependency_overrides):
+    payload = {"name": "orphan", "modelTemplateId": 999999, "userOptionValues": {}}
+    response = client.post("/v1/crud/configured-models", json=payload)
+    assert response.status_code == 404, response.text
+
+
 def test_add_configured_model_without_user_option_values(dependency_overrides):
     """Omitting userOptionValues should not 500; a template with no required user
     options should accept an empty configuration."""

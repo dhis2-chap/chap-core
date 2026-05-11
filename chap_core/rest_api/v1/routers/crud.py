@@ -623,7 +623,9 @@ def add_configured_model(
     configuration_name = model_configuration.name
     # Inherit uses_chapkit from parent template so the model loads correctly at runtime
     template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
-    uses_chapkit = template.uses_chapkit if template else False
+    if template is None:
+        raise HTTPException(status_code=404, detail="Model template not found")
+    uses_chapkit = template.uses_chapkit
     db_id = session_wrapper.add_configured_model(
         model_template_id,
         ModelConfiguration(
