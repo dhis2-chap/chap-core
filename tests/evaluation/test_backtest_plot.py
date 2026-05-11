@@ -1,7 +1,6 @@
 import itertools
 from pathlib import Path
 
-import altair
 import pandas as pd
 import pytest
 
@@ -23,12 +22,6 @@ from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import plot_backtest
 from chap_core.database.tables import Backtest
-
-
-@pytest.fixture(scope="module")
-def default_transformer():
-    altair.data_transformers.enable("default")
-    yield
 
 
 def test_backtest_plot_registry():

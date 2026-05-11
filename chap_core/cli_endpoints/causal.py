@@ -66,8 +66,18 @@ def causal_cmd(
         Path,
         Parameter(help="Path for original predictions NetCDF file; counterfactual saved to {stem}_cf.nc"),
     ],
-    run_config: RunConfigArg = RunConfig(),
-    model_configuration_yaml: ModelConfigYamlArg = None,
+    run_config: Annotated[
+        RunConfig,
+        Parameter(help="Model execution configuration"),
+    ] = RunConfig(),
+    model_configuration_yaml: Annotated[
+        Path | None,
+        Parameter(help="Path to YAML file with model-specific configuration parameters"),
+    ] = None,
+    plot: Annotated[
+        bool,
+        Parameter(help="Generate a side-by-side comparison plot (HTML) alongside the NetCDF output"),
+    ] = False,
 ):
     """Train a model on the original dataset up to split_period and predict on both datasets.
 
@@ -179,6 +189,15 @@ def causal_cmd(
 
         logger.info(f"Saving counterfactual predictions to {cf_output_file}")
         eval_cf.to_file(cf_output_file, **shared_kwargs)
+
+        if plot:
+            from chap_core.assessment.causal_plot import plot_counterfactual
+
+            plot_path = output_file.with_suffix(".html")
+            logger.info(f"Generating counterfactual plot to {plot_path}")
+            chart = plot_counterfactual(eval_original, eval_cf, counterfactual_columns)
+            chart.save(str(plot_path))
+            logger.info(f"Plot saved to {plot_path}")
 
 
 def register_commands(app):
