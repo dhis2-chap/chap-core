@@ -6,7 +6,7 @@ import logging
 from pathlib import Path  # noqa: TC003 — used at runtime via cyclopts get_type_hints()
 from typing import Annotated
 
-
+import pandas as pd
 from cyclopts import Parameter
 
 from chap_core.api_types import RunConfig
@@ -101,8 +101,6 @@ def causal_cmd(
     ...              "--counterfactual-columns", "--split-period", "--output-file"):
     ...     assert flag in buf.getvalue(), f"{flag!r} missing from --help output"
     """
-    
-    import pandas as pd
     from chap_core.assessment.dataset_splitting import train_test_split
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
