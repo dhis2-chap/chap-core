@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from chap_core.cli_endpoints.causal import _validate_datasets
+from chap_core.cli_endpoints.causal import causal_cmd
 
 
 def _make_df(locations, periods, extra_col_val=1.0):
@@ -13,49 +13,67 @@ def _make_df(locations, periods, extra_col_val=1.0):
     return pd.DataFrame(rows)
 
 
-def test_validation_different_time_periods():
+def _write_csvs(tmp_path, original_df, cf_df):
+    original_csv = tmp_path / "original.csv"
+    cf_csv = tmp_path / "cf.csv"
+    original_df.to_csv(original_csv, index=False)
+    cf_df.to_csv(cf_csv, index=False)
+    return original_csv, cf_csv
+
+
+def _call_causal_cmd(tmp_path, original_csv, cf_csv, columns=None):
+    causal_cmd(
+        model_name="nonexistent",
+        dataset_csv=str(original_csv),
+        counterfactual_csv=str(cf_csv),
+        counterfactual_columns=columns or ["rainfall"],
+        split_period="2022-01",
+        output_file=tmp_path / "out.nc",
+    )
+
+
+def test_validation_different_time_periods(tmp_path):
     original = _make_df(["A"], ["2022-01", "2022-02"])
     cf = _make_df(["A"], ["2022-01", "2022-03"])
     cf.loc[cf["time_period"] == "2022-03", "rainfall"] = 2.0
+    original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
     with pytest.raises(ValueError, match="same time periods"):
-        _validate_datasets(original, cf, ["rainfall"])
+        _call_causal_cmd(tmp_path, original_csv, cf_csv)
 
 
-def test_validation_missing_column():
+def test_validation_missing_column(tmp_path):
     original = _make_df(["A"], ["2022-01"])
     cf = _make_df(["A"], ["2022-01"])
     cf.loc[:, "rainfall"] = 2.0
+    original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
     with pytest.raises(ValueError, match="not found"):
-        _validate_datasets(original, cf, ["nonexistent_col"])
+        _call_causal_cmd(tmp_path, original_csv, cf_csv, columns=["nonexistent_col"])
 
 
-def test_validation_no_differences():
+def test_validation_no_differences(tmp_path):
     original = _make_df(["A"], ["2022-01", "2022-02"])
-    cf = original.copy()
+    original_csv, cf_csv = _write_csvs(tmp_path, original, original.copy())
     with pytest.raises(ValueError, match="No differences"):
-        _validate_datasets(original, cf, ["rainfall"])
+        _call_causal_cmd(tmp_path, original_csv, cf_csv)
 
 
-def test_validation_no_differences_row_order_independent():
+def test_validation_no_differences_row_order_independent(tmp_path):
     original = _make_df(["A"], ["2022-01", "2022-02"])
     cf = original.iloc[::-1].reset_index(drop=True)  # same data, reversed row order
+    original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
     with pytest.raises(ValueError, match="No differences"):
-        _validate_datasets(original, cf, ["rainfall"])
+        _call_causal_cmd(tmp_path, original_csv, cf_csv)
 
 
 @pytest.mark.slow
 def test_causal_cmd_integration(tmp_path):
-    import pandas as pd
-
     from chap_core.api_types import RunConfig
-    from chap_core.cli_endpoints.causal import causal_cmd
     from chap_core.file_io.example_data_set import datasets
 
     dataset = datasets["hydromet_5_filtered"].load()
     original_csv = tmp_path / "original.csv"
     dataset.to_csv(original_csv)
 
-    # Build counterfactual by modifying the rainfall column
     df = pd.read_csv(original_csv)
     df["rainfall"] = df["rainfall"] + 10.0
     cf_csv = tmp_path / "counterfactual.csv"
