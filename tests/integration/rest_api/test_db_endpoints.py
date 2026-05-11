@@ -405,6 +405,15 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
     assert response.json() == {"orgUnits": ["Bergen"], "splitPeriods": ["202202"]}, response.json()
 
 
+def test_backtest_overlap_error_message_includes_id(clean_engine, dependency_overrides):
+    """The error detail must surface the actual id, not its path position."""
+    missing_id1 = 888888
+    missing_id2 = 999999
+    response = client.get(f"/v1/analytics/backtest-overlap/{missing_id1}/{missing_id2}")
+    assert response.status_code == 404, response.text
+    assert str(missing_id1) in response.json()["detail"], response.json()
+
+
 def test_list_configured_models_with_data_source_empty(clean_engine, dependency_overrides):
     response = client.get("/v1/crud/configured-models-with-data-source")
     assert response.status_code == 200
