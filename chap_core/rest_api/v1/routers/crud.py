@@ -273,6 +273,7 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], se
 
 
 @router_get("/backtests/{backtestId}/info", response_model=BacktestRead, tags=["Backtests"])
+@router_get("/backtests/{backtestId}", response_model=BacktestRead, tags=["Backtests"])
 def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.exec(
         select(Backtest)

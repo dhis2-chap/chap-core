@@ -405,6 +405,22 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
     assert response.json() == {"orgUnits": ["Bergen"], "splitPeriods": ["202202"]}, response.json()
 
 
+def test_get_backtest_bare_route_returns_info(override_session, seeded_session):
+    """GET /v1/crud/backtests/{id} (bare, no /info or /full suffix) should return
+    the BacktestRead view rather than 405."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+
+    response = client.get(f"/v1/crud/backtests/{backtest.id}")
+    assert response.status_code == 200, response.text
+    BacktestRead.model_validate(response.json())
+
+
+def test_get_backtest_bare_route_unknown_id_returns_404(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/backtests/999999")
+    assert response.status_code == 404, response.text
+
+
 def test_backtest_overlap_error_message_includes_id(clean_engine, dependency_overrides):
     """The error detail must surface the actual id, not its path position."""
     missing_id1 = 888888
