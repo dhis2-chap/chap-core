@@ -421,6 +421,25 @@ def test_get_backtest_bare_route_unknown_id_returns_404(clean_engine, dependency
     assert response.status_code == 404, response.text
 
 
+def test_create_backtest_unknown_dataset_returns_404(clean_engine, dependency_overrides):
+    """Both /v1/crud/backtests and /v1/analytics/create-backtest should reject
+    bogus dataset ids synchronously rather than queueing a job that fails later."""
+    crud_payload = {"name": "bogus", "datasetId": 999999, "modelId": "naive_model"}
+    response = client.post("/v1/crud/backtests", json=crud_payload)
+    assert response.status_code == 404, response.text
+
+    analytics_payload = {
+        "name": "bogus",
+        "datasetId": 999999,
+        "modelId": "naive_model",
+        "nPeriods": 3,
+        "nSplits": 2,
+        "stride": 1,
+    }
+    response = client.post("/v1/analytics/create-backtest", json=analytics_payload)
+    assert response.status_code == 404, response.text
+
+
 def test_backtest_overlap_error_message_includes_id(clean_engine, dependency_overrides):
     """The error detail must surface the actual id, not its path position."""
     missing_id1 = 888888

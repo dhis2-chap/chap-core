@@ -319,7 +319,11 @@ async def get_metrics_csv(
 
 
 @router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
-async def create_backtest(backtest: BacktestCreate, database_url: str = Depends(get_database_url)):
+async def create_backtest(
+    backtest: BacktestCreate,
+    database_url: str = Depends(get_database_url),
+    session: Session = Depends(get_session),
+):
     # `BacktestCreate.model_id` accepts either the configured-model name
     # (what the DB column actually stores) or the integer primary key (what
     # most API clients reach for because that's what GET /v1/crud/configured-models
@@ -327,6 +331,8 @@ async def create_backtest(backtest: BacktestCreate, database_url: str = Depends(
     # `SessionWrapper.get_configured_model_by_id_or_name` before touching
     # anything else, so the endpoint itself stays dumb and there's exactly
     # one resolution point.
+    if session.get(DataSet, backtest.dataset_id) is None:
+        raise HTTPException(status_code=404, detail=f"Dataset {backtest.dataset_id} not found")
     job = worker.queue_db(
         wf.run_backtest,
         backtest,
