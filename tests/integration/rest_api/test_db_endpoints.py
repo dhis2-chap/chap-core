@@ -759,6 +759,16 @@ def test_get_dataset_csv(override_session, seeded_session):
     assert "time_period" in header, f"Expected time_period in header, got: {header}"
 
 
+def test_get_dataset_df_unknown_id_returns_404(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/datasets/999999/df")
+    assert response.status_code == 404, response.text
+
+
+def test_get_dataset_csv_unknown_id_returns_404(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/datasets/999999/csv")
+    assert response.status_code == 404, response.text
+
+
 def test_get_dataset_df_with_nans(override_session, seeded_session):
     """Datasets containing NaN observations must round-trip through /df as JSON.
     Previously pandas NaN floats leaked into the response and triggered a 500
