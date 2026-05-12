@@ -57,7 +57,13 @@ def causal_cmd(
     model_name: ModelNameArg,
     dataset_csv: DatasetCsvArg,
     counterfactual_csv: Annotated[str, Parameter(help="Path or URL to the counterfactual dataset CSV")],
-    counterfactual_columns: Annotated[list[str], Parameter(help="Column names that hold counterfactual values")],
+    counterfactual_columns: Annotated[
+        list[str], 
+        Parameter(
+            help="Column names that hold counterfactual values",
+            consume_multiple=True,
+        ),
+    ],
     split_period: Annotated[
         str,
         Parameter(help="Period string where training ends and prediction begins (e.g. '2023-01' or '2023W01')"),
