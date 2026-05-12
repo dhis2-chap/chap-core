@@ -58,7 +58,7 @@ def causal_cmd(
     dataset_csv: DatasetCsvArg,
     counterfactual_csv: Annotated[str, Parameter(help="Path or URL to the counterfactual dataset CSV")],
     counterfactual_columns: Annotated[
-        list[str], 
+        list[str],
         Parameter(
             help="Column names that hold counterfactual values",
             consume_multiple=True,
@@ -72,6 +72,16 @@ def causal_cmd(
         Path,
         Parameter(help="Path for original predictions NetCDF file; counterfactual saved to {stem}_cf.nc"),
     ],
+    cf_start_period: Annotated[
+        str | None,
+        Parameter(
+            help=(
+                "Period where counterfactual values begin as historic context during prediction "
+                "(must be before split_period). When set, periods from here up to split_period "
+                "use counterfactual covariates instead of original values. Defaults to split_period."
+            )
+        ),
+    ] = None,
     run_config: Annotated[
         RunConfig,
         Parameter(help="Model execution configuration"),
@@ -92,6 +102,10 @@ def causal_cmd(
     model once on the original data up to (but not including) split_period and generates
     predictions from split_period to the end of the dataset for both the original and
     counterfactual inputs.
+
+    When cf_start_period is given, the counterfactual prediction uses original historic data
+    up to cf_start_period and counterfactual historic data from cf_start_period to split_period,
+    rather than using only original data as historical context.
 
     Results are written to two NetCDF files: output_file (original) and
     output_file with a _cf suffix (counterfactual).
@@ -118,6 +132,15 @@ def causal_cmd(
 
     initialize_logging(run_config.debug, run_config.log_file)
 
+    split_period_obj = TimePeriod.parse(split_period)
+    cf_start_period_obj = None
+    if cf_start_period is not None:
+        cf_start_period_obj = TimePeriod.parse(cf_start_period)
+        if cf_start_period_obj >= split_period_obj:
+            raise ValueError(
+                f"cf_start_period ({cf_start_period}) must be strictly before split_period ({split_period})."
+            )
+
     original_csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
     cf_csv_path, _ = resolve_csv_path(counterfactual_csv)
     geojson_path = url_geojson_path or discover_geojson(original_csv_path)
@@ -142,8 +165,6 @@ def causal_cmd(
         estimator, configuration = get_estimator(template, model_configuration_yaml)
         model_info = estimator.model_information
 
-        split_period_obj = TimePeriod.parse(split_period)
-
         train_data, original_test_data = train_test_split(original_dataset, split_period_obj)
         _, cf_test_data = train_test_split(cf_dataset, split_period_obj)
 
@@ -154,7 +175,18 @@ def causal_cmd(
         original_predictions = predictor.predict(train_data, original_test_data.remove_field("disease_cases"))
 
         logger.info("Predicting on counterfactual dataset")
-        cf_predictions = predictor.predict(train_data, cf_test_data.remove_field("disease_cases"))
+        if cf_start_period_obj is not None:
+            cf_historical_full, _ = train_test_split(cf_dataset, split_period_obj)
+            cf_hist_from_start = cf_historical_full.restrict_time_period(slice(cf_start_period_obj, None))
+            if cf_start_period_obj == train_data.period_range[0]:
+                cf_historic_data = cf_hist_from_start
+            else:
+                original_pre_cf, _ = train_test_split(original_dataset, cf_start_period_obj)
+                cf_historic_data = original_pre_cf.join_on_time(cf_hist_from_start)
+        else:
+            cf_historic_data = train_data
+
+        cf_predictions = predictor.predict(cf_historic_data, cf_test_data.remove_field("disease_cases"))
 
         original_swt = original_test_data.merge(original_predictions, result_dataclass=SamplesWithTruth)
         cf_swt = cf_test_data.merge(cf_predictions, result_dataclass=SamplesWithTruth)
