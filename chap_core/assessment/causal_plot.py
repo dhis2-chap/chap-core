@@ -22,8 +22,11 @@ def plot_counterfactual(
 
     def _chart(evaluation, title: str):
         flat = evaluation.to_flat()
+        historical = pd.DataFrame(flat.historical_observations) if flat.historical_observations is not None else None
         return (
-            EvaluationPlot().plot(pd.DataFrame(flat.observations), pd.DataFrame(flat.forecasts)).properties(title=title)
+            EvaluationPlot()
+            .plot(pd.DataFrame(flat.observations), pd.DataFrame(flat.forecasts), historical)
+            .properties(title=title)
         )
 
     subtitle = f" ({', '.join(counterfactual_columns)})" if counterfactual_columns else ""

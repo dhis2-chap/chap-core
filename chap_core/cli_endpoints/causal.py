@@ -171,10 +171,27 @@ def causal_cmd(
         )
         last_train_period = train_data.period_range[-1]
 
-        eval_original = Evaluation.from_samples_with_truth(
-            [original_swt], last_train_period, configured_model_db, backtest_info
+        historical_context_periods = Evaluation.calculate_periods_from_years(train_data, years=6)
+        historical_observations = Evaluation.extract_historical_observations(
+            train_data, last_train_period, historical_context_periods
         )
-        eval_cf = Evaluation.from_samples_with_truth([cf_swt], last_train_period, configured_model_db, backtest_info)
+
+        eval_original = Evaluation.from_samples_with_truth(
+            [original_swt],
+            last_train_period,
+            configured_model_db,
+            backtest_info,
+            historical_observations=historical_observations,
+            historical_context_periods=historical_context_periods,
+        )
+        eval_cf = Evaluation.from_samples_with_truth(
+            [cf_swt],
+            last_train_period,
+            configured_model_db,
+            backtest_info,
+            historical_observations=historical_observations,
+            historical_context_periods=historical_context_periods,
+        )
 
         cf_output_file = output_file.with_stem(output_file.stem + "_cf")
         shared_kwargs = {
