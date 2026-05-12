@@ -138,6 +138,19 @@ def test_add_model_template_unarchives_existing(model_template_yaml_config, engi
         assert template.archived is False
 
 
+def test_yaml_update_preserves_uses_chapkit(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        template = session.session.get(ModelTemplateDB, template_id)
+        template.uses_chapkit = True
+        session.session.commit()
+
+    with SessionWrapper(engine) as session:
+        session.add_model_template_from_yaml_config(model_template_yaml_config)
+        template = session.session.get(ModelTemplateDB, template_id)
+        assert template.uses_chapkit is True
+
+
 @pytest.mark.parametrize("url", template_urls)
 # @pytest.mark.slow
 def test_add_model_template_from_url(engine, url):
