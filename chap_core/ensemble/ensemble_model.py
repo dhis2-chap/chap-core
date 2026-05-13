@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
-from chap_core.datatypes import FullData
+from chap_core.assessment.dataset_splitting import train_test_split
 from chap_core.ensemble._legacy_wrappers import BaseModelSpec, _TemplateWithConfig
 from chap_core.ensemble._meta_models import (
     NonNegativeMetaModel,
@@ -17,10 +17,11 @@ from chap_core.ensemble._meta_models import (
 from chap_core.ensemble._predictor import EnsemblePredictor
 from chap_core.ensemble._sample_extractor import SampleExtractor as _SampleExtractor
 from chap_core.models.configured_model import ConfiguredModel
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
 
@@ -72,23 +73,24 @@ class EnsembleModel(ConfiguredModel):
         # Local RNG for reproducibility.
         rng = np.random.default_rng(self.random_state)
 
-        df = train_data.to_pandas()
-        all_periods = sorted(df["time_period"].dropna().astype(str).unique())
+        periods = list(train_data.period_range)
+        if len(periods) < 2:
+            raise ValueError("Need at least two time periods for training")
         split_idx = (
-            len(all_periods) // 2
-            if len(all_periods) <= self.inner_val_periods
-            else len(all_periods) - self.inner_val_periods
+            len(periods) // 2 if len(periods) <= self.inner_val_periods else len(periods) - self.inner_val_periods
         )
+        if split_idx <= 0 or split_idx >= len(periods):
+            raise ValueError("Invalid inner validation split")
+        split_period = periods[split_idx]
+
         logger.info(
             "Inner split: %d periods, train=%d, val=%d",
-            len(all_periods),
+            len(periods),
             split_idx,
-            len(all_periods) - split_idx,
+            len(periods) - split_idx,
         )
 
-        train_mask = df["time_period"].astype(str).isin(set(all_periods[:split_idx]))
-        inner_train = DataSet.from_pandas(df[train_mask], FullData, fill_missing=True)
-        val_data = DataSet.from_pandas(df[~train_mask], FullData, fill_missing=True)
+        inner_train, val_data = train_test_split(train_data, split_period)
 
         ests: list[Any] = []
         for tmpl in self.base_templates:

@@ -12,6 +12,63 @@ from chap_core.assessment.metrics.base import (
 )
 
 
+def crps_score_unbiased(samples: np.ndarray, observed: float) -> float:
+    """Compute the unbiased O(m log m) CRPS for a single observation."""
+    samples = np.asarray(samples, float).reshape(-1)
+    term1 = np.mean(np.abs(samples - observed))
+    m = samples.size
+    if m <= 1:
+        return float(term1)
+
+    sorted_s = np.sort(samples)
+    cumsum_s = np.cumsum(sorted_s)
+    k = np.arange(m)
+
+    left = sorted_s * k - cumsum_s + sorted_s
+    rev_cumsum_s = np.cumsum(sorted_s[::-1])[::-1]
+    right = rev_cumsum_s - sorted_s * (m - k)
+    pairwise = left + right
+
+    sum_pairwise = 0.5 * np.sum(pairwise)
+    denom = m * (m - 1) / 2.0
+    term2 = sum_pairwise / denom
+
+    return float(term1 - 0.5 * term2)
+
+
+def crps_score_unbiased_matrix(observations: np.ndarray, forecasts: np.ndarray) -> float:
+    """Compute the unbiased CRPS over multiple observations and sample matrices."""
+    observations = np.asarray(observations, float).reshape(-1)
+    forecasts = np.asarray(forecasts, float)
+    if forecasts.ndim != 2:
+        raise ValueError(f"forecasts must be 2D (n, m), got shape {forecasts.shape}")
+    n, m = forecasts.shape
+    if n != observations.shape[0]:
+        raise ValueError(f"observations length {observations.shape[0]} does not match forecast rows {n}")
+
+    term1 = np.mean(np.abs(forecasts - observations[:, None]), axis=1)
+
+    if m <= 1:
+        return float(np.mean(term1))
+
+    sorted_f = np.sort(forecasts, axis=1)
+    cumsum_f = np.cumsum(sorted_f, axis=1)
+    k = np.arange(m)
+
+    left = sorted_f * k - cumsum_f + sorted_f
+
+    rev_cumsum_f = np.cumsum(sorted_f[:, ::-1], axis=1)[:, ::-1]
+    right = rev_cumsum_f - sorted_f * (m - k)
+
+    pairwise = left + right
+    sum_pairwise = 0.5 * np.sum(pairwise, axis=1)
+
+    denom = m * (m - 1) / 2.0
+    term2 = sum_pairwise / denom
+
+    return float(np.mean(term1 - 0.5 * term2))
+
+
 @metric()
 class CRPSMetric(ProbabilisticMetric):
     """
@@ -39,10 +96,7 @@ class CRPSMetric(ProbabilisticMetric):
 
     def compute_sample_metric(self, samples: np.ndarray, observed: float) -> float:
         """Compute CRPS from all samples and the observation."""
-        # CRPS = E[|X - obs|] - 0.5 * E[|X - X'|]
-        term1 = np.mean(np.abs(samples - observed))
-        term2 = 0.5 * np.mean(np.abs(samples[:, None] - samples[None, :]))
-        return float(term1 - term2)
+        return crps_score_unbiased(samples, observed)
 
 
 @metric()
@@ -66,6 +120,4 @@ class CRPSLog1pMetric(ProbabilisticMetric):
         """Compute CRPS on log1p-transformed values."""
         log_samples = np.log1p(samples)
         log_observed = np.log1p(observed)
-        term1 = np.mean(np.abs(log_samples - log_observed))
-        term2 = 0.5 * np.mean(np.abs(log_samples[:, None] - log_samples[None, :]))
-        return float(term1 - term2)
+        return crps_score_unbiased(log_samples, log_observed)

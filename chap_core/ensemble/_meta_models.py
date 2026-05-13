@@ -7,44 +7,26 @@ import logging
 import numpy as np
 from scipy.optimize import minimize, nnls
 
+from chap_core.assessment.metrics.crps import crps_score_unbiased_matrix
+
 logger = logging.getLogger(__name__)
 
 
-def _crps_score(obs: np.ndarray, forecast: np.ndarray) -> float:
-    obs = np.asarray(obs, float).reshape(-1)
-    forecast = np.asarray(forecast, float)
-    if forecast.ndim != 2:
-        raise ValueError(f"forecast must be 2D (n, m), got shape {forecast.shape}")
-    n, m = forecast.shape
-    if n != obs.shape[0]:
-        raise ValueError(f"obs length {obs.shape[0]} does not match forecast rows {n}")
-
-    term1 = np.mean(np.abs(forecast - obs[:, None]), axis=1)  # shape (n,)
-
-    if m <= 1:
-        return float(np.mean(term1))
-
-    sorted_f = np.sort(forecast, axis=1)
-    cumsum_f = np.cumsum(sorted_f, axis=1)
-
-    k = np.arange(m)
-
-    left = sorted_f * k - cumsum_f + sorted_f
-
-    rev_cumsum_f = np.cumsum(sorted_f[:, ::-1], axis=1)[:, ::-1]
-    right = rev_cumsum_f - sorted_f * (m - k)
-
-    pairwise = left + right  # shape (n, m)
-    sum_pairwise = 0.5 * np.sum(pairwise, axis=1)
-
-    denom = m * (m - 1) / 2.0
-    term2 = sum_pairwise / denom
-
-    return float(np.mean(term1 - 0.5 * term2))
-
-
 def crps_ensemble(observations: np.ndarray, forecasts: np.ndarray) -> float:
-    return _crps_score(observations, forecasts)
+    return crps_score_unbiased_matrix(observations, forecasts)
+
+
+def _vincentize_samples(X_samples: list[np.ndarray], weights: np.ndarray) -> np.ndarray:
+    if not X_samples:
+        raise ValueError("X_samples must not be empty")
+    target_shape = X_samples[0].shape
+    for i, s in enumerate(X_samples):
+        if s.shape != target_shape:
+            raise ValueError(f"Sample shape mismatch: X_samples[0]={target_shape}, X_samples[{i}]={s.shape}")
+    stacked = np.stack(X_samples, axis=0)
+    sorted_stack = np.sort(stacked, axis=2)
+    w = np.asarray(weights, float).reshape(-1, 1, 1)
+    return np.asarray(np.sum(w * sorted_stack, axis=0), float)
 
 
 class NonNegativeMetaModel:
@@ -66,6 +48,12 @@ class NonNegativeMetaModel:
 
 
 class ProbabilisticMetaModel:
+    """Probabilistic meta-model using vincentization (quantile averaging).
+
+    This avoids dependence on arbitrary sample ordering and yields a deterministic
+    combination for CRPS optimization.
+    """
+
     def __init__(self, verbose: bool = False) -> None:
         self.coef_: np.ndarray | None = None
         self.intercept_: float = 0.0
@@ -80,9 +68,8 @@ class ProbabilisticMetaModel:
         y = np.asarray(y, float).reshape(-1)
 
         def obj(w: np.ndarray) -> float:
-            # w is already constrained to simplex; no need to renormalize
-            ens = sum(w[i] * X_samples[i] for i in range(len(X_samples)))
-            return _crps_score(y, ens)
+            ens = _vincentize_samples(X_samples, w)
+            return crps_score_unbiased_matrix(y, ens)
 
         n = len(X_samples)
         w0 = np.ones(n) / n
@@ -119,5 +106,12 @@ class ProbabilisticMetaModel:
             raise ValueError("Meta-model not fitted")
         if len(X_samples) != len(self.coef_):
             raise ValueError(f"Expected {len(self.coef_)} sample arrays, got {len(X_samples)}")
-        ens = sum(self.coef_[i] * X_samples[i] for i in range(len(X_samples)))
+        ens = _vincentize_samples(X_samples, self.coef_)
         return np.asarray(np.maximum(ens, 0.0), float)
+
+
+__all__ = [
+    "NonNegativeMetaModel",
+    "ProbabilisticMetaModel",
+    "crps_ensemble",
+]
