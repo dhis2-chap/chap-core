@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import numpy as np
 
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
 from chap_core.database.dataset_tables import DataSetWithObservations, Observation, DataSet
@@ -419,3 +420,16 @@ def flat_forecasts_multiple_samples():
             }
         )
     )
+
+
+@pytest.fixture
+def crps_example_data():
+    observations = np.array([1.0, 2.0], dtype=float)
+    forecasts = np.array(
+        [
+            [0.0, 1.0, 2.0],
+            [1.0, 2.0, 3.0],
+        ],
+        dtype=float,
+    )
+    return observations, forecasts

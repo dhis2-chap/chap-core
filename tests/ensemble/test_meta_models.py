@@ -46,3 +46,14 @@ def test_probabilistic_meta_model_rejects_shape_mismatch(weekly_full_data):
 
     with pytest.raises(ValueError, match="Sample shape mismatch"):
         ProbabilisticMetaModel().fit([x1, x2], y)
+
+
+def test_probabilistic_meta_model_invariant_to_sample_order(vincentization_samples):
+    x1, x2, x1_perm, x2_perm, weights = vincentization_samples
+    model = ProbabilisticMetaModel()
+    model.coef_ = weights
+
+    preds = model.predict([x1, x2])
+    preds_perm = model.predict([x1_perm, x2_perm])
+
+    np.testing.assert_allclose(preds, preds_perm)

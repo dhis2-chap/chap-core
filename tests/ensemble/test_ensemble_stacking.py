@@ -46,6 +46,32 @@ def test_deterministic_residual_bootstrap_generates_samples(weekly_full_data, co
         assert samples.shape[0] == len(weekly_full_data[loc].time_period)
 
 
+def test_deterministic_residual_bootstrap_varies_samples(weekly_full_data, constant_template_factory):
+    templates = [
+        constant_template_factory(2.0, 1, "model_a"),
+        constant_template_factory(4.0, 1, "model_b"),
+    ]
+    model = EnsembleModel(
+        base_templates=templates,
+        method="deterministic",
+        n_samples=6,
+        use_residual_bootstrap=True,
+        random_state=123,
+    )
+
+    predictor = model.train(weekly_full_data)
+    preds = predictor.predict(weekly_full_data, weekly_full_data)
+
+    has_variation = False
+    for loc in weekly_full_data.locations():
+        samples = preds[loc].samples
+        if np.unique(samples).size > 1:
+            has_variation = True
+            break
+
+    assert has_variation
+
+
 def test_probabilistic_predict_samples_count(weekly_full_data, constant_template_factory):
     templates = [
         constant_template_factory(3.0, 2, "model_a"),

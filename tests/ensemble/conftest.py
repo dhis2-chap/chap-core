@@ -97,3 +97,21 @@ def base_residuals_factory(weekly_full_data):
         return np.asarray(series.disease_cases, float) - value
 
     return _make
+
+
+@pytest.fixture
+def vincentization_samples(weekly_full_data):
+    location = next(iter(weekly_full_data.locations()))
+    series = weekly_full_data[location]
+    base = np.asarray(series.disease_cases, float)
+    base = base[np.isfinite(base)]
+
+    n_samples = 5
+    x1 = np.tile(base.reshape(-1, 1), (1, n_samples))
+    x2 = np.tile((base + 2.0).reshape(-1, 1), (1, n_samples))
+
+    perm = np.array([2, 4, 1, 0, 3])
+    x1_perm = x1[:, perm]
+    x2_perm = x2[:, perm[::-1]]
+    weights = np.array([0.3, 0.7], dtype=float)
+    return x1, x2, x1_perm, x2_perm, weights

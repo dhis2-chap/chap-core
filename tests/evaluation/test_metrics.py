@@ -20,6 +20,7 @@ from chap_core.assessment.metrics import (
     DataDimension,
     compute_all_aggregated_metrics_from_backtest,
 )
+from chap_core.assessment.metrics.crps import crps_score_unbiased, crps_score_unbiased_matrix
 from chap_core.assessment.metrics.peak_diff import PeakValueDiffMetric, PeakPeriodLagMetric
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
 import pytest
@@ -602,3 +603,10 @@ def test_peak_period_lag_metric_monthly(flat_observations_monthly, flat_forecast
     expected_sorted = expected.sort_values(["location", "horizon_distance"]).reset_index(drop=True)
 
     pd.testing.assert_frame_equal(result_sorted, expected_sorted)
+
+
+def test_crps_score_unbiased_matrix_matches_rowwise(crps_example_data):
+    observations, forecasts = crps_example_data
+    expected = np.mean([crps_score_unbiased(forecasts[i], observations[i]) for i in range(len(observations))])
+    actual = crps_score_unbiased_matrix(observations, forecasts)
+    np.testing.assert_allclose(actual, expected)
