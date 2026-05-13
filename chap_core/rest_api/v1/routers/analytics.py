@@ -589,8 +589,18 @@ async def create_backtest_with_data(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
-    feature_names, provided_data_processed = _read_dataset(request)
-    provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
+    try:
+        feature_names, provided_data_processed = _read_dataset(request)
+        provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
+    except HTTPException as exc:
+        if not dry_run or exc.status_code != 400:
+            raise
+        # Rejections, when present, were serialised by `_validate_full_dataset` into
+        # `exc.detail["rejected"]`. The empty-`provided_data` case in `_read_dataset`
+        # raises with a plain-string detail and has no rejections to recover. If
+        # either helper changes its detail shape, this branch must be updated.
+        rejected: list = exc.detail.get("rejected", []) if isinstance(exc.detail, dict) else []
+        return ImportSummaryResponse.model_validate({"id": None, "imported_count": 0, "rejected": rejected})
     backtest_params = BacktestParams(**request.model_dump())
     train_set, _ = train_test_generator(
         provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride

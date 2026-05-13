@@ -677,6 +677,39 @@ def test_backtest_with_empty_provided_data(dependency_overrides, create_backtest
     assert "No observation data provided" in response.json()["detail"]
 
 
+def test_backtest_with_empty_provided_data_dry_run(dependency_overrides, create_backtest_with_data_request):
+    request_payload = create_backtest_with_data_request.model_dump()
+    request_payload["provided_data"] = []
+    response = client.post("/v1/analytics/create-backtest-with-data?dryRun=true", json=request_payload)
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["id"] is None
+    assert body["importedCount"] == 0
+    assert body["rejected"] == []
+
+
+def test_backtest_with_all_regions_rejected_dry_run(dependency_overrides, create_backtest_with_data_request):
+    request_payload = create_backtest_with_data_request.model_dump()
+    obs = request_payload["provided_data"]
+    target_feature = next(e["feature_name"] for e in obs if e["feature_name"] != "disease_cases")
+    seen_locations = set()
+    pruned = []
+    for entry in obs:
+        if entry["feature_name"] == target_feature and entry["org_unit"] not in seen_locations:
+            seen_locations.add(entry["org_unit"])
+            continue
+        pruned.append(entry)
+    request_payload["provided_data"] = pruned
+
+    response = client.post("/v1/analytics/create-backtest-with-data?dryRun=true", json=request_payload)
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["id"] is None
+    assert body["importedCount"] == 0
+    assert len(body["rejected"]) > 0
+    assert all(r["featureName"] == target_feature for r in body["rejected"])
+
+
 @pytest.mark.parametrize("dry_run", [False, True])
 def test_backtest_with_weekly_data_flow(
     celery_session_worker, dependency_overrides, example_polygons, create_backtest_with_weekly_data_request, dry_run
