@@ -110,6 +110,7 @@ class EvaluationPlot(BacktestPlotBase):
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
+        y_domain: list[float] | None = None,
     ) -> ChartType:
         """
         Generate and return the evaluation visualization.
@@ -124,12 +125,17 @@ class EvaluationPlot(BacktestPlotBase):
         historical_observations : pd.DataFrame, optional
             Historical observations before split periods, with columns:
             location, time_period, disease_cases
+        y_domain : list[float], optional
+            Fixed [min, max] for the y-axis. When None the scale is inferred
+            from the data in each chart independently.
 
         Returns
         -------
         ChartType
             Altair faceted chart showing forecasts vs observations
         """
+        y_scale = alt.Scale(zero=False, domain=y_domain) if y_domain is not None else alt.Scale(zero=False)
+
         # Compute quantiles from forecast samples
         forecast_quantiles = _compute_quantiles_from_forecasts(forecasts)
 
@@ -205,7 +211,7 @@ class EvaluationPlot(BacktestPlotBase):
             .mark_line()
             .encode(
                 x="time_period:T",
-                y=alt.Y("q_50:Q", scale=alt.Scale(zero=False)),
+                y=alt.Y("q_50:Q", scale=y_scale),
             )
         )
 
@@ -215,7 +221,7 @@ class EvaluationPlot(BacktestPlotBase):
             .mark_errorband(color="blue", opacity=0.3)
             .encode(
                 x="time_period:T",
-                y=alt.Y("q_10:Q", scale=alt.Scale(zero=False)),
+                y=alt.Y("q_10:Q", scale=y_scale),
                 y2="q_90:Q",
             )
         )
@@ -225,7 +231,7 @@ class EvaluationPlot(BacktestPlotBase):
             .mark_errorband(color="blue", opacity=0.5)
             .encode(
                 x="time_period:T",
-                y=alt.Y("q_25:Q", scale=alt.Scale(zero=False)),
+                y=alt.Y("q_25:Q", scale=y_scale),
                 y2="q_75:Q",
             )
         )
@@ -236,7 +242,7 @@ class EvaluationPlot(BacktestPlotBase):
             .mark_line(color="orange")
             .encode(
                 x="time_period:T",
-                y=alt.Y("disease_cases:Q", scale=alt.Scale(zero=False)),
+                y=alt.Y("disease_cases:Q", scale=y_scale),
             )
         )
 

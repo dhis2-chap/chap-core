@@ -78,9 +78,9 @@ def test_plot_counterfactual_returns_chart(vietnam_evaluation_pair, default_tran
     assert plot_counterfactual(eval_orig, eval_cf, ["rainfall"]) is not None
 
 
-def test_plot_counterfactual_is_hconcat(vietnam_evaluation_pair, default_transformer):
+def test_plot_counterfactual_is_vconcat(vietnam_evaluation_pair, default_transformer):
     eval_orig, eval_cf = vietnam_evaluation_pair
-    assert isinstance(plot_counterfactual(eval_orig, eval_cf), alt.HConcatChart)
+    assert isinstance(plot_counterfactual(eval_orig, eval_cf), alt.VConcatChart)
 
 
 def test_plot_counterfactual_saves_html(vietnam_evaluation_pair, default_transformer, tmp_path):
