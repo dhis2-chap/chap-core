@@ -99,9 +99,6 @@ def cancel_job(job_id: str) -> dict:
     """
     _ensure_job_exists(job_id)
     job = worker.get_job(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-
     job_status = job.status.lower()
 
     if job_status in ["success", "failure", "revoked"]:
