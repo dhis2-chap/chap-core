@@ -175,7 +175,12 @@ class SessionWrapper:
             model_template=model_template,
             uses_chapkit=uses_chapkit,
         )
-        configured_model.validate_user_options(configured_model)
+        # Chapkit owns its config schema and validates server-side; chap-core
+        # stores user_option_values={} as a "use chapkit defaults" sentinel.
+        # The local heuristic-based validator wrongly flags any default_factory
+        # field as required (no literal "default" key in the schema), so skip it.
+        if not uses_chapkit:
+            configured_model.validate_user_options(configured_model)
         # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
