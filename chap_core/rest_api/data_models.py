@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
@@ -46,7 +46,7 @@ class JobResponse(BaseModel):
 
 class PredictionParams(DBModel):
     model_id: str
-    n_periods: int = 3
+    n_periods: int = Field(default=3, gt=0)
 
 
 class ValidationError(DBModel):
@@ -153,7 +153,7 @@ class ConfiguredModelInfoRead(DBModel):
 class ModelConfigurationCreate(DBModel):
     name: str
     model_template_id: int
-    user_option_values: dict | None = None
+    user_option_values: dict = Field(default_factory=dict)
     additional_continuous_covariates: list[str] = []
 
 

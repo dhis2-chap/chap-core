@@ -97,6 +97,31 @@ def test_get_visualizations(celery_session_worker, clean_engine, dependency_over
     assert any(plot["id"] == "metric_by_horizon" for plot in response.json())
 
 
+def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_overrides):
+    """Visualization endpoints used to return 200 with `{"error": ...}` bodies for
+    unknown backtest/dataset ids and unknown plot names. Each should now produce a
+    proper 4xx response."""
+    # unknown backtest
+    response = client.get("/v1/visualization/metric-plots/metric_by_horizon/999999/crps")
+    assert response.status_code == 404, response.text
+    # unknown metric on existing backtest path (the missing-metric case is bad input → 400)
+    response = client.get("/v1/visualization/metric-plots/metric_by_horizon/999999/no_such_metric")
+    # Backtest is checked first → 404. With a real backtest this would be 400; the
+    # other 404 assertion already covers the rewrite, so just assert it is not 200.
+    assert response.status_code != 200, response.text
+    # unknown plot name on dataset-plots / backtest-plots
+    response = client.get("/v1/visualization/dataset-plots/no_such_plot/1")
+    assert response.status_code == 404, response.text
+    response = client.get("/v1/visualization/backtest-plots/no_such_plot/1")
+    assert response.status_code == 404, response.text
+    # unknown dataset on a real plot name
+    plot_types = client.get("/v1/visualization/dataset-plots/").json()
+    if plot_types:
+        plot_id = plot_types[0]["id"]
+        response = client.get(f"/v1/visualization/dataset-plots/{plot_id}/999999")
+        assert response.status_code == 404, response.text
+
+
 # @pytest.mark.slow
 @pytest.mark.parametrize("do_filter", [True, False])
 @pytest.mark.slow
@@ -168,24 +193,10 @@ def test_add_dataset_flow(celery_session_worker, dependency_overrides, dataset_c
     assert "orgUnit" in response.json()["observations"][0], response.json()["observations"][0].keys()
 
 
-def test_list_models_alias(celery_session_worker, dependency_overrides):
-    # alias for list configured models
+def test_list_models_alias_is_gone(clean_engine, dependency_overrides):
+    """The /v1/crud/models alias was removed; /configured-models is the only path."""
     response = client.get("/v1/crud/models")
-    assert response.status_code == 200, response.json()
-    assert isinstance(response.json(), list)
-    for m in response.json():
-        logger.info(m)
-    assert len(response.json()) > 0
-    assert "id" in response.json()[0]
-    for attr_name in ("displayName", "id", "description"):
-        """Check these here to make sure camelCase in response"""
-        assert attr_name in response.json()[0], response.json()[0].keys()
-    models = [ModelSpecRead.model_validate(m) for m in response.json()]
-    assert "chap_ewars_monthly" in (m.name for m in models)
-    ewars_model = next(m for m in models if m.name == "chap_ewars_monthly")
-    assert "population" in (f.name for f in ewars_model.covariates)
-    assert ewars_model.source_url is not None
-    assert ewars_model.source_url.startswith("https:/")
+    assert response.status_code == 404, response.text
 
 
 def test_list_configured_models(celery_session_worker, dependency_overrides):
@@ -380,6 +391,77 @@ def test_compatible_backtests(clean_engine, dependency_overrides):
     assert response.json() == {"orgUnits": ["Bergen"], "splitPeriods": ["202202"]}, response.json()
 
 
+def test_get_backtest_bare_route_returns_info(override_session, seeded_session):
+    """GET /v1/crud/backtests/{id} (bare, no /info or /full suffix) should return
+    the BacktestRead view rather than 405."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+
+    response = client.get(f"/v1/crud/backtests/{backtest.id}")
+    assert response.status_code == 200, response.text
+    BacktestRead.model_validate(response.json())
+
+
+def test_get_backtest_bare_route_unknown_id_returns_404(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/backtests/999999")
+    assert response.status_code == 404, response.text
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("nPeriods", 0),
+        ("nPeriods", -1),
+        ("nSplits", 0),
+        ("nSplits", -2),
+        ("stride", 0),
+        ("stride", -1),
+    ],
+)
+def test_create_backtest_rejects_non_positive_params(field, value, clean_engine, dependency_overrides):
+    """n_periods, n_splits and stride must be >= 1; Pydantic validation should
+    reject anything <= 0 with 422 before the handler runs."""
+    payload = {
+        "name": "x",
+        "datasetId": 1,
+        "modelId": "naive_model",
+        "nPeriods": 3,
+        "nSplits": 2,
+        "stride": 1,
+    }
+    payload[field] = value
+    response = client.post("/v1/analytics/create-backtest", json=payload)
+    assert response.status_code == 422, response.text
+
+
+def test_create_backtest_unknown_dataset_returns_404(clean_engine, dependency_overrides):
+    """Both /v1/crud/backtests and /v1/analytics/create-backtest should reject
+    bogus dataset ids synchronously rather than queueing a job that fails later."""
+    crud_payload = {"name": "bogus", "datasetId": 999999, "modelId": "naive_model"}
+    response = client.post("/v1/crud/backtests", json=crud_payload)
+    assert response.status_code == 404, response.text
+
+    analytics_payload = {
+        "name": "bogus",
+        "datasetId": 999999,
+        "modelId": "naive_model",
+        "nPeriods": 3,
+        "nSplits": 2,
+        "stride": 1,
+    }
+    response = client.post("/v1/analytics/create-backtest", json=analytics_payload)
+    assert response.status_code == 404, response.text
+
+
+def test_backtest_overlap_error_message_includes_id(clean_engine, dependency_overrides):
+    """The error detail must surface the actual id, not its path position."""
+    missing_id1 = 888888
+    missing_id2 = 999999
+    response = client.get(f"/v1/analytics/backtest-overlap/{missing_id1}/{missing_id2}")
+    assert response.status_code == 404, response.text
+    assert str(missing_id1) in response.json()["detail"], response.json()
+
+
 def test_list_configured_models_with_data_source_empty(clean_engine, dependency_overrides):
     response = client.get("/v1/crud/configured-models-with-data-source")
     assert response.status_code == 200
@@ -450,7 +532,7 @@ def test_make_prediction_with_data_source_nonexistent_id(clean_engine, dependenc
 def test_full_prediction_with_data_source_flow(
     celery_session_worker, clean_engine, dependency_overrides, example_polygons
 ):
-    model_list = client.get("/v1/crud/models").json()
+    model_list = client.get("/v1/crud/configured-models").json()
     models = [ModelSpecRead.model_validate(m) for m in model_list]
     model = next(m for m in models if m.name == "naive_model")
     assert model.id is not None
@@ -537,7 +619,7 @@ def test_add_csv_dataset(celery_session_worker, dependency_overrides, data_path)
 
 
 def test_full_prediction_flow(celery_session_worker, dependency_overrides, example_polygons):
-    model_list = client.get("/v1/crud/models").json()
+    model_list = client.get("/v1/crud/configured-models").json()
     models = [ModelSpecRead.model_validate(m) for m in model_list]
     model = next(m for m in models if m.name == "naive_model")
     features = [f.name for f in model.covariates]
@@ -678,6 +760,24 @@ def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
     assert response.status_code == 200, response.json()
 
 
+def test_add_configured_model_unknown_template_returns_404(dependency_overrides):
+    payload = {"name": "orphan", "modelTemplateId": 999999, "userOptionValues": {}}
+    response = client.post("/v1/crud/configured-models", json=payload)
+    assert response.status_code == 404, response.text
+
+
+def test_add_configured_model_without_user_option_values(dependency_overrides):
+    """Omitting userOptionValues should not 500; a template with no required user
+    options should accept an empty configuration."""
+    content = get_content("/v1/crud/model-templates")
+    model = next(m for m in content if m["name"] == "naive_model")
+    payload = {"name": "naive_without_options", "modelTemplateId": model["id"]}
+
+    response = client.post("/v1/crud/configured-models", json=payload)
+    assert response.status_code == 200, response.json()
+    assert response.json()["userOptionValues"] == {}
+
+
 def test_get_configured_model_info(celery_session_worker, dependency_overrides):
     configured = get_content("/v1/crud/configured-models")
     default = next(m for m in configured if m["name"] == "chap_ewars_monthly")
@@ -745,3 +845,29 @@ def test_get_dataset_csv(override_session, seeded_session):
     assert len(lines) > 1, "CSV should have header and data rows"
     header = lines[0]
     assert "time_period" in header, f"Expected time_period in header, got: {header}"
+
+
+def test_get_dataset_df_unknown_id_returns_404(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/datasets/999999/df")
+    assert response.status_code == 404, response.text
+
+
+def test_get_dataset_csv_unknown_id_returns_404(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/datasets/999999/csv")
+    assert response.status_code == 404, response.text
+
+
+def test_get_dataset_df_with_nans(override_session, seeded_session):
+    """Datasets containing NaN observations must round-trip through /df as JSON.
+    Previously pandas NaN floats leaked into the response and triggered a 500
+    because they are not JSON-serialisable."""
+    dataset = seeded_session.exec(select(DataSet).where(DataSet.name == "dataset_with_nans")).one()
+
+    response = client.get(f"/v1/crud/datasets/{dataset.id}/df")
+    assert response.status_code == 200, response.text
+
+    records = response.json()
+    assert len(records) > 0
+    assert any(record.get("disease_cases") is None for record in records), (
+        "Expected at least one None disease_cases value in the response"
+    )

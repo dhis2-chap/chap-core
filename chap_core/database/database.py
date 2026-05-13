@@ -149,7 +149,8 @@ class SessionWrapper:
         model_template = self.session.exec(
             select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)
         ).first()
-        assert model_template is not None, f"Model template with id {model_template_id} not found"
+        if model_template is None:
+            raise ValueError(f"Model template with id {model_template_id} not found")
         template_name = model_template.name
 
         # set configured name

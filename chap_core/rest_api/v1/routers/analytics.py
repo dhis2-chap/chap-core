@@ -219,9 +219,9 @@ def get_backtest_overlap(
     backtest1 = session.get(Backtest, backtest_id1)
     backtest2 = session.get(Backtest, backtest_id2)
     if backtest1 is None:
-        raise HTTPException(status_code=404, detail="Backtest 1 not found")
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id1} not found")
     if backtest2 is None:
-        raise HTTPException(status_code=404, detail="Backtest 2 not found")
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id2} not found")
     org_units1 = list(set(backtest1.org_units) & set(backtest2.org_units))
     split_periods1 = list(set(backtest1.split_periods) & set(backtest2.split_periods))
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
@@ -326,7 +326,13 @@ async def get_evaluation_entries(
 
 
 @router.post("/create-backtest", response_model=JobResponse, tags=["Backtests"])
-async def create_backtest(request: MakeBacktestRequest, database_url: str = Depends(get_database_url)):
+async def create_backtest(
+    request: MakeBacktestRequest,
+    database_url: str = Depends(get_database_url),
+    session: Session = Depends(get_session),
+):
+    if session.get(DataSetTable, request.dataset_id) is None:
+        raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     job = worker.queue_db(
         wf.run_backtest,
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
