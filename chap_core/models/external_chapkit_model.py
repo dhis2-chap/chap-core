@@ -21,30 +21,42 @@ def _chapkit_period_to_chap(chapkit_period_type) -> PeriodType:
     return PeriodType(_CHAPKIT_PERIOD_MAP.get(value, value))
 
 
-def _parse_user_options_from_config_schema(config_schema: dict) -> dict:
-    """Extract user-tuneable options from a chapkit config schema response.
+def _parse_user_options_from_config_schema(config_schema: dict) -> tuple[dict, list[str]]:
+    """Extract user-tuneable options and required keys from a chapkit config schema.
 
-    Legacy MLflow-era models store the schema under ``$defs.ModelConfiguration.properties``;
-    chapkit services expose it at the top-level ``properties`` key. Filters out
-    BaseConfig-reserved fields (``prediction_periods``, ``additional_continuous_covariates``)
-    that chap-core handles separately.
+    Returns ``(properties, required)`` where ``properties`` is the JSON-schema
+    properties dict for user-tuneable fields and ``required`` is the schema's
+    top-level ``required`` array (empty when pydantic omitted it because no
+    field is required).
+
+    Legacy MLflow-era models store the schema under ``$defs.ModelConfiguration``;
+    chapkit services expose it at the top level. Filters out BaseConfig-reserved
+    fields (``prediction_periods``, ``additional_continuous_covariates``) that
+    chap-core handles separately, including pruning them out of ``required``.
     """
     user_options: dict = {}
+    required: list[str] = []
     if "$defs" in config_schema and "ModelConfiguration" in config_schema["$defs"]:
-        user_options = config_schema["$defs"]["ModelConfiguration"].get("properties", {})
+        model_config = config_schema["$defs"]["ModelConfiguration"]
+        user_options = dict(model_config.get("properties", {}))
+        required = list(model_config.get("required", []))
     elif "properties" in config_schema:
         user_options = dict(config_schema["properties"])
+        required = list(config_schema.get("required", []))
 
-    for reserved in ("prediction_periods", "additional_continuous_covariates"):
+    reserved_keys = ("prediction_periods", "additional_continuous_covariates")
+    for reserved in reserved_keys:
         user_options.pop(reserved, None)
+    required = [k for k in required if k not in reserved_keys]
 
-    return user_options
+    return user_options, required
 
 
 def ml_service_info_to_model_template_config(
     info: "Any",
     rest_api_url: str,
     user_options: dict | None = None,
+    required_user_options: list[str] | None = None,
 ) -> ModelTemplateConfigV2:
     """Convert an MLServiceInfo object to a ModelTemplateConfigV2.
 
@@ -76,6 +88,7 @@ def ml_service_info_to_model_template_config(
         "requires_geo": getattr(info, "requires_geo", False),
         "supported_period_type": _chapkit_period_to_chap(info.period_type),
         "user_options": user_options or {},
+        "required_user_options": required_user_options if required_user_options is not None else [],
         "min_prediction_length": info.min_prediction_periods,
         "max_prediction_length": info.max_prediction_periods,
         "entry_points": None,
@@ -299,9 +312,11 @@ class ExternalChapkitModelTemplate:
         model_info = self.client.info()
 
         config_schema = self.client.get_config_schema()
-        user_options = _parse_user_options_from_config_schema(config_schema)
+        user_options, required_user_options = _parse_user_options_from_config_schema(config_schema)
 
-        return ml_service_info_to_model_template_config(model_info, self.rest_api_url, user_options)
+        return ml_service_info_to_model_template_config(
+            model_info, self.rest_api_url, user_options, required_user_options
+        )
 
 
 class ExternalChapkitModel(ExternalModelBase):

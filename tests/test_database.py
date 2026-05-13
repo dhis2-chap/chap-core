@@ -138,24 +138,19 @@ def test_add_model_template_unarchives_existing(model_template_yaml_config, engi
         assert template.archived is False
 
 
-def test_add_configured_model_chapkit_skips_required_validation(engine):
+def test_required_user_options_explicit_empty_accepts_empty_values(engine):
     # Mimics what chapkit's /api/v1/configs/$schema returns for a field declared
     # with Field(default_factory=lambda: [3]): the property has no literal
-    # "default" key. chap-core's heuristic-based validator would mark it
-    # required, but with uses_chapkit=True we trust chapkit's own validation
-    # and store user_option_values={} as a "use chapkit defaults" sentinel.
-    chapkit_schema_user_options = {
-        "n_lags": {
-            "items": {"type": "integer"},
-            "title": "N Lags",
-            "type": "array",
-        },
-    }
+    # "default" key, and the schema's top-level "required" array is empty
+    # (omitted by pydantic). With required_user_options=[] explicitly set, the
+    # validator uses that directly instead of falling back to the unsound
+    # "no default key" heuristic, so user_option_values={} passes.
     config = ModelTemplateConfigV2(
         name="chapkit_default_factory",
         required_covariates=["population"],
         allow_free_additional_continuous_covariates=False,
-        user_options=chapkit_schema_user_options,
+        user_options={"n_lags": {"items": {"type": "integer"}, "title": "N Lags", "type": "array"}},
+        required_user_options=[],
         meta_data=ModelTemplateMetaData(
             author="chap_temp",
             author_assessed_status="orange",
@@ -169,16 +164,61 @@ def test_add_configured_model_chapkit_skips_required_validation(engine):
             template_id,
             ModelConfiguration(user_option_values={}),
             "default",
-            uses_chapkit=True,
         )
         assert cm_id is not None
+
+
+def test_required_user_options_explicit_enforces_listed_required(engine):
+    # Inverse: when required_user_options names a field, omitting it must fail
+    # regardless of whether the property has a "default" key.
+    config = ModelTemplateConfigV2(
+        name="explicit_required",
+        required_covariates=["population"],
+        allow_free_additional_continuous_covariates=False,
+        user_options={
+            "n_lags": {"items": {"type": "integer"}, "title": "N Lags", "type": "array"},
+            "precision": {"default": 0.01, "type": "number"},
+        },
+        required_user_options=["n_lags"],
+        meta_data=ModelTemplateMetaData(
+            author="chap_temp",
+            author_assessed_status="orange",
+            description="explicit required",
+            display_name="Explicit Required",
+        ),
+    )
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(config)
         with pytest.raises(ValueError, match="n_lags"):
-            session.add_configured_model(
-                template_id,
-                ModelConfiguration(user_option_values={}),
-                "no_chapkit",
-                uses_chapkit=False,
-            )
+            session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
+        cm_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={"n_lags": [3]}))
+        assert cm_id is not None
+
+
+def test_required_user_options_none_falls_back_to_heuristic(engine):
+    # Legacy templates predating the column have required_user_options=None.
+    # The validator must fall back to the historical heuristic so behaviour
+    # for existing yaml-config-driven templates is unchanged.
+    config = ModelTemplateConfigV2(
+        name="legacy_yaml_no_default",
+        required_covariates=["population"],
+        allow_free_additional_continuous_covariates=False,
+        user_options={"thing": {"type": "string"}},  # no "default" key
+        # required_user_options omitted → defaults to None
+        meta_data=ModelTemplateMetaData(
+            author="chap_temp",
+            author_assessed_status="orange",
+            description="legacy yaml",
+            display_name="Legacy",
+        ),
+    )
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(config)
+        # required_user_options gets persisted as None via model_dump pass-through.
+        template = session.session.get(ModelTemplateDB, template_id)
+        assert template.required_user_options is None
+        with pytest.raises(ValueError, match="thing"):
+            session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
 
 
 def test_yaml_update_preserves_uses_chapkit(model_template_yaml_config, engine):

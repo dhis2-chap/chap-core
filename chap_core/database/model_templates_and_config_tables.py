@@ -36,6 +36,12 @@ class ModelTemplateMetaData(SQLModel):
 class ModelTemplateInformation(SQLModel):
     supported_period_type: PeriodType = PeriodType.any
     user_options: dict | None = Field(default_factory=dict, sa_column=Column(JSON))
+    # JSON schema's top-level `required` array for the model's config schema.
+    # None = legacy template (predates the column); validator falls back to a
+    # heuristic. [] = nothing required (chapkit configs where every field has
+    # a default, including default_factory which pydantic does not surface as
+    # a literal "default" key).
+    required_user_options: list[str] | None = Field(default=None, sa_column=Column(JSON))
     hpo_search_space: dict | None = Field(default=None, sa_column=Column(JSON))  # rename to hpo_search_space
     required_covariates: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     min_prediction_length: int | None = None
@@ -92,14 +98,23 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
         return f"{template_display_name} [{configuration_display_name}]"
 
     @classmethod
-    def _validate_model_configuration(cls, user_options, user_option_values):
+    def _validate_model_configuration(cls, user_options, user_option_values, required_user_options=None):
         logger.debug("Validating model configuration")
         logger.debug(f"User options keys: {list(user_options.keys()) if user_options else []}")
         logger.debug(f"User option values keys: {list(user_option_values.keys()) if user_option_values else []}")
+        if required_user_options is None:
+            # Legacy template predating required_user_options: infer from missing
+            # "default" keys. This is unsound for pydantic default_factory fields
+            # (which omit the literal "default" in JSON schema) but matches the
+            # historical behavior for yaml-config-driven templates where every
+            # property has an explicit "default".
+            required = list({key for key, value in user_options.items() if "default" not in value})
+        else:
+            required = list(required_user_options)
         schema = {
             "type": "object",
             "properties": user_options,
-            "required": list({key for key, value in user_options.items() if "default" not in value}),
+            "required": required,
             "additionalProperties": False,
         }
         jsonschema.validate(instance=user_option_values, schema=schema)
@@ -107,7 +122,11 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     # @model_validator(mode='after')
     def validate_user_options(self, model):
         try:
-            self._validate_model_configuration(model.model_template.user_options, model.user_option_values)
+            self._validate_model_configuration(
+                model.model_template.user_options,
+                model.user_option_values,
+                model.model_template.required_user_options,
+            )
         except jsonschema.ValidationError as e:
             logger.error(f"Validation error in model configuration: {e}")
             raise ValueError(f"Invalid user options: {e.message}") from e

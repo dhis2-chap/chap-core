@@ -108,14 +108,17 @@ def _sync_live_chapkit_services(session: Session) -> set[str]:
                 # on every subsequent sync so schema changes propagate without a
                 # DB wipe.
                 user_options: dict = {}
+                required_user_options: list[str] = []
                 try:
                     client = CHAPKitRestAPIWrapper(service.url, timeout=5)
                     schema = client.get_config_schema()
-                    user_options = _parse_user_options_from_config_schema(schema)
+                    user_options, required_user_options = _parse_user_options_from_config_schema(schema)
                 except Exception:
                     logger.debug("Could not fetch config schema from %s", service.url)
 
-                config = ml_service_info_to_model_template_config(service.info, service.url, user_options)
+                config = ml_service_info_to_model_template_config(
+                    service.info, service.url, user_options, required_user_options
+                )
                 template_id = session_wrapper.add_model_template_from_yaml_config(config)
                 # Mark template as chapkit-originated for archival tracking
                 template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == template_id)).one()

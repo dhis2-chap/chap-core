@@ -200,6 +200,49 @@ class TestGetModelTemplateConfig:
         config = template.get_model_template_config()
         assert config.user_options == {}
 
+    def test_top_level_required_array_propagates(self):
+        """When the chapkit schema declares required fields, they propagate to
+        ModelTemplateConfigV2.required_user_options so the configured-model
+        validator can use the actual schema instead of guessing from "default"."""
+        schema = {
+            "properties": {
+                "n_lags": {"type": "array", "items": {"type": "integer"}},
+                "precision": {"type": "number", "default": 0.01},
+            },
+            "required": ["n_lags"],
+            "type": "object",
+        }
+        template = self._make_template_with_schema(schema)
+        config = template.get_model_template_config()
+        assert config.required_user_options == ["n_lags"]
+
+    def test_missing_required_array_means_empty(self):
+        """Pydantic omits the top-level "required" entirely when no field is
+        required (e.g. all fields have default or default_factory). The parser
+        must surface this as [] (chapkit's intent), not None (legacy heuristic
+        fallback)."""
+        schema = {
+            "properties": {"n_lags": {"type": "array", "items": {"type": "integer"}}},
+            "type": "object",
+        }
+        template = self._make_template_with_schema(schema)
+        config = template.get_model_template_config()
+        assert config.required_user_options == []
+
+    def test_required_filters_reserved_keys(self):
+        """Reserved keys must not leak into required_user_options either."""
+        schema = {
+            "properties": {
+                "prediction_periods": {"type": "integer"},
+                "n_lags": {"type": "array", "items": {"type": "integer"}},
+            },
+            "required": ["prediction_periods", "n_lags"],
+            "type": "object",
+        }
+        template = self._make_template_with_schema(schema)
+        config = template.get_model_template_config()
+        assert config.required_user_options == ["n_lags"]
+
 
 class TestExternalChapkitModelTemplateDetection:
     def test_detects_url_mode(self):
