@@ -10,6 +10,10 @@
 #- to go back to previous versions
 #-
 
+- url: https://github.com/chap-models/minimal_template_example
+  versions:
+    v1: "@main"
+
 - url: https://github.com/dhis2-chap/chap_auto_ewars
   versions:
     nightly_build: "@main"

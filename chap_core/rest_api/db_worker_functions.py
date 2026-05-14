@@ -18,10 +18,7 @@ from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
 from chap_core.rest_api.data_models import BackTestCreate, FetchRequest, PredictionParams
-from chap_core.hpo.hpoModel import HpoModel 
-from chap_core.hpo.objective import Objective
-from chap_core.hpo.searcher import RandomSearcher
-from chap_core.hpo.base import load_search_space_from_config
+from chap_core.rest_api.hpo_override import HpoOverride
 
 # from chap_core.rest_api.v1.routers.crud import BackTestCreate
 from chap_core.rest_api.worker_functions import WorkerConfig, harmonize_health_dataset
@@ -88,15 +85,27 @@ def run_backtest(
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     assert session is not None, "session is required"
-    status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
+    status_logger.info(f"Starting backtest for model 'T{info.model_id}' on dataset ID {info.dataset_id}")
 
     dataset = session.get_dataset(info.dataset_id)
 
-    configured_model = session.get_configured_model_by_id_or_name(info.model_id)
-    # Normalise back to the name string so any downstream code that still
-    # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
-    # canonical value rather than the raw integer primary key.
-    info.model_id = configured_model.name
+    # hpo logic
+    assert isinstance(info.model_id, str), "model_id for hpo models must be a string"
+    if info.model_id is not None and info.model_id.endswith(":hpo"):
+        assert isinstance(info.model_id, str)
+        configured_model, estimator = HpoOverride.get_hpo_configured_model_and_estimator(
+            model_id=info.model_id,
+            session=session,
+        )
+    else:
+        configured_model = session.get_configured_model_by_id_or_name(info.model_id)
+        # Normalise back to the name string so any downstream code that still
+        # reads `info.model_id` as a string (job metadata, logs, etc.) sees the
+        # canonical value rather than the raw integer primary key.
+        info.model_id = configured_model.name
+
+        assert configured_model.id is not None, "configured_model.id is required"
+        estimator = session.get_configured_model_with_code(configured_model.id)
 
     # hack to get who ewars model to work, it requires n_peridos=3.
     # todo: should be removed in future when system for model specific backtest params is implemented
@@ -117,28 +126,7 @@ def run_backtest(
     )
 
     status_logger.info(f"Running {n_splits} evaluation splits with prediction length {n_periods}")
-    assert configured_model.id is not None, "configured_model.id is required"
 
-    # hpo logic
-    print("----------------------------------info:", info)
-    print("model_id:", info.model_id)
-    print("model template source:", configured_model.model_template.source_url)
-    if True or info.name is not None and "hpo" in info.name:
-        # template_db = configured_model.model_template
-        template = session.get_model_template_with_code(configured_model.model_template_id)
-        configuration = template.hpo_search_space 
-        # remove later
-        import yaml
-        with open("./chap_core/hpo/config3.yaml", encoding="utf-8") as f:
-            configuration = yaml.safe_load(f)
-        if configuration is None:
-            raise ValueError(f"Model template {template.name} deos not have hpo search space defined")
-        search_space = load_search_space_from_config(configuration)
-        objective = Objective(model_template=template)
-        estimator = HpoModel(searcher=RandomSearcher(2), objective=objective, model_configuration=search_space)
-    else:
-        estimator = session.get_configured_model_with_code(configured_model.id)
-    
     predictions_list = _backtest(
         estimator,
         dataset,

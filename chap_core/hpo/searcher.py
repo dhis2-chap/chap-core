@@ -63,7 +63,6 @@ class RandomSearcher(Searcher):
 
     def reset(self, search_space: dict[str, Any], seed: int | None = None) -> None:
         self.search_space = _validate_search_space_extended(search_space)
-        print(f"randomSearcher search space in reset: {self.search_space}")
         self.rng = random.Random(seed)
         self.keys = list(search_space.keys())
         self.emitted = 0

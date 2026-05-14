@@ -479,6 +479,26 @@ def test_backtest_with_weekly_data_flow(
     _check_backtest_with_data(request_payload, expected_rejections=[], dry_run=dry_run, expected_period_type="week")
 
 
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_backtest_with_data_hpo_flow(
+    celery_session_worker, dependency_overrides, create_backtest_with_data_request, dry_run
+):
+    models_response = client.get("/v1/crud/configured-models")
+    assert models_response.status_code == 200, models_responset.json()
+    models = [ModelSpecRead.model_validate(m) for m in models_response.json()]
+    hpo_models = [m for m in models if m.name.endswith(":hpo")]
+    assert hpo_models, "Expected at least one configured model with name ending with ':hpo'"
+    hpo_model = hpo_models[0]
+    # get_configured_models creates HPO frontedn models with names like '<model_name>:hpo'
+    request_payload = create_backtest_with_data_request.model_dump()
+    request_payload["model_id"] = hpo_model.name
+    _check_backtest_with_data(
+        request_payload,
+        expected_rejections=[],
+        dry_run=dry_run,
+    )
+
+
 @pytest.fixture()
 def local_backtest_request(local_data_path):
     return json.load(open(local_data_path / "create-backtest-from-data.json", "r"))

@@ -18,6 +18,7 @@ from chap_core.datatypes import FullData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
+from chap_core.rest_api.hpo_override import HpoOverride
 from chap_core.time_period import Month, Week
 
 from ..external.model_configuration import ModelTemplateConfigV2
@@ -207,6 +208,8 @@ class SessionWrapper:
 
         # serialize to json and combine configured model with model template
         configured_models_data = []
+        # model_template_ids = set()
+        hpo_override = HpoOverride()
         for configured_model in configured_models:
             # get configured model and model template json data
             try:
@@ -249,11 +252,24 @@ class SessionWrapper:
             configured_models_data.append(merged_data)
 
             # hack for hpo frontend without touching database
-            if configured_model.model_template.hpo_search_space is not None or True: 
-                hpo_data = merged_data.copy()
-                hpo_data["name"] = f'{merged_data["name"]}:hpo'
-                hpo_data["display_name"] = f'{template_display_name} [Hpo]'
+            hpo_data = hpo_override.seed_hpo_model_hack(
+                configured_model=configured_model,
+                merged_data=merged_data,
+                template_data=template_data,
+            )
+            if hpo_data is not None:
                 configured_models_data.append(hpo_data)
+
+            # old hpo logic
+            # if configured_model.model_template.hpo_search_space is not None and configured_model.model_template.id not in model_template_ids:
+            #     hpo_data = merged_data.copy()
+            #     # hpo_data["name"] = f'{merged_data["name"]}:hpo'
+            #     # hpo model name should not depend on whichever configured model with the same template happend to be selected first in the query
+            #     hpo_data["name"] = f'{template_data["name"]}:hpo'
+            #     # if 'No display name yet' drop [Hpo]
+            #     hpo_data["display_name"] = f'{template_display_name} [Hpo]'
+            #     configured_models_data.append(hpo_data)
+            #     model_template_ids.add(configured_model.model_template.id)
 
         # debug
         # import json
@@ -440,13 +456,13 @@ class SessionWrapper:
             #     "Use ExternalChapkitModelTemplate instead of ModelTemplate."
             # )
             source_url = self._resolve_chapkit_live_source_url(
-                service_id=template_name,
-                stored_source_url=configured_model.model_template.source_url,
-                template=configured_model.model_template,
+                service_id=model_template_db.name,
+                stored_source_url=model_template_db.source_url,
+                template=model_template_db,
             )
             logger.info(f"Assuming chapkit model at {source_url}")
             assert source_url is not None
-            return ExternalChapkitModelTemplate(source_url)
+            return ExternalChapkitModelTemplate(source_url)  # type: ignore[return-value]
 
         source_url = model_template_db.source_url
         if source_url is None or model_template_db.name == "naive_model":
@@ -454,17 +470,17 @@ class SessionWrapper:
                 f"Model template {model_template_db.name} has no source_url, "
                 "so it cannot be converted into a ModelTemplate."
             )
-        
+
         ignore_env = (
             model_template_db.name.startswith("chap_ewars") or model_template_db.name == "ewars_template"
-        ) # TODO: seems hacky, how to fix?
-        
+        )  # TODO: seems hacky, how to fix?
+
         return cast(
             "ModelTemplate",
             ModelTemplate.from_directory_or_github_url(
                 source_url,
                 ignore_env=ignore_env,
-            )
+            ),
         )
 
     def get_backtest_with_truth(self, backtest_id: int) -> BackTest:

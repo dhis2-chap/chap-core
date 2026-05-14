@@ -255,4 +255,4 @@ def get_hpo_estimator(
     # return HpoModel(searcher or RandonSearcher(2) ...)
     if searcher is None:
         searcher = RandomSearcher(3)
-    return HpoModel(searcher, objective, "minimize", search_space)
+    return HpoModel(objective=objective, model_configuration=search_space, searcher=searcher, direction="minimize")

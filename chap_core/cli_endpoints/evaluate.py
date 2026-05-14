@@ -28,7 +28,7 @@ from chap_core.geometry import Polygons
 from chap_core.hpo.base import load_search_space_from_config
 from chap_core.hpo.hpoModel import Direction, HpoModel
 from chap_core.hpo.objective import Objective
-from chap_core.hpo.searcher import RandomSearcher
+from chap_core.hpo.searcher import RandomSearcher, TPESearcher
 from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import CHAP_RUNS_DIR
@@ -137,7 +137,9 @@ def evaluate_hpo(
             # now with the new Objective signature, with BackTestParams
             backtest_params = BackTestParams(n_periods=prediction_length, n_splits=n_splits)
             objective = Objective(template, backtest_params, metric)
-            model = HpoModel(RandomSearcher(2), objective, direction, configs)
+            model = HpoModel(
+                objective=objective, model_configuration=configs, searcher=RandomSearcher(2), direction=direction
+            )
 
         model_info = model.model_information
         if model_info.min_prediction_length is None or model_info.max_prediction_length is None:
@@ -344,7 +346,7 @@ def eval_cmd(
                 model_configuration_yaml=model_configuration_yaml,
                 backtest_params=backtest_params,
                 metric=estimator_options.metric,
-                searcher=RandomSearcher(2),
+                searcher=TPESearcher(max_trials=100),
             )
         elif estimator_options.mode == EstimatorMode.ENSEMBLE:
             raise NotImplementedError("Ensemble mode is not yet implemented")
