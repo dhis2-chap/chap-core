@@ -5,7 +5,7 @@ import altair as alt
 import pandas as pd
 import pytest
 
-from chap_core.assessment.causal_plot import plot_counterfactual
+from chap_core.assessment.causal_plot import _location_y_domain, plot_counterfactual
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.tables import Backtest, BacktestForecast
@@ -88,3 +88,9 @@ def test_plot_counterfactual_saves_html(vietnam_evaluation_pair, default_transfo
     out = tmp_path / "causal.html"
     plot_counterfactual(eval_orig, eval_cf, ["rainfall"]).save(str(out))
     assert out.exists() and out.stat().st_size > 0
+
+
+def test_location_y_domain_empty_data_returns_fallback(vietnam_evaluation_pair, default_transformer):
+    eval_orig, eval_cf = vietnam_evaluation_pair
+    domain = _location_y_domain(eval_orig, eval_cf, "nonexistent_location")
+    assert domain == [0.0, 1.0]

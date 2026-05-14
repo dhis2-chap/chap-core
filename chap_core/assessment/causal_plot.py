@@ -38,9 +38,12 @@ def _location_y_domain(eval_original, eval_cf, location: str) -> list[float]:
             df = pd.DataFrame(df_raw)
             if "location" in df.columns and "disease_cases" in df.columns:
                 vals = df.loc[df["location"] == location, "disease_cases"].dropna()
-                obs_values.append(vals)
-                upper_values.append(vals)
+                if not vals.empty:
+                    obs_values.append(vals)
+                    upper_values.append(vals)
 
+    if not obs_values or not upper_values:
+        return [0.0, 1.0]
     all_lower = pd.concat(obs_values)
     all_upper = pd.concat(upper_values)
     return [float(all_lower.min()), float(all_upper.max())]
