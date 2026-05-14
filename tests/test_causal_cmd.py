@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from xarray import plot
 
 from chap_core.cli_endpoints.causal import causal_cmd
 
@@ -110,11 +111,14 @@ def test_causal_cmd_integration(tmp_path):
         split_period=split_period,
         output_file=output_file,
         run_config=RunConfig(),
+        plot=True
     )
 
     assert output_file.exists(), "Original predictions NetCDF not created"
     cf_output = tmp_path / "causal_out_cf.nc"
     assert cf_output.exists(), "Counterfactual predictions NetCDF not created"
+    plot_path = tmp_path / "causal_out.html"
+    assert plot_path.exists(), "Causal effect plot not created"
 
 
 @pytest.mark.slow
