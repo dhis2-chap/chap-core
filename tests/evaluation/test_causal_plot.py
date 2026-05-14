@@ -98,6 +98,18 @@ def test_plot_counterfactual_title_with_columns(vietnam_evaluation_pair, default
 
 def test_plot_counterfactual_title_without_columns(vietnam_evaluation_pair, default_transformer):
     eval_orig, eval_cf = vietnam_evaluation_pair
+    domain = _location_y_domain(eval_orig, eval_cf, "nonexistent_location")
+    assert domain == [0.0, 1.0]
+
+
+def test_plot_counterfactual_title_with_columns(vietnam_evaluation_pair, default_transformer):
+    eval_orig, eval_cf = vietnam_evaluation_pair
+    chart = plot_counterfactual(eval_orig, eval_cf, ["rainfall", "temperature"])
+    assert "rainfall, temperature" in chart.title
+
+
+def test_plot_counterfactual_title_without_columns(vietnam_evaluation_pair, default_transformer):
+    eval_orig, eval_cf = vietnam_evaluation_pair
     chart = plot_counterfactual(eval_orig, eval_cf, None)
     title = chart.title
     assert "(" not in title and ")" not in title
