@@ -111,7 +111,7 @@ def test_causal_cmd_integration(tmp_path):
         split_period=split_period,
         output_file=output_file,
         run_config=RunConfig(),
-        plot=True
+        plot=True,
     )
 
     assert output_file.exists(), "Original predictions NetCDF not created"
