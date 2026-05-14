@@ -239,6 +239,8 @@ class EvaluationBase(ABC):
         last_train_period: TimePeriod,
         configured_model: ConfiguredModelDB,
         info: "BacktestCreate",
+        historical_observations: list[Observation] | None = None,
+        historical_context_periods: int = 0,
     ) -> "EvaluationBase": ...
 
 
