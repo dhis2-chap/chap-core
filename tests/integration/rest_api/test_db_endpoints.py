@@ -17,9 +17,12 @@ from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import (
     Backtest,
     BacktestRead,
+    ConfiguredModelWithDataSource,
     Prediction,
     PredictionInfo,
     PredictionRead,
+    PredictionSamplesEntry,
+    PredictionSetup,
 )
 from chap_core.rest_api.data_models import (
     BacktestFull,
@@ -32,6 +35,7 @@ from chap_core.rest_api.data_models import (
     ModelTemplateRead,
 )
 from chap_core.rest_api.app import app
+from chap_core.rest_api.v1.routers import crud
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -422,6 +426,17 @@ def test_create_prediction_setup_from_backtest_creates_setup_and_config(override
     assert "name" not in data["configuredModelWithDataSource"]
 
 
+def test_create_prediction_setup_validates_cron_expression(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None, "seeded_session should contain a backtest"
+    payload = _prediction_setup_payload(backtest.id, "Invalid schedule setup")
+    payload["schedule"] = {"expression": "not a cron expression", "enabled": False}
+
+    response = client.post("/v1/crud/prediction-setups", json=payload)
+
+    assert response.status_code == 422
+
+
 def test_create_prediction_setup_conflicts_when_backtest_already_has_active_setup(override_session, seeded_session):
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None, "seeded_session should contain a backtest"
@@ -489,11 +504,11 @@ def test_get_prediction_setup_by_id_includes_lightweight_predictions(override_se
     assert data["predictions"][0]["predictionSetupId"] == setup_id
 
 
-def test_get_prediction_setup_by_id_can_include_archived_setups(override_session, seeded_session):
+def test_get_prediction_setup_by_id_does_not_return_deleted_setups(override_session, seeded_session):
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None, "seeded_session should contain a backtest"
 
-    response = _create_prediction_setup(backtest.id, "Archived detail setup")
+    response = _create_prediction_setup(backtest.id, "Deleted detail setup")
     assert response.status_code == 200, response.json()
     setup_id = response.json()["id"]
 
@@ -504,29 +519,136 @@ def test_get_prediction_setup_by_id_can_include_archived_setups(override_session
     assert response.status_code == 404
 
     response = client.get(f"/v1/crud/prediction-setups/{setup_id}", params={"includeArchived": True})
+    assert response.status_code == 404
+
+
+def test_update_prediction_setup_updates_fields_and_preserves_omitted_values(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None, "seeded_session should contain a backtest"
+
+    response = _create_prediction_setup(backtest.id, "Original setup")
     assert response.status_code == 200, response.json()
-    assert response.json()["id"] == setup_id
+    setup_id = response.json()["id"]
+
+    response = client.patch(f"/v1/crud/prediction-setups/{setup_id}", json={"name": "Renamed setup"})
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert data["name"] == "Renamed setup"
+    assert data["schedule"] == {"expression": "0 6 * * 1", "enabled": True}
+    assert data["dataImportMappings"] == [{"quantileKey": "median", "dataElementId": "median_data_element"}]
+
+    response = client.patch(
+        f"/v1/crud/prediction-setups/{setup_id}",
+        json={
+            "schedule": {"expression": None, "enabled": False},
+            "dataImportMappings": [{"quantileKey": "p90", "dataElementId": "p90_data_element"}],
+        },
+    )
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert data["name"] == "Renamed setup"
+    assert data["schedule"] == {"expression": None, "enabled": False}
+    assert data["dataImportMappings"] == [{"quantileKey": "p90", "dataElementId": "p90_data_element"}]
 
 
-def test_delete_prediction_setup_archives_setup_and_config(override_session, seeded_session):
+def test_update_prediction_setup_validates_enabled_schedule(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None, "seeded_session should contain a backtest"
+
+    response = _create_prediction_setup(backtest.id, "Schedule validation setup")
+    assert response.status_code == 200, response.json()
+    setup_id = response.json()["id"]
+
+    response = client.patch(
+        f"/v1/crud/prediction-setups/{setup_id}",
+        json={"schedule": {"expression": None, "enabled": True}},
+    )
+    assert response.status_code == 422
+
+
+def test_delete_prediction_setup_removes_setup_predictions_and_orphan_prediction_data(
+    override_session, seeded_session, monkeypatch
+):
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None, "seeded_session should contain a backtest"
 
     response = _create_prediction_setup(backtest.id, "Delete setup")
     assert response.status_code == 200, response.json()
     setup_id = response.json()["id"]
+    config_id = client.get(f"/v1/crud/prediction-setups/{setup_id}").json()["configuredModelWithDataSource"]["id"]
+
+    class FakeRedis:
+        def __init__(self):
+            self.meta = {
+                "job_meta:job-1": {"prediction_setup_id": str(setup_id), "status": "SUCCESS"},
+                "job_meta:job-2": {"prediction_setup_id": "999", "status": "SUCCESS"},
+            }
+            self.deleted: list[str] = []
+
+        def keys(self, _pattern):
+            return list(self.meta)
+
+        def hgetall(self, key):
+            return self.meta[key]
+
+        def delete(self, key):
+            self.deleted.append(key)
+            self.meta.pop(key, None)
+            return 1
+
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(crud, "redis", fake_redis)
+
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None, "seeded_session should contain a prediction"
+    orphan_dataset = seeded_session.exec(select(DataSet).where(DataSet.name == "incomplete_dataset")).one()
+    prediction.prediction_setup_id = setup_id
+    prediction.dataset_id = orphan_dataset.id
+    seeded_session.add(prediction)
+    seeded_session.commit()
+    prediction_id = prediction.id
+    orphan_dataset_id = orphan_dataset.id
+    assert prediction_id is not None
+    assert orphan_dataset_id is not None
+    assert (
+        seeded_session.exec(
+            select(PredictionSamplesEntry).where(PredictionSamplesEntry.prediction_id == prediction_id)
+        ).first()
+        is not None
+    )
 
     response = client.delete(f"/v1/crud/prediction-setups/{setup_id}")
     assert response.status_code == 200, response.json()
     assert response.json() == {"message": "deleted"}
+    assert fake_redis.deleted == ["job_meta:job-1"]
+    assert "job_meta:job-2" in fake_redis.meta
 
     response = client.get(f"/v1/crud/prediction-setups/{setup_id}", params={"includeArchived": True})
+    assert response.status_code == 404
+    response = client.get(f"/v1/crud/predictions/{prediction_id}")
+    assert response.status_code == 404
+
+    seeded_session.expire_all()
+    assert seeded_session.get(PredictionSetup, setup_id) is None
+    assert seeded_session.get(ConfiguredModelWithDataSource, config_id) is None
+    assert seeded_session.get(Prediction, prediction_id) is None
+    assert seeded_session.get(DataSet, orphan_dataset_id) is None
+    assert (
+        seeded_session.exec(
+            select(PredictionSamplesEntry).where(PredictionSamplesEntry.prediction_id == prediction_id)
+        ).first()
+        is None
+    )
+
+    response = client.get(f"/v1/crud/backtests/{backtest.id}/info")
     assert response.status_code == 200, response.json()
-    assert response.json()["archived"] is True
-    assert response.json()["configuredModelWithDataSource"]["archived"] is True
+    assert response.json()["predictionSetupId"] is None
+
+    response = _create_prediction_setup(backtest.id, "Recreated setup")
+    assert response.status_code == 200, response.json()
 
 
-def test_delete_prediction_setup_returns_not_found_when_already_archived(override_session, seeded_session):
+def test_delete_prediction_setup_returns_not_found_when_already_deleted(override_session, seeded_session):
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None, "seeded_session should contain a backtest"
 

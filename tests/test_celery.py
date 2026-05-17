@@ -4,6 +4,7 @@ import time
 import pytest
 
 from chap_core.api_types import PredictionRequest
+from chap_core.rest_api import celery_tasks
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, add_numbers, celery_run
 from chap_core.rest_api.worker_functions import get_health_dataset
 from chap_core.util import redis_available
@@ -70,6 +71,68 @@ def time_consuming_function():
     import time
 
     time.sleep(3)
+
+
+def function_with_prediction_setup_id(prediction_setup_id: int | None = None):
+    return prediction_setup_id
+
+
+class FakeRedis:
+    def __init__(self):
+        self.hsets = []
+
+    def hset(self, key, mapping):
+        self.hsets.append((key, dict(mapping)))
+
+    def keys(self, _pattern):
+        return ["job_meta:job-1", "job_meta:job-2"]
+
+    def hgetall(self, key):
+        return {
+            "job_meta:job-1": {
+                "job_name": "prediction one",
+                "job_type": "create_prediction",
+                "status": "PENDING",
+                "start_time": "2026-01-01T00:00:00",
+                "prediction_setup_id": "12",
+            },
+            "job_meta:job-2": {
+                "job_name": "prediction two",
+                "job_type": "create_prediction",
+                "status": "PENDING",
+                "start_time": "2026-01-01T00:00:01",
+            },
+        }[key]
+
+
+def test_apply_async_stores_prediction_setup_id_in_job_metadata(monkeypatch, tmp_path):
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(celery_tasks, "r", fake_redis)
+    monkeypatch.setattr(celery_tasks, "CHAP_LOGS_DIR", tmp_path)
+    monkeypatch.setitem(celery_tasks.app.conf, "task_always_eager", True)
+
+    celery_tasks.celery_run.apply_async(
+        args=(function_with_prediction_setup_id,),
+        kwargs={
+            JOB_TYPE_KW: "create_prediction",
+            JOB_NAME_KW: "prediction job",
+            "prediction_setup_id": 12,
+        },
+    )
+
+    assert fake_redis.hsets[-1][1]["prediction_setup_id"] == "12"
+
+
+def test_list_jobs_includes_prediction_setup_id(monkeypatch):
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(celery_tasks, "r", fake_redis)
+
+    jobs = CeleryPool().list_jobs()
+
+    matching_job = next(job for job in jobs if job.id == "job-1")
+    assert matching_job.prediction_setup_id == 12
+    unmatched_job = next(job for job in jobs if job.id == "job-2")
+    assert unmatched_job.prediction_setup_id is None
 
 
 @pytest.mark.skipif(not redis_available(), reason="Redis not available")

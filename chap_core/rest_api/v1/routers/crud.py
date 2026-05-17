@@ -56,7 +56,16 @@ from chap_core.database.tables import (
 )
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
-from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
+from chap_core.rest_api.celery_tasks import (
+    JOB_NAME_KW,
+    JOB_TYPE_KW,
+    PREDICTION_SETUP_ID_JOB_META_KEY,
+    CeleryPool,
+    JobType,
+)
+from chap_core.rest_api.celery_tasks import (
+    r as redis,
+)
 from chap_core.rest_api.experimental import api_experimental
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
@@ -670,11 +679,21 @@ class PredictionSetupCreate(DBModel):
     data_import_mappings: list[DataImportMapping] = PydanticField(default_factory=list)
 
 
+class PredictionSetupUpdate(DBModel):
+    name: str | None = None
+    schedule: PredictionSchedule | None = None
+    data_import_mappings: list[DataImportMapping] | None = None
+
+
 def _validate_prediction_setup_schedule(schedule: PredictionSchedule) -> None:
-    if not schedule.enabled:
-        return
+    if schedule.expression is not None:
+        schedule.expression = schedule.expression.strip()
+    if schedule.expression == "":
+        schedule.expression = None
     if schedule.expression is None:
-        raise HTTPException(status_code=422, detail="Enabled schedules require a cron expression")
+        if schedule.enabled:
+            raise HTTPException(status_code=422, detail="Enabled schedules require a cron expression")
+        return
     if len(schedule.expression.split()) != 5:
         raise HTTPException(status_code=422, detail="Schedule expression must be standard five-field cron")
     try:
@@ -695,6 +714,28 @@ def _active_prediction_setup_for_backtest(session: Session, backtest_id: int) ->
             PredictionSetup.archived == False,
         )
     ).first()
+
+
+def _delete_prediction_setup_job_runs(prediction_setup_id: int) -> None:
+    try:
+        keys: list[str] = redis.keys("job_meta:*")  # type: ignore[assignment]
+        for key in keys:
+            meta: dict[str, str] = redis.hgetall(key)  # type: ignore[assignment]
+            if meta.get(PREDICTION_SETUP_ID_JOB_META_KEY) != str(prediction_setup_id):
+                continue
+
+            task_id = key.split(":", 1)[1]
+            if meta.get("status", "").lower() in {"pending", "started", "running"}:
+                worker.get_job(task_id).cancel()
+            redis.delete(key)
+    except Exception:
+        logger.warning("Failed to delete prediction setup job metadata", exc_info=True)
+
+
+def _dataset_is_unreferenced(session: Session, dataset_id: int) -> bool:
+    if session.exec(select(Backtest.id).where(Backtest.dataset_id == dataset_id)).first() is not None:
+        return False
+    return session.exec(select(Prediction.id).where(Prediction.dataset_id == dataset_id)).first() is None
 
 
 @router.post(
@@ -792,6 +833,51 @@ async def get_prediction_setup(
     return setup
 
 
+@router.patch(
+    "/prediction-setups/{predictionSetupId}",
+    response_model=PredictionSetupRead,
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+@api_experimental
+async def update_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    request: PredictionSetupUpdate,
+    session: Session = Depends(get_session),
+):
+    setup = session.exec(
+        select(PredictionSetup)
+        .where(PredictionSetup.id == prediction_setup_id, PredictionSetup.archived == False)
+        .options(*_prediction_setup_options())
+    ).first()
+    if (
+        setup is None
+        or setup.configured_model_with_data_source is None
+        or setup.configured_model_with_data_source.archived
+    ):
+        raise HTTPException(status_code=404, detail="PredictionSetup not found")
+
+    fields_set = request.model_fields_set
+    if "name" in fields_set:
+        if request.name is None:
+            raise HTTPException(status_code=422, detail="Prediction setup name cannot be null")
+        setup.name = request.name
+    if "schedule" in fields_set:
+        schedule = request.schedule or PredictionSchedule()
+        _validate_prediction_setup_schedule(schedule)
+        setup.schedule_expression = schedule.expression
+        setup.schedule_enabled = schedule.enabled
+    if "data_import_mappings" in fields_set:
+        if request.data_import_mappings is None:
+            raise HTTPException(status_code=422, detail="Data import mappings cannot be null")
+        setup.data_import_mappings = request.data_import_mappings
+
+    session.add(setup)
+    session.commit()
+    session.refresh(setup)
+    return setup
+
+
 @router.delete("/prediction-setups/{predictionSetupId}", tags=["Models"])
 @api_experimental
 async def delete_prediction_setup(
@@ -810,11 +896,27 @@ async def delete_prediction_setup(
     ):
         raise HTTPException(status_code=404, detail="PredictionSetup not found")
 
-    setup.archived = True
-    setup.configured_model_with_data_source.archived = True
-    session.add(setup.configured_model_with_data_source)
-    session.add(setup)
+    config = setup.configured_model_with_data_source
+    prediction_dataset_ids = {
+        prediction.dataset_id
+        for prediction in session.exec(select(Prediction).where(Prediction.prediction_setup_id == prediction_setup_id))
+    }
+
+    for prediction in session.exec(select(Prediction).where(Prediction.prediction_setup_id == prediction_setup_id)):
+        session.delete(prediction)
+    session.flush()
+
+    for dataset_id in prediction_dataset_ids:
+        if _dataset_is_unreferenced(session, dataset_id):
+            dataset = session.get(DataSet, dataset_id)
+            if dataset is not None:
+                session.delete(dataset)
+
+    session.delete(setup)
+    session.flush()
+    session.delete(config)
     session.commit()
+    _delete_prediction_setup_job_runs(prediction_setup_id)
     return {"message": "deleted"}
 
 
