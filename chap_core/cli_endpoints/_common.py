@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
     from chap_core.api_types import BacktestParams
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.external.model_configuration import ModelTemplateConfigV2
     from chap_core.hpo.hpoModel import HpoModel
     from chap_core.hpo.searcher import Searcher
     from chap_core.models.external_model import ExternalModel
@@ -248,13 +249,13 @@ def get_estimator(
 
 def warn_unused_covariates(
     dataset: DataSet,
-    template_config: Any,
-    configuration: Any,
+    template_config: ModelTemplateConfigV2,
+    configuration: ModelConfiguration | None = None,
 ) -> None:
-    """Validate dataset against model config and log any issues as warnings/errors.
+    """Check for unused dataset columns and log each one as a warning.
 
-    Runs dataset_validation.validate_dataset and routes each ValidationIssue to the
-    logger at the matching level. Does not raise; callers continue regardless of issues.
+    Calls _check_unused_covariates directly; does not run other validation checks.
+    Does not raise; callers continue regardless of issues.
 
     Parameters
     ----------
@@ -268,19 +269,12 @@ def warn_unused_covariates(
         additional_continuous_covariates are forwarded to the validation so explicitly
         configured extra columns are not flagged as unused.
     """
-    from chap_core.services.dataset_validation import validate_dataset
+    from chap_core.services.dataset_validation import _check_unused_covariates
 
     additional = configuration.additional_continuous_covariates if configuration is not None else None
-    issues = validate_dataset(
-        dataset,
-        model_template_config=template_config,
-        additional_continuous_covariates=additional,
-    )
+    issues = _check_unused_covariates(dataset, template_config, additional)
     for issue in issues:
-        if issue.level == "warning":
-            logger.warning(issue.message)
-        elif issue.level == "error":
-            logger.error(issue.message)
+        logger.warning(issue.message)
 
 
 def get_hpo_estimator(
