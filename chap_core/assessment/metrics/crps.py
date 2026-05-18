@@ -74,11 +74,17 @@ class CRPSMetric(ProbabilisticMetric):
     """
     Continuous Ranked Probability Score (CRPS) metric.
 
-    CRPS measures both calibration and sharpness of probabilistic forecasts.
-    It is computed using all forecast samples.
+    CRPS measures both calibration and sharpness of probabilistic forecasts
+    and is computed using all forecast samples.
 
-    Formula: CRPS = E[|X - obs|] - 0.5 * E[|X - X'|]
-    where X and X' are independent samples from the forecast distribution.
+    Mathematically:
+        CRPS(F, y) = E[|X - y|] - 0.5 * E[|X - X'|],
+    where X and X' are independent draws from the forecast distribution F.
+
+    This implementation uses the unbiased ("fair") estimator with factor
+    1 / (m * (m - 1)) over m samples, and an O(m log m) algorithm based on
+    sorting and cumulative sums, replacing the previous naive O(m^2)
+    pairwise implementation.
 
     Usage:
         crps = CRPSMetric()

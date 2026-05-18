@@ -87,3 +87,18 @@ def test_probabilistic_predict_samples_count(weekly_full_data, constant_template
         samples = preds[loc].samples
         assert samples.shape[1] == n_samples
         assert samples.shape[0] == len(weekly_full_data[loc].time_period)
+
+
+def test_probabilistic_ensemble_outputs_sorted_samples(weekly_full_data, constant_template_factory):
+    templates = [
+        constant_template_factory(3.0, 2, "model_a"),
+        constant_template_factory(6.0, 2, "model_b"),
+    ]
+    model = EnsembleModel(base_templates=templates, method="probabilistic", n_samples=6, random_state=7)
+
+    predictor = model.train(weekly_full_data)
+    preds = predictor.predict(weekly_full_data, weekly_full_data)
+
+    for loc in weekly_full_data.locations():
+        samples = preds[loc].samples
+        assert np.all(np.diff(samples, axis=1) >= -1e-8)

@@ -3,6 +3,8 @@ import pytest
 from chap_core.ensemble.ensemble_model import EnsembleModel
 from chap_core.datatypes import FullData
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.time_period import TimePeriod
+from chap_core.assessment.dataset_splitting import train_test_split as real_train_test_split
 
 
 def test_probabilistic_disallows_residual_bootstrap():
@@ -56,3 +58,25 @@ def test_train_invalid_split_raises(weekly_full_data, constant_template_factory)
 
     with pytest.raises(ValueError, match="Invalid inner validation split"):
         model.train(weekly_full_data)
+
+
+def test_train_uses_timeperiod_split(weekly_full_data, constant_template_factory, monkeypatch):
+    templates = [constant_template_factory(1.0, 1, "model_a")]
+    model = EnsembleModel(base_templates=templates, method="deterministic", inner_val_periods=2)
+
+    periods = list(weekly_full_data.period_range)
+    split_idx = len(periods) // 2 if len(periods) <= model.inner_val_periods else len(periods) - model.inner_val_periods
+    expected_split = periods[split_idx]
+
+    called = {}
+
+    def _spy_split(data_set, prediction_start_period, extension=None, restrict_test=True):
+        called["period"] = prediction_start_period
+        return real_train_test_split(data_set, prediction_start_period, extension, restrict_test)
+
+    monkeypatch.setattr("chap_core.ensemble.ensemble_model.train_test_split", _spy_split)
+
+    model.train(weekly_full_data)
+
+    assert called["period"] == expected_split
+    assert isinstance(called["period"], TimePeriod)

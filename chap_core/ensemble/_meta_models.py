@@ -48,10 +48,19 @@ class NonNegativeMetaModel:
 
 
 class ProbabilisticMetaModel:
-    """Probabilistic meta-model using vincentization (quantile averaging).
+    """
+    Meta-model for probabilistic ensembles.
 
-    This avoids dependence on arbitrary sample ordering and yields a deterministic
-    combination for CRPS optimization.
+    This meta-model combines base model predictive distributions using vincentization:
+    for each location/horizon, we sort the samples from each base model
+    to approximate their quantile functions Q_i(p), then form the ensemble
+    quantiles as
+        Q_ens(p) = sum_i w_i Q_i(p),
+    where w_i are non-negative weights on the simplex.
+
+    This makes the ensemble distribution invariant to the internal sample
+    ordering of each base model, and is sharper than a pure mixture while
+    remaining a standard construction in forecast combination.
     """
 
     def __init__(self, verbose: bool = False) -> None:
