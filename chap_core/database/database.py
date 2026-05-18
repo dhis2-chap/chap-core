@@ -180,6 +180,8 @@ class SessionWrapper:
         # The local heuristic-based validator wrongly flags any default_factory
         # field as required (no literal "default" key in the schema), so skip it.
         if not uses_chapkit:
+            # Add CHAP options to template for validation
+            model_template.with_chap_options()
             configured_model.validate_user_options(configured_model)
         # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")

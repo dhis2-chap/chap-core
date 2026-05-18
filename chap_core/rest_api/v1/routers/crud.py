@@ -571,13 +571,16 @@ async def list_model_templates(session: Session = Depends(get_session)):
     """
     Lists all model templates from the db, including archived.
     Also syncs live chapkit services from the v2 service registry
-    into the database (upsert by name).
+    into the database (upsert by name). CHAP-wide options (chap__*) are
+    merged into each template's user_options before serialization.
     """
     live_ids = _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB)).all()
 
     results = []
     for t in model_templates:
+        if not any(key.startswith("chap__") for key in (t.user_options or {})):
+            t.with_chap_options()
         read = ModelTemplateRead.model_validate(t)
         if t.name in live_ids:
             read.health_status = "live"
