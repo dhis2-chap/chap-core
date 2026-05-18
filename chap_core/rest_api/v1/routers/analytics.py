@@ -225,9 +225,9 @@ def get_backtest_overlap(
     backtest1 = session.get(Backtest, backtest_id1)
     backtest2 = session.get(Backtest, backtest_id2)
     if backtest1 is None:
-        raise HTTPException(status_code=404, detail="Backtest 1 not found")
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id1} not found")
     if backtest2 is None:
-        raise HTTPException(status_code=404, detail="Backtest 2 not found")
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id2} not found")
     org_units1 = list(set(backtest1.org_units) & set(backtest2.org_units))
     split_periods1 = list(set(backtest1.split_periods) & set(backtest2.split_periods))
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
@@ -332,7 +332,13 @@ async def get_evaluation_entries(
 
 
 @router.post("/create-backtest", response_model=JobResponse, tags=["Backtests"])
-async def create_backtest(request: MakeBacktestRequest, database_url: str = Depends(get_database_url)):
+async def create_backtest(
+    request: MakeBacktestRequest,
+    database_url: str = Depends(get_database_url),
+    session: Session = Depends(get_session),
+):
+    if session.get(DataSetTable, request.dataset_id) is None:
+        raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     job = worker.queue_db(
         wf.run_backtest,
         BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
@@ -596,8 +602,18 @@ async def create_backtest_with_data(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
-    feature_names, provided_data_processed = _read_dataset(request)
-    provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
+    try:
+        feature_names, provided_data_processed = _read_dataset(request)
+        provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
+    except HTTPException as exc:
+        if not dry_run or exc.status_code != 400:
+            raise
+        # Rejections, when present, were serialised by `_validate_full_dataset` into
+        # `exc.detail["rejected"]`. The empty-`provided_data` case in `_read_dataset`
+        # raises with a plain-string detail and has no rejections to recover. If
+        # either helper changes its detail shape, this branch must be updated.
+        rejected: list = exc.detail.get("rejected", []) if isinstance(exc.detail, dict) else []
+        return ImportSummaryResponse.model_validate({"id": None, "imported_count": 0, "rejected": rejected})
     backtest_params = BacktestParams(**request.model_dump())
     train_set, _ = train_test_generator(
         provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride

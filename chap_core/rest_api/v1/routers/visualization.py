@@ -2,7 +2,7 @@ import json
 import logging
 from functools import partial
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 from starlette.responses import JSONResponse
 
@@ -76,14 +76,14 @@ def generate_visualization(
 ):
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
-        return {"error": "Backtest not found"}
+        raise HTTPException(status_code=404, detail="Backtest not found")
 
     if metric_id not in available_metrics:
-        return {"error": f"Metric {metric_id} not found"}
+        raise HTTPException(status_code=400, detail=f"Metric {metric_id} not found")
 
     registry = get_metric_plots_registry()
     if visualization_name not in registry:
-        return {"error": f"Visualization {visualization_name} not found"}
+        raise HTTPException(status_code=404, detail=f"Visualization {visualization_name} not found")
 
     geojson_str = backtest.dataset.geojson
     geojson = json.loads(geojson_str) if geojson_str else None
@@ -112,11 +112,13 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
     registry = get_dataset_plots_registry()
     if visualization_name not in registry:
         available = ", ".join(registry.keys())
-        return {"error": f"Visualization {visualization_name} not found. Available: {available}"}
+        raise HTTPException(
+            status_code=404, detail=f"Visualization {visualization_name} not found. Available: {available}"
+        )
 
     dataset = session.get(DataSet, dataset_id)
     if not dataset:
-        return {"error": "Dataset not found"}
+        raise HTTPException(status_code=404, detail="Dataset not found")
 
     chart = create_plot_from_dataset(visualization_name, dataset)
     return JSONResponse(chart)
@@ -141,11 +143,13 @@ def generate_backtest_plots(visualization_name: str, backtest_id: int, session: 
     registry = get_backtest_plots_registry()
     if visualization_name not in registry:
         available = ", ".join(registry.keys())
-        return {"error": f"Visualization {visualization_name} not found. Available: {available}"}
+        raise HTTPException(
+            status_code=404, detail=f"Visualization {visualization_name} not found. Available: {available}"
+        )
 
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
-        return {"error": "Backtest not found"}
+        raise HTTPException(status_code=404, detail="Backtest not found")
 
     chart = create_plot_from_backtest(visualization_name, backtest)
     return JSONResponse(chart.to_dict(format="vega"))

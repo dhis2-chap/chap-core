@@ -138,6 +138,62 @@ def test_add_model_template_unarchives_existing(model_template_yaml_config, engi
         assert template.archived is False
 
 
+def test_add_configured_model_chapkit_skips_required_validation(engine):
+    # Mimics what chapkit's /api/v1/configs/$schema returns for a field declared
+    # with Field(default_factory=lambda: [3]): the property has no literal
+    # "default" key. chap-core's heuristic-based validator would mark it
+    # required, but with uses_chapkit=True we trust chapkit's own validation
+    # and store user_option_values={} as a "use chapkit defaults" sentinel.
+    chapkit_schema_user_options = {
+        "n_lags": {
+            "items": {"type": "integer"},
+            "title": "N Lags",
+            "type": "array",
+        },
+    }
+    config = ModelTemplateConfigV2(
+        name="chapkit_default_factory",
+        required_covariates=["population"],
+        allow_free_additional_continuous_covariates=False,
+        user_options=chapkit_schema_user_options,
+        meta_data=ModelTemplateMetaData(
+            author="chap_temp",
+            author_assessed_status="orange",
+            description="chapkit model with default_factory field",
+            display_name="Chapkit Default Factory",
+        ),
+    )
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(config)
+        cm_id = session.add_configured_model(
+            template_id,
+            ModelConfiguration(user_option_values={}),
+            "default",
+            uses_chapkit=True,
+        )
+        assert cm_id is not None
+        with pytest.raises(ValueError, match="n_lags"):
+            session.add_configured_model(
+                template_id,
+                ModelConfiguration(user_option_values={}),
+                "no_chapkit",
+                uses_chapkit=False,
+            )
+
+
+def test_yaml_update_preserves_uses_chapkit(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        template = session.session.get(ModelTemplateDB, template_id)
+        template.uses_chapkit = True
+        session.session.commit()
+
+    with SessionWrapper(engine) as session:
+        session.add_model_template_from_yaml_config(model_template_yaml_config)
+        template = session.session.get(ModelTemplateDB, template_id)
+        assert template.uses_chapkit is True
+
+
 @pytest.mark.parametrize("url", template_urls)
 # @pytest.mark.slow
 def test_add_model_template_from_url(engine, url):

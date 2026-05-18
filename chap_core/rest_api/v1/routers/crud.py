@@ -18,7 +18,7 @@ import datetime
 import json
 import logging
 from functools import partial
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
@@ -46,6 +46,7 @@ from chap_core.database.model_templates_and_config_tables import ConfiguredModel
 from chap_core.database.tables import (
     Backtest,
     ConfiguredModelWithDataSource,
+    ConfiguredModelWithDataSourceRead,
     DataImportMapping,
     Prediction,
     PredictionInfo,
@@ -312,6 +313,7 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], se
 
 
 @router_get("/backtests/{backtestId}/info", response_model=BacktestRead, tags=["Backtests"])
+@router_get("/backtests/{backtestId}", response_model=BacktestRead, tags=["Backtests"])
 def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.exec(
         select(Backtest).where(Backtest.id == backtest_id).options(*_backtest_read_options())
@@ -352,7 +354,11 @@ async def get_metrics_csv(
 
 
 @router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
-async def create_backtest(backtest: BacktestCreate, database_url: str = Depends(get_database_url)):
+async def create_backtest(
+    backtest: BacktestCreate,
+    database_url: str = Depends(get_database_url),
+    session: Session = Depends(get_session),
+):
     # `BacktestCreate.model_id` accepts either the configured-model name
     # (what the DB column actually stores) or the integer primary key (what
     # most API clients reach for because that's what GET /v1/crud/configured-models
@@ -360,6 +366,8 @@ async def create_backtest(backtest: BacktestCreate, database_url: str = Depends(
     # `SessionWrapper.get_configured_model_by_id_or_name` before touching
     # anything else, so the endpoint itself stays dumb and there's exactly
     # one resolution point.
+    if session.get(DataSet, backtest.dataset_id) is None:
+        raise HTTPException(status_code=404, detail=f"Dataset {backtest.dataset_id} not found")
     job = worker.queue_db(
         wf.run_backtest,
         backtest,
@@ -539,19 +547,27 @@ async def create_dataset_csv(
 
 @router.get("/datasets/{datasetId}/df", tags=["Datasets"])
 async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
-    # dataset = session.get(DataSet, dataset_id)
-    # if dataset is None:
-    #    raise HTTPException(status_code=404, detail="Dataset not found")
+    if session.get(DataSet, dataset_id) is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
     sw = SessionWrapper(session=session)
     in_memory_dataset = sw.get_dataset(dataset_id)
     df = in_memory_dataset.to_pandas()
     # Convert time_period column to strings for proper serialization
     df["time_period"] = df["time_period"].astype(str)
-    return df.to_dict(orient="records")
+    records = df.to_dict(orient="records")
+    # NaN floats are not JSON-serialisable; surface them as JSON null instead.
+    # Done after to_dict because reassigning None into a float column re-casts it to NaN.
+    for record in records:
+        for key, value in record.items():
+            if isinstance(value, float) and not np.isfinite(value):
+                record[key] = None
+    return records
 
 
 @router.get("/datasets/{datasetId}/csv", tags=["Datasets"])
 async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    if session.get(DataSet, dataset_id) is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
     sw = SessionWrapper(session=session)
     in_memory_dataset = sw.get_dataset(dataset_id)
     df = in_memory_dataset.to_pandas()
@@ -612,6 +628,23 @@ def list_configured_models(session: Session = Depends(get_session)):
     return configured_models_read
 
 
+@router.get(
+    "/configured-models-with-data-source",
+    response_model=list[ConfiguredModelWithDataSourceRead],
+    tags=["Models"],
+)
+def list_configured_models_with_data_source(session: Session = Depends(get_session)):
+    return session.exec(
+        select(ConfiguredModelWithDataSource)
+        .where(cast("Any", ConfiguredModelWithDataSource.archived).is_(False))
+        .options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(  # type: ignore[arg-type]
+                ConfiguredModelDB.model_template  # type: ignore[arg-type]
+            )
+        )
+    ).all()
+
+
 @router_get(
     "/configured-models/{configuredModelId}",
     response_model=ConfiguredModelInfoRead,
@@ -644,10 +677,16 @@ def add_configured_model(
     configuration_name = model_configuration.name
     # Inherit uses_chapkit from parent template so the model loads correctly at runtime
     template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
-    uses_chapkit = template.uses_chapkit if template else False
+    if template is None:
+        raise HTTPException(status_code=404, detail="Model template not found")
+    uses_chapkit = template.uses_chapkit
+    configuration = ModelConfiguration(
+        user_option_values=model_configuration.user_option_values,
+        additional_continuous_covariates=model_configuration.additional_continuous_covariates,
+    )
     db_id = session_wrapper.add_configured_model(
         model_template_id,
-        ModelConfiguration(**model_configuration.model_dump()),
+        configuration,
         configuration_name,
         uses_chapkit=uses_chapkit,
     )
@@ -918,25 +957,6 @@ async def delete_prediction_setup(
     session.commit()
     _delete_prediction_setup_job_runs(prediction_setup_id)
     return {"message": "deleted"}
-
-
-###########
-# models (alias for configured models)
-
-
-@router.get("/models", response_model=list[ModelSpecRead], tags=["Models"])
-def list_models(session: Session = Depends(get_session)):
-    """List all models from the db (alias for configured models)"""
-    return list_configured_models(session)
-
-
-@router.post("/models", response_model=ConfiguredModelDB, tags=["Models"])
-def add_model(
-    model_configuration: ModelConfigurationCreate,
-    session: Session = Depends(get_session),
-):
-    """Add a model to the database (alias for configured models)"""
-    return add_configured_model(model_configuration, session)
 
 
 #############

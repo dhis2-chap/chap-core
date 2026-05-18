@@ -90,64 +90,53 @@ class SessionWrapper:
     def list_all(self, model):
         return self.session.exec(select(model)).all()
 
-    def create_if_not_exists(self, model, id_name="id"):
-        logging.info(f"Create if not exist with {model}")
-        T = type(model)
-        if not self.session.exec(select(T).where(getattr(T, id_name) == getattr(model, id_name))).first():
-            self.session.add(model)
-            self.session.commit()
-        return model
-
-    def add_model_template(self, model_template: ModelTemplateDB) -> int:
+    def _if_exists(self, model_name: str) -> ModelTemplateDB | None:
         # check if model template already exists
-        existing_template = self.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.name == model_template.name)
-        ).first()
-        if existing_template:
-            logger.info(f"Model template with name {model_template.name} already exists. Returning existing id")
-            return cast("int", existing_template.id)
+        existing_template = self.session.exec(select(ModelTemplateDB).where(ModelTemplateDB.name == model_name)).first()
+        return existing_template
 
+    def _return_model_template_id(self, model_name: str, existing_template: ModelTemplateDB) -> int:
+        logger.info(f"Model template with name {model_name} already exists. Returning existing id")
+        return cast("int", existing_template.id)
+
+    def _update_model_template(self, existing_template: ModelTemplateDB, new_model_template: ModelTemplateDB) -> int:
+        logger.info(f"Model template with name {new_model_template.name} already exists. Updating it")
+        # Update the existing template with new data except id and fields newly added when casted to ModelTemplateDB
+        data = new_model_template.model_dump(exclude={"id"}, exclude_unset=True)
+        for key, value in data.items():
+            if hasattr(existing_template, key):
+                setattr(existing_template, key, value)
+        # Unarchive if it was previously archived
+        existing_template.archived = False
+        self.session.commit()
+        return cast("int", existing_template.id)
+
+    def _add_model_template(self, model_template: ModelTemplateDB) -> int:
         # add db entry
         logger.info(f"Adding model template: {model_template}")
         self.session.add(model_template)
         self.session.commit()
-
         # return id
         return cast("int", model_template.id)
 
-    def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
-        """Sets the ModelSpecRead a yaml string.
-        Note that the yaml string is what's defined in a model template's MLProject file,
-        so source_url will have to be added manually."""
-        # TODO: maybe just use add_model_template and make sure to structure it correctly first
-        # TODO: needs cleanup
-        # TODO: existing check should probably use name instead of source url
-        # parse yaml content as dict
-        existing_template = self.session.exec(
-            select(ModelTemplateDB).where(ModelTemplateDB.name == model_template_config.name)
-        ).first()
+    def add_or_update_model_template(self, model_template: ModelTemplateDB, update: bool) -> int:
+        model_name = model_template.name
+        existing_template = self._if_exists(model_name)
+        if existing_template:
+            if update:
+                return self._update_model_template(existing_template, new_model_template=model_template)
+            else:
+                return self._return_model_template_id(model_name, existing_template)
+        else:
+            return self._add_model_template(model_template)
 
+    def add_model_template_from_yaml_config(self, model_template_config: ModelTemplateConfigV2) -> int:
+        # convert yaml config to model template db object and add to db
         d = model_template_config.model_dump()
         info = d.pop("meta_data")
         d = d | info
-
-        if existing_template:
-            logger.info(f"Model template with name {model_template_config.name} already exists. Updating it")
-            # Update the existing template with new data
-            for key, value in d.items():
-                if hasattr(existing_template, key):
-                    setattr(existing_template, key, value)
-            # Unarchive if it was previously archived
-            existing_template.archived = False
-            self.session.commit()
-            return cast("int", existing_template.id)
-
-        # Create new template
-        db_object = ModelTemplateDB(**d)
-        logger.info(f"Adding model template: {db_object}")
-        self.session.add(db_object)
-        self.session.commit()
-        return cast("int", db_object.id)
+        model_template = ModelTemplateDB(**d)
+        return self.add_or_update_model_template(model_template, update=True)
 
     def add_configured_model(
         self,
@@ -160,7 +149,8 @@ class SessionWrapper:
         model_template = self.session.exec(
             select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)
         ).first()
-        assert model_template is not None, f"Model template with id {model_template_id} not found"
+        if model_template is None:
+            raise ValueError(f"Model template with id {model_template_id} not found")
         template_name = model_template.name
 
         # set configured name
@@ -185,7 +175,12 @@ class SessionWrapper:
             model_template=model_template,
             uses_chapkit=uses_chapkit,
         )
-        configured_model.validate_user_options(configured_model)
+        # Chapkit owns its config schema and validates server-side; chap-core
+        # stores user_option_values={} as a "use chapkit defaults" sentinel.
+        # The local heuristic-based validator wrongly flags any default_factory
+        # field as required (no literal "default" key in the schema), so skip it.
+        if not uses_chapkit:
+            configured_model.validate_user_options(configured_model)
         # configured_model.validate_user_options(model_template)
         logger.info(f"Adding configured model: {configured_model}")
         self.session.add(configured_model)
@@ -415,18 +410,6 @@ class SessionWrapper:
         if model_template is None:
             raise ValueError(f"Model template with id {model_template_id} not found")
         return model_template
-
-    def get_backtest_with_truth(self, backtest_id: int) -> Backtest:
-        backtest = self.session.get(Backtest, backtest_id)
-        if backtest is None:
-            raise ValueError(f"Backtest with id {backtest_id} not found")
-        dataset = backtest.dataset
-        if dataset is None:
-            raise ValueError(f"Dataset for backtest with id {backtest_id} not found")
-        entries = backtest.forecasts
-        if entries is None or len(entries) == 0:
-            raise ValueError(f"No forecasts found for backtest with id {backtest_id}")
-        return backtest
 
     def add_backtest(self, backtest: Backtest) -> None:
         self.session.add(backtest)

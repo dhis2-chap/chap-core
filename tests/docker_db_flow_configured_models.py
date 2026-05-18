@@ -187,7 +187,7 @@ class ConfiguredModelsIntegrationTest:
     def get_configured_models(self):
         """Fetch all configured models from the API."""
         logger.info("Fetching configured models from API")
-        models = self._get(self._chap_url + "/v1/crud/models")
+        models = self._get(self._chap_url + "/v1/crud/configured-models")
         logger.info(f"Found {len(models)} configured models")
         return models
 

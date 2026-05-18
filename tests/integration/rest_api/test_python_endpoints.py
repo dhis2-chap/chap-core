@@ -51,7 +51,7 @@ def seeded_session_with_weird_backtest(seeded_session: Session):
     all_metric_ids()[:1],
 )
 def test_generate_metric_visualization_weird_backtest(
-    seeded_session_with_weird_backtest, metric_id, visualization_name="MetricByHorizonV2Mean"
+    seeded_session_with_weird_backtest, metric_id, visualization_name="metric_by_horizon_mean"
 ):
     session, backtest_id = seeded_session_with_weird_backtest
     assert generate_visualization(
@@ -60,7 +60,7 @@ def test_generate_metric_visualization_weird_backtest(
 
 
 @pytest.mark.parametrize("metric_id", all_metric_ids())
-def test_generate_metric_visualization(seeded_session, metric_id, visualization_name="MetricByHorizonV2Mean"):
+def test_generate_metric_visualization(seeded_session, metric_id, visualization_name="metric_by_horizon_mean"):
     assert generate_visualization(
         visualization_name=visualization_name, backtest_id=1, metric_id=metric_id, session=seeded_session
     )

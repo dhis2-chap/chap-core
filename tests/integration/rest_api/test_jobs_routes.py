@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -81,3 +82,40 @@ def test_predict(big_request_json, celery_session_worker, dependency_overrides):
     result = client.get(f"{base_path}/{task_id}/evaluation_result")
     assert result.status_code == 200, result.json()
     print(result.json())
+
+
+# Job-id membership: routes that took a job_id used to either silently accept a
+# bogus id (returning "PENDING" / empty logs / 200 cancel) or 500 with a leaked
+# TaskRevokedError. Every such route should now 404 on unknown ids. A fresh uuid
+# per test avoids picking up Redis state from any prior run that buggy code may
+# have written.
+
+
+@pytest.fixture
+def unknown_job_id():
+    return f"nonexistent-{uuid.uuid4()}"
+
+
+@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+def test_get_job_status_unknown_id_returns_404(unknown_job_id):
+    response = client.get(f"{base_path}/{unknown_job_id}")
+    assert response.status_code == 404, response.text
+
+
+@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+def test_cancel_job_unknown_id_returns_404(unknown_job_id):
+    response = client.post(f"{base_path}/{unknown_job_id}/cancel")
+    assert response.status_code == 404, response.text
+
+
+@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+def test_get_logs_unknown_id_returns_404(unknown_job_id):
+    response = client.get(f"{base_path}/{unknown_job_id}/logs")
+    assert response.status_code == 404, response.text
+
+
+@pytest.mark.skipif(not redis_available(), reason="Redis not available")
+@pytest.mark.parametrize("suffix", ["database_result", "evaluation_result", "prediction_result"])
+def test_result_endpoints_unknown_id_return_404(unknown_job_id, suffix):
+    response = client.get(f"{base_path}/{unknown_job_id}/{suffix}")
+    assert response.status_code == 404, response.text
