@@ -23,6 +23,7 @@ from chap_core.cli_endpoints._common import (
     get_hpo_estimator,
     load_dataset_from_csv,
     resolve_csv_path,
+    warn_unused_covariates,
 )
 
 if TYPE_CHECKING:
@@ -215,6 +216,7 @@ def _run_eval(
         estimator: ExternalModel | HpoModel | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator, configuration = get_estimator(template, model_configuration_yaml)
+            warn_unused_covariates(dataset, template.model_template_config, configuration)
         elif estimator_options.mode == EstimatorMode.HPO:
             assert estimator_options.metric is not None
             estimator = get_hpo_estimator(

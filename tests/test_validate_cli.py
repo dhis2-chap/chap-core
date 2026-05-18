@@ -152,6 +152,42 @@ def test_validate_skips_location_name_field(tmp_path):
     assert not any("location_name" in i.message for i in issues)
 
 
+def test_validate_warns_on_unused_covariate():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    config = ModelTemplateConfigV2(name="test_model", required_covariates=["rainfall"])
+    issues = validate_dataset(dataset, model_template_config=config)
+    warnings = [i for i in issues if i.level == "warning"]
+    assert any("mean_temperature" in w.message and "not used by the model" in w.message for w in warnings)
+
+
+def test_validate_warns_unused_when_allow_free_but_no_additional():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    config = ModelTemplateConfigV2(
+        name="test_model",
+        required_covariates=[],
+        allow_free_additional_continuous_covariates=True,
+    )
+    issues = validate_dataset(dataset, model_template_config=config)
+    warnings = [i for i in issues if i.level == "warning"]
+    assert any("not used by the model" in w.message for w in warnings)
+
+
+def test_validate_no_unused_warning_for_configured_additional_covariates():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    config = ModelTemplateConfigV2(
+        name="test_model",
+        required_covariates=["rainfall"],
+        allow_free_additional_continuous_covariates=True,
+    )
+    issues = validate_dataset(
+        dataset,
+        model_template_config=config,
+        additional_continuous_covariates=["mean_temperature", "population"],
+    )
+    warnings = [i for i in issues if i.level == "warning"]
+    assert not any("not used by the model" in w.message for w in warnings)
+
+
 def test_validate_weekly_data_against_monthly_model():
     dataset = DataSet.from_csv(NICARAGUA_WEEKLY_SUBSET, FullData)
     config = ModelTemplateConfigV2(

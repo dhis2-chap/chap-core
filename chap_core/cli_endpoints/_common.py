@@ -246,6 +246,43 @@ def get_estimator(
     return estimator, configuration
 
 
+def warn_unused_covariates(
+    dataset: DataSet,
+    template_config: Any,
+    configuration: Any,
+) -> None:
+    """Validate dataset against model config and log any issues as warnings/errors.
+
+    Runs dataset_validation.validate_dataset and routes each ValidationIssue to the
+    logger at the matching level. Does not raise; callers continue regardless of issues.
+
+    Parameters
+    ----------
+    dataset : DataSet
+        The loaded dataset to validate.
+    template_config : ModelTemplateConfigV2
+        Model template configuration declaring required covariates and whether free
+        additional covariates are allowed.
+    configuration : ModelConfiguration | None
+        Optional per-run model configuration. When present, its
+        additional_continuous_covariates are forwarded to the validation so explicitly
+        configured extra columns are not flagged as unused.
+    """
+    from chap_core.services.dataset_validation import validate_dataset
+
+    additional = configuration.additional_continuous_covariates if configuration is not None else None
+    issues = validate_dataset(
+        dataset,
+        model_template_config=template_config,
+        additional_continuous_covariates=additional,
+    )
+    for issue in issues:
+        if issue.level == "warning":
+            logger.warning(issue.message)
+        elif issue.level == "error":
+            logger.error(issue.message)
+
+
 def get_hpo_estimator(
     template: ModelTemplate,
     model_configuration_yaml: Path | None,

@@ -19,6 +19,7 @@ from chap_core.cli_endpoints._common import (
     get_estimator,
     load_dataset_from_csv,
     resolve_csv_path,
+    warn_unused_covariates,
 )
 
 logger = logging.getLogger(__name__)
@@ -161,6 +162,7 @@ def causal_cmd(
 
     with template:
         estimator, configuration = get_estimator(template, model_configuration_yaml)
+        warn_unused_covariates(original_dataset, template.model_template_config, configuration)
         model_info = estimator.model_information
 
         train_data, original_test_data = train_test_split(original_dataset, split_period_obj)
