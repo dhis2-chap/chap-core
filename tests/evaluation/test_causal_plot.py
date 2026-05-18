@@ -5,7 +5,7 @@ import altair as alt
 import pandas as pd
 import pytest
 
-from chap_core.assessment.causal_plot import _location_y_domain, plot_counterfactual
+from chap_core.assessment.causal_plot import plot_counterfactual
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.tables import Backtest, BacktestForecast
