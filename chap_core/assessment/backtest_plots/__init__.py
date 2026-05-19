@@ -191,8 +191,40 @@ def backtest_plot(
             coords[dim] = sorted(list(values))
         return coords
 
-    
+    # 3. Slice data down to target coordinate for a single clean REST API subplot
+    def get_subplot(
+        self,
+        coords: dict[str, Any],
+        observations: pd.DataFrame,
+        forecasts: pd.DataFrame,
+        historical_observations: pd.DataFrame | None = None,
+    ) -> alt.Chart:
+        obs_df, fc_df = observations.copy(), forecasts.copy()
+        hist_df = historical_observations.copy() if historical_observations is not None else None
 
+        if "location" in coords:
+            loc = coords["location"]
+            obs_df = obs_df[obs_df["location"] == loc] if "location" in obs_df.columns else obs_df
+            fc_df = fc_df[fc_df["location"] == loc] if "location" in fc_df.columns else fc_df
+            if hist_df is not None:
+                hist_df = hist_df[hist_df["location"] == loc] if "location" in hist_df.columns else hist_df
+
+        if "split_period" in coords:
+            sp = coords["split_period"]
+            if "split_period" in fc_df.columns:
+                fc_df = fc_df[fc_df["split_period"] == sp]
+            else:
+                from chap_core.time_period import TimePeriod
+                from chap_core.plotting.backtest_plot import clean_time
+                def matches(row):
+                    try:
+                        tp = TimePeriod.parse(str(row["time_period"]))
+                        return clean_time((tp - (int(row["horizon_distance"]) * tp.time_delta)).to_string()) == sp
+                    except Exception:
+                        return False
+                fc_df = fc_df[fc_df.apply(matches, axis=1)] if not fc_df.empty else fc_df
+
+        return self.plot(obs_df, fc_df, hist_df)    
 
 def get_backtest_plots_registry() -> dict[str, type[BacktestPlotBase]]:
     """
