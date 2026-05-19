@@ -44,11 +44,14 @@ from chap_core.database.tables import (
     Backtest,
     Prediction,
     PredictionInfo,
+    PredictionSetupRead,
+    PredictionSetupReadWithPredictions,
 )
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from chap_core.rest_api.experimental import api_experimental
+from chap_core.services import prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
@@ -62,6 +65,8 @@ from ...data_models import (
     ModelConfigurationCreate,
     ModelTemplateRead,
     PredictionCreate,
+    PredictionSetupCreate,
+    PredictionSetupUpdate,
 )
 from .dependencies import get_database_url, get_session, get_settings
 
@@ -652,6 +657,99 @@ async def delete_configured_model(
     configured_model.archived = True
     session.add(configured_model)
     session.commit()
+    return {"message": "deleted"}
+
+
+###########
+# prediction setups
+
+
+@router.post(
+    "/prediction-setups",
+    response_model=DataBaseResponse,
+    response_model_by_alias=True,
+    tags=["Prediction Setups"],
+)
+@api_experimental
+async def create_prediction_setup(request: PredictionSetupCreate, session: Session = Depends(get_session)):
+    try:
+        setup = prediction_setup_service.create_prediction_setup(
+            session,
+            backtest_id=request.backtest_id,
+            name=request.name,
+            schedule_cron_expression=request.schedule_cron_expression,
+            schedule_enabled=request.schedule_enabled,
+            quantile_targets=request.quantile_targets,
+        )
+    except prediction_setup_service.BacktestNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except prediction_setup_service.DuplicateSetupError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except prediction_setup_service.InvalidSetupError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    assert setup.id is not None
+    return DataBaseResponse(id=setup.id)
+
+
+@router.get(
+    "/prediction-setups",
+    response_model=list[PredictionSetupRead],
+    response_model_by_alias=True,
+    tags=["Prediction Setups"],
+)
+@api_experimental
+async def list_prediction_setups(session: Session = Depends(get_session)):
+    return prediction_setup_service.list_prediction_setups(session)
+
+
+@router.get(
+    "/prediction-setups/{predictionSetupId}",
+    response_model=PredictionSetupReadWithPredictions,
+    response_model_by_alias=True,
+    tags=["Prediction Setups"],
+)
+@api_experimental
+async def get_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    session: Session = Depends(get_session),
+):
+    try:
+        return prediction_setup_service.get_prediction_setup(session, prediction_setup_id, include_predictions=True)
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.patch(
+    "/prediction-setups/{predictionSetupId}",
+    response_model=PredictionSetupRead,
+    response_model_by_alias=True,
+    tags=["Prediction Setups"],
+)
+@api_experimental
+async def update_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    request: PredictionSetupUpdate,
+    session: Session = Depends(get_session),
+):
+    update_data = request.model_dump(exclude_unset=True)
+    try:
+        return prediction_setup_service.update_prediction_setup(session, prediction_setup_id, update_data)
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except prediction_setup_service.InvalidSetupError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+@router.delete("/prediction-setups/{predictionSetupId}", tags=["Prediction Setups"])
+@api_experimental
+async def delete_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    session: Session = Depends(get_session),
+):
+    try:
+        prediction_setup_service.delete_prediction_setup(session, prediction_setup_id)
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     return {"message": "deleted"}
 
 

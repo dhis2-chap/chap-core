@@ -460,6 +460,255 @@ def test_backtest_overlap_error_message_includes_id(clean_engine, dependency_ove
     assert str(missing_id1) in response.json()["detail"], response.json()
 
 
+def _prediction_setup_payload(backtest_id: int, name: str = "Saved setup") -> dict:
+    return {
+        "backtestId": backtest_id,
+        "name": name,
+        "scheduleCronExpression": "0 6 * * 1",
+        "scheduleEnabled": True,
+        "quantileTargets": [{"quantile": "median", "dataElementId": "DE_MED"}],
+    }
+
+
+def _create_prediction_setup(backtest_id: int, name: str = "Saved setup"):
+    return client.post("/v1/crud/prediction-setups", json=_prediction_setup_payload(backtest_id, name))
+
+
+def test_create_prediction_setup_happy_path(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    response = _create_prediction_setup(backtest.id, "Setup A")
+    assert response.status_code == 200, response.json()
+    setup_id = response.json()["id"]
+
+    detail = client.get(f"/v1/crud/prediction-setups/{setup_id}")
+    assert detail.status_code == 200, detail.json()
+    body = detail.json()
+    assert body["name"] == "Setup A"
+    assert body["backtestId"] == backtest.id
+    assert body["scheduleCronExpression"] == "0 6 * * 1"
+    assert body["scheduleEnabled"] is True
+    assert body["quantileTargets"] == [{"quantile": "median", "dataElementId": "DE_MED"}]
+    assert body["configuredModel"] is not None
+
+
+def test_create_prediction_setup_snapshots_all_dataset_fields(override_session, seeded_session):
+    """Verify every snapshot field is copied from the backtest's dataset over the wire."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    dataset = backtest.dataset
+
+    response = _create_prediction_setup(backtest.id, "Snapshot check")
+    assert response.status_code == 200, response.json()
+    setup_id = response.json()["id"]
+
+    body = client.get(f"/v1/crud/prediction-setups/{setup_id}").json()
+    assert body["startPeriod"] == dataset.first_period
+    assert body["orgUnits"] == dataset.org_units
+    assert body["periodType"] == dataset.period_type
+    expected_sources = [{"covariate": s.covariate, "dataElementId": s.data_element_id} for s in dataset.data_sources]
+    assert body["covariateSources"] == expected_sources
+
+
+def test_list_prediction_setups_returns_empty_when_none_exist(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/prediction-setups")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_create_prediction_setup_missing_backtest_returns_404(clean_engine, dependency_overrides):
+    response = client.post(
+        "/v1/crud/prediction-setups",
+        json=_prediction_setup_payload(99999, "ghost"),
+    )
+    assert response.status_code == 404
+
+
+def test_create_prediction_setup_invalid_cron_returns_422(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    payload = _prediction_setup_payload(backtest.id, "Bad cron")
+    payload["scheduleCronExpression"] = "not a cron expression"
+    response = client.post("/v1/crud/prediction-setups", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_prediction_setup_enabled_without_expression_returns_422(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    payload = _prediction_setup_payload(backtest.id, "Enabled but empty")
+    payload["scheduleCronExpression"] = None
+    payload["scheduleEnabled"] = True
+    response = client.post("/v1/crud/prediction-setups", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_prediction_setup_duplicate_returns_409(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    first = _create_prediction_setup(backtest.id, "First")
+    assert first.status_code == 200, first.json()
+    second = _create_prediction_setup(backtest.id, "Second")
+    assert second.status_code == 409
+
+
+def test_list_prediction_setups_returns_created_setup(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Listed setup")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    response = client.get("/v1/crud/prediction-setups")
+    assert response.status_code == 200
+    items = response.json()
+    assert [item["id"] for item in items] == [setup_id]
+    assert "predictions" not in items[0]
+
+
+def test_get_prediction_setup_includes_linked_predictions(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "With predictions")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    prediction.prediction_setup_id = setup_id
+    seeded_session.add(prediction)
+    seeded_session.commit()
+
+    response = client.get(f"/v1/crud/prediction-setups/{setup_id}")
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert len(body["predictions"]) == 1
+    assert body["predictions"][0]["id"] == prediction.id
+
+
+def test_get_prediction_setup_not_found_returns_404(clean_engine, dependency_overrides):
+    response = client.get("/v1/crud/prediction-setups/99999")
+    assert response.status_code == 404
+
+
+def test_patch_prediction_setup_updates_name_only(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Original")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    response = client.patch(f"/v1/crud/prediction-setups/{setup_id}", json={"name": "Renamed"})
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["name"] == "Renamed"
+    assert body["scheduleCronExpression"] == "0 6 * * 1"
+
+
+def test_patch_prediction_setup_updates_multiple_fields_at_once(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Multi-field")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    response = client.patch(
+        f"/v1/crud/prediction-setups/{setup_id}",
+        json={
+            "name": "Multi-field renamed",
+            "scheduleCronExpression": "*/5 * * * *",
+            "scheduleEnabled": True,
+            "quantileTargets": [
+                {"quantile": "p25", "dataElementId": "DE_P25"},
+                {"quantile": "p75", "dataElementId": "DE_P75"},
+            ],
+        },
+    )
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["name"] == "Multi-field renamed"
+    assert body["scheduleCronExpression"] == "*/5 * * * *"
+    assert body["scheduleEnabled"] is True
+    assert body["quantileTargets"] == [
+        {"quantile": "p25", "dataElementId": "DE_P25"},
+        {"quantile": "p75", "dataElementId": "DE_P75"},
+    ]
+
+
+def test_patch_prediction_setup_can_clear_schedule(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Clearable")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    response = client.patch(
+        f"/v1/crud/prediction-setups/{setup_id}",
+        json={"scheduleCronExpression": None, "scheduleEnabled": False},
+    )
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    assert body["scheduleCronExpression"] is None
+    assert body["scheduleEnabled"] is False
+
+
+def test_patch_prediction_setup_rejects_immutable_field(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Immutable")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    response = client.patch(f"/v1/crud/prediction-setups/{setup_id}", json={"backtestId": 999})
+    assert response.status_code == 422
+
+
+def test_delete_prediction_setup_removes_setup_and_keeps_predictions(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Deletable")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    prediction = seeded_session.exec(select(Prediction)).first()
+    assert prediction is not None
+    prediction.prediction_setup_id = setup_id
+    seeded_session.add(prediction)
+    seeded_session.commit()
+    prediction_id = prediction.id
+
+    response = client.delete(f"/v1/crud/prediction-setups/{setup_id}")
+    assert response.status_code == 200, response.json()
+    assert response.json() == {"message": "deleted"}
+
+    response = client.get(f"/v1/crud/prediction-setups/{setup_id}")
+    assert response.status_code == 404
+
+    seeded_session.expire_all()
+    surviving = seeded_session.exec(select(Prediction).where(Prediction.id == prediction_id)).one()
+    assert surviving.prediction_setup_id is None
+
+
+def test_delete_prediction_setup_without_predictions(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Empty setup")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    response = client.delete(f"/v1/crud/prediction-setups/{setup_id}")
+    assert response.status_code == 200, response.json()
+    assert response.json() == {"message": "deleted"}
+
+    response = client.get(f"/v1/crud/prediction-setups/{setup_id}")
+    assert response.status_code == 404
+
+
+def test_delete_prediction_setup_not_found_returns_404(clean_engine, dependency_overrides):
+    response = client.delete("/v1/crud/prediction-setups/99999")
+    assert response.status_code == 404
+
+
 def _make_dataset(
     make_dataset_request,
     wanted_field_names=["rainfall", "disease_cases", "population", "mean_temperature"],

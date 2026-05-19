@@ -19,6 +19,7 @@ openapi_tags = [
     {"name": "Predictions", "description": "Create, manage, and query predictions"},
     {"name": "Datasets", "description": "Create, manage, and export datasets"},
     {"name": "Models", "description": "Model templates and configured models"},
+    {"name": "Prediction Setups", "description": "Automation configs that schedule predictions from a backtest"},
     {"name": "Visualizations", "description": "Generate plots and charts"},
     {"name": "Jobs", "description": "Monitor and manage async jobs"},
     {"name": "Debug", "description": "Debug and diagnostic endpoints"},
