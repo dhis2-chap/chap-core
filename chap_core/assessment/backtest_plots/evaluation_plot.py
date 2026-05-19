@@ -104,6 +104,9 @@ class EvaluationPlot(BacktestPlotBase):
     Shows forecasts with uncertainty bands and observed values.
     Optionally includes historical observations for context.
     """
+    
+    # NEW: Define dimensions for the base class layout engine to facet automatically
+    facet_dimensions = ["location", "split_period"]
 
     def plot(
         self,
@@ -112,7 +115,7 @@ class EvaluationPlot(BacktestPlotBase):
         historical_observations: pd.DataFrame | None = None,
     ) -> ChartType:
         """
-        Generate and return the evaluation visualization.
+        Generate and return the evaluation visualization base chart.
 
         Parameters
         ----------
@@ -128,7 +131,7 @@ class EvaluationPlot(BacktestPlotBase):
         Returns
         -------
         ChartType
-            Altair faceted chart showing forecasts vs observations
+            Altair base layered chart showing forecasts vs observations
         """
         # Compute quantiles from forecast samples
         forecast_quantiles = _compute_quantiles_from_forecasts(forecasts)
@@ -140,7 +143,7 @@ class EvaluationPlot(BacktestPlotBase):
         observed_df = observations.copy()
         observed_df["time_period"] = observed_df["time_period"].apply(clean_time)
 
-        # Get unique split periods
+        # Get unique split periods (works dynamically if data was subsetted by get_subplot)
         unique_split_periods = forecast_df["split_period"].unique()
 
         # Create observed data (test periods) with all combinations of split_period
@@ -150,7 +153,7 @@ class EvaluationPlot(BacktestPlotBase):
             tmp["split_period"] = split_period
             observed_replicated.append(tmp)
 
-        observed_with_split = pd.concat(observed_replicated, ignore_index=True)
+        observed_with_split = pd.concat(observed_replicated, ignore_index=True) if observed_replicated else pd.DataFrame()
 
         # Add historical observations if available
         if historical_observations is not None and not historical_observations.empty:
@@ -165,7 +168,7 @@ class EvaluationPlot(BacktestPlotBase):
                 tmp = tmp[tmp["time_period"] <= split_period]
                 historical_replicated.append(tmp)
 
-            historical_with_split = pd.concat(historical_replicated, ignore_index=True)
+            historical_with_split = pd.concat(historical_replicated, ignore_index=True) if historical_replicated else pd.DataFrame()
 
             # Combine historical and test observations
             all_observations = pd.concat(
@@ -243,9 +246,6 @@ class EvaluationPlot(BacktestPlotBase):
         # Layer all components
         full_layer = error1 + error2 + line + observations_layer
 
-        # Facet the combined layer
-        return (  # type: ignore[no-any-return]
-            full_layer.facet(column="split_period:O", row="location:N")
-            .resolve_scale(y="independent")
-            .properties(title="Backtest Forecasts with Observations")
-        )
+        # NEW: Return the unfaceted base layer chart.
+        # The base class `get_full_plot` method will handle applying `.facet(...)` and `.resolve_scale(...)`
+        return full_layer.properties(title="Backtest Forecasts with Observations")
