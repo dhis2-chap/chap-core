@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from chap_core.database.tables import Backtest
+import itertools
 
 # Type alias for Altair chart types that plots can return
 ChartType = alt.Chart | alt.VConcatChart | alt.FacetChart | alt.LayerChart | alt.HConcatChart
@@ -84,6 +85,8 @@ class BacktestPlotBase(ABC):
     name: str = ""
     description: str = ""
     needs_historical: bool = False
+    
+    facet_dimensions: list[str] = [] 
 
     @abstractmethod
     def plot(
@@ -159,6 +162,36 @@ def backtest_plot(
         return cls
 
     return decorator
+
+    def facet_coords(
+        self,
+        observations: pd.DataFrame, 
+        forecasts: pd.DataFrame,
+        historical_observations: pd.DataFrame | None = None
+    ) -> dict[str, list[any]]
+        coords: dict[str,list[any]] = {}
+        for dim in self.facet_dimensions:
+            values = set()
+            if dim == "split_period" and "split_period" not in forecasts.columns:
+                # Derive split_period from time_period and horizon_distance
+                if "horizon_distance" in forecasts.columns and "time_period" in forecasts.columns:
+                    from chap_core.time_period import TimePeriod
+                    from chap_core.plotting.backtest_plot import clean_time
+                    for _, row in forecasts[["time_period", "horizon_distance"]].drop_duplicates().iterrows():
+                        try:
+                            tp = TimePeriod.parse(str(row["time_period"]))
+                            sp = tp - (int(row["horizon_distance"]) * tp.time_delta)
+                            values.add(clean_time(sp.to_string()))
+                        except Exception:
+                            continue
+            else:
+                for df in [observations, forecasts, historical_observations]:
+                    if df is not None and dim in df.columns:
+                        values.update(df[dim].dropna().unique())
+            coords[dim] = sorted(list(values))
+        return coords
+
+    
 
 
 def get_backtest_plots_registry() -> dict[str, type[BacktestPlotBase]]:
