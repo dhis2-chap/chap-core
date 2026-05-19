@@ -709,6 +709,36 @@ def test_delete_prediction_setup_not_found_returns_404(clean_engine, dependency_
     assert response.status_code == 404
 
 
+def test_backtest_info_exposes_prediction_setup_id_when_setup_exists(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+
+    response = client.get(f"/v1/crud/backtests/{backtest.id}/info")
+    assert response.status_code == 200, response.json()
+    assert response.json()["predictionSetupId"] is None
+
+    created = _create_prediction_setup(backtest.id, "Linked setup")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    response = client.get(f"/v1/crud/backtests/{backtest.id}/info")
+    assert response.status_code == 200, response.json()
+    assert response.json()["predictionSetupId"] == setup_id
+
+
+def test_backtest_list_exposes_prediction_setup_id(override_session, seeded_session):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Listed-link setup")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    response = client.get("/v1/crud/backtests")
+    assert response.status_code == 200, response.json()
+    matching = next(item for item in response.json() if item["id"] == backtest.id)
+    assert matching["predictionSetupId"] == setup_id
+
+
 def test_run_prediction_setup_not_found_returns_404(clean_engine, dependency_overrides, example_polygons):
     request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
     payload = request.model_dump(mode="json")

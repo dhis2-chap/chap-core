@@ -263,6 +263,7 @@ async def get_backtests(session: Session = Depends(get_session)):
         select(Backtest).options(
             selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
             selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.prediction_setup),  # type: ignore[arg-type]
         )
     ).all()
     return backtests
@@ -285,6 +286,7 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
         .options(
             selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
             selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.prediction_setup),  # type: ignore[arg-type]
         )
     ).first()
     if backtest is None:
@@ -383,6 +385,7 @@ async def update_backtest(
         .options(
             selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
             selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.prediction_setup),  # type: ignore[arg-type]
         )
     ).first()
     return db_backtest

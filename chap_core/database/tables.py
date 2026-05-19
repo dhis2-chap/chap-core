@@ -50,6 +50,14 @@ class Backtest(_BacktestRead, table=True):
         cascade_delete=True,
     )
 
+    @property
+    def prediction_setup_id(self) -> int | None:
+        # Exposed on BacktestRead so the UI can answer "does this backtest have a setup?"
+        # without a second round-trip. Requires `prediction_setup` to be eager-loaded by
+        # the caller (selectinload(Backtest.prediction_setup)) to avoid a lazy-load fail
+        # in detached-session contexts.
+        return self.prediction_setup.id if self.prediction_setup is not None else None
+
 
 class ConfiguredModelRead(ModelConfiguration, DBModel):
     name: str
@@ -108,6 +116,7 @@ class BacktestRead(_BacktestRead):
     dataset: DataSetMeta
     aggregate_metrics: dict[str, float]
     configured_model: ConfiguredModelRead | None
+    prediction_setup_id: int | None = None
 
 
 class ForecastBase(DBModel):
