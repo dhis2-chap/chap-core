@@ -226,6 +226,24 @@ def backtest_plot(
 
         return self.plot(obs_df, fc_df, hist_df)    
 
+# 4. Batch endpoint runner for complex UI canvas updates
+    def get_subplots(
+        self,
+        coords: dict[str, list[Any]],
+        observations: pd.DataFrame,
+        forecasts: pd.DataFrame,
+        historical_observations: pd.DataFrame | None = None,
+    ) -> list[tuple[dict[str, Any], alt.Chart]]:
+        import itertools
+        keys = list(coords.keys())
+        combos = list(itertools.product(*[coords[k] for k in keys]))
+        results = []
+        for combo in combos:
+            single_coord = dict(zip(keys, combo))
+            chart = self.get_subplot(single_coord, observations, forecasts, historical_observations)
+            results.append((single_coord, chart))
+        return results
+
 def get_backtest_plots_registry() -> dict[str, type[BacktestPlotBase]]:
     """
     Get the registry of all registered backtest plots.
