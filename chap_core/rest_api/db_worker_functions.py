@@ -153,6 +153,7 @@ def run_prediction(
     n_periods: int | None,
     name: str,
     session: SessionWrapper,
+    prediction_setup_id: int | None = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
@@ -171,6 +172,7 @@ def run_prediction(
         dataset_id,
         model_id,
         name,
+        prediction_setup_id=prediction_setup_id,
     )
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
@@ -233,6 +235,7 @@ def predict_pipeline_from_composite_dataset(
     prediction_params: PredictionParams,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
+    prediction_setup_id: int | None = None,
 ) -> int:
     """
     This is the main pipeline function to run prediction from a dataset.
@@ -250,6 +253,7 @@ def predict_pipeline_from_composite_dataset(
         prediction_params.n_periods,
         name,
         session,
+        prediction_setup_id=prediction_setup_id,
     )
     return result
 

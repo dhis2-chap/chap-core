@@ -309,3 +309,46 @@ def test_delete_with_missing_id_raises_not_found(engine):
     with Session(engine) as session:
         with pytest.raises(PredictionSetupNotFoundError):
             delete_prediction_setup(session, 99999)
+
+
+def test_session_wrapper_add_predictions_links_to_setup(engine):
+    """SessionWrapper.add_predictions wires prediction_setup_id through to the Prediction row.
+
+    Worker callers (run_prediction, predict_pipeline_from_composite_dataset) pass this id
+    through; the test verifies the plumbing without exercising the full forecasting pipeline.
+    """
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from chap_core.database.database import SessionWrapper
+
+    with Session(engine) as session:
+        backtest_id, _, dataset_id = _make_parents(session)
+        setup = _create_default_setup(session, backtest_id)
+        assert setup.id is not None
+        setup_id = setup.id
+
+    class _Forecast:
+        def __init__(self, periods, samples):
+            self.time_period = periods
+            self.samples = samples
+
+        def __len__(self):
+            return len(self.time_period)
+
+    fake_period = SimpleNamespace(id="2024-01")
+    predictions = {"loc_1": _Forecast([fake_period], [np.array([1.0, 2.0, 3.0])])}
+
+    with SessionWrapper(engine) as wrapper:
+        prediction_id = wrapper.add_predictions(
+            predictions,
+            dataset_id,
+            "cfg",
+            "wired",
+            prediction_setup_id=setup_id,
+        )
+
+    with Session(engine) as session:
+        prediction = session.exec(select(Prediction).where(Prediction.id == prediction_id)).one()
+        assert prediction.prediction_setup_id == setup_id
