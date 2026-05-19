@@ -55,7 +55,7 @@ def forecasts_df(flat_forecasts) -> pd.DataFrame:
     return pd.DataFrame(flat_forecasts)
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_facet_dimensions_declared_on_all_registered_plots():
     """Every registered plot class must declare its facetable dimensions."""
     registry = get_backtest_plots_registry()
@@ -69,7 +69,7 @@ def test_facet_dimensions_declared_on_all_registered_plots():
         assert all(isinstance(d, str) for d in dims)
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_facet_coords_returns_values_per_dimension(observations_df, forecasts_df):
     plotter: BacktestPlotBase = EvaluationPlot()
     coords = plotter.facet_coords(observations_df, forecasts_df)
@@ -80,14 +80,14 @@ def test_facet_coords_returns_values_per_dimension(observations_df, forecasts_df
         assert len(coords[dim]) > 0
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_get_full_plot_returns_chart(observations_df, forecasts_df):
     plotter: BacktestPlotBase = EvaluationPlot()
     chart = plotter.get_full_plot(observations_df, forecasts_df)
     assert isinstance(chart, alt.TopLevelMixin)
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_get_subplot_returns_chart_for_single_coord(observations_df, forecasts_df):
     plotter: BacktestPlotBase = EvaluationPlot()
     coords = plotter.facet_coords(observations_df, forecasts_df)
@@ -97,7 +97,7 @@ def test_get_subplot_returns_chart_for_single_coord(observations_df, forecasts_d
     assert isinstance(chart, alt.TopLevelMixin)
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_get_subplots_returns_one_chart_per_coordinate(observations_df, forecasts_df):
     plotter: BacktestPlotBase = EvaluationPlot()
     coords = plotter.facet_coords(observations_df, forecasts_df)
@@ -115,12 +115,12 @@ def test_get_subplots_returns_one_chart_per_coordinate(observations_df, forecast
 # --- EvaluationPlot-specific assertions -----------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_evaluation_plot_facet_dimensions():
     assert EvaluationPlot.facet_dimensions == ["location", "split_period"]
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_evaluation_plot_facet_coords_match_unique_df_values(
     observations_df, forecasts_df
 ):
