@@ -9,6 +9,7 @@ services:
       CELERY_BROKER: redis://redis:6379/0
       CHAP_LOGS_DIR: /data/logs
       CHAP_RUNS_DIR: /data/runs
+      CHAP_ROOT_PATH: ${CHAP_ROOT_PATH:-}
     # for now some of the tests uses hardcoded names so we need to set the container name
     # TODO: Update the tests so they don't rely on hardcoded container names
     container_name: chap
