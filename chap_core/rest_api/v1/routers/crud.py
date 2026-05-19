@@ -830,6 +830,11 @@ async def run_prediction_setup(
     provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
 
+    # Normalize dataset type server-side, matching analytics.make_prediction. Whatever the
+    # client sent in `request.type` (e.g. chap-scheduler defaults to "forecasting") gets
+    # overridden so the persisted dataset is consistently tagged "prediction" and shows
+    # up in prediction-filtered UI/queries.
+    request.type = "prediction"
     dataset_info = DataSetCreateInfo(name=request.name, type=request.type).model_dump()
     prediction_params = PredictionParams(model_id=model_id, n_periods=request.n_periods)
     job = worker.queue_db(

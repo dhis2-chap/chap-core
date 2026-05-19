@@ -807,6 +807,47 @@ def test_run_prediction_setup_rejects_legacy_fields(override_session, seeded_ses
     assert response.status_code == 422
 
 
+def test_run_prediction_setup_normalizes_dataset_type_to_prediction(
+    override_session, seeded_session, example_polygons, monkeypatch
+):
+    """Regression: chap-scheduler sends `type='forecasting'` on the wire, but the dataset
+    must be persisted with type='prediction' so it shows up alongside other prediction-
+    driven datasets in UI filters that key on the type column. Verified by intercepting
+    the worker.queue_db call and inspecting the dataset_create_info it received."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Type normalize")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    captured: dict = {}
+
+    class _FakeJob:
+        id = "captured-job"
+
+    class _CapturingWorker:
+        def queue_db(self, *args, **kwargs):
+            captured["kwargs"] = kwargs
+            return _FakeJob()
+
+    from chap_core.rest_api.v1.routers import crud
+
+    monkeypatch.setattr(crud, "worker", _CapturingWorker())
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+    payload["type"] = "forecasting"  # what chap-scheduler currently sends; should be overridden server-side
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 200, response.json()
+
+    dataset_info = captured["kwargs"]["dataset_create_info"]
+    assert dataset_info["type"] == "prediction"
+
+
 @pytest.mark.skip(
     reason=(
         "Pre-existing test-fixture mismatch: the seeded `backtest` fixture has model_id='naive_model' "
