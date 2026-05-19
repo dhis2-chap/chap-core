@@ -37,10 +37,10 @@ def upgrade() -> None:
         sa.Column("period_type", sa.String(), nullable=True),
         sa.Column("schedule_cron_expression", sa.String(), nullable=True),
         sa.Column("schedule_enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("data_import_mappings", sa.JSON(), nullable=True),
-        sa.Column("archived", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.ForeignKeyConstraint(["backtest_id"], ["backtest.id"]),
+        sa.Column("quantile_targets", sa.JSON(), nullable=True),
+        sa.ForeignKeyConstraint(["backtest_id"], ["backtest.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["configured_model_id"], ["configuredmodeldb.id"]),
+        sa.UniqueConstraint("backtest_id", name="uq_predictionsetup_backtest_id"),
     )
 
     op.add_column(
@@ -53,6 +53,7 @@ def upgrade() -> None:
         "predictionsetup",
         ["prediction_setup_id"],
         ["id"],
+        ondelete="SET NULL",
     )
 
 

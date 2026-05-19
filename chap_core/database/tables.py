@@ -44,7 +44,11 @@ class Backtest(_BacktestRead, table=True):
     aggregate_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
-    prediction_setups: list["PredictionSetup"] = Relationship(back_populates="backtest")
+    prediction_setup: Optional["PredictionSetup"] = Relationship(
+        back_populates="backtest",
+        sa_relationship_kwargs={"uselist": False},
+        cascade_delete=True,
+    )
 
 
 class ConfiguredModelRead(ModelConfiguration, DBModel):
@@ -53,13 +57,8 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
     model_template: ModelTemplateDB
 
 
-class PredictionSchedule(DBModel):
-    cron_expression: str | None = None
-    enabled: bool = False
-
-
-class DataImportMapping(DBModel):
-    quantile_key: str
+class QuantileTarget(DBModel):
+    quantile: str
     data_element_id: str
 
 
@@ -67,8 +66,8 @@ class PredictionSetup(DBModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
     name: str
     created: datetime.datetime | None = None
-    backtest_id: int = Field(foreign_key="backtest.id")
-    backtest: "Backtest" = Relationship(back_populates="prediction_setups")
+    backtest_id: int = Field(foreign_key="backtest.id", unique=True)
+    backtest: "Backtest" = Relationship(back_populates="prediction_setup")
     configured_model_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: "ConfiguredModelDB" = Relationship()
     start_period: PeriodID | None = None
@@ -80,16 +79,11 @@ class PredictionSetup(DBModel, table=True):
     period_type: str | None = None
     schedule_cron_expression: str | None = None
     schedule_enabled: bool = Field(default=False)
-    data_import_mappings: list[DataImportMapping] = Field(
+    quantile_targets: list[QuantileTarget] = Field(
         default_factory=list,
-        sa_column=Column(PydanticListType(DataImportMapping)),
+        sa_column=Column(PydanticListType(QuantileTarget)),
     )
-    archived: bool = Field(default=False)
     predictions: list["Prediction"] = Relationship(back_populates="prediction_setup")
-
-    @property
-    def schedule(self) -> PredictionSchedule:
-        return PredictionSchedule(cron_expression=self.schedule_cron_expression, enabled=self.schedule_enabled)
 
 
 class PredictionSetupRead(DBModel):
@@ -102,9 +96,9 @@ class PredictionSetupRead(DBModel):
     org_units: list[str]
     data_sources: list[DataSource]
     period_type: str | None
-    schedule: PredictionSchedule
-    data_import_mappings: list[DataImportMapping]
-    archived: bool = False
+    schedule_cron_expression: str | None
+    schedule_enabled: bool
+    quantile_targets: list[QuantileTarget]
 
 
 OldBacktestRead = _BacktestRead
