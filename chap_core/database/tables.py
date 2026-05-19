@@ -72,7 +72,7 @@ class PredictionSetup(DBModel, table=True):
     configured_model: "ConfiguredModelDB" = Relationship()
     start_period: PeriodID | None = None
     org_units: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    data_sources: list[DataSource] = Field(
+    covariate_sources: list[DataSource] = Field(
         default_factory=list,
         sa_column=Column(PydanticListType(DataSource)),
     )
@@ -94,7 +94,7 @@ class PredictionSetupRead(DBModel):
     configured_model: ConfiguredModelRead
     start_period: PeriodID | None
     org_units: list[str]
-    data_sources: list[DataSource]
+    covariate_sources: list[DataSource]
     period_type: str | None
     schedule_cron_expression: str | None
     schedule_enabled: bool

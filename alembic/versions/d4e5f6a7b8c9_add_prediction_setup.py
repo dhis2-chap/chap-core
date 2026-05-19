@@ -33,7 +33,7 @@ def upgrade() -> None:
         sa.Column("configured_model_id", sa.Integer(), nullable=False),
         sa.Column("start_period", sa.String(), nullable=True),
         sa.Column("org_units", sa.JSON(), nullable=True),
-        sa.Column("data_sources", sa.JSON(), nullable=True),
+        sa.Column("covariate_sources", sa.JSON(), nullable=True),
         sa.Column("period_type", sa.String(), nullable=True),
         sa.Column("schedule_cron_expression", sa.String(), nullable=True),
         sa.Column("schedule_enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
