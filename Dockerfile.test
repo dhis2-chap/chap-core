@@ -19,5 +19,5 @@ COPY ./example_data ./example_data
 COPY ./tests ./tests
 COPY .env* ./
 
-RUN uv sync --dev
+RUN uv sync --dev --extra explainability
 # CMD ["/app/.venv/bin/pytest", "/app/tests"]

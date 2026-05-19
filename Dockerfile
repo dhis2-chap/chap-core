@@ -29,7 +29,7 @@ COPY --chown=root:root ./config ./config
 COPY --chown=root:root ./alembic ./alembic
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev && \
+    uv sync --frozen --no-dev --extra explainability && \
     python -m compileall -q chap_core/
 
 HEALTHCHECK CMD curl --fail http://localhost:${PORT}/health || exit 1

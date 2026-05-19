@@ -23,5 +23,5 @@ COPY ./README.md .
 COPY --from=ghcr.io/astral-sh/uv:0.10 /uv /bin/uv
 
 RUN pip install --upgrade pip
-RUN uv pip install --system -e .
+RUN uv pip install --system -e ".[explainability]"
 

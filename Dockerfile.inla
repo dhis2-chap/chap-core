@@ -58,7 +58,7 @@ COPY ./README.md .
 
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --no-dev --extra explainability
 
 # Switch to non-root user
 # skipping chown because slow

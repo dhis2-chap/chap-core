@@ -34,7 +34,7 @@ COPY --chown=chap:chap ./alembic ./alembic
 
 # Install chap-core dependencies in the existing virtual environment
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev && \
+    uv sync --frozen --no-dev --extra explainability && \
     python -m compileall -q chap_core/
 
 # Create data directories and set ownership for the chap user
