@@ -50,7 +50,8 @@ Data schemas:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+import itertools
 
 import altair as alt
 
@@ -58,7 +59,6 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from chap_core.database.tables import Backtest
-import itertools
 
 # Type alias for Altair chart types that plots can return
 ChartType = alt.Chart | alt.VConcatChart | alt.FacetChart | alt.LayerChart | alt.HConcatChart
@@ -114,6 +114,101 @@ class BacktestPlotBase(ABC):
         ChartType
             Altair chart specification (Chart, VConcatChart, FacetChart, etc.)
         """
+        pass
+
+    def facet_coords(
+        self,
+        observations: pd.DataFrame, 
+        forecasts: pd.DataFrame,
+        historical_observations: pd.DataFrame | None = None
+    ) -> dict[str, list[Any]]:
+        """Returns all unique coordinates available for faceting based on data fields."""
+        coords: dict[str, list[Any]] = {}
+        for dim in self.facet_dimensions:
+            values = set()
+            if dim == "split_period" and "split_period" not in forecasts.columns:
+                if "horizon_distance" in forecasts.columns and "time_period" in forecasts.columns:
+                    from chap_core.time_period import TimePeriod
+                    from chap_core.plotting.backtest_plot import clean_time
+                    for _, row in forecasts[["time_period", "horizon_distance"]].drop_duplicates().iterrows():
+                        try:
+                            tp = TimePeriod.parse(str(row["time_period"]))
+                            sp = tp - (int(row["horizon_distance"]) * tp.time_delta)
+                            values.add(clean_time(sp.to_string()))
+                        except Exception:
+                            continue
+            else:
+                for df in [observations, forecasts, historical_observations]:
+                    if df is not None and dim in df.columns:
+                        values.update(df[dim].dropna().unique())
+            coords[dim] = sorted(list(values))
+        return coords
+
+    def get_subplot(
+        self,
+        observations: pd.DataFrame,
+        forecasts: pd.DataFrame,
+        coords: dict[str, Any],
+        historical_observations: pd.DataFrame | None = None,
+    ) -> alt.Chart:
+        """Slices data down to target coordinates for isolated rendering frames."""
+        obs_df, fc_df = observations.copy(), forecasts.copy()
+        hist_df = historical_observations.copy() if historical_observations is not None else None
+
+        # Dynamically filter any dataframe columns that match the target coordinates
+        for key, value in coords.items():
+            if key in obs_df.columns:
+                obs_df = obs_df[obs_df[key] == value]
+            if key in fc_df.columns:
+                fc_df = fc_df[fc_df[key] == value]
+            if hist_df is not None and key in hist_df.columns:
+                hist_df = hist_df[hist_df[key] == value]
+
+        return self.get_full_plot(obs_df, fc_df, hist_df)
+
+    def get_subplots(
+        self,
+        observations: pd.DataFrame,
+        forecasts: pd.DataFrame,
+        coords: dict[str, list[Any]],
+        historical_observations: pd.DataFrame | None = None,
+    ) -> list[tuple[Any, alt.Chart]]:
+        """Generates a list of subplots paired with their respective coordinate value keys."""
+        import itertools
+
+        keys = list(coords.keys())
+        value_lists = [coords[k] for k in keys]
+        
+        results = []
+        # Generate the Cartesian product of all coordinate dimension values
+        for combinations in itertools.product(*value_lists):
+            single_coord = dict(zip(keys, combinations))
+            chart = self.get_subplot(observations, forecasts, single_coord, historical_observations)
+            
+            # If there's only one facet dimension, pass the raw single value as the key.
+            # Otherwise, pass the combination tuple so it's hashable for set comparisons.
+            key = combinations[0] if len(combinations) == 1 else combinations
+            
+            results.append((key, chart))
+            
+        return results
+    
+    def get_full_plot(
+        self,
+        observations: pd.DataFrame,
+        forecasts: pd.DataFrame,
+        historical_observations: pd.DataFrame | None = None,
+    ) -> ChartType:
+        """Applies programmatic grid faceting to visual configurations on local environments."""
+        chart = self.plot(observations, forecasts, historical_observations)
+        if self.facet_dimensions:
+            facet_kwargs = {}
+            if "location" in self.facet_dimensions:
+                facet_kwargs["row"] = "location:N"
+            if "split_period" in self.facet_dimensions:
+                facet_kwargs["column"] = "split_period:O"
+            return chart.facet(**facet_kwargs).resolve_scale(y="independent")
+        return chart
 
 
 def backtest_plot(
@@ -136,17 +231,6 @@ def backtest_plot(
     needs_historical : bool, optional
         Whether this plot needs historical observations for context.
         Default is False.
-
-    Example
-    -------
-    @backtest_plot(
-        plot_id="sample_bias",
-        name="Sample Bias Plot",
-        description="Shows forecast bias relative to observations"
-    )
-    class SampleBiasPlot(BacktestPlotBase):
-        def plot(self, observations, forecasts, historical_observations=None):
-            ...
     """
 
     def decorator(cls: type[BacktestPlotBase]) -> type[BacktestPlotBase]:
@@ -163,142 +247,19 @@ def backtest_plot(
 
     return decorator
 
-    def facet_coords(
-        self,
-        observations: pd.DataFrame, 
-        forecasts: pd.DataFrame,
-        historical_observations: pd.DataFrame | None = None
-    ) -> dict[str, list[any]]
-        coords: dict[str,list[any]] = {}
-        for dim in self.facet_dimensions:
-            values = set()
-            if dim == "split_period" and "split_period" not in forecasts.columns:
-                # Derive split_period from time_period and horizon_distance
-                if "horizon_distance" in forecasts.columns and "time_period" in forecasts.columns:
-                    from chap_core.time_period import TimePeriod
-                    from chap_core.plotting.backtest_plot import clean_time
-                    for _, row in forecasts[["time_period", "horizon_distance"]].drop_duplicates().iterrows():
-                        try:
-                            tp = TimePeriod.parse(str(row["time_period"]))
-                            sp = tp - (int(row["horizon_distance"]) * tp.time_delta)
-                            values.add(clean_time(sp.to_string()))
-                        except Exception:
-                            continue
-            else:
-                for df in [observations, forecasts, historical_observations]:
-                    if df is not None and dim in df.columns:
-                        values.update(df[dim].dropna().unique())
-            coords[dim] = sorted(list(values))
-        return coords
-
-    # 3. Slice data down to target coordinate for a single clean REST API subplot
-    def get_subplot(
-        self,
-        coords: dict[str, Any],
-        observations: pd.DataFrame,
-        forecasts: pd.DataFrame,
-        historical_observations: pd.DataFrame | None = None,
-    ) -> alt.Chart:
-        obs_df, fc_df = observations.copy(), forecasts.copy()
-        hist_df = historical_observations.copy() if historical_observations is not None else None
-
-        if "location" in coords:
-            loc = coords["location"]
-            obs_df = obs_df[obs_df["location"] == loc] if "location" in obs_df.columns else obs_df
-            fc_df = fc_df[fc_df["location"] == loc] if "location" in fc_df.columns else fc_df
-            if hist_df is not None:
-                hist_df = hist_df[hist_df["location"] == loc] if "location" in hist_df.columns else hist_df
-
-        if "split_period" in coords:
-            sp = coords["split_period"]
-            if "split_period" in fc_df.columns:
-                fc_df = fc_df[fc_df["split_period"] == sp]
-            else:
-                from chap_core.time_period import TimePeriod
-                from chap_core.plotting.backtest_plot import clean_time
-                def matches(row):
-                    try:
-                        tp = TimePeriod.parse(str(row["time_period"]))
-                        return clean_time((tp - (int(row["horizon_distance"]) * tp.time_delta)).to_string()) == sp
-                    except Exception:
-                        return False
-                fc_df = fc_df[fc_df.apply(matches, axis=1)] if not fc_df.empty else fc_df
-
-        return self.plot(obs_df, fc_df, hist_df)    
-
-# 4. Batch endpoint runner for complex UI canvas updates
-    def get_subplots(
-        self,
-        coords: dict[str, list[Any]],
-        observations: pd.DataFrame,
-        forecasts: pd.DataFrame,
-        historical_observations: pd.DataFrame | None = None,
-    ) -> list[tuple[dict[str, Any], alt.Chart]]:
-        import itertools
-        keys = list(coords.keys())
-        combos = list(itertools.product(*[coords[k] for k in keys]))
-        results = []
-        for combo in combos:
-            single_coord = dict(zip(keys, combo))
-            chart = self.get_subplot(single_coord, observations, forecasts, historical_observations)
-            results.append((single_coord, chart))
-        return results
-    
-    # 5. Fallback orchestration method for the local CLI engine
-    def get_full_plot(
-        self,
-        observations: pd.DataFrame,
-        forecasts: pd.DataFrame,
-        historical_observations: pd.DataFrame | None = None,
-    ) -> ChartType:
-        chart = self.plot(observations, forecasts, historical_observations)
-        if self.facet_dimensions:
-            facet_kwargs = {}
-            if "location" in self.facet_dimensions:
-                facet_kwargs["row"] = "location:N"
-            if "split_period" in self.facet_dimensions:
-                facet_kwargs["column"] = "split_period:O"
-            return chart.facet(**facet_kwargs).resolve_scale(y="independent")
-        return chart
 
 def get_backtest_plots_registry() -> dict[str, type[BacktestPlotBase]]:
-    """
-    Get the registry of all registered backtest plots.
-
-    Returns
-    -------
-    Dict[str, Type[BacktestPlotBase]]
-        Dictionary mapping plot IDs to plot classes
-    """
+    """Get the registry of all registered backtest plots."""
     return _backtest_plots_registry.copy()
 
 
 def get_backtest_plot(plot_id: str) -> type[BacktestPlotBase] | None:
-    """
-    Get a specific backtest plot class by ID.
-
-    Parameters
-    ----------
-    plot_id : str
-        The unique identifier of the plot
-
-    Returns
-    -------
-    Optional[Type[BacktestPlotBase]]
-        The plot class, or None if not found
-    """
+    """Get a specific backtest plot class by ID."""
     return _backtest_plots_registry.get(plot_id)
 
 
 def list_backtest_plots() -> list[dict]:
-    """
-    List all registered backtest plots with their metadata.
-
-    Returns
-    -------
-    list[dict]
-        List of dicts with id, name, description, and needs_historical for each plot
-    """
+    """List all registered backtest plots with their metadata."""
     return [
         {
             "id": cls.id,
@@ -311,29 +272,7 @@ def list_backtest_plots() -> list[dict]:
 
 
 def create_plot_from_backtest(plot_id: str, backtest: Backtest) -> ChartType:
-    """
-    Create a plot from a Backtest object.
-
-    This function handles conversion from Backtest to flat DataFrames and
-    instantiates the appropriate plot class.
-
-    Parameters
-    ----------
-    plot_id : str
-        The unique identifier of the plot to create
-    backtest : Backtest
-        The backtest object containing forecast and observation data
-
-    Returns
-    -------
-    ChartType
-        The generated Altair chart
-
-    Raises
-    ------
-    ValueError
-        If the plot_id is not found in the registry
-    """
+    """Create a plot from a Backtest object."""
     from chap_core.assessment.evaluation import Evaluation
 
     plot_cls = get_backtest_plot(plot_id)
@@ -341,48 +280,22 @@ def create_plot_from_backtest(plot_id: str, backtest: Backtest) -> ChartType:
         available = ", ".join(_backtest_plots_registry.keys())
         raise ValueError(f"Unknown plot type: {plot_id}. Available: {available}")
 
-    # Convert Backtest to flat DataFrames via Evaluation
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()
 
-    # Get flat DataFrames - FlatObserved/FlatForecasts are already DataFrames
     observations_df: pd.DataFrame = flat_data.observations  # type: ignore[assignment]
     forecasts_df: pd.DataFrame = flat_data.forecasts  # type: ignore[assignment]
 
-    # Get historical observations if the plot needs them
     historical_df: pd.DataFrame | None = None
     if plot_cls.needs_historical and flat_data.historical_observations is not None:
         historical_df = flat_data.historical_observations  # type: ignore[assignment]
 
-    # Create plot instance and generate chart
     plotter = plot_cls()
-    return plotter.plot(observations_df, forecasts_df, historical_df)
+    return plotter.get_full_plot(observations_df, forecasts_df, historical_df)
 
 
 def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
-    """
-    Create a plot from an Evaluation object.
-
-    This function handles conversion from Evaluation to flat DataFrames and
-    instantiates the appropriate plot class.
-
-    Parameters
-    ----------
-    plot_id : str
-        The unique identifier of the plot to create
-    evaluation : Evaluation
-        The evaluation object containing forecast, observation, and historical data
-
-    Returns
-    -------
-    ChartType
-        The generated Altair chart
-
-    Raises
-    ------
-    ValueError
-        If the plot_id is not found in the registry
-    """
+    """Create a plot from an Evaluation object."""
     plot_cls = get_backtest_plot(plot_id)
     if plot_cls is None:
         available = ", ".join(_backtest_plots_registry.keys())
@@ -390,22 +303,17 @@ def create_plot_from_evaluation(plot_id: str, evaluation) -> ChartType:
 
     flat_data = evaluation.to_flat()
 
-    # Get flat DataFrames - FlatObserved/FlatForecasts are already DataFrames
     observations_df: pd.DataFrame = flat_data.observations  # type: ignore[assignment]
     forecasts_df: pd.DataFrame = flat_data.forecasts  # type: ignore[assignment]
 
-    # Get historical observations if the plot needs them
     historical_df: pd.DataFrame | None = None
     if plot_cls.needs_historical and flat_data.historical_observations is not None:
         historical_df = flat_data.historical_observations  # type: ignore[assignment]
 
-    # Create plot instance and generate chart
     plotter = plot_cls()
-    return plotter.plot(observations_df, forecasts_df, historical_df)
+    return plotter.get_full_plot(observations_df, forecasts_df, historical_df)
 
 
-# Import plot modules to trigger registration
-# Each plot file uses the @backtest_plot decorator which registers it
 def _discover_plots():
     """Import all plot modules to trigger decorator registration."""
     from chap_core.assessment.backtest_plots import (
