@@ -243,6 +243,23 @@ def backtest_plot(
             chart = self.get_subplot(single_coord, observations, forecasts, historical_observations)
             results.append((single_coord, chart))
         return results
+    
+    # 5. Fallback orchestration method for the local CLI engine
+    def get_full_plot(
+        self,
+        observations: pd.DataFrame,
+        forecasts: pd.DataFrame,
+        historical_observations: pd.DataFrame | None = None,
+    ) -> ChartType:
+        chart = self.plot(observations, forecasts, historical_observations)
+        if self.facet_dimensions:
+            facet_kwargs = {}
+            if "location" in self.facet_dimensions:
+                facet_kwargs["row"] = "location:N"
+            if "split_period" in self.facet_dimensions:
+                facet_kwargs["column"] = "split_period:O"
+            return chart.facet(**facet_kwargs).resolve_scale(y="independent")
+        return chart
 
 def get_backtest_plots_registry() -> dict[str, type[BacktestPlotBase]]:
     """
