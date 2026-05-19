@@ -47,7 +47,7 @@ from chap_core.database.tables import (
     PredictionSetupRead,
     PredictionSetupReadWithPredictions,
 )
-from chap_core.datatypes import FullData, HealthPopulationData
+from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from chap_core.rest_api.experimental import api_experimental
@@ -65,9 +65,12 @@ from ...data_models import (
     ModelConfigurationCreate,
     ModelTemplateRead,
     PredictionCreate,
+    PredictionParams,
     PredictionSetupCreate,
     PredictionSetupUpdate,
+    RunPredictionSetupRequest,
 )
+from .analytics import validate_full_dataset
 from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
@@ -751,6 +754,56 @@ async def delete_prediction_setup(
     except prediction_setup_service.PredictionSetupNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return {"message": "deleted"}
+
+
+@router.post(
+    "/prediction-setups/{predictionSetupId}/run",
+    response_model=JobResponse,
+    response_model_by_alias=True,
+    tags=["Prediction Setups"],
+)
+@api_experimental
+async def run_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    request: RunPredictionSetupRequest,
+    session: Session = Depends(get_session),
+    database_url: str = Depends(get_database_url),
+    worker_settings=Depends(get_settings),
+):
+    try:
+        setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    if setup.configured_model is None:
+        # Defensive: the schema makes configured_model NOT NULL via FK, so this should not happen
+        # outside of a manually-corrupted DB. Translating to a 500 keeps the contract honest.
+        raise HTTPException(status_code=500, detail="PredictionSetup has no configured_model")
+    model_id = setup.configured_model.name
+
+    feature_names = list({entry.feature_name for entry in request.provided_data})
+    dataclass = create_tsdataclass(feature_names)
+    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if "population" in feature_names:
+        provided_data = provided_data.interpolate(["population"])
+    provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
+    provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+
+    dataset_info = DataSetCreateInfo(name=request.name, type=request.type).model_dump()
+    prediction_params = PredictionParams(model_id=model_id, n_periods=request.n_periods)
+    job = worker.queue_db(
+        wf.predict_pipeline_from_composite_dataset,
+        feature_names,
+        provided_data.model_dump(),
+        request.name,
+        dataset_create_info=dataset_info,
+        prediction_params=prediction_params,
+        prediction_setup_id=prediction_setup_id,
+        database_url=database_url,
+        worker_config=worker_settings,
+        **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
+    )
+    return JobResponse(id=job.id)
 
 
 #############

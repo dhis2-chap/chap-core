@@ -185,3 +185,16 @@ class PredictionSetupUpdate(DBModel):
     schedule_cron_expression: str | None = None
     schedule_enabled: bool | None = None
     quantile_targets: list[QuantileTarget] | None = None
+
+
+class RunPredictionSetupRequest(DBModel):
+    # Reject unknown fields so legacy clients still sending dataSources /
+    # dataToBeFetched / configuredModelWithDataSourceId fail loud instead of
+    # having those fields silently dropped.
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")  # type: ignore[assignment]
+
+    name: str
+    geojson: FeatureCollectionModel
+    provided_data: list[ObservationBase]
+    type: str | None = None
+    n_periods: int = Field(default=3, gt=0)

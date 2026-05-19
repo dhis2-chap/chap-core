@@ -56,7 +56,7 @@ def make_dataset(
     and puts it in the database
     """
     feature_names, provided_data = _read_dataset(request)
-    provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
+    provided_data, rejections = validate_full_dataset(feature_names, provided_data)
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     polygon_rejected = provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
@@ -121,7 +121,7 @@ def _find_locations_with_complete_covariates(
     return locations_to_keep, rejected_list
 
 
-def _validate_full_dataset(
+def validate_full_dataset(
     feature_names, provided_data, target_name="disease_cases"
 ) -> tuple[DataSet, list[ValidationError]]:
     n_locations = len(provided_data.locations())
@@ -355,7 +355,7 @@ async def make_prediction(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    provided_data, _rejections = _validate_full_dataset(feature_names, provided_data)
+    provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
@@ -532,11 +532,11 @@ async def create_backtest_with_data(
 ):
     try:
         feature_names, provided_data_processed = _read_dataset(request)
-        provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
+        provided_data_processed, rejections = validate_full_dataset(feature_names, provided_data_processed)
     except HTTPException as exc:
         if not dry_run or exc.status_code != 400:
             raise
-        # Rejections, when present, were serialised by `_validate_full_dataset` into
+        # Rejections, when present, were serialised by `validate_full_dataset` into
         # `exc.detail["rejected"]`. The empty-`provided_data` case in `_read_dataset`
         # raises with a plain-string detail and has no rejections to recover. If
         # either helper changes its detail shape, this branch must be updated.
