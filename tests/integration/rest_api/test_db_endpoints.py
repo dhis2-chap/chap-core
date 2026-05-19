@@ -709,6 +709,46 @@ def test_delete_prediction_setup_not_found_returns_404(clean_engine, dependency_
     assert response.status_code == 404
 
 
+def test_delete_prediction_setup_sweeps_matching_job_meta_in_redis(override_session, seeded_session, monkeypatch):
+    """When deleting a setup, the router should sweep Redis job_meta:* keys for any
+    that carry the setup's id and clear them (cancelling in-flight jobs in the process)."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Sweep target")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    class _FakeRedis:
+        def __init__(self):
+            self.meta = {
+                "job_meta:job-1": {"prediction_setup_id": str(setup_id), "status": "SUCCESS"},
+                "job_meta:job-2": {"prediction_setup_id": "999", "status": "SUCCESS"},
+            }
+            self.deleted: list[str] = []
+
+        def keys(self, _pattern):
+            return list(self.meta)
+
+        def hgetall(self, key):
+            return self.meta[key]
+
+        def delete(self, key):
+            self.deleted.append(key)
+            self.meta.pop(key, None)
+            return 1
+
+    fake_redis = _FakeRedis()
+    from chap_core.rest_api.v1.routers import crud
+
+    monkeypatch.setattr(crud, "redis", fake_redis)
+
+    response = client.delete(f"/v1/crud/prediction-setups/{setup_id}")
+    assert response.status_code == 200, response.json()
+
+    assert fake_redis.deleted == ["job_meta:job-1"]
+    assert "job_meta:job-2" in fake_redis.meta
+
+
 def test_backtest_info_exposes_prediction_setup_id_when_setup_exists(override_session, seeded_session):
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None

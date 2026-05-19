@@ -21,12 +21,15 @@ worker: CeleryPool[Any] = CeleryPool()
 
 @router.get("")
 def list_jobs(
-    ids: list[str] = Query(None), status: list[str] = Query(None), job_type: str = Query(None, alias="type")
+    ids: list[str] = Query(None),
+    status: list[str] = Query(None),
+    job_type: str = Query(None, alias="type"),
+    prediction_setup_id: int | None = Query(None, alias="predictionSetupId"),
 ) -> list[JobDescription]:
     """
     List all jobs currently in the queue.
-    Optionally filters by a list of job IDs, a list of statuses, and/or a job type.
-    Filtering order: IDs, then type, then status.
+    Optionally filters by a list of job IDs, a list of statuses, a job type, and/or a
+    prediction setup id. Filtering order: IDs, then type, then predictionSetupId, then status.
     """
     jobs_to_return = worker.list_jobs()
 
@@ -37,6 +40,9 @@ def list_jobs(
     if job_type:
         type_upper = job_type.upper()
         jobs_to_return = [job for job in jobs_to_return if job.type and job.type.upper() == type_upper]
+
+    if prediction_setup_id is not None:
+        jobs_to_return = [job for job in jobs_to_return if job.prediction_setup_id == prediction_setup_id]
 
     if status:
         status_filter_set = {s.upper() for s in status}

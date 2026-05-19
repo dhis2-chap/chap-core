@@ -49,7 +49,14 @@ from chap_core.database.tables import (
 )
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.geometry import Polygons
-from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
+from chap_core.rest_api.celery_tasks import (
+    JOB_NAME_KW,
+    JOB_TYPE_KW,
+    PREDICTION_SETUP_ID_JOB_META_KEY,
+    CeleryPool,
+    JobType,
+)
+from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
 from chap_core.services import prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
@@ -746,16 +753,47 @@ async def update_prediction_setup(
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
+def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
+    """Cancel in-flight celery jobs tagged with this setup id and clear their Redis metadata.
+
+    Called before deleting a PredictionSetup so a still-running job doesn't try to write
+    `Prediction.prediction_setup_id=<deleted_id>` and fail the FK insert. Best-effort —
+    a Redis outage logs a warning rather than blocking the delete.
+    """
+    try:
+        keys: list[str] = redis.keys("job_meta:*")  # type: ignore[assignment]
+        for key in keys:
+            meta: dict[str, str] = redis.hgetall(key)  # type: ignore[assignment]
+            if meta.get(PREDICTION_SETUP_ID_JOB_META_KEY) != str(prediction_setup_id):
+                continue
+            task_id = key.split(":", 1)[1]
+            if meta.get("status", "").lower() in {"pending", "started", "running"}:
+                try:
+                    worker.get_job(task_id).cancel()
+                except Exception:
+                    logger.warning(
+                        "Failed to cancel job %s for prediction setup %d", task_id, prediction_setup_id, exc_info=True
+                    )
+            redis.delete(key)
+    except Exception:
+        logger.warning("Failed to sweep job metadata for prediction setup %d", prediction_setup_id, exc_info=True)
+
+
 @router.delete("/prediction-setups/{predictionSetupId}", tags=["Prediction Setups"])
 @api_experimental
 async def delete_prediction_setup(
     prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     session: Session = Depends(get_session),
 ):
+    # Verify existence first so a 404 doesn't waste a Redis sweep, then cancel in-flight
+    # jobs BEFORE the DB delete — otherwise a still-running job would try to write
+    # Prediction.prediction_setup_id=<deleted_id> and fail the FK insert.
     try:
-        prediction_setup_service.delete_prediction_setup(session, prediction_setup_id)
+        prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
     except prediction_setup_service.PredictionSetupNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    _cancel_jobs_for_prediction_setup(prediction_setup_id)
+    prediction_setup_service.delete_prediction_setup(session, prediction_setup_id)
     return {"message": "deleted"}
 
 
