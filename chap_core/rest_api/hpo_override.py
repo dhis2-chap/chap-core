@@ -12,10 +12,14 @@ if TYPE_CHECKING:
 
 class HpoOverride:
     HPO_SUFFIX = ":hpo"
-    HPO_DISPLAY_SUFFIX = "[Hpo]"
+    _HPO_DISPLAY_SUFFIX = "[Hpo]"
 
     def __init__(self) -> None:
         self._seen_model_template_ids: set[int] = set()
+
+    @classmethod
+    def is_hpo_model_name(cls, model_name: str | None) -> bool:
+        return model_name is not None and model_name.endswith(cls.HPO_SUFFIX)
 
     def seed_hpo_model_hack(
         self,
@@ -38,7 +42,7 @@ class HpoOverride:
         if (
             model_template_db.display_name != "No Display Name Yet"
         ):  # change to check whether it matches default rather than hardcoded str
-            hpo_data["display_name"] = f"{model_template_db.display_name} {self.HPO_DISPLAY_SUFFIX}"
+            hpo_data["display_name"] = f"{model_template_db.display_name} {self._HPO_DISPLAY_SUFFIX}"
 
         return hpo_data
 

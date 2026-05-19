@@ -19,6 +19,8 @@ from chap_core.rest_api.data_models import BackTestFull, DatasetMakeRequest, Fet
 from chap_core.rest_api.app import app
 from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
 from chap_core.rest_api.v1.routers.crud import DatasetCreate, ModelConfigurationCreate, ModelTemplateRead
+from chap_core.rest_api.hpo_override import HpoOverride
+from chap_core.hpo.hpoModel import HpoModel
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -481,15 +483,48 @@ def test_backtest_with_weekly_data_flow(
 
 @pytest.mark.parametrize("dry_run", [False, True])
 def test_backtest_with_data_hpo_flow(
-    celery_session_worker, dependency_overrides, create_backtest_with_data_request, dry_run
+    celery_session_worker, dependency_overrides, create_backtest_with_data_request, monkeypatch, dry_run
 ):
+    calls: dict[str, Any] = {
+        "get_hpo_configured_model_and_estimator": 0,
+        "hpo_train": 0,
+        "returned_estimator": None,
+        "trained_estimator": None,
+    }
+    original_get_hpo = HpoOverride.get_hpo_configured_model_and_estimator
+    original_hpo_train = HpoModel.train
+
+    def spy_get_hpo_configured_model_and_estimator(cls, model_id: str, session):
+        configured_model, estimator = original_get_hpo(
+            model_id=model_id,
+            session=session,
+        )
+        calls["get_hpo_configured_model_and_estimator"] += 1
+        calls["returned_estimator"] = estimator
+        assert isinstance(estimator, HpoModel)
+        return configured_model, estimator
+
+    def spy_hpo_train(self, dataset):
+        calls["hpo_train"] += 1
+        calls["trained_estimator"] = self
+        return original_hpo_train(self, dataset)
+
+    monkeypatch.setattr(
+        HpoOverride,
+        "get_hpo_configured_model_and_estimator",
+        classmethod(spy_get_hpo_configured_model_and_estimator),
+    )
+    monkeypatch.setattr(
+        HpoModel,
+        "train",
+        spy_hpo_train,
+    )
     models_response = client.get("/v1/crud/configured-models")
-    assert models_response.status_code == 200, models_responset.json()
+    assert models_response.status_code == 200, models_response.json()
     models = [ModelSpecRead.model_validate(m) for m in models_response.json()]
-    hpo_models = [m for m in models if m.name.endswith(":hpo")]
-    assert hpo_models, "Expected at least one configured model with name ending with ':hpo'"
+    hpo_models = [m for m in models if HpoOverride.is_hpo_model_name(m.name)]
+    assert hpo_models, f"Expected at least one configured model with name ending with '{HpoOverride.HPO_SUFFIX}'"
     hpo_model = hpo_models[0]
-    # get_configured_models creates HPO frontedn models with names like '<model_name>:hpo'
     request_payload = create_backtest_with_data_request.model_dump()
     request_payload["model_id"] = hpo_model.name
     _check_backtest_with_data(
@@ -497,6 +532,16 @@ def test_backtest_with_data_hpo_flow(
         expected_rejections=[],
         dry_run=dry_run,
     )
+    if dry_run:
+        assert calls["get_hpo_configured_model_and_estimator"] == 0
+        assert calls["hpo_train"] == 0
+        assert calls["returned_estimator"] is None
+        assert calls["trained_estimator"] is None
+    else:
+        assert calls["get_hpo_configured_model_and_estimator"] == 1
+        assert calls["hpo_train"] == 1
+        assert calls["returned_estimator"] is not None
+        assert calls["trained_estimator"] is calls["returned_estimator"]
 
 
 @pytest.fixture()

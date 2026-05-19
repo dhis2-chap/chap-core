@@ -91,8 +91,7 @@ def run_backtest(
 
     # hpo logic
     assert isinstance(info.model_id, str), "model_id for hpo models must be a string"
-    if info.model_id is not None and info.model_id.endswith(":hpo"):
-        assert isinstance(info.model_id, str)
+    if HpoOverride.is_hpo_model_name(info.model_id):
         configured_model, estimator = HpoOverride.get_hpo_configured_model_and_estimator(
             model_id=info.model_id,
             session=session,
