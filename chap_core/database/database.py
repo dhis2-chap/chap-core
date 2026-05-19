@@ -422,7 +422,6 @@ class SessionWrapper:
         model_id,
         name,
         metadata: dict | None = None,
-        configured_model_with_data_source_id: int | None = None,
     ):
         if metadata is None:
             metadata = {}
@@ -445,7 +444,6 @@ class SessionWrapper:
             forecasts=samples_,
             org_units=org_units,
             model_db_id=model_db_id,
-            configured_model_with_data_source_id=configured_model_with_data_source_id,
         )
         self.session.add(prediction)
         self.session.commit()
