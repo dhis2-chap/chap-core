@@ -13,13 +13,12 @@ if TYPE_CHECKING:
     from chap_core.assessment.backtest_plots import ChartType
 
 
-def _chart_for_location(evaluation, location: str, title: str) -> ChartType:
-    flat = evaluation.to_flat()
-    obs = pd.DataFrame(flat.observations)
-    forecasts = pd.DataFrame(flat.forecasts)
+def _chart_for_location(flat_evaluation, location: str, title: str) -> ChartType:
+    obs = pd.DataFrame(flat_evaluation.observations)
+    forecasts = pd.DataFrame(flat_evaluation.forecasts)
     historical = None
-    if flat.historical_observations is not None:
-        hist = pd.DataFrame(flat.historical_observations)
+    if flat_evaluation.historical_observations is not None:
+        hist = pd.DataFrame(flat_evaluation.historical_observations)
         loc_hist = hist[hist["location"] == location]
         historical = loc_hist if not loc_hist.empty else None
     return (
@@ -40,11 +39,13 @@ def plot_counterfactual(
 ) -> ChartType:
     """Return a per-location vconcat of side-by-side Altair charts comparing original vs counterfactual."""
     locations = sorted(pd.DataFrame(eval_original.to_flat().observations)["location"].unique())
+    flat_evaluation = eval_original.to_flat()
+    flat_evaluation_cf = eval_cf.to_flat()
 
     rows = []
     for loc in locations:
-        orig_chart = _chart_for_location(eval_original, loc, "Original")
-        cf_chart = _chart_for_location(eval_cf, loc, "Counterfactual")
+        orig_chart = _chart_for_location(flat_evaluation, loc, "Original")
+        cf_chart = _chart_for_location(flat_evaluation_cf, loc, "Counterfactual")
         rows.append(alt.hconcat(orig_chart, cf_chart).resolve_scale(y="shared"))
 
     subtitle = f" ({', '.join(counterfactual_columns)})" if counterfactual_columns else ""

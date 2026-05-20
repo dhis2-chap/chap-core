@@ -1,6 +1,5 @@
 import pandas as pd
 import pytest
-from xarray import plot
 
 from chap_core.cli_endpoints.causal import causal_cmd
 
