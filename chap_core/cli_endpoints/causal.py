@@ -10,6 +10,12 @@ import pandas as pd
 from cyclopts import Parameter
 
 from chap_core.api_types import RunConfig
+from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+    DatasetCsvArg,
+    ModelConfigYamlArg,
+    ModelNameArg,
+    RunConfigArg,
+)
 from chap_core.cli_endpoints._common import (
     discover_geojson,
     get_estimator,
@@ -48,8 +54,8 @@ def _validate_datasets(original_df: pd.DataFrame, cf_df: pd.DataFrame, counterfa
 
 
 def causal_cmd(
-    model_name: Annotated[str, Parameter(help="Model path (local directory), GitHub URL, or chapkit service URL")],
-    dataset_csv: Annotated[str, Parameter(help="Path or URL to the original dataset CSV")],
+    model_name: ModelNameArg,
+    dataset_csv: DatasetCsvArg,
     counterfactual_csv: Annotated[str, Parameter(help="Path or URL to the counterfactual dataset CSV")],
     counterfactual_columns: Annotated[list[str], Parameter(help="Column names that hold counterfactual values")],
     split_period: Annotated[
@@ -60,14 +66,8 @@ def causal_cmd(
         Path,
         Parameter(help="Path for original predictions NetCDF file; counterfactual saved to {stem}_cf.nc"),
     ],
-    run_config: Annotated[
-        RunConfig,
-        Parameter(help="Model execution configuration"),
-    ] = RunConfig(),
-    model_configuration_yaml: Annotated[
-        Path | None,
-        Parameter(help="Path to YAML file with model-specific configuration parameters"),
-    ] = None,
+    run_config: RunConfigArg = RunConfig(),
+    model_configuration_yaml: ModelConfigYamlArg = None,
 ):
     """Train a model on the original dataset up to split_period and predict on both datasets.
 
