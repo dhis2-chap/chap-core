@@ -18,13 +18,13 @@ class Objective:
         self,
         model_template: ModelTemplate,
         backtest_params: BacktestParams,
-        metric: str = "rmse",
+        metric: str | None = None,
         historical_context_years: int = 6,
         eval_output_dir: Path | None = None,
     ):
         self.model_template = model_template
         self.backtest_params = backtest_params
-        self.metric = metric
+        self.metric = metric if metric is not None else "rmse"
         self.historical_context_years = historical_context_years
         self.eval_output_dir = eval_output_dir
 

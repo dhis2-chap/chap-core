@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from chap_core.api_types import BacktestParams
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.hpo.hpoModel import HpoModel
-    from chap_core.hpo.searcher import Searcher
     from chap_core.models.external_model import ExternalModel
     from chap_core.models.model_template import ModelTemplate
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -260,11 +259,11 @@ def get_hpo_estimator(
     """
     import yaml
 
+    from chap_core.api_types import SearcherType
     from chap_core.hpo.base import load_search_space_from_config
     from chap_core.hpo.hpoModel import HpoModel
     from chap_core.hpo.objective import Objective
-    from chap_core.hpo.searcher import GridSearcher, RandomSearcher, TPESearcher, DEFAULT_SEARCH_TRIALS
-    from chap_core.api_types import SearcherType
+    from chap_core.hpo.searcher import DEFAULT_SEARCH_TRIALS, GridSearcher, RandomSearcher, Searcher, TPESearcher
 
     if model_configuration_yaml is not None:
         logger.info(f"Loading model configuration from {model_configuration_yaml}")
@@ -276,19 +275,14 @@ def get_hpo_estimator(
         config = template.model_template_config.hpo_search_space
 
     search_space = load_search_space_from_config(config)
-    objective = Objective(template, backtest_params, metric)
-    searcher = None
+    objective = Objective(model_template=template, backtest_params=backtest_params, metric=metric)
+    searcher: Searcher | None = None
     if searcher_inp is not None:
         if searcher_inp == SearcherType.GRID:
             searcher = GridSearcher()
         elif searcher_inp == SearcherType.RANDOM:
             searcher = RandomSearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
         elif searcher_inp == SearcherType.TPE:
-            searcher = TPESearcher(DEFAULT_SEARCH_TRIALS) # TODO: make number of iterations configurable
+            searcher = TPESearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
 
-    return HpoModel(
-        objective=objective,
-        searcher=searcher,
-        direction="minimize", 
-        model_configuration=search_space
-    )
+    return HpoModel(objective=objective, searcher=searcher, direction="minimize", model_configuration=search_space)

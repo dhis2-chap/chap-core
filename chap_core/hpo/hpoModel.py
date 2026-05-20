@@ -7,7 +7,7 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from .base import write_yaml
 from .hpoModelInterface import HpoModelInterface
 from .objective import Objective
-from .searcher import Searcher, RandomSearcher, DEFAULT_SEARCH_TRIALS
+from .searcher import DEFAULT_SEARCH_TRIALS, RandomSearcher, Searcher
 
 Direction = Literal["maximize", "minimize"]
 
@@ -28,7 +28,7 @@ class HpoModel(HpoModelInterface):
             raise ValueError("direction must be 'maximize' or 'minimize'")
 
         self._objective = objective
-        self._searcher = searcher if searcher is not None else RandomSearcher(DEFAULT_SEARCH_TRIALS) 
+        self._searcher = searcher if searcher is not None else RandomSearcher(DEFAULT_SEARCH_TRIALS)
         self._direction = direction
         self.base_configs = model_configuration
         self._best_config: dict[str, dict[str, Any]] | None = None
@@ -69,7 +69,7 @@ class HpoModel(HpoModelInterface):
         best_score = float("inf") if self._direction == "minimize" else float("-inf")
         best_params: dict[str, Any] = {}
         self._leaderboard = []
-        
+
         self._searcher.reset(self.base_configs)
         while True:
             params = self._searcher.ask()

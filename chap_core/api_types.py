@@ -134,10 +134,12 @@ class EstimatorMode(StrEnum):
     HPO = "hpo"
     ENSEMBLE = "ensemble"
 
+
 class SearcherType(StrEnum):
     GRID = "grid"
     RANDOM = "random"
     TPE = "tpe"
+
 
 class EstimatorOptions(BaseModel):
     mode: EstimatorMode = Field(
