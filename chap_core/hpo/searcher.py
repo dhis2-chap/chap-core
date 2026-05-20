@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 _TRIAL_ID_KEY = "_trial_id"  # reserved key we inject into params
+DEFAULT_SEARCH_TRIALS = 3
 
 
 class Searcher:
@@ -132,7 +133,7 @@ class TPESearcher(Searcher):
     - Int(low, high, step>1, log=bool) -> IntDistribution
     """
 
-    def __init__(self, direction: str = "minimize", max_trials: int | None = None):
+    def __init__(self, max_trials: int, direction: str = "minimize"):
         if direction not in ("maximize", "minimize"):
             raise ValueError("direction must be 'maximize' or 'minimize'")
         self.direction = direction

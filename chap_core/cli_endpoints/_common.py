@@ -250,8 +250,8 @@ def get_hpo_estimator(
     template: ModelTemplate,
     model_configuration_yaml: Path | None,
     backtest_params: BacktestParams,
-    metric: str,
-    searcher: Searcher | None = None,
+    metric: str | None = None,
+    searcher_inp: str | None = None,
 ) -> HpoModel:
     """
     Build an HPO-backend estimator from either:
@@ -263,7 +263,8 @@ def get_hpo_estimator(
     from chap_core.hpo.base import load_search_space_from_config
     from chap_core.hpo.hpoModel import HpoModel
     from chap_core.hpo.objective import Objective
-    from chap_core.hpo.searcher import RandomSearcher
+    from chap_core.hpo.searcher import GridSearcher, RandomSearcher, TPESearcher, DEFAULT_SEARCH_TRIALS
+    from chap_core.api_types import SearcherType
 
     if model_configuration_yaml is not None:
         logger.info(f"Loading model configuration from {model_configuration_yaml}")
@@ -276,9 +277,18 @@ def get_hpo_estimator(
 
     search_space = load_search_space_from_config(config)
     objective = Objective(template, backtest_params, metric)
+    searcher = None
+    if searcher_inp is not None:
+        if searcher_inp == SearcherType.GRID:
+            searcher = GridSearcher()
+        elif searcher_inp == SearcherType.RANDOM:
+            searcher = RandomSearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
+        elif searcher_inp == SearcherType.TPE:
+            searcher = TPESearcher(DEFAULT_SEARCH_TRIALS) # TODO: make number of iterations configurable
 
-    # Seacher object can be passed as argument: searcher: Searcher | None = None,
-    # return HpoModel(searcher or RandonSearcher(2) ...)
-    if searcher is None:
-        searcher = RandomSearcher(3)
-    return HpoModel(searcher, objective, "minimize", search_space)
+    return HpoModel(
+        objective=objective,
+        searcher=searcher,
+        direction="minimize", 
+        model_configuration=search_space
+    )

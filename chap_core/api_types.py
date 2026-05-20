@@ -134,15 +134,21 @@ class EstimatorMode(StrEnum):
     HPO = "hpo"
     ENSEMBLE = "ensemble"
 
+class SearcherType(StrEnum):
+    GRID = "grid"
+    RANDOM = "random"
+    TPE = "tpe"
 
 class EstimatorOptions(BaseModel):
     mode: EstimatorMode = Field(
         default=EstimatorMode.NORMAL,
-        description=(
-            "Estimator mode: 'normal' = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning."
-        ),
+        description="Estimator mode: 'normal' = normal run, 'hpo' = hyperparameter optimization, 'ensemble' = ensemble learning.",
     )
     metric: str | None = Field(
-        default="rmse",
-        description="Metric used for HPO or ensemble. Ignored in normal mode.",
+        default=None,
+        description="Metric used for HPO or ensemble. Default will be used if none provided. Ignored in normal mode.",
+    )
+    searcher: SearcherType | None = Field(
+        default=None,
+        description="Searcher used for HPO. If not provided, a default RandomSearcher will be used. Ignored in normal and ensemble modes.",
     )
