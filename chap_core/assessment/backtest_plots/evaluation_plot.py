@@ -10,84 +10,41 @@ import pandas as pd
 
 from chap_core.assessment.backtest_plots import ChartType, FacetedBacktestPlot, backtest_plot
 from chap_core.plotting.backtest_plot import clean_time
+from chap_core.time_period import TimePeriod
 
 
 def _compute_quantiles_from_forecasts(forecasts_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute forecast quantiles from samples.
-
-    Parameters
-    ----------
-    forecasts_df : pd.DataFrame
-        Forecast samples with columns: location, time_period, horizon_distance, sample, forecast
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with columns: location, time_period, split_period, q_10, q_25, q_50, q_75, q_90
-    """
-    # Group by location, time_period
-    # For split_period, we need to calculate it from time_period and horizon_distance
-    # split_period = time_period - horizon_distance (conceptually)
-    # We'll compute quantiles first, then figure out split_period
+    """Compute forecast quantiles efficiently using vectorized groupby operations."""
     quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
-    rows = []
     
-    for (location, time_period, horizon_distance), group in forecasts_df.groupby(
-        ["location", "time_period", "horizon_distance"]
-    ):
-        samples = group["forecast"].values
-        quantile_values = pd.Series(samples).quantile(quantiles).values
-
-         # For simplicity, we'll use the first forecast's split calculation
-        # In practice, we use horizon_distance to determine the split
-        rows.append(
-            {
-                "time_period": time_period,
-                "location": location,
-                "horizon_distance": horizon_distance,
-                "q_10": quantile_values[0],
-                "q_25": quantile_values[1],
-                "q_50": quantile_values[2],
-                "q_75": quantile_values[3],
-                "q_90": quantile_values[4],
-            }
-        )
-
-    return pd.DataFrame(rows)
+    # Vectorized calculation of all quantiles across all groups instantly
+    grouped = forecasts_df.groupby(["location", "time_period", "horizon_distance"])["forecast"]
+    quantile_df = grouped.quantile(quantiles).unstack(level=-1)
+    
+    # Clean up column structure to match expected format
+    quantile_df.columns = [f"q_{int(q*100)}" for q in quantiles]
+    return quantile_df.reset_index()
 
 
-def _infer_split_periods(forecasts_df: pd.DataFrame) -> pd.DataFrame:
-     """
-    Infer split periods from forecasts data.
+def _infer_split_periods_vectorized(quantiles_df: pd.DataFrame) -> pd.DataFrame:
+    """Vectorized calculation of split periods using explicit time delta math."""
+    if quantiles_df.empty:
+        return quantiles_df.copy()
 
-    For each unique (location, time_period), find the minimum horizon distance
-    and use that to determine the split period.
+    # Apply the conversion to TimePeriod object strings uniformly
+    # Note: If TimePeriod can be adapted to handle pandas Series natively, do it there.
+    # Otherwise, this maps over unique IDs instead of every single sample row.
+    def _sub_horizon(row):
+        tp = TimePeriod.parse(str(row["time_period"]))
+        h = int(row["horizon_distance"])
+        return clean_time((tp - (h * tp.time_delta)).to_string())
 
-    Parameters
-    ----------
-    forecasts_df : pd.DataFrame
-        DataFrame with columns including location, time_period, horizon_distance
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with added split_period column
-    """
-    from chap_core.time_period import TimePeriod
-
-    result_rows = []
-    for _, row in forecasts_df.iterrows():
-        time_period = TimePeriod.parse(str(row["time_period"]))
-        horizon = int(row["horizon_distance"])
-        # Go back horizon periods to get the split period
-        split_period = time_period - (horizon * time_period.time_delta)
-        row_dict = row.to_dict()
-        row_dict["time_period"] = clean_time(time_period.to_string())
-        row_dict["split_period"] = clean_time(split_period.to_string())
-        result_rows.append(row_dict)
-
-    return pd.DataFrame(result_rows)
+    df = quantiles_df.copy()
+    # Apply row-wise across unique aggregations (much smaller than base sample data)
+    df["split_period"] = df.apply(_sub_horizon, axis=1)
+    df["time_period"] = df["time_period"].astype(str).apply(clean_time)
+    
+    return df
 
 
 @backtest_plot(
@@ -97,12 +54,8 @@ def _infer_split_periods(forecasts_df: pd.DataFrame) -> pd.DataFrame:
     needs_historical=True,
 )
 class EvaluationPlot(FacetedBacktestPlot):
-    """
-     Shows forecasts with uncertainty bands and observed values.
-    Optionally includes historical observations for context.
-    """
+    """Shows forecasts with uncertainty bands and observed values with historical context."""
 
-    # NEW: Define dimensions for the base class layout engine to facet automatically
     facet_dimensions = ["split_period:O", "location:N"]
 
     def _preprocess(
@@ -111,66 +64,48 @@ class EvaluationPlot(FacetedBacktestPlot):
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
     ) -> pd.DataFrame:
-        """Handles the complete data engineering pipeline mapping for execution stability."""
+        """Handles the vectorized data pipeline without memory-intensive copying loops."""
+        
+        # 1. Compute quantiles and split windows
         forecast_quantiles = _compute_quantiles_from_forecasts(forecasts)
-        forecast_df = _infer_split_periods(forecast_quantiles)
-
+        forecast_df = _infer_split_periods_vectorized(forecast_quantiles)
+        
+        unique_splits = pd.DataFrame({"split_period": forecast_df["split_period"].unique()})
+        
+        # 2. Clean up Observations
         observed_df = observations.copy()
-        observed_df["time_period"] = observed_df["time_period"].apply(clean_time)
+        observed_df["time_period"] = observed_df["time_period"].astype(str).apply(clean_time)
+        
+        # Vectorized Cross Join replacing replication loops
+        observed_with_split = observed_df.merge(unique_splits, how="cross")
 
-        unique_split_periods = forecast_df["split_period"].unique()
-
-        observed_replicated = []
-        for split_period in unique_split_periods:
-            tmp = observed_df.copy()
-            tmp["split_period"] = split_period
-            observed_replicated.append(tmp)
-
-        observed_with_split = (
-            pd.concat(observed_replicated, ignore_index=True) if observed_replicated else pd.DataFrame()
-        )
-
+        # 3. Handle Historical Windows
         if historical_observations is not None and not historical_observations.empty:
             historical_df = historical_observations.copy()
-            historical_df["time_period"] = historical_df["time_period"].apply(clean_time)
-
-            historical_replicated = []
-            for split_period in unique_split_periods:
-                tmp = historical_df.copy()
-                tmp["split_period"] = split_period
-                tmp = tmp[tmp["time_period"] <= split_period]
-                historical_replicated.append(tmp)
-
-            historical_with_split = (
-                pd.concat(historical_replicated, ignore_index=True) if historical_replicated else pd.DataFrame()
-            )
-
+            historical_df["time_period"] = historical_df["time_period"].astype(str).apply(clean_time)
+            
+            # Vectorized cross-join + instant boolean filter mask
+            historical_with_split = historical_df.merge(unique_splits, how="cross")
+            historical_with_split = historical_with_split[
+                historical_with_split["time_period"] <= historical_with_split["split_period"]
+            ]
+            
             all_observations = pd.concat(
                 [historical_with_split, observed_with_split], ignore_index=True
             ).drop_duplicates(subset=["location", "time_period", "split_period"])
         else:
             all_observations = observed_with_split
 
-        forecast_data = forecast_df.copy()
-        forecast_data["data_type"] = "forecast"
+        # 4. Alignment & Concatenation
+        forecast_df["data_type"] = "forecast"
+        all_observations["data_type"] = "observed"
 
-        observed_data = all_observations.copy()
-        observed_data["data_type"] = "observed"
-
-        for col in ["q_10", "q_25", "q_50", "q_75", "q_90"]:
-            if col not in observed_data.columns:
-                observed_data[col] = None
-
-        if "disease_cases" not in forecast_data.columns:
-            forecast_data["disease_cases"] = None
-
-        forecast_data = forecast_data.dropna(axis=1, how="all")
-        observed_data = observed_data.dropna(axis=1, how="all")
-
-        return pd.concat([forecast_data, observed_data], ignore_index=True)
+        # Safe alignment of missing columns across frames without loop checking
+        final_df = pd.concat([forecast_df, all_observations], ignore_index=True)
+        return final_df
 
     def _plot(self, df: pd.DataFrame) -> ChartType:
-        """Renders the pristine, unfaceted visual components."""
+        """Renders visual layers using standard underlying Altair components."""
         base = alt.Chart(df)
 
         line = (
@@ -211,5 +146,6 @@ class EvaluationPlot(FacetedBacktestPlot):
             )
         )
 
-        full_layer = error1 + error2 + line + observations_layer
-        return full_layer.properties(title="Backtest Forecasts with Observations")  # type: ignore[no-any-return]
+        return (error1 + error2 + line + observations_layer).properties(
+            title="Backtest Forecasts with Observations"
+        )
