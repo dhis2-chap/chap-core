@@ -113,6 +113,7 @@ def eval_cmd(
     from chap_core.log_config import initialize_logging
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
+    from chap_core.rest_api.db_worker_functions import validate_and_filter_dataset_for_evaluation
 
     # The same can be done for backtest_params and run_config,
     # or have them depend on cyclopts
@@ -134,6 +135,14 @@ def eval_cmd(
     csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
     geojson_path = url_geojson_path or discover_geojson(csv_path)
     dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
+
+    dataset = validate_and_filter_dataset_for_evaluation(
+        dataset,
+        target_name="disease_cases",
+        n_periods=backtest_params.n_periods,
+        n_splits=backtest_params.n_splits,
+        stride=backtest_params.stride,
+    )
 
     if dry_run and estimator_options.mode != EstimatorMode.NORMAL:
         logger.warning(

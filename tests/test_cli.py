@@ -191,6 +191,39 @@ def test_eval_cmd_does_not_wrap_when_bounds_unspecified(tmp_path):
     assert forwarded is fake_estimator
 
 
+def test_eval_cmd_drops_regions_with_no_disease_cases(tmp_path):
+    """Regions whose entire training-period disease_cases is NaN must be dropped before
+    the backtest runs, matching the REST API's pre-backtest filtering."""
+    import numpy as np
+
+    from chap_core.api_types import BacktestParams, RunConfig
+    from chap_core.datatypes import HealthData
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+    from chap_core.time_period import PeriodRange
+
+    period_range = PeriodRange.from_strings([f"2023-{m:02d}" for m in range(1, 13)])
+    valid = HealthData(time_period=period_range, disease_cases=np.arange(1, 13, dtype=float))
+    nan_region = HealthData(time_period=period_range, disease_cases=np.full(12, np.nan))
+    dataset = DataSet({"valid_region": valid, "nan_region": nan_region})
+
+    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    stack, eval_mock = _patched_eval_chain(fake_estimator)
+    stack.enter_context(patch("chap_core.cli_endpoints.evaluate.load_dataset_from_csv", return_value=dataset))
+    with stack:
+        eval_cmd(
+            model_name="dummy",
+            dataset_csv="dummy.csv",
+            output_file=tmp_path / "out.nc",
+            backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+            run_config=RunConfig(),
+        )
+
+    forwarded = eval_mock.create.call_args.kwargs["dataset"]
+    locations = list(forwarded.locations())
+    assert "nan_region" not in locations
+    assert "valid_region" in locations
+
+
 def test_eval_cmd_with_data_source_mapping(tmp_path):
     import json
 
