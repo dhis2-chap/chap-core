@@ -102,11 +102,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
         clean_dims = [dim.split(":", 1)[0] for dim in self.facet_dimensions]
 
         # Fix C414: Avoid passing list() to sorted() on unique array elements
-        return {
-            col: sorted(df[col].dropna().unique())
-            for col in clean_dims
-            if col in df.columns
-        }
+        return {col: sorted(df[col].dropna().unique()) for col in clean_dims if col in df.columns}
 
     def get_subplot(
         self,
@@ -130,7 +126,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
         historical_observations: pd.DataFrame | None = None,
     ) -> list[tuple[Any, ChartType]]:
         """Generates subplots mapped directly against their Cartesian matrix values."""
-        #Pre process once to get the full dataframe, then filter for each subplot to avoid redundant preprocessing
+        # Pre process once to get the full dataframe, then filter for each subplot to avoid redundant preprocessing
         df_preprocessed = self._preprocess(observations, forecasts, historical_observations)
 
         keys = list(coords.keys())
@@ -138,7 +134,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
         results = []
 
         for combination in itertools.product(*value_lists):
-            single_coords = dict(zip(keys, combination,strict=True))
+            single_coords = dict(zip(keys, combination, strict=True))
 
             df_filtered = df_preprocessed
             for col, value in single_coords.items():
@@ -173,6 +169,7 @@ def backtest_plot(
     needs_historical: bool = False,
 ):
     """Decorator to register a backtest plot class."""
+
     def decorator(cls: type[BacktestPlotBase]) -> type[BacktestPlotBase]:
         if not issubclass(cls, BacktestPlotBase):
             raise TypeError(f"{cls.__name__} must inherit from BacktestPlotBase")

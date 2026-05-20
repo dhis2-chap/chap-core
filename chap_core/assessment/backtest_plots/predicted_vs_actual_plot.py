@@ -74,8 +74,7 @@ def build_predicted_vs_actual_chart(
     )
 
     return (  # type: ignore[no-any-return]
-    alt.layer(scatter, identity_line, data=merged)
-    .properties(width=250, height=250, title=title)
+        alt.layer(scatter, identity_line, data=merged).properties(width=250, height=250, title=title)
     )
 
 

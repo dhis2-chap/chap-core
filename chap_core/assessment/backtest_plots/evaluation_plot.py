@@ -22,7 +22,7 @@ def _compute_quantiles_from_forecasts(forecasts_df: pd.DataFrame) -> pd.DataFram
     quantile_df = grouped.quantile(quantiles).unstack(level=-1)
 
     # Clean up column structure to match expected format
-    quantile_df.columns = [f"q_{int(q*100)}" for q in quantiles]
+    quantile_df.columns = [f"q_{int(q * 100)}" for q in quantiles]
     return quantile_df.reset_index()
 
 
@@ -146,6 +146,4 @@ class EvaluationPlot(FacetedBacktestPlot):
             )
         )
 
-        return (error1 + error2 + line + observations_layer).properties(
-            title="Backtest Forecasts with Observations"
-        )
+        return (error1 + error2 + line + observations_layer).properties(title="Backtest Forecasts with Observations")
