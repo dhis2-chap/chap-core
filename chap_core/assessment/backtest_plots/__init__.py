@@ -157,9 +157,19 @@ class FacetedBacktestPlot(BacktestPlotBase):
         if not self.facet_dimensions:
             return chart
 
-        # Fix B905: Explicitly define strict behavior for structural truncations
-        kwargs = dict(zip(["column", "row"], self.facet_dimensions, strict=False))
-        return chart.facet(**kwargs).resolve_scale(y="independent")
+        # Safely extract up to two dimensions explicitly
+        col = self.facet_dimensions[0] if len(self.facet_dimensions) > 0 else None
+        row = self.facet_dimensions[1] if len(self.facet_dimensions) > 1 else None
+
+        # Handle native Altair types cleanly without dictionary unpacking unpacks
+        if col and row:
+            faceted_chart = chart.facet(column=col, row=row)
+        elif col:
+            faceted_chart = chart.facet(column=col)
+        else:
+            faceted_chart = chart
+
+        return faceted_chart.resolve_scale(y="independent")  # type: ignore[no-any-return]
 
 
 def backtest_plot(
