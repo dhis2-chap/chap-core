@@ -49,9 +49,9 @@ Data schemas:
 
 from __future__ import annotations
 
+import itertools
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
-import itertools
 
 import altair as alt
 
@@ -85,8 +85,8 @@ class BacktestPlotBase(ABC):
     name: str = ""
     description: str = ""
     needs_historical: bool = False
-    
-    facet_dimensions: list[str] = [] 
+
+    facet_dimensions: list[str] = []
 
     @abstractmethod
     def plot(
@@ -114,11 +114,10 @@ class BacktestPlotBase(ABC):
         ChartType
             Altair chart specification (Chart, VConcatChart, FacetChart, etc.)
         """
-        pass
 
     def facet_coords(
         self,
-        observations: pd.DataFrame, 
+        observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None
     ) -> dict[str, list[Any]]:
@@ -128,8 +127,8 @@ class BacktestPlotBase(ABC):
             values = set()
             if dim == "split_period" and "split_period" not in forecasts.columns:
                 if "horizon_distance" in forecasts.columns and "time_period" in forecasts.columns:
-                    from chap_core.time_period import TimePeriod
                     from chap_core.plotting.backtest_plot import clean_time
+                    from chap_core.time_period import TimePeriod
                     for _, row in forecasts[["time_period", "horizon_distance"]].drop_duplicates().iterrows():
                         try:
                             tp = TimePeriod.parse(str(row["time_period"]))
@@ -141,7 +140,7 @@ class BacktestPlotBase(ABC):
                 for df in [observations, forecasts, historical_observations]:
                     if df is not None and dim in df.columns:
                         values.update(df[dim].dropna().unique())
-            coords[dim] = sorted(list(values))
+            coords[dim] = sorted(values)
         return coords
 
     def get_subplot(
@@ -174,25 +173,25 @@ class BacktestPlotBase(ABC):
         historical_observations: pd.DataFrame | None = None,
     ) -> list[tuple[Any, alt.Chart]]:
         """Generates a list of subplots paired with their respective coordinate value keys."""
-        import itertools
+
 
         keys = list(coords.keys())
         value_lists = [coords[k] for k in keys]
-        
+
         results = []
         # Generate the Cartesian product of all coordinate dimension values
         for combinations in itertools.product(*value_lists):
             single_coord = dict(zip(keys, combinations))
             chart = self.get_subplot(observations, forecasts, single_coord, historical_observations)
-            
+
             # If there's only one facet dimension, pass the raw single value as the key.
             # Otherwise, pass the combination tuple so it's hashable for set comparisons.
             key = combinations[0] if len(combinations) == 1 else combinations
-            
+
             results.append((key, chart))
-            
+
         return results
-    
+
     def get_full_plot(
         self,
         observations: pd.DataFrame,
