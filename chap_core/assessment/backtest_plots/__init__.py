@@ -130,16 +130,24 @@ class FacetedBacktestPlot(BacktestPlotBase):
         historical_observations: pd.DataFrame | None = None,
     ) -> list[tuple[Any, ChartType]]:
         """Generates subplots mapped directly against their Cartesian matrix values."""
+        #Pre process once to get the full dataframe, then filter for each subplot to avoid redundant preprocessing
+        df_preprocessed = self._preprocess(observations, forecasts, historical_observations)
+        
         keys = list(coords.keys())
         value_lists = [coords[k] for k in keys]
         results = []
 
-        for combinations in itertools.product(*value_lists):
-            single_coord = dict(zip(keys, combinations, strict=True))
-            chart = self.get_subplot(observations, forecasts, single_coord, historical_observations)
-            key = combinations[0] if len(combinations) == 1 else combinations
+        for combination in itertools.product(*value_lists):
+            single_coords = dict(zip(keys, combination,strict=True))
+            
+            df_filtered = df_preprocessed
+            for col, value in single_coords.items():
+                if col in df_filtered.columns:
+                    df_filtered = df_filtered[df_filtered[col] == value]
+            
+            chart = self._plot(df_filtered)
+            key = combination[0] if len(combination) == 1 else combination
             results.append((key, chart))
-
         return results
 
     def get_full_plot(
