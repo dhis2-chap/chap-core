@@ -16,9 +16,19 @@ permissions:
 jobs:
   build:
     env:
-      REDIS_HOST: redis
+      REDIS_HOST: localhost
 
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: valkey/valkey:8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     #container:
     #    image: ubuntu:latest
     #    options: --user root
