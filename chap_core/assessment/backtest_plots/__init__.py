@@ -116,10 +116,7 @@ class BacktestPlotBase(ABC):
         """
 
     def facet_coords(
-        self,
-        observations: pd.DataFrame,
-        forecasts: pd.DataFrame,
-        historical_observations: pd.DataFrame | None = None
+        self, observations: pd.DataFrame, forecasts: pd.DataFrame, historical_observations: pd.DataFrame | None = None
     ) -> dict[str, list[Any]]:
         """Returns all unique coordinates available for faceting based on data fields."""
         coords: dict[str, list[Any]] = {}
@@ -129,6 +126,7 @@ class BacktestPlotBase(ABC):
                 if "horizon_distance" in forecasts.columns and "time_period" in forecasts.columns:
                     from chap_core.plotting.backtest_plot import clean_time
                     from chap_core.time_period import TimePeriod
+
                     for _, row in forecasts[["time_period", "horizon_distance"]].drop_duplicates().iterrows():
                         try:
                             tp = TimePeriod.parse(str(row["time_period"]))
@@ -174,14 +172,13 @@ class BacktestPlotBase(ABC):
     ) -> list[tuple[Any, alt.Chart]]:
         """Generates a list of subplots paired with their respective coordinate value keys."""
 
-
         keys = list(coords.keys())
         value_lists = [coords[k] for k in keys]
 
         results = []
         # Generate the Cartesian product of all coordinate dimension values
         for combinations in itertools.product(*value_lists):
-            single_coord = dict(zip(keys, combinations,strict=True))
+            single_coord = dict(zip(keys, combinations, strict=True))
             chart = self.get_subplot(observations, forecasts, single_coord, historical_observations)
 
             # If there's only one facet dimension, pass the raw single value as the key.

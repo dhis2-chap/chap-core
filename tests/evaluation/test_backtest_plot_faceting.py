@@ -61,9 +61,7 @@ def test_facet_dimensions_declared_on_all_registered_plots():
     registry = get_backtest_plots_registry()
     assert registry, "expected at least one registered plot"
     for plot_id, plot_cls in registry.items():
-        assert hasattr(plot_cls, "facet_dimensions"), (
-            f"{plot_id} is missing facet_dimensions"
-        )
+        assert hasattr(plot_cls, "facet_dimensions"), f"{plot_id} is missing facet_dimensions"
         dims = plot_cls.facet_dimensions
         assert isinstance(dims, list)
         assert all(isinstance(d, str) for d in dims)
@@ -121,14 +119,10 @@ def test_evaluation_plot_facet_dimensions():
 
 
 # @pytest.mark.xfail(strict=True, reason=CLIM_548)
-def test_evaluation_plot_facet_coords_match_unique_df_values(
-    observations_df, forecasts_df
-):
+def test_evaluation_plot_facet_coords_match_unique_df_values(observations_df, forecasts_df):
     coords = EvaluationPlot().facet_coords(observations_df, forecasts_df)
 
-    expected_locations = set(forecasts_df["location"].unique()) | set(
-        observations_df["location"].unique()
-    )
+    expected_locations = set(forecasts_df["location"].unique()) | set(observations_df["location"].unique())
     assert set(coords["location"]) == expected_locations
     assert len(coords["location"]) == len(set(coords["location"]))
 

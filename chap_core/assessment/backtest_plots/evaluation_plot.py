@@ -153,7 +153,9 @@ class EvaluationPlot(BacktestPlotBase):
             tmp["split_period"] = split_period
             observed_replicated.append(tmp)
 
-        observed_with_split = pd.concat(observed_replicated, ignore_index=True) if observed_replicated else pd.DataFrame()
+        observed_with_split = (
+            pd.concat(observed_replicated, ignore_index=True) if observed_replicated else pd.DataFrame()
+        )
 
         # Add historical observations if available
         if historical_observations is not None and not historical_observations.empty:
@@ -168,7 +170,9 @@ class EvaluationPlot(BacktestPlotBase):
                 tmp = tmp[tmp["time_period"] <= split_period]
                 historical_replicated.append(tmp)
 
-            historical_with_split = pd.concat(historical_replicated, ignore_index=True) if historical_replicated else pd.DataFrame()
+            historical_with_split = (
+                pd.concat(historical_replicated, ignore_index=True) if historical_replicated else pd.DataFrame()
+            )
 
             # Combine historical and test observations
             all_observations = pd.concat(
