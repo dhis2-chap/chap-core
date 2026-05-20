@@ -1,9 +1,9 @@
 """MLflow tracking for the ``chap eval`` command.
 
-Tracking is opt-in via ``chap eval --track``. The MLflow tracking URI must be
-set explicitly via the ``MLFLOW_TRACKING_URI`` environment variable; this
-module never picks a default location, to avoid surprising the user with files
-written outside their workspace.
+Tracking is opt-in via ``chap eval --run-config.track``. The MLflow tracking
+URI must be set explicitly via the ``MLFLOW_TRACKING_URI`` environment
+variable; this module never picks a default location, to avoid surprising the
+user with files written outside their workspace.
 """
 
 from __future__ import annotations
@@ -32,7 +32,23 @@ DEFAULT_EXPERIMENT_NAME = "chap-backtests"
 
 
 class TrackingConfigError(RuntimeError):
-    """Raised when --track is requested but MLFLOW_TRACKING_URI is not set."""
+    """Raised when tracking is requested but MLFLOW_TRACKING_URI is not set."""
+
+
+def load_model_configuration(yaml_path: Path | None) -> dict | None:
+    """Load a model configuration YAML file into a plain dict, or return None.
+
+    Lives here (not in ``_common.py``) because the wrapper needs the dict for
+    MLflow param logging before the rest of the eval flow validates it through
+    :class:`ModelConfiguration`.
+    """
+    if yaml_path is None:
+        return None
+    import yaml
+
+    with open(yaml_path) as f:
+        data = yaml.safe_load(f)
+    return data if isinstance(data, dict) else None
 
 
 class Tracker:
@@ -65,13 +81,16 @@ def tracked_eval_run(
     dataset_csv: str,
     backtest_params: BacktestParams,
     historical_context_years: int,
+    model_configuration: dict | None = None,
 ) -> Iterator[Tracker]:
     """Context manager that opens an MLflow run when ``track`` is True.
 
     When ``track`` is False this is a no-op. When True it requires
     ``MLFLOW_TRACKING_URI`` to be set, sets the experiment (honoring
     ``MLFLOW_EXPERIMENT_NAME`` if set, else ``"chap-backtests"``), and logs the
-    run-identifying params and tags before yielding.
+    run-identifying params and tags before yielding. The model configuration
+    dict, if provided, is flattened and logged as ``model.<key>`` params and
+    also stored verbatim as ``model_configuration.json``.
     """
     if not track:
         yield Tracker(enabled=False)
@@ -80,7 +99,7 @@ def tracked_eval_run(
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
     if not tracking_uri:
         raise TrackingConfigError(
-            "chap eval --track requires MLFLOW_TRACKING_URI to be set "
+            "chap eval --run-config.track requires MLFLOW_TRACKING_URI to be set "
             "(e.g. export MLFLOW_TRACKING_URI=file://$HOME/chap-evaluations/mlruns)"
         )
 
@@ -102,7 +121,12 @@ def tracked_eval_run(
         sha = _maybe_file_sha256(dataset_csv)
         if sha is not None:
             params["dataset_sha256"] = sha
+        if model_configuration:
+            params.update(_flatten_params(model_configuration, prefix="model"))
         mlflow.log_params(params)
+
+        if model_configuration:
+            mlflow.log_dict(model_configuration, "model_configuration.json")
 
         tags: dict[str, str] = {
             "dataset.name": _short_name(dataset_csv),
@@ -140,6 +164,24 @@ def _log_outputs_from_files(nc_path: Path, plot_path: Path | None) -> None:
     skipped = sorted(set(raw) - set(numeric))
     if skipped:
         logger.info("Skipped non-numeric / inapplicable metrics: %s", ", ".join(skipped))
+
+
+def _flatten_params(d: dict, prefix: str) -> dict[str, object]:
+    """Flatten a nested dict into ``prefix.key`` entries for MLflow params.
+
+    Scalars are passed through; non-scalar leaves (lists, etc.) are stringified
+    so MLflow can store them. Use the full JSON artifact for fidelity.
+    """
+    out: dict[str, object] = {}
+    for k, v in d.items():
+        key = f"{prefix}.{k}"
+        if isinstance(v, dict):
+            out.update(_flatten_params(v, prefix=key))
+        elif isinstance(v, (str, int, float, bool)) or v is None:
+            out[key] = v
+        else:
+            out[key] = str(v)
+    return out
 
 
 def _short_name(value: str) -> str:

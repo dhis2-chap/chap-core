@@ -54,27 +54,24 @@ def eval_cmd(
         EstimatorOptions | None,
         Parameter(help="Estimator behavior (normal | hpo | ensemble), optional metric."),
     ] = None,
-    track: Annotated[
-        bool,
-        Parameter(
-            help="Record this run to MLflow: params, metrics, NetCDF + plot artifacts. Requires MLFLOW_TRACKING_URI."
-        ),
-    ] = False,
 ):
     """Evaluate a model using backtesting and export results to NetCDF format.
 
     Thin wrapper around :func:`_run_eval` that optionally records the run to
-    MLflow when ``--track`` is set. See :func:`_run_eval` for the detailed
-    backtest workflow.
+    MLflow when ``run_config.track`` is True. See :func:`_run_eval` for the
+    detailed backtest workflow.
     """
-    from chap_core.assessment.eval_tracking import tracked_eval_run
+    from chap_core.assessment.eval_tracking import load_model_configuration, tracked_eval_run
+
+    model_configuration = load_model_configuration(model_configuration_yaml)
 
     with tracked_eval_run(
-        track=track,
+        track=run_config.track,
         model_name=model_name,
         dataset_csv=str(dataset_csv),
         backtest_params=backtest_params,
         historical_context_years=historical_context_years,
+        model_configuration=model_configuration,
     ) as tracker:
         _run_eval(
             model_name=model_name,

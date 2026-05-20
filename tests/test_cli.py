@@ -192,10 +192,11 @@ def test_eval_cmd_does_not_wrap_when_bounds_unspecified(tmp_path):
 
 
 def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch):
-    """With --track, params, metrics, and the .nc artifact end up in MLflow."""
+    """With run_config.track, params (incl. model config), metrics, and the .nc artifact end up in MLflow."""
     from pathlib import Path
 
     import mlflow
+    import yaml
     from chap_core.api_types import BacktestParams, RunConfig
 
     tracking_dir = tmp_path / "mlruns"
@@ -203,6 +204,11 @@ def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch)
     mlflow.set_tracking_uri(f"file://{tracking_dir}")
 
     output_file = tmp_path / "out.nc"
+
+    model_config_yaml = tmp_path / "model_config.yaml"
+    model_config_yaml.write_text(
+        yaml.safe_dump({"learning_rate": 0.01, "n_estimators": 100, "optimizer": {"name": "adam", "momentum": 0.9}})
+    )
 
     def _write_nc(filepath, **_kwargs):
         Path(filepath).write_bytes(b"netcdf-placeholder")
@@ -224,8 +230,8 @@ def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch)
             dataset_csv="dummy.csv",
             output_file=output_file,
             backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
-            run_config=RunConfig(),
-            track=True,
+            run_config=RunConfig(track=True),
+            model_configuration_yaml=model_config_yaml,
         )
 
     runs = mlflow.search_runs(experiment_names=["chap-backtests"], output_format="list")
@@ -239,6 +245,11 @@ def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch)
     assert run.data.params["stride"] == "1"
     assert run.data.params["prediction_length"] == "3"
 
+    assert run.data.params["model.learning_rate"] == "0.01"
+    assert run.data.params["model.n_estimators"] == "100"
+    assert run.data.params["model.optimizer.name"] == "adam"
+    assert run.data.params["model.optimizer.momentum"] == "0.9"
+
     assert run.data.metrics["mae"] == 1.23
     assert run.data.metrics["rmse"] == 4.56
     assert "non_numeric" not in run.data.metrics
@@ -246,10 +257,11 @@ def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch)
     client = mlflow.MlflowClient(tracking_uri=f"file://{tracking_dir}")
     artifacts = {a.path for a in client.list_artifacts(run.info.run_id)}  # type: ignore[union-attr]
     assert "out.nc" in artifacts
+    assert "model_configuration.json" in artifacts
 
 
 def test_eval_cmd_track_without_tracking_uri_raises(tmp_path, monkeypatch):
-    """--track without MLFLOW_TRACKING_URI raises before any heavy work."""
+    """run_config.track=True without MLFLOW_TRACKING_URI raises before any heavy work."""
     from chap_core.api_types import BacktestParams, RunConfig
     from chap_core.assessment.eval_tracking import TrackingConfigError
 
@@ -264,8 +276,7 @@ def test_eval_cmd_track_without_tracking_uri_raises(tmp_path, monkeypatch):
             dataset_csv="dummy.csv",
             output_file=tmp_path / "out.nc",
             backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
-            run_config=RunConfig(),
-            track=True,
+            run_config=RunConfig(track=True),
         )
 
 
