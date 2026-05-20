@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from chap_core.cli_endpoints.build_counterfactual import build_counterfactual_cmd
-from chap_core.cli_endpoints.expressions import (
+from chap_core.utils.expressions import (
     apply_transformation,
     parse_transformations,
     validate_expression,

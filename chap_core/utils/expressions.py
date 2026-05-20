@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import ast
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
 _ALLOWED_FUNCS = frozenset({"abs", "round"})
 

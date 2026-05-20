@@ -9,7 +9,7 @@ from typing import Annotated
 import pandas as pd
 from cyclopts import Parameter
 
-from chap_core.cli_endpoints.expressions import apply_transformation, parse_transformations, validate_expression
+from chap_core.utils.expressions import apply_transformation, parse_transformations, validate_expression
 
 logger = logging.getLogger(__name__)
 
@@ -77,12 +77,12 @@ def build_counterfactual_cmd(
     if invalid_cols:
         raise ValueError(f"Column names must not contain '=': {invalid_cols}")
 
-    for _, expr in pairs:
-        validate_expression(expr)
-
     for col, _ in pairs:
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found in dataset")
+
+    for _, expr in pairs:
+        validate_expression(expr)
 
     if (start_time_period or end_time_period) and "time_period" not in df.columns:
         raise ValueError("Column 'time_period' not found in dataset")
