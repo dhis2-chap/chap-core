@@ -12,9 +12,7 @@ from cyclopts import Parameter
 from chap_core.api_types import RunConfig
 from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
     DatasetCsvArg,
-    ModelConfigYamlArg,
     ModelNameArg,
-    RunConfigArg,
 )
 from chap_core.cli_endpoints._common import (
     discover_geojson,
