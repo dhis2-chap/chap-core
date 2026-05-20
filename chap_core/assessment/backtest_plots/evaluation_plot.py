@@ -13,7 +13,23 @@ from chap_core.plotting.backtest_plot import clean_time
 
 
 def _compute_quantiles_from_forecasts(forecasts_df: pd.DataFrame) -> pd.DataFrame:
-    """Compute forecast quantiles from samples."""
+    """
+    Compute forecast quantiles from samples.
+
+    Parameters
+    ----------
+    forecasts_df : pd.DataFrame
+        Forecast samples with columns: location, time_period, horizon_distance, sample, forecast
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns: location, time_period, split_period, q_10, q_25, q_50, q_75, q_90
+    """
+    # Group by location, time_period
+    # For split_period, we need to calculate it from time_period and horizon_distance
+    # split_period = time_period - horizon_distance (conceptually)
+    # We'll compute quantiles first, then figure out split_period
     quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
     rows = []
     
@@ -23,6 +39,8 @@ def _compute_quantiles_from_forecasts(forecasts_df: pd.DataFrame) -> pd.DataFram
         samples = group["forecast"].values
         quantile_values = pd.Series(samples).quantile(quantiles).values
 
+         # For simplicity, we'll use the first forecast's split calculation
+        # In practice, we use horizon_distance to determine the split
         rows.append(
             {
                 "time_period": time_period,
@@ -40,13 +58,29 @@ def _compute_quantiles_from_forecasts(forecasts_df: pd.DataFrame) -> pd.DataFram
 
 
 def _infer_split_periods(forecasts_df: pd.DataFrame) -> pd.DataFrame:
-    """Infer split periods from forecasts data."""
+     """
+    Infer split periods from forecasts data.
+
+    For each unique (location, time_period), find the minimum horizon distance
+    and use that to determine the split period.
+
+    Parameters
+    ----------
+    forecasts_df : pd.DataFrame
+        DataFrame with columns including location, time_period, horizon_distance
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with added split_period column
+    """
     from chap_core.time_period import TimePeriod
 
     result_rows = []
     for _, row in forecasts_df.iterrows():
         time_period = TimePeriod.parse(str(row["time_period"]))
         horizon = int(row["horizon_distance"])
+        # Go back horizon periods to get the split period
         split_period = time_period - (horizon * time_period.time_delta)
         row_dict = row.to_dict()
         row_dict["time_period"] = clean_time(time_period.to_string())
@@ -64,10 +98,11 @@ def _infer_split_periods(forecasts_df: pd.DataFrame) -> pd.DataFrame:
 )
 class EvaluationPlot(FacetedBacktestPlot):
     """
-    Backtest plot that shows truth vs predictions over time.
+     Shows forecasts with uncertainty bands and observed values.
+    Optionally includes historical observations for context.
     """
 
-    # Layout configurations carrying Altair standard visualization markers
+    # NEW: Define dimensions for the base class layout engine to facet automatically
     facet_dimensions = ["split_period:O", "location:N"]
 
     def _preprocess(
