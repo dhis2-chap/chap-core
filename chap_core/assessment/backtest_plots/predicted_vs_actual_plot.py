@@ -9,7 +9,7 @@ import altair as alt
 import numpy as np
 import pandas as pd
 
-from chap_core.assessment.backtest_plots import BacktestPlotBase, ChartType, backtest_plot
+from chap_core.assessment.backtest_plots import FacetedBacktestPlot, ChartType, backtest_plot
 
 
 def _nice_tick_values(data_max: float) -> np.ndarray:
@@ -74,9 +74,8 @@ def build_predicted_vs_actual_chart(
     )
 
     return (  # type: ignore[no-any-return]
-        alt.layer(scatter, identity_line, data=merged)
-        .properties(width=250, height=250, title=title)
-        .facet(column=alt.Column("horizon_distance:O", title="Prediction Horizon"))
+    alt.layer(scatter, identity_line, data=merged)
+    .properties(width=250, height=250, title=title)
     )
 
 
@@ -85,23 +84,27 @@ def build_predicted_vs_actual_chart(
     name="Predicted vs Actual",
     description="Scatter plots of predicted (median) vs actual values in log1p space, faceted by horizon and colored by location.",
 )
-class PredictedVsActualPlot(BacktestPlotBase):
-    def plot(
+class PredictedVsActualPlot(FacetedBacktestPlot):
+    facet_dimensions: list[str] = ["horizon_distance:O"]
+
+    def _preprocess(
         self,
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
-    ) -> ChartType:
+    ) -> pd.DataFrame:
         merged = median_forecasts_joined_with_observations(forecasts, observations)
         merged["log1p_predicted"] = np.log1p(merged["median_forecast"])
         merged["log1p_actual"] = np.log1p(merged["disease_cases"])
+        return merged
 
-        data_max = max(merged["median_forecast"].max(), merged["disease_cases"].max())
+    def _plot(self, data: pd.DataFrame) -> ChartType:
+        data_max = max(data["median_forecast"].max(), data["disease_cases"].max())
         log1p_ticks = np.log1p(_nice_tick_values(data_max)).tolist()
         log_axis = alt.Axis(values=log1p_ticks, labelExpr="round(exp(datum.value) - 1)")
 
         return build_predicted_vs_actual_chart(
-            merged,
+            data,
             x_field="log1p_predicted",
             y_field="log1p_actual",
             title="Predicted vs Actual (log1p scale)",
