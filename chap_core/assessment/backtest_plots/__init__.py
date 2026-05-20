@@ -181,7 +181,7 @@ class BacktestPlotBase(ABC):
         results = []
         # Generate the Cartesian product of all coordinate dimension values
         for combinations in itertools.product(*value_lists):
-            single_coord = dict(zip(keys, combinations))
+            single_coord = dict(zip(keys, combinations,strict=True))
             chart = self.get_subplot(observations, forecasts, single_coord, historical_observations)
 
             # If there's only one facet dimension, pass the raw single value as the key.
