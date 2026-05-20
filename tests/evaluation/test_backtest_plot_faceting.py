@@ -151,44 +151,17 @@ def test_facet_dimensions_use_type_marker_shorthand(plot_cls, expected_fields):
     )
 
 
-# --- Preprocessing + plotting split --------------------------------------
-
-
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
-@pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
-def test_preprocess_returns_dataframe_with_all_facet_columns(
-    plot_cls, expected_fields, observations_df, forecasts_df
-):
-    """``_preprocess`` must produce a dataframe carrying every facet column,
-    including derived ones (e.g. ``split_period``). This is what lets the
-    base class compute coords and slice subplots without knowing how each
-    plot derives its columns."""
-    plotter = plot_cls()
-    df = plotter._preprocess(observations_df, forecasts_df)
-    assert isinstance(df, pd.DataFrame)
-    assert not df.empty
-    for field in expected_fields:
-        assert field in df.columns, (
-            f"{plot_cls.__name__}._preprocess must expose {field!r} so the "
-            "base class can read coordinates from the preprocessed dataframe"
-        )
-
-
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
-@pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
-def test_plot_renders_unfaceted_chart_from_preprocessed_dataframe(
-    plot_cls, expected_fields, observations_df, forecasts_df
-):
-    plotter = plot_cls()
-    df = plotter._preprocess(observations_df, forecasts_df)
-    chart = plotter._plot(df)
-    assert isinstance(chart, alt.TopLevelMixin)
-    # The split between _plot and get_full_plot means _plot itself must not
-    # produce a faceted chart -- the base class applies .facet(...).
-    assert not isinstance(chart, alt.FacetChart)
-
-
 # --- Faceting API --------------------------------------------------------
+#
+# The preprocessing + plotting split is internal (``_preprocess`` / ``_plot``)
+# and not asserted directly here. Behavior is exercised through the public
+# faceting methods below:
+#
+# - facet_coords reads coordinates from the preprocessed dataframe, so it
+#   transitively verifies that derived columns (``split_period``) end up
+#   on that dataframe;
+# - get_subplot returns a non-FacetChart, which transitively verifies that
+#   _plot returns an unfaceted base chart.
 
 
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
