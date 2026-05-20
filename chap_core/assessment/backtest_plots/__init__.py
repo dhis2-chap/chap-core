@@ -147,7 +147,7 @@ class BacktestPlotBase(ABC):
         forecasts: pd.DataFrame,
         coords: dict[str, Any],
         historical_observations: pd.DataFrame | None = None,
-    ) -> alt.Chart:
+    ) -> ChartType:
         """Slices data down to target coordinates for isolated rendering frames."""
         obs_df, fc_df = observations.copy(), forecasts.copy()
         hist_df = historical_observations.copy() if historical_observations is not None else None
@@ -169,7 +169,7 @@ class BacktestPlotBase(ABC):
         forecasts: pd.DataFrame,
         coords: dict[str, list[Any]],
         historical_observations: pd.DataFrame | None = None,
-    ) -> list[tuple[Any, alt.Chart]]:
+    ) -> list[tuple[Any, ChartType]]:
         """Generates a list of subplots paired with their respective coordinate value keys."""
 
         keys = list(coords.keys())
@@ -203,7 +203,7 @@ class BacktestPlotBase(ABC):
                 facet_kwargs["row"] = "location:N"
             if "split_period" in self.facet_dimensions:
                 facet_kwargs["column"] = "split_period:O"
-            return chart.facet(**facet_kwargs).resolve_scale(y="independent")
+            return chart.facet(**facet_kwargs).resolve_scale(y="independent")  # type: ignore[arg-type, no-any-return]
         return chart
 
 

@@ -252,4 +252,4 @@ class EvaluationPlot(BacktestPlotBase):
 
         # NEW: Return the unfaceted base layer chart.
         # The base class `get_full_plot` method will handle applying `.facet(...)` and `.resolve_scale(...)`
-        return full_layer.properties(title="Backtest Forecasts with Observations")
+        return full_layer.properties(title="Backtest Forecasts with Observations")  # type: ignore[no-any-return]
