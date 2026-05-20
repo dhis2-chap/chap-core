@@ -83,4 +83,9 @@ jobs:
       - name: Run
         run: |
           cp .env.example .env
+          # The placeholder REDIS_PASSWORD from .env.example gets loaded via
+          # load_dotenv() at import time and makes the redis client send AUTH
+          # to the unauthenticated CI valkey service. Strip it so the host
+          # tests match the no-password setup.
+          sed -i '/^REDIS_PASSWORD=/d' .env
           make test-all
