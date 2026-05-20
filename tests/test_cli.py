@@ -191,6 +191,84 @@ def test_eval_cmd_does_not_wrap_when_bounds_unspecified(tmp_path):
     assert forwarded is fake_estimator
 
 
+def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch):
+    """With --track, params, metrics, and the .nc artifact end up in MLflow."""
+    from pathlib import Path
+
+    import mlflow
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    tracking_dir = tmp_path / "mlruns"
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", f"file://{tracking_dir}")
+    mlflow.set_tracking_uri(f"file://{tracking_dir}")
+
+    output_file = tmp_path / "out.nc"
+
+    def _write_nc(filepath, **_kwargs):
+        Path(filepath).write_bytes(b"netcdf-placeholder")
+
+    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    stack, eval_mock = _patched_eval_chain(fake_estimator)
+    eval_instance = MagicMock(name="EvaluationInstance")
+    eval_instance.to_file.side_effect = _write_nc
+    eval_mock.create.return_value = eval_instance
+
+    metrics_stub = patch(
+        "chap_core.assessment.eval_tracking.calculate_metrics",
+        return_value={"mae": 1.23, "rmse": 4.56, "non_numeric": None},
+    )
+
+    with stack, metrics_stub:
+        eval_cmd(
+            model_name="dummy-model",
+            dataset_csv="dummy.csv",
+            output_file=output_file,
+            backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+            run_config=RunConfig(),
+            track=True,
+        )
+
+    runs = mlflow.search_runs(experiment_names=["chap-backtests"], output_format="list")
+    assert len(runs) == 1
+    run = runs[0]
+
+    assert run.data.params["model_name"] == "dummy-model"
+    assert run.data.params["dataset_csv"] == "dummy.csv"
+    assert run.data.params["n_periods"] == "3"
+    assert run.data.params["n_splits"] == "2"
+    assert run.data.params["stride"] == "1"
+    assert run.data.params["prediction_length"] == "3"
+
+    assert run.data.metrics["mae"] == 1.23
+    assert run.data.metrics["rmse"] == 4.56
+    assert "non_numeric" not in run.data.metrics
+
+    client = mlflow.MlflowClient(tracking_uri=f"file://{tracking_dir}")
+    artifacts = {a.path for a in client.list_artifacts(run.info.run_id)}  # type: ignore[union-attr]
+    assert "out.nc" in artifacts
+
+
+def test_eval_cmd_track_without_tracking_uri_raises(tmp_path, monkeypatch):
+    """--track without MLFLOW_TRACKING_URI raises before any heavy work."""
+    from chap_core.api_types import BacktestParams, RunConfig
+    from chap_core.assessment.eval_tracking import TrackingConfigError
+
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+
+    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    stack, _ = _patched_eval_chain(fake_estimator)
+
+    with stack, pytest.raises(TrackingConfigError, match="MLFLOW_TRACKING_URI"):
+        eval_cmd(
+            model_name="dummy",
+            dataset_csv="dummy.csv",
+            output_file=tmp_path / "out.nc",
+            backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+            run_config=RunConfig(),
+            track=True,
+        )
+
+
 def test_eval_cmd_with_data_source_mapping(tmp_path):
     import json
 
