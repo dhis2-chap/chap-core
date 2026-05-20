@@ -21,12 +21,17 @@ class DummyConfig(BaseModel):
 class DummyModel(ConfiguredModel):
     covariate_names: list[str] = ["rainfall", "mean_temperature", "population"]
 
+    @property
+    def model_information(self):
+        return None
+
     def __init__(self, config: ModelConfiguration):
+        self._model_configuration = config
         self._config = DummyConfig.model_validate(config.user_option_values)
 
     def save(self, filepath: str) -> None:
         with open(filepath, "w") as f:
-            f.write(self._config.model_dump_json())
+            f.write(self._model_configuration.model_dump_json())
 
     @classmethod
     def load_predictor(cls, filepath: str) -> "DummyModel":
@@ -60,7 +65,7 @@ class DummyModelTemplate(ModelTemplateInterface):
 
 @pytest.fixture()
 def model_config():
-    return DummyConfig(n_iterations=10)
+    return ModelConfiguration(user_option_values={"n_iterations": 10})
 
 
 @pytest.fixture

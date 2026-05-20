@@ -108,6 +108,7 @@ def test_registered_service_has_configured_model(client, register_service):
     # Default configuration uses template name as configured model name
     chapkit_models = [m for m in models if m["name"] == "test-model"]
     assert len(chapkit_models) == 1
+    assert chapkit_models[0]["usesChapkit"] is True
 
 
 def test_creates_default_config_when_no_configs(client, register_service, mock_wrapper_cls):

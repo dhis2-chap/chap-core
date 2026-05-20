@@ -3,6 +3,7 @@ import traceback
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from chap_core.rest_api.common_routes import router as common_router
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 openapi_tags = [
     {"name": "System", "description": "Health checks and system information"},
     {"name": "Backtests", "description": "Create, manage, and query backtests and evaluation results"},
+    {"name": "Metrics", "description": "Compute and export evaluation metrics"},
     {"name": "Predictions", "description": "Create, manage, and query predictions"},
     {"name": "Datasets", "description": "Create, manage, and export datasets"},
     {"name": "Models", "description": "Model templates and configured models"},
@@ -22,6 +24,7 @@ openapi_tags = [
     {"name": "Debug", "description": "Debug and diagnostic endpoints"},
     {"name": "Services", "description": "Service registry (v2)"},
 ]
+
 
 app = FastAPI(
     title="CHAP Core API",
@@ -41,6 +44,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.exception_handler(Exception)

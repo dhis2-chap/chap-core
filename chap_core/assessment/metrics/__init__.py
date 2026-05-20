@@ -23,7 +23,7 @@ from chap_core.assessment.metrics.base import (
     MetricSpec,
     ProbabilisticMetric,
 )
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 
 logger = logging.getLogger(__name__)
 
@@ -166,12 +166,12 @@ __all__ = [
 ]
 
 
-def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str, float]:
+def compute_all_aggregated_metrics_from_backtest(backtest: Backtest) -> dict[str, float]:
     """
     Compute all available metrics as global aggregated values for a backtest.
 
     Args:
-        backtest: The BackTest object to compute metrics for
+        backtest: The Backtest object to compute metrics for
 
     Returns:
         Dictionary mapping metric_id to the aggregated metric value
@@ -201,6 +201,41 @@ def compute_all_aggregated_metrics_from_backtest(backtest: BackTest) -> dict[str
 
     logger.info(f"Computed metrics: {list(results.keys())}")
     return results
+
+
+def compute_all_detailed_metrics(evaluation: Evaluation) -> pd.DataFrame:
+    """
+    Compute all applicable metrics at detailed resolution for an evaluation.
+
+    Returns a long-format DataFrame with one row per
+    (metric_id, location, time_period, horizon_distance). Metrics that
+    are not applicable or fail to compute are skipped so a single broken
+    metric doesn't take down the whole export.
+    """
+    flat_data = evaluation.to_flat()
+
+    historical_obs = flat_data.historical_observations
+    historical_df: pd.DataFrame | None = (
+        pd.DataFrame(cast("pd.DataFrame", historical_obs)) if historical_obs is not None else None
+    )
+
+    frames: list[pd.DataFrame] = []
+    for metric_id, metric_factory in available_metrics.items():
+        metric = metric_factory(historical_observations=historical_df)
+        if not metric.is_applicable(flat_data.observations):
+            continue
+        try:
+            detailed = metric.get_detailed_metric(flat_data.observations, flat_data.forecasts)
+        except Exception:
+            logger.exception("Failed to compute detailed metric %s", metric_id)
+            continue
+        detailed = detailed.copy()
+        detailed.insert(0, "metric_id", metric_id)
+        frames.append(detailed)
+
+    if not frames:
+        return pd.DataFrame(columns=["metric_id", "location", "time_period", "horizon_distance", "metric"])
+    return pd.concat(frames, ignore_index=True)
 
 
 def calculate_metrics(

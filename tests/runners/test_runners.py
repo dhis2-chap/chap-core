@@ -1,9 +1,12 @@
 from pathlib import Path
 from unittest.mock import patch, MagicMock, ANY
 
-from chap_core.exceptions import CommandLineException
+import yaml
+
+from chap_core.exceptions import CommandLineException, ModelFailedException
 from chap_core.runners.command_line_runner import CommandLineRunner
 from chap_core.runners.docker_runner import DockerRunner
+from chap_core.runners.mlflow_runner import MlFlowTrainPredictRunner
 from chap_core.runners.uv_runner import UvRunner, UvTrainPredictRunner
 from chap_core.runners.renv_runner import RenvRunner, RenvTrainPredictRunner
 from chap_core.runners.conda_runner import CondaRunner, CondaTrainPredictRunner
@@ -88,6 +91,63 @@ def test_runner_selection_with_uv_env(tmp_path):
     )
     runner = get_train_predict_runner_from_model_template_config(config, tmp_path)
     assert isinstance(runner, UvTrainPredictRunner)
+
+
+def test_runner_writes_prediction_length_to_run_config_yaml(tmp_path):
+    """prediction_length is written at the root of model_configuration_for_run.yaml so that
+    MLproject-based external models can read the horizon at both train and predict time."""
+    config = ModelTemplateConfigV2(
+        name="test_model",
+        uv_env="pyproject.toml",
+        entry_points=EntryPointConfig(
+            train=CommandConfig(
+                command="python main.py train {train_data} {model}",
+                parameters={"train_data": "str", "model": "str"},
+            ),
+            predict=CommandConfig(
+                command="python main.py predict {model} {historic_data} {future_data} {out_file}",
+                parameters={
+                    "model": "str",
+                    "historic_data": "str",
+                    "future_data": "str",
+                    "out_file": "str",
+                },
+            ),
+        ),
+    )
+
+    get_train_predict_runner_from_model_template_config(config, tmp_path, prediction_length=5)
+
+    written = yaml.safe_load((tmp_path / "model_configuration_for_run.yaml").read_text())
+    assert written["prediction_length"] == 5
+
+
+def test_runner_omits_prediction_length_when_not_provided(tmp_path):
+    """When prediction_length is not supplied, the YAML must not gain a stray key."""
+    config = ModelTemplateConfigV2(
+        name="test_model",
+        uv_env="pyproject.toml",
+        entry_points=EntryPointConfig(
+            train=CommandConfig(
+                command="python main.py train {train_data} {model}",
+                parameters={"train_data": "str", "model": "str"},
+            ),
+            predict=CommandConfig(
+                command="python main.py predict {model} {historic_data} {future_data} {out_file}",
+                parameters={
+                    "model": "str",
+                    "historic_data": "str",
+                    "future_data": "str",
+                    "out_file": "str",
+                },
+            ),
+        ),
+    )
+
+    get_train_predict_runner_from_model_template_config(config, tmp_path)
+
+    written = yaml.safe_load((tmp_path / "model_configuration_for_run.yaml").read_text()) or {}
+    assert "prediction_length" not in written
 
 
 def test_renv_runner_restores_and_runs_command(tmp_path):
@@ -235,6 +295,63 @@ def test_conda_runner_fails_without_env_file(tmp_path):
     runner = CondaRunner(tmp_path, "environment.yaml")
     with pytest.raises(FileNotFoundError, match="environment.yaml"):
         runner.run_command("python main.py train data.csv model.pkl")
+
+
+def test_command_line_runner_report_formats_command():
+    """Test that CommandLineTrainPredictRunner.report() formats and runs the report command."""
+    with patch.object(CommandLineRunner, "run_command") as mock_run:
+        mock_run.return_value = "done"
+        from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
+
+        runner = CommandLineTrainPredictRunner(
+            CommandLineRunner(Path(".")),
+            train_command="python train.py {train_data} {model}",
+            predict_command="python predict.py {model} {historic_data} {future_data} {out_file}",
+            report_command="python report.py {model} {historic_data} {out_file}",
+        )
+        runner.report("model.pkl", "historic.csv", "report.pdf")
+        mock_run.assert_called_once_with("python report.py model.pkl historic.csv report.pdf")
+
+
+def test_command_line_runner_report_raises_when_no_command():
+    """Test that CommandLineTrainPredictRunner.report() raises NotImplementedError when no report command is set."""
+    from chap_core.runners.command_line_runner import CommandLineTrainPredictRunner
+
+    runner = CommandLineTrainPredictRunner(
+        CommandLineRunner(Path(".")),
+        train_command="python train.py {train_data} {model}",
+        predict_command="python predict.py {model} {historic_data} {future_data} {out_file}",
+    )
+    with pytest.raises(NotImplementedError):
+        runner.report("model.pkl", "historic.csv", "report.pdf")
+
+
+def test_mlflow_runner_report_invokes_report_entry_point(tmp_path):
+    runner = MlFlowTrainPredictRunner(model_path=tmp_path)
+    with patch("mlflow.projects.run") as mock_run:
+        mock_run.return_value = MagicMock()
+        runner.report(
+            model_file_name="/abs/path/to/model",
+            historic_data="historic.csv",
+            output_file="/abs/out/report.pdf",
+        )
+        mock_run.assert_called_once()
+        _, kwargs = mock_run.call_args
+        assert kwargs["entry_point"] == "report"
+        assert kwargs["parameters"] == {
+            "model": "/abs/path/to/model",
+            "historic_data": "historic.csv",
+            "out_file": "/abs/out/report.pdf",
+        }
+
+
+def test_mlflow_runner_report_wraps_execution_errors(tmp_path):
+    import mlflow.exceptions
+
+    runner = MlFlowTrainPredictRunner(model_path=tmp_path)
+    with patch("mlflow.projects.run", side_effect=mlflow.exceptions.ExecutionException("boom")):
+        with pytest.raises(ModelFailedException):
+            runner.report("model", "historic.csv", "out.pdf")
 
 
 def test_runner_selection_with_conda_env(tmp_path):

@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from uuid import uuid4
 
-from chap_core.api_types import BackTestParams
+from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import calculate_metrics
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
@@ -17,7 +17,7 @@ class Objective:
     def __init__(
         self,
         model_template: ModelTemplate,
-        backtest_params: BackTestParams | None = None,
+        backtest_params: BacktestParams | None = None,
         metric: str = "rmse",
         historical_context_years: int = 6,
         eval_output_dir: Path | None = None,
@@ -59,7 +59,7 @@ class Objective:
         )
 
         if self.backtest_params is None:
-            self.backtest_params = BackTestParams()
+            self.backtest_params = BacktestParams()
 
         logger.info(
             f"Running backtest with {self.backtest_params.n_splits} splits, {self.backtest_params.n_periods} periods, stride {self.backtest_params.stride}"

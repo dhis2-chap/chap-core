@@ -1,2 +1,2 @@
-
-some_option: 123
+user_option_values:
+  some_option: 123

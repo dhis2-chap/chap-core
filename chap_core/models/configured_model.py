@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import abc
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+if TYPE_CHECKING:
+    from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class ConfiguredModel(abc.ABC):
@@ -12,6 +17,10 @@ class ConfiguredModel(abc.ABC):
     and/or other choices. While a ModelTemplate is flexible with choices, a ConfiguredModel has fixed choices
     and parameters. See ExternalModel for an example of a ConfiguredModel.
     """
+
+    @property
+    @abc.abstractmethod
+    def model_information(self) -> ModelTemplateInformation | None: ...
 
     @abc.abstractmethod
     def train(self, train_data: DataSet, extra_args=None):

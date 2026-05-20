@@ -1,3 +1,4 @@
+import itertools
 from pathlib import Path
 
 import altair
@@ -14,14 +15,14 @@ from chap_core.assessment.backtest_plots import (
 )
 from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods
 from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
-from chap_core.assessment.backtest_plots.regional_rmse_distribution import RegionalRMSEDistributionPlot
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.metrics_dashboard import MetricsDashboard
+from chap_core.assessment.backtest_plots.predicted_vs_actual_linear_plot import PredictedVsActualLinearPlot
 from chap_core.assessment.backtest_plots.predicted_vs_actual_plot import PredictedVsActualPlot
 from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import plot_backtest
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 
 
 @pytest.fixture(scope="module")
@@ -38,7 +39,6 @@ def test_backtest_plot_registry():
     assert "metrics_dashboard" in registry
     assert "ratio_of_samples_above_truth" in registry
     assert "evaluation_plot" in registry
-    assert "regional_rmse_distribution" in registry
 
     # Check that all registered plots are subclasses of BacktestPlotBase
     for plot_id, plot_cls in registry.items():
@@ -55,9 +55,6 @@ def test_get_backtest_plot():
 
     plot_cls = get_backtest_plot("evaluation_plot")
     assert plot_cls is EvaluationPlot
-
-    plot_cls = get_backtest_plot("regional_rmse_distribution")
-    assert plot_cls is RegionalRMSEDistributionPlot
 
     # Test non-existent plot
     assert get_backtest_plot("non_existent") is None
@@ -111,11 +108,11 @@ def test_predicted_vs_actual_plot_directly(flat_observations, flat_forecasts_mul
     assert chart is not None
 
 
-def test_regional_rmse_distribution_plot_directly(
+def test_predicted_vs_actual_linear_plot_directly(
     flat_observations, flat_forecasts_multiple_samples, default_transformer
 ):
-    """Test the regional error distribution boxplot plot with multiple-sample forecasts."""
-    plot = RegionalRMSEDistributionPlot()
+    """Test the linear predicted vs actual scatter plot with multiple-sample forecasts."""
+    plot = PredictedVsActualLinearPlot()
     chart = plot.plot(pd.DataFrame(flat_observations), pd.DataFrame(flat_forecasts_multiple_samples))
     assert chart is not None
 
@@ -174,22 +171,28 @@ def test_evaluation_plot_monthly_data(default_transformer):
     assert chart is not None
 
 
-@pytest.mark.parametrize("plot_id", list(get_backtest_plots_registry().keys()))
-def test_all_registered_plots_from_backtest(plot_id: str, simulated_backtest: BackTest, default_transformer):
-    """Test that all registered plots can be successfully generated from a BackTest."""
-    chart = create_plot_from_backtest(plot_id, simulated_backtest)
+@pytest.mark.parametrize(
+    "plot_id, _backtest",
+    list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
+)
+def test_all_registered_plots_from_backtest(plot_id: str, _backtest: Backtest, default_transformer, request):
+    """Test that all registered plots can be successfully generated from a Backtest."""
+    chart = create_plot_from_backtest(plot_id, request.getfixturevalue(_backtest))
     assert chart is not None
 
 
-@pytest.mark.parametrize("plot_id", list(get_backtest_plots_registry().keys()))
-def test_all_registered_plots_from_evaluation(plot_id: str, simulated_backtest: BackTest, default_transformer):
+@pytest.mark.parametrize(
+    "plot_id, _backtest",
+    list(itertools.product(list(get_backtest_plots_registry().keys()), ["simulated_backtest", "old_backtest"])),
+)
+def test_all_registered_plots_from_evaluation(plot_id: str, _backtest: Backtest, default_transformer, request):
     """Test that all registered plots can be successfully generated from an Evaluation."""
-    evaluation = Evaluation.from_backtest(simulated_backtest)
+    evaluation = Evaluation.from_backtest(request.getfixturevalue(_backtest))
     chart = create_plot_from_evaluation(plot_id, evaluation)
     assert chart is not None
 
 
-def test_plot_backtest_cli(backtest: BackTest, tmp_path: Path, default_transformer):
+def test_plot_backtest_cli(backtest: Backtest, tmp_path: Path, default_transformer):
     """Test the CLI plot_backtest function."""
     evaluation = Evaluation.from_backtest(backtest)
     input_file = tmp_path / "evaluation.nc"
@@ -202,7 +205,7 @@ def test_plot_backtest_cli(backtest: BackTest, tmp_path: Path, default_transform
     assert output_file.stat().st_size > 0
 
 
-def test_eval_cmd_plot_flag(backtest: BackTest, tmp_path: Path, default_transformer):
+def test_eval_cmd_plot_flag(backtest: Backtest, tmp_path: Path, default_transformer):
     """Test that eval_cmd's plot flag generates an HTML plot file."""
     from chap_core.assessment.backtest_plots import create_plot_from_evaluation
 
@@ -218,7 +221,7 @@ def test_eval_cmd_plot_flag(backtest: BackTest, tmp_path: Path, default_transfor
     assert plot_path.stat().st_size > 0
 
 
-def test_generate_pdf_report(backtest: BackTest, tmp_path: Path):
+def test_generate_pdf_report(backtest: Backtest, tmp_path: Path):
     from chap_core.cli_endpoints.utils import generate_pdf_report
 
     evaluation = Evaluation.from_backtest(backtest)

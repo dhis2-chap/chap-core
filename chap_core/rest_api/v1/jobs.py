@@ -6,11 +6,11 @@ from pydantic import BaseModel
 
 from chap_core.api_types import EvaluationResponse
 from chap_core.log_config import initialize_logging
-from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription
+from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta
 from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.data_models import FullPredictionResponse
 
-initialize_logging(True, "logs/rest_api.log")
+initialize_logging()
 logger = logging.getLogger(__name__)
 logger.info("Logging initialized")
 
@@ -45,7 +45,17 @@ def list_jobs(
     return cast("list[JobDescription]", jobs_to_return)
 
 
+def _ensure_job_exists(job_id: str) -> None:
+    """Celery's AsyncResult fabricates a PENDING state and a TaskRevokedError
+    result for unknown task ids, which used to leak as 200/500 responses.
+    Gate every job_id-scoped route on the Redis metadata that the worker
+    records when a job is queued."""
+    if not get_job_meta(job_id):
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+
+
 def _get_successful_job(job_id):
+    _ensure_job_exists(job_id)
     job = worker.get_job(job_id)
     if job.status.lower() == "failed":
         raise HTTPException(status_code=400, detail="Job failed. Check the exception endpoint for more information")
@@ -58,6 +68,7 @@ def _get_successful_job(job_id):
 
 @router.get("/{job_id}")
 def get_job_status(job_id: str) -> str:
+    _ensure_job_exists(job_id)
     status: str = worker.get_job(job_id).status
     logger.info(f"status of job {job_id}: {status}")
     return status
@@ -86,10 +97,8 @@ def cancel_job(job_id: str) -> dict:
     """
     Cancel a running job
     """
+    _ensure_job_exists(job_id)
     job = worker.get_job(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-
     job_status = job.status.lower()
 
     if job_status in ["success", "failure", "revoked"]:
@@ -105,6 +114,7 @@ def cancel_job(job_id: str) -> dict:
 
 @router.get("/{job_id}/logs")
 def get_logs(job_id: str) -> str:
+    _ensure_job_exists(job_id)
     job = worker.get_job(job_id)
     logs: str = job.get_logs()
     if logs is None:

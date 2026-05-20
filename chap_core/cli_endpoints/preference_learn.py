@@ -1,37 +1,25 @@
 """Preference learning commands for CHAP CLI."""
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
-import pandas as pd
-import yaml
 from pydantic import BaseModel
 
-from chap_core.api_types import BackTestParams, RunConfig
-from chap_core.assessment.evaluation import Evaluation
+from chap_core.api_types import BacktestParams, RunConfig
 from chap_core.cli_endpoints._common import (
     discover_geojson,
     load_dataset_from_csv,
 )
-from chap_core.database.model_templates_and_config_tables import (
-    ConfiguredModelDB,
-    ModelConfiguration,
-    ModelTemplateDB,
-)
-from chap_core.hpo.base import load_search_space_from_config
-from chap_core.log_config import initialize_logging
-from chap_core.models.model_template import ModelTemplate
-from chap_core.models.utils import CHAP_RUNS_DIR
-from chap_core.preference_learning.decision_maker import (
-    DecisionMaker,
-    MetricDecisionMaker,
-    VisualDecisionMaker,
-)
-from chap_core.preference_learning.preference_learner import (
-    ModelCandidate,
-    TournamentPreferenceLearner,
-)
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.preference_learning.decision_maker import DecisionMaker
+    from chap_core.preference_learning.preference_learner import ModelCandidate
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +43,8 @@ def _compute_metrics(evaluation: Evaluation) -> dict:
     Returns:
         Dictionary of metric name to value
     """
+    import pandas as pd
+
     from chap_core.assessment.metrics import available_metrics
 
     flat_data = evaluation.to_flat()
@@ -81,7 +71,7 @@ def _compute_metrics(evaluation: Evaluation) -> dict:
 def _create_evaluation(
     model_candidate: ModelCandidate,
     dataset,
-    backtest_params: BackTestParams,
+    backtest_params: BacktestParams,
     run_config: RunConfig,
 ) -> Evaluation:
     """
@@ -96,6 +86,15 @@ def _create_evaluation(
     Returns:
         Evaluation object with backtest results
     """
+    from chap_core.assessment.evaluation import Evaluation
+    from chap_core.database.model_templates_and_config_tables import (
+        ConfiguredModelDB,
+        ModelConfiguration,
+        ModelTemplateDB,
+    )
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.models.utils import CHAP_RUNS_DIR
+
     logger.info(f"Loading model template from {model_candidate.model_name}")
     template = ModelTemplate.from_directory_or_github_url(
         model_candidate.model_name,
@@ -142,7 +141,7 @@ def preference_learn(
     dataset_csv: Path,
     search_space_yaml: Path | None = None,
     state_file: Path = Path("preference_state.json"),
-    backtest_params: BackTestParams = BackTestParams(n_periods=3, n_splits=7, stride=1),
+    backtest_params: BacktestParams = BacktestParams(n_periods=3, n_splits=7, stride=1),
     run_config: RunConfig = RunConfig(),
     learning_params: PreferenceLearningParams = PreferenceLearningParams(),
 ):
@@ -166,6 +165,18 @@ def preference_learn(
         run_config: Model run environment configuration
         learning_params: Preference learning configuration
     """
+    import yaml
+
+    from chap_core.hpo.base import load_search_space_from_config
+    from chap_core.log_config import initialize_logging
+    from chap_core.models.model_template import ModelTemplate
+    from chap_core.models.utils import CHAP_RUNS_DIR
+    from chap_core.preference_learning.decision_maker import (
+        MetricDecisionMaker,
+        VisualDecisionMaker,
+    )
+    from chap_core.preference_learning.preference_learner import TournamentPreferenceLearner
+
     initialize_logging(run_config.debug, run_config.log_file)
 
     logger.info(f"Starting preference learning for model: {model_name}")

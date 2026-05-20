@@ -14,6 +14,7 @@ Magic is used to make the returned objects camelCase while internal objects are 
 
 """
 
+import datetime
 import json
 import logging
 from functools import partial
@@ -27,32 +28,45 @@ from starlette.responses import StreamingResponse
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import FeatureCollectionModel
+from chap_core.assessment.evaluation import Evaluation
+from chap_core.assessment.metrics import compute_all_detailed_metrics
 from chap_core.data import DataSet as InMemoryDataSet
-from chap_core.database.base_tables import DBModel
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import (
     DataSet,
     DataSetCreateInfo,
     DataSetInfo,
     DataSetWithObservations,
-    ObservationBase,
 )
 from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
-from chap_core.database.model_templates_and_config_tables import (
-    ConfiguredModelDB,
-    ModelConfiguration,
-    ModelTemplateDB,
-    ModelTemplateInformation,
-    ModelTemplateMetaData,
+from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
+from chap_core.database.tables import (
+    Backtest,
+    ConfiguredModelWithDataSource,
+    ConfiguredModelWithDataSourceRead,
+    ConfiguredModelWithDataSourceReadWithPredictions,
+    Prediction,
+    PredictionInfo,
 )
-from chap_core.database.tables import BackTest, Prediction, PredictionInfo
 from chap_core.datatypes import FullData, HealthPopulationData
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
+from chap_core.rest_api.experimental import api_experimental
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
-from ...data_models import BackTestCreate, BackTestRead, JobResponse
+from ...data_models import (
+    BacktestCreate,
+    BacktestRead,
+    BacktestUpdate,
+    ConfiguredModelInfoRead,
+    DataBaseResponse,
+    DatasetCreate,
+    JobResponse,
+    ModelConfigurationCreate,
+    ModelTemplateRead,
+    PredictionCreate,
+)
 from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
@@ -236,56 +250,89 @@ worker: CeleryPool[Any] = CeleryPool()
 # backtests
 
 
-@router.get("/backtests", response_model=list[BackTestRead], tags=["Backtests"])  # This should be called list
+@router.get("/backtests", response_model=list[BacktestRead], tags=["Backtests"])  # This should be called list
 async def get_backtests(session: Session = Depends(get_session)):
     """
     Returns a list of backtests/evaluations with only the id and name
     """
     backtests = session.exec(
-        select(BackTest).options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        select(Backtest).options(
+            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).all()
     return backtests
 
 
-@router_get("/backtests/{backtestId}/full", response_model=BackTest, tags=["Backtests"])
+@router_get("/backtests/{backtestId}/full", response_model=Backtest, tags=["Backtests"])
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     return backtest
 
 
-@router_get("/backtests/{backtestId}/info", response_model=BackTestRead, tags=["Backtests"])
+@router_get("/backtests/{backtestId}/info", response_model=BacktestRead, tags=["Backtests"])
+@router_get("/backtests/{backtestId}", response_model=BacktestRead, tags=["Backtests"])
 def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.exec(
-        select(BackTest)
-        .where(BackTest.id == backtest_id)
+        select(Backtest)
+        .where(Backtest.id == backtest_id)
         .options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).first()
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     return backtest
 
 
-class BackTestUpdate(DBModel):
-    name: str | None = None
+@router.get("/metric/csv", tags=["Metrics"])
+async def get_metrics_csv(
+    backtest_id: Annotated[int, Query(alias="backtestId")],
+    session: Session = Depends(get_session),
+):
+    """
+    Download per-location / per-time_period / per-horizon metric values as a
+    long-format CSV. Every applicable metric in
+    `chap_core.assessment.metrics.available_metrics` is included as rows.
+
+    Currently takes a single backtest via the `backtestId` query parameter; the
+    path is scoped to `/metric/` so it can be extended to accept multiple
+    evaluations later without a breaking change.
+    """
+    backtest = session.get(Backtest, backtest_id)
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="Backtest not found")
+
+    evaluation = Evaluation.from_backtest(backtest)
+    df = compute_all_detailed_metrics(evaluation)
+    df["time_period"] = df["time_period"].astype(str)
+
+    csv_content = df.to_csv(index=False)
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=backtest_{backtest_id}_metrics.csv"},
+    )
 
 
 @router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
-async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(get_database_url)):
-    # `BackTestCreate.model_id` accepts either the configured-model name
+async def create_backtest(
+    backtest: BacktestCreate,
+    database_url: str = Depends(get_database_url),
+    session: Session = Depends(get_session),
+):
+    # `BacktestCreate.model_id` accepts either the configured-model name
     # (what the DB column actually stores) or the integer primary key (what
     # most API clients reach for because that's what GET /v1/crud/configured-models
     # returns). The worker's run_backtest() normalises int -> name through
     # `SessionWrapper.get_configured_model_by_id_or_name` before touching
     # anything else, so the endpoint itself stays dumb and there's exactly
     # one resolution point.
+    if session.get(DataSet, backtest.dataset_id) is None:
+        raise HTTPException(status_code=404, detail=f"Dataset {backtest.dataset_id} not found")
     job = worker.queue_db(
         wf.run_backtest,
         backtest,
@@ -300,23 +347,23 @@ async def create_backtest(backtest: BackTestCreate, database_url: str = Depends(
 async def delete_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     session.delete(backtest)
     session.commit()
     return {"message": "deleted"}
 
 
-@router.patch("/backtests/{backtestId}", response_model=BackTestRead, tags=["Backtests"])
+@router.patch("/backtests/{backtestId}", response_model=BacktestRead, tags=["Backtests"])
 async def update_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")],
-    backtest_update: BackTestUpdate,
+    backtest_update: BacktestUpdate,
     session: Session = Depends(get_session),
 ):
-    db_backtest = session.get(BackTest, backtest_id)
+    db_backtest = session.get(Backtest, backtest_id)
     if not db_backtest:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
 
     update_data = backtest_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -327,11 +374,11 @@ async def update_backtest(
 
     # Reload with eager loading to avoid lazy-load issues
     db_backtest = session.exec(
-        select(BackTest)
-        .where(BackTest.id == backtest_id)
+        select(Backtest)
+        .where(Backtest.id == backtest_id)
         .options(
-            selectinload(BackTest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).first()
     return db_backtest
@@ -365,7 +412,7 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
             ) from None
 
     for backtest_id in backtest_ids_list:
-        backtest = session.get(BackTest, backtest_id)
+        backtest = session.get(Backtest, backtest_id)
         if backtest is not None:
             session.delete(backtest)
             deleted_count += 1
@@ -375,12 +422,6 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
 
 ###########
 # predictions
-
-
-class PredictionCreate(DBModel):
-    dataset_id: int
-    estimator_id: str
-    n_periods: int
 
 
 @router.get("/predictions", response_model=list[PredictionInfo], tags=["Predictions"])
@@ -420,15 +461,6 @@ async def delete_prediction(
 
 ###########
 # datasets
-
-
-class DataBaseResponse(DBModel):
-    id: int
-
-
-class DatasetCreate(DataSetCreateInfo):
-    observations: list[ObservationBase]
-    geojson: FeatureCollectionModel
 
 
 @router.get("/datasets", response_model=list[DataSetInfo], tags=["Datasets"])
@@ -485,19 +517,27 @@ async def create_dataset_csv(
 
 @router.get("/datasets/{datasetId}/df", tags=["Datasets"])
 async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
-    # dataset = session.get(DataSet, dataset_id)
-    # if dataset is None:
-    #    raise HTTPException(status_code=404, detail="Dataset not found")
+    if session.get(DataSet, dataset_id) is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
     sw = SessionWrapper(session=session)
     in_memory_dataset = sw.get_dataset(dataset_id)
     df = in_memory_dataset.to_pandas()
     # Convert time_period column to strings for proper serialization
     df["time_period"] = df["time_period"].astype(str)
-    return df.to_dict(orient="records")
+    records = df.to_dict(orient="records")
+    # NaN floats are not JSON-serialisable; surface them as JSON null instead.
+    # Done after to_dict because reassigning None into a float column re-casts it to NaN.
+    for record in records:
+        for key, value in record.items():
+            if isinstance(value, float) and not np.isfinite(value):
+                record[key] = None
+    return records
 
 
 @router.get("/datasets/{datasetId}/csv", tags=["Datasets"])
 async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    if session.get(DataSet, dataset_id) is None:
+        raise HTTPException(status_code=404, detail="Dataset not found")
     sw = SessionWrapper(session=session)
     in_memory_dataset = sw.get_dataset(dataset_id)
     df = in_memory_dataset.to_pandas()
@@ -524,23 +564,6 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 
 ###########
 # model templates
-
-
-class ModelTemplateRead(DBModel, ModelTemplateInformation, ModelTemplateMetaData):
-    """
-    ModelTemplateRead is a read model for the ModelTemplateDB.
-    It is used to return the model template in a readable format.
-    """
-
-    # TODO: should probably be moved somewhere else?
-    name: str
-    id: int
-    user_options: dict | None = None
-    required_covariates: list[str] = []
-    version: str | None = None
-    archived: bool = False
-    health_status: str | None = None
-    uses_chapkit: bool = False
 
 
 @router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])
@@ -575,11 +598,25 @@ def list_configured_models(session: Session = Depends(get_session)):
     return configured_models_read
 
 
-class ModelConfigurationCreate(DBModel):
-    name: str
-    model_template_id: int
-    user_option_values: dict | None = None
-    additional_continuous_covariates: list[str] = []
+@router_get(
+    "/configured-models/{configuredModelId}",
+    response_model=ConfiguredModelInfoRead,
+    tags=["Models"],
+)
+@api_experimental
+def get_configured_model_info(
+    configured_model_id: Annotated[int, Path(alias="configuredModelId")],
+    session: Session = Depends(get_session),
+):
+    """Return the detail view for a single configured model, including its template."""
+    configured_model = session.exec(
+        select(ConfiguredModelDB)
+        .where(ConfiguredModelDB.id == configured_model_id)
+        .options(selectinload(ConfiguredModelDB.model_template))  # type: ignore[arg-type]
+    ).first()
+    if configured_model is None:
+        raise HTTPException(status_code=404, detail="Configured model not found")
+    return configured_model
 
 
 @router.post("/configured-models", response_model=ConfiguredModelDB, tags=["Models"])
@@ -593,10 +630,15 @@ def add_configured_model(
     configuration_name = model_configuration.name
     # Inherit uses_chapkit from parent template so the model loads correctly at runtime
     template = session.exec(select(ModelTemplateDB).where(ModelTemplateDB.id == model_template_id)).first()
-    uses_chapkit = template.uses_chapkit if template else False
+    if template is None:
+        raise HTTPException(status_code=404, detail="Model template not found")
+    uses_chapkit = template.uses_chapkit
     db_id = session_wrapper.add_configured_model(
         model_template_id,
-        ModelConfiguration(**model_configuration.model_dump()),
+        ModelConfiguration(
+            user_option_values=model_configuration.user_option_values,
+            additional_continuous_covariates=model_configuration.additional_continuous_covariates,
+        ),
         configuration_name,
         uses_chapkit=uses_chapkit,
     )
@@ -618,22 +660,98 @@ async def delete_configured_model(
 
 
 ###########
-# models (alias for configured models)
+# configured models with data source
 
 
-@router.get("/models", response_model=list[ModelSpecRead], tags=["Models"])
-def list_models(session: Session = Depends(get_session)):
-    """List all models from the db (alias for configured models)"""
-    return list_configured_models(session)
+@router.get(
+    "/configured-models-with-data-source",
+    response_model=list[ConfiguredModelWithDataSourceRead],
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+@api_experimental
+async def list_configured_models_with_data_source(session: Session = Depends(get_session)):
+    records = session.exec(
+        select(ConfiguredModelWithDataSource).options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).all()
+    return records
 
 
-@router.post("/models", response_model=ConfiguredModelDB, tags=["Models"])
-def add_model(
-    model_configuration: ModelConfigurationCreate,
+@router.get(
+    "/configured-models-with-data-source/{configuredModelWithDataSourceId}",
+    response_model=ConfiguredModelWithDataSourceReadWithPredictions,
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+@api_experimental
+async def get_configured_model_with_data_source(
+    configured_model_with_data_source_id: Annotated[int, Path(alias="configuredModelWithDataSourceId")],
     session: Session = Depends(get_session),
 ):
-    """Add a model to the database (alias for configured models)"""
-    return add_configured_model(model_configuration, session)
+    record = session.exec(
+        select(ConfiguredModelWithDataSource)
+        .where(ConfiguredModelWithDataSource.id == configured_model_with_data_source_id)
+        .options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
+            .selectinload(Prediction.dataset)  # type: ignore[arg-type]
+            .defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
+            .selectinload(Prediction.configured_model)  # type: ignore[arg-type]
+            .selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    if record is None:
+        raise HTTPException(status_code=404, detail="ConfiguredModelWithDataSource not found")
+    return record
+
+
+@router.post(
+    "/configured-models-with-data-source/from-backtest/{backtestId}",
+    response_model=ConfiguredModelWithDataSourceRead,
+    response_model_by_alias=True,
+    tags=["Models"],
+)
+@api_experimental
+async def create_configured_model_with_data_source_from_backtest(
+    backtest_id: Annotated[int, Path(alias="backtestId")],
+    session: Session = Depends(get_session),
+):
+    backtest = session.exec(
+        select(Backtest)
+        .where(Backtest.id == backtest_id)
+        .options(
+            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="Backtest not found")
+
+    dataset = backtest.dataset
+    record = ConfiguredModelWithDataSource(
+        name=backtest.name or f"from-backtest-{backtest_id}",
+        created=datetime.datetime.now(),
+        configured_model_id=backtest.model_db_id,
+        start_period=dataset.first_period,
+        org_units=dataset.org_units or [],
+        data_sources=dataset.data_sources or [],
+        period_type=dataset.period_type,
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+    result = session.exec(
+        select(ConfiguredModelWithDataSource)
+        .where(ConfiguredModelWithDataSource.id == record.id)
+        .options(
+            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+        )
+    ).first()
+    return result
 
 
 #############

@@ -2,6 +2,7 @@ import logging
 from enum import Enum
 
 import jsonschema
+from pydantic import ConfigDict
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -59,6 +60,8 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
 
 
 class ModelConfiguration(SQLModel):
+    model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
+
     user_option_values: dict | None = Field(sa_column=Column(JSON), default_factory=dict)
     additional_continuous_covariates: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
@@ -72,6 +75,21 @@ class ConfiguredModelDB(ModelConfiguration, DBModel, table=True):
     model_template: ModelTemplateDB = Relationship(back_populates="configured_models")
     archived: bool = Field(default=False)
     uses_chapkit: bool = Field(default=False)
+
+    @property
+    def display_name(self) -> str:
+        """Derived display name stitched from the template and (optionally) a configuration stub.
+
+        Configured models whose name contains ``:`` were created as
+        ``<template_name>:<configuration_name>`` (see ``SessionWrapper.add_configured_model``);
+        default configurations reuse their template's name verbatim.
+        """
+        template_display_name = self.model_template.display_name
+        if ":" not in self.name:
+            return template_display_name
+        configuration_stub = self.name.rsplit(":", 1)[-1]
+        configuration_display_name = configuration_stub.replace("_", " ").capitalize()
+        return f"{template_display_name} [{configuration_display_name}]"
 
     @classmethod
     def _validate_model_configuration(cls, user_options, user_option_values):

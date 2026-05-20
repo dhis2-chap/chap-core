@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def add_model_template(model_template: ModelTemplateDB, session_wrapper: SessionWrapper) -> int:
-    template_id = session_wrapper.add_model_template(model_template)
+    template_id = session_wrapper.add_or_update_model_template(model_template, update=False)
     return template_id
 
 

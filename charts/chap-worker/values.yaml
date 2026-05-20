@@ -1,0 +1,104 @@
+# CHAP Worker Chart - Values
+
+# -- Common labels applied to all Kubernetes resources created by this chart.
+commonLabels: {}
+
+# -- Annotations applied to all pods deployed by this chart.
+podAnnotations: {}
+# -- Labels applied to all pods deployed by this chart.
+podLabels: {}
+
+image:
+  repository: ghcr.io/dhis2-chap/chap-worker
+  pullPolicy: IfNotPresent
+  tag: ""
+
+replicaCount: 1
+
+command:
+  - celery
+  - -A
+  - chap_core.rest_api.celery_tasks
+  - worker
+  - --loglevel=info
+
+resources: {}
+
+volumeMounts: []
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+livenessProbe:
+  exec:
+    command:
+      - celery
+      - -A
+      - chap_core.rest_api.celery_tasks
+      - inspect
+      - ping
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  exec:
+    command:
+      - celery
+      - -A
+      - chap_core.rest_api.celery_tasks
+      - inspect
+      - ping
+  initialDelaySeconds: 10
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+imagePullSecrets: []
+
+nameOverride: "chap-worker"
+fullnameOverride: ""
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+
+postgres:
+  existingSecret: ""
+  secretKeys:
+    username: username
+    password: password
+  host: ""
+  port: 5432
+  database: ""
+
+valkey:
+  existingSecret: ""
+  secretKeys:
+    password: default-password
+  host: ""
+  port: 6379
+  password: ""

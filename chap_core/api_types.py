@@ -80,10 +80,10 @@ class EvaluationEntry(PredictionEntry):
     splitPeriod: str
 
 
-class BackTestParams(DBModel):
-    n_periods: int = 3
-    n_splits: int = 7
-    stride: int = 1
+class BacktestParams(DBModel):
+    n_periods: int = Field(default=3, gt=0)
+    n_splits: int = Field(default=7, gt=0)
+    stride: int = Field(default=1, gt=0)
 
 
 class RunConfig(BaseModel):

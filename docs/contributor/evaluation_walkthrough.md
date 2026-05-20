@@ -212,10 +212,10 @@ attributes with the model metadata needed by the evaluation:
 Run the evaluation:
 
 ```python
-from chap_core.api_types import BackTestParams
+from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
 
-backtest_params = BackTestParams(n_periods=3, n_splits=4, stride=1)
+backtest_params = BacktestParams(n_periods=3, n_splits=4, stride=1)
 evaluation = Evaluation.create(estimator.configured_model_db, estimator, dataset, backtest_params)
 ```
 

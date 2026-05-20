@@ -21,9 +21,7 @@ from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import ObservationBase
 from chap_core.datatypes import FullData, HealthPopulationData, SimpleClimateData
 from chap_core.geometry import Polygons
-from chap_core.rest_api.data_models import FetchRequest
-from chap_core.rest_api.v1.routers.crud import DatasetCreate
-from chap_core.rest_api.v1.routers.analytics import MakePredictionRequest
+from chap_core.rest_api.data_models import DatasetCreate, FetchRequest, MakePredictionRequest
 from chap_core.rest_api.worker_functions import WorkerConfig
 
 from .data_fixtures import *
@@ -239,6 +237,40 @@ def dumped_weekly_data_paths(weekly_full_data, tmp_path):
     future_path = tmp_path / "future_data.csv"
     masked.to_csv(future_path)
     return training_path, historic_path, future_path
+
+
+@pytest.fixture
+def csv_with_sibling_geojson_id_in_properties(tmp_path):
+    """CSV path whose sibling .geojson stores feature id under properties.id
+    (no top-level id). Exercises the DataSet.from_csv autodiscovery path."""
+    csv_path = tmp_path / "data.csv"
+    pd.DataFrame(
+        {
+            "time_period": ["2020-01", "2020-02", "2020-01", "2020-02"],
+            "location": ["A", "A", "B", "B"],
+            "disease_cases": [1, 2, 3, 4],
+        }
+    ).to_csv(csv_path, index=False)
+    (tmp_path / "data.geojson").write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"id": "A"},
+                        "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {"id": "B"},
+                        "geometry": {"type": "Polygon", "coordinates": [[[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]]},
+                    },
+                ],
+            }
+        )
+    )
+    return csv_path
 
 
 @pytest.fixture

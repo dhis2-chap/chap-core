@@ -20,9 +20,9 @@ from sqlmodel import SQLModel
 import chap_core.database.tables  # noqa: F401 - register all table models
 from chap_core.database.database import SessionWrapper
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
-from chap_core.rest_api.data_models import BackTestCreate
+from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest
 from chap_core.rest_api.services.schemas import MLServiceInfo
 
@@ -173,7 +173,7 @@ def test_chapkit_backtest_via_worker_function(chapkit_service):
 
         # Run backtest directly (bypasses Celery)
         backtest_id = run_backtest(
-            BackTestCreate(dataset_id=dataset_id, model_id="chapkit-test-model"),
+            BacktestCreate(dataset_id=dataset_id, model_id="chapkit-test-model"),
             n_splits=2,
             session=session,
         )
@@ -185,7 +185,7 @@ def test_chapkit_backtest_via_worker_function(chapkit_service):
         # backtest row so the `GET /v1/crud/backtests/{id}/full` response
         # includes global CRPS/MAPE/RMSE/etc without needing a round-trip
         # through the Vega visualization endpoints.
-        fetched = session.session.get(BackTest, backtest_id)
+        fetched = session.session.get(Backtest, backtest_id)
         assert fetched is not None
         assert fetched.aggregate_metrics, (
             f"expected non-empty aggregate_metrics on backtest {backtest_id}, got {fetched.aggregate_metrics!r}"
