@@ -8,40 +8,21 @@ with uncertainty bands and optional historical observations for context.
 import altair as alt
 import pandas as pd
 
-from chap_core.assessment.backtest_plots import BacktestPlotBase, ChartType, backtest_plot
+from chap_core.assessment.backtest_plots import ChartType, FacetedBacktestPlot, backtest_plot
 from chap_core.plotting.backtest_plot import clean_time
 
 
 def _compute_quantiles_from_forecasts(forecasts_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute forecast quantiles from samples.
-
-    Parameters
-    ----------
-    forecasts_df : pd.DataFrame
-        Forecast samples with columns: location, time_period, horizon_distance, sample, forecast
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with columns: location, time_period, split_period, q_10, q_25, q_50, q_75, q_90
-    """
-    # Group by location, time_period
-    # For split_period, we need to calculate it from time_period and horizon_distance
-    # split_period = time_period - horizon_distance (conceptually)
-    # We'll compute quantiles first, then figure out split_period
-
+    """Compute forecast quantiles from samples."""
     quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
-
     rows = []
+    
     for (location, time_period, horizon_distance), group in forecasts_df.groupby(
         ["location", "time_period", "horizon_distance"]
     ):
         samples = group["forecast"].values
         quantile_values = pd.Series(samples).quantile(quantiles).values
 
-        # For simplicity, we'll use the first forecast's split calculation
-        # In practice, we use horizon_distance to determine the split
         rows.append(
             {
                 "time_period": time_period,
@@ -59,29 +40,13 @@ def _compute_quantiles_from_forecasts(forecasts_df: pd.DataFrame) -> pd.DataFram
 
 
 def _infer_split_periods(forecasts_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Infer split periods from forecasts data.
-
-    For each unique (location, time_period), find the minimum horizon distance
-    and use that to determine the split period.
-
-    Parameters
-    ----------
-    forecasts_df : pd.DataFrame
-        DataFrame with columns including location, time_period, horizon_distance
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with added split_period column
-    """
+    """Infer split periods from forecasts data."""
     from chap_core.time_period import TimePeriod
 
     result_rows = []
     for _, row in forecasts_df.iterrows():
         time_period = TimePeriod.parse(str(row["time_period"]))
         horizon = int(row["horizon_distance"])
-        # Go back horizon periods to get the split period
         split_period = time_period - (horizon * time_period.time_delta)
         row_dict = row.to_dict()
         row_dict["time_period"] = clean_time(time_period.to_string())
@@ -97,56 +62,29 @@ def _infer_split_periods(forecasts_df: pd.DataFrame) -> pd.DataFrame:
     description="Shows truth vs predictions over time with uncertainty bands and historical context.",
     needs_historical=True,
 )
-class EvaluationPlot(BacktestPlotBase):
+class EvaluationPlot(FacetedBacktestPlot):
     """
     Backtest plot that shows truth vs predictions over time.
-
-    Shows forecasts with uncertainty bands and observed values.
-    Optionally includes historical observations for context.
     """
 
-    # NEW: Define dimensions for the base class layout engine to facet automatically
-    facet_dimensions = ["location", "split_period"]
+    # Layout configurations carrying Altair standard visualization markers
+    facet_dimensions = ["split_period:O", "location:N"]
 
-    def plot(
+    def _preprocess(
         self,
         observations: pd.DataFrame,
         forecasts: pd.DataFrame,
         historical_observations: pd.DataFrame | None = None,
-    ) -> ChartType:
-        """
-        Generate and return the evaluation visualization base chart.
-
-        Parameters
-        ----------
-        observations : pd.DataFrame
-            Observed values with columns: location, time_period, disease_cases
-        forecasts : pd.DataFrame
-            Forecast samples with columns: location, time_period, horizon_distance,
-            sample, forecast
-        historical_observations : pd.DataFrame, optional
-            Historical observations before split periods, with columns:
-            location, time_period, disease_cases
-
-        Returns
-        -------
-        ChartType
-            Altair base layered chart showing forecasts vs observations
-        """
-        # Compute quantiles from forecast samples
+    ) -> pd.DataFrame:
+        """Handles the complete data engineering pipeline mapping for execution stability."""
         forecast_quantiles = _compute_quantiles_from_forecasts(forecasts)
-
-        # Add split_period to forecasts
         forecast_df = _infer_split_periods(forecast_quantiles)
 
-        # Clean time periods in observations
         observed_df = observations.copy()
         observed_df["time_period"] = observed_df["time_period"].apply(clean_time)
 
-        # Get unique split periods (works dynamically if data was subsetted by get_subplot)
         unique_split_periods = forecast_df["split_period"].unique()
 
-        # Create observed data (test periods) with all combinations of split_period
         observed_replicated = []
         for split_period in unique_split_periods:
             tmp = observed_df.copy()
@@ -157,7 +95,6 @@ class EvaluationPlot(BacktestPlotBase):
             pd.concat(observed_replicated, ignore_index=True) if observed_replicated else pd.DataFrame()
         )
 
-        # Add historical observations if available
         if historical_observations is not None and not historical_observations.empty:
             historical_df = historical_observations.copy()
             historical_df["time_period"] = historical_df["time_period"].apply(clean_time)
@@ -166,7 +103,6 @@ class EvaluationPlot(BacktestPlotBase):
             for split_period in unique_split_periods:
                 tmp = historical_df.copy()
                 tmp["split_period"] = split_period
-                # Filter to only include observations before or at the split_period
                 tmp = tmp[tmp["time_period"] <= split_period]
                 historical_replicated.append(tmp)
 
@@ -174,21 +110,18 @@ class EvaluationPlot(BacktestPlotBase):
                 pd.concat(historical_replicated, ignore_index=True) if historical_replicated else pd.DataFrame()
             )
 
-            # Combine historical and test observations
             all_observations = pd.concat(
                 [historical_with_split, observed_with_split], ignore_index=True
             ).drop_duplicates(subset=["location", "time_period", "split_period"])
         else:
             all_observations = observed_with_split
 
-        # Prepare data for combined visualization
         forecast_data = forecast_df.copy()
         forecast_data["data_type"] = "forecast"
 
         observed_data = all_observations.copy()
         observed_data["data_type"] = "observed"
 
-        # Align column names
         for col in ["q_10", "q_25", "q_50", "q_75", "q_90"]:
             if col not in observed_data.columns:
                 observed_data[col] = None
@@ -196,17 +129,15 @@ class EvaluationPlot(BacktestPlotBase):
         if "disease_cases" not in forecast_data.columns:
             forecast_data["disease_cases"] = None
 
-        # Drop all-NA columns before concatenation
         forecast_data = forecast_data.dropna(axis=1, how="all")
         observed_data = observed_data.dropna(axis=1, how="all")
 
-        # Combine datasets
-        combined_data = pd.concat([forecast_data, observed_data], ignore_index=True)
+        return pd.concat([forecast_data, observed_data], ignore_index=True)
 
-        # Create base chart with combined data
-        base = alt.Chart(combined_data)
+    def _plot(self, df: pd.DataFrame) -> ChartType:
+        """Renders the pristine, unfaceted visual components."""
+        base = alt.Chart(df)
 
-        # Forecast line (median)
         line = (
             base.transform_filter(alt.datum.data_type == "forecast")
             .mark_line()
@@ -216,7 +147,6 @@ class EvaluationPlot(BacktestPlotBase):
             )
         )
 
-        # Error bands
         error1 = (
             base.transform_filter(alt.datum.data_type == "forecast")
             .mark_errorband(color="blue", opacity=0.3)
@@ -237,7 +167,6 @@ class EvaluationPlot(BacktestPlotBase):
             )
         )
 
-        # Observations (including historical context if available)
         observations_layer = (
             base.transform_filter(alt.datum.data_type == "observed")
             .mark_line(color="orange")
@@ -247,9 +176,5 @@ class EvaluationPlot(BacktestPlotBase):
             )
         )
 
-        # Layer all components
         full_layer = error1 + error2 + line + observations_layer
-
-        # NEW: Return the unfaceted base layer chart.
-        # The base class `get_full_plot` method will handle applying `.facet(...)` and `.resolve_scale(...)`
         return full_layer.properties(title="Backtest Forecasts with Observations")  # type: ignore[no-any-return]
