@@ -206,7 +206,7 @@ class EvaluationPlot(BacktestPlotBase):
             .mark_line()
             .encode(
                 x="time_period:T",
-                y=alt.Y("q_50:Q", alt.Scale(zero=False))),
+                y=alt.Y("q_50:Q", alt.Scale(zero=False)),
             )
         )
 
