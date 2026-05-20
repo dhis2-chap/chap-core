@@ -4,15 +4,6 @@ import pytest
 from chap_core.cli_endpoints.causal import causal_cmd
 
 
-def _make_df(locations, periods, extra_col_val=1.0):
-    rows = [
-        {"location": loc, "time_period": p, "rainfall": extra_col_val, "disease_cases": 0.0}
-        for loc in locations
-        for p in periods
-    ]
-    return pd.DataFrame(rows)
-
-
 def _write_csvs(tmp_path, original_df, cf_df):
     original_csv = tmp_path / "original.csv"
     cf_csv = tmp_path / "cf.csv"
@@ -33,33 +24,33 @@ def _call_causal_cmd(tmp_path, original_csv, cf_csv, columns=None, cf_start_peri
     )
 
 
-def test_validation_different_time_periods(tmp_path):
-    original = _make_df(["A"], ["2022-01", "2022-02"])
-    cf = _make_df(["A"], ["2022-01", "2022-03"])
+def test_validation_different_time_periods(tmp_path, make_test_df):
+    original = make_test_df(["A"], ["2022-01", "2022-02"])
+    cf = make_test_df(["A"], ["2022-01", "2022-03"])
     cf.loc[cf["time_period"] == "2022-03", "rainfall"] = 2.0
     original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
     with pytest.raises(ValueError, match="same time periods"):
         _call_causal_cmd(tmp_path, original_csv, cf_csv)
 
 
-def test_validation_missing_column(tmp_path):
-    original = _make_df(["A"], ["2022-01"])
-    cf = _make_df(["A"], ["2022-01"])
+def test_validation_missing_column(tmp_path, make_test_df):
+    original = make_test_df(["A"], ["2022-01"])
+    cf = make_test_df(["A"], ["2022-01"])
     cf.loc[:, "rainfall"] = 2.0
     original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
     with pytest.raises(ValueError, match="not found"):
         _call_causal_cmd(tmp_path, original_csv, cf_csv, columns=["nonexistent_col"])
 
 
-def test_validation_no_differences(tmp_path):
-    original = _make_df(["A"], ["2022-01", "2022-02"])
+def test_validation_no_differences(tmp_path, make_test_df):
+    original = make_test_df(["A"], ["2022-01", "2022-02"])
     original_csv, cf_csv = _write_csvs(tmp_path, original, original.copy())
     with pytest.raises(ValueError, match="No differences"):
         _call_causal_cmd(tmp_path, original_csv, cf_csv)
 
 
-def test_validation_no_differences_row_order_independent(tmp_path):
-    original = _make_df(["A"], ["2022-01", "2022-02"])
+def test_validation_no_differences_row_order_independent(tmp_path, make_test_df):
+    original = make_test_df(["A"], ["2022-01", "2022-02"])
     cf = original.iloc[::-1].reset_index(drop=True)  # same data, reversed row order
     original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
     with pytest.raises(ValueError, match="No differences"):
