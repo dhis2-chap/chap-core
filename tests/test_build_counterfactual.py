@@ -4,140 +4,140 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from chap_core.cli_endpoints.build_counterfactual import (
-    _apply_transformation,
-    _parse_transformations,
-    _validate_expression,
-    build_counterfactual_cmd,
+from chap_core.cli_endpoints.build_counterfactual import build_counterfactual_cmd
+from chap_core.cli_endpoints.expressions import (
+    apply_transformation,
+    parse_transformations,
+    validate_expression,
 )
 
 _LOCATIONS = ["A"]
 _PERIODS = ["2022-01", "2022-02", "2022-03"]
 
 
-# --- _validate_expression ---
+# --- validate_expression ---
 
 
-def test_validate_expression_addition():
-    _validate_expression("x+10")
+def testvalidate_expression_addition():
+    validate_expression("x+10")
 
 
-def test_validate_expression_subtraction():
-    _validate_expression("x-30")
+def testvalidate_expression_subtraction():
+    validate_expression("x-30")
 
 
-def test_validate_expression_multiplication():
-    _validate_expression("x*0.1")
+def testvalidate_expression_multiplication():
+    validate_expression("x*0.1")
 
 
-def test_validate_expression_division():
-    _validate_expression("x/2")
+def testvalidate_expression_division():
+    validate_expression("x/2")
 
 
-def test_validate_expression_composite():
-    _validate_expression("x*0+1")
+def testvalidate_expression_composite():
+    validate_expression("x*0+1")
 
 
-def test_validate_expression_inverted():
-    _validate_expression("1-x")
+def testvalidate_expression_inverted():
+    validate_expression("1-x")
 
 
-def test_validate_expression_abs():
-    _validate_expression("abs(x)")
+def testvalidate_expression_abs():
+    validate_expression("abs(x)")
 
 
-def test_validate_expression_round():
-    _validate_expression("round(x)")
+def testvalidate_expression_round():
+    validate_expression("round(x)")
 
 
-def test_validate_expression_nested():
-    _validate_expression("abs(x*0.1-5)")
+def testvalidate_expression_nested():
+    validate_expression("abs(x*0.1-5)")
 
 
-def test_validate_expression_disallowed_name():
+def testvalidate_expression_disallowed_name():
     with pytest.raises(ValueError, match="Disallowed name"):
-        _validate_expression("y+1")
+        validate_expression("y+1")
 
 
-def test_validate_expression_disallowed_function():
+def testvalidate_expression_disallowed_function():
     with pytest.raises(ValueError, match="Disallowed function"):
-        _validate_expression("int(x)")
+        validate_expression("int(x)")
 
 
-def test_validate_expression_string_constant():
+def testvalidate_expression_string_constant():
     with pytest.raises(ValueError, match="Non-numeric constant"):
-        _validate_expression("x+'a'")
+        validate_expression("x+'a'")
 
 
-def test_validate_expression_syntax_error():
+def testvalidate_expression_syntax_error():
     with pytest.raises(ValueError, match="Invalid expression"):
-        _validate_expression("x +* 1")
+        validate_expression("x +* 1")
 
 
-def test_validate_expression_exponentiation():
-    _validate_expression("x**2")
+def testvalidate_expression_exponentiation():
+    validate_expression("x**2")
 
 
-def test_validate_expression_disallowed_operator():
+def testvalidate_expression_disallowed_operator():
     with pytest.raises(ValueError):
-        _validate_expression("x // 2")
+        validate_expression("x // 2")
 
 
-# --- _parse_transformations ---
+# --- parse_transformations ---
 
 
-def test_parse_transformations_single():
-    assert _parse_transformations(["rainfall=x+10"]) == [("rainfall", "x+10")]
+def testparse_transformations_single():
+    assert parse_transformations(["rainfall=x+10"]) == [("rainfall", "x+10")]
 
 
-def test_parse_transformations_multiple():
-    result = _parse_transformations(["rainfall=x*0.01", "temperature=x-30"])
+def testparse_transformations_multiple():
+    result = parse_transformations(["rainfall=x*0.01", "temperature=x-30"])
     assert result == [("rainfall", "x*0.01"), ("temperature", "x-30")]
 
 
-def test_parse_transformations_splits_at_first_equals():
+def testparse_transformations_splits_at_first_equals():
     # expression itself contains =  → only first = is the separator
-    result = _parse_transformations(["col=x*0+1"])
+    result = parse_transformations(["col=x*0+1"])
     assert result == [("col", "x*0+1")]
 
 
-def test_parse_transformations_missing_separator():
+def testparse_transformations_missing_separator():
     with pytest.raises(ValueError, match="not in 'column=expression' format"):
-        _parse_transformations(["rainfall"])
+        parse_transformations(["rainfall"])
 
 
-# --- _apply_transformation ---
+# --- apply_transformation ---
 
 
-def test_apply_transformation_basic():
+def testapply_transformation_basic():
     s = pd.Series([1.0, 2.0, 3.0])
-    result = _apply_transformation(s, "x+10")
+    result = apply_transformation(s, "x+10")
     assert list(result) == [11.0, 12.0, 13.0]
 
 
-def test_apply_transformation_nan_unchanged():
+def testapply_transformation_nan_unchanged():
     s = pd.Series([1.0, float("nan"), 3.0])
-    result = _apply_transformation(s, "x*2")
+    result = apply_transformation(s, "x*2")
     assert result[0] == 2.0
     assert math.isnan(result[1])
     assert result[2] == 6.0
 
 
-def test_apply_transformation_abs():
+def testapply_transformation_abs():
     s = pd.Series([-3.0, 2.0])
-    result = _apply_transformation(s, "abs(x)")
+    result = apply_transformation(s, "abs(x)")
     assert list(result) == [3.0, 2.0]
 
 
-def test_apply_transformation_round():
+def testapply_transformation_round():
     s = pd.Series([1.4, 2.6])
-    result = _apply_transformation(s, "round(x)")
+    result = apply_transformation(s, "round(x)")
     assert list(result) == [1, 3]
 
 
-def test_apply_transformation_one_minus_x():
+def testapply_transformation_one_minus_x():
     s = pd.Series([0.2, 0.8])
-    result = _apply_transformation(s, "1-x")
+    result = apply_transformation(s, "1-x")
     assert list(result) == pytest.approx([0.8, 0.2])
 
 

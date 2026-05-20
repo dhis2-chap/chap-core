@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import logging
 from pathlib import Path  # noqa: TC003 — used at runtime via cyclopts get_type_hints()
 from typing import Annotated
@@ -10,68 +9,9 @@ from typing import Annotated
 import pandas as pd
 from cyclopts import Parameter
 
+from chap_core.cli_endpoints.expressions import apply_transformation, parse_transformations, validate_expression
+
 logger = logging.getLogger(__name__)
-
-_ALLOWED_FUNCS = frozenset({"abs", "round"})
-
-_ALLOWED_NODE_TYPES = (
-    ast.Expression,
-    ast.BinOp,
-    ast.UnaryOp,
-    ast.Name,
-    ast.Constant,
-    ast.Call,
-    ast.Load,
-    # arithmetic operators
-    ast.Add,
-    ast.Sub,
-    ast.Mult,
-    ast.Div,
-    ast.Pow,
-    ast.USub,
-    ast.UAdd,
-)
-
-
-def _validate_expression(expr: str) -> None:
-    """Raise ValueError if expr is not a safe arithmetic expression in x."""
-    try:
-        tree = ast.parse(expr, mode="eval")
-    except SyntaxError as e:
-        raise ValueError(f"Invalid expression '{expr}': {e}") from e
-
-    for node in ast.walk(tree):
-        if not isinstance(node, _ALLOWED_NODE_TYPES):
-            raise ValueError(f"Disallowed construct in expression '{expr}'")
-        if isinstance(node, ast.Name) and node.id not in _ALLOWED_FUNCS and node.id != "x":
-            raise ValueError(f"Disallowed name '{node.id}' in expression '{expr}'")
-        if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float)):
-            raise ValueError(f"Non-numeric constant in expression '{expr}'")
-        if isinstance(node, ast.Call) and not (isinstance(node.func, ast.Name) and node.func.id in _ALLOWED_FUNCS):
-            raise ValueError(f"Disallowed function call in expression '{expr}'")
-
-
-def _parse_transformations(transformations: list[str]) -> list[tuple[str, str]]:
-    """Parse ['col=expr', ...] into [('col', 'expr'), ...].
-
-    Raises ValueError if any entry lacks an '=' separator.
-    """
-    result = []
-    for t in transformations:
-        if "=" not in t:
-            raise ValueError(f"Transformation '{t}' is not in 'column=expression' format")
-        col, expr = t.split("=", 1)
-        result.append((col, expr))
-    return result
-
-
-def _apply_transformation(series: pd.Series, expr: str) -> pd.Series:
-    """Apply expr to each non-NaN value; leave NaN values unchanged."""
-    namespace = {"__builtins__": {}, "abs": abs, "round": round}
-    result = series.copy()
-    mask = ~series.isna()
-    result[mask] = series[mask].apply(lambda x: eval(expr, namespace, {"x": x}))
-    return result
 
 
 def build_counterfactual_cmd(
@@ -129,7 +69,7 @@ def build_counterfactual_cmd(
     """
     from chap_core.time_period import TimePeriod
 
-    pairs = _parse_transformations(transformations)
+    pairs = parse_transformations(transformations)
 
     df = pd.read_csv(dataset_csv)
 
@@ -138,7 +78,7 @@ def build_counterfactual_cmd(
         raise ValueError(f"Column names must not contain '=': {invalid_cols}")
 
     for _, expr in pairs:
-        _validate_expression(expr)
+        validate_expression(expr)
 
     for col, _ in pairs:
         if col not in df.columns:
@@ -159,9 +99,9 @@ def build_counterfactual_cmd(
     for col, expr in pairs:
         original_dtype = df[col].dtype
         if row_mask is None:
-            df[col] = _apply_transformation(df[col], expr)
+            df[col] = apply_transformation(df[col], expr)
         else:
-            df.loc[row_mask, col] = _apply_transformation(df.loc[row_mask, col], expr)
+            df.loc[row_mask, col] = apply_transformation(df.loc[row_mask, col], expr)
         if df[col].dtype != original_dtype:
             logger.warning(
                 "Column '%s' changed type from %s to %s after transformation",
