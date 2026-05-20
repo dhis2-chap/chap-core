@@ -104,7 +104,7 @@ class EvaluationPlot(BacktestPlotBase):
     Shows forecasts with uncertainty bands and observed values.
     Optionally includes historical observations for context.
     """
-    
+
     # NEW: Define dimensions for the base class layout engine to facet automatically
     facet_dimensions = ["location", "split_period"]
 
