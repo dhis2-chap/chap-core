@@ -9,7 +9,7 @@ import altair as alt
 import numpy as np
 import pandas as pd
 
-from chap_core.assessment.backtest_plots import FacetedBacktestPlot, ChartType, backtest_plot
+from chap_core.assessment.backtest_plots import ChartType, FacetedBacktestPlot, backtest_plot
 
 
 def _nice_tick_values(data_max: float) -> np.ndarray:

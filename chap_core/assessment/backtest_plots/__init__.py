@@ -38,7 +38,7 @@ class BacktestPlotBase(ABC):
     name: str = ""
     description: str = ""
     needs_historical: bool = False
-    facet_dimensions: list[str] = []  
+    facet_dimensions: list[str] = []
 
     @abstractmethod
     def plot(
@@ -100,7 +100,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
         """Returns unique coordinates available for faceting from preprocessed fields."""
         df = self._preprocess(observations, forecasts, historical_observations)
         clean_dims = [dim.split(":", 1)[0] for dim in self.facet_dimensions]
-        
+
         # Fix C414: Avoid passing list() to sorted() on unique array elements
         return {
             col: sorted(df[col].dropna().unique())
@@ -132,19 +132,19 @@ class FacetedBacktestPlot(BacktestPlotBase):
         """Generates subplots mapped directly against their Cartesian matrix values."""
         #Pre process once to get the full dataframe, then filter for each subplot to avoid redundant preprocessing
         df_preprocessed = self._preprocess(observations, forecasts, historical_observations)
-        
+
         keys = list(coords.keys())
         value_lists = [coords[k] for k in keys]
         results = []
 
         for combination in itertools.product(*value_lists):
             single_coords = dict(zip(keys, combination,strict=True))
-            
+
             df_filtered = df_preprocessed
             for col, value in single_coords.items():
                 if col in df_filtered.columns:
                     df_filtered = df_filtered[df_filtered[col] == value]
-            
+
             chart = self._plot(df_filtered)
             key = combination[0] if len(combination) == 1 else combination
             results.append((key, chart))
@@ -160,7 +160,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
         chart = self.plot(observations, forecasts, historical_observations)
         if not self.facet_dimensions:
             return chart
-        
+
         # Fix B905: Explicitly define strict behavior for structural truncations
         kwargs = dict(zip(["column", "row"], self.facet_dimensions, strict=False))
         return chart.facet(**kwargs).resolve_scale(y="independent")
