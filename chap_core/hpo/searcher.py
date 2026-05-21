@@ -35,6 +35,9 @@ class GridSearcher(Searcher):
 
     def reset(self, search_space: dict[str, list]) -> None:
         self.keys = list(search_space.keys())
+        for value in search_space.values():
+            if not isinstance(value, list):
+                raise ValueError("GridSearcher only supports list-based search spaces")
         self._iterator = itertools.product(*search_space.values())
 
     def ask(self) -> dict[str, Any] | None:
