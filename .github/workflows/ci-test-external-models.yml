@@ -14,7 +14,7 @@ permissions:
   packages: read
 
 jobs:
-  build:
+  test-all:
     env:
       REDIS_HOST: redis
 
