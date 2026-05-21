@@ -191,9 +191,12 @@ def test_eval_cmd_does_not_wrap_when_bounds_unspecified(tmp_path):
     assert forwarded is fake_estimator
 
 
-def test_eval_cmd_drops_regions_with_no_disease_cases(tmp_path):
+def test_eval_cmd_drops_regions_with_no_disease_cases(tmp_path, caplog):
     """Regions whose entire training-period disease_cases is NaN must be dropped before
-    the backtest runs, matching the REST API's pre-backtest filtering."""
+    the backtest runs, matching the REST API's pre-backtest filtering. The names of the
+    dropped regions must also be surfaced in the warning log."""
+    import logging
+
     import numpy as np
 
     from chap_core.api_types import BacktestParams, RunConfig
@@ -209,7 +212,7 @@ def test_eval_cmd_drops_regions_with_no_disease_cases(tmp_path):
     fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
     stack, eval_mock = _patched_eval_chain(fake_estimator)
     stack.enter_context(patch("chap_core.cli_endpoints.evaluate.load_dataset_from_csv", return_value=dataset))
-    with stack:
+    with stack, caplog.at_level(logging.WARNING, logger="chap_core.rest_api.db_worker_functions"):
         eval_cmd(
             model_name="dummy",
             dataset_csv="dummy.csv",
@@ -222,6 +225,10 @@ def test_eval_cmd_drops_regions_with_no_disease_cases(tmp_path):
     locations = list(forwarded.locations())
     assert "nan_region" not in locations
     assert "valid_region" in locations
+
+    rejection_warnings = [r for r in caplog.records if r.levelno == logging.WARNING and "Rejected regions" in r.message]
+    assert len(rejection_warnings) == 1
+    assert "nan_region" in rejection_warnings[0].message
 
 
 def test_eval_cmd_with_data_source_mapping(tmp_path):
