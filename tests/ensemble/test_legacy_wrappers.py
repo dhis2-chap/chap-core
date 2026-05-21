@@ -1,4 +1,4 @@
-from chap_core.ensemble._legacy_wrappers import BaseModelSpec, _TemplateWithConfig
+from chap_core.ensemble.wrappers import BaseModelSpec, TemplateWithConfig
 
 
 class _DummyTemplate:
@@ -13,7 +13,7 @@ class _DummyTemplate:
 
 def test_template_with_config_passes_config():
     template = _DummyTemplate()
-    wrapper = _TemplateWithConfig(template, {"alpha": 1})
+    wrapper = TemplateWithConfig(template, {"alpha": 1})
 
     model = wrapper.get_model()
 

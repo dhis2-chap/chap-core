@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -14,6 +15,8 @@ from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 if TYPE_CHECKING:
     from chap_core.ensemble._meta_models import NonNegativeMetaModel, ProbabilisticMetaModel
 
+logger = logging.getLogger(__name__)
+
 
 class EnsemblePredictor:
     def __init__(
@@ -22,16 +25,12 @@ class EnsemblePredictor:
         meta: NonNegativeMetaModel | ProbabilisticMetaModel,
         probabilistic: bool,
         n_samples: int,
-        use_residual_bootstrap: bool = False,
-        base_residuals: list[np.ndarray] | None = None,
         rng: np.random.Generator | None = None,
     ) -> None:
         self._predictors = list(predictors)
         self._meta = meta
         self._prob = probabilistic
         self._n_samples = n_samples
-        self._use_residual_bootstrap = use_residual_bootstrap
-        self._base_residuals = base_residuals or []
         self._rng = rng or np.random.default_rng()
 
     def predict(self, historic_data: DataSet, future_data: DataSet) -> DataSet[Samples]:
@@ -61,28 +60,9 @@ class EnsemblePredictor:
         meta_det = cast("NonNegativeMetaModel", self._meta)
         y_point = meta_det.predict(X_meta_future)
 
-        if self._use_residual_bootstrap and self._base_residuals:
-            w = np.asarray(meta_det.coef_, float)
-            w = np.maximum(w, 0.0)
-            s = w.sum()
-            if s <= 0:
-                w = np.full_like(w, 1.0 / len(w), dtype=float)
-            else:
-                w /= s
-            n_rows = X_meta_future.shape[0]
-            s_count = self._n_samples
-            ens_samp = np.zeros((n_rows, s_count), float)
-            for model_idx, residuals in enumerate(self._base_residuals):
-                res_clean = residuals[~np.isnan(residuals)]
-                base_pred = X_meta_future[:, model_idx][:, None]
-                if len(res_clean) == 0:
-                    ens_samp += w[model_idx] * base_pred
-                    continue
-                sampled_res = self._rng.choice(res_clean, size=(n_rows, s_count), replace=True)
-                model_samples = np.maximum(base_pred + sampled_res, 0.0)
-                ens_samp += w[model_idx] * model_samples
-            return self._pack_samples(ens_samp, df_future, future_data)
-
+        logger.warning(
+            "Deterministic ensemble outputs a single sample; CRPS reduces to MAE and is not comparable to multi-sample CRPS"
+        )
         df_out = df_future.copy()
         df_out["forecast"] = y_point
         df_out = df_out.sort_values(key_cols)

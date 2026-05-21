@@ -30,58 +30,6 @@ class _FixedMetaProbabilistic(ProbabilisticMetaModel):
         return np.maximum(ens, 0.0)
 
 
-def test_predictor_deterministic_with_bootstrap(weekly_full_data, constant_predictor_factory, base_residuals_factory):
-    predictors = [constant_predictor_factory(2.0, 1), constant_predictor_factory(4.0, 1)]
-    meta = _FixedMetaDeterministic([0.25, 0.75])
-    base_residuals = [
-        base_residuals_factory(2.0),
-        base_residuals_factory(4.0),
-    ]
-
-    predictor = EnsemblePredictor(
-        predictors=predictors,
-        meta=meta,
-        probabilistic=False,
-        n_samples=3,
-        use_residual_bootstrap=True,
-        base_residuals=base_residuals,
-        rng=np.random.default_rng(123),
-    )
-
-    preds = predictor.predict(weekly_full_data, weekly_full_data)
-
-    for loc in weekly_full_data.locations():
-        samples = preds[loc].samples
-        assert samples.shape[1] == 3
-        assert samples.shape[0] == len(weekly_full_data[loc].time_period)
-
-
-def test_predictor_deterministic_weight_fallback(weekly_full_data, constant_predictor_factory, base_residuals_factory):
-    predictors = [constant_predictor_factory(2.0, 1), constant_predictor_factory(4.0, 1)]
-    meta = _FixedMetaDeterministic([0.0, 0.0])
-    base_residuals = [
-        base_residuals_factory(2.0),
-        base_residuals_factory(4.0),
-    ]
-
-    predictor = EnsemblePredictor(
-        predictors=predictors,
-        meta=meta,
-        probabilistic=False,
-        n_samples=2,
-        use_residual_bootstrap=True,
-        base_residuals=base_residuals,
-        rng=np.random.default_rng(321),
-    )
-
-    preds = predictor.predict(weekly_full_data, weekly_full_data)
-
-    for loc in weekly_full_data.locations():
-        samples = preds[loc].samples
-        assert samples.shape[1] == 2
-        assert samples.shape[0] == len(weekly_full_data[loc].time_period)
-
-
 def test_predictor_probabilistic_samples(weekly_full_data, constant_predictor_factory):
     predictors = [constant_predictor_factory(1.0, 2), constant_predictor_factory(3.0, 2)]
     meta = _FixedMetaProbabilistic([0.5, 0.5])
@@ -128,7 +76,6 @@ def test_predictor_deterministic_missing_rows_raises(weekly_full_data, constant_
         meta=meta,
         probabilistic=False,
         n_samples=1,
-        use_residual_bootstrap=False,
         rng=np.random.default_rng(11),
     )
 

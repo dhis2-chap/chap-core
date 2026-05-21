@@ -24,6 +24,18 @@ def test_non_negative_meta_model_fits_and_predicts(weekly_full_data):
     assert preds.shape == y.shape
 
 
+def test_non_negative_meta_model_keeps_nnls_scale():
+    X = np.array([[1.0, 0.0], [0.0, 1.0]])
+    y = np.array([2.0, 2.0])
+
+    model = NonNegativeMetaModel().fit(X, y)
+
+    assert model.coef_ is not None
+    assert np.allclose(model.coef_, np.array([2.0, 2.0]))
+    preds = model.predict(X)
+    assert np.allclose(preds, y)
+
+
 def test_probabilistic_meta_model_weights_on_simplex(weekly_full_data):
     base = _base_series_from_weekly_data(weekly_full_data)
     y = base

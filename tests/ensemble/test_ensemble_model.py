@@ -7,11 +7,11 @@ from chap_core.time_period import TimePeriod
 from chap_core.assessment.dataset_splitting import train_test_split as real_train_test_split
 
 
-def test_probabilistic_disallows_residual_bootstrap():
-    with pytest.raises(ValueError, match="Residual bootstrap is only supported for deterministic ensembles"):
+def test_residual_bootstrap_rejected():
+    with pytest.raises(ValueError, match="Residual bootstrap is not supported"):
         EnsembleModel(
             base_templates=[object()],
-            method="probabilistic",
+            method="deterministic",
             use_residual_bootstrap=True,
         )
 

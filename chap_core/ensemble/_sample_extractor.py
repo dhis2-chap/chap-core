@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -9,6 +10,8 @@ import pandas as pd
 
 if TYPE_CHECKING:
     from chap_core.datatypes import Samples
+
+logger = logging.getLogger(__name__)
 
 
 class SampleExtractor:
@@ -23,7 +26,10 @@ class SampleExtractor:
         else:
             sample_cols = [c for c in df.columns if c.startswith("sample_")]
             if sample_cols:
-                df["forecast"] = df[sample_cols].mean(axis=1)
+                logger.warning(
+                    "Collapsing probabilistic samples to a point forecast using the median; uncertainty is discarded"
+                )
+                df["forecast"] = df[sample_cols].median(axis=1)
                 pred_col = "forecast"
             else:
                 raise ValueError(f"No forecast/value/sample_* in columns: {list(df.columns)}")
@@ -53,6 +59,9 @@ class SampleExtractor:
                 df_flat = SampleExtractor.samples_to_flat(preds_ds)
                 merged = df_ref[key_cols].merge(df_flat, on=key_cols, how="left")
                 pts = merged["forecast"].to_numpy()
+                logger.warning(
+                    "Probabilistic predictions missing samples; repeating point forecasts for %d samples", target_n
+                )
                 return np.tile(pts.reshape(-1, 1), (1, target_n))
         else:
             # Align via merge.
@@ -64,6 +73,9 @@ class SampleExtractor:
                 df_flat = SampleExtractor.samples_to_flat(preds_ds)
                 merged = df_ref[key_cols].merge(df_flat, on=key_cols, how="left")
                 pts = merged["forecast"].to_numpy()
+                logger.warning(
+                    "Probabilistic predictions missing samples; repeating point forecasts for %d samples", target_n
+                )
                 return np.tile(pts.reshape(-1, 1), (1, target_n))
 
         _, n_samp = mat.shape

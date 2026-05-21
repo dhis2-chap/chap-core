@@ -1,4 +1,4 @@
-# chap_core/ensemble/_legacy_wrappers.py
+"""Small wrapper utilities for ensemble base models."""
 
 from __future__ import annotations
 
@@ -15,13 +15,12 @@ class BaseModelSpec:
     config: Any | None = None
 
 
-class _TemplateWithConfig:
+class TemplateWithConfig:
     def __init__(self, template: ModelTemplate, config: Any | None) -> None:
         self._template = template
         self._config = config
 
     def get_model(self, _: Any = None) -> Any:
-        # Always forward the config; None means "default config".
         return self._template.get_model(self._config)
 
     @property
@@ -34,3 +33,6 @@ class _TemplateWithConfig:
 
     def __str__(self) -> str:
         return str(self._template)
+
+
+__all__ = ["BaseModelSpec", "TemplateWithConfig"]

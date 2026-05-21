@@ -37,8 +37,7 @@ class NonNegativeMetaModel:
     def fit(self, X: np.ndarray, y: np.ndarray) -> NonNegativeMetaModel:
         coef_raw, _ = nnls(X, y)
         coef = np.asarray(coef_raw, float)
-        s = coef.sum()
-        self.coef_ = coef / s if s > 0 else coef
+        self.coef_ = coef
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:

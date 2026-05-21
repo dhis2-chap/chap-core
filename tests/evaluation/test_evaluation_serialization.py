@@ -278,8 +278,8 @@ class TestEvaluationSerialization:
         assert original_forecast_count == loaded_forecast_count
         assert original_forecast_count > 10000
 
-    def test_to_file_falls_back_on_numpy_abi_warning(self, backtest, tmp_path, monkeypatch):
-        """Test fallback on NumPy ABI RuntimeWarning when writing NetCDF."""
+    def test_to_file_raises_on_numpy_abi_warning(self, backtest, tmp_path, monkeypatch):
+        """Test that NumPy ABI RuntimeWarning is propagated when writing NetCDF."""
         evaluation = Evaluation.from_backtest(backtest)
         output_file = tmp_path / "test_evaluation_fallback.nc"
         calls = []
@@ -292,14 +292,14 @@ class TestEvaluationSerialization:
 
         monkeypatch.setattr(xr.Dataset, "to_netcdf", fake_to_netcdf, raising=True)
 
-        evaluation.to_file(filepath=output_file)
+        with pytest.raises(RuntimeWarning, match="numpy.ndarray size changed"):
+            evaluation.to_file(filepath=output_file)
 
-        assert output_file.exists()
         assert calls[0] == {}
-        assert calls[1].get("engine") == "scipy"
+        assert len(calls) == 1
 
-    def test_from_file_falls_back_on_numpy_abi_warning(self, backtest, monkeypatch):
-        """Test fallback on NumPy ABI RuntimeWarning when loading from NetCDF."""
+    def test_from_file_raises_on_numpy_abi_warning(self, backtest, monkeypatch):
+        """Test that NumPy ABI RuntimeWarning is propagated when loading from NetCDF."""
         evaluation = Evaluation.from_backtest(backtest)
         flat_data = evaluation.to_flat()
         model_metadata = {
@@ -324,11 +324,11 @@ class TestEvaluationSerialization:
 
         monkeypatch.setattr(xr, "open_dataset", fake_open_dataset, raising=True)
 
-        loaded = Evaluation.from_file("dummy.nc")
+        with pytest.raises(RuntimeWarning, match="numpy.ndarray size changed"):
+            Evaluation.from_file("dummy.nc")
 
-        assert isinstance(loaded, Evaluation)
         assert calls[0] == {}
-        assert calls[1].get("engine") == "scipy"
+        assert len(calls) == 1
 
 
 class TestXarrayHelperFunctions:

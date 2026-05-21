@@ -26,8 +26,8 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelConfiguration,
     ModelTemplateDB,
 )
-from chap_core.ensemble._legacy_wrappers import _TemplateWithConfig
 from chap_core.ensemble.ensemble_model import EnsembleModel
+from chap_core.ensemble.wrappers import TemplateWithConfig
 from chap_core.log_config import initialize_logging
 from chap_core.models.model_template import ModelTemplate
 from chap_core.models.utils import CHAP_RUNS_DIR
@@ -154,6 +154,9 @@ def _evaluate_ensemble_core(
     if ensemble_method not in ("deterministic", "probabilistic"):
         raise ValueError(f"ensemble_method must be 'deterministic' or 'probabilistic', not {ensemble_method!r}")
 
+    if use_residual_bootstrap:
+        raise ValueError("Residual bootstrap is not supported for deterministic ensembles")
+
     logger.info(
         "Backtest config: n_splits=%d, n_periods=%d, stride=%d",
         backtest_params.n_splits,
@@ -167,7 +170,7 @@ def _evaluate_ensemble_core(
     )
     logger.info("Model configurations: %s", model_configuration_yaml_list)
 
-    base_templates_with_config: list[_TemplateWithConfig] = []
+    base_templates_with_config: list[TemplateWithConfig] = []
     for name, cfg_yaml in zip(base_model_list, model_configuration_yaml_list, strict=False):
         logger.info("Loading base model template from %s", name)
         template = ModelTemplate.from_directory_or_github_url(
@@ -186,7 +189,7 @@ def _evaluate_ensemble_core(
             model_config = ModelConfiguration.model_validate(cfg_data)
             logger.info("Loaded model configuration for %s", name)
 
-        base_templates_with_config.append(_TemplateWithConfig(template, model_config))
+        base_templates_with_config.append(TemplateWithConfig(template, model_config))
 
     ensemble = EnsembleModel(
         base_templates=base_templates_with_config,
@@ -269,7 +272,7 @@ def evaluate_ensemble(
     ] = 42,
     use_residual_bootstrap: Annotated[
         bool,
-        Parameter(help="Use residual bootstrap to generate samples for deterministic ensembles."),
+        Parameter(help="Not supported (deterministic ensembles are point-only)."),
     ] = False,
     data_source_mapping: Annotated[Path | None, Parameter(help="Optional JSON column mapping.")] = None,
     historical_context_years: Annotated[

@@ -1,6 +1,7 @@
 import numpy as np
 
 from chap_core.datatypes import Samples
+from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.ensemble import _meta_models
 from chap_core.ensemble._sample_extractor import SampleExtractor
 
@@ -27,6 +28,19 @@ def test_reshape_samples_respects_rng(weekly_full_data):
     actual = SampleExtractor.reshape_samples(samples, df_ref, target_n, rng=rng_call)
 
     assert np.allclose(actual, expected, equal_nan=True)
+
+
+def test_samples_to_flat_uses_median_for_samples(weekly_full_data):
+    samples = _samples_from_weekly_data(weekly_full_data)
+    location = next(iter(weekly_full_data.locations()))
+    preds_ds = DataSet({location: samples})
+    df_flat = SampleExtractor.samples_to_flat(preds_ds)
+
+    series = weekly_full_data[location]
+    base = np.asarray(series.disease_cases, float)
+    expected = base + 1.0
+
+    assert np.allclose(df_flat["forecast"].to_numpy(), expected, equal_nan=True)
 
 
 def test_probabilistic_meta_model_fallback_on_failed_opt(monkeypatch, weekly_full_data):

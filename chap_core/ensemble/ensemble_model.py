@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 
 from chap_core.assessment.dataset_splitting import train_test_split
-from chap_core.ensemble._legacy_wrappers import BaseModelSpec, _TemplateWithConfig
 from chap_core.ensemble._meta_models import (
     NonNegativeMetaModel,
     ProbabilisticMetaModel,
@@ -16,6 +15,7 @@ from chap_core.ensemble._meta_models import (
 )
 from chap_core.ensemble._predictor import EnsemblePredictor
 from chap_core.ensemble._sample_extractor import SampleExtractor as _SampleExtractor
+from chap_core.ensemble.wrappers import BaseModelSpec, TemplateWithConfig
 from chap_core.models.configured_model import ConfiguredModel
 
 if TYPE_CHECKING:
@@ -44,16 +44,14 @@ class EnsembleModel(ConfiguredModel):
             raise ValueError("Need at least one base model")
         if method not in ("deterministic", "probabilistic"):
             raise ValueError(method)
-        if use_residual_bootstrap and method != "deterministic":
-            raise ValueError("Residual bootstrap is only supported for deterministic ensembles")
+        if use_residual_bootstrap:
+            raise ValueError("Residual bootstrap is not supported for deterministic ensembles")
         self.method = method
         self.inner_val_periods = inner_val_periods
         self.target_col = target_col
         self.n_samples = n_samples
-        self.use_residual_bootstrap = use_residual_bootstrap
         self.meta_model: NonNegativeMetaModel | ProbabilisticMetaModel | None = meta_model
         self.weights: np.ndarray | None = None
-        self._base_residuals: list[np.ndarray] = []
         self.random_state: int | None = random_state
 
     def _base_names(self) -> list[str]:
@@ -102,15 +100,6 @@ class EnsembleModel(ConfiguredModel):
         y_val = df_val[self.target_col].to_numpy()
         key_cols = ["location", "time_period"]
 
-        self._base_residuals = []
-        if self.use_residual_bootstrap:
-            for p in preds_inner:
-                preds_ds = p.predict(inner_train, val_data)
-                df_pred = _SampleExtractor.samples_to_flat(preds_ds)
-                merged = df_val[key_cols].merge(df_pred, on=key_cols, how="left")
-                res = y_val - merged["forecast"].to_numpy()
-                self._base_residuals.append(res[~np.isnan(res)])
-
         meta_list: list[np.ndarray] | None = None
         meta_mat: np.ndarray | None = None
         if self.method == "probabilistic":
@@ -135,11 +124,23 @@ class EnsembleModel(ConfiguredModel):
         nan_in_features = np.zeros(len(y_val), dtype=bool)
         if self.method == "probabilistic":
             assert meta_list is not None
+            per_base_nan = []
             for arr in meta_list:
-                nan_in_features |= np.any(np.isnan(arr), axis=1)
+                nan_rows = np.any(np.isnan(arr), axis=1)
+                nan_in_features |= nan_rows
+                per_base_nan.append(int(np.sum(nan_rows)))
         else:
             assert meta_mat is not None
             nan_in_features = np.any(np.isnan(meta_mat), axis=1)
+            per_base_nan = [int(np.sum(np.isnan(meta_mat[:, i]))) for i in range(meta_mat.shape[1])]
+
+        dropped = int(np.sum(nan_in_features | np.isnan(y_val)))
+        if dropped:
+            logger.warning("Dropping %d validation rows due to NaNs in targets/features", dropped)
+            names = self._base_names()
+            for name, cnt in zip(names, per_base_nan, strict=False):
+                if cnt:
+                    logger.warning("NaN count for base model %s: %d", name, cnt)
 
         mask = ~np.isnan(y_val) & ~nan_in_features
         if not np.any(mask):
@@ -163,8 +164,12 @@ class EnsembleModel(ConfiguredModel):
         assert self.meta_model is not None
         coef_raw = cast("np.ndarray", self.meta_model.coef_)
         coef = np.maximum(np.asarray(coef_raw, float), 0.0)
-        s = coef.sum()
-        self.weights = coef / s * 100.0 if s > 0 else np.full(len(coef), 100.0 / len(coef))
+        s = float(np.sum(coef))
+        if s <= 0:
+            logger.warning("Non-positive meta-model weights; falling back to uniform weights")
+            self.weights = np.full(len(coef), 100.0 / len(coef))
+        else:
+            self.weights = coef / s * 100.0
 
         names = self._base_names()
         assert self.weights is not None
@@ -183,8 +188,6 @@ class EnsembleModel(ConfiguredModel):
             meta=self.meta_model,
             probabilistic=(self.method == "probabilistic"),
             n_samples=self.n_samples,
-            use_residual_bootstrap=self.use_residual_bootstrap,
-            base_residuals=self._base_residuals,
             rng=rng,  # forward the shared RNG
         )
 
@@ -217,7 +220,7 @@ class EnsembleEstimator(EnsembleModel):
         self._base_specs = specs
         method = "probabilistic" if probabilistic_meta_model else "deterministic"
         super().__init__(
-            base_templates=[_TemplateWithConfig(s.template, s.config) for s in specs],
+            base_templates=[TemplateWithConfig(s.template, s.config) for s in specs],
             method=method,
             inner_val_periods=inner_val_periods,
             target_col=target_column,
