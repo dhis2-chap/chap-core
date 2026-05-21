@@ -6,8 +6,8 @@ with uncertainty bands and optional historical observations for context.
 """
 
 import altair as alt
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from chap_core.assessment.backtest_plots import ChartType, FacetedBacktestPlot, backtest_plot
 from chap_core.plotting.backtest_plot import clean_time
@@ -18,10 +18,10 @@ def _compute_quantiles_from_forecasts(forecasts_df: pd.DataFrame) -> pd.DataFram
     """Compute forecast quantiles efficiently using vectorized groupby operations."""
     # Convert list to an explicit numpy array to pass Mypy strict checks
     quantiles = np.array([0.1, 0.25, 0.5, 0.75, 0.9])
-    
+
     grouped = forecasts_df.groupby(["location", "time_period", "horizon_distance"])["forecast"]
     quantile_df = grouped.quantile(quantiles).unstack(level=-1)
-    
+
     quantile_df.columns = [f"q_{int(q*100)}" for q in quantiles]
     return quantile_df.reset_index()
 
