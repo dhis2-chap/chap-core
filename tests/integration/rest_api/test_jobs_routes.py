@@ -80,3 +80,53 @@ def test_get_logs_unknown_id_returns_404(unknown_job_id):
 def test_result_endpoints_unknown_id_return_404(unknown_job_id, suffix):
     response = client.get(f"{base_path}/{unknown_job_id}/{suffix}")
     assert response.status_code == 404, response.text
+
+
+class _FakeJob:
+    def __init__(self, result):
+        self.result = result
+        self.status = "SUCCESS"
+        self.is_finished = True
+
+
+def _stub_successful_job(monkeypatch, result: int, job_id: str = "job-1"):
+    """Make `/result` endpoints see job_id as an existing, successful job returning `result`."""
+    from chap_core.rest_api.v1 import jobs as jobs_module
+
+    monkeypatch.setattr(jobs_module, "get_job_meta", lambda _job_id: {"status": "success"})
+    monkeypatch.setattr(jobs_module.worker, "get_job", lambda _job_id: _FakeJob(result))
+    return job_id
+
+
+def test_prediction_result_returns_prediction(monkeypatch, override_session):
+    job_id = _stub_successful_job(monkeypatch, result=1)
+    response = client.get(f"{base_path}/{job_id}/prediction_result")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["id"] == 1
+    assert body["modelId"] == "naive_model"
+    assert body["nPeriods"] == 3
+    assert body["name"] == "test prediction"
+
+
+def test_evaluation_result_returns_backtest(monkeypatch, override_session):
+    job_id = _stub_successful_job(monkeypatch, result=1)
+    response = client.get(f"{base_path}/{job_id}/evaluation_result")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["id"] == 1
+    assert body["modelId"] == "naive_model"
+    assert body["name"] == "test backtest"
+    assert body["aggregateMetrics"] == {"MAE": 1.5}
+
+
+def test_prediction_result_missing_row_returns_404(monkeypatch, override_session):
+    job_id = _stub_successful_job(monkeypatch, result=999999)
+    response = client.get(f"{base_path}/{job_id}/prediction_result")
+    assert response.status_code == 404, response.text
+
+
+def test_evaluation_result_missing_row_returns_404(monkeypatch, override_session):
+    job_id = _stub_successful_job(monkeypatch, result=999999)
+    response = client.get(f"{base_path}/{job_id}/evaluation_result")
+    assert response.status_code == 404, response.text
