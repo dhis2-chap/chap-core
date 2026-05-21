@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path  # noqa: TC003 — used at runtime via cyclopts get_type_hints()
 from typing import Annotated
 
 from cyclopts import Parameter
 from pydantic import BaseModel
 
 from chap_core.api_types import RunConfig
+from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+    DatasetCsvArg,
+    ModelConfigYamlArg,
+    ModelNameArg,
+    RunConfigArg,
+)
 from chap_core.cli_endpoints._common import (
     discover_geojson,
     load_dataset_from_csv,
+    resolve_csv_path,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,14 +40,8 @@ class LimeParams(BaseModel):
 
 
 def explain_lime(
-    model_path: Annotated[
-        Path,
-        Parameter(help="Path to a trained model run directory"),
-    ],
-    dataset_csv: Annotated[
-        Path,
-        Parameter(help="Path to CSV file with disease data"),
-    ],
+    model_name: ModelNameArg,
+    dataset_csv: DatasetCsvArg,
     location: Annotated[
         str,
         Parameter(help="Location name for which to explain the prediction"),
@@ -60,14 +60,8 @@ def explain_lime(
             "--lime-params.adaptive to enable adaptive mode"
         ),
     ] = LimeParams(),
-    run_config: Annotated[
-        RunConfig,
-        Parameter(help="Model execution configuration"),
-    ] = RunConfig(),
-    model_configuration_yaml: Annotated[
-        Path | None,
-        Parameter(help="Path to YAML file with model configuration"),
-    ] = None,
+    run_config: RunConfigArg = RunConfig(),
+    model_configuration_yaml: ModelConfigYamlArg = None,
     save: Annotated[
         bool,
         Parameter(help="Save explanation as a markdown file under runs/explainability/"),
@@ -83,7 +77,7 @@ def explain_lime(
     from chap_core.models.model_template import ModelTemplate
 
     # TODO: Fix too much printing in console when running
-    logger.info(f"Evaluating model {model_path} using LIME")
+    logger.info(f"Evaluating model {model_name} using LIME")
 
     if lime_params.adaptive:
         from chap_core.explainability.lime import explain_adaptive as explain_fn
@@ -92,17 +86,18 @@ def explain_lime(
 
     initialize_logging(run_config.debug, run_config.log_file)
 
-    geojson_path = discover_geojson(dataset_csv)
-    dataset = load_dataset_from_csv(dataset_csv, geojson_path)
+    csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
+    geojson_path = url_geojson_path or discover_geojson(csv_path)
+    dataset = load_dataset_from_csv(csv_path, geojson_path)
 
     configuration = None
     if model_configuration_yaml is not None:
         logger.info(f"Loading model configuration from {model_configuration_yaml}")
         configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
 
-    logger.info(f"Loading model template from {model_path}")
+    logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
-        model_path,
+        model_name,
         ignore_env=run_config.ignore_environment,
         run_dir_type="use_existing",
         is_chapkit_model=run_config.is_chapkit_model,

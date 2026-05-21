@@ -1,4 +1,5 @@
 import logging
+import os
 import traceback
 
 from fastapi import FastAPI, Request
@@ -30,6 +31,7 @@ openapi_tags = [
 app = FastAPI(
     title="CHAP Core API",
     openapi_tags=openapi_tags,
+    root_path=os.environ.get("CHAP_ROOT_PATH", ""),
 )
 
 origins = [
