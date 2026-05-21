@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 from starlette.responses import JSONResponse
+from typing import Any, cast
 
 from chap_core.assessment.backtest_plots import (
     FacetedBacktestPlot,
@@ -190,11 +191,11 @@ def get_facet_coordinates(visualization_name: str, backtest_id: int, session: Se
     Returns unique structural dimension arrays available for layout faceting grids.
     """
     plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(visualization_name, backtest_id, session)
-    return plotter.facet_coords(observations, forecasts, historical_df)
+    return cast(dict[str, Any], plotter.facet_coords(observations, forecasts, historical_df))
 
 
 @router.post("/backtest-plots/{visualization_name}/{backtest_id}/subplot")
-def generate_isolated_plots(visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)) -> dict[str, Any]:
+def generate_isolated_plots(visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)) -> dict[str, Any] | JSONResponse:
     """
     Filters the source datasets by exact coordinate targets and generates a single Vega schema spec.
     """
