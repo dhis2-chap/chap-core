@@ -185,44 +185,47 @@ def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session)
 
 
 @router.get("/backtest-plots/{visualization_name}/{backtest_id}/facet-coords")
-def get_facet_coordinates(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+def get_facet_coordinates(
+    visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
+) -> dict[str, Any]:
     """
     Returns unique structural dimension arrays available for layout faceting grids.
     """
-    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(visualization_name, backtest_id, session)
+    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
+        visualization_name, backtest_id, session
+    )
     return cast("dict[str, Any]", plotter.facet_coords(observations, forecasts, historical_df))
 
 
 @router.post("/backtest-plots/{visualization_name}/{backtest_id}/subplot")
-def generate_isolated_plots(visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)) -> dict[str, Any] | JSONResponse:
+def generate_isolated_plots(
+    visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)
+) -> dict[str, Any] | JSONResponse:
     """
     Filters the source datasets by exact coordinate targets and generates a single Vega schema spec.
     """
-    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(visualization_name, backtest_id, session)
+    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
+        visualization_name, backtest_id, session
+    )
 
     chart = plotter.get_subplot(observations, forecasts, facet_coords, historical_df)
     return JSONResponse(chart.to_dict(format="vega"))
 
 
 @router.get("/backtest-plots/{visualization_name}/{backtest_id}/subplots")
-def generate_all_subplots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)) -> list[dict[str, Any]]:
+def generate_all_subplots(
+    visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
+) -> list[dict[str, Any]]:
     """
     Generates a full flat checklist mapping coordinate variations against their respective Vega specs.
     """
-    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(visualization_name, backtest_id, session)
+    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
+        visualization_name, backtest_id, session
+    )
     coords_matrix = plotter.facet_coords(observations, forecasts, historical_df)
 
     subplot_tuples = plotter.get_subplots(
-        observations,
-        forecasts,
-        coords=coords_matrix,
-        historical_observations=historical_df
+        observations, forecasts, coords=coords_matrix, historical_observations=historical_df
     )
 
-    return [
-        {
-            "key": key,
-            "spec": subplot.to_dict(format="vega")
-        }
-        for key, subplot in subplot_tuples
-    ]
+    return [{"key": key, "spec": subplot.to_dict(format="vega")} for key, subplot in subplot_tuples]
