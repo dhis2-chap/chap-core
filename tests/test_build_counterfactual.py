@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from chap_core.cli_endpoints.build_counterfactual import build_counterfactual_cmd
-from chap_core.cli_endpoints.causal import FeatureTransformations
+from chap_core.cli_endpoints.build_counterfactual import FeatureTransformations
 
 _LOCATIONS = ["A"]
 _PERIODS = ["2022-01", "2022-02", "2022-03"]
