@@ -700,7 +700,8 @@ async def create_prediction_setup(request: PredictionSetupCreate, session: Sessi
         raise HTTPException(status_code=409, detail=str(e)) from e
     except prediction_setup_service.InvalidSetupError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    assert setup.id is not None
+    if setup.id is None:
+        raise HTTPException(status_code=500, detail="PredictionSetup creation produced no id")
     return DataBaseResponse(id=setup.id)
 
 
@@ -744,7 +745,7 @@ async def update_prediction_setup(
     request: PredictionSetupUpdate,
     session: Session = Depends(get_session),
 ):
-    update_data = request.model_dump(exclude_unset=True)
+    update_data = request.model_dump(exclude_unset=True, by_alias=False)
     try:
         return prediction_setup_service.update_prediction_setup(session, prediction_setup_id, update_data)
     except prediction_setup_service.PredictionSetupNotFoundError as e:
@@ -757,26 +758,31 @@ def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
     """Cancel in-flight celery jobs tagged with this setup id and clear their Redis metadata.
 
     Called before deleting a PredictionSetup so a still-running job doesn't try to write
-    `Prediction.prediction_setup_id=<deleted_id>` and fail the FK insert. Best-effort —
-    a Redis outage logs a warning rather than blocking the delete.
+    `Prediction.prediction_setup_id=<deleted_id>` and fail the FK insert. Fails the delete
+    with 503 if Redis is unreachable (we cannot guarantee the FK invariant otherwise); one
+    stuck per-job cancel does not block the sweep.
     """
     try:
         keys: list[str] = redis.keys("job_meta:*")  # type: ignore[assignment]
-        for key in keys:
-            meta: dict[str, str] = redis.hgetall(key)  # type: ignore[assignment]
-            if meta.get(PREDICTION_SETUP_ID_JOB_META_KEY) != str(prediction_setup_id):
-                continue
-            task_id = key.split(":", 1)[1]
-            if meta.get("status", "").lower() in {"pending", "started", "running"}:
-                try:
-                    worker.get_job(task_id).cancel()
-                except Exception:
-                    logger.warning(
-                        "Failed to cancel job %s for prediction setup %d", task_id, prediction_setup_id, exc_info=True
-                    )
-            redis.delete(key)
-    except Exception:
+    except Exception as e:
         logger.warning("Failed to sweep job metadata for prediction setup %d", prediction_setup_id, exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Cannot delete PredictionSetup: job-metadata store unavailable, retry later",
+        ) from e
+    for key in keys:
+        meta: dict[str, str] = redis.hgetall(key)  # type: ignore[assignment]
+        if meta.get(PREDICTION_SETUP_ID_JOB_META_KEY) != str(prediction_setup_id):
+            continue
+        task_id = key.split(":", 1)[1]
+        if meta.get("status", "").lower() in {"pending", "started", "running"}:
+            try:
+                worker.get_job(task_id).cancel()
+            except Exception:
+                logger.warning(
+                    "Failed to cancel job %s for prediction setup %d", task_id, prediction_setup_id, exc_info=True
+                )
+        redis.delete(key)
 
 
 @router.delete("/prediction-setups/{predictionSetupId}", tags=["Prediction Setups"])
@@ -820,22 +826,36 @@ async def run_prediction_setup(
         # Defensive: the schema makes configured_model NOT NULL via FK, so this should not happen
         # outside of a manually-corrupted DB. Translating to a 500 keeps the contract honest.
         raise HTTPException(status_code=500, detail="PredictionSetup has no configured_model")
+    if setup.configured_model.archived:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Configured model '{setup.configured_model.name}' is archived",
+        )
     model_id = setup.configured_model.name
+
+    if not request.provided_data:
+        raise HTTPException(status_code=422, detail="provided_data cannot be empty")
 
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
+    provided_data, rejections = validate_full_dataset(feature_names, provided_data)
+    if rejections:
+        logger.warning(
+            "%d observations rejected for prediction-setup %d",
+            len(rejections),
+            prediction_setup_id,
+        )
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
 
     # Normalize dataset type server-side, matching analytics.make_prediction. Whatever the
     # client sent in `request.type` (e.g. chap-scheduler defaults to "forecasting") gets
     # overridden so the persisted dataset is consistently tagged "prediction" and shows
-    # up in prediction-filtered UI/queries.
-    request.type = "prediction"
-    dataset_info = DataSetCreateInfo(name=request.name, type=request.type).model_dump()
+    # up in prediction-filtered UI/queries. Use a local instead of mutating the request.
+    dataset_type = "prediction"
+    dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type).model_dump()
     prediction_params = PredictionParams(model_id=model_id, n_periods=request.n_periods)
     job = worker.queue_db(
         wf.predict_pipeline_from_composite_dataset,

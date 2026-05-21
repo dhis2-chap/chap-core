@@ -39,7 +39,12 @@ def upgrade() -> None:
         sa.Column("schedule_enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("quantile_targets", sa.JSON(), nullable=True),
         sa.ForeignKeyConstraint(["backtest_id"], ["backtest.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["configured_model_id"], ["configuredmodeldb.id"]),
+        sa.ForeignKeyConstraint(
+            ["configured_model_id"],
+            ["configuredmodeldb.id"],
+            ondelete="RESTRICT",
+            name="fk_predictionsetup_configured_model",
+        ),
         sa.UniqueConstraint("backtest_id", name="uq_predictionsetup_backtest_id"),
     )
 

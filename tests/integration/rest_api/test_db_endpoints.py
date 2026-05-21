@@ -663,7 +663,24 @@ def test_patch_prediction_setup_rejects_immutable_field(override_session, seeded
     assert response.status_code == 422
 
 
-def test_delete_prediction_setup_removes_setup_and_keeps_predictions(override_session, seeded_session):
+class _NoopRedis:
+    """Empty job-meta store: DELETE flow finds no in-flight jobs to cancel."""
+
+    def keys(self, _pattern):
+        return []
+
+    def hgetall(self, _key):
+        return {}
+
+    def delete(self, _key):
+        return 0
+
+
+def test_delete_prediction_setup_removes_setup_and_keeps_predictions(override_session, seeded_session, monkeypatch):
+    from chap_core.rest_api.v1.routers import crud
+
+    monkeypatch.setattr(crud, "redis", _NoopRedis())
+
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None
     created = _create_prediction_setup(backtest.id, "Deletable")
@@ -689,7 +706,11 @@ def test_delete_prediction_setup_removes_setup_and_keeps_predictions(override_se
     assert surviving.prediction_setup_id is None
 
 
-def test_delete_prediction_setup_without_predictions(override_session, seeded_session):
+def test_delete_prediction_setup_without_predictions(override_session, seeded_session, monkeypatch):
+    from chap_core.rest_api.v1.routers import crud
+
+    monkeypatch.setattr(crud, "redis", _NoopRedis())
+
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None
     created = _create_prediction_setup(backtest.id, "Empty setup")
@@ -805,6 +826,121 @@ def test_run_prediction_setup_rejects_legacy_fields(override_session, seeded_ses
     payload["nPeriods"] = 3
     response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
     assert response.status_code == 422
+
+
+def test_run_prediction_setup_empty_provided_data_returns_422(override_session, seeded_session, example_polygons):
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Empty data")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    payload = {
+        "name": "empty",
+        "geojson": example_polygons.model_dump(mode="json"),
+        "providedData": [],
+        "nPeriods": 3,
+    }
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 422, response.json()
+
+
+def test_run_prediction_setup_archived_model_returns_409(override_session, seeded_session, example_polygons):
+    from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    configured_model = seeded_session.get(ConfiguredModelDB, backtest.model_db_id)
+    assert configured_model is not None
+    created = _create_prediction_setup(backtest.id, "Archived target")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    configured_model.archived = True
+    seeded_session.add(configured_model)
+    seeded_session.commit()
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 409, response.json()
+
+
+def test_run_prediction_setup_logs_rejection_count(
+    override_session, seeded_session, example_polygons, monkeypatch, caplog
+):
+    """When validate_full_dataset reports rejections, the router should log a warning
+    rather than swallow them silently."""
+    from chap_core.rest_api.data_models import ValidationError
+    from chap_core.rest_api.v1.routers import crud
+
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Rejection log")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    def fake_validate(_feature_names, dataset):
+        return dataset, [
+            ValidationError(reason="missing data", org_unit="loc_x", feature_name="rainfall", time_periods=[])
+        ]
+
+    monkeypatch.setattr(crud, "validate_full_dataset", fake_validate)
+
+    class _FakeJob:
+        id = "captured-job"
+
+    class _CapturingWorker:
+        def queue_db(self, *args, **kwargs):
+            return _FakeJob()
+
+    monkeypatch.setattr(crud, "worker", _CapturingWorker())
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = 3
+
+    caplog.set_level(logging.WARNING, logger="chap_core.rest_api.v1.routers.crud")
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 200, response.json()
+    matching = [r for r in caplog.records if "observations rejected for prediction-setup" in r.getMessage()]
+    assert matching, "expected rejection-count warning to be logged"
+
+
+def test_delete_prediction_setup_redis_unavailable_returns_503(override_session, seeded_session, monkeypatch):
+    """If Redis is unreachable we cannot sweep in-flight jobs that point at this setup,
+    so the DELETE must fail loudly rather than risk an FK-violation on later prediction inserts."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, "Redis-down target")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    class _BrokenRedis:
+        def keys(self, _pattern):
+            raise RuntimeError("redis is down")
+
+        def hgetall(self, _key):
+            raise RuntimeError("redis is down")
+
+        def delete(self, _key):
+            raise RuntimeError("redis is down")
+
+    from chap_core.rest_api.v1.routers import crud
+
+    monkeypatch.setattr(crud, "redis", _BrokenRedis())
+
+    response = client.delete(f"/v1/crud/prediction-setups/{setup_id}")
+    assert response.status_code == 503, response.json()
+
+    response = client.get(f"/v1/crud/prediction-setups/{setup_id}")
+    assert response.status_code == 200, response.json()
 
 
 def test_run_prediction_setup_normalizes_dataset_type_to_prediction(
