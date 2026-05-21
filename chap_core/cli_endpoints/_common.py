@@ -254,7 +254,7 @@ def warn_unused_covariates(
 ) -> None:
     """Check for unused dataset columns and log each one as a warning.
 
-    Calls _check_unused_covariates directly; does not run other validation checks.
+    Calls check_unused_covariates directly; does not run other validation checks.
     Does not raise; callers continue regardless of issues.
 
     Parameters
@@ -269,10 +269,10 @@ def warn_unused_covariates(
         additional_continuous_covariates are forwarded to the validation so explicitly
         configured extra columns are not flagged as unused.
     """
-    from chap_core.services.dataset_validation import _check_unused_covariates
+    from chap_core.services.dataset_validation import check_unused_covariates
 
     additional = configuration.additional_continuous_covariates if configuration is not None else None
-    issues = _check_unused_covariates(dataset, template_config, additional)
+    issues = check_unused_covariates(dataset, template_config, additional)
     for issue in issues:
         logger.warning(issue.message)
 

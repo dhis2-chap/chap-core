@@ -8,7 +8,7 @@ import pytest
 from chap_core.datatypes import FullData
 from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.cli_endpoints.validate import _format_period_ranges, _report_period_gaps
-from chap_core.services.dataset_validation import ValidationIssue, validate_dataset
+from chap_core.services.dataset_validation import ValidationIssue, check_unused_covariates, validate_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 from chap_core.model_spec import PeriodType
@@ -186,6 +186,49 @@ def test_validate_no_unused_warning_for_configured_additional_covariates():
     )
     warnings = [i for i in issues if i.level == "warning"]
     assert not any("not used by the model" in w.message for w in warnings)
+
+
+def test_check_unused_covariates_flags_extra_column():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    config = ModelTemplateConfigV2(name="test_model", required_covariates=["rainfall"])
+    issues = check_unused_covariates(dataset, config)
+    assert all(i.level == "warning" for i in issues)
+    messages = [i.message for i in issues]
+    assert any("mean_temperature" in m and "not used by the model" in m for m in messages)
+
+
+def test_check_unused_covariates_no_issues_when_all_used():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    # laos_subset has covariates: rainfall, mean_temperature, population
+    config = ModelTemplateConfigV2(
+        name="test_model", required_covariates=["rainfall", "mean_temperature", "population"]
+    )
+    issues = check_unused_covariates(dataset, config)
+    assert issues == []
+
+
+def test_check_unused_covariates_respects_additional_continuous_covariates():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    config = ModelTemplateConfigV2(
+        name="test_model",
+        required_covariates=["rainfall"],
+        allow_free_additional_continuous_covariates=True,
+    )
+    issues = check_unused_covariates(
+        dataset, config, additional_continuous_covariates=["mean_temperature", "population"]
+    )
+    assert issues == []
+
+
+def test_check_unused_covariates_warns_when_allow_free_but_column_not_listed():
+    dataset = DataSet.from_csv(LAOS_SUBSET, FullData)
+    config = ModelTemplateConfigV2(
+        name="test_model",
+        required_covariates=["rainfall"],
+        allow_free_additional_continuous_covariates=True,
+    )
+    issues = check_unused_covariates(dataset, config, additional_continuous_covariates=[])
+    assert any("mean_temperature" in i.message for i in issues)
 
 
 def test_validate_weekly_data_against_monthly_model():

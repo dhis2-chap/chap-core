@@ -56,7 +56,7 @@ def validate_dataset(
     if model_template_config is not None:
         issues.extend(_check_required_covariates(dataset, model_template_config))
         issues.extend(_check_period_type(dataset, model_template_config))
-        issues.extend(_check_unused_covariates(dataset, model_template_config, additional_continuous_covariates))
+        issues.extend(check_unused_covariates(dataset, model_template_config, additional_continuous_covariates))
 
     return issues
 
@@ -155,7 +155,7 @@ def _check_generated_features(config: ModelTemplateConfigV2) -> list[ValidationI
     return issues
 
 
-def _check_unused_covariates(
+def check_unused_covariates(
     dataset: DataSet,
     config: ModelTemplateConfigV2,
     additional_continuous_covariates: list[str] | None = None,
