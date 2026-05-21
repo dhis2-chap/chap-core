@@ -49,9 +49,7 @@ def test_facet_coords_endpoint_returns_dict_per_dimension(override_session):
 
 @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
-    coords_resp = client.get(
-        "/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords"
-    )
+    coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
     assert coords_resp.status_code == 200, coords_resp.text
     coords = coords_resp.json()
     body = {dim: coords[dim][0] for dim in coords}
@@ -69,9 +67,7 @@ def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
 
 @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_subplots_endpoint_returns_one_entry_per_coord_combination(override_session):
-    coords_resp = client.get(
-        "/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords"
-    )
+    coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
     coords = coords_resp.json()
     expected_count = 1
     for values in coords.values():
@@ -86,5 +82,3 @@ def test_subplots_endpoint_returns_one_entry_per_coord_combination(override_sess
         assert "key" in entry
         assert "spec" in entry
         assert isinstance(entry["spec"], dict)
-
-

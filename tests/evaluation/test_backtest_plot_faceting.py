@@ -79,9 +79,7 @@ def forecasts_df(flat_forecasts) -> pd.DataFrame:
 # expose so subplots can be sliced from the preprocessed dataframe.
 PLOT_CASES = [
     pytest.param(EvaluationPlot, ("location", "split_period"), id="evaluation_plot"),
-    pytest.param(
-        PredictedVsActualPlot, ("horizon_distance",), id="predicted_vs_actual"
-    ),
+    pytest.param(PredictedVsActualPlot, ("horizon_distance",), id="predicted_vs_actual"),
 ]
 
 
@@ -100,13 +98,13 @@ def faceted_base():
 # --- Base class shape ----------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_faceted_base_class_is_a_subclass_of_backtest_plot_base(faceted_base):
     assert issubclass(faceted_base, BacktestPlotBase)
     assert faceted_base is not BacktestPlotBase
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_base_class_does_not_know_specific_facet_dimensions():
     """``BacktestPlotBase`` itself must not reference any specific facet
     dimension name (``location``, ``split_period``, ``horizon_distance``)
@@ -119,21 +117,20 @@ def test_base_class_does_not_know_specific_facet_dimensions():
     source = inspect.getsource(_Base)
     for forbidden in ("location", "split_period", "horizon_distance"):
         assert forbidden not in source, (
-            f"BacktestPlotBase references {forbidden!r}; faceting knowledge "
-            "should live on FacetedBacktestPlot instead."
+            f"BacktestPlotBase references {forbidden!r}; faceting knowledge should live on FacetedBacktestPlot instead."
         )
 
 
 # --- Per-plot shape ------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
 def test_plot_inherits_from_faceted_base(plot_cls, expected_fields, faceted_base):
     assert issubclass(plot_cls, faceted_base)
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
 def test_facet_dimensions_use_type_marker_shorthand(plot_cls, expected_fields):
     dims = plot_cls.facet_dimensions
@@ -165,9 +162,7 @@ def test_facet_dimensions_use_type_marker_shorthand(plot_cls, expected_fields):
 
 
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
-def test_facet_coords_returns_values_per_dimension(
-    plot_cls, expected_fields, observations_df, forecasts_df
-):
+def test_facet_coords_returns_values_per_dimension(plot_cls, expected_fields, observations_df, forecasts_df):
     """Behavioral regression: faceting must keep working across the refactor."""
     if not plot_cls.facet_dimensions:
         pytest.xfail(CLIM_548)
@@ -181,11 +176,9 @@ def test_facet_coords_returns_values_per_dimension(
         assert len(set(values)) == len(values), f"duplicate coords for {field}"
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
-def test_get_subplot_returns_chart_for_single_coord(
-    plot_cls, expected_fields, observations_df, forecasts_df
-):
+def test_get_subplot_returns_chart_for_single_coord(plot_cls, expected_fields, observations_df, forecasts_df):
     """A subplot is a single cell, not a facet wrapper -- today's
     ``get_subplot`` calls ``get_full_plot`` and so re-applies ``.facet(...)``,
     producing a degenerate 1x1 ``FacetChart``. After the refactor a subplot
@@ -217,19 +210,16 @@ def test_get_subplots_returns_one_chart_per_coordinate_combination(
 
 
 @pytest.mark.parametrize("plot_cls,expected_fields", PLOT_CASES)
-def test_get_full_plot_returns_faceted_chart(
-    plot_cls, expected_fields, observations_df, forecasts_df
-):
+def test_get_full_plot_returns_faceted_chart(plot_cls, expected_fields, observations_df, forecasts_df):
     plotter = plot_cls()
     chart = plotter.get_full_plot(observations_df, forecasts_df)
     assert isinstance(chart, alt.TopLevelMixin)
 
 
-
 # --- Registry-level invariant -------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_every_faceted_plot_in_registry_passes_shape_checks(faceted_base):
     """In time every backtest plot should be a FacetedBacktestPlot. For now
     this test just asserts that at least one plot has been migrated and that
@@ -241,7 +231,4 @@ def test_every_faceted_plot_in_registry_passes_shape_checks(faceted_base):
         dims = cls.facet_dimensions
         assert isinstance(dims, list) and dims
         for entry in dims:
-            assert FACET_DIM_RE.match(entry), (
-                f"{cls.__name__}.facet_dimensions entry {entry!r} is not "
-                "altair shorthand"
-            )
+            assert FACET_DIM_RE.match(entry), f"{cls.__name__}.facet_dimensions entry {entry!r} is not altair shorthand"
