@@ -828,6 +828,28 @@ def test_run_prediction_setup_rejects_legacy_fields(override_session, seeded_ses
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("n_periods", [0, -1])
+def test_run_prediction_setup_non_positive_n_periods_returns_422(
+    override_session, seeded_session, example_polygons, n_periods
+):
+    """Pydantic gt=0 on RunPredictionSetupRequest.n_periods should reject 0 and negatives
+    before the handler runs. Lock in the contract."""
+    backtest = seeded_session.exec(select(Backtest)).first()
+    assert backtest is not None
+    created = _create_prediction_setup(backtest.id, f"n_periods={n_periods}")
+    assert created.status_code == 200, created.json()
+    setup_id = created.json()["id"]
+
+    request = create_make_data_request(example_polygons, [], ["rainfall", "disease_cases", "population"])
+    payload = request.model_dump(mode="json")
+    payload.pop("data_to_be_fetched", None)
+    payload.pop("data_sources", None)
+    payload["nPeriods"] = n_periods
+
+    response = client.post(f"/v1/crud/prediction-setups/{setup_id}/run", json=payload)
+    assert response.status_code == 422, response.json()
+
+
 def test_run_prediction_setup_empty_provided_data_returns_422(override_session, seeded_session, example_polygons):
     backtest = seeded_session.exec(select(Backtest)).first()
     assert backtest is not None
