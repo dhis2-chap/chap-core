@@ -267,6 +267,22 @@ def test_update_enabling_without_expression_raises_invalid(engine):
             update_prediction_setup(session, setup.id, {"schedule_enabled": True})
 
 
+def test_update_with_invalid_new_cron_raises_invalid(engine):
+    with Session(engine) as session:
+        backtest_id, _, _ = _make_parents(session)
+        setup = create_prediction_setup(
+            session,
+            backtest_id=backtest_id,
+            name="setup",
+            schedule_cron_expression="0 6 * * 1",
+            schedule_enabled=True,
+            quantile_targets=[],
+        )
+        assert setup.id is not None
+        with pytest.raises(InvalidSetupError, match="cron"):
+            update_prediction_setup(session, setup.id, {"schedule_cron_expression": "not a cron expression"})
+
+
 def test_update_with_missing_id_raises_not_found(engine):
     with Session(engine) as session:
         with pytest.raises(PredictionSetupNotFoundError):
