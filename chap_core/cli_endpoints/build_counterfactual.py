@@ -38,8 +38,8 @@ class FeatureTransformations:
         ast.UAdd,
     )
 
-    @staticmethod
-    def validate_expression(expr: str) -> None:
+    @classmethod
+    def validate_expression(cls, expr: str) -> None:
         """Raise ValueError if expr is not a safe arithmetic expression in x."""
         try:
             tree = ast.parse(expr, mode="eval")
@@ -58,8 +58,8 @@ class FeatureTransformations:
             ):
                 raise ValueError(f"Disallowed function call in expression '{expr}'")
 
-    @staticmethod
-    def parse_transformations(transformations: list[str]) -> list[tuple[str, str]]:
+    @classmethod
+    def parse_transformations(cls, transformations: list[str]) -> list[tuple[str, str]]:
         """Parse ['col=expr', ...] into [('col', 'expr'), ...].
 
         Raises ValueError if any entry lacks an '=' separator.
@@ -72,13 +72,17 @@ class FeatureTransformations:
             result.append((col, expr))
         return result
 
-    @staticmethod
-    def apply_transformation(series: pd.Series, expr: str) -> pd.Series:
+    @classmethod
+    def apply_transformation(cls, series: pd.Series, expr: str) -> pd.Series:
         """Apply expr to each non-NaN value; leave NaN values unchanged."""
+
+        cls.validate_expression(expr)
+
         namespace = {"__builtins__": {}, "abs": abs, "round": round}
         result = series.copy()
         mask = ~series.isna()
-        result[mask] = series[mask].apply(lambda x: eval(expr, namespace, {"x": x}))
+        code = compile(expr, "<expr>", "eval")
+        result[mask] = series[mask].apply(lambda x: eval(code, namespace, {"x": x}))
         return result
 
 
