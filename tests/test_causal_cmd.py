@@ -57,17 +57,17 @@ def test_validation_no_differences_row_order_independent(tmp_path, make_test_df)
         _call_causal_cmd(tmp_path, original_csv, cf_csv)
 
 
-def test_cf_start_period_at_split_raises(tmp_path):
-    original = _make_df(["A"], ["2021-01", "2022-01", "2022-02"])
-    cf = _make_df(["A"], ["2021-01", "2022-01", "2022-02"], extra_col_val=2.0)
+def test_cf_start_period_at_split_raises(tmp_path, make_test_df):
+    original = make_test_df(["A"], ["2021-01", "2022-01", "2022-02"])
+    cf = make_test_df(["A"], ["2021-01", "2022-01", "2022-02"], extra_col_val=2.0)
     original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
     with pytest.raises(ValueError, match="strictly before"):
         _call_causal_cmd(tmp_path, original_csv, cf_csv, cf_start_period="2022-01")
 
 
-def test_cf_start_period_after_split_raises(tmp_path):
-    original = _make_df(["A"], ["2021-01", "2022-01", "2022-02"])
-    cf = _make_df(["A"], ["2021-01", "2022-01", "2022-02"], extra_col_val=2.0)
+def test_cf_start_period_after_split_raises(tmp_path, make_test_df):
+    original = make_test_df(["A"], ["2021-01", "2022-01", "2022-02"])
+    cf = make_test_df(["A"], ["2021-01", "2022-01", "2022-02"], extra_col_val=2.0)
     original_csv, cf_csv = _write_csvs(tmp_path, original, cf)
     with pytest.raises(ValueError, match="strictly before"):
         _call_causal_cmd(tmp_path, original_csv, cf_csv, cf_start_period="2022-02")
