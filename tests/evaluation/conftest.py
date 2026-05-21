@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import altair
 import pandas as pd
 import pytest
 
@@ -9,6 +10,12 @@ from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.dataset_tables import DataSetWithObservations, Observation, DataSet
 from chap_core.database.tables import BacktestRead, OldBacktestRead, BacktestForecast, Backtest, BacktestMetric
 from chap_core.simulation.naive_simulator import DatasetDimensions, AdditiveSimulator, BacktestSimulator
+
+
+@pytest.fixture(scope="module")
+def default_transformer():
+    altair.data_transformers.enable("default")
+    yield
 
 
 @pytest.fixture

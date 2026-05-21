@@ -45,6 +45,65 @@ def eval_cmd(
     model_configuration_yaml: ModelConfigYamlArg = None,
     historical_context_years: Annotated[
         int,
+        Parameter(help="Years of historical data to include for plotting context."),
+    ] = 6,
+    data_source_mapping: DataSourceMappingArg = None,
+    dry_run: Annotated[bool, Parameter(help="Write inputs and print commands without executing.")] = False,
+    plot: Annotated[bool, Parameter(help="Generate an HTML evaluation plot alongside the NetCDF.")] = False,
+    estimator_options: Annotated[
+        EstimatorOptions | None,
+        Parameter(help="Estimator behavior (normal | hpo | ensemble), optional metric."),
+    ] = None,
+):
+    """Evaluate a model using backtesting and export results to NetCDF format.
+
+    Thin wrapper around :func:`_run_eval` that optionally records the run to
+    MLflow when ``run_config.track`` is True. See :func:`_run_eval` for the
+    detailed backtest workflow.
+    """
+    from chap_core.assessment.eval_tracking import load_model_configuration, tracked_eval_run
+
+    model_configuration = load_model_configuration(model_configuration_yaml)
+
+    with tracked_eval_run(
+        track=run_config.track,
+        model_name=model_name,
+        dataset_csv=str(dataset_csv),
+        backtest_params=backtest_params,
+        historical_context_years=historical_context_years,
+        model_configuration=model_configuration,
+    ) as tracker:
+        _run_eval(
+            model_name=model_name,
+            dataset_csv=dataset_csv,
+            output_file=output_file,
+            backtest_params=backtest_params,
+            run_config=run_config,
+            model_configuration_yaml=model_configuration_yaml,
+            historical_context_years=historical_context_years,
+            data_source_mapping=data_source_mapping,
+            dry_run=dry_run,
+            plot=plot,
+            estimator_options=estimator_options,
+        )
+        tracker.log_outputs_from_files(
+            output_file,
+            plot_path=output_file.with_suffix(".html") if plot else None,
+        )
+
+
+def _run_eval(
+    model_name: ModelNameArg,
+    dataset_csv: DatasetCsvArg,
+    output_file: Annotated[
+        Path,
+        Parameter(help="Path for output NetCDF file containing evaluation results (.nc extension)"),
+    ],
+    backtest_params: BacktestParamsArg = BacktestParams(n_periods=3, n_splits=7, stride=1),
+    run_config: RunConfigArg = RunConfig(),
+    model_configuration_yaml: ModelConfigYamlArg = None,
+    historical_context_years: Annotated[
+        int,
         Parameter(
             help="Years of historical data to include for plotting context. "
             "Calculated as periods based on dataset frequency (e.g., 6 years = 312 weeks or 72 months)"
