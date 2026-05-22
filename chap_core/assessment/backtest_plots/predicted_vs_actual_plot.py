@@ -84,7 +84,7 @@ def build_predicted_vs_actual_chart(
     description="Scatter plots of predicted (median) vs actual values in log1p space, faceted by horizon and colored by location.",
 )
 class PredictedVsActualPlot(FacetedBacktestPlot):
-    facet_dimensions: list[FacetDimension] = [FacetDimension("horizon_distance:0", "Horizon Distance")]
+    facet_dimensions: list[FacetDimension] = [FacetDimension("horizon_distance:O", "Horizon Distance")]
 
     resolve_scale_x = "shared"
     resolve_scale_y = "shared"
