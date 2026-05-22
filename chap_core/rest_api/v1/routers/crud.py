@@ -679,7 +679,6 @@ async def delete_configured_model(
 @router.post(
     "/prediction-setups",
     response_model=DataBaseResponse,
-    response_model_by_alias=True,
     tags=["Prediction Setups"],
 )
 @api_experimental
@@ -707,7 +706,6 @@ async def create_prediction_setup(request: PredictionSetupCreate, session: Sessi
 @router.get(
     "/prediction-setups",
     response_model=list[PredictionSetupRead],
-    response_model_by_alias=True,
     tags=["Prediction Setups"],
 )
 @api_experimental
@@ -718,7 +716,6 @@ async def list_prediction_setups(session: Session = Depends(get_session)):
 @router.get(
     "/prediction-setups/{predictionSetupId}",
     response_model=PredictionSetupReadWithPredictions,
-    response_model_by_alias=True,
     tags=["Prediction Setups"],
 )
 @api_experimental
@@ -735,7 +732,6 @@ async def get_prediction_setup(
 @router.patch(
     "/prediction-setups/{predictionSetupId}",
     response_model=PredictionSetupRead,
-    response_model_by_alias=True,
     tags=["Prediction Setups"],
 )
 @api_experimental
@@ -805,7 +801,6 @@ async def delete_prediction_setup(
 @router.post(
     "/prediction-setups/{predictionSetupId}/run",
     response_model=JobResponse,
-    response_model_by_alias=True,
     tags=["Prediction Setups"],
 )
 @api_experimental
