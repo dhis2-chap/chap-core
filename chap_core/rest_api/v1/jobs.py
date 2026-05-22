@@ -1,14 +1,15 @@
 import logging
 from typing import Any, cast
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlmodel import Session
 
-from chap_core.api_types import EvaluationResponse
+from chap_core.database.tables import Backtest, BacktestRead, Prediction, PredictionInfo
 from chap_core.log_config import initialize_logging
 from chap_core.rest_api.celery_tasks import CeleryPool, JobDescription, get_job_meta
 from chap_core.rest_api.celery_tasks import r as redis
-from chap_core.rest_api.data_models import FullPredictionResponse
+from chap_core.rest_api.v1.routers.dependencies import get_session
 
 initialize_logging()
 logger = logging.getLogger(__name__)
@@ -122,14 +123,28 @@ def get_logs(job_id: str) -> str:
     return logs
 
 
-@router.get("/{job_id}/prediction_result")
-def get_prediction_result(job_id: str) -> FullPredictionResponse:
-    return cast("FullPredictionResponse", _get_successful_job(job_id).result)
+@router.get("/{job_id}/prediction_result", response_model=PredictionInfo)
+def get_prediction_result(
+    job_id: str,
+    session: Session = Depends(get_session),
+):
+    prediction_id = _get_successful_job(job_id).result
+    prediction = session.get(Prediction, prediction_id)
+    if prediction is None:
+        raise HTTPException(status_code=404, detail=f"Prediction {prediction_id} not found")
+    return prediction
 
 
-@router.get("/{job_id}/evaluation_result")
-def get_evaluation_result(job_id: str) -> EvaluationResponse:
-    return cast("EvaluationResponse", _get_successful_job(job_id).result)
+@router.get("/{job_id}/evaluation_result", response_model=BacktestRead)
+def get_evaluation_result(
+    job_id: str,
+    session: Session = Depends(get_session),
+):
+    backtest_id = _get_successful_job(job_id).result
+    backtest = session.get(Backtest, backtest_id)
+    if backtest is None:
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id} not found")
+    return backtest
 
 
 class DataBaseResponse(BaseModel):

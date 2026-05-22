@@ -1,6 +1,5 @@
 import json
 import logging
-from functools import partial
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -30,8 +29,6 @@ from chap_core.rest_api.v1.routers.dependencies import get_session
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/visualization", tags=["Visualizations"])
-
-router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 
 
 # List visualizations
@@ -200,7 +197,7 @@ def get_facet_coordinates(
 @router.post("/backtest-plots/{visualization_name}/{backtest_id}/subplot")
 def generate_isolated_plots(
     visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)
-) -> dict[str, Any] | JSONResponse:
+) -> JSONResponse:
     """
     Filters the source datasets by exact coordinate targets and generates a single Vega schema spec.
     """
