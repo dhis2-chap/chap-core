@@ -10,13 +10,13 @@ Get endpoints will return a single object with full data
 We try to make the returned objects look as much as possible like the objects in the database
 This is achieved by subclassing common basemodels in the read objects and database table objects
 
-Magic is used to make the returned objects camelCase while internal objects are snake_case
+Returned objects come out camelCase while internal objects stay snake_case because DBModel sets
+alias_generator=to_camel and FastAPI's response_model_by_alias defaults to True.
 
 """
 
 import json
 import logging
-from functools import partial
 from typing import Annotated, Any
 
 import numpy as np
@@ -253,7 +253,6 @@ def _sync_chapkit_configured_models(
 
 router = APIRouter(prefix="/crud")
 
-router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 worker: CeleryPool[Any] = CeleryPool()
 
 
@@ -276,7 +275,7 @@ async def get_backtests(session: Session = Depends(get_session)):
     return backtests
 
 
-@router_get("/backtests/{backtestId}/full", response_model=Backtest, tags=["Backtests"])
+@router.get("/backtests/{backtestId}/full", response_model=Backtest, tags=["Backtests"])
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
@@ -284,8 +283,8 @@ async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], se
     return backtest
 
 
-@router_get("/backtests/{backtestId}/info", response_model=BacktestRead, tags=["Backtests"])
-@router_get("/backtests/{backtestId}", response_model=BacktestRead, tags=["Backtests"])
+@router.get("/backtests/{backtestId}/info", response_model=BacktestRead, tags=["Backtests"])
+@router.get("/backtests/{backtestId}", response_model=BacktestRead, tags=["Backtests"])
 def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
     backtest = session.exec(
         select(Backtest)
@@ -612,7 +611,7 @@ def list_configured_models(session: Session = Depends(get_session)):
     return configured_models_read
 
 
-@router_get(
+@router.get(
     "/configured-models/{configuredModelId}",
     response_model=ConfiguredModelInfoRead,
     tags=["Models"],
