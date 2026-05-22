@@ -9,6 +9,7 @@ an Altair chart.
 from __future__ import annotations
 
 import itertools
+from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
@@ -61,6 +62,17 @@ class BacktestPlotBase(ABC):
         """
         return self.plot(observations, forecasts, historical_observations)
 
+    @dataclass
+    class FacetDimensions:
+        """Structured metadata for facet dimensions, if needed in the future."""
+        field_name: str
+        display_name: str
+
+        @property
+        def clean_name(self) -> str
+            ""returns a the raw column name without Altair type suffixes for internal processing""
+            return self.field_name.split(":", 1)[0]
+
 
 class FacetedBacktestPlot(BacktestPlotBase):
     """
@@ -68,7 +80,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
     Separates concerns into a definitive data preprocessing and visual layout pipeline.
     """
 
-    facet_dimensions: list[str] = []  # Altair shorthand, e.g., ["split_period:O", "location:N"]
+    facet_dimensions: list[FacetDimensions] = []  # Altair shorthand, e.g., ["split_period:O", "location:N"]
 
     @abstractmethod
     def _preprocess(
@@ -146,6 +158,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
             results.append((key, chart))
         return results
 
+   
     def get_full_plot(
         self,
         observations: pd.DataFrame,
@@ -163,9 +176,12 @@ class FacetedBacktestPlot(BacktestPlotBase):
 
         # Handle native Altair types cleanly without dictionary unpacking unpacks
         if col and row:
-            faceted_chart = chart.facet(column=col, row=row)
+            faceted_chart = chart.facet(
+                column=alt.Column(col_dim.field_name, header=alt.Header(title=col_dim.display_name)),
+                row=alt.Row(row_dim.field_name, header=alt.Header(title=row_dim.display_name))
+            )
         elif col:
-            faceted_chart = chart.facet(column=col)
+            faceted_chart = chart.facet(column=alt.Column(col_dim.field, header=alt.Header(title=col_dim.display_name)))
         else:
             faceted_chart = chart
 
