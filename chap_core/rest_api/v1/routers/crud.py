@@ -38,7 +38,6 @@ from chap_core.database.dataset_tables import (
     DataSetInfo,
     DataSetWithObservations,
 )
-from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 from chap_core.database.tables import (
@@ -752,23 +751,3 @@ async def create_configured_model_with_data_source_from_backtest(
         )
     ).first()
     return result
-
-
-#############
-# other misc
-
-
-@router.post("/debug", tags=["Debug"])
-async def debug_entry(database_url: str = Depends(get_database_url)) -> JobResponse:
-    job = worker.queue_db(wf.debug, database_url=database_url)
-    return JobResponse(id=job.id)
-
-
-@router.get("/debug/{debugId}", tags=["Debug"])
-async def get_debug_entry(
-    debug_id: Annotated[int, Path(alias="debugId")], session: Session = Depends(get_session)
-) -> DebugEntry:
-    debug = session.get(DebugEntry, debug_id)
-    if debug is None:
-        raise HTTPException(status_code=404, detail="Debug entry not found")
-    return debug

@@ -40,6 +40,37 @@ class TestCommonEndpoints:
         assert response.status_code == 200
         assert response.json() == {"status": "success", "message": "healthy"}
 
+    def test_readiness_all_ok(self, client, monkeypatch):
+        from chap_core.rest_api import common_routes
+
+        monkeypatch.setattr(common_routes, "_check_db", lambda: "ok")
+        monkeypatch.setattr(common_routes, "_check_redis", lambda: "ok")
+        monkeypatch.setattr(common_routes, "_check_celery", lambda: "ok")
+
+        response = client.get("/health/ready")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "success",
+            "checks": {"db": "ok", "redis": "ok", "celery": "ok"},
+        }
+
+    def test_readiness_returns_503_when_a_dependency_is_down(self, client, monkeypatch):
+        from chap_core.rest_api import common_routes
+
+        monkeypatch.setattr(common_routes, "_check_db", lambda: "ok")
+        monkeypatch.setattr(common_routes, "_check_redis", lambda: "error: ConnectionError")
+        monkeypatch.setattr(common_routes, "_check_celery", lambda: "ok")
+
+        response = client.get("/health/ready")
+
+        assert response.status_code == 503
+        body = response.json()
+        assert body["status"] == "unhealthy"
+        assert body["checks"]["db"] == "ok"
+        assert body["checks"]["redis"] == "error: ConnectionError"
+        assert body["checks"]["celery"] == "ok"
+
     def test_root_system_info_endpoint(self, client):
         response = client.get("/system/info")
 
@@ -105,7 +136,6 @@ class TestOpenAPITags:
             "Models",
             "Visualizations",
             "Jobs",
-            "Debug",
             "Services",
         ]
         assert tag_names == expected

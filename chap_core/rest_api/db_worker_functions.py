@@ -53,10 +53,6 @@ def convert_dicts_to_models(func):
     return wrapper
 
 
-def trigger_exception(*args, **kwargs):
-    raise Exception("Triggered exception")
-
-
 def validate_and_filter_dataset_for_evaluation(
     dataset: DataSet, target_name: str, n_periods: int, n_splits: int, stride: int
 ) -> DataSet:
@@ -177,10 +173,6 @@ def run_prediction(
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     return db_id
-
-
-def debug(session: SessionWrapper):
-    return session.add_debug()
 
 
 def harmonize_and_add_health_dataset(

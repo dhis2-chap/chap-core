@@ -12,7 +12,6 @@ from sqlmodel import Session, select
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
-from chap_core.database.debug import DebugEntry
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import (
     Backtest,
@@ -40,12 +39,6 @@ logging.basicConfig(level=logging.INFO)
 client = TestClient(app)
 
 
-def test_debug(celery_session_worker):
-    response = client.post("/v1/crud/debug")
-    assert response.status_code == 200
-    assert response.json()["id"]
-
-
 def await_result_id(job_id, timeout=30):
     for _ in range(timeout):
         response = client.get(f"/v1/jobs/{job_id}")
@@ -59,30 +52,6 @@ def await_result_id(job_id, timeout=30):
         logger.info(status)
         time.sleep(1)
     assert False, "Timed out"
-
-
-def await_failure(job_id, timeout=30):
-    for _ in range(timeout):
-        response = client.get(f"/v1/jobs/{job_id}")
-        status = response.json()
-        if status == "SUCCESS":
-            assert False, ("Job succeeded", response.json())
-        if status == "FAILURE":
-            return
-        time.sleep(1)
-    assert False, "Timed out"
-
-
-def test_debug_flow(celery_session_worker, clean_engine, dependency_overrides):
-    start_timestamp = time.time()
-    response = client.post("/v1/crud/debug")
-    assert response.status_code == 200
-    job_id = response.json()["id"]
-    db_id = await_result_id(job_id)
-    path = f"/v1/crud/debug/{db_id}"
-    response = client.get(path)
-    data = DebugEntry.model_validate(response.json())
-    assert data.timestamp > start_timestamp
 
 
 def test_get_metrics(celery_session_worker, clean_engine, dependency_overrides):
@@ -649,16 +618,6 @@ def test_full_prediction_flow(celery_session_worker, dependency_overrides, examp
     ds = [PredictionEntry.model_validate(entry) for entry in response.json()]
     assert len(ds) > 0
     assert all(pe.quantile in (0.1, 0.5, 0.9) for pe in ds)
-
-
-def test_failing_jobs_flow(celery_session_worker, dependency_overrides):
-    response = client.post("/v1/debug/trigger-exception")
-    assert response.status_code == 200
-    job_id = response.json()["id"]
-    await_failure(job_id)
-    response = client.get(f"/v1/jobs/{job_id}")
-    assert response.status_code == 200
-    assert response.json() == "FAILURE"
 
 
 @pytest.mark.parametrize("dry_run", [False, True])
