@@ -111,6 +111,29 @@ def _check_celery() -> str:
         return f"error: {exc.__class__.__name__}"
 
 
+def _check_celery_db_roundtrip() -> str:
+    """End-to-end probe: dispatch `chap.db_roundtrip`, wait for the reply.
+
+    Verifies the full API → broker → worker → DB → result-backend → API path.
+    Slower than `_check_celery` (which only confirms worker liveness); intended
+    for the on-demand `/health/probe` endpoint, not for hot-path readiness.
+    """
+    result = celery_app.send_task("chap.db_roundtrip")
+    try:
+        try:
+            reply = result.get(timeout=2.0, propagate=False)
+        except Exception as exc:
+            logger.warning("Health probe round-trip raised", exc_info=True)
+            return f"error: {exc.__class__.__name__}"
+        if isinstance(reply, BaseException):
+            return f"error: {reply.__class__.__name__}"
+        if reply == "ok":
+            return "ok"
+        return f"error: unexpected reply {reply!r}"
+    finally:
+        result.forget()
+
+
 @router.get(
     "/health/ready",
     summary="Readiness probe with dependency checks",
@@ -142,6 +165,41 @@ async def readiness() -> Response:
     body = ReadinessResponse(status="success" if healthy else "unhealthy", checks=checks)
     status_code = 200 if healthy else 503
     return JSONResponse(status_code=status_code, content=body.model_dump())
+
+
+@router.get(
+    "/health/probe",
+    summary="End-to-end celery + DB round-trip probe",
+    description=(
+        "Synchronously dispatches a task to a celery worker, requires the worker to run "
+        "`SELECT 1` against PostgreSQL, and waits up to 2 seconds for the result to come back "
+        "via the result backend. Verifies the full pipeline that `/health/ready` only checks "
+        "shallowly:\n\n"
+        "- API → broker enqueue\n"
+        "- Worker pickup and execution\n"
+        "- Worker → DB read\n"
+        "- Result backend write/read\n\n"
+        "Slower than `/health/ready` (tens of ms when healthy, up to 2s on timeout). "
+        "**Not** intended for Kubernetes readiness probes — use this from dashboards or "
+        "on-demand ops checks."
+    ),
+    response_model=ReadinessResponse,
+    response_description="End-to-end round-trip succeeded.",
+    responses={
+        503: {
+            "description": "Celery round-trip failed or timed out.",
+            "model": ReadinessResponse,
+        },
+    },
+)
+async def deep_probe() -> Response:
+    roundtrip = _check_celery_db_roundtrip()
+    healthy = roundtrip == "ok"
+    body = ReadinessResponse(
+        status="success" if healthy else "unhealthy",
+        checks={"celery_db_roundtrip": roundtrip},
+    )
+    return JSONResponse(status_code=200 if healthy else 503, content=body.model_dump())
 
 
 @router.get(
