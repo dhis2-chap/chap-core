@@ -58,7 +58,7 @@ class EvaluationPlot(FacetedBacktestPlot):
 
     facet_dimensions: list[FacetDimension] = [
         FacetDimension(field_name="split_period:O", display_name="Split Period"),
-        FacetDimension(field_name="location:N", display_name="Location")
+        FacetDimension(field_name="location:N", display_name="Location"),
     ]
 
     def _preprocess(

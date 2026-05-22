@@ -30,6 +30,7 @@ _backtest_plots_registry: dict[str, type[BacktestPlotBase]] = {}
 @dataclass
 class FacetDimension:
     """Structured metadata for facet dimensions, matching your visual configuration pipeline."""
+
     field_name: str
     display_name: str
 
@@ -180,7 +181,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
         if col_dim and row_dim:
             faceted_chart = chart.facet(
                 column=alt.Column(col_dim.field_name, header=alt.Header(title=col_dim.display_name)),
-                row=alt.Row(row_dim.field_name, header=alt.Header(title=row_dim.display_name))
+                row=alt.Row(row_dim.field_name, header=alt.Header(title=row_dim.display_name)),
             )
         elif col_dim:
             faceted_chart = chart.facet(
@@ -189,10 +190,7 @@ class FacetedBacktestPlot(BacktestPlotBase):
         else:
             faceted_chart = chart
 
-        resolve_chart: ChartType = faceted_chart.resolve_scale(
-            x=self.resolve_scale_x,
-            y=self.resolve_scale_y
-        )
+        resolve_chart: ChartType = faceted_chart.resolve_scale(x=self.resolve_scale_x, y=self.resolve_scale_y)
         return resolve_chart
 
 
