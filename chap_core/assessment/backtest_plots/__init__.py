@@ -189,10 +189,11 @@ class FacetedBacktestPlot(BacktestPlotBase):
         else:
             faceted_chart = chart
 
-        return faceted_chart.resolve_scale(
+        resolve_chart: ChartType = faceted_chart.resolve_scale(
             x=self.resolve_scale_x,
             y=self.resolve_scale_y
         )
+        return resolve_chart
 
 
 def backtest_plot(
