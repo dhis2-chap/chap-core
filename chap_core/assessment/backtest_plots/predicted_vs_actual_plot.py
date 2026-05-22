@@ -9,7 +9,7 @@ import altair as alt
 import numpy as np
 import pandas as pd
 
-from chap_core.assessment.backtest_plots import ChartType, FacetedBacktestPlot, backtest_plot
+from chap_core.assessment.backtest_plots import ChartType, FacetedBacktestPlot, backtest_plot,FacetDimension
 
 
 def _nice_tick_values(data_max: float) -> np.ndarray:
@@ -84,7 +84,10 @@ def build_predicted_vs_actual_chart(
     description="Scatter plots of predicted (median) vs actual values in log1p space, faceted by horizon and colored by location.",
 )
 class PredictedVsActualPlot(FacetedBacktestPlot):
-    facet_dimensions: list[str] = ["horizon_distance:O"]
+    facet_dimensions: list[FacetDimension] = [FacetDimension("horizon_distance:0", "Horizon Distance")]
+
+    resolve_scale_x = "shared"
+    resolve_scale_y = "shared"
 
     def _preprocess(
         self,
