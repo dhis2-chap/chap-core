@@ -9,8 +9,8 @@ an Altair chart.
 from __future__ import annotations
 
 import itertools
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import altair as alt
@@ -27,6 +27,18 @@ ChartType = alt.Chart | alt.VConcatChart | alt.FacetChart | alt.LayerChart | alt
 _backtest_plots_registry: dict[str, type[BacktestPlotBase]] = {}
 
 
+@dataclass
+class FacetDimension:
+    """Structured metadata for facet dimensions, matching your visual configuration pipeline."""
+    field_name: str
+    display_name: str
+
+    @property
+    def clean_name(self) -> str:
+        """Returns the raw column name without Altair type suffixes for internal processing."""
+        return self.field_name.split(":", 1)[0]
+
+
 class BacktestPlotBase(ABC):
     """
     Base class for backtest visualizations.
@@ -39,7 +51,7 @@ class BacktestPlotBase(ABC):
     name: str = ""
     description: str = ""
     needs_historical: bool = False
-    facet_dimensions: list[str] = []
+    facet_dimensions: list[FacetDimension] = []
 
     @abstractmethod
     def plot(
@@ -62,17 +74,6 @@ class BacktestPlotBase(ABC):
         """
         return self.plot(observations, forecasts, historical_observations)
 
-    @dataclass
-    class FacetDimensions:
-        """Structured metadata for facet dimensions, if needed in the future."""
-        field_name: str
-        display_name: str
-
-        @property
-        def clean_name(self) -> str
-            ""returns a the raw column name without Altair type suffixes for internal processing""
-            return self.field_name.split(":", 1)[0]
-
 
 class FacetedBacktestPlot(BacktestPlotBase):
     """
@@ -80,7 +81,11 @@ class FacetedBacktestPlot(BacktestPlotBase):
     Separates concerns into a definitive data preprocessing and visual layout pipeline.
     """
 
-    facet_dimensions: list[FacetDimensions] = []  # Altair shorthand, e.g., ["split_period:O", "location:N"]
+    facet_dimensions: list[FacetDimension] = []
+
+    # Overridable scale resolutions configuration flags for custom plot types
+    resolve_scale_x: str = "shared"
+    resolve_scale_y: str = "independent"
 
     @abstractmethod
     def _preprocess(
@@ -111,9 +116,8 @@ class FacetedBacktestPlot(BacktestPlotBase):
     ) -> dict[str, list[Any]]:
         """Returns unique coordinates available for faceting from preprocessed fields."""
         df = self._preprocess(observations, forecasts, historical_observations)
-        clean_dims = [dim.split(":", 1)[0] for dim in self.facet_dimensions]
+        clean_dims = [dim.clean_name for dim in self.facet_dimensions]
 
-        # Fix C414: Avoid passing list() to sorted() on unique array elements
         return {col: sorted(df[col].dropna().unique()) for col in clean_dims if col in df.columns}
 
     def get_subplot(
@@ -138,7 +142,6 @@ class FacetedBacktestPlot(BacktestPlotBase):
         historical_observations: pd.DataFrame | None = None,
     ) -> list[tuple[Any, ChartType]]:
         """Generates subplots mapped directly against their Cartesian matrix values."""
-        # Pre process once to get the full dataframe, then filter for each subplot to avoid redundant preprocessing
         df_preprocessed = self._preprocess(observations, forecasts, historical_observations)
 
         keys = list(coords.keys())
@@ -158,7 +161,6 @@ class FacetedBacktestPlot(BacktestPlotBase):
             results.append((key, chart))
         return results
 
-   
     def get_full_plot(
         self,
         observations: pd.DataFrame,
@@ -170,22 +172,27 @@ class FacetedBacktestPlot(BacktestPlotBase):
         if not self.facet_dimensions:
             return chart
 
-        # Safely extract up to two dimensions explicitly
-        col = self.facet_dimensions[0] if len(self.facet_dimensions) > 0 else None
-        row = self.facet_dimensions[1] if len(self.facet_dimensions) > 1 else None
+        # Safely extract dimension configurations explicitly
+        col_dim = self.facet_dimensions[0] if len(self.facet_dimensions) > 0 else None
+        row_dim = self.facet_dimensions[1] if len(self.facet_dimensions) > 1 else None
 
-        # Handle native Altair types cleanly without dictionary unpacking unpacks
-        if col and row:
+        # Handle native Altair types cleanly without local variable scoping issues
+        if col_dim and row_dim:
             faceted_chart = chart.facet(
                 column=alt.Column(col_dim.field_name, header=alt.Header(title=col_dim.display_name)),
                 row=alt.Row(row_dim.field_name, header=alt.Header(title=row_dim.display_name))
             )
-        elif col:
-            faceted_chart = chart.facet(column=alt.Column(col_dim.field, header=alt.Header(title=col_dim.display_name)))
+        elif col_dim:
+            faceted_chart = chart.facet(
+                column=alt.Column(col_dim.field_name, header=alt.Header(title=col_dim.display_name))
+            )
         else:
             faceted_chart = chart
 
-        return faceted_chart.resolve_scale(y="independent")  # type: ignore[no-any-return]
+        return faceted_chart.resolve_scale(
+            x=self.resolve_scale_x,
+            y=self.resolve_scale_y
+        )
 
 
 def backtest_plot(
