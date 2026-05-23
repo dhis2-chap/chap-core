@@ -58,6 +58,18 @@ class ModelTemplateDB(DBModel, ModelTemplateMetaData, ModelTemplateInformation, 
     archived: bool = Field(default=False)
     uses_chapkit: bool = Field(default=False)
 
+    def with_chap_options(self) -> "ModelTemplateDB":
+        """Add CHAP-specific options to this template's user_options."""
+        from chap_core.models.chap_user_options import ChapUserOptions
+
+        chap_options = ChapUserOptions().to_json_schema_properties()
+
+        if self.user_options is None:
+            self.user_options = {}
+        self.user_options.update(chap_options)
+
+        return self
+
 
 class ModelConfiguration(SQLModel):
     model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]

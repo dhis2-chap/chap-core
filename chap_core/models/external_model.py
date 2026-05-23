@@ -166,6 +166,25 @@ class ExternalModel(ExternalModelBase):
     def model_information(self):
         return self._model_information
 
+    def _apply_chap_transformations(self, data: DataSet) -> DataSet:
+        """Apply CHAP-specific transformations based on ChapUserOptions."""
+        from chap_core.models.chap_user_options import ChapUserOptions
+        from chap_core.transformations.covid_mask import mask_covid_data
+
+        if isinstance(self._configuration, dict):
+            raw_values = self._configuration.get("user_option_values", {})
+        else:
+            raw_values = getattr(self._configuration, "user_option_values", {})
+        user_option_values: dict = raw_values if isinstance(raw_values, dict) else {}
+
+        chap_options = ChapUserOptions.extract_from_config(user_option_values)
+
+        if chap_options.chap__covid_mask:
+            logger.info("Applying COVID mask to training data")
+            data = mask_covid_data(data)
+
+        return data
+
     def _apply_generated_features(self, dataset: DataSet) -> DataSet:
         """Apply any gen:-prefixed feature generators to the dataset."""
         from chap_core.feature_generators import apply_feature_generators, parse_generated_covariates
@@ -222,6 +241,10 @@ class ExternalModel(ExternalModelBase):
             logging.info(f"Will pass polygons file {self._polygons_file_name} to train command and predict command")
 
         frequency = self._get_frequency(train_data)
+
+        # Apply CHAP transformations
+        train_data = self._apply_chap_transformations(train_data)
+
         pd = train_data.to_pandas()
         new_pd = self._adapt_data(pd, frequency=frequency)
         new_pd.to_csv(train_file_name_full)
