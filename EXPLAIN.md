@@ -56,21 +56,21 @@ you call `explain()`.
 ```mermaid
 flowchart TD
     x0(["x₀ = (hist_df, fut_df)"])
-    s1["<b>1. Segment hist_df</b><br/>with <code>segmenter_name</code><br/><i>uniform / exponential / matrix-profile / sax / nn</i>"]
-    s2["<b>2. Build masks</b><br/>random 0/1 vectors marking which segments are 'on'<br/><i>create_masks, num_perturbations vectors</i>"]
-    s3["<b>3. Materialise perturbations</b><br/>fill 'off' segments with <code>sampler_name</code><br/><i>background / local_mean / fourier / …</i>"]
-    s4["<b>4. Predict</b><br/>call <code>model.predict(…)</code> on each perturbed input<br/>get yᵢ array"]
-    s5["<b>5. Weight</b><br/>each (X, y) pair by distance to x₀<br/>using <code>weighter_name</code> (pairwise / DTW)"]
-    s6["<b>6. Fit surrogate</b><br/><code>surrogate_name</code> — ridge or bayesian linear regression<br/>on (X, y, sample_weights)"]
-    s7(["<b>7. Sort by |coefficient| desc</b><br/>= the explanation, one row per (feature × lag)"])
+    s1["1. Segment hist_df<br>via segmenter_name"]
+    s2["2. Build masks<br>num_perturbations × 0/1 vectors"]
+    s3["3. Materialise perturbations<br>via sampler_name"]
+    s4["4. Predict<br>model.predict(...) on each"]
+    s5["5. Weight by distance to x₀<br>via weighter_name"]
+    s6["6. Fit surrogate<br>via surrogate_name"]
+    s7(["7. Sort by |coefficient| desc<br>= the explanation"])
 
     x0 --> s1
-    s1 -->|"feat_indices: {feature → {lag → (start, end)}}"| s2
-    s2 -->|"list of binary masks"| s3
-    s3 -->|"list of perturbed (hist_df, fut_df) pairs"| s4
-    s4 -->|"X = masks, y = predictions"| s5
-    s5 -->|"sample_weights"| s6
-    s6 -->|"coefficient vector"| s7
+    s1 -->|feat_indices| s2
+    s2 -->|binary masks| s3
+    s3 -->|perturbed pairs| s4
+    s4 -->|X, y| s5
+    s5 -->|sample_weights| s6
+    s6 -->|coefficients| s7
 ```
 
 Two variants of step 2:
