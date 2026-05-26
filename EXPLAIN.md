@@ -517,32 +517,27 @@ make test
 
 ## 10i. What I actually saw running this
 
-Sections 10a–10e all pass cleanly. The end-to-end CLI run in 10f exposed a
-**pre-existing bug** in code this PR did not touch — leaving the receipt here
-so a reviewer doesn't blame this PR for it:
+Sections 10a–10e all pass cleanly. The end-to-end CLI run in 10f originally
+exposed a **pre-existing bug** in PR #262 code at `lime.py:np.log1p(y)`.
+That bug is now **fixed on this branch** (see section 12c) — the CLI
+completes end-to-end with exit code 0 against the same trained model.
 
 - Invocation: `chap explain-lime --model-name runs/minimalist_example_uv/<ts_hash>
   --dataset-csv <its training_data.csv> --location Bokeo --horizon 3
   --lime-params.num-perturbations 30 --lime-params.seed 42`
-- The pipeline gets through segmentation, mask generation, and three chunks of
-  perturbation prediction (`model.predict(...)` succeeds for every chunk —
-  my new `ModelFailedException` guards never fired).
-- Then it crashes at `chap_core/explainability/lime.py:1035`:
+- The pipeline runs through segmentation, mask generation, three chunks of
+  perturbation prediction, and the surrogate fit. Output reaches the
+  "Coefficients:" section.
+- The new helper `_log_transform_for_surrogate` logs the degenerate case
+  visibly: `WARNING 30/30 perturbed predictions were negative; clipping to
+  0 before log1p`. After clipping all 30 to 0, `log1p(0)=0` makes `z`
+  uniformly zero, so the surrogate fits R²=1.0 (trivially) and every
+  coefficient comes out 0. The pipeline doesn't crash anymore; the
+  meaningless explanation is now visible as a warning rather than an
+  opaque traceback. Real models that don't predict universally-negative
+  perturbations produce real coefficients.
 
-  ```
-  RuntimeWarning: invalid value encountered in log1p
-    z = np.log1p(y)
-  ...
-  ValueError: Input y contains NaN.
-  ```
-
-- Root cause: `np.log1p(y)` is unsafe — for any perturbation where the model
-  produces `y ≤ -1`, `log1p` is NaN, and the surrogate's `.fit()` then refuses
-  the data. This is a real LIME-pipeline bug that PR #262 shipped with;
-  fixing it is a follow-up (probably `np.log1p(np.clip(y, -1 + 1e-9, None))`
-  or filtering NaN rows before the surrogate fit).
-
-### Master comparison (confirms the bug is pre-existing)
+### Master comparison (proves the bug was pre-existing, and that this branch fixes it)
 
 Re-ran the *same* invocation against `master @ 631affde`:
 
@@ -556,25 +551,23 @@ uv run chap explain-lime \
     --lime-params.num-perturbations 30 --lime-params.seed 42 --no-save
 ```
 
-Result on master: identical failure.
+Result on master: **fails**. Result on this branch (after the
+`_log_transform_for_surrogate` fix): **succeeds**.
 
 | Aspect | master | this branch |
 |---|---|---|
-| Lines of log | 89 | 89 |
-| Exit code | 1 | 1 |
-| Pipeline progress | 3 perturbation chunks of 10 each, all `model.predict` succeed | same |
-| Crash location | `lime.py:1001` | `lime.py:1035` *(same line; +34 from the restored `if return_metrics:` block above)* |
-| Crash type | `RuntimeWarning: invalid value encountered in log1p` → `ValueError: Input y contains NaN.` | identical |
+| Exit code | 1 | **0** |
+| Pipeline progress | 3 chunks of `model.predict` succeed | same |
+| At `lime.py` `np.log1p(y)` | `RuntimeWarning: invalid value encountered in log1p` → `ValueError: Input y contains NaN.` (sklearn refuses the surrogate fit) | clamped + filtered by the helper; warning logged, pipeline continues |
+| Surrogate fit | never reached | runs; produces R² + coefficient listing |
+| User-visible signal when something's off | opaque sklearn traceback | `WARNING N/M perturbed predictions were negative; clipping to 0 before log1p` (and `... dropping them from the surrogate fit` for NaN/inf rows) |
 
-`diff /tmp/master_explain.log /tmp/branch_explain.log` returns only timestamp
-and `lime.py:<lineno>` differences. Same code path, same crash. This PR
-does **not** introduce it; it just makes it visible because `master`'s mypy
-override was previously masking the chain of brokenness above it.
-
-So 10f currently fails on the example trained models because of that
-pre-existing crash, not because of anything this PR adds. The Python-only
-flow in 10g would hit the same crash for the same reason if you point it at
-those same models.
+So 10f now produces a real `Coefficients:` listing on this branch instead
+of crashing. Whether the listing is *informative* still depends on whether
+the underlying model produces variation across perturbations — the toy
+minimalist model used in this test predicts uniformly negative on every
+perturbation, so every coefficient comes out 0. That's a model property,
+not a LIME bug.
 
 ---
 
@@ -602,8 +595,9 @@ the type-error-by-type-error breakdown.
 
 ## 12. Diff vs master
 
-Compared against `master @ 631affde`. Total: **16 files changed, +1347 / −71
-lines** (counting `EXPLAIN.md` and the new test suite).
+Compared against `master @ 314d0e21`. Total: **17 files changed,
++1556 / −114 lines** (counting `EXPLAIN.md`, the new test suite, the
+`log1p` fix, and the explainability-deps move).
 
 ### 12a. Configuration (`pyproject.toml`)
 
@@ -611,8 +605,7 @@ lines** (counting `EXPLAIN.md` and the new test suite).
 |---|---|---|
 | ruff per-file-ignore for `lime.py` | `["F403", "F405"]` (suppresses wildcard-import lint) | removed |
 | mypy override on `chap_core.explainability.*` | disables 10 error codes (`arg-type`, `assignment`, `attr-defined`, `import-not-found`, `import-untyped`, `index`, `no-any-return`, `return-value`, `union-attr`, `var-annotated`) | removed |
-
-20 lines deleted from `pyproject.toml`. No lint config is added.
+| `[project.optional-dependencies] explainability` | `stumpy`, `pyts`, `fastdtw` listed as opt-in extras | **removed** — these three now sit in the main `[project] dependencies` list. There were never any `try/except ImportError` guards around their use, so they were already de-facto required for anyone touching the subpackage; the "optional" classification just made CI brittle. |
 
 ### 12b. New files
 
@@ -626,13 +619,14 @@ lines** (counting `EXPLAIN.md` and the new test suite).
 | `tests/explainability/test_segment.py` | UniformSegmentation, ExponentialSegmentation, ReverseExponentialSegmentation (74 lines). |
 | `tests/explainability/test_surrogate.py` | RidgeSurrogate, BayesianSurrogate, SurrogateResult (102 lines). |
 | `tests/explainability/test_metrics.py` | eLoss math; faithful vs anti-faithful sign (181 lines). |
+| `tests/explainability/test_log_transform.py` | Helper for the `log1p` fix: clipping behaviour, NaN/inf dropping, warning logs (~100 lines, 10 tests). |
 | `EXPLAIN.md` | This file. Will be deleted before merge. |
 
 ### 12c. Modified files (per-file structural delta)
 
-#### `chap_core/explainability/lime.py` — +106 / −many
+#### `chap_core/explainability/lime.py` — most-changed file
 
-Most-changed file. Three categories of change:
+Four categories of change:
 
 1. **Imports — wildcards → explicit.** Master:
    ```python
@@ -653,10 +647,25 @@ Most-changed file. Three categories of change:
    `model.predict(...)` raising `ModelFailedException` so the existing retry
    block catches the case where the model returns None.
 
-3. **No behaviour change.** Apart from the two `ModelFailedException` raises
-   (which only fire on a code path that previously would have
-   `AttributeError`'d a step later), every code path produces the same
-   output as master.
+3. **New helper `_log_transform_for_surrogate(X, y, weights)` + 3 call-site
+   replacements.** Fixes the pre-existing `np.log1p(y)` NaN crash by:
+   - Clipping any `y < 0` to 0 (disease counts are non-negative; negative
+     predictions are the model going out of distribution on perturbed
+     inputs) — logs a warning with the count.
+   - Dropping any rows where `z = log1p(clipped(y))` is still non-finite
+     (i.e. the model returned NaN/inf directly) — logs a warning with
+     the count.
+   - Raising `ValueError` if every row gets dropped.
+
+   Three call sites in `explain()` and `explain_adaptive()` now use the
+   helper instead of bare `z = np.log1p(y); surrogate.fit(X, z, weights)`.
+   End result: `chap explain-lime` against the example trained models now
+   exits 0 (was exit 1 on master with `Input y contains NaN`).
+
+4. **No other behaviour change.** Apart from the two `ModelFailedException`
+   raises (which only fire on a code path that previously would have
+   `AttributeError`'d a step later) and the log1p clipping above, every
+   code path produces the same output as master.
 
 #### `chap_core/explainability/segment.py` — +6 / −6
 
@@ -711,10 +720,11 @@ as `dict[str, np.ndarray]`.
 | `import chap_core.explainability.testing.metrics` | `ModuleNotFoundError` | works |
 | `make lint` from a clean checkout | works *(because mypy override hides the errors that would otherwise fire)* | works *(no override needed; errors are actually fixed)* |
 | `make lint` if the carve-outs are removed | 36 errors across 6 files | 0 errors |
-| `chap explain-lime` against any trained model (no `return_metrics`) | crashes at `lime.py:1001` (`log1p` → `NaN`) | crashes at `lime.py:1035` (**same bug**, same error, lineno shifted by +34 because of restored `if return_metrics:` block above) |
+| `chap explain-lime` against any trained model (no `return_metrics`) | crashes at `lime.py:1001` (`log1p` → `NaN` → sklearn refuses fit) | **exits 0**, prints the surrogate's coefficient listing. Warns visibly if perturbed predictions are negative (clipped) or non-finite (dropped). |
 | `explain(..., return_metrics=True)` from Python | `ImportError` for `eLoss` | works, returns `(results, metrics)` with `delta_eloss`, `auc_top_k`, `auc_bottom_k` |
-| `tests/explainability/` | doesn't exist | 38 tests, runs in ~1.1 s |
+| `tests/explainability/` | doesn't exist | 48 tests, runs in ~1.1 s |
 | Coverage of `chap_core/explainability/` | 0% | 27% overall, 100% on `distance.py` / `testing/metrics.py`, 96% on `surrogate.py` |
+| Optional `[explainability]` extras (`stumpy`, `pyts`, `fastdtw`) | listed as opt-in, but every import in the subpackage is unconditional — CI default `uv sync --dev` couldn't import the module at all | moved to main `dependencies` so they install with every `uv sync`; subpackage now usable from a clean checkout without remembering an extras flag |
 
 ### 12e. Important: what does *not* change
 
@@ -722,10 +732,8 @@ as `dict[str, np.ndarray]`.
   the same positional/keyword args, plus the optional `return_metrics` (which
   master already had; this branch just makes the True branch actually work).
 - No CLI flags change. `chap explain-lime --help` produces the same output.
-- No `pyproject.toml` runtime dependencies change. Only the lint config under
-  `[tool.ruff.lint.per-file-ignores]` and `[[tool.mypy.overrides]]` is
-  trimmed.
+- Runtime dependencies of the chap-core package overall get three new
+  entries (`stumpy`, `pyts`, `fastdtw`) — but these were already required
+  for the explainability subpackage to import on master; the move just
+  makes the situation honest.
 - No migrations, no DB-schema changes, no API endpoints touched.
-- The `log1p` NaN bug in `lime.py` (section 10i) is unchanged and
-  unfixed — both master and this branch crash the same way on the example
-  trained models. Fixing it is the next step.

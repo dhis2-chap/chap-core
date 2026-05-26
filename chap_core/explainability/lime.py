@@ -409,6 +409,54 @@ def build_feature_map(
     return feature_map
 
 
+def _log_transform_for_surrogate(
+    X: np.ndarray,
+    y: np.ndarray,
+    weights: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Apply ``log1p`` to model predictions for surrogate training.
+
+    The prediction target is disease-case counts (non-negative). A
+    perturbation that yields ``y < 0`` is the model going out of distribution;
+    clip those to 0 so ``log1p`` stays finite. Any remaining non-finite
+    rows (NaN / inf coming out of the model itself) get dropped from
+    ``X``, ``z``, and ``weights`` so the surrogate fit doesn't see them.
+
+    Logs how many rows were clipped and how many were dropped so a high
+    rate is visible during diagnosis.
+    """
+    y_array = np.asarray(y, dtype=float)
+    n = y_array.shape[0]
+
+    negative_mask = y_array < 0
+    if negative_mask.any():
+        logger.warning(
+            "%d/%d perturbed predictions were negative; clipping to 0 before log1p",
+            int(negative_mask.sum()),
+            n,
+        )
+        y_array = np.clip(y_array, 0.0, None)
+
+    z = np.log1p(y_array)
+
+    finite_mask = np.isfinite(z)
+    if not finite_mask.all():
+        kept = int(finite_mask.sum())
+        dropped = n - kept
+        logger.warning(
+            "%d/%d perturbations produced non-finite predictions; dropping them from the surrogate fit",
+            dropped,
+            n,
+        )
+        if kept == 0:
+            raise ValueError("All perturbed predictions were non-finite; cannot fit surrogate")
+        X = X[finite_mask]
+        z = z[finite_mask]
+        weights = weights[finite_mask]
+
+    return X, z, weights
+
+
 def compute_local_weights(
     weighter,
     X: np.ndarray,
@@ -1031,8 +1079,9 @@ def explain(
     weighter = disambiguate_weighter(weighter_name, kw)
     weights = compute_local_weights(weighter, X, x0_row, distance_sequences, x0_sequence)
 
-    # Log transform for output with potentially long tail
-    z = np.log1p(y)
+    # Log transform for output with potentially long tail; the helper also
+    # clips negative model outputs at 0 and drops non-finite rows.
+    X_fit, z, weights = _log_transform_for_surrogate(X, y, weights)
 
     surrogate_model = disambiguate_surrogate(surrogate_name)
 
@@ -1043,7 +1092,7 @@ def explain(
     # Train surrogate
     # =================================================================
 
-    surrogate_model.fit(X, z, weights)
+    surrogate_model.fit(X_fit, z, weights)
 
     if timed:
         print_time(start, "Trained surrogate at %.4f seconds")
@@ -1376,10 +1425,10 @@ def explain_adaptive(
             distance_sequences=distance_sequences,
             x0_sequence=x0_sequence,
         )
-        z = np.log1p(y)
+        X_fit, z, weights = _log_transform_for_surrogate(X, y, weights)
 
         acquisition_surrogate = BayesianSurrogate()
-        acquisition_surrogate.fit(X, z, weights)
+        acquisition_surrogate.fit(X_fit, z, weights)
 
         coef_std = acquisition_surrogate.coef_std_
 
@@ -1512,14 +1561,14 @@ def explain_adaptive(
         distance_sequences=distance_sequences,
         x0_sequence=x0_sequence,
     )
-    z = np.log1p(y)
+    X_fit, z, weights = _log_transform_for_surrogate(X, y, weights)
 
     surrogate_model = disambiguate_surrogate(surrogate_name)
 
     if timed:
         print_time(start, "Prepared surrogate at %.4f seconds")
 
-    surrogate_model.fit(X, z, weights)
+    surrogate_model.fit(X_fit, z, weights)
 
     if timed:
         print_time(start, "Trained surrogate at %.4f seconds")

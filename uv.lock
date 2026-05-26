@@ -356,6 +356,7 @@ dependencies = [
     { name = "diskcache" },
     { name = "docker" },
     { name = "fastapi" },
+    { name = "fastdtw" },
     { name = "geojson-pydantic" },
     { name = "geopandas" },
     { name = "geopy" },
@@ -383,11 +384,13 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "python-multipart" },
+    { name = "pyts" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "rq" },
     { name = "scikit-learn" },
     { name = "sqlmodel" },
+    { name = "stumpy" },
     { name = "topojson" },
     { name = "unidecode" },
     { name = "uvicorn" },
@@ -395,13 +398,6 @@ dependencies = [
     { name = "virtualenv" },
     { name = "vl-convert-python" },
     { name = "xarray" },
-]
-
-[package.optional-dependencies]
-explainability = [
-    { name = "fastdtw" },
-    { name = "pyts" },
-    { name = "stumpy" },
 ]
 
 [package.dev-dependencies]
@@ -451,7 +447,7 @@ requires-dist = [
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "fastapi", specifier = ">=0.135.3" },
-    { name = "fastdtw", marker = "extra == 'explainability'", specifier = ">=0.3.4" },
+    { name = "fastdtw", specifier = ">=0.3.4" },
     { name = "geojson-pydantic", specifier = ">=2.1.1" },
     { name = "geopandas", specifier = ">=1.1.1" },
     { name = "geopy", specifier = ">=2.4.1" },
@@ -478,13 +474,13 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "python-multipart", specifier = ">=0.0.24" },
-    { name = "pyts", marker = "extra == 'explainability'", specifier = ">=0.13.0" },
+    { name = "pyts", specifier = ">=0.13.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", specifier = ">=2.33.1" },
     { name = "rq", specifier = ">=2.6.0" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "sqlmodel", specifier = ">=0.0.38" },
-    { name = "stumpy", marker = "extra == 'explainability'", specifier = ">=1.14.1" },
+    { name = "stumpy", specifier = ">=1.14.1" },
     { name = "topojson", specifier = ">=1.10" },
     { name = "unidecode", specifier = ">=1.4.0" },
     { name = "uvicorn", specifier = ">=0.44.0" },
@@ -493,7 +489,6 @@ requires-dist = [
     { name = "vl-convert-python", specifier = ">=1.8.0" },
     { name = "xarray", specifier = ">=2025.10.0" },
 ]
-provides-extras = ["explainability"]
 
 [package.metadata.requires-dev]
 dev = [
