@@ -248,10 +248,17 @@ worker: CeleryPool[Any] = CeleryPool()
 # backtests
 
 
-@router.get("/backtests", response_model=list[BacktestRead], tags=["Backtests"])  # This should be called list
+@router.get(
+    "/backtests",
+    response_model=list[BacktestRead],
+    tags=["Backtests"],
+    summary="List all backtests",
+)  # This should be called list
 async def get_backtests(session: Session = Depends(get_session)):
-    """
-    Returns a list of backtests/evaluations with only the id and name
+    """Return every backtest as a ``BacktestRead`` row with its dataset metadata and configured model embedded.
+
+    The dataset's geojson is deferred (not loaded) to keep the response small; use
+    ``GET /v1/crud/backtests/{backtestId}/full`` if you need it.
     """
     backtests = session.exec(
         select(Backtest).options(
@@ -262,17 +269,43 @@ async def get_backtests(session: Session = Depends(get_session)):
     return backtests
 
 
-@router.get("/backtests/{backtestId}/full", response_model=Backtest, tags=["Backtests"])
+@router.get(
+    "/backtests/{backtestId}/full",
+    response_model=Backtest,
+    tags=["Backtests"],
+    summary="Get full backtest with forecasts",
+)
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
+    """Return the full ``Backtest`` row including all forecasts and the dataset geojson.
+
+    Heavy payload - prefer ``/info`` or the plain id endpoint for listing. Returns 404 if
+    the backtest id is unknown.
+    """
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
     return backtest
 
 
-@router.get("/backtests/{backtestId}/info", response_model=BacktestRead, tags=["Backtests"])
-@router.get("/backtests/{backtestId}", response_model=BacktestRead, tags=["Backtests"])
+@router.get(
+    "/backtests/{backtestId}/info",
+    response_model=BacktestRead,
+    tags=["Backtests"],
+    summary="Get backtest metadata with embedded relations",
+)
+@router.get(
+    "/backtests/{backtestId}",
+    response_model=BacktestRead,
+    tags=["Backtests"],
+    summary="Get backtest metadata (alias of /info)",
+)
 def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
+    """Return the ``BacktestRead`` row with its dataset and configured-model (incl. template) embedded.
+
+    Dataset geojson is deferred to keep the response small. Returns 404 if the backtest
+    id is unknown. ``/backtests/{backtestId}`` and ``/backtests/{backtestId}/info`` are
+    the same operation under two paths.
+    """
     backtest = session.exec(
         select(Backtest)
         .where(Backtest.id == backtest_id)
@@ -286,19 +319,21 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
     return backtest
 
 
-@router.get("/metric/csv", tags=["Metrics"])
+@router.get(
+    "/metric/csv",
+    tags=["Metrics"],
+    summary="Download per-location/period/horizon metrics for a backtest as CSV",
+)
 async def get_metrics_csv(
     backtest_id: Annotated[int, Query(alias="backtestId")],
     session: Session = Depends(get_session),
 ):
-    """
-    Download per-location / per-time_period / per-horizon metric values as a
-    long-format CSV. Every applicable metric in
-    `chap_core.assessment.metrics.available_metrics` is included as rows.
+    """Stream a long-format CSV with one row per (location, time_period, horizon, metric) tuple.
 
-    Currently takes a single backtest via the `backtestId` query parameter; the
-    path is scoped to `/metric/` so it can be extended to accept multiple
-    evaluations later without a breaking change.
+    Every metric in ``chap_core.assessment.metrics.available_metrics`` contributes rows.
+    Currently takes a single backtest via the ``backtestId`` query parameter; the path is
+    scoped to ``/metric/`` so it can be extended to accept multiple evaluations later
+    without a breaking change. Returns 404 if the backtest is unknown.
     """
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
@@ -316,12 +351,23 @@ async def get_metrics_csv(
     )
 
 
-@router.post("/backtests", response_model=JobResponse, tags=["Backtests"])
+@router.post(
+    "/backtests",
+    response_model=JobResponse,
+    tags=["Backtests"],
+    summary="Queue a backtest job against a stored dataset",
+)
 async def create_backtest(
     backtest: BacktestCreate,
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
 ):
+    """Queue a legacy-style backtest job; returns the job id (poll ``GET /v1/jobs/{id}`` for status).
+
+    ``BacktestCreate.model_id`` accepts either the configured-model name or its integer
+    primary key; the worker resolves it. Returns 404 if the referenced dataset does not
+    exist.
+    """
     # `BacktestCreate.model_id` accepts either the configured-model name
     # (what the DB column actually stores) or the integer primary key (what
     # most API clients reach for because that's what GET /v1/crud/configured-models
@@ -341,10 +387,15 @@ async def create_backtest(
     return JobResponse(id=job.id)
 
 
-@router.delete("/backtests/{backtestId}", tags=["Backtests"])
+@router.delete(
+    "/backtests/{backtestId}",
+    tags=["Backtests"],
+    summary="Delete a backtest",
+)
 async def delete_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
+    """Delete the backtest row (and its forecasts via cascade). Returns 404 if the id is unknown."""
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
@@ -353,12 +404,22 @@ async def delete_backtest(
     return {"message": "deleted"}
 
 
-@router.patch("/backtests/{backtestId}", response_model=BacktestRead, tags=["Backtests"])
+@router.patch(
+    "/backtests/{backtestId}",
+    response_model=BacktestRead,
+    tags=["Backtests"],
+    summary="Partially update a backtest",
+)
 async def update_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     backtest_update: BacktestUpdate,
     session: Session = Depends(get_session),
 ):
+    """Apply the provided fields to the backtest and return the refreshed ``BacktestRead`` with embedded relations.
+
+    Only fields explicitly set on the request body are updated (``exclude_unset``).
+    Returns 404 if the id is unknown.
+    """
     db_backtest = session.get(Backtest, backtest_id)
     if not db_backtest:
         raise HTTPException(status_code=404, detail="Backtest not found")
@@ -382,8 +443,17 @@ async def update_backtest(
     return db_backtest
 
 
-@router.delete("/backtests", tags=["Backtests"])
+@router.delete(
+    "/backtests",
+    tags=["Backtests"],
+    summary="Delete multiple backtests by id",
+)
 async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session: Session = Depends(get_session)):
+    """Delete every backtest in the comma-separated ``ids`` query parameter and return the deleted count.
+
+    Unknown ids are silently skipped (only the count of actual deletions is returned).
+    Returns 400 if ``ids`` is empty, blank, or contains a non-integer segment.
+    """
     deleted_count = 0
     backtest_ids_list = []
 
@@ -422,33 +492,63 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
 # predictions
 
 
-@router.get("/predictions", response_model=list[PredictionInfo], tags=["Predictions"])
+@router.get(
+    "/predictions",
+    response_model=list[PredictionInfo],
+    tags=["Predictions"],
+    summary="List predictions with a configured model",
+)
 async def get_predictions(session: Session = Depends(get_session)):
+    """Return every prediction whose configured model still exists, as ``PredictionInfo`` rows.
+
+    Predictions whose configured model was deleted are filtered out.
+    """
     session_wrapper = SessionWrapper(session=session)
     return [
         prediction for prediction in session_wrapper.list_all(Prediction) if prediction.configured_model is not None
     ]
 
 
-@router.get("/predictions/{predictionId}", response_model=PredictionInfo, tags=["Predictions"])
+@router.get(
+    "/predictions/{predictionId}",
+    response_model=PredictionInfo,
+    tags=["Predictions"],
+    summary="Get a prediction",
+)
 async def get_prediction(
     prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
+    """Return the ``PredictionInfo`` row for the given id. Returns 404 if unknown."""
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
     return prediction
 
 
-@router.post("/predictions", response_model=JobResponse, tags=["Predictions"])
+@router.post(
+    "/predictions",
+    response_model=JobResponse,
+    tags=["Predictions"],
+    summary="(Not implemented) create a prediction",
+)
 async def create_prediction(prediction: PredictionCreate):
+    """Placeholder - always returns 501 Not Implemented.
+
+    Use ``POST /v1/analytics/make-prediction`` (or
+    ``/v1/analytics/make-prediction-with-data-source``) to queue a prediction job.
+    """
     raise HTTPException(status_code=501, detail="Not implemented")
 
 
-@router.delete("/predictions/{predictionId}", tags=["Predictions"])
+@router.delete(
+    "/predictions/{predictionId}",
+    tags=["Predictions"],
+    summary="Delete a prediction",
+)
 async def delete_prediction(
     prediction_id: Annotated[int, Path(alias="predictionId")], session: Session = Depends(get_session)
 ):
+    """Delete the prediction row (and its forecasts via cascade). Returns 404 if the id is unknown."""
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
@@ -461,14 +561,30 @@ async def delete_prediction(
 # datasets
 
 
-@router.get("/datasets", response_model=list[DataSetInfo], tags=["Datasets"])
+@router.get(
+    "/datasets",
+    response_model=list[DataSetInfo],
+    tags=["Datasets"],
+    summary="List datasets",
+)
 async def get_datasets(session: Session = Depends(get_session)):
+    """Return every dataset as a ``DataSetInfo`` row (metadata only, no observations)."""
     datasets = session.exec(select(DataSet)).all()
     return datasets
 
 
-@router.get("/datasets/{datasetId}", response_model=DataSetWithObservations, tags=["Datasets"])
+@router.get(
+    "/datasets/{datasetId}",
+    response_model=DataSetWithObservations,
+    tags=["Datasets"],
+    summary="Get a dataset with observations",
+)
 async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    """Return the dataset with all its observations embedded.
+
+    Non-finite observation values are coerced to ``null`` so the response is JSON-safe.
+    Returns 404 if the dataset id is unknown.
+    """
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
     if dataset is None:
@@ -479,10 +595,18 @@ async def get_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], sessi
     return dataset
 
 
-@router.post("/datasets", tags=["Datasets"])
+@router.post(
+    "/datasets",
+    tags=["Datasets"],
+    summary="Queue a dataset import from observations + geojson",
+)
 async def create_dataset(
     data: DatasetCreate, datababase_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ) -> JobResponse:
+    """Queue a harmonize-and-import job for health/population observations with attached polygons.
+
+    Returns the queued job id; poll ``GET /v1/jobs/{id}`` for status.
+    """
     health_data = observations_to_dataset(HealthPopulationData, data.observations, fill_missing=True)
     health_data.set_polygons(FeatureCollectionModel.model_validate(data.geojson))
     job = worker.queue_db(
@@ -495,12 +619,22 @@ async def create_dataset(
     return JobResponse(id=job.id)
 
 
-@router.post("/datasets/csvFile", tags=["Datasets"])
+@router.post(
+    "/datasets/csvFile",
+    tags=["Datasets"],
+    summary="Create a dataset from an uploaded CSV + geojson",
+)
 async def create_dataset_csv(
     csv_file: UploadFile = File(...),
     geojson_file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ) -> DataBaseResponse:
+    """Import a CSV of observations and its companion geojson directly (synchronously) into the DB.
+
+    Unlike ``POST /v1/crud/datasets``, this endpoint inserts the dataset inline and
+    returns the new dataset id immediately - no job is queued. Polygons are keyed by the
+    ``NAME_1`` property.
+    """
     import io
 
     csv_content = await csv_file.read()
@@ -513,8 +647,17 @@ async def create_dataset_csv(
     return DataBaseResponse(id=dataset_id)
 
 
-@router.get("/datasets/{datasetId}/df", tags=["Datasets"])
+@router.get(
+    "/datasets/{datasetId}/df",
+    tags=["Datasets"],
+    summary="Get a dataset as JSON records",
+)
 async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    """Return the dataset as a list of JSON records, one per (location, period) row.
+
+    Non-finite numeric values are emitted as JSON ``null`` so the response parses cleanly.
+    Returns 404 if the dataset id is unknown.
+    """
     if session.get(DataSet, dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     sw = SessionWrapper(session=session)
@@ -532,8 +675,13 @@ async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], se
     return records
 
 
-@router.get("/datasets/{datasetId}/csv", tags=["Datasets"])
+@router.get(
+    "/datasets/{datasetId}/csv",
+    tags=["Datasets"],
+    summary="Download a dataset as CSV",
+)
 async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    """Stream the dataset as a CSV attachment, one row per (location, time_period) tuple. Returns 404 if unknown."""
     if session.get(DataSet, dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
     sw = SessionWrapper(session=session)
@@ -549,8 +697,13 @@ async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], s
     )
 
 
-@router.delete("/datasets/{datasetId}", tags=["Datasets"])
+@router.delete(
+    "/datasets/{datasetId}",
+    tags=["Datasets"],
+    summary="Delete a dataset",
+)
 async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
+    """Delete the dataset row and its observations via cascade. Returns 404 if the id is unknown."""
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
     dataset = session.get(DataSet, dataset_id)
     if dataset is None:
@@ -564,12 +717,18 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 # model templates
 
 
-@router.get("/model-templates", response_model=list[ModelTemplateRead], tags=["Models"])
+@router.get(
+    "/model-templates",
+    response_model=list[ModelTemplateRead],
+    tags=["Models"],
+    summary="List model templates (and sync live chapkit services)",
+)
 async def list_model_templates(session: Session = Depends(get_session)):
-    """
-    Lists all model templates from the db, including archived.
-    Also syncs live chapkit services from the v2 service registry
-    into the database (upsert by name).
+    """Return every model template (including archived) and side-effect a chapkit registry sync.
+
+    Before returning, live chapkit services from the v2 service registry are upserted by
+    name into the DB and stale chapkit templates are archived. Templates whose live
+    counterpart is currently registered carry ``health_status = "live"``.
     """
     live_ids = _sync_live_chapkit_services(session)
     model_templates = session.exec(select(ModelTemplateDB)).all()
@@ -587,9 +746,14 @@ async def list_model_templates(session: Session = Depends(get_session)):
 # configured models
 
 
-@router.get("/configured-models", response_model=list[ModelSpecRead], tags=["Models"])
+@router.get(
+    "/configured-models",
+    response_model=list[ModelSpecRead],
+    tags=["Models"],
+    summary="List configured models",
+)
 def list_configured_models(session: Session = Depends(get_session)):
-    """List all configured models from the db"""
+    """Return every configured model as a ``ModelSpecRead`` row (config + template metadata)."""
     configured_models_read = SessionWrapper(session=session).get_configured_models()
 
     # return
@@ -600,13 +764,17 @@ def list_configured_models(session: Session = Depends(get_session)):
     "/configured-models/{configuredModelId}",
     response_model=ConfiguredModelInfoRead,
     tags=["Models"],
+    summary="Get a configured model with its template",
 )
 @api_experimental
 def get_configured_model_info(
     configured_model_id: Annotated[int, Path(alias="configuredModelId")],
     session: Session = Depends(get_session),
 ):
-    """Return the detail view for a single configured model, including its template."""
+    """Return the detail view for a single configured model with the model template eagerly loaded.
+
+    Returns 404 if the id is unknown.
+    """
     configured_model = session.exec(
         select(ConfiguredModelDB)
         .where(ConfiguredModelDB.id == configured_model_id)
@@ -617,12 +785,21 @@ def get_configured_model_info(
     return configured_model
 
 
-@router.post("/configured-models", response_model=ConfiguredModelDB, tags=["Models"])
+@router.post(
+    "/configured-models",
+    response_model=ConfiguredModelDB,
+    tags=["Models"],
+    summary="Create a configured model from a template",
+)
 def add_configured_model(
     model_configuration: ModelConfigurationCreate,
     session: Session = Depends(get_session),
 ):
-    """Add a configured model to the database"""
+    """Persist a new configured model bound to an existing model template, inheriting ``uses_chapkit``.
+
+    Returns the freshly-inserted ``ConfiguredModelDB`` row. Returns 404 if the referenced
+    model template does not exist.
+    """
     session_wrapper = SessionWrapper(session=session)
     model_template_id = model_configuration.model_template_id
     configuration_name = model_configuration.name
@@ -643,11 +820,18 @@ def add_configured_model(
     return session.get(ConfiguredModelDB, db_id)
 
 
-@router.delete("/configured-models/{configuredModelId}", tags=["Models"])
+@router.delete(
+    "/configured-models/{configuredModelId}",
+    tags=["Models"],
+    summary="Archive (soft-delete) a configured model",
+)
 async def delete_configured_model(
     configured_model_id: Annotated[int, Path(alias="configuredModelId")], session: Session = Depends(get_session)
 ):
-    """Soft delete a configured model by setting archived to True"""
+    """Soft-delete the configured model by flipping its ``archived`` flag to ``True``; the row is preserved.
+
+    Returns 404 if the id is unknown.
+    """
     configured_model = session.get(ConfiguredModelDB, configured_model_id)
     if configured_model is None:
         raise HTTPException(status_code=404, detail="Configured model not found")
@@ -665,9 +849,11 @@ async def delete_configured_model(
     "/configured-models-with-data-source",
     response_model=list[ConfiguredModelWithDataSourceRead],
     tags=["Models"],
+    summary="List configured-model-with-data-source records",
 )
 @api_experimental
 async def list_configured_models_with_data_source(session: Session = Depends(get_session)):
+    """Return every ``ConfiguredModelWithDataSource`` with its configured model and template embedded."""
     records = session.exec(
         select(ConfiguredModelWithDataSource).options(
             selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
@@ -680,12 +866,17 @@ async def list_configured_models_with_data_source(session: Session = Depends(get
     "/configured-models-with-data-source/{configuredModelWithDataSourceId}",
     response_model=ConfiguredModelWithDataSourceReadWithPredictions,
     tags=["Models"],
+    summary="Get a configured-model-with-data-source with its predictions",
 )
 @api_experimental
 async def get_configured_model_with_data_source(
     configured_model_with_data_source_id: Annotated[int, Path(alias="configuredModelWithDataSourceId")],
     session: Session = Depends(get_session),
 ):
+    """Return the record with the configured model, model template, and every related prediction (and its dataset) embedded.
+
+    Dataset geojson on each prediction is deferred. Returns 404 if the id is unknown.
+    """
     record = session.exec(
         select(ConfiguredModelWithDataSource)
         .where(ConfiguredModelWithDataSource.id == configured_model_with_data_source_id)
@@ -708,12 +899,19 @@ async def get_configured_model_with_data_source(
     "/configured-models-with-data-source/from-backtest/{backtestId}",
     response_model=ConfiguredModelWithDataSourceRead,
     tags=["Models"],
+    summary="Create a configured-model-with-data-source from a backtest",
 )
 @api_experimental
 async def create_configured_model_with_data_source_from_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     session: Session = Depends(get_session),
 ):
+    """Create a new ``ConfiguredModelWithDataSource`` whose configured model, org units, period type, and data sources are copied from the given backtest.
+
+    Used to promote a successful backtest into a reusable prediction configuration.
+    Returns the freshly-inserted record with the configured model and its template
+    embedded. Returns 404 if the backtest id is unknown.
+    """
     backtest = session.exec(
         select(Backtest)
         .where(Backtest.id == backtest_id)
