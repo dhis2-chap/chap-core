@@ -482,7 +482,13 @@ def get_prediction_entries(
     "/actualCases/{backtestId}",
     response_model=DataList,
     tags=["Backtests"],
-    summary="Read the observed disease cases a backtest was scored against (camelCase alias)",
+    deprecated=True,
+    summary="Deprecated camelCase alias of /actual-cases/{backtestId}",
+    description=(
+        "Deprecated camelCase alias of ``GET /v1/analytics/actual-cases/{backtestId}``. "
+        "Behaviour is identical; new integrations should call the kebab-case path, which "
+        "matches the rest of the API's URL style."
+    ),
 )
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
