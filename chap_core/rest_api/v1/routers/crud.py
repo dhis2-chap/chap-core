@@ -548,8 +548,9 @@ async def get_prediction(
 async def create_prediction(prediction: PredictionCreate):
     """Placeholder - always returns 501 Not Implemented.
 
-    Use ``POST /v1/analytics/make-prediction`` (or
-    ``/v1/analytics/make-prediction-with-data-source``) to queue a prediction job.
+    Use ``POST /v1/analytics/make-prediction`` to queue a prediction job from provided
+    observations, or ``POST /v1/crud/prediction-setups/{predictionSetupId}/run`` to fire
+    one off a stored prediction setup.
     """
     raise HTTPException(status_code=501, detail="Not implemented")
 

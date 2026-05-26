@@ -99,8 +99,10 @@ def get_job_status(job_id: str) -> str:
 def delete_job(job_id: str) -> dict:
     """Remove the job's metadata entry from Redis. Cannot delete a running job - cancel it first.
 
-    Returns 400 if the job is still ``pending``/``started``/``running`` and 404 if the id
-    is unknown.
+    Returns 400 if the job looks ``pending``/``started``/``running``. Unknown job ids
+    also surface as 400 here because Celery's ``AsyncResult`` fabricates a ``PENDING``
+    state for them; the 404 branch only fires once a non-running job's metadata entry
+    has been cleared from Redis.
     """
     job = worker.get_job(job_id)
     if job is None:
