@@ -237,12 +237,11 @@ Common flags:
 - `--lime-params.weighter-name pairwise` — see the weighter table above.
 - `--lime-params.adaptive` — use `explain_adaptive` instead of `explain`.
 - `--lime-params.seed 42` — make the run deterministic.
+- `--lime-params.with-metrics` — *(added in this PR)* also compute the
+  `eLoss` faithfulness metric and log `r2`, `n_eff`, `delta_eloss`,
+  `auc_top_k`, `auc_bottom_k` at INFO.
 - `--no-save` — don't write the explanation Markdown under
   `runs/explainability/`.
-
-The CLI does **not** currently pass `return_metrics=True` — you only get the
-eLoss number when calling the Python API directly. Worth fixing in a future
-PR.
 
 Prerequisites that surprise people: the model directory under
 `runs/<name>/<timestamp>_<hash>/` must already exist and contain both
@@ -304,7 +303,12 @@ chap_core/cli_endpoints/explain.py — explain_lime command, LimeParams config.
 
 Tests:
 ```
-tests/explainability/  — unit tests this PR adds (38 tests, 0% → 27%).
+tests/explainability/  — this PR's test suite (57 tests, 0% → 62%
+                         overall, 75% on lime.py). Six modules:
+                         test_distance, test_perturb, test_segment,
+                         test_surrogate, test_metrics (eLoss math),
+                         test_log_transform (clip/drop helper),
+                         test_explain_integration (mock-model E2E).
 ```
 
 ---
@@ -314,8 +318,9 @@ tests/explainability/  — unit tests this PR adds (38 tests, 0% → 27%).
 ### 10a. Install + lint
 
 ```bash
-# Install the optional explainability deps (fastdtw, pyts, stumpy).
-uv sync --extra explainability
+# Install everything (this PR moved stumpy/pyts/fastdtw to mandatory
+# deps; no extras flag needed).
+uv sync
 
 # All checks should pass clean.
 make lint
@@ -326,7 +331,7 @@ make lint
 
 ```bash
 uv run pytest tests/explainability/ -v
-# Expect: 38 passed.
+# Expect: 57 passed in ~3 s.
 ```
 
 ### 10c. Coverage
@@ -335,7 +340,8 @@ uv run pytest tests/explainability/ -v
 uv run coverage erase
 uv run coverage run --source=chap_core/explainability -m pytest tests/explainability/ -q
 uv run coverage report --include="chap_core/explainability/*"
-# Expect total around 27%; distance.py 100%, surrogate.py 96%, testing/metrics.py 100%.
+# Expect total ~62%; distance.py 100%, surrogate.py 96%, testing/metrics.py
+# 100%, lime.py 75%, perturb.py 59%, segment.py 33%, plot.py 8%.
 ```
 
 ### 10d. Smoke-test the imports and signatures
@@ -464,8 +470,8 @@ chap explain-lime \
 
 ### 10g. End-to-end with `return_metrics=True` from Python
 
-(The CLI doesn't expose this flag yet; this is how to hit eLoss against a
-real model.)
+The CLI now exposes this via `--lime-params.with-metrics` (see 10f), but
+this is also how to hit `eLoss` from Python code directly.
 
 ```bash
 uv run python <<'PY'
@@ -584,9 +590,27 @@ not a LIME bug.
 3. **Implements `eLoss`** — the faithfulness metric `#262` referenced but
    never shipped. New module: `chap_core/explainability/testing/metrics.py`.
    `explain(..., return_metrics=True)` now works.
-4. **Adds 38 unit tests** under `tests/explainability/` (suite previously had
-   zero). Coverage of the subpackage goes from 0% to 27%; the modules this
-   PR touched (distance, surrogate, metrics) are at 96–100%.
+4. **Fixes the pre-existing `log1p` NaN crash** with a new
+   `_log_transform_for_surrogate(X, y, weights)` helper that clips negative
+   model outputs at 0, drops non-finite rows, and warns visibly. Three call
+   sites in `explain()` / `explain_adaptive()` use it. The CLI now exits 0
+   against the example trained models instead of `ValueError: Input y
+   contains NaN.`.
+5. **Moves `stumpy` / `pyts` / `fastdtw`** out of `[project.optional-
+   dependencies] explainability` and into the main `[project] dependencies`
+   list. There were never any `try/except ImportError` guards around their
+   use, so the "optional" classification never matched reality and was
+   making `uv sync --dev` (CI's default) fail to collect the new test
+   suite.
+6. **Adds `--lime-params.with-metrics` CLI flag** so operators get the
+   eLoss block at the end of `chap explain-lime` runs, not only Python
+   callers.
+7. **Adds 57 unit + integration tests** under `tests/explainability/`
+   (suite previously had zero), including a `MockExternalModel`-driven
+   end-to-end integration suite that exercises the whole LIME pipeline
+   without needing a trained model directory. Coverage of the subpackage
+   goes from 0% to 62%; `lime.py` from 7% to 75%; the modules this PR
+   touched (`distance`, `surrogate`, `metrics`) at 96–100%.
 
 That's it. Everything else (the verbose changelog in the PR description) is
 the type-error-by-type-error breakdown.
