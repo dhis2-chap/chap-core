@@ -228,7 +228,7 @@ def _run_eval(
             )
         elif estimator_options.mode == EstimatorMode.ENSEMBLE:
             raise NotImplementedError("Ensemble mode is not yet implemented")
-        
+
         warn_unused_covariates(dataset, template.model_template_config, configuration)
 
         model_info = estimator.model_information
