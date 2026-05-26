@@ -70,7 +70,6 @@ from ...data_models import (
     JobResponse,
     ModelConfigurationCreate,
     ModelTemplateRead,
-    PredictionCreate,
     PredictionParams,
     PredictionSetupCreate,
     PredictionSetupUpdate,
@@ -537,22 +536,6 @@ async def get_prediction(
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
     return prediction
-
-
-@router.post(
-    "/predictions",
-    response_model=JobResponse,
-    tags=["Predictions"],
-    summary="(Not implemented) create a prediction",
-)
-async def create_prediction(prediction: PredictionCreate):
-    """Placeholder - always returns 501 Not Implemented.
-
-    Use ``POST /v1/analytics/make-prediction`` to queue a prediction job from provided
-    observations, or ``POST /v1/crud/prediction-setups/{predictionSetupId}/run`` to fire
-    one off a stored prediction setup.
-    """
-    raise HTTPException(status_code=501, detail="Not implemented")
 
 
 @router.delete(
