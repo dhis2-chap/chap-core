@@ -855,7 +855,9 @@ def explain(
         timed (bool): Flag for whether to print execution time for LIME pipeline stages
         save (bool): Whether to save the calculated importance weighting
         plot (bool): Whether to plot the calculated importance weighting
-        return_metrics (bool): If True, also compute and return evaluation metrics alongside the explanation
+        return_metrics (bool): If True, also compute the delta eLoss faithfulness
+            metric and return ``(sorted_results, metrics)`` instead of just the
+            results. See ``chap_core.explainability.testing.metrics.eLoss``.
     """
     start = time.perf_counter()
     if timed:
@@ -1073,12 +1075,10 @@ def explain(
     # Calculate metrics
     # =================================================================
 
-    metrics = {"r2": r2, "n_eff": float(n_eff)}
+    metrics: dict[str, float] = {"r2": float(r2), "n_eff": float(n_eff)}
 
     if return_metrics:
-        # chap_core.explainability.testing is an external/research submodule that
-        # isn't shipped with the chap-core package and has no type stubs.
-        from chap_core.explainability.testing.metrics import eLoss  # type: ignore[import-not-found,import-untyped]
+        from chap_core.explainability.testing.metrics import eLoss
 
         mask_type1 = np.ones(X.shape[1])
         pb_orig, pb_mask_orig = perturb_vectors(
@@ -1101,7 +1101,7 @@ def explain(
             full_dataset=dataset,
             full_future_weather=full_future_weather,
         )
-        y_orig = y_orig_arr[0]
+        y_orig = float(y_orig_arr[0])
 
         delta_eloss, auc_t1, auc_t2 = eLoss(
             model=model,
@@ -1124,10 +1124,12 @@ def explain(
             full_future_weather=full_future_weather,
         )
 
-        logger.info(f"EVALUATION: Delta eLoss = {delta_eloss:.4f} (Type1 AUC: {auc_t1:.4f}, Type2 AUC: {auc_t2:.4f})")
+        logger.info(
+            f"EVALUATION: Delta eLoss = {delta_eloss:.4f} (Top-k AUC: {auc_t1:.4f}, Bottom-k AUC: {auc_t2:.4f})"
+        )
         metrics["delta_eloss"] = delta_eloss
-        metrics["auc_type1"] = auc_t1
-        metrics["auc_type2"] = auc_t2
+        metrics["auc_top_k"] = auc_t1
+        metrics["auc_bottom_k"] = auc_t2
 
     # =================================================================
     # Plot and save
@@ -1201,7 +1203,9 @@ def explain_adaptive(
         timed (bool): Flag for whether to print execution time for LIME pipeline stages
         save (bool): Whether to save the calculated importance weighting
         plot (bool): Whether to plot the calculated importance weighting
-        return_metrics (bool): If True, also compute and return evaluation metrics alongside the explanation
+        return_metrics (bool): If True, also compute the delta eLoss faithfulness
+            metric and return ``(sorted_results, metrics)`` instead of just the
+            results. See ``chap_core.explainability.testing.metrics.eLoss``.
     """
     start = time.perf_counter()
     if timed:
@@ -1544,12 +1548,14 @@ def explain_adaptive(
     n_eff = (weights.sum() ** 2) / (weights**2).sum()
     logger.info(f"Adaptive surrogate weighted R2={r2:.3f}, effective N={n_eff:.1f}, p={X.shape[1]}, n={X.shape[0]}")
 
-    metrics = {"r2": r2, "n_eff": float(n_eff)}
+    # =================================================================
+    # Calculate metrics
+    # =================================================================
+
+    metrics: dict[str, float] = {"r2": float(r2), "n_eff": float(n_eff)}
 
     if return_metrics:
-        # chap_core.explainability.testing is an external/research submodule that
-        # isn't shipped with the chap-core package and has no type stubs.
-        from chap_core.explainability.testing.metrics import eLoss  # type: ignore[import-not-found,import-untyped]
+        from chap_core.explainability.testing.metrics import eLoss
 
         mask_type1 = np.ones(X.shape[1])
         pb_orig, pb_mask_orig = perturb_vectors(
@@ -1572,7 +1578,7 @@ def explain_adaptive(
             full_dataset=dataset,
             full_future_weather=full_future_weather,
         )
-        y_orig = y_orig_arr[0]
+        y_orig = float(y_orig_arr[0])
 
         delta_eloss, auc_t1, auc_t2 = eLoss(
             model=model,
@@ -1595,10 +1601,12 @@ def explain_adaptive(
             full_future_weather=full_future_weather,
         )
 
-        logger.info(f"EVALUATION: Delta eLoss = {delta_eloss:.4f} (Type1 AUC: {auc_t1:.4f}, Type2 AUC: {auc_t2:.4f})")
+        logger.info(
+            f"EVALUATION: Delta eLoss = {delta_eloss:.4f} (Top-k AUC: {auc_t1:.4f}, Bottom-k AUC: {auc_t2:.4f})"
+        )
         metrics["delta_eloss"] = delta_eloss
-        metrics["auc_type1"] = auc_t1
-        metrics["auc_type2"] = auc_t2
+        metrics["auc_top_k"] = auc_t1
+        metrics["auc_bottom_k"] = auc_t2
 
     # =================================================================
     # Plot and save
