@@ -3,6 +3,7 @@ import random
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -10,11 +11,35 @@ from sklearn.metrics import r2_score
 
 from chap_core.climate_predictor import get_climate_predictor
 from chap_core.exceptions import ModelFailedException
-from chap_core.explainability.distance import *
-from chap_core.explainability.perturb import *
+from chap_core.explainability.distance import DTW, Pairwise
+from chap_core.explainability.perturb import (
+    ConstantTransform,
+    FourierReplacement,
+    GlobalMean,
+    LinearInterpolation,
+    LocalMean,
+    RandomBackground,
+    RandomUniform,
+    SampleModel,
+)
 from chap_core.explainability.plot import plot_importance
-from chap_core.explainability.segment import *
-from chap_core.explainability.surrogate import *
+from chap_core.explainability.segment import (
+    ExponentialSegmentation,
+    Indices,
+    MatrixProfileBinSegmentation,
+    MatrixProfileSlopeSegmentation,
+    MatrixProfileSortedSlopeSegmentation,
+    NNSegmentation,
+    ReverseExponentialSegmentation,
+    SaxTransformSegmentation,
+    SegmentationModel,
+    UniformSegmentation,
+)
+from chap_core.explainability.surrogate import (
+    BayesianSurrogate,
+    RidgeSurrogate,
+    SurrogateModel,
+)
 from chap_core.model_spec import _non_feature_names
 from chap_core.models.external_model import ExternalModel
 from chap_core.models.utils import CHAP_RUNS_DIR
@@ -80,7 +105,7 @@ def build_original_vector(
     features_hist: list[str],
     features_fut: list[str],
     horizon: int,
-) -> tuple[dict, dict[str, Indices]]:
+) -> tuple[dict[str, Any], dict[str, Indices]]:
     """
     Create original information vector for producing perturbed input
 
@@ -94,8 +119,8 @@ def build_original_vector(
     Returns:
         Dictionary of feature names and value
     """
-    x0 = {}
-    feat_indices = {}
+    x0: dict[str, Any] = {}
+    feat_indices: dict[str, Indices] = {}
 
     # TODO (future work): Handle categorical
 
@@ -235,9 +260,9 @@ def convert_vector_to_dataset(
     features_hist: list[str],
     features_fut: list[str],
     horizon: int,
-    hist_type: type,
-    fut_type: type,
-    feat_indices: dict[str, dict],
+    hist_type: type | None,
+    fut_type: type | None,
+    feat_indices: dict[str, Indices],
 ) -> tuple[DataSet, DataSet]:
     """
     Convert interpretable vector back into full perturbed dataset
@@ -279,7 +304,7 @@ def convert_vector_to_dataset(
             for lag, segment_vals in val.items():
                 start_idx, end_idx = idx_map[lag]
                 n = end_idx - start_idx
-                col_vals = hist_df[feat].dropna().values
+                col_vals = np.asarray(hist_df[feat].dropna().to_numpy())
                 arr = np.asarray(segment_vals[:n], dtype=float)
 
                 if not np.isfinite(arr).all():
@@ -287,14 +312,17 @@ def convert_vector_to_dataset(
                 # Avoid casting to float if feature is int-like
                 # Originally only cross-checked with np.integer but this still caused errors;
                 # comparing roundedness is a catch-all check
-                is_int_like = np.issubdtype(hist_df[feat].dtype, np.integer) or (
-                    len(col_vals) > 0 and np.allclose(col_vals, np.round(col_vals))
+                col_dtype = hist_df[feat].to_numpy().dtype
+                is_int_like = np.issubdtype(col_dtype, np.integer) or (
+                    len(col_vals) > 0 and bool(np.allclose(col_vals, np.round(col_vals)))
                 )
                 if is_int_like:
                     arr = np.clip(arr, 0, None)
                     arr = np.round(arr).astype(int)
 
-                # Insert perturbed section
+                # Insert perturbed section. col_idx came from columns.get_loc on a
+                # plain (non-multiindex, no-dupes) DataFrame here, so it's an int.
+                assert isinstance(col_idx, int)
                 hist_df.iloc[start_idx:end_idx, col_idx] = arr
         else:
             hist_df[feat] = float(val)
@@ -312,8 +340,8 @@ def convert_vector_to_dataset(
             if feat in perturbation and feat in fut_df.columns:
                 fut_df.loc[: horizon - 1, feat] = float(perturbation[feat])
 
-    new_hist = DataSet.from_pandas(hist_df, dataclass=hist_type)
-    new_fut = DataSet.from_pandas(fut_df, dataclass=fut_type)
+    new_hist: DataSet = DataSet.from_pandas(hist_df, dataclass=hist_type)
+    new_fut: DataSet = DataSet.from_pandas(fut_df, dataclass=fut_type)
 
     return new_hist, new_fut
 
@@ -528,7 +556,7 @@ def produce_lime_dataset(
     features_fut: list[str],
     horizon: int,
     location: str,
-    feat_indices: dict[str, list],
+    feat_indices: dict[str, Indices],
     hist_type: type | None = None,
     fut_type: type | None = None,
     chunk_size: int = 10,
@@ -557,8 +585,8 @@ def produce_lime_dataset(
     Returns:
         Tuple of input and output arrays, perturbed and original dtw distance sequence/s
     """
-    results: list[tuple[dict[str, float], float]] = []
-    distance_sequences = []
+    results: list[tuple[dict[str, Any], float]] = []
+    distance_sequences: list[np.ndarray] = []
     x0_sequence = build_dtw_sequence(hist_df, features_hist)
 
     try:
@@ -592,6 +620,8 @@ def produce_lime_dataset(
             fut_combined = DataSet(full_fut_dict, polygons=None)
 
             pred_v = model.predict(hist_combined, fut_combined)
+            if pred_v is None:
+                raise ModelFailedException("model.predict returned None for batched perturbations")
 
             for ds in pred_v.iter_locations():
                 loc_name = next(iter(ds.locations()))
@@ -625,6 +655,8 @@ def produce_lime_dataset(
             fut_dict = {loc: full_future_weather[loc] for loc in full_future_weather.locations()}
             fut_dict[location] = new_fut.get_location(location)
             pred_v = model.predict(DataSet(hist_dict, polygons=None), DataSet(fut_dict, polygons=None))
+            if pred_v is None:
+                raise ModelFailedException(f"model.predict returned None for perturbation {j}") from None
             vals = avg_samples(pred_v.filter_locations([location]))
             latest = max(vals.keys())
             distance_sequences.append(seq)
@@ -1044,7 +1076,9 @@ def explain(
     metrics = {"r2": r2, "n_eff": float(n_eff)}
 
     if return_metrics:
-        from chap_core.explainability.testing.metrics import eLoss
+        # chap_core.explainability.testing is an external/research submodule that
+        # isn't shipped with the chap-core package and has no type stubs.
+        from chap_core.explainability.testing.metrics import eLoss  # type: ignore[import-not-found,import-untyped]
 
         mask_type1 = np.ones(X.shape[1])
         pb_orig, pb_mask_orig = perturb_vectors(
@@ -1513,7 +1547,9 @@ def explain_adaptive(
     metrics = {"r2": r2, "n_eff": float(n_eff)}
 
     if return_metrics:
-        from chap_core.explainability.testing.metrics import eLoss
+        # chap_core.explainability.testing is an external/research submodule that
+        # isn't shipped with the chap-core package and has no type stubs.
+        from chap_core.explainability.testing.metrics import eLoss  # type: ignore[import-not-found,import-untyped]
 
         mask_type1 = np.ones(X.shape[1])
         pb_orig, pb_mask_orig = perturb_vectors(

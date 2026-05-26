@@ -134,13 +134,19 @@ class RandomBackground:
 
 
 class FourierReplacement:
-    def __init__(self, rng: random.Random, dataset: pd.DataFrame, window_size: int, freq: float):
+    def __init__(
+        self,
+        rng: random.Random,
+        dataset: pd.DataFrame | None,
+        window_size: int | None,
+        freq: float,
+    ):
         self.rng = rng
         self.dataset = dataset
         self.window_size = window_size
         self.freq = freq
 
-        self.R_cache = {}
+        self.R_cache: dict[str, np.ndarray] = {}
 
     def calculate_background(self, ts: np.ndarray):
         # Safety guards to avoid NaN errors

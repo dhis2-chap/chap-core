@@ -57,4 +57,4 @@ class DTW:
             z_norm = (distances - mu) / sigma
 
         weights = np.exp(-(z_norm**2) / self.kernel_width)
-        return weights
+        return np.asarray(weights)

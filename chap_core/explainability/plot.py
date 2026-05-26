@@ -10,9 +10,9 @@ from matplotlib.gridspec import GridSpec
 
 def parse_coefficients(
     coefficients: list[tuple[str, float]],
-) -> tuple[dict[str, dict], dict]:
-    temp_columns = {}
-    static_columns = {}
+) -> tuple[dict[str, dict[int, float]], dict[str, float]]:
+    temp_columns: dict[str, dict[int, float]] = {}
+    static_columns: dict[str, float] = {}
 
     for name, value in coefficients:
         if "_lag_" in name:
@@ -32,7 +32,10 @@ def parse_coefficients(
 
 
 def plot_importance(
-    coefficients: list[tuple[str, float]], hist_df: pd.DataFrame, fut_df: pd.DataFrame, segment_indices: dict[str, list]
+    coefficients: list[tuple[str, float]],
+    hist_df: pd.DataFrame,
+    fut_df: pd.DataFrame,
+    segment_indices: dict[str, dict[int, tuple[int, int]]],
 ):
     temp_columns, static_columns = parse_coefficients(coefficients)
 
@@ -40,7 +43,7 @@ def plot_importance(
     max_static = max((abs(v) for v in static_columns.values()), default=0.0)
     max_val = max(max_temp, max_static, 1.0)
 
-    cmap = plt.cm.RdYlGn
+    cmap = plt.get_cmap("RdYlGn")
     norm = mcolors.Normalize(vmin=-max_val, vmax=max_val)
 
     sorted_vars = sorted(temp_columns.keys())

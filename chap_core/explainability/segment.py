@@ -15,14 +15,14 @@ Indices = dict[int, tuple[int, int]]
 
 
 class SegmentationModel(Protocol):
-    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]: ...  # TODO
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]: ...
 
 
 class UniformSegmentation(SegmentationModel):
     def __init__(self, num_segments=5):
         self.num_segments = num_segments
 
-    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         segments = {}
         indices = {}
 
@@ -52,7 +52,7 @@ class ExponentialSegmentation:
     def __init__(self, num_segments=5):
         self.num_segments = num_segments  # ExponentialSegmentation accepts num_segments but doesn't use - change?
 
-    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         segments = {}
         indices = {}
 
@@ -85,7 +85,7 @@ class ReverseExponentialSegmentation:
     def __init__(self, num_segments=5):
         self.num_segments = num_segments  # as in ExponentialSegmentation
 
-    def segment(self, data: pd.DataFrame) -> tuple[Segments, Indices]:
+    def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
         segments = {}
         indices = {}
 
@@ -306,7 +306,7 @@ class SaxTransformSegmentation:
 
         b = 3
         max_bins = max(3, min(n, 26))  # pyts limit
-        best_symbols = None
+        best_symbols: np.ndarray | None = None
 
         while b <= max_bins:
             sax = SymbolicAggregateApproximation(n_bins=b, strategy="normal")
@@ -323,6 +323,9 @@ class SaxTransformSegmentation:
             else:
                 break
 
+        # max_bins is always >= 3 and b starts at 3, so the loop runs at least
+        # once and best_symbols is always assigned. Assert for the type checker.
+        assert best_symbols is not None
         boundaries = [0]
         boundaries.extend(i for i in range(1, n) if best_symbols[i] != best_symbols[i - 1])
         boundaries.append(n)

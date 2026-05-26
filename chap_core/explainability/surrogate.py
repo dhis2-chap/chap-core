@@ -47,7 +47,7 @@ class RidgeSurrogate:
         return SurrogateResult(feature_names=feature_names, weighting=self.model.coef_.copy())
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        return self.model.predict(X)
+        return np.asarray(self.model.predict(X))
 
 
 class BayesianSurrogate:
@@ -65,8 +65,10 @@ class BayesianSurrogate:
         self.X_offset = None
         self.y_offset = 0.0
 
-    def fit(self, X, y, sample_weight):
+    def fit(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None) -> "BayesianSurrogate":
         # Center data TODO: Should have fit_intercept arg?
+        if sample_weight is None:
+            sample_weight = np.ones(X.shape[0])
         self.X_offset = np.average(X, axis=0, weights=sample_weight)
         self.y_offset = np.average(y, weights=sample_weight)
         Xc = X - self.X_offset
@@ -94,21 +96,21 @@ class BayesianSurrogate:
 
         return self
 
-    def explain(self, feature_names):
+    def explain(self, feature_names: list[str]) -> SurrogateResult:
         if self.coef_ is None:
             raise RuntimeError("Surrogate not fitted")
         return SurrogateResult(feature_names=feature_names, weighting=self.coef_.copy())
 
-    def predict(self, X):
+    def predict(self, X: np.ndarray) -> np.ndarray:
         if self.coef_ is None:
             raise RuntimeError("Surrogate not fitted")
-        return X @ self.coef_ + self.intercept_
+        return np.asarray(X @ self.coef_ + self.intercept_)
 
-    def acquisition_scores(self, X_candidates, locality_weights):
+    def acquisition_scores(self, X_candidates: np.ndarray, locality_weights: np.ndarray) -> np.ndarray:
         if self.uncertainty is None:
             raise RuntimeError("Surrogate not fitted")
 
         Xc = X_candidates - self.X_offset
 
         quad = np.einsum("ij,jk,ik->i", Xc, self.uncertainty, Xc)  # Fast einstein summation
-        return locality_weights * quad
+        return np.asarray(locality_weights * quad)
