@@ -22,7 +22,7 @@ router = APIRouter(prefix="/services", tags=["Services"])
 @router.post(
     "/$register",
     response_model=RegistrationResponse,
-    summary="Onboard a chapkit model service",
+    summary="Onboard a CHAPKit model service",
 )
 def register_service(
     payload: RegistrationRequest,
@@ -31,7 +31,7 @@ def register_service(
     session: Session = Depends(get_session),
     _: str = Depends(verify_service_key),
 ) -> RegistrationResponse:
-    """Announce a chapkit-hosted model service so chap-core can route work to it.
+    """Announce a CHAPKit-hosted model service so CHAP Core can route work to it.
 
     The orchestrator records the service and returns the absolute ping URL the service
     must hit periodically to stay live. As a side effect, the service's templates and
@@ -66,12 +66,12 @@ def ping_service(
     orchestrator: Orchestrator = Depends(get_orchestrator),
     _: str = Depends(verify_service_key),
 ) -> PingResponse:
-    """Tell the orchestrator the service is still alive so it doesn't get evicted from the registry.
+    """Tell the orchestrator the service is still alive so it is not evicted from the registry.
 
-    Called by the chapkit service itself on a timer — typically once a minute. The
+    Called by the CHAPKit service itself on a timer — typically once a minute. The
     orchestrator marks the service "live", which is what surfaces as
     ``health_status = "live"`` on its model templates. Requires the ``X-Service-Key``
-    header; 404 if the service id is unknown.
+    header. Returns 404 if the service id is unknown.
     """
     try:
         return orchestrator.ping(service_id)
@@ -88,7 +88,7 @@ def ping_service(
 def list_services(
     orchestrator: Orchestrator = Depends(get_orchestrator),
 ) -> ServiceListResponse:
-    """List every chapkit model service that's currently registered, so operators can see at a glance what compute is available to route work to."""
+    """List every CHAPKit model service currently registered, so operators can see at a glance what compute is available to route work to."""
     return orchestrator.get_all()
 
 
@@ -102,10 +102,10 @@ def get_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),
 ) -> ServiceDetail:
-    """Look up everything the orchestrator knows about a single service — its declared info, the URL it's reachable at, and when it last pinged.
+    """Look up everything the orchestrator knows about a single service — its declared info, the URL it is reachable at, and when it last pinged.
 
-    Used to diagnose registration issues or fill a service-detail panel. 404 if the
-    service id is unknown.
+    Used to diagnose registration issues or populate a service-detail panel. Returns
+    404 if the service id is unknown.
     """
     try:
         return orchestrator.get(service_id)
@@ -127,7 +127,8 @@ def deregister_service(
 
     Templates produced by the service stay in the database (so historical backtests
     still resolve) but lose their ``health_status = "live"`` marker. Requires the
-    ``X-Service-Key`` header. 204 on success, 404 if the service id is unknown.
+    ``X-Service-Key`` header. Returns 204 on success and 404 if the service id is
+    unknown.
     """
     try:
         orchestrator.deregister(service_id)

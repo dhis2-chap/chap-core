@@ -257,7 +257,7 @@ def get_backtest_overlap(
     "/prediction-entry",
     response_model=list[PredictionEntry],
     tags=["Predictions"],
-    summary="Read forecast quantiles for a prediction (queryString id)",
+    summary="Read forecast quantiles for a prediction (query parameter id)",
 )
 async def get_prediction_entry(
     prediction_id: Annotated[int, Query(alias="predictionId")],
@@ -408,11 +408,11 @@ async def create_backtest(
 async def make_prediction(
     request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
-    """Fire a forecast using observations you ship in the request body — no stored dataset needed.
+    """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
 
     Use this for ad-hoc work when DHIS2 (or another source) already has the data and you
-    just want it run through a configured model once. Forecasting happens in the
-    background; you get a job id back and poll ``/v1/jobs/{id}`` for the result. For a
+    want it run through a configured model once. Forecasting happens in the background;
+    the response carries a job id you poll via ``/v1/jobs/{id}`` for the result. For a
     recurring or scheduled version of the same workflow, use a prediction setup. The
     legacy ``data_to_be_fetched`` field is rejected — supply the observations directly.
     """
@@ -447,7 +447,7 @@ async def make_prediction(
     "/prediction-entry/{predictionId}",
     response_model=list[PredictionEntry],
     tags=["Predictions"],
-    summary="Read forecast quantiles for a prediction (path id)",
+    summary="Read forecast quantiles for a prediction (path parameter id)",
 )
 def get_prediction_entries(
     prediction_id: Annotated[int, Path(alias="predictionId")],
@@ -637,11 +637,11 @@ async def create_backtest_with_data(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
-    """Train and evaluate a model on observations you ship in the request body, without first creating a reusable dataset.
+    """Train and evaluate a model on observations supplied directly in the request body, without first creating a reusable dataset.
 
-    Convenient for quick experiments where the data isn't worth persisting. Use
-    ``dryRun=true`` to only run validation (cheap, synchronous) and inspect which
-    regions would be rejected — handy as a preflight before committing to an import. A
+    Convenient for quick experiments where the data is not worth persisting. Pass
+    ``dryRun=true`` to run validation only (cheap, synchronous) and inspect which
+    regions would be rejected — useful as a preflight before committing to an import. A
     real run returns a job id; poll ``/v1/jobs/{id}`` for status. The response also
     surfaces any per-location rejections that came out of validation.
     """

@@ -288,7 +288,7 @@ async def get_backtests(session: Session = Depends(get_session)):
     summary="Fetch a backtest with every forecast inline",
 )
 async def get_backtest(backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)):
-    """Load the complete backtest payload — every forecast row and the dataset's geojson — in one go.
+    """Load the complete backtest payload — every forecast row and the dataset's GeoJSON — in a single response.
 
     Use this when a client genuinely needs the whole evaluation (e.g. exporting it,
     rebuilding it offline). For listings or UI summaries, the cheaper ``/info`` or
@@ -412,7 +412,11 @@ async def create_backtest(
 async def delete_backtest(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
-    """Permanently delete a backtest and every forecast attached to it. Use this to clean up failed runs or evaluations you no longer want cluttering the listing. 404 if the id is unknown."""
+    """Permanently delete a backtest and every forecast attached to it.
+
+    Use this to clean up failed runs or evaluations that should no longer appear in the
+    listing. Returns 404 if the id is unknown.
+    """
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
         raise HTTPException(status_code=404, detail="Backtest not found")
@@ -432,10 +436,10 @@ async def update_backtest(
     backtest_update: BacktestUpdate,
     session: Session = Depends(get_session),
 ):
-    """Rename a backtest or tweak its mutable metadata without re-running the evaluation.
+    """Rename a backtest or update its mutable metadata without re-running the evaluation.
 
-    Only the fields you send are touched (semantically: ``exclude_unset``), so you can
-    safely PATCH a single attribute. Returns the refreshed metadata. 404 if the id is
+    Only the fields you send are touched (semantically: ``exclude_unset``), so it is
+    safe to PATCH a single attribute. Returns the refreshed metadata. 404 if the id is
     unknown.
     """
     db_backtest = session.get(Backtest, backtest_id)
@@ -519,10 +523,11 @@ async def delete_backtest_batch(ids: Annotated[str, Query(alias="ids")], session
     summary="Browse stored forecasts",
 )
 async def get_predictions(session: Session = Depends(get_session)):
-    """List every prediction whose configured model still exists, so you can pick a forecast to inspect, plot, push back into DHIS2, or delete.
+    """List every prediction whose configured model row still exists in the database, so you can pick a forecast to inspect, plot, push back into DHIS2, or delete.
 
-    Predictions whose configured model has been archived/deleted are filtered out — they
-    can no longer be re-run and would only confuse the listing.
+    Predictions whose configured model has been deleted outright are filtered out;
+    predictions whose configured model has only been archived (soft-deleted) still
+    appear, since the row is still resolvable.
     """
     session_wrapper = SessionWrapper(session=session)
     return [
@@ -644,11 +649,11 @@ async def create_dataset_csv(
     geojson_file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ) -> DataBaseResponse:
-    """Upload a CSV of observations together with the matching geojson polygons (``NAME_1`` keyed) and persist it as a dataset synchronously.
+    """Upload a CSV of observations together with the matching GeoJSON polygons (``NAME_1`` keyed) and persist it as a dataset synchronously.
 
-    Use this when you have files in hand and don't want to round-trip them through
-    DHIS2 or the JSON import endpoints. Inserts inline — no background job — and
-    returns the new dataset id right away.
+    Use this when you have the files on disk and do not want to round-trip them
+    through DHIS2 or the JSON import endpoints. Inserts inline — no background job —
+    and returns the new dataset id immediately.
     """
     import io
 
@@ -665,10 +670,10 @@ async def create_dataset_csv(
 @router.get(
     "/datasets/{datasetId}/df",
     tags=["Datasets"],
-    summary="Read a dataset as dataframe-style JSON rows",
+    summary="Read a dataset as tabular JSON rows",
 )
 async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
-    """Get a dataset shaped as a list of JSON rows (one row per region and time period), the format pandas / Observable / any tabular tool wants to see.
+    """Get a dataset shaped as a list of JSON rows (one row per region and time period), in the form pandas, Observable, or any tabular tool can consume directly.
 
     Use this when a UI needs to render the dataset as a table, or when a notebook
     consumer wants to drop the result into ``pd.DataFrame``. Non-finite values come
@@ -746,9 +751,9 @@ async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], se
 async def list_model_templates(session: Session = Depends(get_session)):
     """List every model template that can be configured into a runnable model — including archived ones, so historical references stay resolvable.
 
-    Acts as the discovery endpoint: this is also where the chapkit v2 service registry
+    Acts as the discovery endpoint: it is also where the CHAPKit v2 service registry
     gets pulled in, so a template's ``health_status = "live"`` reflects whether the
-    backing chapkit service is currently registered. Stale chapkit templates whose
+    backing CHAPKit service is currently registered. Stale CHAPKit templates whose
     services have disappeared are auto-archived as a side effect.
     """
     live_ids = _sync_live_chapkit_services(session)
@@ -824,9 +829,9 @@ def add_configured_model(
     """Bind a model template together with user-chosen option values into a new, named configured model — the unit that backtests and predictions actually reference.
 
     Use this when an operator has filled out the configuration form for a template
-    (lags, precision, extra covariates, ...) and wants to save it. The new row inherits
-    whether the template came from a chapkit service. 404 if the template id is
-    unknown.
+    (lags, precision, extra covariates, ...) and wants to save it. The new row
+    inherits whether the template originated from a CHAPKit service. Returns 404 if
+    the template id is unknown.
     """
     session_wrapper = SessionWrapper(session=session)
     model_template_id = model_configuration.model_template_id
@@ -1048,13 +1053,13 @@ async def run_prediction_setup(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
-    """Fire a forecast from a saved setup using observations you ship in the body — the manual equivalent of what the cron schedule does automatically.
+    """Run a forecast from a saved setup using observations supplied directly in the request body — the manual equivalent of what the cron schedule does automatically.
 
-    Use this when you want to forecast ahead of the schedule (a new data drop arrived,
-    a model investigation, etc.). Returns a job id; track it via ``/v1/jobs/{id}`` or
-    filter the jobs list with ``predictionSetupId`` to see every job this setup has
-    launched. 404 if the setup is unknown, 409 if its configured model has been
-    archived, 422 if ``provided_data`` is empty.
+    Use this when you want to forecast ahead of the schedule (a new data drop has
+    arrived, a model investigation, etc.). Returns a job id; track it via
+    ``/v1/jobs/{id}`` or filter the jobs list with ``predictionSetupId`` to see every
+    job this setup has launched. Returns 404 if the setup is unknown, 409 if its
+    configured model has been archived, 422 if ``provided_data`` is empty.
     """
     try:
         setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)

@@ -100,12 +100,11 @@ def get_job_status(job_id: str) -> str:
     summary="Forget a finished job",
 )
 def delete_job(job_id: str) -> dict:
-    """Drop a finished or cancelled job from the tracker once you no longer need to see it in the listing — cancel it first if it's still running.
+    """Drop a finished or cancelled job from the tracker once you no longer need to see it in the listing.
 
-    Quirk: Celery treats unknown job ids as ``PENDING`` for safety, so passing an
-    unknown id currently surfaces as 400 ("cannot delete a running job") rather than
-    404. 404 only fires once metadata has actually been cleared. Cancel a running job
-    via ``POST /{job_id}/cancel`` before deleting.
+    Cancel a running job via ``POST /{job_id}/cancel`` first; this endpoint refuses to
+    delete jobs that look ``pending``, ``started``, or ``running`` and returns 400 in
+    those cases.
     """
     job = worker.get_job(job_id)
     if job is None:
@@ -128,10 +127,10 @@ def delete_job(job_id: str) -> dict:
     summary="Stop a running job",
 )
 def cancel_job(job_id: str) -> dict:
-    """Revoke a queued or in-flight job so it stops eating worker cycles, e.g. when the user navigates away from a backtest creation flow or kills a slow prediction.
+    """Revoke a queued or in-flight job so the worker stops processing it — used when a user abandons a backtest creation flow or aborts a long-running prediction.
 
-    400 if the job has already finished (``success`` / ``failure`` / ``revoked``) or is
-    in an unexpected state; 404 if the id is unknown.
+    Returns 400 if the job has already finished (``success`` / ``failure`` / ``revoked``)
+    or is in an unexpected state; 404 if the id is unknown.
     """
     _ensure_job_exists(job_id)
     job = worker.get_job(job_id)
@@ -155,8 +154,9 @@ def cancel_job(job_id: str) -> dict:
 def get_logs(job_id: str) -> str:
     """Tail the log output the worker captured while running this job — useful for debugging a failure or watching progress.
 
-    404 if the job id is unknown; 400 if the log file hasn't been written yet (the job
-    may not have started, or may be running on a worker that doesn't expose logs).
+    The response is the captured log text, or an empty string if the worker has not
+    written anything yet (for example because the job has not started). Returns 404
+    if the job id is unknown.
     """
     _ensure_job_exists(job_id)
     job = worker.get_job(job_id)

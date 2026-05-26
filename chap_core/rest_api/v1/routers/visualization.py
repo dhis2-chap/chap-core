@@ -186,10 +186,11 @@ def list_backtest_plot_types():
     summary="Render a forecast plot for a backtest",
 )
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
-    """Render the chosen visualization for a backtest's forecasts — used to eyeball model performance, find regions where forecasts diverge from actuals, or share an evaluation result.
+    """Render the chosen visualization for a backtest's forecasts — used to assess model performance, identify regions where forecasts diverge from actuals, or share an evaluation result.
 
-    The response is a Vega plot spec the frontend can render directly. 404 if the
-    backtest or plot style is unknown; the error message lists the registered styles.
+    The response is a Vega plot spec the frontend can render directly. Returns 404 if
+    the backtest or plot style is unknown; the error message lists the registered
+    styles.
     """
     registry = get_backtest_plots_registry()
     if visualization_name not in registry:
