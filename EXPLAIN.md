@@ -542,6 +542,35 @@ so a reviewer doesn't blame this PR for it:
   fixing it is a follow-up (probably `np.log1p(np.clip(y, -1 + 1e-9, None))`
   or filtering NaN rows before the surrogate fit).
 
+### Master comparison (confirms the bug is pre-existing)
+
+Re-ran the *same* invocation against `master @ 631affde`:
+
+```bash
+git checkout master
+uv sync --extra explainability
+uv run chap explain-lime \
+    --model-name runs/minimalist_example_uv/2026-05-26_20-43-33_d8514acc \
+    --dataset-csv runs/minimalist_example_uv/2026-05-26_20-43-33_d8514acc/training_data.csv \
+    --location Bokeo --horizon 3 \
+    --lime-params.num-perturbations 30 --lime-params.seed 42 --no-save
+```
+
+Result on master: identical failure.
+
+| Aspect | master | this branch |
+|---|---|---|
+| Lines of log | 89 | 89 |
+| Exit code | 1 | 1 |
+| Pipeline progress | 3 perturbation chunks of 10 each, all `model.predict` succeed | same |
+| Crash location | `lime.py:1001` | `lime.py:1035` *(same line; +34 from the restored `if return_metrics:` block above)* |
+| Crash type | `RuntimeWarning: invalid value encountered in log1p` → `ValueError: Input y contains NaN.` | identical |
+
+`diff /tmp/master_explain.log /tmp/branch_explain.log` returns only timestamp
+and `lime.py:<lineno>` differences. Same code path, same crash. This PR
+does **not** introduce it; it just makes it visible because `master`'s mypy
+override was previously masking the chain of brokenness above it.
+
 So 10f currently fails on the example trained models because of that
 pre-existing crash, not because of anything this PR adds. The Python-only
 flow in 10g would hit the same crash for the same reason if you point it at
