@@ -20,14 +20,18 @@ router = APIRouter(prefix="/jobs", tags=["Jobs"])
 worker: CeleryPool[Any] = CeleryPool()
 
 
-@router.get("")
+@router.get(
+    "",
+    summary="List jobs in the queue",
+)
 def list_jobs(
     ids: list[str] = Query(None), status: list[str] = Query(None), job_type: str = Query(None, alias="type")
 ) -> list[JobDescription]:
-    """
-    List all jobs currently in the queue.
-    Optionally filters by a list of job IDs, a list of statuses, and/or a job type.
-    Filtering order: IDs, then type, then status.
+    """List every job tracked by the worker, optionally filtered by id, status, and type.
+
+    Filters are applied in this order: ``ids``, then ``type``, then ``status``. Status
+    values are matched case-insensitively. Returns an empty list when no jobs match (no
+    404).
     """
     jobs_to_return = worker.list_jobs()
 
@@ -67,16 +71,31 @@ def _get_successful_job(job_id):
     return job
 
 
-@router.get("/{job_id}")
+@router.get(
+    "/{job_id}",
+    summary="Get a job's status",
+)
 def get_job_status(job_id: str) -> str:
+    """Return the current Celery status string for the job (e.g. ``PENDING``, ``SUCCESS``, ``FAILURE``).
+
+    Returns 404 if the job id is unknown to the worker's Redis metadata.
+    """
     _ensure_job_exists(job_id)
     status: str = worker.get_job(job_id).status
     logger.info(f"status of job {job_id}: {status}")
     return status
 
 
-@router.delete("/{job_id}")
+@router.delete(
+    "/{job_id}",
+    summary="Delete a finished job's metadata",
+)
 def delete_job(job_id: str) -> dict:
+    """Remove the job's metadata entry from Redis. Cannot delete a running job - cancel it first.
+
+    Returns 400 if the job is still ``pending``/``started``/``running`` and 404 if the id
+    is unknown.
+    """
     job = worker.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -93,10 +112,15 @@ def delete_job(job_id: str) -> dict:
     return {"message": f"Job {job_id} deleted successfully"}
 
 
-@router.post("/{job_id}/cancel")
+@router.post(
+    "/{job_id}/cancel",
+    summary="Cancel a running job",
+)
 def cancel_job(job_id: str) -> dict:
-    """
-    Cancel a running job
+    """Revoke a job that is currently ``pending``, ``started``, or ``running``.
+
+    Returns 400 if the job has already finished (``success``/``failure``/``revoked``) or
+    is in an unexpected state, and 404 if the id is unknown.
     """
     _ensure_job_exists(job_id)
     job = worker.get_job(job_id)
@@ -113,8 +137,15 @@ def cancel_job(job_id: str) -> dict:
     return {"message": f"Job {job_id} has been cancelled"}
 
 
-@router.get("/{job_id}/logs")
+@router.get(
+    "/{job_id}/logs",
+    summary="Get a job's captured logs",
+)
 def get_logs(job_id: str) -> str:
+    """Return the concatenated log output the worker captured while running the job.
+
+    Returns 404 if the job id is unknown and 400 if the log file is not (yet) available.
+    """
     _ensure_job_exists(job_id)
     job = worker.get_job(job_id)
     logs: str = job.get_logs()
@@ -123,11 +154,20 @@ def get_logs(job_id: str) -> str:
     return logs
 
 
-@router.get("/{job_id}/prediction_result", response_model=PredictionInfo)
+@router.get(
+    "/{job_id}/prediction_result",
+    response_model=PredictionInfo,
+    summary="Get the prediction created by a finished prediction job",
+)
 def get_prediction_result(
     job_id: str,
     session: Session = Depends(get_session),
 ):
+    """Resolve the job's stored result as a prediction id and return the matching ``PredictionInfo`` row.
+
+    Returns 400 if the job is still running or has failed, and 404 if the job id or the
+    resulting prediction row is missing.
+    """
     prediction_id = _get_successful_job(job_id).result
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -135,11 +175,20 @@ def get_prediction_result(
     return prediction
 
 
-@router.get("/{job_id}/evaluation_result", response_model=BacktestRead)
+@router.get(
+    "/{job_id}/evaluation_result",
+    response_model=BacktestRead,
+    summary="Get the backtest created by a finished evaluation job",
+)
 def get_evaluation_result(
     job_id: str,
     session: Session = Depends(get_session),
 ):
+    """Resolve the job's stored result as a backtest id and return the matching ``BacktestRead`` row.
+
+    Returns 400 if the job is still running or has failed, and 404 if the job id or the
+    resulting backtest row is missing.
+    """
     backtest_id = _get_successful_job(job_id).result
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
@@ -151,8 +200,16 @@ class DataBaseResponse(BaseModel):
     id: int
 
 
-@router.get("/{job_id}/database_result")
+@router.get(
+    "/{job_id}/database_result",
+    summary="Get the database id produced by a finished job",
+)
 def get_database_result(job_id: str) -> DataBaseResponse:
+    """Return the raw integer database id stored as the finished job's result, wrapped in a ``DataBaseResponse``.
+
+    Used when a job's result is just an id (e.g. a dataset id from a dataset-import
+    job). Returns 400 if the job is still running or has failed.
+    """
     result = _get_successful_job(job_id).result
     return DataBaseResponse(id=result)
 
