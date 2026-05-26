@@ -51,56 +51,26 @@ you call `explain()`.
 
 ---
 
-## 3. The pipeline (ASCII)
+## 3. The pipeline
 
-```
-                                  x₀ = (hist_df, fut_df)
-                                          │
-                                          ▼
-                  ┌───────────────────────────────────────────────┐
-                  │  1.  Segment hist_df with `segmenter_name`     │
-                  │      (uniform / exponential / matrix-profile / │
-                  │       sax / nn segmentation)                   │
-                  └───────────────────────────────────────────────┘
-                                          │  feat_indices: {feature → {lag → (start, end)}}
-                                          ▼
-                  ┌───────────────────────────────────────────────┐
-                  │  2.  Build masks: random 0/1 vectors marking   │
-                  │      which segments are "on"                   │
-                  │      (`create_masks`, num_perturbations vectors)│
-                  └───────────────────────────────────────────────┘
-                                          │  list of binary masks
-                                          ▼
-                  ┌───────────────────────────────────────────────┐
-                  │  3.  Materialise perturbations with             │
-                  │      `sampler_name` filling the "off" segments  │
-                  │      (background / local_mean / fourier / ...)  │
-                  └───────────────────────────────────────────────┘
-                                          │  list of perturbed (hist_df, fut_df) pairs
-                                          ▼
-                  ┌───────────────────────────────────────────────┐
-                  │  4.  Predict — call `model.predict(...)` on     │
-                  │      each perturbed input. Get `yᵢ` array.      │
-                  └───────────────────────────────────────────────┘
-                                          │  X = masks, y = predictions
-                                          ▼
-                  ┌───────────────────────────────────────────────┐
-                  │  5.  Weight each (X, y) pair by distance to x₀  │
-                  │      using `weighter_name` (pairwise / DTW)     │
-                  └───────────────────────────────────────────────┘
-                                          │  sample_weights
-                                          ▼
-                  ┌───────────────────────────────────────────────┐
-                  │  6.  Fit the surrogate (`surrogate_name`,        │
-                  │      ridge or bayesian linear regression) on    │
-                  │      (X, y, sample_weights)                     │
-                  └───────────────────────────────────────────────┘
-                                          │  coefficient vector
-                                          ▼
-                  ┌───────────────────────────────────────────────┐
-                  │  7.  Sort by |coefficient| desc. That's the     │
-                  │      explanation: one row per feature × lag.    │
-                  └───────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    x0(["x₀ = (hist_df, fut_df)"])
+    s1["<b>1. Segment hist_df</b><br/>with <code>segmenter_name</code><br/><i>uniform / exponential / matrix-profile / sax / nn</i>"]
+    s2["<b>2. Build masks</b><br/>random 0/1 vectors marking which segments are 'on'<br/><i>create_masks, num_perturbations vectors</i>"]
+    s3["<b>3. Materialise perturbations</b><br/>fill 'off' segments with <code>sampler_name</code><br/><i>background / local_mean / fourier / …</i>"]
+    s4["<b>4. Predict</b><br/>call <code>model.predict(…)</code> on each perturbed input<br/>get yᵢ array"]
+    s5["<b>5. Weight</b><br/>each (X, y) pair by distance to x₀<br/>using <code>weighter_name</code> (pairwise / DTW)"]
+    s6["<b>6. Fit surrogate</b><br/><code>surrogate_name</code> — ridge or bayesian linear regression<br/>on (X, y, sample_weights)"]
+    s7(["<b>7. Sort by |coefficient| desc</b><br/>= the explanation, one row per (feature × lag)"])
+
+    x0 --> s1
+    s1 -->|"feat_indices: {feature → {lag → (start, end)}}"| s2
+    s2 -->|"list of binary masks"| s3
+    s3 -->|"list of perturbed (hist_df, fut_df) pairs"| s4
+    s4 -->|"X = masks, y = predictions"| s5
+    s5 -->|"sample_weights"| s6
+    s6 -->|"coefficient vector"| s7
 ```
 
 Two variants of step 2:
