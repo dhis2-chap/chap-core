@@ -9,13 +9,12 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     import pandas as pd
 
-    from chap_core.api_types import BacktestParams
+    from chap_core.api_types import BacktestParams, SearcherType
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
     from chap_core.hpo.hpoModel import HpoModel
     from chap_core.models.external_model import ExternalModel
     from chap_core.models.model_template import ModelTemplate
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
-    from chap_core.api_types import SearcherType
 
 logger = logging.getLogger(__name__)
 
