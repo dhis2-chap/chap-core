@@ -22,7 +22,6 @@ openapi_tags = [
     {"name": "Models", "description": "Model templates and configured models"},
     {"name": "Visualizations", "description": "Generate plots and charts"},
     {"name": "Jobs", "description": "Monitor and manage async jobs"},
-    {"name": "Debug", "description": "Debug and diagnostic endpoints"},
     {"name": "Services", "description": "Service registry (v2)"},
 ]
 

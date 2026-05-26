@@ -17,7 +17,6 @@ from sqlmodel import SQLModel
 
 # Import all models so SQLModel.metadata is fully populated
 from chap_core.database.dataset_tables import DataSet, Observation  # noqa: F401
-from chap_core.database.debug import DebugEntry  # noqa: F401
 from chap_core.database.feature_tables import FeatureSource, FeatureType  # noqa: F401
 from chap_core.database.model_spec_tables import ModelFeatureLink, ModelSpec  # noqa: F401
 from chap_core.database.model_templates_and_config_tables import (  # noqa: F401
