@@ -21,7 +21,7 @@ from chap_core.database.dataset_tables import DataSet, Observation
 from chap_core.database.feature_tables import FeatureSource, FeatureType
 from chap_core.database.model_spec_tables import ModelFeatureLink, ModelSpec
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-from chap_core.database.tables import Backtest, BacktestForecast, BacktestMetric, ConfiguredModelWithDataSource, Prediction, PredictionSamplesEntry
+from chap_core.database.tables import Backtest, BacktestForecast, BacktestMetric, Prediction, PredictionSamplesEntry, PredictionSetup
 
 # add your model's MetaData object here
 # for 'autogenerate' support

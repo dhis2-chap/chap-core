@@ -44,6 +44,19 @@ class Backtest(_BacktestRead, table=True):
     aggregate_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
+    prediction_setup: Optional["PredictionSetup"] = Relationship(
+        back_populates="backtest",
+        sa_relationship_kwargs={"uselist": False},
+        cascade_delete=True,
+    )
+
+    @property
+    def prediction_setup_id(self) -> int | None:
+        # Exposed on BacktestRead so the UI can answer "does this backtest have a setup?"
+        # without a second round-trip. Requires `prediction_setup` to be eager-loaded by
+        # the caller (selectinload(Backtest.prediction_setup)) to avoid a lazy-load fail
+        # in detached-session contexts.
+        return self.prediction_setup.id if self.prediction_setup is not None else None
 
 
 class ConfiguredModelRead(ModelConfiguration, DBModel):
@@ -52,31 +65,48 @@ class ConfiguredModelRead(ModelConfiguration, DBModel):
     model_template: ModelTemplateDB
 
 
-class ConfiguredModelWithDataSource(DBModel, table=True):
+class QuantileTarget(DBModel):
+    quantile: str
+    data_element_id: str
+
+
+class PredictionSetup(DBModel, table=True):
     id: int | None = Field(primary_key=True, default=None)
     name: str
     created: datetime.datetime | None = None
+    backtest_id: int = Field(foreign_key="backtest.id", unique=True)
+    backtest: "Backtest" = Relationship(back_populates="prediction_setup")
     configured_model_id: int = Field(foreign_key="configuredmodeldb.id")
-    configured_model: Optional["ConfiguredModelDB"] = Relationship()
+    configured_model: "ConfiguredModelDB" = Relationship()
     start_period: PeriodID | None = None
     org_units: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    data_sources: list[DataSource] = Field(
+    covariate_sources: list[DataSource] = Field(
         default_factory=list,
         sa_column=Column(PydanticListType(DataSource)),
     )
     period_type: str | None = None
-    predictions: list["Prediction"] = Relationship(back_populates="configured_model_with_data_source")
+    schedule_cron_expression: str | None = None
+    schedule_enabled: bool = Field(default=False)
+    quantile_targets: list[QuantileTarget] = Field(
+        default_factory=list,
+        sa_column=Column(PydanticListType(QuantileTarget)),
+    )
+    predictions: list["Prediction"] = Relationship(back_populates="prediction_setup")
 
 
-class ConfiguredModelWithDataSourceRead(DBModel):
+class PredictionSetupRead(DBModel):
     id: int
     name: str
     created: datetime.datetime | None
-    configured_model: ConfiguredModelRead | None
+    backtest_id: int
+    configured_model: ConfiguredModelRead
     start_period: PeriodID | None
     org_units: list[str]
-    data_sources: list[DataSource]
+    covariate_sources: list[DataSource]
     period_type: str | None
+    schedule_cron_expression: str | None
+    schedule_enabled: bool
+    quantile_targets: list[QuantileTarget]
 
 
 OldBacktestRead = _BacktestRead
@@ -86,6 +116,7 @@ class BacktestRead(_BacktestRead):
     dataset: DataSetMeta
     aggregate_metrics: dict[str, float]
     configured_model: ConfiguredModelRead | None
+    prediction_setup_id: int | None = None
 
 
 class ForecastBase(DBModel):
@@ -116,19 +147,14 @@ class Prediction(PredictionBase, table=True):
     dataset: DataSet = Relationship()
     model_db_id: int = Field(foreign_key="configuredmodeldb.id")
     configured_model: Optional["ConfiguredModelDB"] = Relationship()
-    configured_model_with_data_source_id: int | None = Field(
-        default=None, foreign_key="configuredmodelwithdatasource.id", nullable=True
-    )
-    configured_model_with_data_source: Optional["ConfiguredModelWithDataSource"] = Relationship(
-        back_populates="predictions"
-    )
+    prediction_setup_id: int | None = Field(default=None, foreign_key="predictionsetup.id", nullable=True)
+    prediction_setup: Optional["PredictionSetup"] = Relationship(back_populates="predictions")
 
 
 class PredictionInfo(PredictionBase):
     id: int
     configured_model: ConfiguredModelDB | None
     dataset: DataSetMeta
-    configured_model_with_data_source: ConfiguredModelWithDataSourceRead | None = None
 
 
 # PredictionInfo = PredictionBase.get_read_class()
@@ -138,7 +164,7 @@ class PredictionRead(PredictionInfo):
     forecasts: list[ForecastRead]
 
 
-class ConfiguredModelWithDataSourceReadWithPredictions(ConfiguredModelWithDataSourceRead):
+class PredictionSetupReadWithPredictions(PredictionSetupRead):
     predictions: list[PredictionInfo] = []
 
 
