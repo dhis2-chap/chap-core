@@ -28,8 +28,21 @@ openapi_tags = [
 ]
 
 
+api_description = (
+    "Chap is a Climate & Health Modeling Platform that brings together disease "
+    "forecasting models into a unified ecosystem, connecting researchers with "
+    "cutting-edge epidemiological models to policy makers and health practitioners.\n\n"
+    "The platform makes sophisticated modeling workflows more accessible, performs "
+    "automated rigorous model evaluation, supplies broad generic functionality for "
+    "modelers, and provides direct integration with DHIS2.\n\n"
+    "See [chap.dhis2.org](https://chap.dhis2.org/chap-modeling-platform/) for the "
+    "full documentation."
+)
+
+
 app = FastAPI(
     title="CHAP Core API",
+    description=api_description,
     version=chap_core_version,
     openapi_tags=openapi_tags,
     root_path=os.environ.get("CHAP_ROOT_PATH", ""),
