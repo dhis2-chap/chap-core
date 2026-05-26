@@ -19,7 +19,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/services", tags=["Services"])
 
 
-@router.post("/$register", response_model=RegistrationResponse)
+@router.post(
+    "/$register",
+    response_model=RegistrationResponse,
+    summary="Register a chapkit service with the orchestrator",
+)
 def register_service(
     payload: RegistrationRequest,
     request: Request,
@@ -27,7 +31,12 @@ def register_service(
     session: Session = Depends(get_session),
     _: str = Depends(verify_service_key),
 ) -> RegistrationResponse:
-    """Register a new service with the orchestrator."""
+    """Register a new chapkit service and return the absolute ping URL the caller must keep alive.
+
+    Eagerly syncs the registered service into the v1 model-templates and configured-models
+    tables so it shows up immediately via the v1 CRUD endpoints. Requires the
+    ``X-Service-Key`` header.
+    """
     response = orchestrator.register(payload)
     response.ping_url = str(request.base_url).rstrip("/") + response.ping_url
 
@@ -45,46 +54,74 @@ def register_service(
     return response
 
 
-@router.put("/{service_id}/$ping", response_model=PingResponse)
+@router.put(
+    "/{service_id}/$ping",
+    response_model=PingResponse,
+    summary="Keep a registered service alive",
+)
 def ping_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),
     _: str = Depends(verify_service_key),
 ) -> PingResponse:
-    """Send a keepalive ping for a registered service."""
+    """Refresh the registry TTL for a registered service so the orchestrator does not evict it.
+
+    Requires the ``X-Service-Key`` header. Returns 404 if the service id is unknown to
+    the orchestrator.
+    """
     try:
         return orchestrator.ping(service_id)
     except ServiceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
-@router.get("", response_model=ServiceListResponse, response_model_exclude_none=True)
+@router.get(
+    "",
+    response_model=ServiceListResponse,
+    response_model_exclude_none=True,
+    summary="List registered services",
+)
 def list_services(
     orchestrator: Orchestrator = Depends(get_orchestrator),
 ) -> ServiceListResponse:
-    """List all registered services."""
+    """Return every service currently registered with the orchestrator and a count."""
     return orchestrator.get_all()
 
 
-@router.get("/{service_id}", response_model=ServiceDetail, response_model_exclude_none=True)
+@router.get(
+    "/{service_id}",
+    response_model=ServiceDetail,
+    response_model_exclude_none=True,
+    summary="Get a registered service",
+)
 def get_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),
 ) -> ServiceDetail:
-    """Get details of a specific registered service."""
+    """Return the full detail (info, URL, last ping) for a single registered service.
+
+    Returns 404 if the service id is unknown to the orchestrator.
+    """
     try:
         return orchestrator.get(service_id)
     except ServiceNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
-@router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{service_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Deregister a service",
+)
 def deregister_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),
     _: str = Depends(verify_service_key),
 ) -> None:
-    """Deregister a service."""
+    """Remove a service from the orchestrator's registry. Requires the ``X-Service-Key`` header.
+
+    Returns 204 No Content on success and 404 if the service id is unknown.
+    """
     try:
         orchestrator.deregister(service_id)
     except ServiceNotFoundError as e:
