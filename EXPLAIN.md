@@ -350,8 +350,10 @@ for fn in (explain, explain_adaptive):
     sig = inspect.signature(fn)
     assert "return_metrics" in sig.parameters, f"{fn.__name__} missing return_metrics"
 
+# `from __future__ import annotations` stringifies annotations at runtime,
+# so inspect.signature returns the literal string form.
 ret = inspect.signature(eLoss).return_annotation
-assert ret == tuple[float, float, float], f"eLoss return type wrong: {ret!r}"
+assert str(ret) == "tuple[float, float, float]", f"eLoss return type wrong: {ret!r}"
 
 print("OK — explain, explain_adaptive, and eLoss all wired correctly.")
 PY
@@ -510,6 +512,40 @@ PY
 make test
 # (or `uv run pytest -q` directly)
 ```
+
+---
+
+## 10i. What I actually saw running this
+
+Sections 10a–10e all pass cleanly. The end-to-end CLI run in 10f exposed a
+**pre-existing bug** in code this PR did not touch — leaving the receipt here
+so a reviewer doesn't blame this PR for it:
+
+- Invocation: `chap explain-lime --model-name runs/minimalist_example_uv/<ts_hash>
+  --dataset-csv <its training_data.csv> --location Bokeo --horizon 3
+  --lime-params.num-perturbations 30 --lime-params.seed 42`
+- The pipeline gets through segmentation, mask generation, and three chunks of
+  perturbation prediction (`model.predict(...)` succeeds for every chunk —
+  my new `ModelFailedException` guards never fired).
+- Then it crashes at `chap_core/explainability/lime.py:1035`:
+
+  ```
+  RuntimeWarning: invalid value encountered in log1p
+    z = np.log1p(y)
+  ...
+  ValueError: Input y contains NaN.
+  ```
+
+- Root cause: `np.log1p(y)` is unsafe — for any perturbation where the model
+  produces `y ≤ -1`, `log1p` is NaN, and the surrogate's `.fit()` then refuses
+  the data. This is a real LIME-pipeline bug that PR #262 shipped with;
+  fixing it is a follow-up (probably `np.log1p(np.clip(y, -1 + 1e-9, None))`
+  or filtering NaN rows before the surrogate fit).
+
+So 10f currently fails on the example trained models because of that
+pre-existing crash, not because of anything this PR adds. The Python-only
+flow in 10g would hit the same crash for the same reason if you point it at
+those same models.
 
 ---
 
