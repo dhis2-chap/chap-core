@@ -37,6 +37,7 @@ class LimeParams(BaseModel):
     timed: bool = False
     adaptive: bool = False
     last_n: int | None = None
+    with_metrics: bool = False
 
 
 def explain_lime(
@@ -109,7 +110,7 @@ def explain_lime(
 
         logger.info(f"Generating explanation for {location}, {horizon} time steps into the future.")
 
-        explain_fn(
+        result = explain_fn(
             model=estimator,
             dataset=dataset,
             location=location,
@@ -124,7 +125,14 @@ def explain_lime(
             granularity=lime_params.granularity,
             last_n=lime_params.last_n,
             save=save,
+            return_metrics=lime_params.with_metrics,
         )
+
+        if lime_params.with_metrics:
+            _, metrics = result
+            logger.info("Faithfulness metrics:")
+            for key, value in metrics.items():
+                logger.info(f"  {key:>15} = {value:+.4f}")
 
 
 def register_commands(app):

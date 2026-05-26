@@ -595,9 +595,10 @@ the type-error-by-type-error breakdown.
 
 ## 12. Diff vs master
 
-Compared against `master @ 314d0e21`. Total: **17 files changed,
-+1556 / −114 lines** (counting `EXPLAIN.md`, the new test suite, the
-`log1p` fix, and the explainability-deps move).
+Compared against `master @ 314d0e21`. Total: **19 files changed,
++1682 / −115 lines** (counting `EXPLAIN.md`, the new test suite, the
+`log1p` fix, the explainability-deps move, the mock-model integration
+suite, and the CLI `--with-metrics` flag).
 
 ### 12a. Configuration (`pyproject.toml`)
 
@@ -620,6 +621,7 @@ Compared against `master @ 314d0e21`. Total: **17 files changed,
 | `tests/explainability/test_surrogate.py` | RidgeSurrogate, BayesianSurrogate, SurrogateResult (102 lines). |
 | `tests/explainability/test_metrics.py` | eLoss math; faithful vs anti-faithful sign (181 lines). |
 | `tests/explainability/test_log_transform.py` | Helper for the `log1p` fix: clipping behaviour, NaN/inf dropping, warning logs (~100 lines, 10 tests). |
+| `tests/explainability/test_explain_integration.py` | End-to-end integration suite driving `explain()` / `explain_adaptive()` against a deterministic `MockExternalModel`. Exercises segmentation → perturbation → predict → surrogate fit → coefficient extraction without needing a trained model. 9 tests. |
 | `EXPLAIN.md` | This file. Will be deleted before merge. |
 
 ### 12c. Modified files (per-file structural delta)
@@ -712,6 +714,14 @@ as `dict[str, np.ndarray]`.
 
 `np.exp(...)` return in `DTW.get_weights` wrapped in `np.asarray(...)`.
 
+#### `chap_core/cli_endpoints/explain.py` — +9 / −1
+
+New `LimeParams.with_metrics: bool = False`. When `True`, the CLI now
+calls `explain_fn(..., return_metrics=True)`, unpacks the
+`(results, metrics)` tuple, and logs every metric (R², n_eff, delta
+eLoss, top/bottom-k AUCs) at INFO. Previously the eLoss path was
+unreachable from the CLI even after the supporting module was wired up.
+
 ### 12d. What works on master vs on this branch
 
 | Capability | master | this branch |
@@ -722,8 +732,9 @@ as `dict[str, np.ndarray]`.
 | `make lint` if the carve-outs are removed | 36 errors across 6 files | 0 errors |
 | `chap explain-lime` against any trained model (no `return_metrics`) | crashes at `lime.py:1001` (`log1p` → `NaN` → sklearn refuses fit) | **exits 0**, prints the surrogate's coefficient listing. Warns visibly if perturbed predictions are negative (clipped) or non-finite (dropped). |
 | `explain(..., return_metrics=True)` from Python | `ImportError` for `eLoss` | works, returns `(results, metrics)` with `delta_eloss`, `auc_top_k`, `auc_bottom_k` |
-| `tests/explainability/` | doesn't exist | 48 tests, runs in ~1.1 s |
-| Coverage of `chap_core/explainability/` | 0% | 27% overall, 100% on `distance.py` / `testing/metrics.py`, 96% on `surrogate.py` |
+| `chap explain-lime` exposing eLoss to operators | not possible — no CLI flag for `return_metrics` | `--lime-params.with-metrics` prints `r2`, `n_eff`, `delta_eloss`, `auc_top_k`, `auc_bottom_k` after the coefficient listing |
+| `tests/explainability/` | doesn't exist | **57 tests, runs in ~3 s** |
+| Coverage of `chap_core/explainability/` | 0% | **62% overall**, 100% on `distance.py` / `testing/metrics.py`, 96% on `surrogate.py`, **75% on `lime.py`** (was 7% before the integration suite) |
 | Optional `[explainability]` extras (`stumpy`, `pyts`, `fastdtw`) | listed as opt-in, but every import in the subpackage is unconditional — CI default `uv sync --dev` couldn't import the module at all | moved to main `dependencies` so they install with every `uv sync`; subpackage now usable from a clean checkout without remembering an extras flag |
 
 ### 12e. Important: what does *not* change
@@ -731,7 +742,8 @@ as `dict[str, np.ndarray]`.
 - No method signatures break — `explain()` and `explain_adaptive()` accept
   the same positional/keyword args, plus the optional `return_metrics` (which
   master already had; this branch just makes the True branch actually work).
-- No CLI flags change. `chap explain-lime --help` produces the same output.
+- The CLI gains one new flag (`--lime-params.with-metrics`, default
+  `False`). Every existing invocation behaves unchanged.
 - Runtime dependencies of the chap-core package overall get three new
   entries (`stumpy`, `pyts`, `fastdtw`) — but these were already required
   for the explainability subpackage to import on master; the move just
