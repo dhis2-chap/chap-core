@@ -224,27 +224,28 @@ def load_dataset(
     return dataset
 
 
-def get_estimator(
-    template: ModelTemplate,
+def get_configuration(
     model_configuration_yaml: Path | None,
-) -> tuple[ExternalModel, ModelConfiguration | None]:
-    """
-    Build a plain estimator from a model template and optional configuration yaml file.
-    Returns both the estimator and the parsed configuration so callers can reuse the
-    configuration for metadata/export.
-    """
+) -> ModelConfiguration | None:
+    """Parse a model configuration YAML file, or return None if no path is given."""
+    if model_configuration_yaml is None:
+        return None
     import yaml
 
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 
-    configuration = None
-    if model_configuration_yaml is not None:
-        logger.info(f"Loading model configuration from {model_configuration_yaml}")
-        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+    logger.info(f"Loading model configuration from {model_configuration_yaml}")
+    return ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
 
+
+def get_estimator(
+    template: ModelTemplate,
+    configuration: ModelConfiguration | None,
+) -> ExternalModel:
+    """Build a plain estimator from a model template and optional configuration."""
     model = template.get_model(configuration)  # type: ignore[arg-type]
-    estimator = model()
-    return estimator, configuration
+    estimator: ExternalModel = model()  # type: ignore[assignment]
+    return estimator
 
 
 def warn_unused_covariates(

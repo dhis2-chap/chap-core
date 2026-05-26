@@ -16,6 +16,7 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
 )
 from chap_core.cli_endpoints._common import (
     discover_geojson,
+    get_configuration,
     get_estimator,
     load_dataset_from_csv,
     resolve_csv_path,
@@ -161,7 +162,8 @@ def causal_cmd(
     )
 
     with template:
-        estimator, configuration = get_estimator(template, model_configuration_yaml)
+        configuration = get_configuration(model_configuration_yaml)
+        estimator = get_estimator(template, configuration)
         warn_unused_covariates(original_dataset, template.model_template_config, configuration)
         model_info = estimator.model_information
 

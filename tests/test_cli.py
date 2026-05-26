@@ -82,8 +82,14 @@ def _patched_eval_chain(fake_estimator):
     mt_mock.from_directory_or_github_url.return_value = template_cm
     stack.enter_context(
         patch(
+            "chap_core.cli_endpoints.evaluate.get_configuration",
+            return_value=None,
+        )
+    )
+    stack.enter_context(
+        patch(
             "chap_core.cli_endpoints.evaluate.get_estimator",
-            return_value=(fake_estimator, None),
+            return_value=fake_estimator,
         )
     )
     eval_mock = stack.enter_context(patch("chap_core.assessment.evaluation.Evaluation"))
