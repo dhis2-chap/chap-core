@@ -774,3 +774,71 @@ unreachable from the CLI even after the supporting module was wired up.
   for the explainability subpackage to import on master; the move just
   makes the situation honest.
 - No migrations, no DB-schema changes, no API endpoints touched.
+
+---
+
+## 13. Possible next steps (separate PRs)
+
+Deferred deliberately so PR #380 stays scoped to "post-merge cleanup of
+#262". Each of the below is a small, independent follow-up.
+
+### 13a. Auto-render CLI reference via cyclopts's mkdocs plugin
+
+Cyclopts ships an official (experimental) mkdocs plugin —
+`pip install cyclopts[mkdocs]` — that lets a `::: cyclopts` directive
+render any cyclopts `App` object as markdown at doc-build time. Wiring
+it up means:
+
+1. Add `cyclopts[mkdocs]` to `pyproject.toml` `[dependency-groups] dev`.
+2. Add `- cyclopts` to the `plugins:` list in `mkdocs.yml`.
+3. Pilot on one page: replace the *Required Parameters* / *Common
+   Parameters* / *Output Configuration* / *Run Configuration* tables in
+   `docs/chap-cli/explain-lime-reference.md` with:
+
+   ```markdown
+   ::: cyclopts
+       module: chap_core.cli:app
+       commands:
+         - explain-lime
+       heading_level: 3
+   ```
+
+Keep the hand-written prose sections — Synopsis, Description, **Pipeline
+Components semantics tables** (the directive only knows the strategy
+*names*, not what each one *does*), Example, Output Format walkthrough,
+Interpreting `eLoss`, Prerequisites, See Also. Hybrid pattern: directive
+for the auto-discoverable parameter listing, prose for the editorial
+content.
+
+If the pilot looks good, the same hybrid can replace the parameter
+sections in `eval-reference.md` and `report-reference.md`, and a new
+`docs/chap-cli/all-commands.md` can render the full cyclopts app as a
+discoverable fallback for the ~15 currently-undocumented commands.
+
+Reference precedents: chap-scheduler (Typer, hand-written), chap-checker
+(Typer, `typer ... utils docs` Makefile target writing committed
+markdown). chap-core (cyclopts) uses the directive pattern instead of a
+committed generated file.
+
+### 13b. Contributor-side architecture doc
+
+EXPLAIN.md (this file) gets deleted before merge. Sections 2–9 of it
+(LIME 101, the pipeline diagram, the pluggable-component tables, the
+`eLoss` algorithm, the glossary, the file map) are the keep-worthy
+*architectural* content; the CLI reference at
+`docs/chap-cli/explain-lime-reference.md` covers user-facing operation
+but doesn't go into mechanism.
+
+A new `docs/contributor/lime_pipeline.md` lifted from those sections —
+cleaned up, cross-linked, wired into mkdocs nav under *Contributors* —
+would give a permanent home to the architecture explanation for the
+next person to land in the module cold. Sits naturally next to
+`evaluation_walkthrough.md` and the other contributor reference docs.
+
+### 13c. CSV output for the explanation
+
+Not from this PR's session, but worth filing: `explain-lime` currently
+only logs the coefficients to stdout (and optionally to a Markdown file
+via `--save`). A `--output-csv <path>` flag would let downstream tooling
+consume the explanation programmatically — same shape as the CSV in
+`runs/<run>/predictions_<period>.csv`, one row per (feature × lag × coef).
