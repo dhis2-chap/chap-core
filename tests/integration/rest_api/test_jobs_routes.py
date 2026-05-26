@@ -7,12 +7,54 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chap_core.rest_api.app import app
+from chap_core.rest_api.celery_tasks import JobDescription, JobType
+from chap_core.rest_api.v1 import jobs
 from chap_core.util import redis_available
 
 logger = logging.getLogger(__name__)
 client = TestClient(app)
 base_path = "/v1/jobs"
 evaluate_path = "/v1/evaluate"
+
+
+class _StaticWorker:
+    """Stand-in for CeleryPool that returns a fixed list — lets the route's filter
+    logic be exercised without needing real Redis state."""
+
+    def list_jobs(self):
+        return [
+            JobDescription(
+                id="job-1",
+                type=JobType.PREDICTION,
+                name="Prediction one",
+                status="STARTED",
+                start_time="2026-01-01T00:00:00",
+                end_time=None,
+                result=None,
+                prediction_setup_id=12,
+            ),
+            JobDescription(
+                id="job-2",
+                type=JobType.PREDICTION,
+                name="Prediction two",
+                status="STARTED",
+                start_time="2026-01-01T00:00:01",
+                end_time=None,
+                result=None,
+                prediction_setup_id=13,
+            ),
+        ]
+
+
+def test_list_jobs_filters_by_prediction_setup_id(monkeypatch):
+    monkeypatch.setattr(jobs, "worker", _StaticWorker())
+
+    response = client.get(f"{base_path}?type=create_prediction&predictionSetupId=12")
+
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert [job["id"] for job in data] == ["job-1"]
+    assert data[0]["prediction_setup_id"] == 12
 
 
 @pytest.mark.skip(reason="Old API")

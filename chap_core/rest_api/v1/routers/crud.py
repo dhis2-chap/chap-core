@@ -15,7 +15,6 @@ alias_generator=to_camel and FastAPI's response_model_by_alias defaults to True.
 
 """
 
-import datetime
 import json
 import logging
 from typing import Annotated, Any
@@ -42,16 +41,23 @@ from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 from chap_core.database.tables import (
     Backtest,
-    ConfiguredModelWithDataSource,
-    ConfiguredModelWithDataSourceRead,
-    ConfiguredModelWithDataSourceReadWithPredictions,
     Prediction,
     PredictionInfo,
+    PredictionSetupRead,
+    PredictionSetupReadWithPredictions,
 )
-from chap_core.datatypes import FullData, HealthPopulationData
+from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
 from chap_core.geometry import Polygons
-from chap_core.rest_api.celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
+from chap_core.rest_api.celery_tasks import (
+    JOB_NAME_KW,
+    JOB_TYPE_KW,
+    PREDICTION_SETUP_ID_JOB_META_KEY,
+    CeleryPool,
+    JobType,
+)
+from chap_core.rest_api.celery_tasks import r as redis
 from chap_core.rest_api.experimental import api_experimental
+from chap_core.services import prediction_setup_service
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 
 from ...data_models import (
@@ -65,7 +71,12 @@ from ...data_models import (
     ModelConfigurationCreate,
     ModelTemplateRead,
     PredictionCreate,
+    PredictionParams,
+    PredictionSetupCreate,
+    PredictionSetupUpdate,
+    RunPredictionSetupRequest,
 )
+from .analytics import validate_full_dataset
 from .dependencies import get_database_url, get_session, get_settings
 
 logger = logging.getLogger(__name__)
@@ -264,6 +275,7 @@ async def get_backtests(session: Session = Depends(get_session)):
         select(Backtest).options(
             selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
             selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.prediction_setup),  # type: ignore[arg-type]
         )
     ).all()
     return backtests
@@ -312,6 +324,7 @@ def get_backtest_info(backtest_id: Annotated[int, Path(alias="backtestId")], ses
         .options(
             selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
             selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.prediction_setup),  # type: ignore[arg-type]
         )
     ).first()
     if backtest is None:
@@ -438,6 +451,7 @@ async def update_backtest(
         .options(
             selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
             selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.prediction_setup),  # type: ignore[arg-type]
         )
     ).first()
     return db_backtest
@@ -842,106 +856,233 @@ async def delete_configured_model(
 
 
 ###########
-# configured models with data source
-
-
-@router.get(
-    "/configured-models-with-data-source",
-    response_model=list[ConfiguredModelWithDataSourceRead],
-    tags=["Models"],
-    summary="List configured-model-with-data-source records",
-)
-@api_experimental
-async def list_configured_models_with_data_source(session: Session = Depends(get_session)):
-    """Return every ``ConfiguredModelWithDataSource`` with its configured model and template embedded."""
-    records = session.exec(
-        select(ConfiguredModelWithDataSource).options(
-            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
-    ).all()
-    return records
-
-
-@router.get(
-    "/configured-models-with-data-source/{configuredModelWithDataSourceId}",
-    response_model=ConfiguredModelWithDataSourceReadWithPredictions,
-    tags=["Models"],
-    summary="Get a configured-model-with-data-source with its predictions",
-)
-@api_experimental
-async def get_configured_model_with_data_source(
-    configured_model_with_data_source_id: Annotated[int, Path(alias="configuredModelWithDataSourceId")],
-    session: Session = Depends(get_session),
-):
-    """Return the record with the configured model, model template, and every related prediction (and its dataset) embedded.
-
-    Dataset geojson on each prediction is deferred. Returns 404 if the id is unknown.
-    """
-    record = session.exec(
-        select(ConfiguredModelWithDataSource)
-        .where(ConfiguredModelWithDataSource.id == configured_model_with_data_source_id)
-        .options(
-            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
-            .selectinload(Prediction.dataset)  # type: ignore[arg-type]
-            .defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(ConfiguredModelWithDataSource.predictions)  # type: ignore[arg-type]
-            .selectinload(Prediction.configured_model)  # type: ignore[arg-type]
-            .selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
-    ).first()
-    if record is None:
-        raise HTTPException(status_code=404, detail="ConfiguredModelWithDataSource not found")
-    return record
+# prediction setups
 
 
 @router.post(
-    "/configured-models-with-data-source/from-backtest/{backtestId}",
-    response_model=ConfiguredModelWithDataSourceRead,
-    tags=["Models"],
-    summary="Create a configured-model-with-data-source from a backtest",
+    "/prediction-setups",
+    response_model=DataBaseResponse,
+    tags=["Prediction Setups"],
+    summary="Create a prediction setup from a backtest",
 )
 @api_experimental
-async def create_configured_model_with_data_source_from_backtest(
-    backtest_id: Annotated[int, Path(alias="backtestId")],
+async def create_prediction_setup(request: PredictionSetupCreate, session: Session = Depends(get_session)):
+    """Create a reusable ``PredictionSetup`` bound 1-to-1 to a backtest, with an optional cron schedule and quantile targets.
+
+    Returns the new setup id wrapped in a ``DataBaseResponse``. Returns 404 if the
+    referenced backtest is missing, 409 if a setup for that backtest already exists, and
+    422 if the cron expression or quantile targets are invalid.
+    """
+    try:
+        setup = prediction_setup_service.create_prediction_setup(
+            session,
+            backtest_id=request.backtest_id,
+            name=request.name,
+            schedule_cron_expression=request.schedule_cron_expression,
+            schedule_enabled=request.schedule_enabled,
+            quantile_targets=request.quantile_targets,
+        )
+    except prediction_setup_service.BacktestNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except prediction_setup_service.DuplicateSetupError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except prediction_setup_service.InvalidSetupError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    if setup.id is None:
+        raise HTTPException(status_code=500, detail="PredictionSetup creation produced no id")
+    return DataBaseResponse(id=setup.id)
+
+
+@router.get(
+    "/prediction-setups",
+    response_model=list[PredictionSetupRead],
+    tags=["Prediction Setups"],
+    summary="List prediction setups",
+)
+@api_experimental
+async def list_prediction_setups(session: Session = Depends(get_session)):
+    """Return every ``PredictionSetup`` as a ``PredictionSetupRead`` row, without nested predictions."""
+    return prediction_setup_service.list_prediction_setups(session)
+
+
+@router.get(
+    "/prediction-setups/{predictionSetupId}",
+    response_model=PredictionSetupReadWithPredictions,
+    tags=["Prediction Setups"],
+    summary="Get a prediction setup with its predictions",
+)
+@api_experimental
+async def get_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
     session: Session = Depends(get_session),
 ):
-    """Create a new ``ConfiguredModelWithDataSource`` whose configured model, org units, period type, and data sources are copied from the given backtest.
+    """Return the ``PredictionSetup`` with every related prediction (and its dataset metadata) embedded.
 
-    Used to promote a successful backtest into a reusable prediction configuration.
-    Returns the freshly-inserted record with the configured model and its template
-    embedded. Returns 404 if the backtest id is unknown.
+    Returns 404 if the id is unknown.
     """
-    backtest = session.exec(
-        select(Backtest)
-        .where(Backtest.id == backtest_id)
-        .options(
-            selectinload(Backtest.dataset).defer(DataSet.geojson),  # type: ignore[arg-type]
-            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
-    ).first()
-    if backtest is None:
-        raise HTTPException(status_code=404, detail="Backtest not found")
+    try:
+        return prediction_setup_service.get_prediction_setup(session, prediction_setup_id, include_predictions=True)
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
-    dataset = backtest.dataset
-    record = ConfiguredModelWithDataSource(
-        name=backtest.name or f"from-backtest-{backtest_id}",
-        created=datetime.datetime.now(),
-        configured_model_id=backtest.model_db_id,
-        start_period=dataset.first_period,
-        org_units=dataset.org_units or [],
-        data_sources=dataset.data_sources or [],
-        period_type=dataset.period_type,
+
+@router.patch(
+    "/prediction-setups/{predictionSetupId}",
+    response_model=PredictionSetupRead,
+    tags=["Prediction Setups"],
+    summary="Partially update a prediction setup",
+)
+@api_experimental
+async def update_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    request: PredictionSetupUpdate,
+    session: Session = Depends(get_session),
+):
+    """Apply the provided fields (cron schedule, enabled flag, quantile targets, ...) and return the refreshed setup.
+
+    Only fields explicitly set on the request body are updated (``exclude_unset``).
+    Returns 404 if the id is unknown and 422 if the new values fail validation.
+    """
+    update_data = request.model_dump(exclude_unset=True, by_alias=False)
+    try:
+        return prediction_setup_service.update_prediction_setup(session, prediction_setup_id, update_data)
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except prediction_setup_service.InvalidSetupError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+def _cancel_jobs_for_prediction_setup(prediction_setup_id: int) -> None:
+    """Cancel in-flight celery jobs tagged with this setup id and clear their Redis metadata.
+
+    Called before deleting a PredictionSetup so a still-running job doesn't try to write
+    `Prediction.prediction_setup_id=<deleted_id>` and fail the FK insert. Fails the delete
+    with 503 if Redis is unreachable (we cannot guarantee the FK invariant otherwise); one
+    stuck per-job cancel does not block the sweep.
+    """
+    try:
+        keys: list[str] = redis.keys("job_meta:*")  # type: ignore[assignment]
+    except Exception as e:
+        logger.warning("Failed to sweep job metadata for prediction setup %d", prediction_setup_id, exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Cannot delete PredictionSetup: job-metadata store unavailable, retry later",
+        ) from e
+    for key in keys:
+        meta: dict[str, str] = redis.hgetall(key)  # type: ignore[assignment]
+        if meta.get(PREDICTION_SETUP_ID_JOB_META_KEY) != str(prediction_setup_id):
+            continue
+        task_id = key.split(":", 1)[1]
+        if meta.get("status", "").lower() in {"pending", "started", "running"}:
+            try:
+                worker.get_job(task_id).cancel()
+            except Exception:
+                logger.warning(
+                    "Failed to cancel job %s for prediction setup %d", task_id, prediction_setup_id, exc_info=True
+                )
+        redis.delete(key)
+
+
+@router.delete(
+    "/prediction-setups/{predictionSetupId}",
+    tags=["Prediction Setups"],
+    summary="Delete a prediction setup",
+)
+@api_experimental
+async def delete_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    session: Session = Depends(get_session),
+):
+    """Cancel in-flight jobs tagged with this setup id, clear their Redis metadata, then delete the setup row.
+
+    Cancelling jobs first prevents a still-running prediction job from writing
+    ``Prediction.prediction_setup_id=<deleted_id>`` and tripping the FK constraint.
+    Returns 404 if the id is unknown and 503 if Redis is unreachable (the FK invariant
+    cannot be guaranteed in that case).
+    """
+    # Verify existence first so a 404 doesn't waste a Redis sweep, then cancel in-flight
+    # jobs BEFORE the DB delete — otherwise a still-running job would try to write
+    # Prediction.prediction_setup_id=<deleted_id> and fail the FK insert.
+    try:
+        prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    _cancel_jobs_for_prediction_setup(prediction_setup_id)
+    prediction_setup_service.delete_prediction_setup(session, prediction_setup_id)
+    return {"message": "deleted"}
+
+
+@router.post(
+    "/prediction-setups/{predictionSetupId}/run",
+    response_model=JobResponse,
+    tags=["Prediction Setups"],
+    summary="Queue a prediction job from a prediction setup",
+)
+@api_experimental
+async def run_prediction_setup(
+    prediction_setup_id: Annotated[int, Path(alias="predictionSetupId")],
+    request: RunPredictionSetupRequest,
+    session: Session = Depends(get_session),
+    database_url: str = Depends(get_database_url),
+    worker_settings=Depends(get_settings),
+):
+    """Validate provided observations, attach polygons, and queue a prediction job using the setup's configured model.
+
+    Returns the queued job id; poll ``GET /v1/jobs/{id}`` for status (and filter the
+    jobs list with ``predictionSetupId`` to find jobs tied to this setup). Returns 404
+    if the setup is unknown, 409 if its configured model is archived, 422 if
+    ``provided_data`` is empty, and 500 if the setup has no configured model.
+    """
+    try:
+        setup = prediction_setup_service.get_prediction_setup(session, prediction_setup_id)
+    except prediction_setup_service.PredictionSetupNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    if setup.configured_model is None:
+        # Defensive: the schema makes configured_model NOT NULL via FK, so this should not happen
+        # outside of a manually-corrupted DB. Translating to a 500 keeps the contract honest.
+        raise HTTPException(status_code=500, detail="PredictionSetup has no configured_model")
+    if setup.configured_model.archived:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Configured model '{setup.configured_model.name}' is archived",
+        )
+    model_id = setup.configured_model.name
+
+    if not request.provided_data:
+        raise HTTPException(status_code=422, detail="provided_data cannot be empty")
+
+    feature_names = list({entry.feature_name for entry in request.provided_data})
+    dataclass = create_tsdataclass(feature_names)
+    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
+    if "population" in feature_names:
+        provided_data = provided_data.interpolate(["population"])
+    provided_data, rejections = validate_full_dataset(feature_names, provided_data)
+    if rejections:
+        logger.warning(
+            "%d observations rejected for prediction-setup %d",
+            len(rejections),
+            prediction_setup_id,
+        )
+    provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
+
+    # Normalize dataset type server-side, matching analytics.make_prediction. Whatever the
+    # client sent in `request.type` (e.g. chap-scheduler defaults to "forecasting") gets
+    # overridden so the persisted dataset is consistently tagged "prediction" and shows
+    # up in prediction-filtered UI/queries. Use a local instead of mutating the request.
+    dataset_type = "prediction"
+    dataset_info = DataSetCreateInfo(name=request.name, type=dataset_type).model_dump()
+    prediction_params = PredictionParams(model_id=model_id, n_periods=request.n_periods)
+    job = worker.queue_db(
+        wf.predict_pipeline_from_composite_dataset,
+        feature_names,
+        provided_data.model_dump(),
+        request.name,
+        dataset_create_info=dataset_info,
+        prediction_params=prediction_params,
+        prediction_setup_id=prediction_setup_id,
+        database_url=database_url,
+        worker_config=worker_settings,
+        **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
     )
-    session.add(record)
-    session.commit()
-    session.refresh(record)
-
-    result = session.exec(
-        select(ConfiguredModelWithDataSource)
-        .where(ConfiguredModelWithDataSource.id == record.id)
-        .options(
-            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
-    ).first()
-    return result
+    return JobResponse(id=job.id)

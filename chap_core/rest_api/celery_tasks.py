@@ -54,6 +54,7 @@ class JobDescription(BaseModel):
     start_time: str | None
     end_time: str | None
     result: str | None
+    prediction_setup_id: int | None = None
 
 
 def read_environment_variables():
@@ -149,18 +150,25 @@ class TrackedTask(Task):
 
     def apply_async(self, args=None, kwargs=None, **options):
         # print('apply async', args, kwargs, options)
+        kwargs = kwargs or {}
         job_name = kwargs.pop(JOB_NAME_KW, None) or "Unnamed"
         job_type = kwargs.pop(JOB_TYPE_KW, None) or "Unspecified"
+        # Read (don't pop) — the worker function also needs prediction_setup_id when present.
+        prediction_setup_id = kwargs.get(PREDICTION_SETUP_ID_JOB_META_KEY)
         result = super().apply_async(args=args, kwargs=kwargs, **options)
+
+        job_meta: dict[str, str] = {
+            "job_name": job_name,
+            "job_type": job_type,
+            "status": "PENDING",
+            "start_time": datetime.now().isoformat(),
+        }
+        if prediction_setup_id is not None:
+            job_meta[PREDICTION_SETUP_ID_JOB_META_KEY] = str(prediction_setup_id)
 
         r.hset(
             f"job_meta:{result.id}",
-            mapping={
-                "job_name": job_name,
-                "job_type": job_type,
-                "status": "PENDING",
-                "start_time": datetime.now().isoformat(),
-            },
+            mapping=job_meta,
         )
 
         return result
@@ -266,6 +274,11 @@ def celery_run_with_session(func, *args, **kwargs):
 
 JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
+PREDICTION_SETUP_ID_JOB_META_KEY = "prediction_setup_id"
+
+
+def _parse_prediction_setup_id(value: str | None) -> int | None:
+    return int(value) if value is not None else None
 
 
 class CeleryJob[ReturnType]:
@@ -393,6 +406,7 @@ class CeleryPool[ReturnType]:
                 start_time=meta.get("start_time", None),
                 end_time=meta.get("end_time", None),
                 result=meta.get("result", None),
+                prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY, None)),
             )
             for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900, 1, 1).isoformat()), reverse=True)
         ]

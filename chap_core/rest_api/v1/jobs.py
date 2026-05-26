@@ -25,13 +25,16 @@ worker: CeleryPool[Any] = CeleryPool()
     summary="List jobs in the queue",
 )
 def list_jobs(
-    ids: list[str] = Query(None), status: list[str] = Query(None), job_type: str = Query(None, alias="type")
+    ids: list[str] = Query(None),
+    status: list[str] = Query(None),
+    job_type: str = Query(None, alias="type"),
+    prediction_setup_id: int | None = Query(None, alias="predictionSetupId"),
 ) -> list[JobDescription]:
-    """List every job tracked by the worker, optionally filtered by id, status, and type.
+    """List every job tracked by the worker, optionally filtered by id, type, prediction setup id, and status.
 
-    Filters are applied in this order: ``ids``, then ``type``, then ``status``. Status
-    values are matched case-insensitively. Returns an empty list when no jobs match (no
-    404).
+    Filters are applied in this order: ``ids``, then ``type``, then ``predictionSetupId``,
+    then ``status``. Status values are matched case-insensitively. Returns an empty list
+    when no jobs match (no 404).
     """
     jobs_to_return = worker.list_jobs()
 
@@ -42,6 +45,9 @@ def list_jobs(
     if job_type:
         type_upper = job_type.upper()
         jobs_to_return = [job for job in jobs_to_return if job.type and job.type.upper() == type_upper]
+
+    if prediction_setup_id is not None:
+        jobs_to_return = [job for job in jobs_to_return if job.prediction_setup_id == prediction_setup_id]
 
     if status:
         status_filter_set = {s.upper() for s in status}

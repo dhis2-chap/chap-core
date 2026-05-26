@@ -19,9 +19,8 @@ from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.tables import Backtest, BacktestForecast, ConfiguredModelWithDataSource, Prediction
+from chap_core.database.tables import Backtest, BacktestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
-from chap_core.rest_api.experimental import api_experimental
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
@@ -63,7 +62,7 @@ def make_dataset(
     ``GET /v1/jobs/{id}`` for the harmonize-and-import job status.
     """
     feature_names, provided_data = _read_dataset(request)
-    provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
+    provided_data, rejections = validate_full_dataset(feature_names, provided_data)
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     polygon_rejected = provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
@@ -128,7 +127,7 @@ def _find_locations_with_complete_covariates(
     return locations_to_keep, rejected_list
 
 
-def _validate_full_dataset(
+def validate_full_dataset(
     feature_names, provided_data, target_name="disease_cases"
 ) -> tuple[DataSet, list[ValidationError]]:
     n_locations = len(provided_data.locations())
@@ -415,7 +414,7 @@ async def make_prediction(
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    provided_data, _rejections = _validate_full_dataset(feature_names, provided_data)
+    provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
@@ -429,73 +428,6 @@ async def make_prediction(
         request.name,
         dataset_create_info=dataset_info,
         prediction_params=prediction_params,
-        database_url=database_url,
-        worker_config=worker_settings,
-        **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
-    )
-    return JobResponse(id=job.id)
-
-
-class MakePredictionWithDataSourceRequest(DatasetMakeRequest):
-    configured_model_with_data_source_id: int
-    n_periods: int = 3
-    meta_data: dict = {}
-
-
-@router.post(
-    "/make-prediction-with-data-source",
-    response_model=JobResponse,
-    tags=["Predictions"],
-    summary="Queue a prediction job using a stored configured-model-with-data-source",
-)
-@api_experimental
-async def make_prediction_with_data_source(
-    request: MakePredictionWithDataSourceRequest,
-    session: Session = Depends(get_session),
-    database_url=Depends(get_database_url),
-    worker_settings=Depends(get_settings),
-):
-    """Resolve a stored ``ConfiguredModelWithDataSource`` and queue a prediction job that uses it.
-
-    Behaves like ``POST /v1/analytics/make-prediction`` but reads the model id from the
-    referenced configured-model-with-data-source record instead of taking it in the
-    request body. Returns the queued job id; poll ``GET /v1/jobs/{id}`` for status.
-    Returns 404 if the referenced record is missing and 400 if it is not linked to a
-    configured model.
-    """
-    record = session.exec(
-        select(ConfiguredModelWithDataSource)
-        .where(ConfiguredModelWithDataSource.id == request.configured_model_with_data_source_id)
-        .options(
-            selectinload(ConfiguredModelWithDataSource.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
-        )
-    ).first()
-    if record is None:
-        raise HTTPException(status_code=404, detail="ConfiguredModelWithDataSource not found")
-    if record.configured_model is None:
-        raise HTTPException(status_code=400, detail="ConfiguredModelWithDataSource has no configured_model")
-    model_id = record.configured_model.name
-
-    request.type = "prediction"
-    feature_names = list({entry.feature_name for entry in request.provided_data})
-    dataclass = create_tsdataclass(feature_names)
-    provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
-    if "population" in feature_names:
-        provided_data = provided_data.interpolate(["population"])
-    provided_data, _rejections = _validate_full_dataset(feature_names, provided_data)
-    provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
-    if request.data_to_be_fetched:
-        raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
-    dataset_info = DataSetCreateInfo(**request.model_dump()).model_dump()
-    prediction_params = PredictionParams(model_id=model_id, n_periods=request.n_periods)
-    job = worker.queue_db(
-        wf.predict_pipeline_from_composite_dataset,
-        feature_names,
-        provided_data.model_dump(),
-        request.name,
-        dataset_create_info=dataset_info,
-        prediction_params=prediction_params,
-        configured_model_with_data_source_id=request.configured_model_with_data_source_id,
         database_url=database_url,
         worker_config=worker_settings,
         **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
@@ -701,11 +633,11 @@ async def create_backtest_with_data(
     """
     try:
         feature_names, provided_data_processed = _read_dataset(request)
-        provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
+        provided_data_processed, rejections = validate_full_dataset(feature_names, provided_data_processed)
     except HTTPException as exc:
         if not dry_run or exc.status_code != 400:
             raise
-        # Rejections, when present, were serialised by `_validate_full_dataset` into
+        # Rejections, when present, were serialised by `validate_full_dataset` into
         # `exc.detail["rejected"]`. The empty-`provided_data` case in `_read_dataset`
         # raises with a plain-string detail and has no rejections to recover. If
         # either helper changes its detail shape, this branch must be updated.
