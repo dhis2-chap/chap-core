@@ -109,6 +109,7 @@ nav:
           - Connect your model to the Chap standard: external_models/describe_model.md
           - Defining the MLproject environment for your model: external_models/defining-virtual-environment.md
           - Additional Configuration: external_models/additional_configuration.md
+          - Model Metadata: external_models/model_metadata.md
           - Generated Features: external_models/generated_features.md
       - Evaluate models with Chap:
           - Evaluation Workflow: chap-cli/evaluation-workflow.md
