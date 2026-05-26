@@ -2163,7 +2163,7 @@ wheels = [
 
 [[package]]
 name = "pandera"
-version = "0.30.1"
+version = "0.31.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
@@ -2172,9 +2172,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "typing-inspect" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/09/82/e5c312159bba3220e0ba2a3f30d2f89c44ab611d5b4d2655f952caad22f0/pandera-0.30.1.tar.gz", hash = "sha256:84af217d96dd6541026b75e273c06c5ce70bb54f3a63c8b0a1f371935e24460d", size = 592585, upload-time = "2026-03-18T00:58:58.277Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/e1/aaa14c989ffd30c7acb293fb986715517ca2b5b435ca291432535bb2b111/pandera-0.31.1.tar.gz", hash = "sha256:c75aa3868af15d4f9aa613acf1a7f436a518f81f1eb658ad630c1dbe1dab0f13", size = 729785, upload-time = "2026-04-15T03:18:59.967Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/37/17/4c89d26ba4f6fb7fc5d3c7f3558aaf4b1e4d843b855e01300a86876987cf/pandera-0.30.1-py3-none-any.whl", hash = "sha256:910656a8c1e10a9759b57dd58ac9dd16298e64baaaae476f1c2c40ee326fb263", size = 303587, upload-time = "2026-03-18T00:58:56.993Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/2d/6ea7cad2c2f0625c4120bef5353ab7cf749141bf1d070011cebb72f68189/pandera-0.31.1-py3-none-any.whl", hash = "sha256:f9f1ff4852804e1a181a4cb968e732a492f4b6dbefe051a8c5500da43d5c326d", size = 386913, upload-time = "2026-04-15T03:18:58.358Z" },
 ]
 
 [[package]]
