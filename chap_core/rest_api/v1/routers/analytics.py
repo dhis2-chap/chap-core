@@ -453,6 +453,7 @@ def get_prediction_entries(
     ]
 
 
+@router.get("/actual-cases/{backtestId}", response_model=DataList, tags=["Backtests"], name="get_actual_cases_alias")
 @router.get("/actualCases/{backtestId}", response_model=DataList, tags=["Backtests"])
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],

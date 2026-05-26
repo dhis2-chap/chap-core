@@ -53,6 +53,11 @@ def test_actual_cases_dataset(override_session):
     assert len(actual_cases) >= 3
 
 
+def test_actual_cases_alias(override_session):
+    actual_cases = client.get_json("/v1/analytics/actual-cases/1")
+    assert len(actual_cases) >= 3
+
+
 def test_get_prediction_entries(override_session):
     params = {"predictionId": 1, "quantiles": [0.0, 0.5, 0.9]}
     prediction_entries = client.get_json("/v1/analytics/prediction-entry", params=params)
