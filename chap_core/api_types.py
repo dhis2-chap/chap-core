@@ -94,6 +94,7 @@ class RunConfig(BaseModel):
     log_file: str | None = None
     run_directory_type: Literal["latest", "timestamp", "use_existing"] = "timestamp"
     is_chapkit_model: bool = False
+    track: bool = False
 
 
 class EvaluationResponse(BaseModel):

@@ -20,8 +20,8 @@ def test_report_cli_trains_then_reports(dumped_weekly_data_paths, tmp_path):
         return_value=mock_template,
     ) as mock_from:
         report(
-            model_path=tmp_path / "fake_mlproject",
-            dataset_csv=historic_path,
+            model_name=str(tmp_path / "fake_mlproject"),
+            dataset_csv=str(historic_path),
             out_file=out_file,
         )
 

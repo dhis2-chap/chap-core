@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 from chap_core.api_types import BacktestParams, FeatureCollectionModel
 from chap_core.database.base_tables import DBModel
@@ -7,7 +8,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateInformation,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BacktestBase, BacktestForecast, BacktestMetric, BacktestRead
+from chap_core.database.tables import BacktestBase, BacktestForecast, BacktestMetric, BacktestRead, QuantileTarget
 
 
 class PredictionBase(BaseModel):
@@ -165,3 +166,35 @@ class PredictionCreate(DBModel):
 
 class BacktestUpdate(DBModel):
     name: str | None = None
+
+
+class PredictionSetupCreate(DBModel):
+    backtest_id: int
+    name: str
+    schedule_cron_expression: str | None = None
+    schedule_enabled: bool = False
+    quantile_targets: list[QuantileTarget] = Field(default_factory=list)
+
+
+class PredictionSetupUpdate(DBModel):
+    # Reject unknown fields so clients trying to update immutable fields
+    # (backtestId, configuredModelId, etc.) get a clear 422 instead of a silent no-op.
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")  # type: ignore[assignment]
+
+    name: str | None = None
+    schedule_cron_expression: str | None = None
+    schedule_enabled: bool | None = None
+    quantile_targets: list[QuantileTarget] | None = None
+
+
+class RunPredictionSetupRequest(DBModel):
+    # Reject unknown fields so legacy clients still sending dataSources /
+    # dataToBeFetched / configuredModelWithDataSourceId fail loud instead of
+    # having those fields silently dropped.
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")  # type: ignore[assignment]
+
+    name: str
+    geojson: FeatureCollectionModel
+    provided_data: list[ObservationBase]
+    type: str | None = None
+    n_periods: int = Field(default=3, gt=0)

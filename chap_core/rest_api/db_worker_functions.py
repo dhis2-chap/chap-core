@@ -53,10 +53,6 @@ def convert_dicts_to_models(func):
     return wrapper
 
 
-def trigger_exception(*args, **kwargs):
-    raise Exception("Triggered exception")
-
-
 def validate_and_filter_dataset_for_evaluation(
     dataset: DataSet, target_name: str, n_periods: int, n_splits: int, stride: int
 ) -> DataSet:
@@ -153,7 +149,7 @@ def run_prediction(
     n_periods: int | None,
     name: str,
     session: SessionWrapper,
-    configured_model_with_data_source_id: int | None = None,
+    prediction_setup_id: int | None = None,
 ):
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
@@ -172,15 +168,11 @@ def run_prediction(
         dataset_id,
         model_id,
         name,
-        configured_model_with_data_source_id=configured_model_with_data_source_id,
+        prediction_setup_id=prediction_setup_id,
     )
     assert db_id is not None
     status_logger.info(f"Prediction completed successfully. Results saved with ID {db_id}")
     return db_id
-
-
-def debug(session: SessionWrapper):
-    return session.add_debug()
 
 
 def harmonize_and_add_health_dataset(
@@ -235,7 +227,7 @@ def predict_pipeline_from_composite_dataset(
     prediction_params: PredictionParams,
     session: SessionWrapper,
     worker_config=WorkerConfig(),
-    configured_model_with_data_source_id: int | None = None,
+    prediction_setup_id: int | None = None,
 ) -> int:
     """
     This is the main pipeline function to run prediction from a dataset.
@@ -253,7 +245,7 @@ def predict_pipeline_from_composite_dataset(
         prediction_params.n_periods,
         name,
         session,
-        configured_model_with_data_source_id=configured_model_with_data_source_id,
+        prediction_setup_id=prediction_setup_id,
     )
     return result
 

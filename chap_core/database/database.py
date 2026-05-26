@@ -27,7 +27,6 @@ from ..models.external_chapkit_model import ExternalChapkitModelTemplate
 from ..spatio_temporal_data.converters import observations_to_dataset
 from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 from .dataset_tables import DataSet, DataSetCreateInfo, DataSetInfo, Observation
-from .debug import DebugEntry
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 from .tables import Backtest, Prediction, PredictionSamplesEntry
@@ -422,7 +421,7 @@ class SessionWrapper:
         model_id,
         name,
         metadata: dict | None = None,
-        configured_model_with_data_source_id: int | None = None,
+        prediction_setup_id: int | None = None,
     ):
         if metadata is None:
             metadata = {}
@@ -445,7 +444,7 @@ class SessionWrapper:
             forecasts=samples_,
             org_units=org_units,
             model_db_id=model_db_id,
-            configured_model_with_data_source_id=configured_model_with_data_source_id,
+            prediction_setup_id=prediction_setup_id,
         )
         self.session.add(prediction)
         self.session.commit()
@@ -533,13 +532,6 @@ class SessionWrapper:
     def get_dataset_by_name(self, dataset_name: str) -> DataSet | None:
         dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()
         return dataset
-
-    def add_debug(self):
-        """Function for debuging"""
-        debug_entry = DebugEntry(timestamp=time.time())
-        self.session.add(debug_entry)
-        self.session.commit()
-        return debug_entry.id
 
 
 def _run_alembic_migrations(engine):

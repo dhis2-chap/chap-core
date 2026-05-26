@@ -6,12 +6,15 @@ import itertools
 import json
 import logging
 import sys
-from pathlib import Path  # noqa: TC003 — used at runtime via cyclopts get_type_hints()
 from typing import TYPE_CHECKING, Annotated
 
 from cyclopts import Parameter
 
-from chap_core.cli_endpoints._common import discover_geojson, load_dataset_from_csv
+from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime via cyclopts get_type_hints()
+    DatasetCsvArg,
+    DataSourceMappingArg,
+)
+from chap_core.cli_endpoints._common import discover_geojson, load_dataset_from_csv, resolve_csv_path
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -22,24 +25,12 @@ logger = logging.getLogger(__name__)
 
 
 def validate_cmd(
-    dataset_csv: Annotated[
-        Path,
-        Parameter(
-            help="Path to CSV file containing disease data with columns: time_period, "
-            "location, disease_cases, and climate covariates"
-        ),
-    ],
+    dataset_csv: DatasetCsvArg,
     model_name: Annotated[
         str | None,
         Parameter(help="Model path (local directory) or GitHub URL to validate dataset against"),
     ] = None,
-    data_source_mapping: Annotated[
-        Path | None,
-        Parameter(
-            help="Path to JSON file mapping model covariate names to CSV column names. "
-            'Format: {"model_name": "csv_column"}'
-        ),
-    ] = None,
+    data_source_mapping: DataSourceMappingArg = None,
 ):
     """Validate a CSV dataset for CHAP compatibility.
 
@@ -65,7 +56,8 @@ def validate_cmd(
         with open(data_source_mapping) as f:
             column_mapping = json.load(f)
 
-    raw_df = pd.read_csv(dataset_csv)
+    csv_path, url_geojson_path = resolve_csv_path(dataset_csv)
+    raw_df = pd.read_csv(csv_path)
     if column_mapping is not None:
         raw_df.rename(columns={v: k for k, v in column_mapping.items()}, inplace=True)
 
@@ -76,8 +68,8 @@ def validate_cmd(
             sys.exit(1)
 
     try:
-        geojson_path = discover_geojson(dataset_csv)
-        dataset = load_dataset_from_csv(dataset_csv, geojson_path, column_mapping)
+        geojson_path = url_geojson_path or discover_geojson(csv_path)
+        dataset = load_dataset_from_csv(csv_path, geojson_path, column_mapping)
     except ValueError as e:
         print(f"Error loading dataset: {e}")
         _report_period_gaps(raw_df)
