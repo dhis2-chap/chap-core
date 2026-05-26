@@ -225,6 +225,25 @@ def ping():
     return "pong"
 
 
+@shared_task(name="chap.db_roundtrip")
+def db_roundtrip() -> str:
+    """End-to-end probe: worker-side `SELECT 1` against the DB engine.
+
+    Dispatched by `/health/probe`. Returns "ok" if the worker can reach the
+    database; raises if the worker has no engine configured (which propagates
+    back via the result backend as a task failure).
+    """
+    from sqlalchemy import text
+
+    from chap_core.database.database import engine
+
+    if engine is None:
+        raise RuntimeError("Worker database engine not configured")
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    return "ok"
+
+
 def add_numbers(a: int, b: int):
     logger.info(f"Adding {a} + {b}")
     return a + b

@@ -409,3 +409,23 @@ def clean_engine(database_url):
 @pytest.fixture
 def test_config():
     return WorkerConfig(is_test=True)
+
+
+@pytest.fixture
+def make_test_df():
+    """Factory for minimal CHAP-compatible DataFrames.
+
+    Returns a callable _make(locations, periods, extra_col_val=1.0) that
+    produces a DataFrame with columns: location, time_period, rainfall,
+    disease_cases.
+    """
+
+    def _make(locations, periods, extra_col_val=1.0):
+        rows = [
+            {"location": loc, "time_period": p, "rainfall": extra_col_val, "disease_cases": 0.0}
+            for loc in locations
+            for p in periods
+        ]
+        return pd.DataFrame(rows)
+
+    return _make

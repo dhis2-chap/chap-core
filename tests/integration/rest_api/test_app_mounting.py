@@ -40,6 +40,62 @@ class TestCommonEndpoints:
         assert response.status_code == 200
         assert response.json() == {"status": "success", "message": "healthy"}
 
+    def test_readiness_all_ok(self, client, monkeypatch):
+        from chap_core.rest_api import common_routes
+
+        monkeypatch.setattr(common_routes, "_check_db", lambda: "ok")
+        monkeypatch.setattr(common_routes, "_check_redis", lambda: "ok")
+        monkeypatch.setattr(common_routes, "_check_celery", lambda: "ok")
+
+        response = client.get("/health/ready")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "success",
+            "checks": {"db": "ok", "redis": "ok", "celery": "ok"},
+        }
+
+    def test_readiness_returns_503_when_a_dependency_is_down(self, client, monkeypatch):
+        from chap_core.rest_api import common_routes
+
+        monkeypatch.setattr(common_routes, "_check_db", lambda: "ok")
+        monkeypatch.setattr(common_routes, "_check_redis", lambda: "error: ConnectionError")
+        monkeypatch.setattr(common_routes, "_check_celery", lambda: "ok")
+
+        response = client.get("/health/ready")
+
+        assert response.status_code == 503
+        body = response.json()
+        assert body["status"] == "unhealthy"
+        assert body["checks"]["db"] == "ok"
+        assert body["checks"]["redis"] == "error: ConnectionError"
+        assert body["checks"]["celery"] == "ok"
+
+    def test_probe_roundtrip_ok(self, client, monkeypatch):
+        from chap_core.rest_api import common_routes
+
+        monkeypatch.setattr(common_routes, "_check_celery_db_roundtrip", lambda: "ok")
+
+        response = client.get("/health/probe")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "success",
+            "checks": {"celery_db_roundtrip": "ok"},
+        }
+
+    def test_probe_returns_503_on_roundtrip_failure(self, client, monkeypatch):
+        from chap_core.rest_api import common_routes
+
+        monkeypatch.setattr(common_routes, "_check_celery_db_roundtrip", lambda: "error: TimeoutError")
+
+        response = client.get("/health/probe")
+
+        assert response.status_code == 503
+        body = response.json()
+        assert body["status"] == "unhealthy"
+        assert body["checks"]["celery_db_roundtrip"] == "error: TimeoutError"
+
     def test_root_system_info_endpoint(self, client):
         response = client.get("/system/info")
 
@@ -106,7 +162,6 @@ class TestOpenAPITags:
             "Prediction Setups",
             "Visualizations",
             "Jobs",
-            "Debug",
             "Services",
         ]
         assert tag_names == expected
