@@ -2,10 +2,10 @@
 
 Removes the configured_model_with_data_source_id foreign key column on
 prediction and drops the configuredmodelwithdatasource table. The
-PredictionSetup table introduced in d4e5f6a7b8c9 replaces it.
+PredictionSetup table introduced in e5f6a7b8c9d0 replaces it.
 
-Revision ID: e5f6a7b8c9d0
-Revises: d4e5f6a7b8c9
+Revision ID: f6a7b8c9d0e1
+Revises: e5f6a7b8c9d0
 Create Date: 2026-05-19
 
 """
@@ -16,8 +16,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "e5f6a7b8c9d0"
-down_revision: Union[str, Sequence[str], None] = "d4e5f6a7b8c9"
+revision: str = "f6a7b8c9d0e1"
+down_revision: Union[str, Sequence[str], None] = "e5f6a7b8c9d0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

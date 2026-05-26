@@ -5,8 +5,8 @@ foreign key column on prediction. The legacy
 configured_model_with_data_source_id column on prediction is left in place
 for now; it will be migrated and dropped in a later revision.
 
-Revision ID: d4e5f6a7b8c9
-Revises: c3d4e5f6a7b8
+Revision ID: e5f6a7b8c9d0
+Revises: d4e5f6a7b8c9
 Create Date: 2026-05-19
 
 """
@@ -17,8 +17,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "d4e5f6a7b8c9"
-down_revision: Union[str, Sequence[str], None] = "c3d4e5f6a7b8"
+revision: str = "e5f6a7b8c9d0"
+down_revision: Union[str, Sequence[str], None] = "d4e5f6a7b8c9"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
