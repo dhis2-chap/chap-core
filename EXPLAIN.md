@@ -597,3 +597,135 @@ those same models.
 
 That's it. Everything else (the verbose changelog in the PR description) is
 the type-error-by-type-error breakdown.
+
+---
+
+## 12. Diff vs master
+
+Compared against `master @ 631affde`. Total: **16 files changed, +1347 / −71
+lines** (counting `EXPLAIN.md` and the new test suite).
+
+### 12a. Configuration (`pyproject.toml`)
+
+| | master | this branch |
+|---|---|---|
+| ruff per-file-ignore for `lime.py` | `["F403", "F405"]` (suppresses wildcard-import lint) | removed |
+| mypy override on `chap_core.explainability.*` | disables 10 error codes (`arg-type`, `assignment`, `attr-defined`, `import-not-found`, `import-untyped`, `index`, `no-any-return`, `return-value`, `union-attr`, `var-annotated`) | removed |
+
+20 lines deleted from `pyproject.toml`. No lint config is added.
+
+### 12b. New files
+
+| Path | Purpose |
+|---|---|
+| `chap_core/explainability/testing/__init__.py` | Subpackage marker (empty). |
+| `chap_core/explainability/testing/metrics.py` | `eLoss` faithfulness metric (141 lines). The `from chap_core.explainability.testing.metrics import eLoss` import inside `lime.py` (under `if return_metrics:`) was broken on master; now resolves. |
+| `tests/explainability/__init__.py` | Test subpackage marker. |
+| `tests/explainability/test_distance.py` | Pairwise + DTW (58 lines). |
+| `tests/explainability/test_perturb.py` | LinearInterpolation, ConstantTransform, LocalMean, GlobalMean, RandomUniform (83 lines). |
+| `tests/explainability/test_segment.py` | UniformSegmentation, ExponentialSegmentation, ReverseExponentialSegmentation (74 lines). |
+| `tests/explainability/test_surrogate.py` | RidgeSurrogate, BayesianSurrogate, SurrogateResult (102 lines). |
+| `tests/explainability/test_metrics.py` | eLoss math; faithful vs anti-faithful sign (181 lines). |
+| `EXPLAIN.md` | This file. Will be deleted before merge. |
+
+### 12c. Modified files (per-file structural delta)
+
+#### `chap_core/explainability/lime.py` — +106 / −many
+
+Most-changed file. Three categories of change:
+
+1. **Imports — wildcards → explicit.** Master:
+   ```python
+   from chap_core.explainability.distance import *
+   from chap_core.explainability.perturb import *
+   from chap_core.explainability.segment import *
+   from chap_core.explainability.surrogate import *
+   ```
+   This branch: explicit imports of the 12 symbols actually used, plus
+   `Indices` and `Any`. Lets the F403/F405 ignore go.
+
+2. **Type annotations.** Many previously-bare dicts/lists are now annotated:
+   `x0`, `feat_indices`, `results`, `distance_sequences`, `new_hist`,
+   `new_fut`, `metrics`. Type-narrowing in function signatures: `feat_indices`
+   tightened from `dict[str, list]` / `dict[str, dict]` to `dict[str, Indices]`
+   on `convert_vector_to_dataset` and `produce_lime_dataset`; `hist_type` and
+   `fut_type` widened to `type | None`. None-guards on
+   `model.predict(...)` raising `ModelFailedException` so the existing retry
+   block catches the case where the model returns None.
+
+3. **No behaviour change.** Apart from the two `ModelFailedException` raises
+   (which only fire on a code path that previously would have
+   `AttributeError`'d a step later), every code path produces the same
+   output as master.
+
+#### `chap_core/explainability/segment.py` — +6 / −6
+
+`SegmentationModel` protocol widened from `pd.DataFrame` to
+`pd.DataFrame | pd.Series`. Three implementations (`UniformSegmentation`,
+`ExponentialSegmentation`, `ReverseExponentialSegmentation`) get the same
+signature widening. Every implementation already handled both at runtime —
+the strict DataFrame annotation was wrong. Also a `best_symbols: ndarray |
+None` annotation + assert in `SaxTransformSegmentation` to satisfy the
+type checker.
+
+#### `chap_core/explainability/surrogate.py` — +8 / −8
+
+`BayesianSurrogate.{fit, explain, predict, acquisition_scores}` get type
+annotations matching the `SurrogateModel` protocol. `fit` now defaults
+`sample_weight` to uniform ones when `None` is passed (so `np.average(...,
+weights=None)` doesn't crash later). `RidgeSurrogate.predict` and
+`BayesianSurrogate.predict` wrap their return in `np.asarray(...)` so mypy
+sees `ndarray` instead of `Any`.
+
+#### `chap_core/explainability/perturb.py` — +6 / −4
+
+`FourierReplacement.__init__` widens `dataset: pd.DataFrame → pd.DataFrame |
+None` and `window_size: int → int | None`. The caller (`disambiguate_sampler`
+in `lime.py`) was already passing `None` for both; the implementation
+already handled it; only the type annotation was wrong. `R_cache` annotated
+as `dict[str, np.ndarray]`.
+
+#### `chap_core/explainability/plot.py` — +8 / −5
+
+- `temp_columns: dict[str, dict[int, float]] = {}` and `static_columns:
+  dict[str, float] = {}` annotated.
+- Return signature of `parse_coefficients` tightened from
+  `tuple[dict[str, dict], dict]` to `tuple[dict[str, dict[int, float]],
+  dict[str, float]]`.
+- `segment_indices: dict[str, list]` in `plot_importance` fixed to
+  `dict[str, dict[int, tuple[int, int]]]` (the actual runtime shape; the
+  `dict[str, list]` annotation never matched what the caller passes).
+- `plt.cm.RdYlGn` → `plt.get_cmap("RdYlGn")` (matplotlib's `cm` submodule
+  doesn't expose colormaps as static attributes, so pyright was right to
+  flag it).
+
+#### `chap_core/explainability/distance.py` — +1 / −1
+
+`np.exp(...)` return in `DTW.get_weights` wrapped in `np.asarray(...)`.
+
+### 12d. What works on master vs on this branch
+
+| Capability | master | this branch |
+|---|---|---|
+| `import chap_core.explainability.lime` | works | works |
+| `import chap_core.explainability.testing.metrics` | `ModuleNotFoundError` | works |
+| `make lint` from a clean checkout | works *(because mypy override hides the errors that would otherwise fire)* | works *(no override needed; errors are actually fixed)* |
+| `make lint` if the carve-outs are removed | 36 errors across 6 files | 0 errors |
+| `chap explain-lime` against any trained model (no `return_metrics`) | crashes at `lime.py:1001` (`log1p` → `NaN`) | crashes at `lime.py:1035` (**same bug**, same error, lineno shifted by +34 because of restored `if return_metrics:` block above) |
+| `explain(..., return_metrics=True)` from Python | `ImportError` for `eLoss` | works, returns `(results, metrics)` with `delta_eloss`, `auc_top_k`, `auc_bottom_k` |
+| `tests/explainability/` | doesn't exist | 38 tests, runs in ~1.1 s |
+| Coverage of `chap_core/explainability/` | 0% | 27% overall, 100% on `distance.py` / `testing/metrics.py`, 96% on `surrogate.py` |
+
+### 12e. Important: what does *not* change
+
+- No method signatures break — `explain()` and `explain_adaptive()` accept
+  the same positional/keyword args, plus the optional `return_metrics` (which
+  master already had; this branch just makes the True branch actually work).
+- No CLI flags change. `chap explain-lime --help` produces the same output.
+- No `pyproject.toml` runtime dependencies change. Only the lint config under
+  `[tool.ruff.lint.per-file-ignores]` and `[[tool.mypy.overrides]]` is
+  trimmed.
+- No migrations, no DB-schema changes, no API endpoints touched.
+- The `log1p` NaN bug in `lime.py` (section 10i) is unchanged and
+  unfixed — both master and this branch crash the same way on the example
+  trained models. Fixing it is the next step.
