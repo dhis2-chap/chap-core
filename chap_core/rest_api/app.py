@@ -28,16 +28,47 @@ openapi_tags = [
 ]
 
 
-api_description = (
-    "Chap is a Climate & Health Modeling Platform that brings together disease "
-    "forecasting models into a unified ecosystem, connecting researchers with "
-    "cutting-edge epidemiological models to policy makers and health practitioners.\n\n"
-    "The platform makes sophisticated modeling workflows more accessible, performs "
-    "automated rigorous model evaluation, supplies broad generic functionality for "
-    "modelers, and provides direct integration with DHIS2.\n\n"
-    "See [chap.dhis2.org](https://chap.dhis2.org/chap-modeling-platform/) for the "
-    "full documentation."
-)
+api_description = """\
+**Chap** is a Climate & Health Modeling Platform that brings together
+disease forecasting models into a unified ecosystem, connecting researchers
+with cutting-edge epidemiological models to policy makers and health
+practitioners.
+
+## What it does
+
+- Makes sophisticated modeling workflows more accessible.
+- Performs automated, rigorous model evaluation.
+- Supplies broad generic functionality for modelers.
+- Provides direct integration with [DHIS2](https://dhis2.org).
+
+## Concepts
+
+- **Datasets** — observation series (disease cases, climate covariates,
+  population) attached to org-unit polygons. Imported once, reused.
+- **Model templates** are the registered model implementations. A
+  **configured model** binds a template to a specific set of options
+  (lags, precision, covariates, ...).
+- **Backtests** evaluate a configured model on historical data and produce
+  scored forecasts you can plot, export, and compare.
+- **Predictions** are forecasts of future periods produced by a configured
+  model, queryable as quantile series.
+- **Prediction setups** promote a backtest into a reusable forecast config —
+  run it ad-hoc against fresh data, or on a cron schedule.
+
+## Asynchronous work
+
+`POST` endpoints that train, score, or import (most of `/v1/analytics/*`,
+`POST /v1/crud/backtests`, `POST /v1/crud/datasets`,
+`POST /v1/crud/prediction-setups/{id}/run`) return a `JobResponse` with an
+id. Poll `GET /v1/jobs/{id}` for status; once it finishes, fetch the
+produced row directly via `GET /v1/jobs/{id}/prediction_result`,
+`/evaluation_result`, or `/database_result`.
+
+## Further reading
+
+- [Platform documentation](https://chap.dhis2.org/chap-modeling-platform/)
+- Contact: <chap@dhis2.org>
+"""
 
 
 app = FastAPI(
