@@ -22,7 +22,7 @@ router = APIRouter(prefix="/services", tags=["Services"])
 @router.post(
     "/$register",
     response_model=RegistrationResponse,
-    summary="Register a chapkit service with the orchestrator",
+    summary="Onboard a chapkit model service",
 )
 def register_service(
     payload: RegistrationRequest,
@@ -31,10 +31,12 @@ def register_service(
     session: Session = Depends(get_session),
     _: str = Depends(verify_service_key),
 ) -> RegistrationResponse:
-    """Register a new chapkit service and return the absolute ping URL the caller must keep alive.
+    """Announce a chapkit-hosted model service so chap-core can route work to it.
 
-    Eagerly syncs the registered service into the v1 model-templates and configured-models
-    tables so it shows up immediately via the v1 CRUD endpoints. Requires the
+    The orchestrator records the service and returns the absolute ping URL the service
+    must hit periodically to stay live. As a side effect, the service's templates and
+    default configurations are eagerly pulled into the v1 CRUD tables, so backtests and
+    predictions can target it without waiting for the next lazy sync. Requires the
     ``X-Service-Key`` header.
     """
     response = orchestrator.register(payload)
@@ -57,17 +59,19 @@ def register_service(
 @router.put(
     "/{service_id}/$ping",
     response_model=PingResponse,
-    summary="Keep a registered service alive",
+    summary="Send a keepalive heartbeat for a service",
 )
 def ping_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),
     _: str = Depends(verify_service_key),
 ) -> PingResponse:
-    """Refresh the registry TTL for a registered service so the orchestrator does not evict it.
+    """Tell the orchestrator the service is still alive so it doesn't get evicted from the registry.
 
-    Requires the ``X-Service-Key`` header. Returns 404 if the service id is unknown to
-    the orchestrator.
+    Called by the chapkit service itself on a timer — typically once a minute. The
+    orchestrator marks the service "live", which is what surfaces as
+    ``health_status = "live"`` on its model templates. Requires the ``X-Service-Key``
+    header; 404 if the service id is unknown.
     """
     try:
         return orchestrator.ping(service_id)
@@ -79,12 +83,12 @@ def ping_service(
     "",
     response_model=ServiceListResponse,
     response_model_exclude_none=True,
-    summary="List registered services",
+    summary="Browse currently live model services",
 )
 def list_services(
     orchestrator: Orchestrator = Depends(get_orchestrator),
 ) -> ServiceListResponse:
-    """Return every service currently registered with the orchestrator and a count."""
+    """List every chapkit model service that's currently registered, so operators can see at a glance what compute is available to route work to."""
     return orchestrator.get_all()
 
 
@@ -92,15 +96,16 @@ def list_services(
     "/{service_id}",
     response_model=ServiceDetail,
     response_model_exclude_none=True,
-    summary="Get a registered service",
+    summary="Inspect one registered service",
 )
 def get_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),
 ) -> ServiceDetail:
-    """Return the full detail (info, URL, last ping) for a single registered service.
+    """Look up everything the orchestrator knows about a single service — its declared info, the URL it's reachable at, and when it last pinged.
 
-    Returns 404 if the service id is unknown to the orchestrator.
+    Used to diagnose registration issues or fill a service-detail panel. 404 if the
+    service id is unknown.
     """
     try:
         return orchestrator.get(service_id)
@@ -111,16 +116,18 @@ def get_service(
 @router.delete(
     "/{service_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Deregister a service",
+    summary="Off-board a model service",
 )
 def deregister_service(
     service_id: str,
     orchestrator: Orchestrator = Depends(get_orchestrator),
     _: str = Depends(verify_service_key),
 ) -> None:
-    """Remove a service from the orchestrator's registry. Requires the ``X-Service-Key`` header.
+    """Remove a service from the registry — used by the service itself on graceful shutdown, or by an operator forcing eviction.
 
-    Returns 204 No Content on success and 404 if the service id is unknown.
+    Templates produced by the service stay in the database (so historical backtests
+    still resolve) but lose their ``health_status = "live"`` marker. Requires the
+    ``X-Service-Key`` header. 204 on success, 404 if the service id is unknown.
     """
     try:
         orchestrator.deregister(service_id)

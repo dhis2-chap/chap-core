@@ -51,15 +51,18 @@ worker: CeleryPool[Any] = CeleryPool()
     "/make-dataset",
     response_model=ImportSummaryResponse,
     tags=["Datasets"],
-    summary="Create a dataset from provided observations",
+    summary="Import observations as a reusable dataset",
 )
 def make_dataset(
     request: DatasetMakeRequest, database_url: str = Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
-    """Validate the provided observations against the request's geojson and queue dataset import.
+    """Persist observations (with polygons) as a named dataset you can reuse across backtests and predictions.
 
-    The response carries the queued job id and any per-location validation rejections; poll
-    ``GET /v1/jobs/{id}`` for the harmonize-and-import job status.
+    Use this to turn a one-off batch of DHIS2 / file-based observations into something
+    stored, so a single dataset can back multiple evaluations. Import happens in the
+    background — the response gives you a job id plus a per-location rejection summary
+    (validation runs synchronously, the harmonise-and-load step async). Poll
+    ``/v1/jobs/{id}`` to know when the dataset is queryable.
     """
     feature_names, provided_data = _read_dataset(request)
     provided_data, rejections = validate_full_dataset(feature_names, provided_data)
@@ -192,15 +195,15 @@ def _filter_dataset_by_locations(
     "/compatible-backtests/{backtestId}",
     response_model=list[BacktestRead],
     tags=["Backtests"],
-    summary="List backtests comparable to a given backtest",
+    summary="Find backtests that can be compared with this one",
 )
 def get_compatible_backtests(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
-    """Return backtests that share at least one org unit and one split period with the given backtest.
+    """Find every other backtest that shares at least one region and one split period with this one — i.e. backtests it makes sense to overlay or diff against in a plot.
 
-    These are the backtests it makes sense to overlay or diff against. Excludes the input
-    backtest itself.
+    Use this to power a "compare to..." picker in the UI without offering choices that
+    would produce empty intersections.
     """
     logger.info(f"Checking compatible backtests for {backtest_id}")
     backtest = session.get(Backtest, backtest_id)
@@ -227,17 +230,17 @@ def get_compatible_backtests(
     "/backtest-overlap/{backtestId1}/{backtestId2}",
     response_model=BacktestDomain,
     tags=["Backtests"],
-    summary="Get the overlap of two backtests",
+    summary="Inspect the shared regions and periods of two backtests",
 )
 def get_backtest_overlap(
     backtest_id1: Annotated[int, Path(alias="backtestId1")],
     backtest_id2: Annotated[int, Path(alias="backtestId2")],
     session: Session = Depends(get_session),
 ):
-    """Return the set of org units and split periods that appear in both backtests.
+    """Get the regions and split periods two backtests have in common — the slice on which side-by-side comparison is even meaningful.
 
-    Useful when comparing two backtests side by side to know which units/periods can be
-    plotted on the same axes. Returns 404 if either backtest id is unknown.
+    Use this before building a side-by-side plot to know which axes are valid for both
+    backtests. 404 if either id is unknown.
     """
     backtest1 = session.get(Backtest, backtest_id1)
     backtest2 = session.get(Backtest, backtest_id2)
@@ -254,18 +257,18 @@ def get_backtest_overlap(
     "/prediction-entry",
     response_model=list[PredictionEntry],
     tags=["Predictions"],
-    summary="Return prediction quantiles (query-string predictionId)",
+    summary="Read forecast quantiles for a prediction (queryString id)",
 )
 async def get_prediction_entry(
     prediction_id: Annotated[int, Query(alias="predictionId")],
     quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
 ):
-    """Return the requested quantiles of each forecast in a prediction, one entry per (period, org unit, quantile).
+    """Pull the chosen quantiles (median, 10th and 90th percentile, ...) out of a prediction so they can be charted, exported, or fed back into DHIS2.
 
-    Returns 404 if the prediction id is unknown. Same shape as
-    ``GET /v1/analytics/prediction-entry/{predictionId}`` - that endpoint takes the id as
-    a path parameter instead.
+    Returns one entry per (period, region, quantile) tuple. Same response as
+    ``GET /v1/analytics/prediction-entry/{predictionId}`` — only the parameter style
+    differs; that variant takes the id in the path. 404 if the prediction id is unknown.
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -286,7 +289,7 @@ async def get_prediction_entry(
     "/evaluation-entry",
     response_model=list[EvaluationEntry],
     tags=["Backtests"],
-    summary="Return backtest forecast quantiles",
+    summary="Read forecast quantiles from a backtest",
 )
 async def get_evaluation_entries(
     backtest_id: Annotated[int, Query(alias="backtestId")],
@@ -295,11 +298,12 @@ async def get_evaluation_entries(
     org_units: list[str] = Query(None, alias="orgUnits"),
     session: Session = Depends(get_session),
 ):
-    """Return the requested quantiles for the forecasts in a backtest.
+    """Pull the chosen quantiles from a backtest's forecasts so they can be charted, exported, or compared against actuals.
 
-    Can optionally be filtered on split period and org units. If ``orgUnits=["adm0"]`` is
-    passed, the response is the sum over all regions instead of per-region. Returns 404
-    if the backtest id is unknown.
+    Optionally narrow the slice with ``splitPeriod`` (a single training horizon) or
+    ``orgUnits`` (specific regions). Passing ``orgUnits=["adm0"]`` collapses the result
+    into one row per period — the sum over every region — which is what you want for
+    national-level overlays. 404 if the backtest id is unknown.
     """
     return_summed = False
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
@@ -367,17 +371,18 @@ async def get_evaluation_entries(
     "/create-backtest",
     response_model=JobResponse,
     tags=["Backtests"],
-    summary="Queue a backtest job against a stored dataset",
+    summary="Run a backtest against a stored dataset",
 )
 async def create_backtest(
     request: MakeBacktestRequest,
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
 ):
-    """Queue a backtest job that uses an already-imported dataset (referenced by id).
+    """Train and evaluate a configured model on a dataset that's already been imported, producing a backtest you can score, plot, or promote into a prediction setup.
 
-    Returns the queued job id; poll ``GET /v1/jobs/{id}`` for status. Returns 404 if the
-    referenced dataset does not exist.
+    Runs asynchronously; you get a job id and poll ``/v1/jobs/{id}`` (or
+    ``/v1/jobs/{id}/evaluation_result`` once finished) to find the resulting backtest.
+    404 if the referenced dataset does not exist.
     """
     if session.get(DataSetTable, request.dataset_id) is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
@@ -398,15 +403,18 @@ async def create_backtest(
     "/make-prediction",
     response_model=JobResponse,
     tags=["Predictions"],
-    summary="Queue a prediction job from provided observations",
+    summary="Run a one-off forecast from inline data",
 )
 async def make_prediction(
     request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
-    """Validate the provided observations, attach polygons, and queue a prediction job.
+    """Fire a forecast using observations you ship in the request body — no stored dataset needed.
 
-    Returns the queued job id; poll ``GET /v1/jobs/{id}`` for status. Rejects the request
-    if ``data_to_be_fetched`` is set (no longer supported by chap-core).
+    Use this for ad-hoc work when DHIS2 (or another source) already has the data and you
+    just want it run through a configured model once. Forecasting happens in the
+    background; you get a job id back and poll ``/v1/jobs/{id}`` for the result. For a
+    recurring or scheduled version of the same workflow, use a prediction setup. The
+    legacy ``data_to_be_fetched`` field is rejected — supply the observations directly.
     """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
@@ -439,18 +447,17 @@ async def make_prediction(
     "/prediction-entry/{predictionId}",
     response_model=list[PredictionEntry],
     tags=["Predictions"],
-    summary="Return prediction quantiles (path predictionId)",
+    summary="Read forecast quantiles for a prediction (path id)",
 )
 def get_prediction_entries(
     prediction_id: Annotated[int, Path(alias="predictionId")],
     quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
 ):
-    """Return the requested quantiles of each forecast in a prediction, one entry per (period, org unit, quantile).
+    """Path-parameter variant of ``GET /v1/analytics/prediction-entry`` for callers that prefer the id in the URL.
 
-    Path-parameter variant of ``GET /v1/analytics/prediction-entry`` - same response
-    shape; the id comes from the URL instead of a ``predictionId`` query parameter.
-    Returns 404 if the prediction id is unknown.
+    Same forecast-quantile response — pick whichever URL shape your client tooling
+    handles more naturally. 404 if the prediction id is unknown.
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -469,13 +476,13 @@ def get_prediction_entries(
     response_model=DataList,
     tags=["Backtests"],
     name="get_actual_cases_alias",
-    summary="Return observed disease cases for a backtest",
+    summary="Read the observed disease cases a backtest was scored against",
 )
 @router.get(
     "/actualCases/{backtestId}",
     response_model=DataList,
     tags=["Backtests"],
-    summary="Return observed disease cases for a backtest (camelCase alias)",
+    summary="Read the observed disease cases a backtest was scored against (camelCase alias)",
 )
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
@@ -483,12 +490,12 @@ async def get_actual_cases(
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
     session: Session = Depends(get_session),
 ):
-    """Return the observed ``disease_cases`` for the dataset behind a backtest.
+    """Pull the actual ``disease_cases`` series from the dataset that backs a backtest, so a plot can show forecast vs. reality on the same axes.
 
-    Can optionally be filtered on org units. If ``orgUnits=["adm0"]`` is passed the
-    response is the sum over all regions. When ``isDatasetId=true`` the path id is treated
-    as a dataset id directly, skipping the backtest lookup. Returns 404 if the backtest
-    is unknown (and ``isDatasetId`` is false).
+    Filter to specific regions with ``orgUnits``, or pass ``orgUnits=["adm0"]`` to get
+    one summed series across every region (useful for national-level views). Set
+    ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
+    id. 404 if the backtest is unknown (and ``isDatasetId`` is false).
     """
     return_summed = False
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
@@ -604,10 +611,15 @@ data_sources = [
     "/data-sources",
     response_model=list[ChapDataSource],
     tags=["Datasets"],
-    summary="List available external data sources",
+    summary="Discover which external data sources can feed a dataset",
 )
 async def get_data_sources() -> list[ChapDataSource]:
-    """Return the CHAP-known external data sources (e.g. ERA5 climate variables) and the dataset features they map to."""
+    """List the external covariate sources CHAP knows about (ERA5 temperature, precipitation, ...) and the dataset features each one maps to.
+
+    Use this to power a data-source picker when authoring a dataset or a prediction
+    setup, so users can pick covariates by what they cover rather than by their internal
+    identifier.
+    """
     return data_sources
 
 
@@ -615,7 +627,7 @@ async def get_data_sources() -> list[ChapDataSource]:
     "/create-backtest-with-data/",
     response_model=ImportSummaryResponse,
     tags=["Backtests"],
-    summary="Queue a backtest job from provided observations",
+    summary="Run a backtest from inline data",
 )
 async def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
@@ -625,11 +637,13 @@ async def create_backtest_with_data(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
-    """Validate observations, attach polygons, and queue a backtest job.
+    """Train and evaluate a model on observations you ship in the request body, without first creating a reusable dataset.
 
-    Returns the queued job id and per-location validation rejections; poll
-    ``GET /v1/jobs/{id}`` for status. Pass ``dryRun=true`` to skip queueing and only
-    return the rejection summary.
+    Convenient for quick experiments where the data isn't worth persisting. Use
+    ``dryRun=true`` to only run validation (cheap, synchronous) and inspect which
+    regions would be rejected — handy as a preflight before committing to an import. A
+    real run returns a job id; poll ``/v1/jobs/{id}`` for status. The response also
+    surfaces any per-location rejections that came out of validation.
     """
     try:
         feature_names, provided_data_processed = _read_dataset(request)

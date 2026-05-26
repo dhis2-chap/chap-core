@@ -30,13 +30,14 @@ router = APIRouter(prefix="/visualization", tags=["Visualizations"])
 @router.get(
     "/metric-plots/{backtest_id}",
     response_model=list[VisualizationInfo],
-    summary="List available metric plot types",
+    summary="Discover which metric plots are available",
 )
 def get_avilable_metric_plots(backtest_id: int):
-    """Return every metric-plot visualization registered in the metric-plots registry.
+    """List the metric-plot styles you can render against a backtest's forecasts (line chart of CRPS over time, choropleth of MAE, ...).
 
-    The ``backtest_id`` is accepted for symmetry with the per-plot endpoint but does not
-    filter the result; the list is the same for every backtest.
+    Use this to populate a plot picker in a UI or to find out which
+    ``/metric-plots/{name}/...`` URLs are valid. The result is the same regardless of
+    ``backtest_id`` — the path takes it for symmetry with the render endpoint.
     """
     return [
         VisualizationInfo(id=p["id"], display_name=p["name"], description=p["description"]) for p in list_metric_plots()
@@ -56,13 +57,14 @@ class MetricInfo(DBModel):
 @router.get(
     "/metrics/{backtest_id}",
     response_model=list[MetricInfo],
-    summary="List available metrics for a backtest",
+    summary="Discover which scoring metrics are available",
 )
 def get_available_metrics(backtest_id: int):
-    """Return every metric registered in ``available_metrics`` that can be applied to the given backtest.
+    """List the metrics you can score a backtest with (CRPS, MAE, ...), with a human-friendly name and description for each.
 
-    All metrics support detailed-level visualization. The ``backtest_id`` is accepted for
-    symmetry with the per-metric plot endpoint but does not filter the result.
+    Use this to populate a metric picker in a UI before requesting a specific plot. The
+    result is the same regardless of ``backtest_id`` — the path takes it for symmetry
+    with the render endpoint.
     """
     logger.info(f"Getting available metrics for backtest {backtest_id}")
     logger.info(f"Available metrics: {available_metrics.keys()}")
@@ -83,11 +85,11 @@ def get_available_metrics(backtest_id: int):
 def generate_visualization(
     visualization_name: str, backtest_id: int, metric_id: str, session: Session = Depends(get_session)
 ):
-    """Compute the named metric across the backtest forecasts and render it with the named plot.
+    """Score a backtest with the chosen metric (CRPS, MAE, ...) and render the result as the chosen plot style.
 
-    Returns the plot specification as a JSON response (Vega/Vega-Lite shape, depending on
-    the plot class). Returns 404 if the backtest or visualization is unknown, and 400 if
-    the metric id is not registered.
+    The response is a Vega/Vega-Lite spec you can hand straight to a frontend renderer.
+    404 if the backtest or plot style is unknown; 400 if the metric id is not one of the
+    registered metrics.
     """
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
@@ -117,10 +119,14 @@ class DatasetPlotType(DBModel):
 @router.get(
     "/dataset-plots/",
     response_model=list[DatasetPlotType],
-    summary="List available dataset plot types",
+    summary="Discover which dataset plots are available",
 )
 def list_dataset_plot_types():
-    """Return every dataset-plot visualization registered in the dataset-plots registry."""
+    """List the visualizations you can render against an imported dataset (observation time-series per region, polygon overlays, ...).
+
+    Use this to populate a plot picker before requesting a specific
+    ``/dataset-plots/{name}/{datasetId}`` URL.
+    """
     plots = list_dataset_plots()
     return [
         DatasetPlotType(id=plot["id"], display_name=plot["name"], description=plot["description"]) for plot in plots
@@ -129,13 +135,13 @@ def list_dataset_plot_types():
 
 @router.get(
     "/dataset-plots/{visualization_name}/{dataset_id}",
-    summary="Render a dataset plot",
+    summary="Render a plot of a dataset",
 )
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
-    """Render the named dataset visualization for the given dataset and return the plot specification as JSON.
+    """Render the chosen visualization for a dataset — used to inspect observations before training, spot gaps in the data, or share a quick view of what got imported.
 
-    Returns 404 if the dataset or visualization is unknown; the error message lists the
-    registered visualization ids.
+    The response is a JSON plot spec the frontend can render directly. 404 if the
+    dataset or plot style is unknown; the error message lists the registered styles.
     """
     registry = get_dataset_plots_registry()
     if visualization_name not in registry:
@@ -161,10 +167,14 @@ class BacktestPlotType(DBModel):
 @router.get(
     "/backtest-plots/",
     response_model=list[BacktestPlotType],
-    summary="List available backtest plot types",
+    summary="Discover which backtest plots are available",
 )
 def list_backtest_plot_types():
-    """Return every backtest-plot visualization registered in the backtest-plots registry."""
+    """List the visualizations you can render against a backtest's forecasts (forecast vs. actuals per region, calibration plots, ...).
+
+    Use this to populate a plot picker before requesting a specific
+    ``/backtest-plots/{name}/{backtestId}`` URL.
+    """
     plots = list_backtest_plots()
     return [
         BacktestPlotType(id=plot["id"], display_name=plot["name"], description=plot["description"]) for plot in plots
@@ -173,13 +183,13 @@ def list_backtest_plot_types():
 
 @router.get(
     "/backtest-plots/{visualization_name}/{backtest_id}",
-    summary="Render a backtest plot",
+    summary="Render a forecast plot for a backtest",
 )
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
-    """Render the named backtest visualization for the given backtest and return the Vega plot specification as JSON.
+    """Render the chosen visualization for a backtest's forecasts — used to eyeball model performance, find regions where forecasts diverge from actuals, or share an evaluation result.
 
-    Returns 404 if the backtest or visualization is unknown; the error message lists the
-    registered visualization ids.
+    The response is a Vega plot spec the frontend can render directly. 404 if the
+    backtest or plot style is unknown; the error message lists the registered styles.
     """
     registry = get_backtest_plots_registry()
     if visualization_name not in registry:
