@@ -48,13 +48,19 @@ logger = logging.getLogger(__name__)
 worker: CeleryPool[Any] = CeleryPool()
 
 
-@router.post("/make-dataset", response_model=ImportSummaryResponse, tags=["Datasets"])
+@router.post(
+    "/make-dataset",
+    response_model=ImportSummaryResponse,
+    tags=["Datasets"],
+    summary="Create a dataset from provided observations",
+)
 def make_dataset(
     request: DatasetMakeRequest, database_url: str = Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
-    """
-    This endpoint creates a dataset from the provided data and the data to be fetched3
-    and puts it in the database
+    """Validate the provided observations against the request's geojson and queue dataset import.
+
+    The response carries the queued job id and any per-location validation rejections; poll
+    ``GET /v1/jobs/{id}`` for the harmonize-and-import job status.
     """
     feature_names, provided_data = _read_dataset(request)
     provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
@@ -183,11 +189,20 @@ def _filter_dataset_by_locations(
     return dataset.__class__(new_data, polygons=dataset.polygons, metadata=dataset.metadata)
 
 
-@router.get("/compatible-backtests/{backtestId}", response_model=list[BacktestRead], tags=["Backtests"])
+@router.get(
+    "/compatible-backtests/{backtestId}",
+    response_model=list[BacktestRead],
+    tags=["Backtests"],
+    summary="List backtests comparable to a given backtest",
+)
 def get_compatible_backtests(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
-    """Return a list of backtests that are compatible for comparison with the given backtest"""
+    """Return backtests that share at least one org unit and one split period with the given backtest.
+
+    These are the backtests it makes sense to overlay or diff against. Excludes the input
+    backtest itself.
+    """
     logger.info(f"Checking compatible backtests for {backtest_id}")
     backtest = session.get(Backtest, backtest_id)
     if backtest is None:
@@ -209,13 +224,22 @@ def get_compatible_backtests(
     return backtests
 
 
-@router.get("/backtest-overlap/{backtestId1}/{backtestId2}", response_model=BacktestDomain, tags=["Backtests"])
+@router.get(
+    "/backtest-overlap/{backtestId1}/{backtestId2}",
+    response_model=BacktestDomain,
+    tags=["Backtests"],
+    summary="Get the overlap of two backtests",
+)
 def get_backtest_overlap(
     backtest_id1: Annotated[int, Path(alias="backtestId1")],
     backtest_id2: Annotated[int, Path(alias="backtestId2")],
     session: Session = Depends(get_session),
 ):
-    """Return the org units and split periods that are common between two backtests"""
+    """Return the set of org units and split periods that appear in both backtests.
+
+    Useful when comparing two backtests side by side to know which units/periods can be
+    plotted on the same axes. Returns 404 if either backtest id is unknown.
+    """
     backtest1 = session.get(Backtest, backtest_id1)
     backtest2 = session.get(Backtest, backtest_id2)
     if backtest1 is None:
@@ -227,14 +251,22 @@ def get_backtest_overlap(
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
 
 
-@router.get("/prediction-entry", response_model=list[PredictionEntry], tags=["Predictions"])
+@router.get(
+    "/prediction-entry",
+    response_model=list[PredictionEntry],
+    tags=["Predictions"],
+    summary="Return prediction quantiles (query-string predictionId)",
+)
 async def get_prediction_entry(
     prediction_id: Annotated[int, Query(alias="predictionId")],
     quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
 ):
-    """
-    return
+    """Return the requested quantiles of each forecast in a prediction, one entry per (period, org unit, quantile).
+
+    Returns 404 if the prediction id is unknown. Same shape as
+    ``GET /v1/analytics/prediction-entry/{predictionId}`` - that endpoint takes the id as
+    a path parameter instead.
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -251,7 +283,12 @@ async def get_prediction_entry(
     ]
 
 
-@router.get("/evaluation-entry", response_model=list[EvaluationEntry], tags=["Backtests"])
+@router.get(
+    "/evaluation-entry",
+    response_model=list[EvaluationEntry],
+    tags=["Backtests"],
+    summary="Return backtest forecast quantiles",
+)
 async def get_evaluation_entries(
     backtest_id: Annotated[int, Query(alias="backtestId")],
     quantiles: list[float] = Query(...),
@@ -259,9 +296,11 @@ async def get_evaluation_entries(
     org_units: list[str] = Query(None, alias="orgUnits"),
     session: Session = Depends(get_session),
 ):
-    """
-    Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
-    NOTE: If org_units is set to ["adm0"], the sum over all regions is returned.
+    """Return the requested quantiles for the forecasts in a backtest.
+
+    Can optionally be filtered on split period and org units. If ``orgUnits=["adm0"]`` is
+    passed, the response is the sum over all regions instead of per-region. Returns 404
+    if the backtest id is unknown.
     """
     return_summed = False
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
@@ -325,12 +364,22 @@ async def get_evaluation_entries(
     ]
 
 
-@router.post("/create-backtest", response_model=JobResponse, tags=["Backtests"])
+@router.post(
+    "/create-backtest",
+    response_model=JobResponse,
+    tags=["Backtests"],
+    summary="Queue a backtest job against a stored dataset",
+)
 async def create_backtest(
     request: MakeBacktestRequest,
     database_url: str = Depends(get_database_url),
     session: Session = Depends(get_session),
 ):
+    """Queue a backtest job that uses an already-imported dataset (referenced by id).
+
+    Returns the queued job id; poll ``GET /v1/jobs/{id}`` for status. Returns 404 if the
+    referenced dataset does not exist.
+    """
     if session.get(DataSetTable, request.dataset_id) is None:
         raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     job = worker.queue_db(
@@ -346,10 +395,20 @@ async def create_backtest(
     return JobResponse(id=job.id)
 
 
-@router.post("/make-prediction", response_model=JobResponse, tags=["Predictions"])
+@router.post(
+    "/make-prediction",
+    response_model=JobResponse,
+    tags=["Predictions"],
+    summary="Queue a prediction job from provided observations",
+)
 async def make_prediction(
     request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
+    """Validate the provided observations, attach polygons, and queue a prediction job.
+
+    Returns the queued job id; poll ``GET /v1/jobs/{id}`` for status. Rejects the request
+    if ``data_to_be_fetched`` is set (no longer supported by chap-core).
+    """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
@@ -387,6 +446,7 @@ class MakePredictionWithDataSourceRequest(DatasetMakeRequest):
     "/make-prediction-with-data-source",
     response_model=JobResponse,
     tags=["Predictions"],
+    summary="Queue a prediction job using a stored configured-model-with-data-source",
 )
 @api_experimental
 async def make_prediction_with_data_source(
@@ -395,6 +455,14 @@ async def make_prediction_with_data_source(
     database_url=Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
+    """Resolve a stored ``ConfiguredModelWithDataSource`` and queue a prediction job that uses it.
+
+    Behaves like ``POST /v1/analytics/make-prediction`` but reads the model id from the
+    referenced configured-model-with-data-source record instead of taking it in the
+    request body. Returns the queued job id; poll ``GET /v1/jobs/{id}`` for status.
+    Returns 404 if the referenced record is missing and 400 if it is not linked to a
+    configured model.
+    """
     record = session.exec(
         select(ConfiguredModelWithDataSource)
         .where(ConfiguredModelWithDataSource.id == request.configured_model_with_data_source_id)
@@ -435,12 +503,23 @@ async def make_prediction_with_data_source(
     return JobResponse(id=job.id)
 
 
-@router.get("/prediction-entry/{predictionId}", response_model=list[PredictionEntry], tags=["Predictions"])
+@router.get(
+    "/prediction-entry/{predictionId}",
+    response_model=list[PredictionEntry],
+    tags=["Predictions"],
+    summary="Return prediction quantiles (path predictionId)",
+)
 def get_prediction_entries(
     prediction_id: Annotated[int, Path(alias="predictionId")],
     quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
 ):
+    """Return the requested quantiles of each forecast in a prediction, one entry per (period, org unit, quantile).
+
+    Path-parameter variant of ``GET /v1/analytics/prediction-entry`` - same response
+    shape; the id comes from the URL instead of a ``predictionId`` query parameter.
+    Returns 404 if the prediction id is unknown.
+    """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
@@ -453,18 +532,31 @@ def get_prediction_entries(
     ]
 
 
-@router.get("/actual-cases/{backtestId}", response_model=DataList, tags=["Backtests"], name="get_actual_cases_alias")
-@router.get("/actualCases/{backtestId}", response_model=DataList, tags=["Backtests"])
+@router.get(
+    "/actual-cases/{backtestId}",
+    response_model=DataList,
+    tags=["Backtests"],
+    name="get_actual_cases_alias",
+    summary="Return observed disease cases for a backtest",
+)
+@router.get(
+    "/actualCases/{backtestId}",
+    response_model=DataList,
+    tags=["Backtests"],
+    summary="Return observed disease cases for a backtest (camelCase alias)",
+)
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     org_units: list[str] = Query(None, alias="orgUnits"),
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
     session: Session = Depends(get_session),
 ):
-    """
-    Return the actual disease cases corresponding to a backtest. Can optionally be filtered on org units.
+    """Return the observed ``disease_cases`` for the dataset behind a backtest.
 
-    Note: If org_units is set to ["adm0"], the sum over all regions is returned.
+    Can optionally be filtered on org units. If ``orgUnits=["adm0"]`` is passed the
+    response is the sum over all regions. When ``isDatasetId=true`` the path id is treated
+    as a dataset id directly, skipping the backtest lookup. Returns 404 if the backtest
+    is unknown (and ``isDatasetId`` is false).
     """
     return_summed = False
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
@@ -576,12 +668,23 @@ data_sources = [
 ]
 
 
-@router.get("/data-sources", response_model=list[ChapDataSource], tags=["Datasets"])
+@router.get(
+    "/data-sources",
+    response_model=list[ChapDataSource],
+    tags=["Datasets"],
+    summary="List available external data sources",
+)
 async def get_data_sources() -> list[ChapDataSource]:
+    """Return the CHAP-known external data sources (e.g. ERA5 climate variables) and the dataset features they map to."""
     return data_sources
 
 
-@router.post("/create-backtest-with-data/", response_model=ImportSummaryResponse, tags=["Backtests"])
+@router.post(
+    "/create-backtest-with-data/",
+    response_model=ImportSummaryResponse,
+    tags=["Backtests"],
+    summary="Queue a backtest job from provided observations",
+)
 async def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
     dry_run: bool = Query(
@@ -590,6 +693,12 @@ async def create_backtest_with_data(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
+    """Validate observations, attach polygons, and queue a backtest job.
+
+    Returns the queued job id and per-location validation rejections; poll
+    ``GET /v1/jobs/{id}`` for status. Pass ``dryRun=true`` to skip queueing and only
+    return the rejection summary.
+    """
     try:
         feature_names, provided_data_processed = _read_dataset(request)
         provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
