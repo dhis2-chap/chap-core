@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from chap_core.models.external_model import ExternalModel
     from chap_core.models.model_template import ModelTemplate
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+    from chap_core.api_types import SearcherType
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +251,7 @@ def get_hpo_estimator(
     model_configuration_yaml: Path | None,
     backtest_params: BacktestParams,
     metric: str | None = None,
-    searcher_inp: str | None = None,
+    searcher_inp: SearcherType | None = None,
 ) -> HpoModel:
     """
     Build an HPO-backend estimator from either:
