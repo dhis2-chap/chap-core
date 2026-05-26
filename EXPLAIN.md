@@ -646,7 +646,8 @@ suite, and the CLI `--with-metrics` flag).
 | `tests/explainability/test_metrics.py` | eLoss math; faithful vs anti-faithful sign (181 lines). |
 | `tests/explainability/test_log_transform.py` | Helper for the `log1p` fix: clipping behaviour, NaN/inf dropping, warning logs (~100 lines, 10 tests). |
 | `tests/explainability/test_explain_integration.py` | End-to-end integration suite driving `explain()` / `explain_adaptive()` against a deterministic `MockExternalModel`. Exercises segmentation → perturbation → predict → surrogate fit → coefficient extraction without needing a trained model. 9 tests. |
-| `EXPLAIN.md` | This file. Will be deleted before merge. |
+| `docs/chap-cli/explain-lime-reference.md` | Permanent CLI reference for `chap explain-lime`. Modelled on `eval-reference.md`. Wired into mkdocs nav under *Model Developers → CLI*. |
+| `EXPLAIN.md` | This file. Will be deleted before merge — its content is now split between this CLI reference and (later, in a follow-up) a contributor/architecture doc. |
 
 ### 12c. Modified files (per-file structural delta)
 

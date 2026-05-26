@@ -124,9 +124,10 @@ nav:
           - Model Explainability: external_models/model_explainability.md
       - CLI:
           - Overview: chap-cli/index.md
-          
+
           - eval Reference: chap-cli/eval-reference.md
           - report Reference: chap-cli/report-reference.md
+          - explain-lime Reference: chap-cli/explain-lime-reference.md
 
   #- Modeling App:
   #  - '!import https://github.com/dhis2-chap/chap-frontend?branch=main&docs_dir=apps/modeling-app/docs'
