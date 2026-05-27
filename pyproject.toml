@@ -76,6 +76,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.15.1",
+    "pytest-xdist>=3.6.1",
     "markdown-exec[ansi]>=1.12.1",
     "mktestdocs>=0.2.5",
     "tabulate>=0.10.0",

@@ -51,8 +51,8 @@ check-alembic-heads: ## fail if the alembic migration chain has more than one he
 	@echo "Alembic head count..."
 	@uv run python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; heads = ScriptDirectory.from_config(Config('alembic.ini')).get_heads(); assert len(heads) == 1, f'Expected 1 alembic head, found {len(heads)}: {heads}'; print(f'OK: single head {heads[0]}')"
 
-test: ## run tests quickly with minimal output
-	uv run pytest -q
+test: ## run tests quickly with minimal output (parallel via pytest-xdist)
+	uv run pytest -q -n auto --dist loadfile
 
 test-docs: ## run fast documentation code block tests
 	uv run pytest tests/test_documentation.py -v
