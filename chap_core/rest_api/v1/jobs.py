@@ -2,7 +2,7 @@ import logging
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from chap_core.database.tables import Backtest, BacktestRead, Prediction, PredictionInfo
@@ -209,7 +209,9 @@ def get_evaluation_result(
 
 
 class DataBaseResponse(BaseModel):
-    id: int
+    """Generic job-result payload that just echoes the created row's primary key."""
+
+    id: int = Field(description="Primary key of the row the job created or affected.")
 
 
 @router.get(
