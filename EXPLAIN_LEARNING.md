@@ -65,7 +65,7 @@ It did:
    surrogate-fit step, then crashed with `ValueError: Input y contains
    NaN.` This PR clips negative model outputs and drops non-finite
    rows before the surrogate fit.
-4. Added 57 unit + integration tests where there were zero. The
+4. Added 58 unit + integration tests where there were zero. The
    integration test mocks a model so the whole pipeline gets exercised
    in CI without needing a trained `runs/` directory.
 5. Added a `--lime-params.with-metrics` CLI flag so operators can see
@@ -595,6 +595,30 @@ This makes degenerate cases visible (the warnings tell you exactly how
 many perturbations went OOD) instead of failing with an opaque sklearn
 traceback.
 
+## Follow-up: don't forget to use the filtered X downstream
+
+There's a subtle gotcha that the first attempt of this fix missed. The
+helper returns the *filtered* `(X_fit, z, weights)` — rows where the
+model produced NaN/inf are dropped. But the original `explain()` /
+`explain_adaptive()` then computed R² with `surrogate_model.predict(X)`
+on the **unfiltered** `X`. As soon as *some* perturbations went
+non-finite (but not all), `r2_score(z, y_pred, sample_weight=weights)`
+got mismatched lengths:
+
+```
+ValueError: Found input variables with inconsistent numbers of
+samples: [10, 20, 10]
+```
+
+A reviewer caught it on the PR. The fix is one-line: use `X_fit`
+instead of `X` in the R² call (and in the `p=` / `n=` log line too,
+so the diagnostic matches what the surrogate actually saw). The
+all-NaN case raises before reaching the surrogate; the all-finite
+case has `X_fit == X`; only the partial-NaN case is affected. There's
+now a regression test
+(`test_mixed_finite_and_non_finite_predictions_complete_without_length_mismatch`)
+that reproduces the exact mismatch without the fix and passes with it.
+
 ---
 
 # Part 8 — Hands-on: what to run tomorrow
@@ -626,7 +650,7 @@ and the corresponding small bump in cases.
 uv run pytest tests/explainability/ -v
 ```
 
-Expect 57 passing in ~3 seconds. Skim a few test names — they're
+Expect 58 passing in ~3 seconds. Skim a few test names — they're
 named after what they verify. The integration tests in
 `test_explain_integration.py` are the ones that exercise the full
 pipeline against a mock model; the rest are unit tests on individual

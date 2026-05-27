@@ -273,7 +273,7 @@ chap_core/cli_endpoints/explain.py — explain_lime command, LimeParams config.
 
 Tests:
 ```
-tests/explainability/  — this PR's test suite (57 tests, 0% → 62%
+tests/explainability/  — this PR's test suite (58 tests, 0% → 62%
                          overall, 75% on lime.py). Six modules:
                          test_distance, test_perturb, test_segment,
                          test_surrogate, test_metrics (eLoss math),
@@ -301,7 +301,7 @@ make lint
 
 ```bash
 uv run pytest tests/explainability/ -v
-# Expect: 57 passed in ~3 s.
+# Expect: 58 passed in ~3 s.
 ```
 
 ### 10c. Coverage
@@ -575,7 +575,7 @@ not a LIME bug.
 6. **Adds `--lime-params.with-metrics` CLI flag** so operators get the
    eLoss block at the end of `chap explain-lime` runs, not only Python
    callers.
-7. **Adds 57 unit + integration tests** under `tests/explainability/`
+7. **Adds 58 unit + integration tests** under `tests/explainability/`
    (suite previously had zero), including a `MockExternalModel`-driven
    end-to-end integration suite that exercises the whole LIME pipeline
    without needing a trained model directory. Coverage of the subpackage
@@ -615,7 +615,7 @@ suite, and the CLI `--with-metrics` flag).
 | `tests/explainability/test_surrogate.py` | RidgeSurrogate, BayesianSurrogate, SurrogateResult (102 lines). |
 | `tests/explainability/test_metrics.py` | eLoss math; faithful vs anti-faithful sign (181 lines). |
 | `tests/explainability/test_log_transform.py` | Helper for the `log1p` fix: clipping behaviour, NaN/inf dropping, warning logs (~100 lines, 10 tests). |
-| `tests/explainability/test_explain_integration.py` | End-to-end integration suite driving `explain()` / `explain_adaptive()` against a deterministic `MockExternalModel`. Exercises segmentation → perturbation → predict → surrogate fit → coefficient extraction without needing a trained model. 9 tests. |
+| `tests/explainability/test_explain_integration.py` | End-to-end integration suite driving `explain()` / `explain_adaptive()` against a deterministic `MockExternalModel`. Exercises segmentation → perturbation → predict → surrogate fit → coefficient extraction without needing a trained model. 10 tests (including a regression test that mixes finite and non-finite perturbed predictions to lock in the `X_fit` R² fix). |
 | `docs/chap-cli/explain-lime-reference.md` | Permanent CLI reference for `chap explain-lime`. Modelled on `eval-reference.md`. Wired into mkdocs nav under *Model Developers → CLI*. |
 | `EXPLAIN.md` | This file. Will be deleted before merge — its content is now split between this CLI reference and (later, in a follow-up) a contributor/architecture doc. |
 
@@ -731,7 +731,7 @@ unreachable from the CLI even after the supporting module was wired up.
 | `chap explain-lime` against any trained model (no `return_metrics`) | crashes at `lime.py:1001` (`log1p` → `NaN` → sklearn refuses fit) | **exits 0**, prints the surrogate's coefficient listing. Warns visibly if perturbed predictions are negative (clipped) or non-finite (dropped). |
 | `explain(..., return_metrics=True)` from Python | `ImportError` for `eLoss` | works, returns `(results, metrics)` with `delta_eloss`, `auc_top_k`, `auc_bottom_k` |
 | `chap explain-lime` exposing eLoss to operators | not possible — no CLI flag for `return_metrics` | `--lime-params.with-metrics` prints `r2`, `n_eff`, `delta_eloss`, `auc_top_k`, `auc_bottom_k` after the coefficient listing |
-| `tests/explainability/` | doesn't exist | **57 tests, runs in ~3 s** |
+| `tests/explainability/` | doesn't exist | **58 tests, runs in ~3 s** |
 | Coverage of `chap_core/explainability/` | 0% | **62% overall**, 100% on `distance.py` / `testing/metrics.py`, 96% on `surrogate.py`, **75% on `lime.py`** (was 7% before the integration suite) |
 | Optional `[explainability]` extras (`stumpy`, `pyts`, `fastdtw`) | listed as opt-in, but every import in the subpackage is unconditional — CI default `uv sync --dev` couldn't import the module at all | moved to main `dependencies` so they install with every `uv sync`; subpackage now usable from a clean checkout without remembering an extras flag |
 
