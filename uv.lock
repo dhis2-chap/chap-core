@@ -494,7 +494,7 @@ requires-dist = [
     { name = "optuna", specifier = ">=4.8.0" },
     { name = "packaging", specifier = ">=25.0" },
     { name = "pandas", specifier = ">=2.1.4" },
-    { name = "pandera", specifier = ">=0.26.1" },
+    { name = "pandera", specifier = ">=0.31.1" },
     { name = "plotly", specifier = ">=6.7.0" },
     { name = "pooch", specifier = ">=1.9.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
