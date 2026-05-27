@@ -17,6 +17,11 @@ _non_feature_names = {
 
 
 class PeriodType(Enum):
+    """Granularity at which a model accepts inputs and emits forecasts.
+
+    `any` means the model handles whatever the dataset's `period_type` is.
+    """
+
     week = "week"
     month = "month"
     any = "any"

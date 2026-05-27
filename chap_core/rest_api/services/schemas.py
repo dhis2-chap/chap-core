@@ -37,24 +37,32 @@ class PeriodType(StrEnum):
 class ModelMetadata(BaseModel):
     """Metadata about the ML model author and documentation."""
 
-    author: str | None = None
-    author_note: str | None = None
-    author_assessed_status: AssessedStatus | None = None
-    contact_email: EmailStr | None = None
-    organization: str | None = None
-    organization_logo_url: HttpUrl | None = None
-    citation_info: str | None = None
-    repository_url: HttpUrl | None = None
-    documentation_url: HttpUrl | None = None
+    author: str | None = Field(default=None, description="Person or team that authored the model.")
+    author_note: str | None = Field(
+        default=None, description="Free-form note from the author (caveats, intended use, ...)."
+    )
+    author_assessed_status: AssessedStatus | None = Field(
+        default=None, description="Author-declared maturity rating (gray/red/orange/yellow/green)."
+    )
+    contact_email: EmailStr | None = Field(default=None, description="Contact email for the model author / maintainer.")
+    organization: str | None = Field(default=None, description="Affiliated organisation, if any.")
+    organization_logo_url: HttpUrl | None = Field(
+        default=None, description="URL of an organisation logo to render next to the model."
+    )
+    citation_info: str | None = Field(
+        default=None, description="How to cite the model in publications (DOI, BibTeX, ...)."
+    )
+    repository_url: HttpUrl | None = Field(default=None, description="URL to the model's source code repository.")
+    documentation_url: HttpUrl | None = Field(default=None, description="URL to the model's external documentation.")
 
 
 class ServiceInfo(BaseModel):
     """Base service information metadata."""
 
     id: str = Field(description="Unique service identifier (slug format)")
-    display_name: str
-    version: str = "1.0.0"
-    description: str | None = None
+    display_name: str = Field(description="Human-friendly service name shown to operators.")
+    version: str = Field(default="1.0.0", description="Service version string.")
+    description: str | None = Field(default=None, description="Short paragraph describing what the service does.")
 
     @field_validator("id")
     @classmethod
@@ -71,13 +79,27 @@ class ServiceInfo(BaseModel):
 class MLServiceInfo(ServiceInfo):
     """ML service information extending base ServiceInfo with model-specific fields."""
 
-    model_metadata: ModelMetadata
-    period_type: PeriodType
-    min_prediction_periods: int = 0
-    max_prediction_periods: int = 100
-    allow_free_additional_continuous_covariates: bool = False
-    required_covariates: list[str] = Field(default_factory=list)
-    requires_geo: bool = False
+    model_metadata: ModelMetadata = Field(
+        description="Author / documentation metadata for the model the service hosts."
+    )
+    period_type: PeriodType = Field(description="Period granularity the model accepts (`weekly` or `monthly`).")
+    min_prediction_periods: int = Field(
+        default=0, description="Minimum forecast horizon (in periods) the model supports."
+    )
+    max_prediction_periods: int = Field(
+        default=100, description="Maximum forecast horizon (in periods) the model supports."
+    )
+    allow_free_additional_continuous_covariates: bool = Field(
+        default=False,
+        description="When True, callers can attach extra continuous covariates beyond `required_covariates`.",
+    )
+    required_covariates: list[str] = Field(
+        default_factory=list,
+        description="Covariate names the model must be given to run.",
+    )
+    requires_geo: bool = Field(
+        default=False, description="When True, the model needs a GeoJSON polygon set for spatial features."
+    )
 
 
 class RegistrationRequest(BaseModel):
