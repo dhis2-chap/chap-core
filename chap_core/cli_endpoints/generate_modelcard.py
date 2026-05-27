@@ -204,9 +204,42 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
         if not isinstance(geojson, dict) or "features" not in geojson:
             raise ValueError(f"Invalid GeoJSON at {geojson_path}: expected a 'features' key.")
 
+        label_points = [
+            {
+                "region_name": (
+                    (feature.get("properties") or {}).get("ADM1_EN")
+                    or feature.get("id")
+                    or ""
+                ),
+                "lon": (feature["bbox"][0] + feature["bbox"][2]) / 2,
+                "lat": (feature["bbox"][1] + feature["bbox"][3]) / 2,
+            }
+            for feature in geojson["features"]
+            if isinstance(feature, dict)
+            and isinstance(feature.get("bbox"), list)
+            and len(feature["bbox"]) == 4
+        ]
+
+        region_labels_base = (
+            alt.Chart(alt.Data(values=label_points))
+            .mark_text(fontSize=6, fill="white", stroke="white", strokeWidth=1, opacity=0.9, align="center", baseline="middle")
+            .encode(longitude="lon:Q", latitude="lat:Q", text="region_name:N")
+            .project(type="equirectangular")
+        )
+
+        region_labels_top = (
+            alt.Chart(alt.Data(values=label_points))
+            .mark_text(fontSize=6, fill="#111827", align="center", baseline="middle")
+            .encode(longitude="lon:Q", latitude="lat:Q", text="region_name:N")
+            .project(type="equirectangular")
+        )
+
+        region_labels = region_labels_base + region_labels_top
+
+
         outline = (
             alt.Chart(alt.Data(values=geojson["features"]))
-            .mark_geoshape(fill=None, stroke="#374151", strokeWidth=0.5)
+            .mark_geoshape(fill=None, stroke="#374151", strokeWidth=0.5,)
             .project(type="equirectangular")
         )
 
@@ -226,13 +259,13 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
             .encode(color=alt.Color("value:Q", scale=alt.Scale(scheme="viridis"), legend=alt.Legend(title="MAPE")))
         )
 
-        rmse_map_plot = rmse_map_plot + outline
-        rmse_map_plot.save(output_dir / "rmse_map.png", scale_factor=2.0)
-        rmse_map_plot.save(output_dir / "rmse_map.html", scale_factor=2.0)
+        rmse_map_plot = rmse_map_plot + outline + region_labels
+        rmse_map_plot.save(output_dir / "rmse_map.png", scale_factor=3.0)
+        rmse_map_plot.save(output_dir / "rmse_map.html", scale_factor=3.0)
 
-        mape_map_plot = mape_map_plot + outline
-        mape_map_plot.save(output_dir / "mape_map.png", scale_factor=2.0)
-        mape_map_plot.save(output_dir / "mape_map.html", scale_factor=2.0)
+        mape_map_plot = mape_map_plot + outline + region_labels
+        mape_map_plot.save(output_dir / "mape_map.png", scale_factor=3.0)
+        mape_map_plot.save(output_dir / "mape_map.html", scale_factor=3.0)
 
 
 def _build_results_summary(backtest: Backtest) -> str:
@@ -489,7 +522,7 @@ def generate_modelcard(
     ],
     output_file: Annotated[
         Path,
-        Parameter(help="Path or name of output Markdown file containing modelcard template"),
+        Parameter(help="Path to output Markdown file containing modelcard template"),
     ],
     geojson_path: Annotated[
         Path | None,
