@@ -206,23 +206,19 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
 
         label_points = [
             {
-                "region_name": (
-                    (feature.get("properties") or {}).get("ADM1_EN")
-                    or feature.get("id")
-                    or ""
-                ),
+                "region_name": ((feature.get("properties") or {}).get("ADM1_EN") or feature.get("id") or ""),
                 "lon": (feature["bbox"][0] + feature["bbox"][2]) / 2,
                 "lat": (feature["bbox"][1] + feature["bbox"][3]) / 2,
             }
             for feature in geojson["features"]
-            if isinstance(feature, dict)
-            and isinstance(feature.get("bbox"), list)
-            and len(feature["bbox"]) == 4
+            if isinstance(feature, dict) and isinstance(feature.get("bbox"), list) and len(feature["bbox"]) == 4
         ]
 
         region_labels_base = (
             alt.Chart(alt.Data(values=label_points))
-            .mark_text(fontSize=6, fill="white", stroke="white", strokeWidth=1, opacity=0.9, align="center", baseline="middle")
+            .mark_text(
+                fontSize=6, fill="white", stroke="white", strokeWidth=1, opacity=0.9, align="center", baseline="middle"
+            )
             .encode(longitude="lon:Q", latitude="lat:Q", text="region_name:N")
             .project(type="equirectangular")
         )
@@ -236,10 +232,13 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
 
         region_labels = region_labels_base + region_labels_top
 
-
         outline = (
             alt.Chart(alt.Data(values=geojson["features"]))
-            .mark_geoshape(fill=None, stroke="#374151", strokeWidth=0.5,)
+            .mark_geoshape(
+                fill=None,
+                stroke="#374151",
+                strokeWidth=0.5,
+            )
             .project(type="equirectangular")
         )
 
