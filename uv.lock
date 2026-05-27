@@ -491,7 +491,7 @@ requires-dist = [
     { name = "mlflow-skinny", specifier = ">=3.11.1" },
     { name = "netcdf4", specifier = ">=1.7.2" },
     { name = "numpy", specifier = ">=2.1.3" },
-    { name = "optuna", specifier = ">=4.5.0" },
+    { name = "optuna", specifier = ">=4.8.0" },
     { name = "packaging", specifier = ">=25.0" },
     { name = "pandas", specifier = ">=2.1.4" },
     { name = "pandera", specifier = ">=0.26.1" },
