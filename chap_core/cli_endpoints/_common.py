@@ -61,24 +61,23 @@ def save_results(report_filename: str, results_dict: dict[Any, Any]) -> None:
 
     data: list[list[Any]] = []
     full_data: dict[Any, pd.DataFrame] = {}
-    first_model = True
-    for key, value in results_dict.items():
+    metric_keys: list[str] = []
+    for idx, (key, value) in enumerate(results_dict.items()):
         aggregate_metric_dist = value[0]
-        row: list[Any] = [key, *aggregate_metric_dist.values()]
-        if first_model:
-            data.append(["Model", *list(aggregate_metric_dist.keys())])
-            first_model = False
-        data.append(row)
+        if idx == 0:
+            metric_keys = list(aggregate_metric_dist.keys())
+        rows.append([key, *list(aggregate_metric_dist.values())])
         full_data[key] = pd.DataFrame(value[1])
 
-    dataframe = pd.DataFrame(data)
+    columns = ["Model", *metric_keys]
+    metrics_df = pd.DataFrame(rows, columns=columns)
     csvname = Path(report_filename).with_suffix(".csv")
     for i, (model_name, results) in enumerate(full_data.items()):
         csvname_full = Path(report_filename).with_suffix(f".{i}.csv")
         results.to_csv(csvname_full, index=False)
         logger.info(f"Wrote detailed results for {model_name} to {csvname_full}")
 
-    dataframe.to_csv(csvname, index=False, header=False)
+    metrics_df.to_csv(csvname, index=False, header=False)
     logger.info(f"Evaluation complete. Results saved to {csvname}")
 
 
@@ -144,7 +143,7 @@ def discover_geojson(csv_path: Path) -> Path | None:
 
 
 def load_dataset_from_csv(
-    csv_path: Path,
+    csv_path: str | Path,
     geojson_path: Path | None = None,
     column_mapping: dict[str, str] | None = None,
 ) -> DataSet:
@@ -152,7 +151,7 @@ def load_dataset_from_csv(
     Load dataset from CSV file with optional GeoJSON polygons.
 
     Args:
-        csv_path: Path to CSV file with disease data
+        csv_path: Path or URL to CSV file with disease data
         geojson_path: Optional path to GeoJSON file with polygon boundaries
         column_mapping: Optional mapping from covariate names (keys) to CSV column names (values).
             If provided, columns will be renamed before creating the DataSet.

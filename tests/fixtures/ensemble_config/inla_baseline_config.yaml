@@ -1,0 +1,16 @@
+name: inla_baseline_config
+
+model_name: INLA_baseline  # eller det navnet template-en bruker i CHAP
+target: disease_cases
+
+required_covariates:
+  - population
+
+# Her velger du den varianten du vil ha. Hvis du vil inkludere klima:
+additional_continuous_covariates:
+  - rainfall
+  - mean_temperature
+
+user_option_values:
+  n_lags: 3
+  precision: 1.0

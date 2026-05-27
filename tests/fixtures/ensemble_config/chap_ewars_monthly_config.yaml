@@ -1,0 +1,13 @@
+name: chap_ewars_monthly_config
+
+model_name: chap_ewars_monthly
+target: disease_cases
+
+required_covariates:
+  - rainfall
+  - mean_temperature
+  - population
+
+# Ingen user_options i MLproject (user_options: {}), så vi trenger ikke noe her.
+# additional_continuous_covariates kan være tom (eller utelates)
+additional_continuous_covariates: []

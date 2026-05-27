@@ -1,0 +1,55 @@
+import numpy as np
+
+from chap_core.ensemble.ensemble_model import EnsembleModel
+
+
+def test_deterministic_predict_shape_and_weights(weekly_full_data, constant_template_factory):
+    templates = [
+        constant_template_factory(5.0, 1, "model_a"),
+        constant_template_factory(10.0, 1, "model_b"),
+    ]
+    model = EnsembleModel(base_templates=templates, method="deterministic", n_samples=5)
+
+    predictor = model.train(weekly_full_data)
+    preds = predictor.predict(weekly_full_data, weekly_full_data)
+
+    assert model.weights is not None
+    assert len(model.weights) == 2
+    assert np.isclose(float(np.sum(model.weights)), 100.0, atol=1e-6)
+
+    for loc in weekly_full_data.locations():
+        samples = preds[loc].samples
+        assert samples.shape[1] == 1
+        assert samples.shape[0] == len(weekly_full_data[loc].time_period)
+
+
+def test_probabilistic_predict_samples_count(weekly_full_data, constant_template_factory):
+    templates = [
+        constant_template_factory(3.0, 2, "model_a"),
+        constant_template_factory(6.0, 2, "model_b"),
+    ]
+    n_samples = 6
+    model = EnsembleModel(base_templates=templates, method="probabilistic", n_samples=n_samples, random_state=7)
+
+    predictor = model.train(weekly_full_data)
+    preds = predictor.predict(weekly_full_data, weekly_full_data)
+
+    for loc in weekly_full_data.locations():
+        samples = preds[loc].samples
+        assert samples.shape[1] == n_samples
+        assert samples.shape[0] == len(weekly_full_data[loc].time_period)
+
+
+def test_probabilistic_ensemble_outputs_sorted_samples(weekly_full_data, constant_template_factory):
+    templates = [
+        constant_template_factory(3.0, 2, "model_a"),
+        constant_template_factory(6.0, 2, "model_b"),
+    ]
+    model = EnsembleModel(base_templates=templates, method="probabilistic", n_samples=6, random_state=7)
+
+    predictor = model.train(weekly_full_data)
+    preds = predictor.predict(weekly_full_data, weekly_full_data)
+
+    for loc in weekly_full_data.locations():
+        samples = preds[loc].samples
+        assert np.all(np.diff(samples, axis=1) >= -1e-8)

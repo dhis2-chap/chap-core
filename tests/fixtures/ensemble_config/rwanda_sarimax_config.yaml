@@ -1,0 +1,12 @@
+name: rwanda_sarimax_config
+
+model_name: rwanda_sarimax
+target: disease_cases
+
+required_covariates:
+  - population
+
+# Hvis modellen faktisk bruker klima (avhenger av train.py), kan du ta med:
+additional_continuous_covariates:
+  - rainfall
+  - mean_temperature
