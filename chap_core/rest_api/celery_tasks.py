@@ -14,6 +14,7 @@ from celery.utils.log import get_task_logger
 from dotenv import find_dotenv, load_dotenv
 from pydantic import BaseModel
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 
 from ..database.database import SessionWrapper
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
@@ -255,7 +256,7 @@ def celery_run(func, *args, **kwargs):
     return func(*args, **kwargs)
 
 
-ENGINES_CACHE = {}
+ENGINES_CACHE: dict[str, Engine] = {}
 
 
 @app.task(base=TrackedTask)
