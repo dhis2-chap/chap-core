@@ -470,7 +470,7 @@ requires-dist = [
     { name = "altair", specifier = ">=5.5.0" },
     { name = "bionumpy", specifier = ">=1.0.14" },
     { name = "celery", extras = ["pytest"], specifier = ">=5.6.3" },
-    { name = "chapkit", specifier = ">=0.23" },
+    { name = "chapkit", specifier = ">=0.25.0" },
     { name = "croniter", specifier = ">=6.2.2" },
     { name = "cryptography", specifier = ">=46.0.7" },
     { name = "cyclopts", specifier = ">=4.16.1" },
@@ -559,7 +559,7 @@ dev = [
 
 [[package]]
 name = "chapkit"
-version = "0.23.0"
+version = "0.25.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "geojson-pydantic" },
@@ -568,9 +568,9 @@ dependencies = [
     { name = "servicekit" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/67/b1/bda81a26e02a7b9108933f6dbeaa6546424ed53a680a983f909cd01eb9e4/chapkit-0.23.0.tar.gz", hash = "sha256:e720926811adb401bb0cfb8f6c84e643824c38cf2493d0dbbb58879ef36a9c3a", size = 102483, upload-time = "2026-04-25T22:10:52.245Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/db/e3ce664b6a90edc41e8c17865084ee016fda56aeafbb1c9ea4328d72bc5b/chapkit-0.25.0.tar.gz", hash = "sha256:0d7603e12e9c9b94adaa3e698e60e04b50b3b8e87c8c7f8cbe125ab12b52c343", size = 104535, upload-time = "2026-05-06T12:31:30.62Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/45/30/c8f448f67e87048f3ddb99bbc9336dff801c0526ac9a3653042e879ceb94/chapkit-0.23.0-py3-none-any.whl", hash = "sha256:02770417693c707825d5a9cdc64ceff37682ea4ec7820f4d61385c584521c996", size = 132384, upload-time = "2026-04-25T22:10:50.614Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/0d/99d1e5d683d5b691f59b24fe3ac2ad358f6a25addcb498676cba12bd2c61/chapkit-0.25.0-py3-none-any.whl", hash = "sha256:a5deb7fbe6f8f35ce64b4307d4e463308943912224eb239e6580fdb4a6883201", size = 134520, upload-time = "2026-05-06T12:31:29.13Z" },
 ]
 
 [[package]]
