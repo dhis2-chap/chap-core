@@ -12,7 +12,7 @@ from celery import Celery, Task, shared_task
 from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
 from dotenv import find_dotenv, load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
@@ -48,14 +48,20 @@ logger.setLevel(logging.INFO)
 
 # Send database url in function queue call. Have a dict in module of database url to engines. Look up engine in dict
 class JobDescription(BaseModel):
-    id: str
-    type: str
-    name: str
-    status: str
-    start_time: str | None
-    end_time: str | None
-    result: str | None
-    prediction_setup_id: int | None = None
+    """Public job metadata surfaced by the `/v1/jobs` endpoints — what the UI shows in a job list."""
+
+    id: str = Field(description="Identifier of the job (matches the underlying Celery task id).")
+    type: str = Field(
+        description="Canonical job-type string from `JobType` (e.g. `create_backtest`, `create_prediction`)."
+    )
+    name: str = Field(description="Human-friendly name for the job, set by the caller at enqueue time.")
+    status: str = Field(description="Current job status (`PENDING`, `STARTED`, `SUCCESS`, `FAILURE`, ...).")
+    start_time: str | None = Field(description="ISO timestamp when the job started running; `None` while still queued.")
+    end_time: str | None = Field(description="ISO timestamp when the job completed; `None` while still running.")
+    result: str | None = Field(description="Result blob produced by the job (JSON string) or error message on failure.")
+    prediction_setup_id: int | None = Field(
+        default=None, description="`PredictionSetup.id` this job belongs to, when applicable."
+    )
 
 
 def read_environment_variables():

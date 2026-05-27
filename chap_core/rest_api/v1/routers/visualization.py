@@ -2,7 +2,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
+from sqlmodel import Field, Session
 from starlette.responses import JSONResponse
 
 from chap_core.assessment.backtest_plots import (
@@ -45,13 +45,17 @@ def get_avilable_metric_plots(backtest_id: int):
 
 
 class VisualizationParams(DBModel):
-    metric_id: int
+    """Inputs for requesting a metric-aware backtest plot."""
+
+    metric_id: int = Field(description="Primary key of the metric to score against.")
 
 
 class MetricInfo(DBModel):
-    id: str
-    display_name: str
-    description: str = ""
+    """Catalogue entry for one scoring metric (CRPS, MAE, ...)."""
+
+    id: str = Field(description="Canonical metric identifier used in URLs and request bodies.")
+    display_name: str = Field(description="Human-friendly metric name shown in pickers.")
+    description: str = Field(default="", description="Short paragraph explaining what the metric measures.")
 
 
 @router.get(
@@ -111,9 +115,11 @@ def generate_visualization(
 
 
 class DatasetPlotType(DBModel):
-    id: str
-    display_name: str
-    description: str = ""
+    """Catalogue entry for one dataset-level plot style (observation time-series, polygon overlay, ...)."""
+
+    id: str = Field(description="Canonical plot identifier used in URLs.")
+    display_name: str = Field(description="Human-friendly plot name shown in pickers.")
+    description: str = Field(default="", description="Short paragraph explaining what the plot shows.")
 
 
 @router.get(
@@ -159,9 +165,11 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
 
 
 class BacktestPlotType(DBModel):
-    id: str
-    display_name: str
-    description: str = ""
+    """Catalogue entry for one backtest-level plot style (per-metric, per-org-unit, ...)."""
+
+    id: str = Field(description="Canonical plot identifier used in URLs.")
+    display_name: str = Field(description="Human-friendly plot name shown in pickers.")
+    description: str = Field(default="", description="Short paragraph explaining what the plot shows.")
 
 
 @router.get(
