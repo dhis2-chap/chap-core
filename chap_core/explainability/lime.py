@@ -1107,12 +1107,12 @@ def explain(
     # =================================================================
 
     # Temporary metrics TODO: update
-    z_hat = surrogate_model.predict(X)
+    z_hat = surrogate_model.predict(X_fit)
     r2 = r2_score(z, z_hat, sample_weight=weights)  # Compare similarity of output in neighborhood of prediction
     n_eff = (weights.sum() ** 2) / (
         weights**2
     ).sum()  # Effective number of perturbations, based on the distribution of weighting of perturbations
-    logger.info(f"Surrogate weighted R2={r2:.3f}, effective N={n_eff:.1f}, p={X.shape[1]}")
+    logger.info(f"Surrogate weighted R2={r2:.3f}, effective N={n_eff:.1f}, p={X_fit.shape[1]}")
 
     sorted_results = results.as_sorted()
 
@@ -1592,10 +1592,12 @@ def explain_adaptive(
     # Calculate metrics
     # =================================================================
 
-    z_hat = surrogate_model.predict(X)
+    z_hat = surrogate_model.predict(X_fit)
     r2 = r2_score(z, z_hat, sample_weight=weights)
     n_eff = (weights.sum() ** 2) / (weights**2).sum()
-    logger.info(f"Adaptive surrogate weighted R2={r2:.3f}, effective N={n_eff:.1f}, p={X.shape[1]}, n={X.shape[0]}")
+    logger.info(
+        f"Adaptive surrogate weighted R2={r2:.3f}, effective N={n_eff:.1f}, p={X_fit.shape[1]}, n={X_fit.shape[0]}"
+    )
 
     # =================================================================
     # Calculate metrics

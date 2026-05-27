@@ -158,6 +158,31 @@ class TestLog1pHelperEndToEnd:
         with pytest.raises(ValueError, match="All perturbed predictions were non-finite"):
             _explain_with_defaults(model, small_full_dataset)
 
+    def test_mixed_finite_and_non_finite_predictions_complete_without_length_mismatch(self, small_full_dataset, caplog):
+        """Regression: r2_score raised on length mismatch when only some perturbations were non-finite.
+
+        Before the fix, the surrogate fit ran on filtered (X_fit, z, weights) but the R²
+        calculation called surrogate_model.predict(X) on the unfiltered X, so y_true and
+        y_pred had different lengths and sklearn raised.
+        """
+
+        def mixed_response(loc: str, n: int) -> np.ndarray:
+            # Non-perturbation calls (real location names) stay finite so the
+            # pipeline can compute y_orig and proceed. Half the pseudo-locations
+            # produce NaN to exercise the partial-drop path.
+            if loc.startswith("pb_") and int(loc.split("_", 1)[1]) % 2 == 1:
+                return np.full(n, np.nan)
+            return np.linspace(10.0, 50.0, n)
+
+        model = MockExternalModel(response_fn=mixed_response)
+        with caplog.at_level(logging.WARNING, logger="chap_core.explainability.lime"):
+            results = _explain_with_defaults(model, small_full_dataset)
+
+        assert isinstance(results, list) and len(results) > 0
+        assert any("non-finite" in rec.message and "dropping" in rec.message for rec in caplog.records), (
+            "expected diagnostic about dropping non-finite perturbations"
+        )
+
 
 class TestExplainAdaptiveEndToEnd:
     """Smoke test for the adaptive variant — same contract, different sampling strategy."""

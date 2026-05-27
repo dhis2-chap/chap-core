@@ -656,8 +656,11 @@ Four categories of change:
 
    Three call sites in `explain()` and `explain_adaptive()` now use the
    helper instead of bare `z = np.log1p(y); surrogate.fit(X, z, weights)`.
-   End result: `chap explain-lime` against the example trained models now
-   exits 0 (was exit 1 on master with `Input y contains NaN`).
+   The downstream R² calculation also uses the filtered `X_fit` (not the
+   unfiltered `X`) so partial-NaN cases don't blow up `r2_score` with a
+   length mismatch. End result: `chap explain-lime` against the example
+   trained models now exits 0 (was exit 1 on master with `Input y contains
+   NaN`).
 
 4. **No other behaviour change.** Apart from the two `ModelFailedException`
    raises (which only fire on a code path that previously would have
