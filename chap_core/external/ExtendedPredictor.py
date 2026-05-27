@@ -1,3 +1,5 @@
+import copy
+
 import pandas as pd
 
 from chap_core.datatypes import Samples
@@ -9,6 +11,15 @@ class ExtendedPredictor(ConfiguredModel):
     def __init__(self, configured_model: ConfiguredModel, desired_scope):
         self._config_model = configured_model
         self._desired_scope = desired_scope
+
+    @property
+    def model_information(self):
+        inner = self._config_model.model_information
+        if inner is None:
+            return None
+        adapted = copy.copy(inner)
+        adapted.max_prediction_length = self._desired_scope
+        return adapted
 
     def train(self, train_data: DataSet, extra_args=None):
         self._config_model.train(train_data, extra_args)
@@ -25,13 +36,15 @@ class ExtendedPredictor(ConfiguredModel):
         if "parent" in future_df.columns:
             future_df = future_df.drop(columns=["parent"])
 
-        model_information = self._config_model.model_information  # type: ignore[attr-defined]
+        model_information = self._config_model.model_information
 
         assert model_information is not None
 
         min_pred_length = model_information.min_prediction_length
         max_pred_length = model_information.max_prediction_length
 
+        assert min_pred_length is not None
+        assert max_pred_length is not None
         assert self._desired_scope >= min_pred_length
 
         remaining_time_periods = self._desired_scope
@@ -51,6 +64,23 @@ class ExtendedPredictor(ConfiguredModel):
                 DataSet.from_pandas(historic_df), DataSet.from_pandas(future_slice)
             )
             new_prediction_pandas = new_prediction.to_pandas()
+
+            # Carry covariate columns from future_slice into predictions so that
+            # the rows appended to historic_df are not missing covariate values.
+            covariate_cols = [
+                col
+                for col in future_slice.columns
+                if col not in ("time_period", "location")
+                and not col.startswith("sample_")
+                and col not in new_prediction_pandas.columns
+            ]
+            if covariate_cols:
+                new_prediction_pandas = new_prediction_pandas.merge(
+                    future_slice[["time_period", "location", *covariate_cols]],
+                    on=["time_period", "location"],
+                    how="left",
+                )
+
             predictions = pd.concat([predictions, new_prediction_pandas])
             if remaining_time_periods > max_pred_length:
                 if remaining_time_periods <= 2 * max_pred_length:
@@ -85,7 +115,7 @@ class ExtendedPredictor(ConfiguredModel):
         sample_cols = [col for col in new_rows.columns if col.startswith("sample_")]
 
         # Replace them with a single column "disease_cases" as the average
-        new_rows["disease_cases"] = new_rows[sample_cols].mean(axis=1)
+        new_rows["disease_cases"] = new_rows[sample_cols].median(axis=1).round().astype(int)
 
         # Drop the original sample columns
         new_rows = new_rows.drop(columns=sample_cols)

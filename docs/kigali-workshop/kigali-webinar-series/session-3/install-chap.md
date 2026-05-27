@@ -1,5 +1,5 @@
 # 1. Installing Chap
-In this guide, you'll install the Chap command-line tool. Once installed, you can run chap evaluate to test any model against real datasets — which you'll do in the next guide in this session.
+In this guide, you'll install the Chap command-line tool. Once installed, you can run chap eval to test any model against real datasets — which you'll do in the next guide in this session.
 
 ## Why Chap?
 Chap (Climate and Health Assessment Platform) is a tool for developing and evaluating disease prediction models that use climate data. The `chap` command-line tool allows you to:
@@ -38,6 +38,6 @@ Run the following command:
 chap --help
 ```
 
-You should see output listing available commands including `evaluate`, `plot-backtest`, and `export-metrics`.
+You should see output listing available commands including `eval`, `plot-backtest`, and `export-metrics`.
 
 **Verification:** If you see the help output with available commands, Chap is installed correctly. You're ready for the next guide: [Implement your own model from a minimalist example](fork-example.md).

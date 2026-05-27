@@ -16,9 +16,10 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 import pandas as pd
 import xarray as xr
+from packaging.version import Version
 
 if TYPE_CHECKING:
-    from chap_core.api_types import BackTestParams
+    from chap_core.api_types import BacktestParams
 
 from chap_core.assessment.flat_representations import (
     FlatForecasts,
@@ -29,9 +30,10 @@ from chap_core.assessment.flat_representations import (
 from chap_core.data import DataSet as _DataSet
 from chap_core.database.dataset_tables import DataSet, Observation, ObservationBase
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.tables import BackTest, BackTestForecast
+from chap_core.database.tables import Backtest, BacktestForecast
 from chap_core.datatypes import SamplesWithTruth
-from chap_core.rest_api.data_models import BackTestCreate
+from chap_core.external.model_configuration import ModelTemplateConfigV2
+from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.time_period import TimePeriod
 
 try:
@@ -83,19 +85,22 @@ def _flat_data_to_xarray(flat_data: "FlatEvaluationData", model_metadata: dict) 
     ds = xr.Dataset(data_vars)
 
     # Add global attributes
-    ds.attrs.update(
-        {
-            "title": "CHAP Model Evaluation Results",
-            "model_name": model_metadata.get("model_name", ""),
-            "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
-            "model_version": model_metadata.get("model_version", ""),
-            "created_date": datetime.datetime.now().isoformat(),
-            "split_periods": json.dumps(model_metadata.get("split_periods", [])),
-            "org_units": json.dumps(model_metadata.get("org_units", [])),
-            "historical_context_periods": model_metadata.get("historical_context_periods", 0),
-            "chap_version": CHAP_VERSION,
-        }
-    )
+    attrs = {
+        "title": "CHAP Model Evaluation Results",
+        "model_name": model_metadata.get("model_name", ""),
+        "model_configuration": json.dumps(model_metadata.get("model_configuration", {})),
+        "model_version": model_metadata.get("model_version", ""),
+        "created_date": datetime.datetime.now().isoformat(),
+        "split_periods": json.dumps(model_metadata.get("split_periods", [])),
+        "org_units": json.dumps(model_metadata.get("org_units", [])),
+        "historical_context_periods": model_metadata.get("historical_context_periods", 0),
+        "chap_version": CHAP_VERSION,
+    }
+
+    if "model_info" in model_metadata:
+        attrs["model_info"] = model_metadata["model_info"]
+
+    ds.attrs.update(attrs)
 
     return ds
 
@@ -213,14 +218,14 @@ class EvaluationBase(ABC):
 
     @classmethod
     @abstractmethod
-    def from_backtest(cls, backtest: "BackTest") -> "EvaluationBase":
+    def from_backtest(cls, backtest: "Backtest") -> "EvaluationBase":
         """
-        Create Evaluation from database BackTest object.
+        Create Evaluation from database Backtest object.
 
         All implementations must support loading from database.
 
         Args:
-            backtest: Database BackTest object (with relationships loaded)
+            backtest: Database Backtest object (with relationships loaded)
 
         Returns:
             Evaluation instance
@@ -233,29 +238,31 @@ class EvaluationBase(ABC):
         evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
         last_train_period: TimePeriod,
         configured_model: ConfiguredModelDB,
-        info: "BackTestCreate",
+        info: "BacktestCreate",
+        historical_observations: list[Observation] | None = None,
+        historical_context_periods: int = 0,
     ) -> "EvaluationBase": ...
 
 
 class Evaluation(EvaluationBase):
     """
-    Evaluation implementation backed by database BackTest model.
+    Evaluation implementation backed by database Backtest model.
 
-    This wraps an existing BackTest object and provides the
+    This wraps an existing Backtest object and provides the
     EvaluationBase interface without modifying the database schema.
     """
 
     def __init__(
         self,
-        backtest: "BackTest",
+        backtest: "Backtest",
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
     ):
         """
-        Initialize Evaluation with a BackTest object.
+        Initialize Evaluation with a Backtest object.
 
         Args:
-            backtest: Database BackTest object (with relationships loaded)
+            backtest: Database Backtest object (with relationships loaded)
             historical_observations: Optional list of Observation objects for historical
                 context (periods before split points, for plotting)
             historical_context_periods: Number of periods of historical context stored
@@ -266,15 +273,15 @@ class Evaluation(EvaluationBase):
         self._flat_data_cache: FlatEvaluationData | None = None
 
     @classmethod
-    def from_backtest(cls, backtest: "BackTest") -> "Evaluation":
+    def from_backtest(cls, backtest: "Backtest") -> "Evaluation":
         """
-        Create Evaluation from database BackTest object.
+        Create Evaluation from database Backtest object.
 
         Args:
-            backtest: Database BackTest object (with relationships loaded)
+            backtest: Database Backtest object (with relationships loaded)
 
         Returns:
-            Evaluation instance wrapping the BackTest
+            Evaluation instance wrapping the Backtest
         """
         return cls(backtest)
 
@@ -284,12 +291,12 @@ class Evaluation(EvaluationBase):
         evaluation_results: Iterable[_DataSet[SamplesWithTruth]],
         last_train_period: TimePeriod,
         configured_model: ConfiguredModelDB,
-        info: BackTestCreate,
+        info: BacktestCreate,
         historical_observations: list[Observation] | None = None,
         historical_context_periods: int = 0,
     ) -> "Evaluation":
         info.created = datetime.datetime.now()
-        backtest = BackTest(
+        backtest = Backtest(
             **info.model_dump()
             | {"model_db_id": configured_model.id, "model_template_version": configured_model.model_template.version}
         )
@@ -307,7 +314,7 @@ class Evaluation(EvaluationBase):
                     eval_result.period_range, samples_with_truth.samples, samples_with_truth.disease_cases, strict=False
                 ):
                     # add forecast series for this period
-                    forecast = BackTestForecast(
+                    forecast = BacktestForecast(
                         period=period.id,
                         org_unit=location,
                         last_train_period=last_train_period.id,
@@ -359,7 +366,7 @@ class Evaluation(EvaluationBase):
         configured_model: ConfiguredModelDB,
         estimator,
         dataset: _DataSet,
-        backtest_params: "BackTestParams",
+        backtest_params: "BacktestParams",
         backtest_name: str = "evaluation",
         historical_context_years: int = 6,
     ) -> "Evaluation":
@@ -401,20 +408,20 @@ class Evaluation(EvaluationBase):
         )
         last_train_period = train.period_range[-1]
 
-        backtest_info = BackTestCreate(
+        backtest_info = BacktestCreate(
             name=backtest_name,
             dataset_id=0,
             model_id=configured_model.id,
         )
 
         # Calculate number of periods based on dataset period type
-        historical_context_periods = cls._calculate_periods_from_years(
+        historical_context_periods = cls.calculate_periods_from_years(
             dataset=dataset,
             years=historical_context_years,
         )
 
         # Extract historical observations from the dataset for plotting context
-        historical_observations = cls._extract_historical_observations(
+        historical_observations = cls.extract_historical_observations(
             dataset=dataset,
             up_to_period=last_train_period,
             n_periods=historical_context_periods,
@@ -431,7 +438,7 @@ class Evaluation(EvaluationBase):
         )
 
     @classmethod
-    def _calculate_periods_from_years(cls, dataset: _DataSet, years: int) -> int:
+    def calculate_periods_from_years(cls, dataset: _DataSet, years: int) -> int:
         """
         Calculate number of periods from years based on dataset period type.
 
@@ -468,7 +475,7 @@ class Evaluation(EvaluationBase):
         return years * periods_per_year
 
     @classmethod
-    def _extract_historical_observations(
+    def extract_historical_observations(
         cls,
         dataset: _DataSet,
         up_to_period: TimePeriod,
@@ -521,12 +528,12 @@ class Evaluation(EvaluationBase):
 
         return observations
 
-    def to_backtest(self) -> "BackTest":
+    def to_backtest(self) -> "Backtest":
         """
-        Get underlying database BackTest object.
+        Get underlying database Backtest object.
 
         Returns:
-            BackTest database model
+            Backtest database model
         """
         return self._backtest
 
@@ -563,7 +570,7 @@ class Evaluation(EvaluationBase):
 
     def get_org_units(self) -> list[str]:
         """
-        Get locations from BackTest metadata.
+        Get locations from Backtest metadata.
 
         Returns:
             List of location identifiers
@@ -572,7 +579,7 @@ class Evaluation(EvaluationBase):
 
     def get_split_periods(self) -> list[str]:
         """
-        Get split periods from BackTest metadata.
+        Get split periods from Backtest metadata.
 
         Returns:
             List of period identifiers
@@ -585,6 +592,7 @@ class Evaluation(EvaluationBase):
         model_name: str | None = None,
         model_configuration: dict | None = None,
         model_version: str | None = None,
+        model_info: ModelTemplateConfigV2 | None = None,
     ) -> None:
         """
         Export evaluation to NetCDF file using xarray.
@@ -594,6 +602,7 @@ class Evaluation(EvaluationBase):
             model_name: Name of the model (optional)
             model_configuration: Model configuration dictionary (optional)
             model_version: Model version string (optional)
+            model_info: ModelTemplateConfigV2 object containing model metadata (optional)
         """
         flat_data = self.to_flat()
 
@@ -606,6 +615,9 @@ class Evaluation(EvaluationBase):
             "historical_context_periods": self._historical_context_periods,
         }
 
+        if model_info is not None:
+            model_metadata["model_info"] = model_info.model_dump_json(exclude_none=True)
+
         ds = _flat_data_to_xarray(flat_data, model_metadata)
         ds.to_netcdf(filepath)
 
@@ -614,7 +626,7 @@ class Evaluation(EvaluationBase):
         """
         Load evaluation from NetCDF file.
 
-        Creates an in-memory BackTest object without database persistence.
+        Creates an in-memory Backtest object without database persistence.
 
         Args:
             filepath: Path to NetCDF file
@@ -624,13 +636,15 @@ class Evaluation(EvaluationBase):
         """
         ds = xr.open_dataset(filepath)
 
+        ds = cls._ensure_backcompatibility(ds)
+
         flat_data = _xarray_to_flat_data(ds)
 
         split_periods = json.loads(ds.attrs.get("split_periods", "[]"))
         org_units = json.loads(ds.attrs.get("org_units", "[]"))
         historical_context_periods = int(ds.attrs.get("historical_context_periods", 0))
 
-        backtest = BackTest(
+        backtest = Backtest(
             name=f"Loaded from {Path(filepath).name}",
             org_units=org_units,
             split_periods=split_periods,
@@ -640,18 +654,18 @@ class Evaluation(EvaluationBase):
 
         forecasts_df = pd.DataFrame(cast("pd.DataFrame", flat_data.forecasts))
 
-        # Group by (location, time_period, horizon_distance) to create BackTestForecast objects
+        # Group by (location, time_period, horizon_distance) to create BacktestForecast objects
         for (location, time_period, horizon_distance), group in forecasts_df.groupby(
             ["location", "time_period", "horizon_distance"]
         ):
-            # Calculate last_seen_period from horizon_distance
+            # Calculate last_seen_period from 1-based horizon_distance
             period = TimePeriod.parse(str(time_period))
-            last_seen_period = period - (int(str(horizon_distance)) * period.time_delta)
+            last_seen_period = period - ((int(str(horizon_distance)) - 1) * period.time_delta)
 
             # Get all sample values for this forecast, sorted by sample number
             values = group.sort_values("sample")["forecast"].tolist()
 
-            forecast = BackTestForecast(
+            forecast = BacktestForecast(
                 period=time_period,
                 org_unit=location,
                 last_seen_period=last_seen_period.id,
@@ -699,6 +713,18 @@ class Evaluation(EvaluationBase):
             historical_context_periods=historical_context_periods,
         )
 
+    @staticmethod
+    def _ensure_backcompatibility(ds: xr.Dataset) -> xr.Dataset:
+        """
+        Ensure backwards compatibility for datasets created with older CHAP versions.
+
+        Update horizon_distance coordinate in older datasets where it was stored as 0-based instead of 1-based.
+        """
+
+        if Version(ds.attrs.get("chap_version", "0.0.0")) <= Version("1.1.1"):
+            ds = ds.assign_coords(horizon_distance=ds.horizon_distance + 1)
+        return ds
+
 
 @dataclass
 class ModelCard:
@@ -710,7 +736,7 @@ class ModelCard:
 
     def __init__(
         self,
-        backtest: "BackTest",
+        backtest: "Backtest",
         description: str | None = None,
     ):
         self.backtest = backtest

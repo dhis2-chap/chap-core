@@ -3,19 +3,15 @@ import typing
 
 import numpy as np
 import pytest
-from pydantic_geojson import PointModel
-from pydantic_geojson._base import Coordinates
+from geojson_pydantic import Point
 from sqlmodel import select, Session
 
 from chap_core.api_types import FeatureCollectionModel, FeatureModel
 from chap_core.database.dataset_tables import DataSet, Observation, DataSource
-from chap_core.database.tables import Prediction, BackTest, BackTestForecast, BackTestMetric, PredictionSamplesEntry
+from chap_core.database.tables import Prediction, Backtest, BacktestForecast, BacktestMetric, PredictionSamplesEntry
 from chap_core.rest_api.app import app
-from chap_core.rest_api.v1.debug import router as debug_router
-from chap_core.rest_api.v1.routers.analytics import BackTestParams
+from chap_core.rest_api.v1.routers.analytics import BacktestParams
 from chap_core.rest_api.v1.routers.dependencies import get_session
-
-app.include_router(debug_router, prefix="/v1")
 
 
 @pytest.fixture
@@ -40,21 +36,22 @@ def org_units():
 
 @pytest.fixture
 def backtest_params():
-    return BackTestParams(n_periods=3, n_splits=2, stride=1)
+    return BacktestParams(n_periods=3, n_splits=2, stride=1)
 
 
 @pytest.fixture
 def geojson(org_units) -> FeatureCollectionModel:
     return FeatureCollectionModel(
+        type="FeatureCollection",
         features=[
             FeatureModel(
                 type="Feature",
                 id=ou,
                 properties={"name": ou},
-                geometry=PointModel(coordinates=Coordinates(0.0, 0.0)),
+                geometry=Point(type="Point", coordinates=[0.0, 0.0]),
             )
             for ou in org_units
-        ]
+        ],
     )
 
 
@@ -220,14 +217,14 @@ def forecasts_2(seen_periods, org_units, backtest_params):
 
 
 def _generate_forecasts(
-    backtest_params: BackTestParams, org_units: list[str], seen_periods: list[str], backtest_id: int = 1
+    backtest_params: BacktestParams, org_units: list[str], seen_periods: list[str], backtest_id: int = 1
 ) -> list[typing.Any]:
     start_split = len(seen_periods) - backtest_params.n_splits - backtest_params.n_periods
     forecasts = []
     for start in range(start_split, start_split + backtest_params.n_splits):
         forecasts.extend(
             [
-                BackTestForecast(
+                BacktestForecast(
                     org_unit=ou,
                     last_train_period=seen_periods[start],
                     last_seen_period=seen_periods[start],
@@ -246,7 +243,7 @@ def _generate_forecasts(
 
 @pytest.fixture
 def backtest(dataset, forecasts):
-    return BackTest(
+    return Backtest(
         name="test backtest",
         dataset_id=1,
         dataset=dataset,
@@ -259,7 +256,7 @@ def backtest(dataset, forecasts):
 
 @pytest.fixture
 def backtest_with_nans(dataset_with_nans, forecasts_2):
-    return BackTest(
+    return Backtest(
         name="test_backtest_with_nans",
         dataset_id=1,
         dataset=dataset_with_nans,
@@ -322,10 +319,10 @@ def p_seeded_engine(
         d_observations = list(session.exec(select(DataSet).where(DataSet.name == "testing dataset")).one().observations)
         assert d_observations, d_observations
         observations = list(
-            session.exec(select(BackTest).where(BackTest.name == "test backtest")).one().dataset.observations
+            session.exec(select(Backtest).where(Backtest.name == "test backtest")).one().dataset.observations
         )
         obs_with_nan = list(
-            session.exec(select(BackTest).where(BackTest.name == "test_backtest_with_nans")).one().dataset.observations
+            session.exec(select(Backtest).where(Backtest.name == "test_backtest_with_nans")).one().dataset.observations
         )
         assert any(obs.value is None for obs in obs_with_nan), "No NaN observations found in dataset_with_nans"
         assert observations, observations

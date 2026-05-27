@@ -10,7 +10,19 @@ warnings.filterwarnings("ignore", module="bionumpy")
 
 from cyclopts import App
 
-from chap_core.cli_endpoints import convert, ensemble, evaluate, forecast, preference_learn, utils, validate
+from chap_core.cli_endpoints import (
+    causal,
+    convert,
+    evaluate,
+    explain,
+    forecast,
+    generate_modelcard,
+    model,
+    preference_learn,
+    report,
+    utils,
+    validate,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,13 +33,17 @@ logging.basicConfig(
 app = App()
 
 # Register commands from each module
+causal.register_commands(app)
 convert.register_commands(app)
 evaluate.register_commands(app)
+explain.register_commands(app)
 forecast.register_commands(app)
+model.register_commands(app)
 preference_learn.register_commands(app)
+report.register_commands(app)
 utils.register_commands(app)
 validate.register_commands(app)
-ensemble.register_commands(app)
+generate_modelcard.register_commands(app)
 
 
 def main():

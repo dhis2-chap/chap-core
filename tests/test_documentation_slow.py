@@ -124,6 +124,7 @@ class TestSlowDocumentationBash:
     """Slow bash documentation tests that run actual CLI commands."""
 
     SLOW_DOC_FILES = [
+        "docs/external_models/data_formats.md",
         "docs/feature_tutorials/extended_predictor.md",
         "docs/chap-cli/evaluation-workflow.md",
         "docs/kigali-workshop/kigali-workshop-material/11_feb_presession.md",

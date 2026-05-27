@@ -3,35 +3,39 @@ from typing import Annotated, Any
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import (
-    BackTestParams,
+    BacktestParams,
     DataElement,
     DataList,
     EvaluationEntry,
     FeatureCollectionModel,
     PredictionEntry,
 )
-from chap_core.database.base_tables import DBModel
+from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
-from chap_core.database.tables import BackTest, BackTestForecast, Prediction
+from chap_core.database.tables import Backtest, BacktestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.converters import observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
-from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool
+from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
 from ...data_models import (
-    BackTestCreate,
-    BackTestRead,
+    BacktestCreate,
+    BacktestDomain,
+    BacktestRead,
+    ChapDataSource,
     DatasetMakeRequest,
     ImportSummaryResponse,
     JobResponse,
+    MakeBacktestRequest,
+    MakeBacktestWithDataRequest,
+    MakePredictionRequest,
     PredictionParams,
     ValidationError,
 )
@@ -43,31 +47,25 @@ logger = logging.getLogger(__name__)
 worker: CeleryPool[Any] = CeleryPool()
 
 
-class EvaluationEntryRequest(BaseModel):
-    backtest_id: int
-    quantiles: list[Annotated[float, Field(ge=0, le=1)]]
-
-
-class MetaDataEntry(BaseModel):
-    element_id: str
-    element_name: str
-    feature_name: str
-
-
-class MetaData(BaseModel):
-    data_name_mapping: list[MetaDataEntry]
-
-
-@router.post("/make-dataset", response_model=ImportSummaryResponse, tags=["Datasets"])
+@router.post(
+    "/make-dataset",
+    response_model=ImportSummaryResponse,
+    tags=["Datasets"],
+    summary="Import observations as a reusable dataset",
+)
 def make_dataset(
     request: DatasetMakeRequest, database_url: str = Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
-    """
-    This endpoint creates a dataset from the provided data and the data to be fetched3
-    and puts it in the database
+    """Persist observations (with polygons) as a named dataset you can reuse across backtests and predictions.
+
+    Use this to turn a one-off batch of DHIS2 / file-based observations into something
+    stored, so a single dataset can back multiple evaluations. Import happens in the
+    background — the response gives you a job id plus a per-location rejection summary
+    (validation runs synchronously, the harmonise-and-load step async). Poll
+    ``/v1/jobs/{id}`` to know when the dataset is queryable.
     """
     feature_names, provided_data = _read_dataset(request)
-    provided_data, rejections = _validate_full_dataset(feature_names, provided_data)
+    provided_data, rejections = validate_full_dataset(feature_names, provided_data)
     # provided_field_names = {entry.element_id: entry.element_name for entry in request.provided_data}
     polygon_rejected = provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
@@ -88,7 +86,7 @@ def make_dataset(
         request.type,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: "create_dataset", JOB_NAME_KW: request.name},
+        **{JOB_TYPE_KW: JobType.DATASET, JOB_NAME_KW: request.name},
     )
 
     return ImportSummaryResponse(id=job.id, imported_count=imported_count, rejected=rejections)
@@ -105,13 +103,13 @@ def _read_dataset(request):
     return feature_names, provided_data
 
 
-def _validate_full_dataset(
-    feature_names, provided_data, target_name="disease_cases"
-) -> tuple[DataSet, list[ValidationError]]:
-    new_data = {}
+def _find_locations_with_complete_covariates(
+    dataset: DataSet, feature_names: list[str], target_name: str = "disease_cases"
+) -> tuple[set[str], list[ValidationError]]:
+    """Identify locations that have no NaN values in covariate features."""
+    locations_to_keep = set()
     rejected_list = []
-    n_locations = len(provided_data.locations())
-    for location, data in provided_data.items():
+    for location, data in dataset.items():
         for feature_name in feature_names:
             if feature_name == target_name:
                 continue
@@ -128,8 +126,18 @@ def _validate_full_dataset(
                 )
                 break
         else:
-            new_data[location] = data
-    if not new_data:
+            locations_to_keep.add(location)
+    return locations_to_keep, rejected_list
+
+
+def validate_full_dataset(
+    feature_names, provided_data, target_name="disease_cases"
+) -> tuple[DataSet, list[ValidationError]]:
+    n_locations = len(provided_data.locations())
+    locations_to_keep, rejected_list = _find_locations_with_complete_covariates(
+        provided_data, feature_names, target_name
+    )
+    if not locations_to_keep:
         raise HTTPException(
             status_code=400,
             detail={
@@ -139,71 +147,128 @@ def _validate_full_dataset(
             },
         )
 
-    new_dataset = provided_data.__class__(new_data, polygons=provided_data.polygons, metadata=provided_data.metadata)
+    new_dataset = _filter_dataset_by_locations(provided_data, locations_to_keep)
+    new_locations = list(new_dataset.locations())
     logger.info(
-        f"Remaining dataset after validation: {len(new_dataset.locations())} (from {n_locations}) locations: {list(new_dataset.locations())} "
+        f"Remaining dataset after validation: {len(new_locations)} (from {n_locations}) locations: {new_locations} "
     )
-    assert len(new_dataset.locations()), new_dataset.locations()
+    assert len(new_locations), new_locations
     return new_dataset, rejected_list
 
 
-@router.get("/compatible-backtests/{backtestId}", response_model=list[BackTestRead], tags=["Backtests"])
+def _find_locations_with_target_data(
+    dataset: DataSet,
+    target_name: str = "disease_cases",
+) -> tuple[set[str], list[ValidationError]]:
+    """Identify locations that have at least some non-NaN target data.
+
+    Returns the set of locations to keep and validation errors for rejected ones.
+    """
+    locations_to_keep = set()
+    rejected = []
+    for location, data in dataset.items():
+        target = getattr(data, target_name)
+        if np.any(np.logical_not(np.isnan(target))):
+            locations_to_keep.add(location)
+        else:
+            rejected.append(
+                ValidationError(
+                    reason="No disease data in the first training split",
+                    orgUnit=location,
+                    feature_name=target_name,
+                    time_periods=[],
+                )
+            )
+    return locations_to_keep, rejected
+
+
+def _filter_dataset_by_locations(
+    dataset: DataSet,
+    locations_to_keep: set[str],
+) -> DataSet:
+    """Return a new dataset containing only the specified locations."""
+    new_data = {location: data for location, data in dataset.items() if location in locations_to_keep}
+    return dataset.__class__(new_data, polygons=dataset.polygons, metadata=dataset.metadata)
+
+
+@router.get(
+    "/compatible-backtests/{backtestId}",
+    response_model=list[BacktestRead],
+    tags=["Backtests"],
+    summary="Find backtests that can be compared with this one",
+)
 def get_compatible_backtests(
     backtest_id: Annotated[int, Path(alias="backtestId")], session: Session = Depends(get_session)
 ):
-    """Return a list of backtests that are compatible for comparison with the given backtest"""
+    """Find every other backtest that shares at least one region and one split period with this one — i.e. backtests it makes sense to overlay or diff against in a plot.
+
+    Use this to power a "compare to..." picker in the UI without offering choices that
+    would produce empty intersections.
+    """
     logger.info(f"Checking compatible backtests for {backtest_id}")
-    backtest = session.get(BackTest, backtest_id)
+    backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     org_units = set(backtest.org_units)
     split_periods = set(backtest.split_periods)
     res = session.exec(
-        select(BackTest.id, BackTest.org_units, BackTest.split_periods).where(BackTest.id != backtest_id)
+        select(Backtest.id, Backtest.org_units, Backtest.split_periods).where(Backtest.id != backtest_id)
     ).all()
     ids = [bt_id for bt_id, o, s in res if set(o) & org_units and set(s) & split_periods]
     backtests = session.exec(
-        select(BackTest)
-        .where(BackTest.id.in_(ids))  # type: ignore[union-attr, attr-defined]
+        select(Backtest)
+        .where(Backtest.id.in_(ids))  # type: ignore[union-attr, attr-defined]
         .options(
-            selectinload(BackTest.dataset).defer(DataSetTable.geojson),  # type: ignore[arg-type]
-            selectinload(BackTest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
+            selectinload(Backtest.dataset).defer(DataSetTable.geojson),  # type: ignore[arg-type]
+            selectinload(Backtest.configured_model).selectinload(ConfiguredModelDB.model_template),  # type: ignore[arg-type]
         )
     ).all()
     return backtests
 
 
-class BacktestDomain(DBModel):
-    org_units: list[str]
-    split_periods: list[str]
-
-
-@router.get("/backtest-overlap/{backtestId1}/{backtestId2}", response_model=BacktestDomain, tags=["Backtests"])
+@router.get(
+    "/backtest-overlap/{backtestId1}/{backtestId2}",
+    response_model=BacktestDomain,
+    tags=["Backtests"],
+    summary="Inspect the shared regions and periods of two backtests",
+)
 def get_backtest_overlap(
     backtest_id1: Annotated[int, Path(alias="backtestId1")],
     backtest_id2: Annotated[int, Path(alias="backtestId2")],
     session: Session = Depends(get_session),
 ):
-    """Return the org units and split periods that are common between two backtests"""
-    backtest1 = session.get(BackTest, backtest_id1)
-    backtest2 = session.get(BackTest, backtest_id2)
+    """Get the regions and split periods two backtests have in common — the slice on which side-by-side comparison is even meaningful.
+
+    Use this before building a side-by-side plot to know which axes are valid for both
+    backtests. 404 if either id is unknown.
+    """
+    backtest1 = session.get(Backtest, backtest_id1)
+    backtest2 = session.get(Backtest, backtest_id2)
     if backtest1 is None:
-        raise HTTPException(status_code=404, detail="BackTest 1 not found")
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id1} not found")
     if backtest2 is None:
-        raise HTTPException(status_code=404, detail="BackTest 2 not found")
+        raise HTTPException(status_code=404, detail=f"Backtest {backtest_id2} not found")
     org_units1 = list(set(backtest1.org_units) & set(backtest2.org_units))
     split_periods1 = list(set(backtest1.split_periods) & set(backtest2.split_periods))
     return BacktestDomain(org_units=org_units1, split_periods=split_periods1)
 
 
-@router.get("/prediction-entry", response_model=list[PredictionEntry], tags=["Predictions"])
+@router.get(
+    "/prediction-entry",
+    response_model=list[PredictionEntry],
+    tags=["Predictions"],
+    summary="Read forecast quantiles for a prediction (query parameter id)",
+)
 async def get_prediction_entry(
     prediction_id: Annotated[int, Query(alias="predictionId")],
     quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
 ):
-    """
-    return
+    """Pull the chosen quantiles (median, 10th and 90th percentile, ...) out of a prediction so they can be charted, exported, or fed back into DHIS2.
+
+    Returns one entry per (period, region, quantile) tuple. Same response as
+    ``GET /v1/analytics/prediction-entry/{predictionId}`` — only the parameter style
+    differs; that variant takes the id in the path. 404 if the prediction id is unknown.
     """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
@@ -220,7 +285,12 @@ async def get_prediction_entry(
     ]
 
 
-@router.get("/evaluation-entry", response_model=list[EvaluationEntry], tags=["Backtests"])
+@router.get(
+    "/evaluation-entry",
+    response_model=list[EvaluationEntry],
+    tags=["Backtests"],
+    summary="Read forecast quantiles from a backtest",
+)
 async def get_evaluation_entries(
     backtest_id: Annotated[int, Query(alias="backtestId")],
     quantiles: list[float] = Query(...),
@@ -228,9 +298,12 @@ async def get_evaluation_entries(
     org_units: list[str] = Query(None, alias="orgUnits"),
     session: Session = Depends(get_session),
 ):
-    """
-    Return quantiles for the forecasts in a backtest. Can optionally be filtered on split period and org units.
-    NOTE: If org_units is set to ["adm0"], the sum over all regions is returned.
+    """Pull the chosen quantiles from a backtest's forecasts so they can be charted, exported, or compared against actuals.
+
+    Optionally narrow the slice with ``splitPeriod`` (a single training horizon) or
+    ``orgUnits`` (specific regions). Passing ``orgUnits=["adm0"]`` collapses the result
+    into one row per period — the sum over every region — which is what you want for
+    national-level overlays. 404 if the backtest id is unknown.
     """
     return_summed = False
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
@@ -241,15 +314,15 @@ async def get_evaluation_entries(
         f"Backtest ID: {backtest_id}, Quantiles: {quantiles}, Split Period: {split_period}, Org Units: {org_units} "
     )
     if backtest_id is not None:
-        backtest = session.get(BackTest, backtest_id)
+        backtest = session.get(Backtest, backtest_id)
     if backtest is None:
-        raise HTTPException(status_code=404, detail="BackTest not found")
+        raise HTTPException(status_code=404, detail="Backtest not found")
     org_units_set: set[str] | None = None
     if org_units is not None:
         org_units_set = set(org_units)
         logger.info("Filtering evaluation entries to org_units: %s", org_units_set)
 
-    cls = BackTestForecast
+    cls = BacktestForecast
     expr = select(cls).where(cls.backtest_id == backtest_id)
     if split_period:
         expr = expr.where(cls.last_seen_period == split_period)
@@ -259,7 +332,7 @@ async def get_evaluation_entries(
 
     logger.info(forecasts_result)
 
-    forecasts_list: list[BackTestForecast]
+    forecasts_list: list[BacktestForecast]
     if return_summed:
         # sum forecasts over all regions
         summed_forecasts: dict[tuple[str, str], Any] = {}
@@ -270,7 +343,7 @@ async def get_evaluation_entries(
             summed_forecasts[key] += np.array(forecast.values)
 
         forecasts_list = [
-            BackTestForecast(
+            BacktestForecast(
                 period=key[0],
                 org_unit="adm0",
                 last_seen_period=key[1],
@@ -294,47 +367,62 @@ async def get_evaluation_entries(
     ]
 
 
-class MakePredictionRequest(DatasetMakeRequest, PredictionParams):
-    meta_data: dict = {}
+@router.post(
+    "/create-backtest",
+    response_model=JobResponse,
+    tags=["Backtests"],
+    summary="Run a backtest against a stored dataset",
+)
+async def create_backtest(
+    request: MakeBacktestRequest,
+    database_url: str = Depends(get_database_url),
+    session: Session = Depends(get_session),
+):
+    """Train and evaluate a configured model on a dataset that's already been imported, producing a backtest you can score, plot, or promote into a prediction setup.
 
-
-class MakeBacktestRequest(BackTestParams):
-    name: str
-    model_id: str
-    dataset_id: int
-
-
-class MakeBacktestWithDataRequest(DatasetMakeRequest, BackTestParams):
-    name: str
-    model_id: str
-
-
-@router.post("/create-backtest", response_model=JobResponse, tags=["Backtests"])
-async def create_backtest(request: MakeBacktestRequest, database_url: str = Depends(get_database_url)):
+    Runs asynchronously; you get a job id and poll ``/v1/jobs/{id}`` (or
+    ``/v1/jobs/{id}/evaluation_result`` once finished) to find the resulting backtest.
+    404 if the referenced dataset does not exist.
+    """
+    if session.get(DataSetTable, request.dataset_id) is None:
+        raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
     job = worker.queue_db(
         wf.run_backtest,
-        BackTestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
+        BacktestCreate(name=request.name, dataset_id=request.dataset_id, model_id=request.model_id),
         request.n_periods,
         request.n_splits,
         request.stride,
         database_url=database_url,
-        **{JOB_TYPE_KW: "create_backtest", JOB_NAME_KW: request.name},
+        **{JOB_TYPE_KW: JobType.EVALUATION_LEGACY, JOB_NAME_KW: request.name},
     )
 
     return JobResponse(id=job.id)
 
 
-@router.post("/make-prediction", response_model=JobResponse, tags=["Predictions"])
+@router.post(
+    "/make-prediction",
+    response_model=JobResponse,
+    tags=["Predictions"],
+    summary="Run a one-off forecast from inline data",
+)
 async def make_prediction(
     request: MakePredictionRequest, database_url=Depends(get_database_url), worker_settings=Depends(get_settings)
 ):
+    """Run a forecast against observations supplied directly in the request body — no stored dataset needed.
+
+    Use this for ad-hoc work when DHIS2 (or another source) already has the data and you
+    want it run through a configured model once. Forecasting happens in the background;
+    the response carries a job id you poll via ``/v1/jobs/{id}`` for the result. For a
+    recurring or scheduled version of the same workflow, use a prediction setup. The
+    legacy ``data_to_be_fetched`` field is rejected — supply the observations directly.
+    """
     request.type = "prediction"
     feature_names = list({entry.feature_name for entry in request.provided_data})
     dataclass = create_tsdataclass(feature_names)
     provided_data = observations_to_dataset(dataclass, request.provided_data, fill_missing=True)
     if "population" in feature_names:
         provided_data = provided_data.interpolate(["population"])
-    provided_data, _rejections = _validate_full_dataset(feature_names, provided_data)
+    provided_data, _rejections = validate_full_dataset(feature_names, provided_data)
     provided_data.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     if request.data_to_be_fetched:
         raise HTTPException(status_code=404, detail="Data to be fetched is no longer supported by chap-core")
@@ -350,17 +438,27 @@ async def make_prediction(
         prediction_params=prediction_params,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: "create_prediction", JOB_NAME_KW: request.name},
+        **{JOB_TYPE_KW: JobType.PREDICTION, JOB_NAME_KW: request.name},
     )
     return JobResponse(id=job.id)
 
 
-@router.get("/prediction-entry/{predictionId}", response_model=list[PredictionEntry], tags=["Predictions"])
+@router.get(
+    "/prediction-entry/{predictionId}",
+    response_model=list[PredictionEntry],
+    tags=["Predictions"],
+    summary="Read forecast quantiles for a prediction (path parameter id)",
+)
 def get_prediction_entries(
     prediction_id: Annotated[int, Path(alias="predictionId")],
     quantiles: list[float] = Query(...),
     session: Session = Depends(get_session),
 ):
+    """Path-parameter variant of ``GET /v1/analytics/prediction-entry`` for callers that prefer the id in the URL.
+
+    Same forecast-quantile response — pick whichever URL shape your client tooling
+    handles more naturally. 404 if the prediction id is unknown.
+    """
     prediction = session.get(Prediction, prediction_id)
     if prediction is None:
         raise HTTPException(status_code=404, detail="Prediction not found")
@@ -373,27 +471,47 @@ def get_prediction_entries(
     ]
 
 
-@router.get("/actualCases/{backtestId}", response_model=DataList, tags=["Backtests"])
+@router.get(
+    "/actual-cases/{backtestId}",
+    response_model=DataList,
+    tags=["Backtests"],
+    name="get_actual_cases_alias",
+    summary="Read the observed disease cases a backtest was scored against",
+)
+@router.get(
+    "/actualCases/{backtestId}",
+    response_model=DataList,
+    tags=["Backtests"],
+    deprecated=True,
+    summary="Deprecated camelCase alias of /actual-cases/{backtestId}",
+    description=(
+        "Deprecated camelCase alias of ``GET /v1/analytics/actual-cases/{backtestId}``. "
+        "Behaviour is identical; new integrations should call the kebab-case path, which "
+        "matches the rest of the API's URL style."
+    ),
+)
 async def get_actual_cases(
     backtest_id: Annotated[int, Path(alias="backtestId")],
     org_units: list[str] = Query(None, alias="orgUnits"),
     is_dataset_id: bool = Query(False, alias="isDatasetId"),
     session: Session = Depends(get_session),
 ):
-    """
-    Return the actual disease cases corresponding to a backtest. Can optionally be filtered on org units.
+    """Pull the actual ``disease_cases`` series from the dataset that backs a backtest, so a plot can show forecast vs. reality on the same axes.
 
-    Note: If org_units is set to ["adm0"], the sum over all regions is returned.
+    Filter to specific regions with ``orgUnits``, or pass ``orgUnits=["adm0"]`` to get
+    one summed series across every region (useful for national-level views). Set
+    ``isDatasetId=true`` to skip the backtest lookup and read directly from a dataset
+    id. 404 if the backtest is unknown (and ``isDatasetId`` is false).
     """
     return_summed = False
     if org_units is not None and len(org_units) == 1 and org_units[0] == "adm0":
         # returning sum of forecasts for all regions
         return_summed = True
     if not is_dataset_id:
-        backtest = session.get(BackTest, backtest_id)
+        backtest = session.get(Backtest, backtest_id)
         logger.info(f"Backtest: {backtest}")
         if backtest is None:
-            raise HTTPException(status_code=404, detail="BackTest not found")
+            raise HTTPException(status_code=404, detail="Backtest not found")
         dataset_id = backtest.dataset_id
     else:
         dataset_id = backtest_id
@@ -426,14 +544,6 @@ async def get_actual_cases(
         data_list = [DataElement(pe=pe, ou="adm0", value=value) for pe, value in summed_values.items()]
     logger.info(f"DataList: {len(data_list)}")
     return DataList(featureId="disease_cases", dhis2Id="disease_cases", data=data_list)
-
-
-class ChapDataSource(DBModel):
-    name: str
-    display_name: str
-    supported_features: list[str]
-    description: str
-    dataset: str
 
 
 data_sources = [
@@ -503,12 +613,28 @@ data_sources = [
 ]
 
 
-@router.get("/data-sources", response_model=list[ChapDataSource], tags=["Datasets"])
+@router.get(
+    "/data-sources",
+    response_model=list[ChapDataSource],
+    tags=["Datasets"],
+    summary="Discover which external data sources can feed a dataset",
+)
 async def get_data_sources() -> list[ChapDataSource]:
+    """List the external covariate sources CHAP knows about (ERA5 temperature, precipitation, ...) and the dataset features each one maps to.
+
+    Use this to power a data-source picker when authoring a dataset or a prediction
+    setup, so users can pick covariates by what they cover rather than by their internal
+    identifier.
+    """
     return data_sources
 
 
-@router.post("/create-backtest-with-data/", response_model=ImportSummaryResponse, tags=["Backtests"])
+@router.post(
+    "/create-backtest-with-data/",
+    response_model=ImportSummaryResponse,
+    tags=["Backtests"],
+    summary="Run a backtest from inline data",
+)
 async def create_backtest_with_data(
     request: MakeBacktestWithDataRequest,
     dry_run: bool = Query(
@@ -517,8 +643,33 @@ async def create_backtest_with_data(
     database_url: str = Depends(get_database_url),
     worker_settings=Depends(get_settings),
 ):
-    feature_names, provided_data_processed = _read_dataset(request)
-    provided_data_processed, rejections = _validate_full_dataset(feature_names, provided_data_processed)
+    """Train and evaluate a model on observations supplied directly in the request body, without first creating a reusable dataset.
+
+    Convenient for quick experiments where the data is not worth persisting. Pass
+    ``dryRun=true`` to run validation only (cheap, synchronous) and inspect which
+    regions would be rejected — useful as a preflight before committing to an import. A
+    real run returns a job id; poll ``/v1/jobs/{id}`` for status. The response also
+    surfaces any per-location rejections that came out of validation.
+    """
+    try:
+        feature_names, provided_data_processed = _read_dataset(request)
+        provided_data_processed, rejections = validate_full_dataset(feature_names, provided_data_processed)
+    except HTTPException as exc:
+        if not dry_run or exc.status_code != 400:
+            raise
+        # Rejections, when present, were serialised by `validate_full_dataset` into
+        # `exc.detail["rejected"]`. The empty-`provided_data` case in `_read_dataset`
+        # raises with a plain-string detail and has no rejections to recover. If
+        # either helper changes its detail shape, this branch must be updated.
+        rejected: list = exc.detail.get("rejected", []) if isinstance(exc.detail, dict) else []
+        return ImportSummaryResponse.model_validate({"id": None, "imported_count": 0, "rejected": rejected})
+    backtest_params = BacktestParams(**request.model_dump())
+    train_set, _ = train_test_generator(
+        provided_data_processed, backtest_params.n_periods, backtest_params.n_splits, stride=backtest_params.stride
+    )
+    locations_to_keep, target_rejections = _find_locations_with_target_data(train_set)
+    provided_data_processed = _filter_dataset_by_locations(provided_data_processed, locations_to_keep)
+    rejections.extend(target_rejections)
     polygon_rejected = provided_data_processed.set_polygons(FeatureCollectionModel.model_validate(request.geojson))
     rejections.extend(
         ValidationError(reason="Missing polygon in geojson", orgUnit=location, feature_name="polygon", time_periods=[])
@@ -545,7 +696,7 @@ async def create_backtest_with_data(
             status_code=400, detail="data_to_be_fetched is not supported when providing data for backtest"
         )
 
-    bt_params = BackTestParams(**request.model_dump()).model_dump()
+    bt_params = BacktestParams(**request.model_dump()).model_dump()
     dataset_create_info = DataSetCreateInfo(**request.model_dump()).model_dump()
     dataset_create_info["type"] = "evaluation"
     job = worker.queue_db(
@@ -558,7 +709,7 @@ async def create_backtest_with_data(
         backtest_params=bt_params,
         database_url=database_url,
         worker_config=worker_settings,
-        **{JOB_TYPE_KW: "create_backtest_from_data", JOB_NAME_KW: request.name},
+        **{JOB_TYPE_KW: JobType.EVALUATION, JOB_NAME_KW: request.name},
     )
     job_id = job.id
     return ImportSummaryResponse(id=job_id, imported_count=imported_count, rejected=rejections)

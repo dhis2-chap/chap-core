@@ -3,18 +3,20 @@ name: build_docs
 on:
   push:
     branches: [ master, dev, docs/sphinx-to-mkdocs ]
+  pull_request:
+    branches: [ master, dev ]
 
 jobs:
-  build:
+  docs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         os: [ ubuntu-latest ]
         python-version: [ "3.13" ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v8.1.0
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
       - name: Install the project
@@ -23,6 +25,7 @@ jobs:
         run: make docs
 
       - name: Deploy to GitHub Pages
+        if: github.event_name == 'push'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

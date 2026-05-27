@@ -8,6 +8,8 @@ from typing import Annotated
 import pandas as pd
 from cyclopts import Parameter
 
+from chap_core.time_period import TimePeriod
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,6 +39,7 @@ def convert_request(
     df = pd.DataFrame(provided_data)
 
     df = df.rename(columns={"orgUnit": "location", "period": "time_period"})
+    df["time_period"] = df["time_period"].map(lambda p: TimePeriod.parse(p).to_string())
 
     pivoted = df.pivot_table(
         index=["location", "time_period"],

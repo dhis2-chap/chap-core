@@ -10,13 +10,14 @@ import pandas as pd
 
 from chap_core.assessment.backtest_plots import BacktestPlotBase, ChartType, backtest_plot
 from chap_core.assessment.flat_representations import FlatForecasts, FlatObserved
+from chap_core.assessment.metric_plots.horizon_mean import MetricByHorizonV2Mean
+from chap_core.assessment.metric_plots.time_period_mean import MetricByTimePeriodV2Mean
 from chap_core.assessment.metrics import (
     Coverage25_75Metric,
     CRPSNormMetric,
     RMSEMetric,
 )
 from chap_core.plotting.backtest_plot import text_chart, title_chart
-from chap_core.plotting.evaluation_plot import MetricByHorizonV2Mean, MetricByTimePeriodV2Mean
 
 
 @backtest_plot(

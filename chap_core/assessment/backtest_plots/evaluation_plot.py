@@ -130,6 +130,7 @@ class EvaluationPlot(BacktestPlotBase):
         ChartType
             Altair faceted chart showing forecasts vs observations
         """
+
         # Compute quantiles from forecast samples
         forecast_quantiles = _compute_quantiles_from_forecasts(forecasts)
 
@@ -247,5 +248,5 @@ class EvaluationPlot(BacktestPlotBase):
         return (  # type: ignore[no-any-return]
             full_layer.facet(column="split_period:O", row="location:N")
             .resolve_scale(y="independent")
-            .properties(title="BackTest Forecasts with Observations")
+            .properties(title="Backtest Forecasts with Observations")
         )

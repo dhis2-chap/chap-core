@@ -1,0 +1,14 @@
+services:
+  ewars:
+    image: ghcr.io/chap-models/chapkit_ewars_model:latest
+    platform: linux/amd64
+    pull_policy: always
+    ports:
+      - "5002:8000"
+    environment:
+      SERVICEKIT_ORCHESTRATOR_URL: http://chap:8000/v2/services/$$register
+      # Uncomment if chap has SERVICEKIT_REGISTRATION_KEY set:
+      # SERVICEKIT_REGISTRATION_KEY: ${SERVICEKIT_REGISTRATION_KEY:-}
+    depends_on:
+      chap:
+        condition: service_healthy

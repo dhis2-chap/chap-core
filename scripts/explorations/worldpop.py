@@ -1,6 +1,6 @@
 import json
 import time
-from pydantic_geojson import  MultiPolygonModel, PolygonModel
+from geojson_pydantic import MultiPolygon, Polygon
 import requests
 
 from chap_core.api_types import FeatureCollectionModel, FeatureModel
@@ -10,9 +10,9 @@ geojson_path  = '/home/knut/Sources/climate_health/vietnam_polygons_simple.geojs
 geojson = FeatureCollectionModel.model_validate_json(open(geojson_path).read())
 
 def convert_geometry(feature: FeatureModel):
-    if isinstance(feature.geometry, MultiPolygonModel):
+    if isinstance(feature.geometry, MultiPolygon):
         coord_len, coord = max([(len(polygon), polygon) for polygon in feature.geometry.coordinates])
-        polygon = PolygonModel(coordinates=coord)
+        polygon = Polygon(type="Polygon", coordinates=coord)
         return FeatureModel(geometry=polygon, id=feature.id, properties=feature.properties)
     return feature
 

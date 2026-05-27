@@ -1,14 +1,22 @@
 import json
 from pathlib import Path
 
+import altair
 import pandas as pd
 import pytest
 import numpy as np
 
 from chap_core.assessment.flat_representations import FlatObserved, FlatForecasts
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.database.dataset_tables import DataSetWithObservations, Observation, DataSet
-from chap_core.database.tables import BackTestRead, OldBackTestRead, BackTestForecast, BackTest, BackTestMetric
+from chap_core.database.tables import BacktestRead, OldBacktestRead, BacktestForecast, Backtest, BacktestMetric
 from chap_core.simulation.naive_simulator import DatasetDimensions, AdditiveSimulator, BacktestSimulator
+
+
+@pytest.fixture(scope="module")
+def default_transformer():
+    altair.data_transformers.enable("default")
+    yield
 
 
 @pytest.fixture
@@ -16,8 +24,8 @@ def data_folder():
     return Path(__file__).parent / "data"
 
 
-class BacktestOW(OldBackTestRead):
-    forecasts: list[BackTestForecast]
+class BacktestOW(OldBacktestRead):
+    forecasts: list[BacktestForecast]
 
 
 @pytest.fixture(autouse=True)
@@ -126,7 +134,7 @@ def dataset_weeks_large():
 @pytest.fixture
 def forecasts():
     return [
-        BackTestForecast(
+        BacktestForecast(
             id=t * 2 * 2 + loc * 2 + ls,
             backtest_id=1,
             period=f"2022-0{t + 1}",
@@ -144,7 +152,7 @@ def forecasts():
 @pytest.fixture
 def forecasts_weeks():
     return [
-        BackTestForecast(
+        BacktestForecast(
             id=t * 2 * 2 + loc * 2 + ls,
             backtest_id=1,
             period=f"2022W0{t + 1}",
@@ -167,7 +175,7 @@ def forecasts_weeks_large():
     with 100 samples per forecast for stress testing.
     """
     return [
-        BackTestForecast(
+        BacktestForecast(
             id=t * 20 + loc,
             backtest_id=1,
             period=periods_weeks_large[t],
@@ -183,13 +191,13 @@ def forecasts_weeks_large():
 
 @pytest.fixture
 def backtest(dataset, forecasts):
-    return BackTest(
+    return Backtest(
         id=1,
         dataset_id=dataset.id,
         dataset=dataset,
         model_id="Test Model",
         model_db_id=1,
-        name="Test BackTest",
+        name="Test Backtest",
         created=None,
         aggregate_metrics={},
         forecasts=forecasts,
@@ -199,13 +207,13 @@ def backtest(dataset, forecasts):
 
 @pytest.fixture
 def backtest_weeks(dataset_weeks, forecasts_weeks):
-    return BackTest(
+    return Backtest(
         id=1,
         dataset_id=dataset_weeks.id,
         dataset=dataset_weeks,
         model_id="Test Model",
         model_db_id=1,
-        name="Test BackTest",
+        name="Test Backtest",
         created=None,
         aggregate_metrics={},
         forecasts=forecasts_weeks,
@@ -216,13 +224,13 @@ def backtest_weeks(dataset_weeks, forecasts_weeks):
 @pytest.fixture
 def backtest_weeks_large(dataset_weeks_large, forecasts_weeks_large):
     """Large backtest with 5 years of weekly forecasts for 20 org units."""
-    return BackTest(
+    return Backtest(
         id=1,
         dataset_id=dataset_weeks_large.id,
         dataset=dataset_weeks_large,
         model_id="Test Model Large",
         model_db_id=1,
-        name="Large Test BackTest",
+        name="Large Test Backtest",
         created=None,
         aggregate_metrics={},
         forecasts=forecasts_weeks_large,
@@ -232,14 +240,14 @@ def backtest_weeks_large(dataset_weeks_large, forecasts_weeks_large):
 
 @pytest.fixture
 def backtest_empty(dataset):
-    """BackTest with no forecasts for edge case testing."""
-    return BackTest(
+    """Backtest with no forecasts for edge case testing."""
+    return Backtest(
         id=1,
         dataset_id=dataset.id,
         dataset=dataset,
         model_id="Test Model",
         model_db_id=1,
-        name="Empty Test BackTest",
+        name="Empty Test Backtest",
         created=None,
         aggregate_metrics={},
         forecasts=[],
@@ -252,7 +260,7 @@ def backtest_empty(dataset):
 @pytest.fixture
 def backtest_metrics(forecasts):
     return [
-        BackTestMetric(
+        BacktestMetric(
             id=forecast.id,
             backtest_id=forecast.backtest_id,
             metric_id="MAE",
@@ -289,6 +297,21 @@ def simulated_dataset(data_dims, dummy_geojson):
 def simulated_backtest(simulated_dataset, data_dims):
     backtest = BacktestSimulator().simulate(simulated_dataset, data_dims)
     return backtest
+
+
+@pytest.fixture
+def old_backtest_file(tmp_path):
+    """Creates an old format backtest file corresponding to chap-core versions <= 1.1.1 for testing backward compatibility."""
+    import shutil
+
+    shutil.copy(Path(__file__).parent / "data" / "backtest_file_version_le_1.1.1.nc", tmp_path / "tmp_backtest.nc")
+    yield tmp_path / "tmp_backtest.nc"
+    (tmp_path / "tmp_backtest.nc").unlink()
+
+
+@pytest.fixture
+def old_backtest(old_backtest_file):
+    return Evaluation.from_file(old_backtest_file).to_backtest()
 
 
 @pytest.fixture

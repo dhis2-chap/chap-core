@@ -9,11 +9,12 @@ logger = logging.getLogger(__name__)
 
 
 class CommandLineRunner(Runner):
-    def __init__(self, working_dir: str | Path):
+    def __init__(self, working_dir: str | Path, dry_run=False):
+        super().__init__(dry_run=dry_run)
         self._working_dir = working_dir
 
     def run_command(self, command):
-        return run_command(command, self._working_dir)
+        return self._execute(command, self._working_dir)
 
     def store_file(self, file_path: str | None = None) -> None:
         pass
@@ -78,11 +79,13 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         train_command: str,
         predict_command: str,
         model_configuration_filename: str | None = None,
+        report_command: str | None = None,
     ):
         self._runner = runner
         self._train_command = train_command
         self._predict_command = predict_command
         self._model_configuration_filename = model_configuration_filename
+        self._report_command = report_command
 
     def _format_command(self, command, keys):
         try:
@@ -127,4 +130,18 @@ class CommandLineTrainPredictRunner(TrainPredictRunner):
         keys = self._handle_polygons(self._predict_command, keys, polygons_file_name)
         keys = self._handle_config(self._predict_command, keys)
         command = self._format_command(self._predict_command, keys)
+        return self._runner.run_command(command)
+
+    def report(self, model_file_name, historic_data, output_file, polygons_file_name=None):
+        if self._report_command is None:
+            raise NotImplementedError("This runner does not support report generation")
+        keys = {
+            "model": model_file_name,
+            "historic_data": historic_data,
+            "out_file": output_file,
+        }
+        keys = self._handle_polygons(self._report_command, keys, polygons_file_name)
+        keys = self._handle_config(self._report_command, keys)
+        command = self._format_command(self._report_command, keys)
+        logger.debug(f"Running command {command}")
         return self._runner.run_command(command)

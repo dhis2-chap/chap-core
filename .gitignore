@@ -18,6 +18,7 @@ coverage.xml
 *.cover
 .pytest_cache/
 .ruff_cache/
+tests/.github_cache/
 
 # Test artifacts
 target/
@@ -40,6 +41,7 @@ site/
 /logs/*
 runs/
 mlruns/
+mlflow.db
 
 # === Project-Specific ===
 config/configured_models/*
@@ -52,3 +54,11 @@ chap_core.egg-info
 
 # === Helm ===
 charts/*/charts/*.tgz
+
+# Chapkit test fixture runtime files
+tests/fixtures/chapkit_test_model/.venv/
+tests/fixtures/chapkit_test_model/uv.lock
+tests/fixtures/chapkit_test_model/data/
+
+# Playwright MCP snapshots
+.playwright-mcp/

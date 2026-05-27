@@ -28,10 +28,11 @@ class ModelTemplate:
     A template defines the choices allowed for a model
     """
 
-    def __init__(self, model_template_config: ModelTemplateConfigV2, working_dir: str, ignore_env=False):
+    def __init__(self, model_template_config: ModelTemplateConfigV2, working_dir: str, ignore_env=False, dry_run=False):
         self._model_template_config = model_template_config
         self._working_dir = working_dir
         self._ignore_env = ignore_env
+        self._dry_run = dry_run
 
     @classmethod
     def from_directory_or_github_url(
@@ -41,6 +42,7 @@ class ModelTemplate:
         ignore_env=False,
         run_dir_type="timestamp",
         is_chapkit_model: bool = False,
+        dry_run: bool = False,
     ) -> ModelTemplate:
         """
         Gets the model template and initializes a working directory with the code for the model.
@@ -70,6 +72,7 @@ class ModelTemplate:
             ignore_env=ignore_env,
             run_dir_type=run_dir_type,
             is_chapkit_model=is_chapkit_model,
+            dry_run=dry_run,
         )
 
     @property
@@ -96,7 +99,11 @@ class ModelTemplate:
     def get_default_model(self) -> ExternalModel:
         return self.get_model()
 
-    def get_model(self, model_configuration: ModelConfiguration | None = None) -> ExternalModel:
+    def get_model(
+        self,
+        model_configuration: ModelConfiguration | None = None,
+        prediction_length: int | None = None,
+    ) -> ExternalModel:
         """
         Returns a model based on the model configuration. The model configuration is an object of the class
         returned by get_model_class (i.e. specified by the user). If no model configuration is passed, the default
@@ -106,6 +113,10 @@ class ModelTemplate:
         ----------
         model_configuration : ModelConfiguration, optional
             The configuration for the model, by default None
+        prediction_length : int, optional
+            Forecast horizon (number of periods) the model will be asked to predict.
+            When supplied, written into ``model_configuration_for_run.yaml`` so
+            MLproject-based models can read it at both train and predict time.
 
         Returns
         -------
@@ -137,7 +148,12 @@ class ModelTemplate:
             )
 
         runner = get_train_predict_runner_from_model_template_config(
-            self._model_template_config, Path(self._working_dir), self._ignore_env, model_configuration
+            self._model_template_config,
+            Path(self._working_dir),
+            self._ignore_env,
+            model_configuration,
+            dry_run=self._dry_run,
+            prediction_length=prediction_length,
         )
 
         config = self._model_template_config
@@ -152,6 +168,7 @@ class ModelTemplate:
             working_dir=self._working_dir,
             configuration=config_passed_to_model,  # type: ignore[arg-type]
             model_information=self._model_template_config,
+            dry_run=self._dry_run,
         )
 
 

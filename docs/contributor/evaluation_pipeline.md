@@ -135,7 +135,7 @@ High-level evaluation abstraction:
 
 ## Code Flow: `Evaluation.create()`
 
-Step-by-step walkthrough of what happens when `Evaluation.create()` is called (e.g. from the CLI `chap evaluate` command):
+Step-by-step walkthrough of what happens when `Evaluation.create()` is called (e.g. from the CLI `chap eval` command):
 
 1. **`backtest()`** is called with the estimator and dataset
 2. Inside `backtest()`, **`train_test_generator()`** computes the split index and creates:
@@ -145,6 +145,6 @@ Step-by-step walkthrough of what happens when `Evaluation.create()` is called (e
 4. For each test split, the predictor generates samples and they are **merged with ground truth** into `SamplesWithTruth` objects
 5. Back in `create()`, **`train_test_generator()`** is called again to determine the last training period
 6. **`from_samples_with_truth()`** assembles an `Evaluation` object containing:
-     - `BackTest` with all forecasts and observations
+     - `Backtest` with all forecasts and observations
      - Historical observations for plotting context
 7. The `Evaluation` can then be **exported** to NetCDF, used for metric computation, or visualized

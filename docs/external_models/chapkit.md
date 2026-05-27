@@ -113,9 +113,7 @@ Along with the data, Chap sends a `run_info` object containing runtime parameter
 
 ## How to run a chapkit model from the command line
 
-> **Deprecation Notice:** The `chap evaluate` command shown below is deprecated and will be removed in v2.0. For chapkit model evaluation, use `chap eval` with `--run-config.is-chapkit-model` instead. See the [Evaluation Workflow](../chap-cli/evaluation-workflow.md) for details on `chap eval`.
-
-To test that the model is working with chap, you can use the `chap evaluate` command. Instead of a github url or model name, you simply specify the REST API url to the model and add --is-chapkit-model to the command to tell chap that the model is a chapkit model.
+To test that the model is working with chap, you can use the `chap eval` command. Instead of a github url or model name, you simply specify the REST API url to the model and add `--run-config.is-chapkit-model` to the command to tell chap that the model is a chapkit model.
 
 **Example:**
 
@@ -135,7 +133,7 @@ docker run -p 5001:8000 ghcr.io/dhis2-chap/chtorch:chapkit2-8f17ee3
 Then we can run the following command to evaluate the model. Note the http://localhost:5001 url, which tells chap to look for the model at that url.
 
 ```console
-chap evaluate --model-name http://localhost:5001 --dataset-name ISIMIP_dengue_harmonized --dataset-country vietnam --report-filename report.pdf --debug --n-splits=2 --model-configuration-yaml testconfig.yaml --prediction-length 3 --is-chapkit-model
+chap eval --model-name http://localhost:5001 --dataset-csv https://raw.githubusercontent.com/dhis2/climate-health-data/refs/heads/main/lao/chap_LAO_admin1_monthly.csv --output-file eval.nc --plot --run-config.debug --backtest-params.n-splits 2 --backtest-params.n-periods 3 --model-configuration-yaml testconfig.yaml --run-config.is-chapkit-model
 ```
 
 

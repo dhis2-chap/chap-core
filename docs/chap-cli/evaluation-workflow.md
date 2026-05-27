@@ -85,6 +85,7 @@ chap eval \
 | `--run-config.run-directory-type` | Directory handling: `latest`, `timestamp`, or `use_existing` | timestamp |
 | `--historical-context-years` | Years of historical data for plot context | 6 |
 | `--data-source-mapping` | JSON file mapping model covariate names to CSV columns | None |
+| `--dry-run` | Write data files and print commands without executing the model | false |
 
 For detailed parameter descriptions and examples, see the [eval Reference](eval-reference.md).
 

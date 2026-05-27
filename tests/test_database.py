@@ -18,7 +18,7 @@ from chap_core.database.model_templates_and_config_tables import (
     ModelTemplateDB,
     ModelTemplateMetaData,
 )
-from chap_core.database.tables import BackTest
+from chap_core.database.tables import Backtest
 from chap_core.datatypes import HealthPopulationData
 from chap_core.external.model_configuration import (
     CommandConfig,
@@ -27,7 +27,7 @@ from chap_core.external.model_configuration import (
     ModelTemplateConfigV2,
 )
 from chap_core.models.external_model import ExternalModel
-from chap_core.rest_api.data_models import BackTestCreate
+from chap_core.rest_api.data_models import BacktestCreate
 from chap_core.rest_api.db_worker_functions import run_backtest, run_prediction
 from chap_core.testing.testing import assert_dataset_equal
 
@@ -69,9 +69,9 @@ def test_backtest(engine_with_dataset):
     with Session(engine_with_dataset) as session:
         dataset_id = session.exec(select(DataSet.id)).first()
     with SessionWrapper(engine_with_dataset) as session:
-        res = run_backtest(BackTestCreate(model_id="naive_model", dataset_id=dataset_id), 12, 2, 1, session=session)
+        res = run_backtest(BacktestCreate(model_id="naive_model", dataset_id=dataset_id), 12, 2, 1, session=session)
     with Session(engine_with_dataset) as session:
-        backtests = session.exec(select(BackTest)).all()
+        backtests = session.exec(select(Backtest)).all()
         assert len(backtests) == 1
         backtest = backtests[0]
         assert backtest.dataset_id == dataset_id
@@ -138,6 +138,62 @@ def test_add_model_template_unarchives_existing(model_template_yaml_config, engi
         assert template.archived is False
 
 
+def test_add_configured_model_chapkit_skips_required_validation(engine):
+    # Mimics what chapkit's /api/v1/configs/$schema returns for a field declared
+    # with Field(default_factory=lambda: [3]): the property has no literal
+    # "default" key. chap-core's heuristic-based validator would mark it
+    # required, but with uses_chapkit=True we trust chapkit's own validation
+    # and store user_option_values={} as a "use chapkit defaults" sentinel.
+    chapkit_schema_user_options = {
+        "n_lags": {
+            "items": {"type": "integer"},
+            "title": "N Lags",
+            "type": "array",
+        },
+    }
+    config = ModelTemplateConfigV2(
+        name="chapkit_default_factory",
+        required_covariates=["population"],
+        allow_free_additional_continuous_covariates=False,
+        user_options=chapkit_schema_user_options,
+        meta_data=ModelTemplateMetaData(
+            author="chap_temp",
+            author_assessed_status="orange",
+            description="chapkit model with default_factory field",
+            display_name="Chapkit Default Factory",
+        ),
+    )
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(config)
+        cm_id = session.add_configured_model(
+            template_id,
+            ModelConfiguration(user_option_values={}),
+            "default",
+            uses_chapkit=True,
+        )
+        assert cm_id is not None
+        with pytest.raises(ValueError, match="n_lags"):
+            session.add_configured_model(
+                template_id,
+                ModelConfiguration(user_option_values={}),
+                "no_chapkit",
+                uses_chapkit=False,
+            )
+
+
+def test_yaml_update_preserves_uses_chapkit(model_template_yaml_config, engine):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        template = session.session.get(ModelTemplateDB, template_id)
+        template.uses_chapkit = True
+        session.session.commit()
+
+    with SessionWrapper(engine) as session:
+        session.add_model_template_from_yaml_config(model_template_yaml_config)
+        template = session.session.get(ModelTemplateDB, template_id)
+        assert template.uses_chapkit is True
+
+
 @pytest.mark.parametrize("url", template_urls)
 # @pytest.mark.slow
 def test_add_model_template_from_url(engine, url):
@@ -178,3 +234,82 @@ def test_seed_configured_models(engine):
 def test_seed_datasets_to_db(engine):
     with SessionWrapper(engine) as session:
         seed_example_datasets(session)
+
+
+@pytest.fixture
+def configured_model_fixture(engine, model_template_yaml_config):
+    """Seed a model template + configured model and return (engine, configured_model_id, configured_model_name)."""
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        cm_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
+    with Session(engine) as s:
+        cm = s.get(ConfiguredModelDB, cm_id)
+        assert cm is not None
+        name = cm.name
+    return engine, cm_id, name
+
+
+def test_configured_model_display_name(engine, model_template_yaml_config):
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        default_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
+        named_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}), "detail_view")
+
+    template_display_name = model_template_yaml_config.meta_data.display_name
+    with Session(engine) as s:
+        default = s.get(ConfiguredModelDB, default_id)
+        named = s.get(ConfiguredModelDB, named_id)
+        assert default is not None and named is not None
+        assert default.display_name == template_display_name
+        assert named.display_name == f"{template_display_name} [Detail view]"
+
+
+def test_resolve_configured_model_by_int_id(configured_model_fixture):
+    engine, cm_id, expected_name = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        result = session.get_configured_model_by_id_or_name(cm_id)
+        assert result.id == cm_id
+        assert result.name == expected_name
+
+
+def test_resolve_configured_model_by_string_name(configured_model_fixture):
+    engine, cm_id, expected_name = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        result = session.get_configured_model_by_id_or_name(expected_name)
+        assert result.id == cm_id
+        assert result.name == expected_name
+
+
+def test_resolve_configured_model_by_nonexistent_int_raises(configured_model_fixture):
+    engine, _, _ = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        with pytest.raises(ValueError, match="not found"):
+            session.get_configured_model_by_id_or_name(99999)
+
+
+def test_resolve_configured_model_by_nonexistent_name_raises(configured_model_fixture):
+    engine, _, _ = configured_model_fixture
+    with SessionWrapper(engine) as session:
+        with pytest.raises(ValueError, match="not found"):
+            session.get_configured_model_by_id_or_name("no_such_model")
+
+
+def test_model_configuration_rejects_flat_yaml_keys():
+    """Flat YAMLs like ``n_lag_periods: 5`` at the top level used to be silently dropped
+    because pydantic ignored unknown fields. They must now raise a validation error so
+    users learn to wrap parameters under ``user_option_values``."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ModelConfiguration.model_validate({"n_lag_periods": 5})
+
+
+def test_model_configuration_accepts_nested_format():
+    config = ModelConfiguration.model_validate(
+        {
+            "user_option_values": {"n_lag_periods": 5},
+            "additional_continuous_covariates": ["rainfall"],
+        }
+    )
+    assert config.user_option_values == {"n_lag_periods": 5}
+    assert config.additional_continuous_covariates == ["rainfall"]

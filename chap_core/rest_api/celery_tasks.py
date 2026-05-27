@@ -4,6 +4,7 @@ import logging
 import os
 from collections.abc import Callable
 from datetime import datetime
+from enum import StrEnum
 from typing import TypeVar, cast
 
 import celery
@@ -11,14 +12,33 @@ from celery import Celery, Task, shared_task
 from celery.result import AsyncResult
 from celery.utils.log import get_task_logger
 from dotenv import find_dotenv, load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 
 from ..database.database import SessionWrapper
 from ..log_config import CHAP_LOGS_DIR, get_status_logger
 from ..util import load_redis
 
 ReturnType = TypeVar("ReturnType")
+
+
+class JobType(StrEnum):
+    """Canonical job type strings surfaced to the UI and the /v1/jobs filter.
+
+    Values are the public contract with the modeling app frontend (see
+    `apps/modeling-app/src/hooks/useJobs.ts:JOB_TYPES`). The string values
+    look legacy/verbose because they match the FE's existing keys. Do not
+    rename the values in isolation -- coordinate a synchronized release
+    with the frontend before changing them. Rename the enum members
+    freely; only the string values are load-bearing.
+    """
+
+    EVALUATION_LEGACY = "create_backtest"  # /v1/crud/backtests and /v1/analytics/create-backtest
+    EVALUATION = "create_backtest_from_data"  # /v1/analytics/create-backtest-with-data/
+    PREDICTION = "create_prediction"  # /v1/analytics/make-prediction
+    DATASET = "create_dataset"  # /v1/analytics/make-dataset
+
 
 # We use get_task_logger to ensure we get the Celery-friendly logger
 # but you could also just use logging.getLogger(__name__) if you prefer.
@@ -28,13 +48,20 @@ logger.setLevel(logging.INFO)
 
 # Send database url in function queue call. Have a dict in module of database url to engines. Look up engine in dict
 class JobDescription(BaseModel):
-    id: str
-    type: str
-    name: str
-    status: str
-    start_time: str | None
-    end_time: str | None
-    result: str | None
+    """Public job metadata surfaced by the `/v1/jobs` endpoints — what the UI shows in a job list."""
+
+    id: str = Field(description="Identifier of the job (matches the underlying Celery task id).")
+    type: str = Field(
+        description="Canonical job-type string from `JobType` (e.g. `create_backtest`, `create_prediction`)."
+    )
+    name: str = Field(description="Human-friendly name for the job, set by the caller at enqueue time.")
+    status: str = Field(description="Current job status (`PENDING`, `STARTED`, `SUCCESS`, `FAILURE`, ...).")
+    start_time: str | None = Field(description="ISO timestamp when the job started running; `None` while still queued.")
+    end_time: str | None = Field(description="ISO timestamp when the job completed; `None` while still running.")
+    result: str | None = Field(description="Result blob produced by the job (JSON string) or error message on failure.")
+    prediction_setup_id: int | None = Field(
+        default=None, description="`PredictionSetup.id` this job belongs to, when applicable."
+    )
 
 
 def read_environment_variables():
@@ -130,18 +157,25 @@ class TrackedTask(Task):
 
     def apply_async(self, args=None, kwargs=None, **options):
         # print('apply async', args, kwargs, options)
+        kwargs = kwargs or {}
         job_name = kwargs.pop(JOB_NAME_KW, None) or "Unnamed"
         job_type = kwargs.pop(JOB_TYPE_KW, None) or "Unspecified"
+        # Read (don't pop) — the worker function also needs prediction_setup_id when present.
+        prediction_setup_id = kwargs.get(PREDICTION_SETUP_ID_JOB_META_KEY)
         result = super().apply_async(args=args, kwargs=kwargs, **options)
+
+        job_meta: dict[str, str] = {
+            "job_name": job_name,
+            "job_type": job_type,
+            "status": "PENDING",
+            "start_time": datetime.now().isoformat(),
+        }
+        if prediction_setup_id is not None:
+            job_meta[PREDICTION_SETUP_ID_JOB_META_KEY] = str(prediction_setup_id)
 
         r.hset(
             f"job_meta:{result.id}",
-            mapping={
-                "job_name": job_name,
-                "job_type": job_type,
-                "status": "PENDING",
-                "start_time": datetime.now().isoformat(),
-            },
+            mapping=job_meta,
         )
 
         return result
@@ -198,6 +232,25 @@ def ping():
     return "pong"
 
 
+@shared_task(name="chap.db_roundtrip")
+def db_roundtrip() -> str:
+    """End-to-end probe: worker-side `SELECT 1` against the DB engine.
+
+    Dispatched by `/health/probe`. Returns "ok" if the worker can reach the
+    database; raises if the worker has no engine configured (which propagates
+    back via the result backend as a task failure).
+    """
+    from sqlalchemy import text
+
+    from chap_core.database.database import engine
+
+    if engine is None:
+        raise RuntimeError("Worker database engine not configured")
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    return "ok"
+
+
 def add_numbers(a: int, b: int):
     logger.info(f"Adding {a} + {b}")
     return a + b
@@ -209,7 +262,7 @@ def celery_run(func, *args, **kwargs):
     return func(*args, **kwargs)
 
 
-ENGINES_CACHE = {}
+ENGINES_CACHE: dict[str, Engine] = {}
 
 
 @app.task(base=TrackedTask)
@@ -228,6 +281,11 @@ def celery_run_with_session(func, *args, **kwargs):
 
 JOB_TYPE_KW = "__job_type__"
 JOB_NAME_KW = "__job_name__"
+PREDICTION_SETUP_ID_JOB_META_KEY = "prediction_setup_id"
+
+
+def _parse_prediction_setup_id(value: str | None) -> int | None:
+    return int(value) if value is not None else None
 
 
 class CeleryJob[ReturnType]:
@@ -355,6 +413,7 @@ class CeleryPool[ReturnType]:
                 start_time=meta.get("start_time", None),
                 end_time=meta.get("end_time", None),
                 result=meta.get("result", None),
+                prediction_setup_id=_parse_prediction_setup_id(meta.get(PREDICTION_SETUP_ID_JOB_META_KEY, None)),
             )
             for meta in sorted(jobs, key=lambda x: x.get("start_time", datetime(1900, 1, 1).isoformat()), reverse=True)
         ]

@@ -60,7 +60,7 @@ Check that the service is running and the model appears in the API:
 
 ```console
 docker compose ps
-curl http://localhost:8000/v1/crud/models
+curl http://localhost:8000/v1/crud/configured-models
 ```
 
 The model (e.g. `ewars_plus`) should appear in the list of configured models.

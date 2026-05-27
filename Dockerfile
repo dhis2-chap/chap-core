@@ -16,10 +16,10 @@ ENV GIT_REVISION=${GIT_REVISION}
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt update && apt upgrade -y && \
-    apt install -y --no-install-recommends git curl docker.io && \
+    apt install -y --no-install-recommends git curl && \
     apt clean && rm -rf /var/lib/apt/lists/* && \
 \
-    useradd --no-create-home --shell /usr/sbin/nologin --groups docker chap
+    useradd --no-create-home --shell /usr/sbin/nologin chap
 
 WORKDIR /app
 

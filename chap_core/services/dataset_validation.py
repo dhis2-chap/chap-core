@@ -116,16 +116,38 @@ def _check_location_completeness(raw_df: pd.DataFrame) -> list[ValidationIssue]:
 
 def _check_required_covariates(dataset: DataSet, config: ModelTemplateConfigV2) -> list[ValidationIssue]:
     """Check that all required covariates from the model config are present."""
+    from chap_core.feature_generators import GEN_PREFIX
+
     dataset_fields = set(dataset.field_names())
-    return [
+    issues = [
         ValidationIssue(
             level="error",
             message=f"Required covariate '{covariate}' not found in dataset. "
             f"Available fields: {sorted(dataset_fields)}",
         )
         for covariate in config.required_covariates
-        if covariate not in dataset_fields
+        if not covariate.startswith(GEN_PREFIX) and covariate not in dataset_fields
     ]
+    issues.extend(_check_generated_features(config))
+    return issues
+
+
+def _check_generated_features(config: ModelTemplateConfigV2) -> list[ValidationIssue]:
+    """Verify that gen:-prefixed covariates reference registered generators."""
+    from chap_core.feature_generators import GEN_PREFIX, get_feature_generator
+
+    issues = []
+    for covariate in config.required_covariates:
+        if covariate.startswith(GEN_PREFIX):
+            generator_id = covariate[len(GEN_PREFIX) :]
+            if get_feature_generator(generator_id) is None:
+                issues.append(
+                    ValidationIssue(
+                        level="error",
+                        message=f"Unknown feature generator '{generator_id}' in '{covariate}'",
+                    )
+                )
+    return issues
 
 
 def _check_period_type(dataset: DataSet, config: ModelTemplateConfigV2) -> list[ValidationIssue]:
