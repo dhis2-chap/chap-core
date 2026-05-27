@@ -89,7 +89,7 @@ coverage: ## run tests with coverage reporting
 	@echo "Coverage report: htmlcov/index.html"
 
 docs: ## generate MkDocs HTML documentation (strict: warnings fail the build)
-	uv run mkdocs build --strict
+	NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
 	@echo "Docs: site/index.html"
 
 dist: clean ## build source and wheel package
