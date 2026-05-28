@@ -667,6 +667,14 @@ Four categories of change:
    `AttributeError`'d a step later) and the log1p clipping above, every
    code path produces the same output as master.
 
+5. **Docs.** Added a module docstring describing the 6-step pipeline and
+   the two entry points, docstrings for the previously-undocumented
+   helpers (`compute_local_weights`, `build_distance_sequences_for_perturbations`,
+   `build_dtw_sequence`, `disambiguate_surrogate` / `_sampler` / `_weighter`,
+   `save_explanation`, `print_time`), and fixed two stale docstrings
+   (`build_original_vector` return shape; a phantom `location` arg on
+   `convert_vector_to_dataset`).
+
 #### `chap_core/explainability/segment.py` — +6 / −6
 
 `SegmentationModel` protocol widened from `pd.DataFrame` to

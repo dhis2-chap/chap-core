@@ -1,3 +1,34 @@
+"""LIME orchestration for time-series forecasts.
+
+This module ties the four pluggable components — segmenter, sampler,
+weighter, surrogate (see the sibling modules ``segment.py``, ``perturb.py``,
+``distance.py``, ``surrogate.py``) — into the end-to-end LIME pipeline. The
+two public entry points are :func:`explain` and :func:`explain_adaptive`.
+
+The pipeline, for a single prediction at one location:
+
+1. **Build the original vector** (:func:`build_original_vector`) — segment
+   each historical feature into lag-keyed blocks and read off the future
+   covariates, giving the interpretable representation ``x0``.
+2. **Mask** (:func:`create_masks`) — generate binary on/off vectors, one per
+   perturbation, over the interpretable features.
+3. **Perturb** (:func:`perturb_vectors`) — materialise each mask into a real
+   ``(hist, fut)`` pair, filling "off" segments via the sampler.
+4. **Predict** (:func:`produce_lime_dataset`) — run the black-box model on
+   every perturbation (batched into pseudo-locations) to get the responses.
+5. **Weight** (:func:`compute_local_weights`) — score each perturbation by
+   locality to ``x0`` using the chosen weighter.
+6. **Fit the surrogate** — log-transform the responses
+   (:func:`_log_transform_for_surrogate`), fit the interpretable model, and
+   read its coefficients as the explanation.
+
+:func:`explain` draws all masks up front; :func:`explain_adaptive` spends
+half the budget acquiring informative masks via a Bayesian acquisition loop.
+The ``disambiguate_*`` factories map the public string names (e.g.
+``"uniform"``, ``"background"``, ``"pairwise"``, ``"ridge"``) to concrete
+component instances.
+"""
+
 import logging
 import random
 import time
@@ -117,7 +148,10 @@ def build_original_vector(
         horizon (int): Number of time steps in future to include in vector
 
     Returns:
-        Dictionary of feature names and value
+        Tuple of ``(x0, feat_indices)`` where ``x0`` maps each feature to its
+        value (a float for static features, a ``{lag: segment_values}`` dict
+        for segmented temporal features) and ``feat_indices`` maps each
+        segmented feature to its ``{lag: (start_row, end_row)}`` spans.
     """
     x0: dict[str, Any] = {}
     feat_indices: dict[str, Indices] = {}
@@ -274,7 +308,6 @@ def convert_vector_to_dataset(
         features_hist (list(str)): List of feature names of historical dataset
         features_fut (list(str)): List of feature names of future dataset
         horizon (int): Number of future time steps the vector encompasses
-        location (str): Geographical location of data,
         hist_type (type): Dataclass of historical data
         fut_type (type): Dataclass of future data
         feat_indices (Dict[str, Dict]): Dictionary of segment indices for each temporal feature
@@ -464,6 +497,13 @@ def compute_local_weights(
     distance_sequences: list[np.ndarray] | None = None,
     x0_sequence: np.ndarray | None = None,
 ) -> np.ndarray:
+    """Compute per-perturbation locality weights, dispatching on the weighter's input type.
+
+    Mask-based weighters (``takes_mask=True``, e.g. ``Pairwise``) are given
+    the binary design matrix ``X`` and the original mask ``x0_row``.
+    Sequence-based weighters (``takes_mask=False``, e.g. ``DTW``) are given
+    the materialised ``distance_sequences`` and the original ``x0_sequence``.
+    """
     if weighter.takes_mask:
         return np.asarray(weighter.get_weights(X, x0_row), dtype=float)
 
@@ -481,6 +521,13 @@ def build_distance_sequences_for_perturbations(
     fut_type: type,
     feat_indices: dict[str, dict],
 ) -> list[np.ndarray]:
+    """Materialise each perturbation and extract its DTW sequence.
+
+    Only needed on the DTW-weighter path: the adaptive loop generates
+    candidate masks, and a sequence-based weighter needs the actual
+    perturbed feature values (not the masks) to measure distance to ``x0``.
+    Returns one ``(n_timesteps, n_temporal_features)`` array per perturbation.
+    """
     sequences: list[np.ndarray] = []
     for pb in perturbations:
         new_hist, _ = convert_vector_to_dataset(
@@ -580,6 +627,13 @@ def build_dtw_sequence(
     hist_df: pd.DataFrame,
     features_hist: list[str],
 ) -> np.ndarray:
+    """Extract the multivariate time-series array used for DTW distance.
+
+    Stacks the non-constant historical feature columns into an
+    ``(n_timesteps, n_temporal_features)`` array, forward/backward-filling
+    (then zero-filling) any NaNs so DTW doesn't choke. Static features are
+    dropped — DTW only compares the varying signal.
+    """
     # TODO: Only handling temporal columns... what to do with static?
     temporal_cols = [f for f in features_hist if not is_constant(hist_df, f)]
     seq = hist_df[temporal_cols].to_numpy(dtype=float)
@@ -719,6 +773,7 @@ def produce_lime_dataset(
 
 
 def disambiguate_surrogate(name: str) -> SurrogateModel:
+    """Map a surrogate short name to a concrete surrogate instance (`ridge` or `bayesian`/`blr`)."""
     match name.lower():
         case "ridge":
             return RidgeSurrogate()
@@ -773,6 +828,12 @@ def disambiguate_segmenter(name: str, granularity: int, window_size: int | None 
 
 
 def disambiguate_sampler(name: str, rng: random.Random, dataset: pd.DataFrame | None = None) -> SampleModel:
+    """Map a sampler short name to a concrete sampler instance.
+
+    Recognises ``background``, ``linear``, ``constant``, ``local_mean``,
+    ``global_mean``, ``random`` and ``fourier`` (see ``perturb.py``).
+    ``background`` and ``random`` require the full ``dataset`` to draw from.
+    """
     match name.lower():
         case "background":
             if dataset is None:
@@ -797,6 +858,7 @@ def disambiguate_sampler(name: str, rng: random.Random, dataset: pd.DataFrame | 
 
 
 def disambiguate_weighter(name: str, kernel_width: int):
+    """Map a weighter short name to a concrete weighter instance (`pairwise` or `dtw`); see ``distance.py``."""
     match name.lower():
         case "pairwise":
             return Pairwise(kernel_width)
@@ -807,6 +869,7 @@ def disambiguate_weighter(name: str, kernel_width: int):
 
 
 def print_time(start, message):
+    """Log ``message`` (a ``%`` format string) with the seconds elapsed since ``start``."""
     mid = time.perf_counter()
     logger.info(message % (mid - start))
 
@@ -820,6 +883,12 @@ def save_explanation(
     n_eff: float,
     params: dict,
 ) -> Path:
+    """Write the sorted explanation to a Markdown file under ``runs/explainability/``.
+
+    Lays out the run parameters, the surrogate-quality metrics (R², effective
+    N, feature count) and the per-feature coefficient table, and returns the
+    path written.
+    """
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in (model_name or "unknown"))
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     run_dir = CHAP_RUNS_DIR / "explainability" / safe_name / timestamp
