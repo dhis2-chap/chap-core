@@ -866,3 +866,35 @@ only logs the coefficients to stdout (and optionally to a Markdown file
 via `--save`). A `--output-csv <path>` flag would let downstream tooling
 consume the explanation programmatically — same shape as the CSV in
 `runs/<run>/predictions_<period>.csv`, one row per (feature × lag × coef).
+
+### 13d. Make `explain-lime` work against real (non-toy) models
+
+`explain-lime` runs end-to-end today only against the location-agnostic
+minimalist toy model. Real models (EWARS, the monthly AR model) don't
+work yet, for two reasons — **both outside `chap_core/explainability/`,
+so out of scope for this PR**:
+
+1. **Runner doesn't surface predict failures as `ModelFailedException`.**
+   `MlFlowTrainPredictRunner.predict()` (`chap_core/runners/mlflow_runner.py`)
+   calls `mlflow.projects.run(...)` *without* the try/except that its own
+   `train()` and `report()` use — so a failed prediction raises a raw
+   `mlflow.exceptions.ExecutionException`. `produce_lime_dataset`'s
+   per-location fallback (the `except ModelFailedException` retry that
+   exists precisely for location-sensitive models) therefore never
+   triggers, and the run crashes. Real models like EWARS are
+   location-sensitive (INLA keys on `ID_spat=location`), and LIME batches
+   perturbations into synthetic `pb_0…pb_N` locations, so they hit this
+   immediately. Fix: wrap `predict()` like `train()`/`report()` already
+   do — a one-spot change in `chap_core/runners/`.
+
+2. **A backtest doesn't always leave a reusable `model` artifact.**
+   `explain-lime` is predict-only and needs a trained file named `model`
+   in the run dir (see §7 / the CLI reference Prerequisites). `chap eval`
+   leaves one for the minimalist model but not, e.g., for the EWARS run
+   (its backtest dir had no `model` file and a 0-byte predictions CSV).
+   Belongs in the eval / runner / artifact-persistence layer.
+
+Once both land, verify `explain-lime` against a real trained model
+(e.g. `chap_ewars_monthly`) produces non-degenerate coefficients —
+unlike the toy model, whose uniformly-negative perturbed predictions
+collapse to all-zero coefficients regardless of dataset or sampler.

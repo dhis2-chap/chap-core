@@ -155,7 +155,16 @@ Interpretation:
 
 ## Prerequisites
 
-The `--model-name` directory needs both `MLproject` and a trained `model` file. Run `chap eval` first against the same dataset (or `chap backtest` if available) to produce one:
+`explain-lime` **does not train a model** — it is predict-only. It loads an *already-trained* model and probes it by running its `predict` step on perturbed inputs. So you must train the model first and point `--model-name` at the resulting run directory.
+
+That directory must contain:
+
+- an `MLproject` file, and
+- a trained artifact **literally named `model`** — the file the model's own predict script loads. chap-core never deserialises the model itself; it just invokes the model's predict entry point against this file.
+
+A bare GitHub URL (e.g. `https://github.com/dhis2-chap/...`) resolves to the model *template* (code only, no trained `model` file), so it will **not** work as `--model-name` here.
+
+Train first with `chap eval` against the dataset, then pass the produced run directory:
 
 ```console
 chap eval \
@@ -165,6 +174,9 @@ chap eval \
 ```
 
 Then pass the resulting `runs/<name>/<timestamp>_<hash>/` directory as `--model-name` here.
+
+!!! note "Verify the `model` file exists"
+    Not every model leaves a reusable `model` artifact in the run directory after a backtest. Before running `explain-lime`, check that the run directory actually contains a file named `model` (`ls runs/<name>/<timestamp>_<hash>/`). If it doesn't, `explain-lime` fails when the model's predict step tries to load it (e.g. `cannot open compressed file 'model'`).
 
 ## See Also
 
