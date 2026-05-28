@@ -918,10 +918,14 @@ so out of scope for this PR**:
    `mlflow.exceptions.ExecutionException`. `produce_lime_dataset`'s
    per-location fallback (the `except ModelFailedException` retry that
    exists precisely for location-sensitive models) therefore never
-   triggers, and the run crashes. Real models are location-sensitive
-   (the AR models key on a location embedding; EWARS/INLA on `ID_spat`),
-   and LIME batches perturbations into synthetic `pb_0…pb_N` locations, so
-   they hit this immediately. **Fixed in PR #389** — wraps `predict()` like
+   triggers, and the run crashes. This bites **location-sensitive** models —
+   those with a parameter tied to the location set (the AR models' RNN
+   embedding sized to the training location count; EWARS/INLA's spatial
+   term) — because LIME batches perturbations into synthetic `pb_0…pb_N`
+   locations the model has never seen. **Location-agnostic** models (predict
+   from covariates only, no location-indexed parameter — like the minimalist
+   toy) sail through the batch path and never need the fallback, which is why
+   the toy model works without #389. **Fixed in PR #389** — wraps `predict()` like
    `train()`/`report()` already do. **Verified**: with #389 applied, the
    monthly AR model completes via the fallback and yields `R²≈0.44` with
    real coefficients (see §10i). The fix lives in `chap_core/runners/`, so
