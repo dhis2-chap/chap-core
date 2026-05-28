@@ -675,7 +675,11 @@ Four categories of change:
 signature widening. Every implementation already handled both at runtime —
 the strict DataFrame annotation was wrong. Also a `best_symbols: ndarray |
 None` annotation + assert in `SaxTransformSegmentation` to satisfy the
-type checker.
+type checker. Also added module + protocol + per-segmenter docstrings
+explaining each strategy (uniform / exponential / reverse-exponential /
+the three matrix-profile variants / SAX / NN), the lag convention, and
+paper provenance; the old trailing free-text intuition block was folded
+into those docstrings.
 
 #### `chap_core/explainability/surrogate.py` — +8 / −8
 
@@ -684,7 +688,9 @@ annotations matching the `SurrogateModel` protocol. `fit` now defaults
 `sample_weight` to uniform ones when `None` is passed (so `np.average(...,
 weights=None)` doesn't crash later). `RidgeSurrogate.predict` and
 `BayesianSurrogate.predict` wrap their return in `np.asarray(...)` so mypy
-sees `ndarray` instead of `Any`.
+sees `ndarray` instead of `Any`. Also added module + class + method
+docstrings (Ridge vs Bayesian, what `SurrogateResult` is, how
+`acquisition_scores` drives adaptive LIME).
 
 #### `chap_core/explainability/perturb.py` — +6 / −4
 
@@ -692,7 +698,9 @@ sees `ndarray` instead of `Any`.
 None` and `window_size: int → int | None`. The caller (`disambiguate_sampler`
 in `lime.py`) was already passing `None` for both; the implementation
 already handled it; only the type annotation was wrong. `R_cache` annotated
-as `dict[str, np.ndarray]`.
+as `dict[str, np.ndarray]`. Also added module + protocol + per-sampler
+docstrings explaining each replacement strategy and its paper provenance
+(folded in the old trailing provenance comment).
 
 #### `chap_core/explainability/plot.py` — +8 / −5
 
