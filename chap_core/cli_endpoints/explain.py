@@ -40,13 +40,43 @@ class LimeParams(BaseModel):
     with_metrics: bool = False
 
 
+def _resolve_locations(requested: list[str] | None, all_locations: bool, available: list[str]) -> list[str]:
+    """Resolve and validate the locations to explain.
+
+    Exactly one of ``requested`` / ``all_locations`` must select locations:
+    ``--all-locations`` returns every available location; otherwise the
+    requested names are validated against ``available`` (order preserved).
+    Raises ``ValueError`` with a helpful message on a missing, unknown, or
+    conflicting selection.
+    """
+    if all_locations:
+        if requested:
+            raise ValueError("Pass either --location or --all-locations, not both.")
+        return list(available)
+    if not requested:
+        raise ValueError("No location given. Pass --location <name> (repeatable) or --all-locations.")
+    unknown = [loc for loc in requested if loc not in available]
+    if unknown:
+        raise ValueError(f"Unknown location(s): {unknown}. Valid locations: {sorted(available)}")
+    return list(requested)
+
+
 def explain_lime(
     model_name: ModelNameArg,
     dataset_csv: DatasetCsvArg,
     location: Annotated[
-        str,
-        Parameter(help="Location name for which to explain the prediction"),
-    ],
+        list[str] | None,
+        Parameter(
+            help="Location name(s) to explain (repeatable, e.g. --location A --location B). Required unless --all-locations is set."
+        ),
+    ] = None,
+    all_locations: Annotated[
+        bool,
+        Parameter(
+            help="Explain every org-unit in the dataset. Warning: this runs a full perturbation loop "
+            "(~num-perturbations model calls) per location, so it can be very slow on many-location datasets."
+        ),
+    ] = False,
     horizon: Annotated[
         int,
         Parameter(help="Number of time steps into the future to explain"),
@@ -91,6 +121,9 @@ def explain_lime(
     geojson_path = url_geojson_path or discover_geojson(csv_path)
     dataset = load_dataset_from_csv(csv_path, geojson_path)
 
+    # Fail fast on a bad/missing location before the (expensive) model load.
+    locations = _resolve_locations(location, all_locations, list(dataset.locations()))
+
     configuration = None
     if model_configuration_yaml is not None:
         logger.info(f"Loading model configuration from {model_configuration_yaml}")
@@ -108,31 +141,32 @@ def explain_lime(
         model = template.get_model(configuration)  # type: ignore[arg-type]
         estimator = model()
 
-        logger.info(f"Generating explanation for {location}, {horizon} time steps into the future.")
+        for loc in locations:
+            logger.info(f"Generating explanation for {loc}, {horizon} time steps into the future.")
 
-        result = explain_fn(
-            model=estimator,
-            dataset=dataset,
-            location=location,
-            horizon=horizon,
-            num_perturbations=lime_params.num_perturbations,
-            surrogate_name=lime_params.surrogate_name,
-            segmenter_name=lime_params.segmenter_name,
-            sampler_name=lime_params.sampler_name,
-            weighter_name=lime_params.weighter_name,
-            seed=lime_params.seed,
-            timed=lime_params.timed,
-            granularity=lime_params.granularity,
-            last_n=lime_params.last_n,
-            save=save,
-            return_metrics=lime_params.with_metrics,
-        )
+            result = explain_fn(
+                model=estimator,
+                dataset=dataset,
+                location=loc,
+                horizon=horizon,
+                num_perturbations=lime_params.num_perturbations,
+                surrogate_name=lime_params.surrogate_name,
+                segmenter_name=lime_params.segmenter_name,
+                sampler_name=lime_params.sampler_name,
+                weighter_name=lime_params.weighter_name,
+                seed=lime_params.seed,
+                timed=lime_params.timed,
+                granularity=lime_params.granularity,
+                last_n=lime_params.last_n,
+                save=save,
+                return_metrics=lime_params.with_metrics,
+            )
 
-        if lime_params.with_metrics:
-            _, metrics = result
-            logger.info("Faithfulness metrics:")
-            for key, value in metrics.items():
-                logger.info(f"  {key:>15} = {value:+.4f}")
+            if lime_params.with_metrics:
+                _, metrics = result
+                logger.info(f"Faithfulness metrics for {loc}:")
+                for key, value in metrics.items():
+                    logger.info(f"  {key:>15} = {value:+.4f}")
 
 
 def register_commands(app):

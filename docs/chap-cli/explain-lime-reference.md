@@ -8,7 +8,8 @@ influenced the forecast for a specific location and horizon.
 ## Synopsis
 
 ```console
-chap explain-lime --model-name <MODEL> --dataset-csv <CSV_FILE> --location <ORGUNIT> [OPTIONS]
+chap explain-lime --model-name <MODEL> --dataset-csv <CSV_FILE> --location <ORGUNIT> [--location <ORGUNIT> ...] [OPTIONS]
+chap explain-lime --model-name <MODEL> --dataset-csv <CSV_FILE> --all-locations [OPTIONS]
 ```
 
 ## Description
@@ -29,7 +30,8 @@ The full pipeline is segmenter → sampler → predict → weighter → surrogat
 |-----------|-------------|
 | `--model-name` | Model identifier. Local directory path under `runs/`, GitHub URL, or chapkit service URL. The directory must contain both an `MLproject` file and a trained `model` file — produce one with `chap eval` first. |
 | `--dataset-csv` | Path to the CSV file containing the dataset to explain over. |
-| `--location` | Name of the organisation unit whose prediction will be explained. Must exist in the dataset. |
+| `--location` | Name of the organisation unit whose prediction will be explained. Must exist in the dataset. **Repeatable** — pass it more than once (`--location A --location B`) to explain several org-units in one run. Required unless `--all-locations` is given. |
+| `--all-locations` | Explain **every** org-unit in the dataset instead of naming them. Mutually exclusive with `--location`. **Warning:** each location is a full perturbation loop (≈ `num-perturbations` model calls), so this can be very slow on many-location datasets — see [Choosing `--lime-params.num-perturbations`](#choosing---lime-paramsnum-perturbations). |
 
 ## Common Parameters
 
