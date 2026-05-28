@@ -49,6 +49,7 @@ import pytest
 
 from chap_core.assessment.backtest_plots import (
     BacktestPlotBase,
+    FacetDimension,
     get_backtest_plots_registry,
 )
 from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot
@@ -137,12 +138,13 @@ def test_facet_dimensions_use_type_marker_shorthand(plot_cls, expected_fields):
     assert isinstance(dims, list)
     assert dims, f"{plot_cls.__name__} declares no facet dimensions"
     for entry in dims:
-        assert isinstance(entry, str)
-        assert FACET_DIM_RE.match(entry), (
-            f"{plot_cls.__name__}.facet_dimensions entry {entry!r} must be "
+        assert isinstance(entry, FacetDimension)
+        assert FACET_DIM_RE.match(entry.field_name), (
+            f"{plot_cls.__name__}.facet_dimensions entry {entry.field_name!r} must be "
             "an altair shorthand like 'location:N' or 'horizon_distance:O'"
         )
-    declared_fields = tuple(entry.split(":", 1)[0] for entry in dims)
+        assert entry.display_name, f"{plot_cls.__name__} facet entry {entry.field_name!r} has empty display_name"
+    declared_fields = tuple(entry.clean_name for entry in dims)
     assert set(declared_fields) == set(expected_fields), (
         f"{plot_cls.__name__} declared {declared_fields}, expected {expected_fields}"
     )
@@ -231,4 +233,9 @@ def test_every_faceted_plot_in_registry_passes_shape_checks(faceted_base):
         dims = cls.facet_dimensions
         assert isinstance(dims, list) and dims
         for entry in dims:
-            assert FACET_DIM_RE.match(entry), f"{cls.__name__}.facet_dimensions entry {entry!r} is not altair shorthand"
+            assert isinstance(entry, FacetDimension), (
+                f"{cls.__name__}.facet_dimensions entry {entry!r} is not a FacetDimension"
+            )
+            assert FACET_DIM_RE.match(entry.field_name), (
+                f"{cls.__name__}.facet_dimensions entry {entry.field_name!r} is not altair shorthand"
+            )
