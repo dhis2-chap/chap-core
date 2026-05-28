@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import numpy as np
 import pytest
 from pydantic import BaseModel
@@ -87,3 +90,16 @@ def test_generate_template_app(dumped_weekly_data_paths, tmp_path, model_config_
 def test_generate_template_app_yaml(model_config_path):
     *_, write_yaml = generate_template_app(DummyModelTemplate())
     write_yaml()
+
+
+def test_command_line_interface_import_is_lean():
+    # Every external-model predict subprocess imports this module, so sklearn and
+    # matplotlib are deferred to keep startup fast. Run in a fresh interpreter
+    # because the test process has already imported them transitively.
+    code = (
+        "import sys, chap_core.adaptors.command_line_interface; "
+        "heavy = [m for m in ('sklearn', 'matplotlib') if m in sys.modules]; "
+        "assert not heavy, heavy"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
