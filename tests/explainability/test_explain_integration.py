@@ -184,6 +184,38 @@ class TestLog1pHelperEndToEnd:
         )
 
 
+class TestSaveAndPlot:
+    """save=True should persist both the markdown report and the importance plot."""
+
+    def test_save_writes_markdown_and_plot_png(self, small_full_dataset, tmp_path, monkeypatch):
+        import matplotlib
+
+        matplotlib.use("Agg")  # headless: no display needed
+        from chap_core.explainability import lime as lime_module
+
+        monkeypatch.setattr(lime_module, "CHAP_RUNS_DIR", tmp_path)
+
+        _explain_with_defaults(MockExternalModel(), small_full_dataset, save=True, plot=True)
+
+        explainability_dir = tmp_path / "explainability"
+        md_files = list(explainability_dir.rglob("explanation.md"))
+        png_files = list(explainability_dir.rglob("importance_plot.png"))
+
+        assert len(md_files) == 1, "expected exactly one explanation.md"
+        assert len(png_files) == 1, "expected the importance plot saved next to the markdown"
+        assert png_files[0].parent == md_files[0].parent, "plot should sit beside the markdown"
+        assert "importance_plot.png" in md_files[0].read_text(), "markdown should reference the plot"
+
+    def test_no_save_writes_nothing(self, small_full_dataset, tmp_path, monkeypatch):
+        from chap_core.explainability import lime as lime_module
+
+        monkeypatch.setattr(lime_module, "CHAP_RUNS_DIR", tmp_path)
+
+        _explain_with_defaults(MockExternalModel(), small_full_dataset, save=False, plot=False)
+
+        assert not (tmp_path / "explainability").exists(), "save=False must not write anything"
+
+
 class TestExplainAdaptiveEndToEnd:
     """Smoke test for the adaptive variant — same contract, different sampling strategy."""
 

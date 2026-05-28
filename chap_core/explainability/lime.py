@@ -882,12 +882,14 @@ def save_explanation(
     r2: float,
     n_eff: float,
     params: dict,
+    include_plot: bool = False,
 ) -> Path:
     """Write the sorted explanation to a Markdown file under ``runs/explainability/``.
 
     Lays out the run parameters, the surrogate-quality metrics (R², effective
     N, feature count) and the per-feature coefficient table, and returns the
-    path written.
+    path written. When ``include_plot`` is True the Markdown also references
+    the ``importance_plot.png`` the caller saves into the same directory.
     """
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in (model_name or "unknown"))
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -927,6 +929,14 @@ def save_explanation(
     ]
     for name, coef in results:
         lines.append(f"| {name} | {coef:+.4f} |")
+
+    if include_plot:
+        lines += [
+            "",
+            "## Plot",
+            "",
+            "![Feature importance](importance_plot.png)",
+        ]
 
     md_path = run_dir / "explanation.md"
     md_path.write_text("\n".join(lines) + "\n")
@@ -1253,11 +1263,9 @@ def explain(
     # Plot and save
     # =================================================================
 
-    if plot:
-        plot_importance(sorted_results, hist_df, future_df, feat_indices)
-
+    saved_dir: Path | None = None
     if save:
-        save_explanation(
+        md_path = save_explanation(
             results=sorted_results,
             model_name=model.name,
             location=location,
@@ -1274,7 +1282,15 @@ def explain(
                 "seed": seed,
                 "adaptive": False,
             },
+            include_plot=plot,
         )
+        saved_dir = md_path.parent
+
+    if plot:
+        # When saving, write the figure next to the markdown; otherwise show it
+        # interactively (a no-op on non-interactive backends).
+        plot_path = saved_dir / "importance_plot.png" if saved_dir is not None else None
+        plot_importance(sorted_results, hist_df, future_df, feat_indices, save_path=plot_path)
 
     if return_metrics:
         return sorted_results, metrics
@@ -1732,11 +1748,9 @@ def explain_adaptive(
     # Plot and save
     # =================================================================
 
-    if plot:
-        plot_importance(sorted_results, hist_df, future_df, feat_indices)
-
+    saved_dir: Path | None = None
     if save:
-        save_explanation(
+        md_path = save_explanation(
             results=sorted_results,
             model_name=model.name,
             location=location,
@@ -1753,7 +1767,15 @@ def explain_adaptive(
                 "seed": seed,
                 "adaptive": True,
             },
+            include_plot=plot,
         )
+        saved_dir = md_path.parent
+
+    if plot:
+        # When saving, write the figure next to the markdown; otherwise show it
+        # interactively (a no-op on non-interactive backends).
+        plot_path = saved_dir / "importance_plot.png" if saved_dir is not None else None
+        plot_importance(sorted_results, hist_df, future_df, feat_indices, save_path=plot_path)
 
     if return_metrics:
         return sorted_results, metrics
