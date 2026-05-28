@@ -44,6 +44,35 @@ The full pipeline is segmenter → sampler → predict → weighter → surrogat
 | `--lime-params.adaptive` | Use `explain_adaptive` (Bayesian acquisition) instead of plain LIME | false |
 | `--lime-params.with-metrics` | Also compute the `eLoss` faithfulness metric and log it | false |
 
+## Choosing `--lime-params.num-perturbations`
+
+LIME fits a linear surrogate over the interpretable features (roughly
+`num_features × granularity` plus the future steps — typically 40–50 here),
+so the perturbation count needs to comfortably exceed that for a stable fit.
+A few times the feature count is the usual rule of thumb, which is why the
+default is **300**. Lower counts give a faster but noisier explanation;
+higher counts smooth the coefficients with diminishing returns.
+
+The cost matters because each perturbation is one `model.predict` call. For
+an **in-process** model that's cheap, so 300–1000 is comfortable. For an
+**external** model (each predict is a subprocess/container) 300 calls can take
+minutes, so:
+
+- Prefer **`--lime-params.adaptive`** — it spends a smaller budget on the most
+  informative perturbations (Bayesian acquisition), getting a comparable
+  explanation with fewer model calls.
+- Or lower `--lime-params.num-perturbations` toward ~100–150 (about 2–3× the
+  feature count — the practical floor) and accept more variance.
+
+**Verify you have enough**: re-run with two or three different
+`--lime-params.seed` values. If the top features and the signs of their
+coefficients are stable across seeds, the count is adequate; if they jump
+around, raise it.
+
+> Note: the small `--lime-params.num-perturbations` values used in the
+> examples on this page are for a fast demo. Real explanations want the
+> default (~300), or adaptive mode for slow models.
+
 ## Pipeline Components
 
 LIME's four pluggable stages are selected by name. Defaults work fine for most cases; swap when investigating an unfaithful explanation.
