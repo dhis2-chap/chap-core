@@ -708,9 +708,14 @@ as `dict[str, np.ndarray]`.
   doesn't expose colormaps as static attributes, so pyright was right to
   flag it).
 
-#### `chap_core/explainability/distance.py` — +1 / −1
+#### `chap_core/explainability/distance.py`
 
 `np.exp(...)` return in `DTW.get_weights` wrapped in `np.asarray(...)`.
+Also added module + class + method docstrings explaining what each
+weighter computes: `Pairwise` (Euclidean distance in mask space + RBF
+kernel, standard LIME) vs `DTW` (Dynamic Time Warping in sequence space
++ z-normalised Gaussian kernel), and what the `takes_mask` flag selects.
+Docs only — no behaviour change.
 
 #### `chap_core/cli_endpoints/explain.py` — +9 / −1
 
