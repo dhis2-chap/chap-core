@@ -432,21 +432,17 @@ uv run chap explain-lime \
     --lime-params.with-metrics
 ```
 
-> **Requires the runner fix in PR #389.** The AR model is location-sensitive
-> (its RNN location embedding is sized to the training location count), so
-> LIME's batched pseudo-locations (`pb_0…pb_N`) trip a shape mismatch and the
-> model's predict subprocess fails. explain-lime has a per-location fallback
-> for exactly this, but it only triggers when the runner raises
-> `ModelFailedException` — which `MlFlowTrainPredictRunner.predict()` does not
-> until #389 wraps it. **Without #389 this invocation crashes; with it the
-> fallback retries per-location against the full dataset and succeeds.** Keep
-> `num-perturbations` modest — the fallback runs one model subprocess per
-> perturbation, so it's slow.
+This works directly — `produce_lime_dataset` predicts one perturbation at a
+time against the model's real location set, so location-sensitive models (the
+AR model's RNN embedding, EWARS/INLA's spatial term) get the locations they
+trained on and just work. No runner fix or pseudo-location handling involved.
+Keep `num-perturbations` modest, though — for an external (subprocess) model
+that's one model invocation per perturbation, so it's slow.
 
-For a quick smoke test that needs no extra PR and no model environment, use
-the location-agnostic minimalist toy instead (§10i) — but its coefficients
-come out ~0 (it's a trivial linear regression), so it proves the pipeline
-*runs*, not that the explanation is rich.
+For a quick smoke test that needs no model environment, use the minimalist toy
+instead (§10i) — but its coefficients come out ~0 (it's a trivial linear
+regression), so it proves the pipeline *runs*, not that the explanation is
+rich.
 
 ### 10g. End-to-end with `return_metrics=True` from Python
 
@@ -555,39 +551,35 @@ minimalist model used in this test predicts uniformly negative on every
 perturbation, so every coefficient comes out 0. That's a model property,
 not a LIME bug.
 
-### Verified against a real model (the monthly AR model + PR #389)
+### Verified against a real model (the monthly AR model)
 
 Trained `auto_regressive_monthly` on `example_data/laos_subset.csv` (the
-§10f workflow) and ran `explain-lime` against it, with PR #389's runner fix
-applied. Result — a genuine, non-degenerate explanation:
+§10f workflow) and ran `explain-lime` against it. Result — a genuine,
+non-degenerate explanation:
 
 ```
-Batch predict failed; retrying perturbations individually with full dataset
-Surrogate weighted R2=0.437, effective N=20.0, p=37
+Processing perturbation 1 / 12...
+Surrogate weighted R2=0.285, effective N=12.0, p=37
 Coefficients:
-  mean_temperature_lag_7: -0.0344
-         rainfall_lag_0:  +0.0264
-         rainfall_lag_8:  -0.0211
-      disease_cases_lag_6: +0.0188
-          rainfall_fut_2: -0.0143
+       rainfall_lag_0: -0.0189
+  mean_temperature_lag_0: +0.0105
+  mean_temperature_lag_5: +0.0039
    ... (remaining lags taper to ~0)
 ```
 
 Two things this confirms:
 
-1. **The real-model path works once #389 lands.** The AR model's RNN keys on
-   a location embedding sized to the training location count (3 Laos
-   provinces → shape `(3,4)`). LIME's batched pseudo-locations (10 → `(10,4)`)
-   trip a `flax ScopeParamShapeError`, so the batch predict fails. With #389,
-   that surfaces as `ModelFailedException`, the `except ModelFailedException`
-   fallback in `produce_lime_dataset` fires (`retrying perturbations
-   individually with full dataset`), re-predicts against the real 3-province
-   dataset (correct embedding shape), and the surrogate fits with `R²≈0.44`
-   and real coefficients. Without #389 the raw exception escapes and the run
-   crashes.
+1. **Location-sensitive models work directly** since the pseudo-location
+   batching was removed (§12c). The AR model's RNN keys on a location
+   embedding sized to the training location count; `produce_lime_dataset`
+   now predicts one perturbation at a time against the real multi-province
+   dataset, so the embedding shape always matches and there is no failure to
+   recover from. This was verified on a **raw runner — no PR #389 needed**
+   (the earlier batch path tripped a `flax ScopeParamShapeError` on the
+   `pb_N` pseudo-locations; that whole path is gone).
 2. **Real models give real explanations.** Unlike the toy model's all-zero
    coefficients, the AR model produces a meaningful importance ranking
-   (recent rainfall and a mid-range temperature lag dominate here).
+   (recent rainfall and temperature lags dominate here).
 
 ---
 
@@ -706,12 +698,28 @@ Four categories of change:
    trained models now exits 0 (was exit 1 on master with `Input y contains
    NaN`).
 
-4. **No other behaviour change.** Apart from the two `ModelFailedException`
-   raises (which only fire on a code path that previously would have
-   `AttributeError`'d a step later) and the log1p clipping above, every
+4. **`produce_lime_dataset` collapsed to a single per-perturbation path.**
+   Master had a batch path (pack perturbations into synthetic `pb_0…pb_N`
+   pseudo-locations, one `model.predict` per chunk) plus an
+   `except ModelFailedException` fallback (per-perturbation against the real
+   dataset). The batch path only works for location-agnostic models;
+   location-sensitive ones (RNN location embedding, INLA spatial term — i.e.
+   essentially all production models) broke on the pseudo-locations and fell
+   back anyway. The batch path + fallback split is removed in favour of the
+   single per-perturbation path: each perturbation is predicted by injecting
+   its perturbed target-location data into the real multi-location dataset, so
+   the model always sees its trained location set. `chunk_size` dropped;
+   `full_dataset` / `full_future_weather` are now required (asserted). Also
+   renamed the misleading `_non_feature_names_plus_disease` (actually
+   `_non_feature_names - {disease_cases}`) to `_non_feature_names_excluding_disease`.
+   Net effect: location-sensitive models work directly (no pseudo-location
+   failure, so no dependency on the runner-exception-wrapping PR #389).
+
+5. **No other behaviour change.** Apart from the prediction-path collapse
+   above, the `ModelFailedException` None-guard, and the log1p clipping, every
    code path produces the same output as master.
 
-5. **Docs.** Added a module docstring describing the 6-step pipeline and
+6. **Docs.** Added a module docstring describing the 6-step pipeline and
    the two entry points, docstrings for the previously-undocumented
    helpers (`compute_local_weights`, `build_distance_sequences_for_perturbations`,
    `build_dtw_sequence`, `disambiguate_surrogate` / `_sampler` / `_weighter`,
@@ -904,42 +912,33 @@ via `--save`). A `--output-csv <path>` flag would let downstream tooling
 consume the explanation programmatically — same shape as the CSV in
 `runs/<run>/predictions_<period>.csv`, one row per (feature × lag × coef).
 
-### 13d. Make `explain-lime` work against real (non-toy) models
+### 13d. Real-model support (resolved here) + remaining artifact gap
 
-`explain-lime` runs end-to-end today only against the location-agnostic
-minimalist toy model. Real models (EWARS, the monthly AR model) don't
-work yet, for two reasons — **both outside `chap_core/explainability/`,
-so out of scope for this PR**:
+`explain-lime` now works against real, location-sensitive models directly —
+the pseudo-location batching that broke them was removed (§12c): predictions
+are made one perturbation at a time against the real location set. Verified
+end-to-end with `auto_regressive_monthly` on `laos_subset.csv` on a raw
+runner (§10i).
 
-1. **Runner doesn't surface predict failures as `ModelFailedException`.**
-   `MlFlowTrainPredictRunner.predict()` (`chap_core/runners/mlflow_runner.py`)
-   calls `mlflow.projects.run(...)` *without* the try/except that its own
-   `train()` and `report()` use — so a failed prediction raises a raw
-   `mlflow.exceptions.ExecutionException`. `produce_lime_dataset`'s
-   per-location fallback (the `except ModelFailedException` retry that
-   exists precisely for location-sensitive models) therefore never
-   triggers, and the run crashes. This bites **location-sensitive** models —
-   those with a parameter tied to the location set (the AR models' RNN
-   embedding sized to the training location count; EWARS/INLA's spatial
-   term) — because LIME batches perturbations into synthetic `pb_0…pb_N`
-   locations the model has never seen. **Location-agnostic** models (predict
-   from covariates only, no location-indexed parameter — like the minimalist
-   toy) sail through the batch path and never need the fallback, which is why
-   the toy model works without #389. **Fixed in PR #389** — wraps `predict()` like
-   `train()`/`report()` already do. **Verified**: with #389 applied, the
-   monthly AR model completes via the fallback and yields `R²≈0.44` with
-   real coefficients (see §10i). The fix lives in `chap_core/runners/`, so
-   it's a separate PR, not this one.
+Two notes:
+
+1. **PR #389 is no longer required by explain-lime.** It wrapped
+   `MlFlowTrainPredictRunner.predict()` failures as `ModelFailedException` so
+   the old `except ModelFailedException` batch-fallback could trigger. With
+   the batch path gone there is no such failure to catch, so explain-lime
+   doesn't depend on it. #389 is still a reasonable standalone
+   runner-consistency fix (predict should match train/report) — keep or close
+   it on its own merits, independent of this work.
 
 2. **A backtest doesn't always leave a reusable `model` artifact.**
-   `explain-lime` is predict-only and needs a trained file named `model`
-   in the run dir (see §7 / the CLI reference Prerequisites). `chap eval`
-   leaves one for the minimalist and AR models but not, e.g., for the EWARS
-   run (its backtest dir had no `model` file and a 0-byte predictions CSV).
-   Belongs in the eval / runner / artifact-persistence layer. (The AR
-   models are unaffected — they do persist a `model` file.)
+   `explain-lime` is predict-only and needs a trained file named `model` in
+   the run dir (see §7 / the CLI reference Prerequisites). `chap eval` leaves
+   one for the minimalist and AR models but not, e.g., for the EWARS run (its
+   backtest dir had no `model` file and a 0-byte predictions CSV). This is the
+   remaining blocker for an EWARS example, and it lives in the eval /
+   artifact-persistence layer, not here.
 
-Follow-up once #389 merges: switch the documented `explain-lime` example
-(here and in `docs/chap-cli/explain-lime-reference.md`) from the toy model
-to `auto_regressive_monthly` on `laos_subset.csv`, now that it's verified to
+Follow-up: switch the documented `explain-lime` example (here and in
+`docs/chap-cli/explain-lime-reference.md`) from the toy model to
+`auto_regressive_monthly` on `laos_subset.csv`, now that it's verified to
 produce a real explanation.
