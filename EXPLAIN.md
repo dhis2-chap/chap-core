@@ -273,7 +273,7 @@ chap_core/cli_endpoints/explain.py — explain_lime command, LimeParams config.
 
 Tests:
 ```
-tests/explainability/  — this PR's test suite (60 tests, 0% → 62%
+tests/explainability/  — this PR's test suite (62 tests, 0% → 62%
                          overall, 75% on lime.py). Six modules:
                          test_distance, test_perturb, test_segment,
                          test_surrogate, test_metrics (eLoss math),
@@ -301,7 +301,7 @@ make lint
 
 ```bash
 uv run pytest tests/explainability/ -v
-# Expect: 60 passed in ~3 s.
+# Expect: 62 passed in ~3 s.
 ```
 
 ### 10c. Coverage
@@ -575,7 +575,7 @@ not a LIME bug.
 6. **Adds `--lime-params.with-metrics` CLI flag** so operators get the
    eLoss block at the end of `chap explain-lime` runs, not only Python
    callers.
-7. **Adds 60 unit + integration tests** under `tests/explainability/`
+7. **Adds 62 unit + integration tests** under `tests/explainability/`
    (suite previously had zero), including a `MockExternalModel`-driven
    end-to-end integration suite that exercises the whole LIME pipeline
    without needing a trained model directory. Coverage of the subpackage
@@ -708,7 +708,11 @@ in `lime.py`) was already passing `None` for both; the implementation
 already handled it; only the type annotation was wrong. `R_cache` annotated
 as `dict[str, np.ndarray]`. Also added module + protocol + per-sampler
 docstrings explaining each replacement strategy and its paper provenance
-(folded in the old trailing provenance comment).
+(folded in the old trailing provenance comment). Bug fix:
+`RandomBackground.sample` guards against a background dataset with no
+non-null locations — it now warns and falls back to zeros instead of
+crashing with `IndexError: Cannot choose from an empty sequence` inside
+`rng.choice`.
 
 #### `chap_core/explainability/plot.py` — +8 / −5
 
@@ -760,7 +764,7 @@ unreachable from the CLI even after the supporting module was wired up.
 | `chap explain-lime` against any trained model (no `return_metrics`) | crashes at `lime.py:1001` (`log1p` → `NaN` → sklearn refuses fit) | **exits 0**, prints the surrogate's coefficient listing. Warns visibly if perturbed predictions are negative (clipped) or non-finite (dropped). |
 | `explain(..., return_metrics=True)` from Python | `ImportError` for `eLoss` | works, returns `(results, metrics)` with `delta_eloss`, `auc_top_k`, `auc_bottom_k` |
 | `chap explain-lime` exposing eLoss to operators | not possible — no CLI flag for `return_metrics` | `--lime-params.with-metrics` prints `r2`, `n_eff`, `delta_eloss`, `auc_top_k`, `auc_bottom_k` after the coefficient listing |
-| `tests/explainability/` | doesn't exist | **60 tests, runs in ~3 s** |
+| `tests/explainability/` | doesn't exist | **62 tests, runs in ~3 s** |
 | Coverage of `chap_core/explainability/` | 0% | **62% overall**, 100% on `distance.py` / `testing/metrics.py`, 96% on `surrogate.py`, **75% on `lime.py`** (was 7% before the integration suite) |
 | Optional `[explainability]` extras (`stumpy`, `pyts`, `fastdtw`) | listed as opt-in, but every import in the subpackage is unconditional — CI default `uv sync --dev` couldn't import the module at all | moved to main `dependencies` so they install with every `uv sync`; subpackage now usable from a clean checkout without remembering an extras flag |
 

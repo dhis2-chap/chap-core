@@ -191,6 +191,12 @@ class RandomBackground:
     def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
         locations = self.dataset["location"].dropna().unique().tolist()
 
+        if not locations:
+            logger.warning(
+                "Background dataset has no non-null locations for feature '%s'; falling back to zeros", feature_name
+            )
+            return [0.0] * length
+
         for _ in range(3):  # Retries twice if selected window is too narrow
             loc = self.rng.choice(locations)
             loc_df: pd.DataFrame = self.dataset[self.dataset["location"] == loc]

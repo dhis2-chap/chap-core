@@ -10,6 +10,7 @@ from chap_core.explainability.perturb import (
     GlobalMean,
     LinearInterpolation,
     LocalMean,
+    RandomBackground,
     RandomUniform,
 )
 
@@ -81,3 +82,22 @@ class TestRandomUniform:
             _hist([0.0]), indices=(0, 1), feature_name="x", length=5
         )
         assert a == b
+
+
+class TestRandomBackground:
+    def test_copies_a_real_window_from_a_location(self):
+        dataset = pd.DataFrame({"location": ["a"] * 5, "x": [1.0, 2.0, 3.0, 4.0, 5.0]})
+        out = RandomBackground(rng=random.Random(0), dataset=dataset).sample(
+            _hist([9.0, 9.0]), indices=(0, 2), feature_name="x", length=2
+        )
+        assert len(out) == 2
+        # Every value must come from the real series.
+        assert all(v in {1.0, 2.0, 3.0, 4.0, 5.0} for v in out)
+
+    def test_no_non_null_locations_falls_back_to_zeros(self):
+        # All locations null -> dropna().unique() is empty; must not raise IndexError.
+        dataset = pd.DataFrame({"location": [None, None, None], "x": [1.0, 2.0, 3.0]})
+        out = RandomBackground(rng=random.Random(0), dataset=dataset).sample(
+            _hist([9.0, 9.0]), indices=(0, 2), feature_name="x", length=2
+        )
+        assert out == [0.0, 0.0]
