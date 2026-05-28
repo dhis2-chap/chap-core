@@ -19,6 +19,7 @@ TS-Mule paper; `NNSegmentation` comes from LimeSegment;
 `ReverseExponentialSegmentation` is a chap-core addition not from any paper.
 """
 
+from collections.abc import Iterable
 from typing import Protocol
 
 import numpy as np
@@ -29,6 +30,20 @@ from pyts.approximation import SymbolicAggregateApproximation
 Segment = list[float]
 Segments = dict[int, Segment]
 Indices = dict[int, tuple[int, int]]
+
+
+def _finalize_boundaries(internal_candidates: Iterable[int], data_len: int) -> list[int]:
+    """Turn raw internal boundary candidates into a clean ascending boundary list.
+
+    Drops anything outside the open interval ``(0, data_len)``, dedupes, sorts,
+    and brackets the result with ``0`` and ``data_len``. This guarantees the
+    consecutive pairs never produce a zero-length segment — candidate selection
+    in the matrix-profile / nearest-neighbour segmenters can otherwise emit a
+    boundary at 0, at ``data_len``, or a duplicate, all of which yield empty
+    ``(x, x)`` segments that become meaningless lag features.
+    """
+    clean = sorted({int(b) for b in internal_candidates if 0 < int(b) < data_len})
+    return [0, *clean, data_len]
 
 
 class SegmentationModel(Protocol):
@@ -54,18 +69,24 @@ class UniformSegmentation(SegmentationModel):
         self.num_segments = num_segments
 
     def segment(self, data: pd.DataFrame | pd.Series) -> tuple[Segments, Indices]:
-        segments = {}
-        indices = {}
+        segments: Segments = {}
+        indices: Indices = {}
 
         data_len = len(data)
-        segment_len = data_len // self.num_segments
+        # Cap the segment count at the data length: asking for more segments than
+        # rows would otherwise produce empty (start == end) segments that become
+        # meaningless lag features and waste perturbation budget.
+        num_segments = min(self.num_segments, data_len)
+        if num_segments == 0:
+            return segments, indices
+        segment_len = data_len // num_segments
 
         current_idx = 0
 
-        for i in range(self.num_segments):
-            lag = (self.num_segments - 1) - i
+        for i in range(num_segments):
+            lag = (num_segments - 1) - i
 
-            if i == self.num_segments - 1:
+            if i == num_segments - 1:
                 subset = data.iloc[current_idx:]
             else:
                 subset = data.iloc[current_idx : current_idx + segment_len]
@@ -205,8 +226,7 @@ class MatrixProfileSlopeSegmentation:
 
         k = self.num_segments - 1
         top_k = sorted_grad[:k]
-        index_sorted = sorted(top_k, key=lambda x: x[0])
-        boundaries = [0] + [b[0] for b in index_sorted] + [data_len]
+        boundaries = _finalize_boundaries((b[0] for b in top_k), data_len)
         num_segs = len(boundaries) - 1
         for seg_i in range(num_segs):
             start, end = boundaries[seg_i], boundaries[seg_i + 1]
@@ -260,9 +280,8 @@ class MatrixProfileSortedSlopeSegmentation:
         jump_pos = np.sort(jump_pos)
 
         boundary_candidates = order[jump_pos + 1]
-        boundary_candidates = np.sort(boundary_candidates)
 
-        boundaries = [0, *boundary_candidates.tolist(), data_len]
+        boundaries = _finalize_boundaries(boundary_candidates.tolist(), data_len)
 
         num_segs = len(boundaries) - 1
         for seg_i in range(num_segs):
@@ -497,10 +516,7 @@ class NNSegmentation:
         candidates.sort(key=lambda t: t[1], reverse=True)
         top = candidates[: self.num_segments]
 
-        boundaries = [c for c, _ in top]
-        boundaries = sorted(boundaries)
-
-        boundaries = [0, *boundaries, data_len]
+        boundaries = _finalize_boundaries((c for c, _ in top), data_len)
 
         num_segs = len(boundaries) - 1
         for seg_i in range(num_segs):

@@ -2,9 +2,13 @@
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from chap_core.explainability.segment import (
     ExponentialSegmentation,
+    MatrixProfileSlopeSegmentation,
+    MatrixProfileSortedSlopeSegmentation,
+    NNSegmentation,
     ReverseExponentialSegmentation,
     UniformSegmentation,
 )
@@ -12,6 +16,13 @@ from chap_core.explainability.segment import (
 
 def _series(n: int = 20) -> pd.Series:
     return pd.Series(np.arange(n, dtype=float))
+
+
+def _structured_series(n: int = 24) -> pd.Series:
+    # Seasonal signal + tiny noise so the matrix profile has real structure.
+    rng = np.random.default_rng(0)
+    t = np.arange(n)
+    return pd.Series(np.sin(t / 3.0) * 5.0 + rng.normal(0, 0.1, n))
 
 
 class TestUniformSegmentation:
@@ -44,6 +55,15 @@ class TestUniformSegmentation:
         _, indices = UniformSegmentation(num_segments=3).segment(df)
         assert len(indices) == 3
 
+    def test_more_segments_than_rows_does_not_create_empty_segments(self):
+        # Repro: 3 rows, 5 requested segments previously produced four empty
+        # (0, 0) segments. The count must be capped at the data length.
+        segments, indices = UniformSegmentation(num_segments=5).segment(_series(3))
+        assert len(indices) == 3, "segment count must be capped at the row count"
+        assert all(end > start for start, end in indices.values()), "no empty segments allowed"
+        ranges = sorted(indices.values())
+        assert ranges[0][0] == 0 and ranges[-1][1] == 3, "must still cover the whole series"
+
 
 class TestExponentialSegmentation:
     def test_returns_at_least_one_segment(self):
@@ -72,3 +92,26 @@ class TestReverseExponentialSegmentation:
         first_len = ranges[0][1] - ranges[0][0]
         # Last (most-recent) segment shorter than first (oldest).
         assert last_len <= first_len
+
+
+class TestMatrixAndNNBoundaries:
+    """The matrix-profile / nearest-neighbour segmenters select boundaries from
+    argsorted candidates, which can include 0, data_len, or duplicates. The
+    boundary finalisation must never leave a zero-length segment behind."""
+
+    @pytest.mark.parametrize(
+        "make_segmenter",
+        [
+            lambda: MatrixProfileSlopeSegmentation(num_segments=4, window_size=4),
+            lambda: MatrixProfileSortedSlopeSegmentation(num_segments=4, window_size=4),
+            lambda: NNSegmentation(num_segments=4, window_size=4),
+        ],
+    )
+    def test_no_zero_length_segments(self, make_segmenter):
+        _, indices = make_segmenter().segment(_structured_series(24))
+        assert indices, "expected at least one segment"
+        assert all(end > start for start, end in indices.values()), "no zero-length segments"
+        ranges = sorted(indices.values())
+        assert ranges[0][0] == 0 and ranges[-1][1] == 24, "must cover the whole series"
+        for (_, end_prev), (start_next, _) in zip(ranges, ranges[1:], strict=False):
+            assert end_prev == start_next, "segments must be contiguous"

@@ -280,7 +280,7 @@ chap_core/cli_endpoints/explain.py — explain_lime command, LimeParams config.
 
 Tests:
 ```
-tests/explainability/  — this PR's test suite (64 tests, 0% → 62%
+tests/explainability/  — this PR's test suite (68 tests, 0% → 62%
                          overall, 75% on lime.py). Six modules:
                          test_distance, test_perturb, test_segment,
                          test_surrogate, test_metrics (eLoss math),
@@ -308,7 +308,7 @@ make lint
 
 ```bash
 uv run pytest tests/explainability/ -v
-# Expect: 64 passed in ~3 s.
+# Expect: 68 passed in ~3 s.
 ```
 
 ### 10c. Coverage
@@ -582,7 +582,7 @@ not a LIME bug.
 6. **Adds `--lime-params.with-metrics` CLI flag** so operators get the
    eLoss block at the end of `chap explain-lime` runs, not only Python
    callers.
-7. **Adds 64 unit + integration tests** under `tests/explainability/`
+7. **Adds 68 unit + integration tests** under `tests/explainability/`
    (suite previously had zero), including a `MockExternalModel`-driven
    end-to-end integration suite that exercises the whole LIME pipeline
    without needing a trained model directory. Coverage of the subpackage
@@ -694,7 +694,14 @@ type checker. Also added module + protocol + per-segmenter docstrings
 explaining each strategy (uniform / exponential / reverse-exponential /
 the three matrix-profile variants / SAX / NN), the lag convention, and
 paper provenance; the old trailing free-text intuition block was folded
-into those docstrings.
+into those docstrings. Two bug fixes for zero-length segments:
+(1) `UniformSegmentation` caps the segment count at the row count, so
+`granularity > len(data)` no longer emits empty `(0, 0)` segments that
+become meaningless lag features; (2) a shared `_finalize_boundaries`
+helper dedupes boundary candidates and drops any that land on 0 or
+`data_len`, applied in the slope / sorted-slope / NN segmenters whose
+argsort-based boundary selection could otherwise yield zero-length
+segments.
 
 #### `chap_core/explainability/surrogate.py` — +8 / −8
 
@@ -775,7 +782,7 @@ unreachable from the CLI even after the supporting module was wired up.
 | `chap explain-lime` against any trained model (no `return_metrics`) | crashes at `lime.py:1001` (`log1p` → `NaN` → sklearn refuses fit) | **exits 0**, prints the surrogate's coefficient listing. Warns visibly if perturbed predictions are negative (clipped) or non-finite (dropped). |
 | `explain(..., return_metrics=True)` from Python | `ImportError` for `eLoss` | works, returns `(results, metrics)` with `delta_eloss`, `auc_top_k`, `auc_bottom_k` |
 | `chap explain-lime` exposing eLoss to operators | not possible — no CLI flag for `return_metrics` | `--lime-params.with-metrics` prints `r2`, `n_eff`, `delta_eloss`, `auc_top_k`, `auc_bottom_k` after the coefficient listing |
-| `tests/explainability/` | doesn't exist | **64 tests, runs in ~3 s** |
+| `tests/explainability/` | doesn't exist | **68 tests, runs in ~3 s** |
 | Coverage of `chap_core/explainability/` | 0% | **62% overall**, 100% on `distance.py` / `testing/metrics.py`, 96% on `surrogate.py`, **75% on `lime.py`** (was 7% before the integration suite) |
 | Optional `[explainability]` extras (`stumpy`, `pyts`, `fastdtw`) | listed as opt-in, but every import in the subpackage is unconditional — CI default `uv sync --dev` couldn't import the module at all | moved to main `dependencies` so they install with every `uv sync`; subpackage now usable from a clean checkout without remembering an extras flag |
 
