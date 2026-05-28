@@ -1,4 +1,5 @@
 import altair as alt
+from sqlmodel import Field
 
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metric_plots import MetricPlotBase
@@ -8,9 +9,11 @@ from chap_core.database.tables import Backtest
 
 
 class VisualizationInfo(DBModel):
-    id: str
-    display_name: str
-    description: str
+    """Catalogue entry for one available metric visualisation (returned by `/v1/visualization/metrics/{backtest_id}` and similar)."""
+
+    id: str = Field(description="Canonical plot identifier used in URLs.")
+    display_name: str = Field(description="Human-friendly plot name shown in pickers.")
+    description: str = Field(description="Short paragraph explaining what the plot shows.")
 
 
 def make_plot_from_backtest_object(

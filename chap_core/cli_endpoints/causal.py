@@ -258,4 +258,10 @@ def causal_cmd(
 
 
 def register_commands(app):
-    app.command(name="causal")(causal_cmd)
+    from cyclopts import App
+
+    from chap_core.cli_endpoints.build_counterfactual import build_counterfactual_cmd
+
+    causal_app = App(name="causal", default_command=causal_cmd)
+    causal_app.command(name="build-counterfactual")(build_counterfactual_cmd)
+    app.command(causal_app)

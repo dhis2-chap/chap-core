@@ -17,7 +17,6 @@ from sqlmodel import SQLModel
 
 # Import all models so SQLModel.metadata is fully populated
 from chap_core.database.dataset_tables import DataSet, Observation  # noqa: F401
-from chap_core.database.debug import DebugEntry  # noqa: F401
 from chap_core.database.feature_tables import FeatureSource, FeatureType  # noqa: F401
 from chap_core.database.model_spec_tables import ModelFeatureLink, ModelSpec  # noqa: F401
 from chap_core.database.model_templates_and_config_tables import (  # noqa: F401
@@ -30,6 +29,7 @@ from chap_core.database.tables import (  # noqa: F401
     BacktestMetric,
     Prediction,
     PredictionSamplesEntry,
+    PredictionSetup,
 )
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -40,13 +40,13 @@ ALEMBIC_INI = PROJECT_ROOT / "alembic.ini"
 # SQLModel metadata then drop these columns so the migration can re-add them.
 _COLUMNS_ADDED_BY_MIGRATIONS = [
     ("modeltemplatedb", "archived"),
-    ("prediction", "configured_model_with_data_source_id"),
+    ("prediction", "prediction_setup_id"),
 ]
 
 # Tables added by alembic migrations (not in the baseline schema).
 # These are dropped after create_all so the migration can re-create them.
 _TABLES_ADDED_BY_MIGRATIONS = [
-    "configuredmodelwithdatasource",
+    "predictionsetup",
 ]
 
 
