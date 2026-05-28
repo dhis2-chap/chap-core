@@ -160,7 +160,7 @@ Interpretation:
 That directory must contain:
 
 - an `MLproject` file, and
-- a trained artifact **literally named `model`** — the file the model's own predict script loads. chap-core never deserialises the model itself; it just invokes the model's predict entry point against this file.
+- a trained artifact **literally named `model`** — the file the model's own predict script loads. chap-core never deserialises the model itself; it just invokes the model's predict entry point against this file. The name is fixed, not configurable: chap-core always passes the literal `model` as the `{model}` parameter of the MLproject `train`/`predict` commands, so the trained file in the run directory is always exactly `model`.
 
 A bare GitHub URL (e.g. `https://github.com/dhis2-chap/...`) resolves to the model *template* (code only, no trained `model` file), so it will **not** work as `--model-name` here.
 
