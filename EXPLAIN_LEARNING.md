@@ -65,7 +65,7 @@ It did:
    surrogate-fit step, then crashed with `ValueError: Input y contains
    NaN.` This PR clips negative model outputs and drops non-finite
    rows before the surrogate fit.
-4. Added 62 unit + integration tests where there were zero. The
+4. Added 63 unit + integration tests where there were zero. The
    integration test mocks a model so the whole pipeline gets exercised
    in CI without needing a trained `runs/` directory.
 5. Added a `--lime-params.with-metrics` CLI flag so operators can see
@@ -650,7 +650,7 @@ and the corresponding small bump in cases.
 uv run pytest tests/explainability/ -v
 ```
 
-Expect 62 passing in ~3 seconds. Skim a few test names — they're
+Expect 63 passing in ~3 seconds. Skim a few test names — they're
 named after what they verify. The integration tests in
 `test_explain_integration.py` are the ones that exercise the full
 pipeline against a mock model; the rest are unit tests on individual

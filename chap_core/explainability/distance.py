@@ -94,10 +94,15 @@ class DTW:
     over-penalise. The ``radius`` parameter bounds the warping window
     (FastDTW approximation; larger = closer to exact DTW, slower).
 
-    Raw DTW distances are z-normalised across the batch before the kernel is
-    applied, following the chap-core adaptation (Skoglund's thesis). Because
-    it needs the actual feature values, not the masks, ``takes_mask`` is
-    ``False``.
+    Raw DTW distances are scaled by their batch standard deviation (for
+    scale-invariance across datasets) and passed through a Gaussian kernel
+    *anchored at zero distance*, so the original sequence gets the highest
+    weight and weight decreases monotonically with distance. We deliberately
+    do **not** mean-centre the distances first: z-normalising (as the
+    reference adaptation did) would hand the highest weight to perturbations
+    at the *mean* distance rather than to the original, breaking the locality
+    that LIME relies on. Because it needs the actual feature values, not the
+    masks, ``takes_mask`` is ``False``.
     """
 
     def __init__(self, kernel_width: float | None = None, radius: int = 1):
@@ -110,7 +115,12 @@ class DTW:
         perturbed_sequences: list[np.ndarray],
         x0_sequence: np.ndarray,
     ) -> np.ndarray:
-        """Weight each perturbed sequence by z-normalised DTW distance to ``x0_sequence``.
+        """Weight each perturbed sequence by sigma-scaled DTW distance to ``x0_sequence``.
+
+        Distances are scaled by their batch standard deviation and passed
+        through a Gaussian kernel anchored at zero, so distance 0 (the
+        original) gets weight 1 and weight decays monotonically as distance
+        grows.
 
         Parameters
         ----------
@@ -122,26 +132,20 @@ class DTW:
         Returns
         -------
         np.ndarray
-            One weight per perturbation after z-normalising the DTW
-            distances and passing them through the Gaussian kernel.
+            One weight per perturbation, in ``(0, 1]``; 1 means zero distance.
         """
         distances = np.asarray(
             [fastdtw(x0_sequence, z, radius=self.radius, dist=euclidean)[0] for z in perturbed_sequences],
             dtype=float,
         )
 
-        mu = distances.mean()
         sigma = distances.std()
 
-        ## TODO: This transformation is what they do in the paper...
-        ## but am I reading it wrong? Wouldn't perturbations close to
-        ## the average (mu) be assigned a higher weight than even
-        ## the original itself, since z_norm in the first case is 0
-        ## and in the second case -mu/sigma?
-        if sigma == 0:
-            z_norm = np.zeros_like(distances)
-        else:
-            z_norm = (distances - mu) / sigma
+        # Scale by sigma for scale-invariance, but keep the kernel anchored at
+        # distance 0 (do NOT subtract the mean). Subtracting mu would give the
+        # max weight to perturbations at the mean distance instead of to the
+        # original, which undermines LIME's locality.
+        scaled = distances / sigma if sigma != 0 else np.zeros_like(distances)
 
-        weights = np.exp(-(z_norm**2) / self.kernel_width)
+        weights = np.exp(-(scaled**2) / self.kernel_width)
         return np.asarray(weights)

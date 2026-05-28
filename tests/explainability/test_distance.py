@@ -41,7 +41,7 @@ class TestDTW:
         weighter = DTW(kernel_width=1.0)
         weights = weighter.get_weights([seq], seq)
         # One perturbation of the same sequence -> sigma is 0, so the
-        # z-norm branch zeroes out and weight should be exp(0) = 1.
+        # zero-distance branch applies and weight should be exp(0) = 1.
         assert weights.shape == (1,)
         assert np.isclose(weights[0], 1.0)
 
@@ -56,3 +56,18 @@ class TestDTW:
         weights = weighter.get_weights(perturbed, x0)
         assert weights.shape == (3,)
         assert np.all(np.isfinite(weights))
+
+    def test_weight_is_monotonic_and_anchored_at_zero_distance(self):
+        # Three perturbations at increasing DTW distance from x0; the closest
+        # (identical to x0, distance 0) must get the highest weight and weight
+        # must decrease monotonically. Regression for the old z-normalisation
+        # which handed the max weight to the *mean*-distance perturbation.
+        x0 = np.array([[0.0], [0.0], [0.0]])
+        perturbed = [
+            np.array([[0.0], [0.0], [0.0]]),  # distance 0
+            np.array([[10.0], [10.0], [10.0]]),  # mid
+            np.array([[20.0], [20.0], [20.0]]),  # far
+        ]
+        weights = DTW(kernel_width=1.0).get_weights(perturbed, x0)
+        assert np.isclose(weights[0], 1.0), "the original (distance 0) must get the highest weight"
+        assert weights[0] > weights[1] > weights[2], "weight must decrease monotonically with distance"
