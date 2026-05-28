@@ -156,6 +156,39 @@ class TestReturnShape:
         assert all(isinstance(v, float) and np.isfinite(v) for v in result)
 
 
+class TestGlobalMeansForwarding:
+    """eLoss must perturb static features the same way explain() did — i.e. it
+    must forward global_means to perturb_vectors, not silently zero them."""
+
+    def test_global_means_passed_through_to_perturb_vectors(self, monkeypatch):
+        feature_names = ["a", "b", "c"]
+        sorted_explanation = [("a", 1.0), ("b", 0.5), ("c", 0.1)]
+        seen_global_means: list[dict | None] = []
+
+        def fake_perturb(*args, **kwargs):
+            seen_global_means.append(kwargs.get("global_means"))
+            masks = args[5]
+            return masks, masks
+
+        def fake_produce(*_args, **_kwargs):
+            perturbations = _args[3]
+            return None, np.zeros(len(perturbations)), None, None
+
+        monkeypatch.setattr(lime_module, "perturb_vectors", fake_perturb)
+        monkeypatch.setattr(lime_module, "produce_lime_dataset", fake_produce)
+
+        gm = {"a": 1.5, "b": 2.5, "c": 3.5}
+        eLoss(
+            **_common_args(),
+            feature_names=feature_names,
+            sorted_explanation=sorted_explanation,
+            global_means=gm,
+        )
+
+        assert seen_global_means, "perturb_vectors should have been called"
+        assert all(seen == gm for seen in seen_global_means), "global_means must reach perturb_vectors unchanged"
+
+
 @pytest.mark.parametrize("n_buckets", [1, 5, 20])
 def test_n_buckets_parameter_does_not_crash(n_buckets, monkeypatch):
     feature_names = ["a", "b", "c"]

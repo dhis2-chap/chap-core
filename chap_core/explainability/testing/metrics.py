@@ -51,6 +51,7 @@ def eLoss(
     y_orig: float,
     full_dataset: DataSet | None,
     full_future_weather: DataSet | None,
+    global_means: dict[str, float] | None = None,
     n_buckets: int = 10,
 ) -> tuple[float, float, float]:
     """Compute ``(delta_eloss, auc_top, auc_bottom)`` for a LIME explanation.
@@ -75,6 +76,12 @@ def eLoss(
         full_dataset / full_future_weather: Optional surrounding context the
             model may need when ``model.predict`` is one-hot-location-sensitive
             (matching ``produce_lime_dataset``'s fallback path).
+        global_means: Per-feature dataset means used to fill turned-off static
+            features, exactly as ``explain`` does. Must match what the
+            explanation used (``None`` on single-location data, the dataset
+            means on multi-location data) so the metric perturbs the same
+            intervention the explanation did rather than zeroing static
+            features.
         n_buckets: How many k-values to sample across ``[1, num_features]``.
             Defaults to 10 (deciles), matching the thesis.
 
@@ -111,7 +118,9 @@ def eLoss(
     bottom_masks = _build_masks([importance_order[-k:] for k in k_values])
 
     def _deviation_curve(masks: list[np.ndarray]) -> np.ndarray:
-        pb, pb_mask = perturb_vectors(hist_df, original_vector, feat_indices, sampler, feature_map, masks)
+        pb, pb_mask = perturb_vectors(
+            hist_df, original_vector, feat_indices, sampler, feature_map, masks, global_means=global_means
+        )
         _, y, _, _ = produce_lime_dataset(
             model,
             hist_df,

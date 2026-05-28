@@ -1250,6 +1250,7 @@ def explain(
             y_orig=y_orig,
             full_dataset=dataset,
             full_future_weather=full_future_weather,
+            global_means=global_means,
         )
 
         logger.info(
@@ -1735,6 +1736,7 @@ def explain_adaptive(
             y_orig=y_orig,
             full_dataset=dataset,
             full_future_weather=full_future_weather,
+            global_means=global_means,
         )
 
         logger.info(
