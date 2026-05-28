@@ -166,12 +166,16 @@ class TestLog1pHelperEndToEnd:
         y_pred had different lengths and sklearn raised.
         """
 
+        # Each perturbation is predicted on its own against the real location set,
+        # so the explained location ("alpha") is queried once per perturbation.
+        # Make every other such call return NaN to exercise the partial-drop path.
+        alpha_calls = {"n": 0}
+
         def mixed_response(loc: str, n: int) -> np.ndarray:
-            # Non-perturbation calls (real location names) stay finite so the
-            # pipeline can compute y_orig and proceed. Half the pseudo-locations
-            # produce NaN to exercise the partial-drop path.
-            if loc.startswith("pb_") and int(loc.split("_", 1)[1]) % 2 == 1:
-                return np.full(n, np.nan)
+            if loc == "alpha":
+                alpha_calls["n"] += 1
+                if alpha_calls["n"] % 2 == 0:
+                    return np.full(n, np.nan)
             return np.linspace(10.0, 50.0, n)
 
         model = MockExternalModel(response_fn=mixed_response)
@@ -182,6 +186,35 @@ class TestLog1pHelperEndToEnd:
         assert any("non-finite" in rec.message and "dropping" in rec.message for rec in caplog.records), (
             "expected diagnostic about dropping non-finite perturbations"
         )
+
+
+class TestSinglePredictionPath:
+    """produce_lime_dataset predicts one perturbation at a time against the real
+    location set — it does not batch perturbations under synthetic `pb_` ids."""
+
+    def test_no_pseudo_locations_one_predict_per_perturbation(self, small_full_dataset):
+        seen_locations: set[str] = set()
+        predict_calls = {"n": 0}
+
+        model = MockExternalModel()
+        inner_predict = model.predict
+
+        def recording_predict(historic_data, future_data):
+            predict_calls["n"] += 1
+            seen_locations.update(str(loc) for loc in future_data.locations())
+            return inner_predict(historic_data, future_data)
+
+        model.predict = recording_predict  # type: ignore[method-assign]
+
+        n_perturbations = 12
+        _explain_with_defaults(model, small_full_dataset, num_perturbations=n_perturbations)
+
+        # No synthetic pseudo-location ever reaches the model...
+        assert not any(loc.startswith("pb_") for loc in seen_locations), seen_locations
+        # ...only the real dataset locations are used...
+        assert seen_locations <= {"alpha", "beta"}, seen_locations
+        # ...and the model is invoked once per perturbation.
+        assert predict_calls["n"] == n_perturbations
 
 
 class TestSaveAndPlot:

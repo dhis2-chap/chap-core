@@ -15,7 +15,8 @@ The pipeline, for a single prediction at one location:
 3. **Perturb** (:func:`perturb_vectors`) — materialise each mask into a real
    ``(hist, fut)`` pair, filling "off" segments via the sampler.
 4. **Predict** (:func:`produce_lime_dataset`) — run the black-box model on
-   every perturbation (batched into pseudo-locations) to get the responses.
+   every perturbation (one prediction per perturbation, against the real
+   location set) to get the responses.
 5. **Weight** (:func:`compute_local_weights`) — score each perturbation by
    locality to ``x0`` using the chosen weighter.
 6. **Fit the surrogate** — log-transform the responses
@@ -79,7 +80,10 @@ from chap_core.time_period.date_util_wrapper import PeriodRange
 
 logger = logging.getLogger(__name__)
 
-_non_feature_names_plus_disease = _non_feature_names - {"disease_cases"}
+# Column names that are never treated as perturbable features. `disease_cases`
+# is removed from the structural-column set because LIME *does* perturb the
+# historical case counts as autoregressive lag features.
+_non_feature_names_excluding_disease = _non_feature_names - {"disease_cases"}
 
 
 def avg_samples(
@@ -661,7 +665,6 @@ def produce_lime_dataset(
     feat_indices: dict[str, Indices],
     hist_type: type | None = None,
     fut_type: type | None = None,
-    chunk_size: int = 10,
     full_dataset: DataSet | None = None,
     full_future_weather: DataSet | None = None,
 ) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], np.ndarray]:
@@ -682,87 +685,54 @@ def produce_lime_dataset(
         feat_indices (Dict[str, List]): List of indices for segments, for each temporal feature
         hist_type (type): Dataclass of historical data (Default None)
         fut_type (type): Dataclass of future data (Default None)
-        chunk_size (int): Size of prediction chunks
+        full_dataset (DataSet): The full multi-location dataset. Required: each
+            perturbation is predicted by replacing only ``location``'s data
+            inside this real dataset, so the model always sees its real
+            (trained) location set.
+        full_future_weather (DataSet): The full multi-location future weather,
+            used the same way as ``full_dataset``. Required.
 
     Returns:
         Tuple of input and output arrays, perturbed and original dtw distance sequence/s
+
+    Note:
+        Predictions are made one perturbation at a time. We do not batch
+        perturbations under synthetic pseudo-locations because location-sensitive
+        models need their real location set; see the inline comment below.
     """
+    if full_dataset is None or full_future_weather is None:
+        raise ValueError("produce_lime_dataset requires full_dataset and full_future_weather")
+
     results: list[tuple[dict[str, Any], float]] = []
     distance_sequences: list[np.ndarray] = []
     x0_sequence = build_dtw_sequence(hist_df, features_hist)
 
-    try:
-        # Batch prediction by pseudo-location
-        for i in range(0, len(perturbations), chunk_size):
-            chunk = perturbations[i : i + chunk_size]
-            chunk_masks = perturbation_masks[i : i + len(chunk)]
-
-            full_hist_dict = {}
-            full_fut_dict = {}
-            pert_map = {}
-            seq_map = {}
-
-            logger.info(f"Processing prediction chunk {i // chunk_size + 1} ({len(chunk)} perturbations)...")
-            for j, pb in enumerate(chunk):
-                # Predict multiple outputs at once by assigning input data to different "locations" in same df
-                loc_id = f"pb_{i + j}"
-                pert_map[loc_id] = chunk_masks[j]
-                new_hist, new_fut = convert_vector_to_dataset(
-                    pb, hist_df, future_df, features_hist, features_fut, horizon, hist_type, fut_type, feat_indices
-                )
-                # Also store dtw sequence in case dtw distancing is used
-                seq_map[loc_id] = build_dtw_sequence(
-                    new_hist.to_pandas().sort_values("time_period").reset_index(drop=True),
-                    features_hist,
-                )
-                full_hist_dict[loc_id] = new_hist.get_location(location)
-                full_fut_dict[loc_id] = new_fut.get_location(location)
-
-            hist_combined = DataSet(full_hist_dict, polygons=None)
-            fut_combined = DataSet(full_fut_dict, polygons=None)
-
-            pred_v = model.predict(hist_combined, fut_combined)
-            if pred_v is None:
-                raise ModelFailedException("model.predict returned None for batched perturbations")
-
-            for ds in pred_v.iter_locations():
-                loc_name = next(iter(ds.locations()))
-                if loc_name in pert_map:
-                    pb_vec = pert_map[loc_name]
-                    vals = avg_samples(ds)
-                    # Extract most recent "prob" as horizon value
-                    latest = max(vals.keys())
-                    latest_prob = vals[latest]
-                    flat_vec = flatten_vector(pb_vec)
-                    distance_sequences.append(seq_map[loc_name])
-                    results.append((flat_vec, latest_prob))
-
-    except ModelFailedException:  # If the model one-hot-encodes location, input dimension would not match training data when location is singled out
-        if full_dataset is None or full_future_weather is None:
-            raise
-        logger.info("Batch predict failed; retrying perturbations individually with full dataset")
-        results = []
-        distance_sequences = []
-        for j, (pb, pb_mask) in enumerate(zip(perturbations, perturbation_masks, strict=False)):
-            logger.info(f"Processing perturbation {j + 1} / {len(perturbations)}...")
-            new_hist, new_fut = convert_vector_to_dataset(
-                pb, hist_df, future_df, features_hist, features_fut, horizon, hist_type, fut_type, feat_indices
-            )
-            seq = build_dtw_sequence(
-                new_hist.to_pandas().sort_values("time_period").reset_index(drop=True),
-                features_hist,
-            )
-            hist_dict = {loc: full_dataset[loc] for loc in full_dataset.locations()}
-            hist_dict[location] = new_hist.get_location(location)
-            fut_dict = {loc: full_future_weather[loc] for loc in full_future_weather.locations()}
-            fut_dict[location] = new_fut.get_location(location)
-            pred_v = model.predict(DataSet(hist_dict, polygons=None), DataSet(fut_dict, polygons=None))
-            if pred_v is None:
-                raise ModelFailedException(f"model.predict returned None for perturbation {j}") from None
-            vals = avg_samples(pred_v.filter_locations([location]))
-            latest = max(vals.keys())
-            distance_sequences.append(seq)
-            results.append((flatten_vector(pb_mask), vals[latest]))
+    # Predict one perturbation at a time, injecting the perturbed target location
+    # back into the real dataset (all other real locations kept intact). We do not
+    # batch perturbations under synthetic pseudo-locations: location-sensitive
+    # models (e.g. an RNN location embedding, an INLA spatial term) need the real
+    # location set they trained on, and since the production models are
+    # location-sensitive a per-perturbation pass is what they require anyway.
+    for j, (pb, pb_mask) in enumerate(zip(perturbations, perturbation_masks, strict=False)):
+        logger.info(f"Processing perturbation {j + 1} / {len(perturbations)}...")
+        new_hist, new_fut = convert_vector_to_dataset(
+            pb, hist_df, future_df, features_hist, features_fut, horizon, hist_type, fut_type, feat_indices
+        )
+        seq = build_dtw_sequence(
+            new_hist.to_pandas().sort_values("time_period").reset_index(drop=True),
+            features_hist,
+        )
+        hist_dict = {loc: full_dataset[loc] for loc in full_dataset.locations()}
+        hist_dict[location] = new_hist.get_location(location)
+        fut_dict = {loc: full_future_weather[loc] for loc in full_future_weather.locations()}
+        fut_dict[location] = new_fut.get_location(location)
+        pred_v = model.predict(DataSet(hist_dict, polygons=None), DataSet(fut_dict, polygons=None))
+        if pred_v is None:
+            raise ModelFailedException(f"model.predict returned None for perturbation {j}")
+        vals = avg_samples(pred_v.filter_locations([location]))
+        latest = max(vals.keys())
+        distance_sequences.append(seq)
+        results.append((flatten_vector(pb_mask), vals[latest]))
 
     if not results:
         raise ValueError("No results generated")
@@ -1036,12 +1006,12 @@ def explain(
     features_hist = [
         fn
         for fn in dataset_loc.field_names()
-        if fn not in _non_feature_names_plus_disease and hist_df[fn].dtype.kind in ("f", "i")
+        if fn not in _non_feature_names_excluding_disease and hist_df[fn].dtype.kind in ("f", "i")
     ]
     features_fut = [
         fn
         for fn in future_weather.field_names()
-        if fn not in _non_feature_names_plus_disease and future_df[fn].dtype.kind in ("f", "i")
+        if fn not in _non_feature_names_excluding_disease and future_df[fn].dtype.kind in ("f", "i")
     ]
 
     assert len(features_hist) > 0, "No numeric historical features found in dataset"
@@ -1381,12 +1351,12 @@ def explain_adaptive(
     features_hist = [
         fn
         for fn in dataset_loc.field_names()
-        if fn not in _non_feature_names_plus_disease and hist_df[fn].dtype.kind in ("f", "i")
+        if fn not in _non_feature_names_excluding_disease and hist_df[fn].dtype.kind in ("f", "i")
     ]
     features_fut = [
         fn
         for fn in future_weather.field_names()
-        if fn not in _non_feature_names_plus_disease and future_df[fn].dtype.kind in ("f", "i")
+        if fn not in _non_feature_names_excluding_disease and future_df[fn].dtype.kind in ("f", "i")
     ]
 
     assert len(features_hist) > 0, "No numeric historical features found in dataset"
