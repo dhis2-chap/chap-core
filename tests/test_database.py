@@ -53,7 +53,7 @@ def engine():
 @pytest.fixture
 def engine_with_dataset(engine, weekly_full_data):
     with SessionWrapper(engine) as session:
-        DataSetManager(session.session).save_dataset("full_data", weekly_full_data, None)
+        DataSetManager(session.session).save_dataset(DataSetCreateInfo(name="full_data"), weekly_full_data, None)
     return engine
 
 

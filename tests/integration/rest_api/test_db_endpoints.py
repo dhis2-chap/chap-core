@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from chap_core.api_types import DataList, EvaluationEntry, PredictionEntry
 from chap_core.database.database import SessionWrapper
 from chap_core.database.dataset_manager import DataSetManager
-from chap_core.database.dataset_tables import DataSet, DataSetWithObservations, ObservationBase
+from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo, DataSetWithObservations, ObservationBase
 from chap_core.database.model_spec_tables import ModelSpecRead
 from chap_core.database.tables import (
     Backtest,
@@ -97,7 +97,7 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data, do_filter):
     with SessionWrapper(clean_engine) as session:
         dataset_id = DataSetManager(session.session).save_dataset(
-            "full_data", weekly_full_data, "polygons", dataset_type="evaluation"
+            DataSetCreateInfo(name="full_data", type="evaluation"), weekly_full_data, "polygons"
         )
     response = client.post("/v1/crud/backtests", json={"datasetId": dataset_id, "modelId": "naive_model"})
     assert response.status_code == 200, response.json()
