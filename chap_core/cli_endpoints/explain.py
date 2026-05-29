@@ -160,6 +160,9 @@ def explain_lime(
                 granularity=lime_params.granularity,
                 last_n=lime_params.last_n,
                 save=save,
+                # Tie plotting to save: write the PNG when saving, and never fall
+                # through to the interactive plt.show() in a headless CLI run.
+                plot=save,
                 return_metrics=lime_params.with_metrics,
             )
 
