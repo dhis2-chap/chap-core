@@ -1,8 +1,18 @@
 import os
 import subprocess
+import uuid
 from shutil import which
 
 import numpy as np
+
+
+def generate_short_id(length: int = 8) -> str:
+    """Return a short random hex id (default 8 chars), e.g. ``'0e5fe728'``.
+
+    Used as the unique suffix on run/job directory names so that concurrent or
+    same-second runs don't collide. Keep this the single source of the scheme.
+    """
+    return uuid.uuid4().hex[:length]
 
 
 def nan_helper(y):
