@@ -19,7 +19,6 @@ from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
-from .dataset_manager import DataSetManager
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 from .tables import Backtest, Prediction, PredictionSamplesEntry
@@ -442,11 +441,6 @@ class SessionWrapper:
         self.session.add(prediction)
         self.session.commit()
         return prediction.id
-
-    @property
-    def datasets(self) -> DataSetManager:
-        """Dataset data-access operations. Use this for all dataset reads/writes."""
-        return DataSetManager(self.session)
 
 
 def _run_alembic_migrations(engine):

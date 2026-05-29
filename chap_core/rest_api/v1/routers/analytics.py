@@ -516,7 +516,7 @@ async def get_actual_cases(
         dataset_id = backtest.dataset_id
     else:
         dataset_id = backtest_id
-    observations = DataSetManager(session).get_observations(
+    observations = DataSetManager(session).observations(
         dataset_id,
         org_units=None if return_summed else org_units,
         feature_names=["disease_cases"],

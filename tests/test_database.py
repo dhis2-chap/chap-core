@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel, select
 
 from chap_core.database.database import SessionWrapper
+from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet, DataSetCreateInfo
 from chap_core.database.datasets_seed import seed_example_datasets
 from chap_core.database.model_template_seed import (
@@ -52,15 +53,15 @@ def engine():
 @pytest.fixture
 def engine_with_dataset(engine, weekly_full_data):
     with SessionWrapper(engine) as session:
-        session.datasets.add_dataset("full_data", weekly_full_data, None)
+        DataSetManager(session.session).save_dataset("full_data", weekly_full_data, None)
     return engine
 
 
 def test_dataset_roundrip(health_population_data, engine):
     info = DataSetCreateInfo(name="health_population")
     with SessionWrapper(engine) as session:
-        dataset_id = session.datasets.add_dataset(info, health_population_data, None)
-        dataset = session.datasets.get_dataset(dataset_id, HealthPopulationData)
+        dataset_id = DataSetManager(session.session).save_dataset(info, health_population_data, None)
+        dataset = DataSetManager(session.session).to_dataset(dataset_id, HealthPopulationData)
         assert_dataset_equal(dataset, health_population_data)
 
 

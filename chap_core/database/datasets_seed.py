@@ -1,16 +1,17 @@
 from pathlib import Path
 
+from chap_core.database.dataset_manager import DataSetManager
+
 
 def seed_example_datasets(session_wrapper):
     base_path = Path(__file__).parent.parent.parent / "example_data"
 
-    datasets = {"example_data1": {"data": base_path / "v0/training_data.csv", "geojson": None}}
+    datasets: list[tuple[str, Path, Path | None]] = [
+        ("example_data1", base_path / "v0/training_data.csv", None),
+    ]
 
-    for name, paths in datasets.items():
-        if not session_wrapper.datasets.get_dataset_by_name(name):
+    manager = DataSetManager(session_wrapper.session)
+    for name, data_path, geojson_path in datasets:
+        if not manager.find_by_name(name):
             print(f"Seeding dataset: {name}")
-            session_wrapper.datasets.add_dataset_from_csv(
-                name,
-                paths["data"],
-                paths["geojson"],
-            )
+            manager.save_dataset_from_csv(name, data_path, geojson_path)

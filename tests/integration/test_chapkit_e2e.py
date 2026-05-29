@@ -19,6 +19,7 @@ from sqlmodel import SQLModel
 
 import chap_core.database.tables  # noqa: F401 - register all table models
 from chap_core.database.database import SessionWrapper
+from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.database.tables import Backtest
 from chap_core.models.external_chapkit_model import ml_service_info_to_model_template_config
@@ -169,7 +170,7 @@ def test_chapkit_backtest_via_worker_function(chapkit_service):
         session.add_configured_model(template_id, ModelConfiguration(), uses_chapkit=True)
 
         # Add dataset from example CSV
-        dataset_id = session.datasets.add_dataset_from_csv("vietnam_test", EXAMPLE_CSV, EXAMPLE_GEOJSON)
+        dataset_id = DataSetManager(session.session).save_dataset_from_csv("vietnam_test", EXAMPLE_CSV, EXAMPLE_GEOJSON)
 
         # Run backtest directly (bypasses Celery)
         backtest_id = run_backtest(

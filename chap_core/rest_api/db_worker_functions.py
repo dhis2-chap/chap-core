@@ -14,6 +14,7 @@ from chap_core.assessment.prediction_evaluator import backtest as _backtest
 from chap_core.climate_predictor import QuickForecastFetcher
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
+from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.datatypes import HealthPopulationData, create_tsdataclass
 from chap_core.log_config import get_status_logger
@@ -82,7 +83,7 @@ def run_backtest(
     assert session is not None, "session is required"
     status_logger.info(f"Starting backtest for model '{info.model_id}' on dataset ID {info.dataset_id}")
 
-    dataset = session.datasets.get_dataset(info.dataset_id)
+    dataset = DataSetManager(session.session).to_dataset(info.dataset_id)
 
     configured_model = session.get_configured_model_by_id_or_name(info.model_id)
     # Normalise back to the name string so any downstream code that still
@@ -154,7 +155,7 @@ def run_prediction(
     # NOTE: model_id arg from the user is actually the model's unique name identifier
     status_logger.info(f"Starting prediction for model '{model_id}' on dataset ID {dataset_id}")
 
-    dataset = session.datasets.get_dataset(int(dataset_id))
+    dataset = DataSetManager(session.session).to_dataset(int(dataset_id))
     if n_periods is None:
         n_periods = _get_n_periods(dataset)
 
@@ -181,7 +182,7 @@ def harmonize_and_add_health_dataset(
     status_logger.info(f"Processing and adding dataset '{name}'")
     dataset_obj = InMemoryDataSet.from_dict(health_dataset, HealthPopulationData)  # type: ignore[arg-type]
     dataset = harmonize_health_dataset(dataset_obj, usecwd_for_credentials=False, worker_config=worker_config)
-    db_id: int = session.datasets.add_dataset(
+    db_id: int = DataSetManager(session.session).save_dataset(
         DataSetCreateInfo(name=name), dataset, polygons=dataset_obj.polygons.model_dump_json()
     )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
@@ -207,7 +208,9 @@ def harmonize_and_add_dataset(
     else:
         full_dataset = dataset_obj
     info = DataSetCreateInfo(name=name, type=ds_type)
-    db_id: int = session.datasets.add_dataset(info, full_dataset, polygons=dataset_obj.polygons.model_dump_json())
+    db_id: int = DataSetManager(session.session).save_dataset(
+        info, full_dataset, polygons=dataset_obj.polygons.model_dump_json()
+    )
     status_logger.info(f"Dataset '{name}' added successfully with ID {db_id}")
     return db_id
 
@@ -235,7 +238,7 @@ def predict_pipeline_from_composite_dataset(
     ds = InMemoryDataSet.from_dict(health_dataset, create_tsdataclass(provided_field_names))
     # dataset_info = DataSetCreateInfo.model_validate(dataset_create_info)
 
-    dataset_id = session.datasets.add_dataset(
+    dataset_id = DataSetManager(session.session).save_dataset(
         dataset_info=dataset_create_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json()
     )
 
@@ -262,7 +265,7 @@ def run_backtest_from_dataset(
     worker_config=WorkerConfig(),
 ) -> int:
     ds = InMemoryDataSet.from_dict(provided_data_model_dump, create_tsdataclass(feature_names))
-    dataset_id = session.datasets.add_dataset(
+    dataset_id = DataSetManager(session.session).save_dataset(
         dataset_info=dataset_info, orig_dataset=ds, polygons=ds.polygons.model_dump_json()
     )
     backtest_create_info = BacktestCreate(name=backtest_name, dataset_id=dataset_id, model_id=model_id)

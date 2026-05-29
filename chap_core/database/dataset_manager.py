@@ -52,7 +52,7 @@ class DataSetManager(DbManager[DataSet]):
 
     model = DataSet
 
-    def add_dataset_from_csv(self, name: str, csv_path: Path, geojson_path: Path | None = None):
+    def save_dataset_from_csv(self, name: str, csv_path: Path, geojson_path: Path | None = None):
         dataset = _DataSet.from_csv(csv_path, dataclass=FullData)
         geojson_content = open(geojson_path).read() if geojson_path else None
         features = None
@@ -60,9 +60,9 @@ class DataSetManager(DbManager[DataSet]):
             features = Polygons.from_geojson(json.loads(geojson_content), id_property="NAME_1").feature_collection()
             features = features.model_dump_json()
 
-        return self.add_dataset(DataSetCreateInfo(name=name), dataset, features)
+        return self.save_dataset(DataSetCreateInfo(name=name), dataset, features)
 
-    def add_dataset(self, dataset_info: DataSetCreateInfo, orig_dataset: _DataSet, polygons):
+    def save_dataset(self, dataset_info: DataSetCreateInfo, orig_dataset: _DataSet, polygons):
         """
         Add a dataset to the database. The dataset is provided as a spatio-temporal dataclass.
         The polygons should be provided as a geojson feature collection.
@@ -109,11 +109,11 @@ class DataSetManager(DbManager[DataSet]):
                     )
                     dataset.observations.append(observation)
 
-        self.add(dataset)
+        self.save(dataset)
         assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
         return dataset.id
 
-    def get_observations(
+    def observations(
         self,
         dataset_id: int,
         *,
@@ -124,7 +124,7 @@ class DataSetManager(DbManager[DataSet]):
     ) -> list[Observation]:
         """Read raw observations for a dataset, optionally filtered.
 
-        Unlike :meth:`get_dataset` this does not build a ``_DataSet`` domain object,
+        Unlike :meth:`to_dataset` this does not build a ``_DataSet`` domain object,
         so the selected periods do not need to be consecutive (an explicit, possibly
         non-contiguous ``periods`` list is allowed). Returns an empty list if the
         dataset does not exist or nothing matches the filters.
@@ -138,7 +138,7 @@ class DataSetManager(DbManager[DataSet]):
         )
         return list(self.session.exec(expr).all())
 
-    def get_dataset(
+    def to_dataset(
         self,
         dataset_id: int,
         dataclass: type | None = None,
@@ -147,15 +147,15 @@ class DataSetManager(DbManager[DataSet]):
         org_units: list[str] | None = None,
         feature_names: list[str] | None = None,
     ) -> _DataSet:
-        """Load a dataset as a ``_DataSet`` domain object, optionally filtered.
+        """Build a dataset as a ``_DataSet`` domain object, optionally filtered.
 
         The filters are restricted to ones that keep each location's series
         consecutive (``period_range``, ``org_units``, ``feature_names``); use
-        :meth:`get_observations` for arbitrary period subsets. When ``feature_names``
+        :meth:`observations` for arbitrary period subsets. When ``feature_names``
         is given and ``dataclass`` is inferred, the inferred dataclass is narrowed to
         the requested features.
         """
-        dataset = self.get(dataset_id)
+        dataset = self.find_by_id(dataset_id)
         if dataset is None:
             raise ValueError(f"Dataset with id {dataset_id} not found")
         if dataclass is None:
@@ -182,6 +182,6 @@ class DataSetManager(DbManager[DataSet]):
 
         return cast("_DataSet", new_dataset)
 
-    def get_dataset_by_name(self, dataset_name: str) -> DataSet | None:
+    def find_by_name(self, dataset_name: str) -> DataSet | None:
         dataset = self.session.exec(select(DataSet).where(DataSet.name == dataset_name)).first()
         return dataset
