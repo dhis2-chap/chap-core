@@ -239,6 +239,30 @@ class TestSaveAndPlot:
         assert png_files[0].parent == md_files[0].parent, "plot should sit beside the markdown"
         assert "importance_plot.png" in md_files[0].read_text(), "markdown should reference the plot"
 
+    def test_two_runs_same_second_do_not_overwrite(self, tmp_path, monkeypatch):
+        # Regression: multi-location runs share a model + can land in the same
+        # second; the per-run dir must stay unique so explanation.md isn't clobbered.
+        from chap_core.explainability import lime as lime_module
+        from chap_core.explainability.lime import save_explanation
+
+        monkeypatch.setattr(lime_module, "CHAP_RUNS_DIR", tmp_path)
+
+        args = dict(
+            results=[("rainfall_lag_0", 0.5)],
+            model_name="mock_model",
+            location="alpha",
+            horizon=1,
+            r2=0.5,
+            n_eff=3.0,
+            params={},
+        )
+        first = save_explanation(**args)
+        second = save_explanation(**args)
+
+        assert first != second, "second run must not reuse the first run's path"
+        assert first.exists() and second.exists()
+        assert len(list((tmp_path / "explainability").rglob("explanation.md"))) == 2
+
     def test_no_save_writes_nothing(self, small_full_dataset, tmp_path, monkeypatch):
         from chap_core.explainability import lime as lime_module
 

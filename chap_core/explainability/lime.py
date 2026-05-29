@@ -33,6 +33,7 @@ component instances.
 import logging
 import random
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -864,7 +865,9 @@ def save_explanation(
     """
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in (model_name or "unknown"))
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_dir = CHAP_RUNS_DIR / "explainability" / safe_name / timestamp
+    # Unique suffix (timestamp + short uuid) so two runs in the same second —
+    # e.g. different locations in one CLI invocation — don't overwrite each other.
+    run_dir = CHAP_RUNS_DIR / "explainability" / safe_name / f"{timestamp}_{uuid.uuid4().hex[:8]}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     lines = [
