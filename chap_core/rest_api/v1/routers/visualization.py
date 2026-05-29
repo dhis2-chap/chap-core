@@ -74,7 +74,9 @@ def get_available_metrics(backtest_id: int):
     ]
 
 
-@router.get("/metric-plots/{visualization_name}/{backtest_id}/{metric_id}")
+@router.get(
+    "/metric-plots/{visualization_name}/{backtest_id}/{metric_id}", response_class=JSONResponse, response_model=None
+)
 def generate_visualization(
     visualization_name: str, backtest_id: int, metric_id: str, session: Session = Depends(get_session)
 ):
@@ -111,7 +113,7 @@ def list_dataset_plot_types():
     ]
 
 
-@router.get("/dataset-plots/{visualization_name}/{dataset_id}")
+@router.get("/dataset-plots/{visualization_name}/{dataset_id}", response_class=JSONResponse, response_model=None)
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
     registry = get_dataset_plots_registry()
     if visualization_name not in registry:
@@ -142,7 +144,7 @@ def list_backtest_plot_types():
     ]
 
 
-@router.get("/backtest-plots/{visualization_name}/{backtest_id}")
+@router.get("/backtest-plots/{visualization_name}/{backtest_id}", response_class=JSONResponse, response_model=None)
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
     registry = get_backtest_plots_registry()
     if visualization_name not in registry:
@@ -185,9 +187,7 @@ def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session)
 
 
 @router.get("/backtest-plots/{visualization_name}/{backtest_id}/facet-coords")
-def get_facet_coordinates(
-    visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
-) -> dict[str, Any]:
+def get_facet_coordinates(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)) -> Any:
     """
     Returns unique structural dimension arrays available for layout faceting grids.
     """
@@ -197,10 +197,12 @@ def get_facet_coordinates(
     return cast("dict[str, Any]", plotter.facet_coords(observations, forecasts, historical_df))
 
 
-@router.post("/backtest-plots/{visualization_name}/{backtest_id}/subplot")
+@router.post(
+    "/backtest-plots/{visualization_name}/{backtest_id}/subplot", response_class=JSONResponse, response_model=None
+)
 def generate_isolated_plots(
     visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)
-) -> dict[str, Any] | JSONResponse:
+) -> Any:
     """
     Filters the source datasets by exact coordinate targets and generates a single Vega schema spec.
     """
@@ -212,7 +214,9 @@ def generate_isolated_plots(
     return JSONResponse(chart.to_dict(format="vega"))
 
 
-@router.get("/backtest-plots/{visualization_name}/{backtest_id}/subplots")
+@router.get(
+    "/backtest-plots/{visualization_name}/{backtest_id}/subplots", response_class=JSONResponse, response_model=None
+)
 def generate_all_subplots(
     visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
 ) -> list[dict[str, Any]]:

@@ -34,7 +34,7 @@ client = TestClient(app)
 CLIM_548 = "CLIM-548: faceting REST endpoints not implemented yet"
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_facet_coords_endpoint_returns_dict_per_dimension(override_session):
     response = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
     assert response.status_code == 200, response.text
@@ -47,7 +47,7 @@ def test_facet_coords_endpoint_returns_dict_per_dimension(override_session):
         assert len(payload[dim]) > 0
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
     coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
     assert coords_resp.status_code == 200, coords_resp.text
@@ -65,7 +65,7 @@ def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
     assert "$schema" in spec
 
 
-@pytest.mark.xfail(strict=True, reason=CLIM_548)
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_subplots_endpoint_returns_one_entry_per_coord_combination(override_session):
     coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
     coords = coords_resp.json()
