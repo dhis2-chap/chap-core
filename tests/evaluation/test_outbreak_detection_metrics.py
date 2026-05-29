@@ -43,6 +43,28 @@ def test_compute_seasonal_thresholds(historical_observations, threshold_value):
     assert result.iloc[0]["threshold"] == pytest.approx(threshold_value)
 
 
+@pytest.mark.parametrize(
+    "time_period_format",
+    [
+        lambda year: f"{year}-06-15",
+        lambda year: f"{year}-06-01",
+        lambda year: f"{year}-06",
+        lambda year: f"{year}06",
+    ],
+)
+def test_compute_seasonal_thresholds_period_formats(time_period_format, threshold_value):
+    """Vectorised month extraction matches per-row TimePeriod.parse across monthly string formats."""
+    values = [90.0, 95.0, 100.0, 105.0, 110.0]
+    rows = [
+        {"location": "A", "time_period": time_period_format(year), "disease_cases": val}
+        for year, val in zip(range(2018, 2023), values)
+    ]
+    result = compute_seasonal_thresholds(pd.DataFrame(rows))
+    assert len(result) == 1
+    assert result.iloc[0]["month"] == 6
+    assert result.iloc[0]["threshold"] == pytest.approx(threshold_value)
+
+
 def _make_forecasts(location, time_period, horizon, samples):
     """Helper to create a forecast DataFrame from sample values."""
     return pd.DataFrame(
