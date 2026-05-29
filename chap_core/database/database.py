@@ -58,6 +58,9 @@ class SessionWrapper:
     This is a wrapper around data access operations.
     This class handles cases when putting things in/out of db requires
     more than just adding/getting a row, e.g. transforming data etc.
+
+    Dataset reads/writes are not here: use ``DataSetManager(session)``
+    (``chap_core.database.dataset_manager``) for those.
     """
 
     def __init__(self, local_engine=None, session=None):

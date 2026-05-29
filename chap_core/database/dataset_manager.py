@@ -1,7 +1,8 @@
 """Data-access operations for datasets and their observations.
 
 Extracted from ``SessionWrapper`` so dataset reads/writes live in one place.
-``SessionWrapper`` keeps thin delegating methods for backwards compatibility.
+Construct ``DataSetManager(session)`` directly; ``SessionWrapper`` no longer
+exposes dataset methods.
 """
 
 import dataclasses
