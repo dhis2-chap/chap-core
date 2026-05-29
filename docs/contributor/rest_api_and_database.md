@@ -162,7 +162,6 @@ The tables are spread across several files:
 | `tables.py` | `Backtest`, `Prediction`, `BacktestForecast`, `PredictionSamplesEntry`, `BacktestMetric` | Evaluation and prediction results |
 | `model_templates_and_config_tables.py` | `ModelTemplateDB`, `ConfiguredModelDB` | Model definitions and configurations |
 | `model_spec_tables.py` | `ModelSpecRead` | Read model for backwards-compatible API responses |
-| `debug.py` | `DebugEntry` | Debug/diagnostic entries |
 
 ### Key relationships
 
@@ -327,4 +326,3 @@ shortcut to apply this to all GET endpoints.
 | `database/dataset_tables.py` | DataSet, Observation tables |
 | `database/model_templates_and_config_tables.py` | ModelTemplateDB, ConfiguredModelDB |
 | `database/model_spec_tables.py` | ModelSpecRead (backwards-compatible read model) |
-| `database/debug.py` | DebugEntry table |
