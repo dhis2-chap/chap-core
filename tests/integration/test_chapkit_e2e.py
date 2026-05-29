@@ -169,7 +169,7 @@ def test_chapkit_backtest_via_worker_function(chapkit_service):
         session.add_configured_model(template_id, ModelConfiguration(), uses_chapkit=True)
 
         # Add dataset from example CSV
-        dataset_id = session.add_dataset_from_csv("vietnam_test", EXAMPLE_CSV, EXAMPLE_GEOJSON)
+        dataset_id = session.datasets.add_dataset_from_csv("vietnam_test", EXAMPLE_CSV, EXAMPLE_GEOJSON)
 
         # Run backtest directly (bypasses Celery)
         backtest_id = run_backtest(

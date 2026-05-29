@@ -109,8 +109,7 @@ class DataSetManager(DbManager[DataSet]):
                     )
                     dataset.observations.append(observation)
 
-        self.session.add(dataset)
-        self.session.commit()
+        self.add(dataset)
         assert self.session.exec(select(Observation).where(Observation.dataset_id == dataset.id)).first() is not None
         return dataset.id
 
@@ -127,10 +126,9 @@ class DataSetManager(DbManager[DataSet]):
 
         Unlike :meth:`get_dataset` this does not build a ``_DataSet`` domain object,
         so the selected periods do not need to be consecutive (an explicit, possibly
-        non-contiguous ``periods`` list is allowed).
+        non-contiguous ``periods`` list is allowed). Returns an empty list if the
+        dataset does not exist or nothing matches the filters.
         """
-        if self.get(dataset_id) is None:
-            raise ValueError(f"Dataset with id {dataset_id} not found")
         expr = _filtered_observation_query(
             dataset_id,
             periods=periods,

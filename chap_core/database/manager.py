@@ -23,3 +23,16 @@ class DbManager[ModelT: SQLModel]:
     def list_all(self) -> list[ModelT]:
         """Return every row for this manager's model."""
         return list(self.session.exec(select(self.model)).all())
+
+    def add(self, obj: ModelT) -> ModelT:
+        """Persist a row and return the committed instance."""
+        self.session.add(obj)
+        self.session.commit()
+        return obj
+
+    def delete(self, item_id: int) -> None:
+        """Delete the row with this primary key, if it exists."""
+        obj = self.get(item_id)
+        if obj is not None:
+            self.session.delete(obj)
+            self.session.commit()

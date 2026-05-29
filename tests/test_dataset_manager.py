@@ -22,7 +22,7 @@ def engine():
 @pytest.fixture
 def dataset_id(engine, health_population_data):
     with SessionWrapper(engine) as session:
-        return session.add_dataset(DataSetCreateInfo(name="health_population"), health_population_data, None)
+        return session.datasets.add_dataset(DataSetCreateInfo(name="health_population"), health_population_data, None)
 
 
 def _sorted_periods(observations):
@@ -85,10 +85,9 @@ def test_get_observations_empty_match_returns_empty(engine, dataset_id):
     assert filtered == []
 
 
-def test_get_observations_unknown_dataset_raises(engine):
+def test_get_observations_unknown_dataset_returns_empty(engine):
     with SessionWrapper(engine) as session:
-        with pytest.raises(ValueError, match="not found"):
-            session.datasets.get_observations(999999)
+        assert session.datasets.get_observations(999999) == []
 
 
 def test_observations_to_dataframe_shape(engine, dataset_id):
@@ -108,7 +107,7 @@ def test_observations_to_dataframe_empty():
 
 def test_get_dataset_feature_subset_narrows_dataclass(engine, dataset_id):
     with SessionWrapper(engine) as session:
-        dataset = session.get_dataset(dataset_id, feature_names=["disease_cases"])
+        dataset = session.datasets.get_dataset(dataset_id, feature_names=["disease_cases"])
         _, data = next(iter(dataset.items()))
     field_names = {field.name for field in dataclasses.fields(data)}
     assert "disease_cases" in field_names
@@ -118,12 +117,12 @@ def test_get_dataset_feature_subset_narrows_dataclass(engine, dataset_id):
 def test_get_dataset_empty_filter_raises(engine, dataset_id):
     with SessionWrapper(engine) as session:
         with pytest.raises(ValueError, match="No observations"):
-            session.get_dataset(dataset_id, org_units=["does-not-exist"])
+            session.datasets.get_dataset(dataset_id, org_units=["does-not-exist"])
 
 
 def test_get_dataset_org_unit_filter_roundtrips(engine, dataset_id):
     with SessionWrapper(engine) as session:
         org_unit = sorted({obs.org_unit for obs in session.datasets.get_observations(dataset_id)})[0]
-        dataset = session.get_dataset(dataset_id, org_units=[org_unit])
+        dataset = session.datasets.get_dataset(dataset_id, org_units=[org_unit])
         locations = list(dataset.locations())
     assert locations == [org_unit]

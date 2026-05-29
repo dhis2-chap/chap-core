@@ -31,6 +31,7 @@ from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import compute_all_detailed_metrics
 from chap_core.data import DataSet as InMemoryDataSet
 from chap_core.database.database import SessionWrapper
+from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import (
     DataSet,
     DataSetCreateInfo,
@@ -661,7 +662,7 @@ async def create_dataset_csv(
     dataset = InMemoryDataSet.from_csv(io.BytesIO(csv_content), dataclass=FullData)
     geo_json_content = await geojson_file.read()
     features = Polygons.from_geojson(json.loads(geo_json_content), id_property="NAME_1").feature_collection()
-    dataset_id = SessionWrapper(session=session).add_dataset(
+    dataset_id = DataSetManager(session).add_dataset(
         DataSetCreateInfo(name="csv_file"), dataset, features.model_dump_json()
     )
     return DataBaseResponse(id=dataset_id)
@@ -681,8 +682,7 @@ async def get_dataset_df(dataset_id: Annotated[int, Path(alias="datasetId")], se
     """
     if session.get(DataSet, dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    sw = SessionWrapper(session=session)
-    in_memory_dataset = sw.get_dataset(dataset_id)
+    in_memory_dataset = DataSetManager(session).get_dataset(dataset_id)
     df = in_memory_dataset.to_pandas()
     # Convert time_period column to strings for proper serialization
     df["time_period"] = df["time_period"].astype(str)
@@ -709,8 +709,7 @@ async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], s
     """
     if session.get(DataSet, dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    sw = SessionWrapper(session=session)
-    in_memory_dataset = sw.get_dataset(dataset_id)
+    in_memory_dataset = DataSetManager(session).get_dataset(dataset_id)
     df = in_memory_dataset.to_pandas()
     df["time_period"] = df["time_period"].astype(str)
 
@@ -730,11 +729,9 @@ async def get_dataset_csv(dataset_id: Annotated[int, Path(alias="datasetId")], s
 async def delete_dataset(dataset_id: Annotated[int, Path(alias="datasetId")], session: Session = Depends(get_session)):
     """Permanently delete a dataset and every observation in it. Use this to clean up obsolete imports — be aware that backtests and predictions that referenced this dataset will lose their data link. 404 if the id is unknown."""
     # dataset = session.exec(select(DataSet).where(DataSet.id == dataset_id)).first()
-    dataset = session.get(DataSet, dataset_id)
-    if dataset is None:
+    if session.get(DataSet, dataset_id) is None:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    session.delete(dataset)
-    session.commit()
+    DataSetManager(session).delete(dataset_id)
     return {"message": "deleted"}
 
 

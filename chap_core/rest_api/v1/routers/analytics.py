@@ -16,8 +16,9 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
-from chap_core.database.dataset_tables import DataSetCreateInfo, Observation
+from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, BacktestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
@@ -515,11 +516,11 @@ async def get_actual_cases(
         dataset_id = backtest.dataset_id
     else:
         dataset_id = backtest_id
-    expr = select(Observation).where(Observation.dataset_id == dataset_id)
-    if org_units is not None and not return_summed:
-        org_units_set = set(org_units)
-        expr = expr.where(Observation.org_unit.in_(org_units_set))  # type: ignore[attr-defined]
-    observations = session.exec(expr).all()
+    observations = DataSetManager(session).get_observations(
+        dataset_id,
+        org_units=None if return_summed else org_units,
+        feature_names=["disease_cases"],
+    )
     logger.info(f"Observations: {observations}")
     data_list = [
         DataElement(
@@ -530,7 +531,6 @@ async def get_actual_cases(
             else None,
         )
         for observation in observations
-        if observation.feature_name == "disease_cases"
     ]
     if return_summed:
         # sum over all regions

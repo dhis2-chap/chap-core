@@ -95,7 +95,7 @@ def test_visualization_endpoints_404_on_missing_ids(clean_engine, dependency_ove
 @pytest.mark.skip(reason="not in use")
 def test_backtest_flow(celery_session_worker, clean_engine, dependency_overrides, weekly_full_data, do_filter):
     with SessionWrapper(clean_engine) as session:
-        dataset_id = session.add_dataset("full_data", weekly_full_data, "polygons", dataset_type="evaluation")
+        dataset_id = session.datasets.add_dataset("full_data", weekly_full_data, "polygons", dataset_type="evaluation")
     response = client.post("/v1/crud/backtests", json={"datasetId": dataset_id, "modelId": "naive_model"})
     assert response.status_code == 200, response.json()
     job_id = response.json()["id"]

@@ -19,9 +19,7 @@ from ..external.model_configuration import ModelTemplateConfigV2
 from ..models import ModelTemplate
 from ..models.configured_model import ConfiguredModel
 from ..models.external_chapkit_model import ExternalChapkitModelTemplate
-from ..spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 from .dataset_manager import DataSetManager
-from .dataset_tables import DataSet, DataSetCreateInfo
 from .model_spec_tables import ModelSpecRead
 from .model_templates_and_config_tables import ConfiguredModelDB, ModelConfiguration, ModelTemplateDB
 from .tables import Backtest, Prediction, PredictionSamplesEntry
@@ -447,34 +445,8 @@ class SessionWrapper:
 
     @property
     def datasets(self) -> DataSetManager:
-        """Dataset data-access operations."""
+        """Dataset data-access operations. Use this for all dataset reads/writes."""
         return DataSetManager(self.session)
-
-    def add_dataset_from_csv(self, name: str, csv_path: Path, geojson_path: Path | None = None):
-        return self.datasets.add_dataset_from_csv(name, csv_path, geojson_path)
-
-    def add_dataset(self, dataset_info: DataSetCreateInfo, orig_dataset: _DataSet, polygons):
-        return self.datasets.add_dataset(dataset_info, orig_dataset, polygons)
-
-    def get_dataset(
-        self,
-        dataset_id: int,
-        dataclass: type | None = None,
-        *,
-        period_range: tuple[str, str] | None = None,
-        org_units: list[str] | None = None,
-        feature_names: list[str] | None = None,
-    ) -> _DataSet:
-        return self.datasets.get_dataset(
-            dataset_id,
-            dataclass,
-            period_range=period_range,
-            org_units=org_units,
-            feature_names=feature_names,
-        )
-
-    def get_dataset_by_name(self, dataset_name: str) -> DataSet | None:
-        return self.datasets.get_dataset_by_name(dataset_name)
 
 
 def _run_alembic_migrations(engine):
