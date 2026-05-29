@@ -25,10 +25,7 @@ def test_objective_calls_evaluation_create_and_returns_metric(monkeypatch):
         n_periods = 3
         stride = 1
 
-    class FakeUUID:
-        hex = "a1b2c3d4e5f6g7h8"
-
-    monkeypatch.setattr(obj_module, "uuid4", lambda: FakeUUID(), raising=True)
+    monkeypatch.setattr(obj_module, "generate_short_id", lambda: "a1b2c3d4", raising=True)
 
     def fake_create(cls, **kwargs):
         captured["create_kwargs"] = kwargs
