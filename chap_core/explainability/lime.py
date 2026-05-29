@@ -33,6 +33,7 @@ component instances.
 import logging
 import random
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -914,6 +915,138 @@ def save_explanation(
     return md_path
 
 
+@dataclass
+class _LimeInputs:
+    """Prepared inputs shared by explain() and explain_adaptive() before they
+    diverge into standard vs. adaptive mask selection."""
+
+    full_future_weather: DataSet
+    hist_type: type
+    fut_type: type
+    hist_df: pd.DataFrame
+    future_df: pd.DataFrame
+    features_hist: list[str]
+    features_fut: list[str]
+    x0: dict[str, Any]
+    feat_indices: dict[str, Indices]
+    sampler: SampleModel
+    rng: random.Random
+    global_means: dict[str, float] | None
+
+
+def _prepare_lime_inputs(
+    *,
+    dataset: DataSet,
+    location: str,
+    horizon: int,
+    segmenter_name: str,
+    granularity: int,
+    sampler_name: str,
+    seed: int | None,
+    last_n: int | None,
+    timed: bool,
+    start: float,
+) -> _LimeInputs:
+    """Build the climate forecast, slice to the target location, derive the
+    interpretable original vector ``x0`` and its feature indices, and construct
+    the sampler and per-feature global means.
+
+    This is the dataset-preparation stage common to both pipelines; the result
+    feeds standard (:func:`explain`) and adaptive (:func:`explain_adaptive`)
+    mask selection identically.
+    """
+    assert horizon > 0, f"Horizon must be positive; received horizon={horizon}"
+    assert location in dataset.locations(), f"Location {location} not found in dataset"
+
+    # Predict the future climate covariates over the requested horizon
+    delta = dataset.period_range[0].time_delta
+    prediction_range = PeriodRange(
+        dataset.end_timestamp,
+        dataset.end_timestamp + delta * horizon,
+        delta,
+    )
+    climate_data = dataset
+    for field_name in dataset.field_names():
+        # Drop non-numeric fields the climate predictor cannot handle
+        if getattr(next(iter(dataset.values())), field_name).dtype.kind not in ("f", "i"):
+            climate_data = climate_data.remove_field(field_name)
+    climate_predictor = get_climate_predictor(climate_data)
+    full_future_weather = climate_predictor.predict(prediction_range)
+
+    # Isolate the target location and fetch its dataframe classes for later instantiation
+    dataset_loc = dataset.filter_locations([location])
+    future_weather = full_future_weather.filter_locations([location])
+    hist_type = dataset_loc[location].__class__
+    fut_type = future_weather[location].__class__
+
+    hist_df = dataset_loc.to_pandas().sort_values("time_period").reset_index(drop=True)
+    future_df = future_weather.to_pandas().sort_values("time_period").reset_index(drop=True)
+    assert len(future_df) >= horizon, f"Need at least {horizon} future steps, got {len(future_df)}"
+
+    features_hist = [
+        fn
+        for fn in dataset_loc.field_names()
+        if fn not in _non_feature_names_excluding_disease and hist_df[fn].dtype.kind in ("f", "i")
+    ]
+    features_fut = [
+        fn
+        for fn in future_weather.field_names()
+        if fn not in _non_feature_names_excluding_disease and future_df[fn].dtype.kind in ("f", "i")
+    ]
+    assert len(features_hist) > 0, "No numeric historical features found in dataset"
+
+    # Optionally restrict explanation to the most recent time steps
+    hist_df = hist_df.copy()
+    if last_n is not None:
+        assert last_n > 0, f"last_n must be positive, got {last_n}"
+        hist_df = hist_df.iloc[-last_n:].reset_index(drop=True)
+        assert len(hist_df) > 0, f"No data remaining after selecting last {last_n} steps"
+
+    nan_counts = hist_df[features_hist].isna().sum()
+    if nan_counts.any():
+        logger.warning(
+            "Missing values detected in historical features: %s. Applying forward/backward fill.",
+            nan_counts[nan_counts > 0].to_dict(),
+        )
+    hist_df[features_hist] = hist_df[features_hist].ffill().bfill()
+
+    # Window size feeds matrix-profile segmenters (sliding-window length)
+    window_size = min(max(5, len(hist_df) // 30), len(hist_df))
+    segmenter = disambiguate_segmenter(segmenter_name, granularity, window_size)
+
+    if timed:
+        print_time(start, "Finished LIME preparations in %.4f seconds")
+
+    x0, feat_indices = build_original_vector(segmenter, hist_df, future_df, features_hist, features_fut, horizon)
+
+    if timed:
+        print_time(start, "Created original LIME input vector at %.4f seconds")
+
+    full_dataset_df = dataset.to_pandas()
+    rng = random.Random(seed)
+    sampler = disambiguate_sampler(sampler_name, rng, full_dataset_df)
+
+    num_locations = len(list(dataset.locations()))
+    global_means: dict[str, float] | None = (
+        {feat: float(full_dataset_df[feat].mean()) for feat in features_hist} if num_locations > 1 else None
+    )
+
+    return _LimeInputs(
+        full_future_weather=full_future_weather,
+        hist_type=hist_type,
+        fut_type=fut_type,
+        hist_df=hist_df,
+        future_df=future_df,
+        features_hist=features_hist,
+        features_fut=features_fut,
+        x0=x0,
+        feat_indices=feat_indices,
+        sampler=sampler,
+        rng=rng,
+        global_means=global_means,
+    )
+
+
 def explain(
     model: ExternalModel,
     dataset: DataSet,
@@ -961,105 +1094,32 @@ def explain(
         logger.info("Started LIME pipeline")
 
     # =================================================================
-    # Prepare dataset
-    # TODO: The setup block below is duplicated in explain_adaptive
+    # Prepare dataset + build the original vector
     # =================================================================
-
-    # Initial input safety checks
-    assert horizon > 0, f"Horizon must be positive; received horizon={horizon}"
-    assert location in dataset.locations(), f"Location {location} not found in dataset"
-
-    # Determine length of time for which to predict into the future (given by horizon)
-    delta = dataset.period_range[0].time_delta
-    prediction_range = PeriodRange(
-        dataset.end_timestamp,
-        dataset.end_timestamp + delta * horizon,
-        delta,
+    inputs = _prepare_lime_inputs(
+        dataset=dataset,
+        location=location,
+        horizon=horizon,
+        segmenter_name=segmenter_name,
+        granularity=granularity,
+        sampler_name=sampler_name,
+        seed=seed,
+        last_n=last_n,
+        timed=timed,
+        start=start,
     )
-
-    # Make future prediction for climate columns
-    climate_data = dataset
-    for field_name in dataset.field_names():
-        if getattr(next(iter(dataset.values())), field_name).dtype.kind not in (
-            "f",
-            "i",
-        ):  # Remove any non-numeric field from climate predictor
-            climate_data = climate_data.remove_field(field_name)
-    climate_predictor = get_climate_predictor(climate_data)
-    full_future_weather = climate_predictor.predict(prediction_range)
-
-    # Isolate dataset to selected location
-    dataset_loc = dataset.filter_locations([location])
-    future_weather = full_future_weather.filter_locations([location])
-
-    # Fetch dataframe class to use in later instantiation
-    hist_type = dataset_loc[location].__class__
-    fut_type = future_weather[location].__class__
-
-    # Sort by dates, and extract feature names
-    hist_df = dataset_loc.to_pandas().sort_values("time_period").reset_index(drop=True)
-    future_df = future_weather.to_pandas().sort_values("time_period").reset_index(drop=True)
-
-    assert len(future_df) >= horizon, f"Need at least {horizon} future steps, got {len(future_df)}"
-
-    # Isolate features
-    features_hist = [
-        fn
-        for fn in dataset_loc.field_names()
-        if fn not in _non_feature_names_excluding_disease and hist_df[fn].dtype.kind in ("f", "i")
-    ]
-    features_fut = [
-        fn
-        for fn in future_weather.field_names()
-        if fn not in _non_feature_names_excluding_disease and future_df[fn].dtype.kind in ("f", "i")
-    ]
-
-    assert len(features_hist) > 0, "No numeric historical features found in dataset"
-
-    # Optionally restrict explanation to the most recent time steps
-    hist_df = hist_df.copy()
-    if last_n is not None:
-        assert last_n > 0, f"last_n must be positive, got {last_n}"
-        hist_df = hist_df.iloc[-last_n:].reset_index(drop=True)
-        assert len(hist_df) > 0, f"No data remaining after selecting last {last_n} steps"
-
-    # Handle any missing values
-    nan_counts = hist_df[features_hist].isna().sum()
-    if nan_counts.any():
-        logger.warning(
-            "Missing values detected in historical features: %s. Applying forward/backward fill.",
-            nan_counts[nan_counts > 0].to_dict(),
-        )
-    hist_df[features_hist] = hist_df[features_hist].ffill().bfill()
-
-    # Preparation for time series segmentation
-    # Window size is used in matrix profiling for some segmenters, as the size of a sliding window
-    window_size = min(max(5, len(hist_df) // 30), len(hist_df))  # TODO: Heuristic for now
-    segmenter = disambiguate_segmenter(segmenter_name, granularity, window_size)
-
-    if timed:
-        print_time(start, "Finished LIME preparations in %.4f seconds")
-
-    # =================================================================
-    # Build original vector around which to generate perturbed vectors
-    # =================================================================
-
-    # Build the input vector for the prediction to explain
-    x0, feat_indices = build_original_vector(segmenter, hist_df, future_df, features_hist, features_fut, horizon)
-
-    if timed:
-        print_time(start, "Created original LIME input vector at %.4f seconds")
-
-    full_dataset_df = dataset.to_pandas()
-
-    # Select sampler from sampler_name
-    rng = random.Random(seed)
-    sampler = disambiguate_sampler(sampler_name, rng, full_dataset_df)
-
-    num_locations = len(list(dataset.locations()))
-    global_means: dict[str, float] | None = (
-        {feat: float(full_dataset_df[feat].mean()) for feat in features_hist} if num_locations > 1 else None
-    )
+    full_future_weather = inputs.full_future_weather
+    hist_type = inputs.hist_type
+    fut_type = inputs.fut_type
+    hist_df = inputs.hist_df
+    future_df = inputs.future_df
+    features_hist = inputs.features_hist
+    features_fut = inputs.features_fut
+    x0 = inputs.x0
+    feat_indices = inputs.feat_indices
+    sampler = inputs.sampler
+    rng = inputs.rng
+    global_means = inputs.global_means
 
     # =================================================================
     # Create perturbed variations
@@ -1318,96 +1378,32 @@ def explain_adaptive(
         logger.info("Started bayesian LIME pipeline")
 
     # =================================================================
-    # Prepare dataset
-    # TODO: The setup block below is duplicated in explain
+    # Prepare dataset + build the original vector
     # =================================================================
-
-    assert horizon > 0, f"Horizon must be positive; received horizon={horizon}"
-    assert location in dataset.locations(), f"Location {location} not found in dataset"
-
-    delta = dataset.period_range[0].time_delta
-    prediction_range = PeriodRange(
-        dataset.end_timestamp,
-        dataset.end_timestamp + delta * horizon,
-        delta,
+    inputs = _prepare_lime_inputs(
+        dataset=dataset,
+        location=location,
+        horizon=horizon,
+        segmenter_name=segmenter_name,
+        granularity=granularity,
+        sampler_name=sampler_name,
+        seed=seed,
+        last_n=last_n,
+        timed=timed,
+        start=start,
     )
-
-    climate_data = dataset
-    for field_name in dataset.field_names():
-        if getattr(next(iter(dataset.values())), field_name).dtype.kind not in ("f", "i"):
-            climate_data = climate_data.remove_field(field_name)
-    climate_predictor = get_climate_predictor(climate_data)
-    full_future_weather = climate_predictor.predict(prediction_range)
-
-    dataset_loc = dataset.filter_locations([location])
-    future_weather = full_future_weather.filter_locations([location])
-    hist_type = dataset_loc[location].__class__
-    fut_type = future_weather[location].__class__
-
-    hist_df = dataset_loc.to_pandas().sort_values("time_period").reset_index(drop=True)
-    future_df = future_weather.to_pandas().sort_values("time_period").reset_index(drop=True)
-
-    assert len(future_df) >= horizon, f"Need at least {horizon} future steps, got {len(future_df)}"
-
-    features_hist = [
-        fn
-        for fn in dataset_loc.field_names()
-        if fn not in _non_feature_names_excluding_disease and hist_df[fn].dtype.kind in ("f", "i")
-    ]
-    features_fut = [
-        fn
-        for fn in future_weather.field_names()
-        if fn not in _non_feature_names_excluding_disease and future_df[fn].dtype.kind in ("f", "i")
-    ]
-
-    assert len(features_hist) > 0, "No numeric historical features found in dataset"
-
-    # Optionally restrict explanation to the most recent time steps
-    hist_df = hist_df.copy()
-    if last_n is not None:
-        assert last_n > 0, f"last_n must be positive, got {last_n}"
-        hist_df = hist_df.iloc[-last_n:].reset_index(drop=True)
-        assert len(hist_df) > 0, f"No data remaining after selecting last {last_n} steps"
-
-    # Handle any missing values
-    nan_counts = hist_df[features_hist].isna().sum()
-    if nan_counts.any():
-        logger.warning(
-            "Missing values detected in historical features: %s. Applying forward/backward fill.",
-            nan_counts[nan_counts > 0].to_dict(),
-        )
-    hist_df[features_hist] = hist_df[features_hist].ffill().bfill()
-
-    window_size = min(max(5, len(hist_df) // 30), len(hist_df))
-    segmenter = disambiguate_segmenter(segmenter_name, granularity, window_size)
-
-    if timed:
-        print_time(start, "Finished adaptive LIME preparations in %.4f seconds")
-
-    # =================================================================
-    # Build original vector around which to generate perturbed vectors
-    # =================================================================
-
-    x0, feat_indices = build_original_vector(
-        segmenter,
-        hist_df,
-        future_df,
-        features_hist,
-        features_fut,
-        horizon,
-    )
-
-    if timed:
-        print_time(start, "Created original adaptive LIME input vector at %.4f seconds")
-
-    full_dataset_df = dataset.to_pandas()
-    rng = random.Random(seed)
-    sampler = disambiguate_sampler(sampler_name, rng, full_dataset_df)
-
-    num_locations = len(list(dataset.locations()))
-    global_means: dict[str, float] | None = (
-        {feat: float(full_dataset_df[feat].mean()) for feat in features_hist} if num_locations > 1 else None
-    )
+    full_future_weather = inputs.full_future_weather
+    hist_type = inputs.hist_type
+    fut_type = inputs.fut_type
+    hist_df = inputs.hist_df
+    future_df = inputs.future_df
+    features_hist = inputs.features_hist
+    features_fut = inputs.features_fut
+    x0 = inputs.x0
+    feat_indices = inputs.feat_indices
+    sampler = inputs.sampler
+    rng = inputs.rng
+    global_means = inputs.global_means
 
     # =================================================================
     # Create initial perturbed variations
