@@ -931,7 +931,7 @@ def explain(
     save: bool = True,
     plot: bool = True,
     return_metrics: bool = False,
-):
+) -> list[tuple[str, float]] | tuple[list[tuple[str, float]], dict[str, float]]:
     """
     Model-agnostic function to supply variable contribution weighting for specific prediction
 
@@ -1068,6 +1068,8 @@ def explain(
     # Get structured list of new feature names (e.g. rainfall_lag_5) and their column names/lag indices
     feature_map = build_feature_map(x0)
     feature_names = [name for name, _, _ in feature_map]
+    if len(feature_names) == 0:
+        raise ValueError("No interpretable features available for explain")
 
     # Scale mutation rate so that on average exactly one feature is perturbed per mask
     mutation_rate = 1.0 / len(feature_names)
@@ -1155,7 +1157,6 @@ def explain(
     # Extract explanations
     # =================================================================
 
-    # Temporary metrics TODO: update
     z_hat = surrogate_model.predict(X_fit)
     r2 = r2_score(z, z_hat, sample_weight=weights)  # Compare similarity of output in neighborhood of prediction
     n_eff = (weights.sum() ** 2) / (
@@ -1285,7 +1286,7 @@ def explain_adaptive(
     save: bool = True,
     plot: bool = True,
     return_metrics: bool = False,
-):
+) -> list[tuple[str, float]] | tuple[list[tuple[str, float]], dict[str, float]]:
     """
     Model-agnostic function using adaptive perturbation selection with a Bayesian
     linear acquisition model, then training the selected surrogate on the resulting

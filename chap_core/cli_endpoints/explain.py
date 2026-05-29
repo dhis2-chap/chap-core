@@ -127,7 +127,8 @@ def explain_lime(
     configuration = None
     if model_configuration_yaml is not None:
         logger.info(f"Loading model configuration from {model_configuration_yaml}")
-        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+        with open(model_configuration_yaml) as f:
+            configuration = ModelConfiguration.model_validate(yaml.safe_load(f))
 
     logger.info(f"Loading model template from {model_name}")
     template = ModelTemplate.from_directory_or_github_url(
@@ -163,6 +164,7 @@ def explain_lime(
             )
 
             if lime_params.with_metrics:
+                assert isinstance(result, tuple)  # return_metrics=True yields (results, metrics)
                 _, metrics = result
                 logger.info(f"Faithfulness metrics for {loc}:")
                 for key, value in metrics.items():
