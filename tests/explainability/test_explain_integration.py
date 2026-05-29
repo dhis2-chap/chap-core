@@ -267,3 +267,25 @@ class TestExplainAdaptiveEndToEnd:
         assert isinstance(results, list) and len(results) > 0
         abs_coefs = [abs(c) for _, c in results]
         assert abs_coefs == sorted(abs_coefs, reverse=True)
+
+    def test_adaptive_return_metrics_yields_eloss_components(self, small_full_dataset):
+        # The metrics end-to-end path is covered for explain() in TestReturnMetrics;
+        # explain_adaptive populates the same eLoss components and needs its own.
+        out = explain_adaptive(
+            model=MockExternalModel(),
+            dataset=small_full_dataset,
+            location="alpha",
+            horizon=2,
+            num_perturbations=20,
+            granularity=4,
+            seed=42,
+            plot=False,
+            save=False,
+            return_metrics=True,
+        )
+        assert isinstance(out, tuple) and len(out) == 2
+        results, metrics = out
+        assert isinstance(results, list)
+        for key in ("r2", "n_eff", "delta_eloss", "auc_top_k", "auc_bottom_k"):
+            assert key in metrics, f"missing metric: {key}"
+            assert np.isfinite(metrics[key]), f"metric {key}={metrics[key]!r} is not finite"

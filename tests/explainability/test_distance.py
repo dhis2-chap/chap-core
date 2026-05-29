@@ -57,6 +57,20 @@ class TestDTW:
         assert weights.shape == (3,)
         assert np.all(np.isfinite(weights))
 
+    def test_equidistant_perturbations_fall_back_to_uniform_weight(self):
+        # When every perturbation is the *same* non-zero distance from x0, the
+        # batch std (sigma) is 0, so the sigma-scaled kernel falls back to a
+        # uniform weight of 1.0 — distinct from the all-identical case where the
+        # distance itself is 0. Mirror-image constant offsets are equidistant.
+        x0 = np.array([[0.0], [0.0], [0.0]])
+        perturbed = [
+            np.array([[5.0], [5.0], [5.0]]),
+            np.array([[-5.0], [-5.0], [-5.0]]),
+        ]
+        weights = DTW(kernel_width=1.0).get_weights(perturbed, x0)
+        assert weights.shape == (2,)
+        assert np.allclose(weights, 1.0)
+
     def test_weight_is_monotonic_and_anchored_at_zero_distance(self):
         # Three perturbations at increasing DTW distance from x0; the closest
         # (identical to x0, distance 0) must get the highest weight and weight
