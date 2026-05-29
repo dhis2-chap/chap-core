@@ -33,9 +33,7 @@ component instances.
 import logging
 import random
 import time
-import uuid
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +77,7 @@ from chap_core.models.external_model import ExternalModel
 from chap_core.models.utils import CHAP_RUNS_DIR
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period.date_util_wrapper import PeriodRange
+from chap_core.util import generate_run_name
 
 logger = logging.getLogger(__name__)
 
@@ -864,10 +863,11 @@ def save_explanation(
     the ``importance_plot.png`` the caller saves into the same directory.
     """
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in (model_name or "unknown"))
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    # Unique suffix (timestamp + short uuid) so two runs in the same second —
-    # e.g. different locations in one CLI invocation — don't overwrite each other.
-    run_dir = CHAP_RUNS_DIR / "explainability" / safe_name / f"{timestamp}_{uuid.uuid4().hex[:8]}"
+    # Unique <timestamp>_<id> dir so two same-second runs (e.g. different
+    # locations in one CLI invocation) don't overwrite each other.
+    run_name = generate_run_name()
+    timestamp = run_name.rsplit("_", 1)[0]
+    run_dir = CHAP_RUNS_DIR / "explainability" / safe_name / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
 
     lines = [
