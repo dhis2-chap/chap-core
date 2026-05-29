@@ -163,7 +163,7 @@ This runs LIME against an already-trained model on the dataset that was used to 
 
 The command logs to stdout. Key lines, in order:
 
-1. **`Processing prediction chunk N/M`** — perturbations are run through the model in chunks of 10.
+1. **`Processing perturbation N/M`** — one line per perturbation: each is run through the model with its own `model.predict` call (no batching), so for an external model expect N separate prediction passes.
 2. **Optional warnings** from the surrogate-input cleanup step:
    - `N/M perturbed predictions were negative; clipping to 0 before log1p` — the model produced negative values on some perturbations. Disease counts are non-negative, so negatives are the model going out of distribution. Clipping is a defensive fix; many clipped values means the explanation may not be trustworthy.
    - `N/M perturbations produced non-finite predictions; dropping them from the surrogate fit` — NaN or inf from the model. Rows are removed from the surrogate fit; a high drop rate is similarly suspect.
