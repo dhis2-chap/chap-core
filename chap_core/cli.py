@@ -13,6 +13,7 @@ from cyclopts import App
 from chap_core.cli_endpoints import (
     causal,
     convert,
+    ensemble,
     evaluate,
     explain,
     forecast,
@@ -44,6 +45,7 @@ report.register_commands(app)
 utils.register_commands(app)
 validate.register_commands(app)
 generate_modelcard.register_commands(app)
+ensemble.register_commands(app)
 
 
 def main():

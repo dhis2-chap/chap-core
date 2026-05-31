@@ -59,7 +59,8 @@ def get_model(
 def save_results(report_filename: str, results_dict: dict[Any, Any]) -> None:
     import pandas as pd
 
-    data: list[list[Any]] = []
+    # TEMP PATCH: fix undefined rows during save_results (remove when upstream fixes core).
+    rows: list[list[Any]] = []
     full_data: dict[Any, pd.DataFrame] = {}
     metric_keys: list[str] = []
     for idx, (key, value) in enumerate(results_dict.items()):

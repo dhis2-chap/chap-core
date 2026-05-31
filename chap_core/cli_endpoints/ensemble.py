@@ -11,7 +11,7 @@ import pandas as pd
 import yaml
 from cyclopts import Parameter
 
-from chap_core.api_types import BackTestParams, RunConfig
+from chap_core.api_types import BacktestParams, RunConfig
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metrics import available_metrics
 from chap_core.cli_endpoints._common import (
@@ -128,7 +128,7 @@ def _evaluate_ensemble_core(
     polygons_id_field: str,
     report_filename: Path,
     output_file: Path | None,
-    backtest_params: BackTestParams,
+    backtest_params: BacktestParams,
     run_config: RunConfig,
     model_configuration_yaml: str | None,
     random_state: int | None,
@@ -253,7 +253,7 @@ def evaluate_ensemble(
     polygons_id_field: Annotated[str, Parameter(help="ID field in GeoJSON.")] = "id",
     report_filename: Annotated[Path, Parameter(help="Base filename for report outputs.")] = Path("ensemble_report.csv"),
     output_file: Annotated[Path | None, Parameter(help="Output NetCDF path.")] = None,
-    backtest_params: Annotated[BackTestParams, Parameter(help="Backtest configuration.")] = BackTestParams(
+    backtest_params: Annotated[BacktestParams, Parameter(help="Backtest configuration.")] = BacktestParams(
         n_periods=3, n_splits=7, stride=1
     ),
     run_config: Annotated[RunConfig, Parameter(help="Model execution config.")] = RunConfig(),

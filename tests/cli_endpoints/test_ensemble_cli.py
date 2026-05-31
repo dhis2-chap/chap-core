@@ -1,6 +1,6 @@
 import numpy as np
 
-from chap_core.api_types import BackTestParams, RunConfig
+from chap_core.api_types import BacktestParams, RunConfig
 from chap_core.cli_endpoints import ensemble as ensemble_cli
 from chap_core.datatypes import Samples
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -81,7 +81,7 @@ def test_evaluate_ensemble_smoke(weekly_full_data, tmp_path, monkeypatch):
         polygons_id_field="id",
         report_filename=report_path,
         output_file=None,
-        backtest_params=BackTestParams(n_periods=1, n_splits=1, stride=1),
+        backtest_params=BacktestParams(n_periods=1, n_splits=1, stride=1),
         run_config=RunConfig(),
         model_configuration_yaml=None,
         random_state=123,

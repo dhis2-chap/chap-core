@@ -21,12 +21,17 @@ from chap_core.models.configured_model import ConfiguredModel
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from chap_core.database.model_templates_and_config_tables import ModelTemplateInformation
     from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 logger = logging.getLogger(__name__)
 
 
 class EnsembleModel(ConfiguredModel):
+    @property
+    def model_information(self) -> ModelTemplateInformation | None:
+        return None
+
     def __init__(
         self,
         base_templates: Sequence[Any] | None = None,
