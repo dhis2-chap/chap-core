@@ -39,7 +39,6 @@ class EnsembleModel(ConfiguredModel):
         inner_val_periods: int = 12,
         target_col: str = "disease_cases",
         n_samples: int = 100,
-        use_residual_bootstrap: bool = False,
         meta_model: NonNegativeMetaModel | ProbabilisticMetaModel | None = None,
         random_state: int | None = None,
     ) -> None:
@@ -49,8 +48,6 @@ class EnsembleModel(ConfiguredModel):
             raise ValueError("Need at least one base model")
         if method not in ("deterministic", "probabilistic"):
             raise ValueError(method)
-        if use_residual_bootstrap:
-            raise ValueError("Residual bootstrap is not supported for deterministic ensembles")
         self.method = method
         self.inner_val_periods = inner_val_periods
         self.target_col = target_col
@@ -210,7 +207,6 @@ class EnsembleEstimator(EnsembleModel):
         target_column: str = "disease_cases",
         inner_val_periods: int = 12,
         meta_model: Any | None = None,
-        use_residual_bootstrap: bool = False,
         probabilistic_meta_model: bool = False,
         n_samples: int = 100,
         **kwargs: Any,
@@ -230,7 +226,6 @@ class EnsembleEstimator(EnsembleModel):
             inner_val_periods=inner_val_periods,
             target_col=target_column,
             n_samples=n_samples,
-            use_residual_bootstrap=use_residual_bootstrap,
             meta_model=meta_model,
         )
 

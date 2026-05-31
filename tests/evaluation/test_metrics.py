@@ -31,6 +31,7 @@ import pandas as pd
 from chap_core.database.database import SessionWrapper
 from chap_core.database.tables import Backtest
 from chap_core.datatypes import SamplesWithTruth
+from chap_core.assessment.metrics.crps import crps_score_unbiased, crps_score_unbiased_matrix
 
 
 # --- Parametrized tests for all metrics and all 3 methods ---

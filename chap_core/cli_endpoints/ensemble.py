@@ -137,7 +137,6 @@ def _evaluate_ensemble_core(
     model_template_id: str,
     configured_model_id: str,
     backtest_name: str,
-    use_residual_bootstrap: bool,
 ) -> dict[str, tuple[dict[str, float | str], pd.DataFrame]]:
     initialize_logging(run_config.debug, run_config.log_file)
     logger.info("Evaluating ensemble with base models: %s", base_model_names)
@@ -153,9 +152,6 @@ def _evaluate_ensemble_core(
 
     if ensemble_method not in ("deterministic", "probabilistic"):
         raise ValueError(f"ensemble_method must be 'deterministic' or 'probabilistic', not {ensemble_method!r}")
-
-    if use_residual_bootstrap:
-        raise ValueError("Residual bootstrap is not supported for deterministic ensembles")
 
     logger.info(
         "Backtest config: n_splits=%d, n_periods=%d, stride=%d",
@@ -197,7 +193,6 @@ def _evaluate_ensemble_core(
         inner_val_periods=12,
         target_col="disease_cases",
         n_samples=100,
-        use_residual_bootstrap=use_residual_bootstrap,
         random_state=random_state,
     )
 
@@ -270,10 +265,6 @@ def evaluate_ensemble(
         int | None,
         Parameter(help="Random seed for the ensemble meta model (e.g. 42)."),
     ] = 42,
-    use_residual_bootstrap: Annotated[
-        bool,
-        Parameter(help="Not supported (deterministic ensembles are point-only)."),
-    ] = False,
     data_source_mapping: Annotated[Path | None, Parameter(help="Optional JSON column mapping.")] = None,
     historical_context_years: Annotated[
         int,
@@ -294,7 +285,6 @@ def evaluate_ensemble(
         run_config=run_config,
         model_configuration_yaml=model_configuration_yaml,
         random_state=random_state,
-        use_residual_bootstrap=use_residual_bootstrap,
         data_source_mapping=data_source_mapping,
         historical_context_years=historical_context_years,
         model_template_id="ensemble_model",

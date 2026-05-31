@@ -6,24 +6,6 @@ from chap_core.datatypes import Samples
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
-def test_evaluate_ensemble_passes_residual_bootstrap(monkeypatch):
-    captured: dict[str, object] = {}
-
-    def fake_core(**kwargs):
-        captured.update(kwargs)
-        return {}
-
-    monkeypatch.setattr(ensemble_cli, "_evaluate_ensemble_core", fake_core)
-
-    ensemble_cli.evaluate_ensemble(
-        base_model_names="model_a",
-        ensemble_method="probabilistic",
-        use_residual_bootstrap=True,
-    )
-
-    assert captured["use_residual_bootstrap"] is True
-
-
 def test_evaluate_ensemble_smoke(weekly_full_data, tmp_path, monkeypatch):
     def fake_load_dataset(**_kwargs):
         return weekly_full_data
@@ -85,7 +67,6 @@ def test_evaluate_ensemble_smoke(weekly_full_data, tmp_path, monkeypatch):
         run_config=RunConfig(),
         model_configuration_yaml=None,
         random_state=123,
-        use_residual_bootstrap=False,
         data_source_mapping=None,
         historical_context_years=1,
     )

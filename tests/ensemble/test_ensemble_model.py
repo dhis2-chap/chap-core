@@ -7,15 +7,6 @@ from chap_core.time_period import TimePeriod
 from chap_core.assessment.dataset_splitting import train_test_split as real_train_test_split
 
 
-def test_residual_bootstrap_rejected():
-    with pytest.raises(ValueError, match="Residual bootstrap is not supported"):
-        EnsembleModel(
-            base_templates=[object()],
-            method="deterministic",
-            use_residual_bootstrap=True,
-        )
-
-
 def test_train_masks_nan_features(weekly_full_data, constant_template_factory, nan_template_factory):
     templates = [
         constant_template_factory(1.0, 1, "model_a"),
