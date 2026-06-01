@@ -4,7 +4,7 @@ from typing import Annotated, Any
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select
+from sqlmodel import Field, Session, select
 
 import chap_core.rest_api.db_worker_functions as wf
 from chap_core.api_types import (
@@ -16,13 +16,15 @@ from chap_core.api_types import (
     PredictionEntry,
 )
 from chap_core.assessment.dataset_splitting import train_test_generator
+from chap_core.assessment.thresholds import get_threshold_strategy, list_threshold_strategies
+from chap_core.database.base_tables import DBModel
 from chap_core.database.dataset_manager import DataSetManager
 from chap_core.database.dataset_tables import DataSet as DataSetTable
 from chap_core.database.dataset_tables import DataSetCreateInfo
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB
 from chap_core.database.tables import Backtest, BacktestForecast, Prediction
 from chap_core.datatypes import create_tsdataclass
-from chap_core.spatio_temporal_data.converters import observations_to_dataset
+from chap_core.spatio_temporal_data.converters import observations_to_dataframe, observations_to_dataset
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 from ...celery_tasks import JOB_NAME_KW, JOB_TYPE_KW, CeleryPool, JobType
@@ -713,3 +715,91 @@ async def create_backtest_with_data(
     )
     job_id = job.id
     return ImportSummaryResponse(id=job_id, imported_count=imported_count, rejected=rejections)
+
+
+class ThresholdRequest(DBModel):
+    """Request body for computing thresholds (endemic channel) for a dataset."""
+
+    dataset_id: int = Field(description="Primary key of the dataset to compute thresholds from.")
+    period_ids: list[str] = Field(description='Periods to produce a threshold for, e.g. `["2024-01", "2024-02"]`.')
+    strategy: str = Field(description="Registered threshold strategy id (see GET /thresholds/strategies).")
+    locations: list[str] | None = Field(
+        default=None,
+        description="Optional locations to restrict the result to. When omitted or empty, every location in the dataset is returned.",
+    )
+    params: dict = Field(default={}, description="Optional strategy-specific parameters.")
+
+
+class ThresholdEntry(DBModel):
+    """One computed threshold for a single (period, location)."""
+
+    period: str = Field(description="Period the threshold applies to.")
+    location: str = Field(description="Location the threshold applies to.")
+    value: float | None = Field(description="Computed threshold value, or `None` if it could not be computed.")
+
+
+class ThresholdStrategyInfo(DBModel):
+    """Catalogue entry for one registered threshold strategy."""
+
+    id: str = Field(description="Canonical strategy identifier used in request bodies.")
+    display_name: str = Field(description="Human-friendly strategy name shown in pickers.")
+    description: str = Field(default="", description="Short paragraph explaining what the strategy computes.")
+
+
+@router.get(
+    "/thresholds/strategies",
+    response_model=list[ThresholdStrategyInfo],
+    tags=["Datasets"],
+    summary="Discover which threshold strategies are available",
+)
+def list_threshold_strategy_types():
+    """List the registered threshold strategies (seasonal mean + k*std, ...), with a name and description for each.
+
+    Use this to populate a strategy picker before requesting a specific threshold via
+    `POST /v1/analytics/thresholds`.
+    """
+    return [
+        ThresholdStrategyInfo(id=s["id"], display_name=s["name"], description=s["description"])
+        for s in list_threshold_strategies()
+    ]
+
+
+@router.post(
+    "/thresholds",
+    response_model=list[ThresholdEntry],
+    tags=["Datasets"],
+    summary="Compute thresholds (endemic channel) for a dataset",
+)
+def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get_session)):
+    """Compute one outbreak threshold per (period, org unit) from a dataset's historical disease_cases, using the chosen strategy.
+
+    404 if the strategy id is not registered or the dataset has no `disease_cases`
+    observations.
+    """
+    strategy_cls = get_threshold_strategy(request.strategy)
+    if strategy_cls is None:
+        available = ", ".join(s["id"] for s in list_threshold_strategies())
+        raise HTTPException(
+            status_code=404, detail=f"Unknown threshold strategy: {request.strategy}. Available: {available}"
+        )
+
+    observations = DataSetManager(session).observations(
+        request.dataset_id, org_units=request.locations or None, feature_names=["disease_cases"]
+    )
+    if not observations:
+        raise HTTPException(
+            status_code=404, detail=f"No disease_cases observations found for dataset {request.dataset_id}"
+        )
+
+    df = observations_to_dataframe(observations).rename(columns={"value": "disease_cases"})[
+        ["location", "time_period", "disease_cases"]
+    ]
+    result = strategy_cls().compute(df, request.period_ids, request.params)
+    return [
+        ThresholdEntry(
+            period=str(row["period_id"]),
+            location=str(row["location"]),
+            value=None if (row["threshold"] is None or np.isnan(row["threshold"])) else float(row["threshold"]),
+        )
+        for row in result.to_dict("records")
+    ]

@@ -6,8 +6,8 @@ from chap_core.assessment.metrics.outbreak_detection import (
     OutbreakAccuracyMetric,
     SensitivityMetric,
     SpecificityMetric,
-    compute_seasonal_thresholds,
 )
+from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
 
 
 @pytest.fixture()
@@ -63,6 +63,22 @@ def test_compute_seasonal_thresholds_period_formats(time_period_format, threshol
     assert len(result) == 1
     assert result.iloc[0]["month"] == 6
     assert result.iloc[0]["threshold"] == pytest.approx(threshold_value)
+
+
+def test_compute_seasonal_thresholds_single_datapoint_is_nan():
+    """A (location, month) with a single historical value has undefined std, so the threshold is NaN (-> null)."""
+    df = pd.DataFrame(
+        [
+            {"location": "A", "time_period": "2020-06", "disease_cases": 100.0},
+            {"location": "B", "time_period": "2020-06", "disease_cases": 50.0},
+            {"location": "B", "time_period": "2021-06", "disease_cases": 70.0},
+        ]
+    )
+    result = compute_seasonal_thresholds(df)
+    a = result[result["location"] == "A"].iloc[0]
+    b = result[result["location"] == "B"].iloc[0]
+    assert np.isnan(a["threshold"])  # single data point -> cannot compute -> NaN
+    assert not np.isnan(b["threshold"])  # two data points -> computed
 
 
 def _make_forecasts(location, time_period, horizon, samples):
