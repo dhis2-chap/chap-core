@@ -8,6 +8,21 @@ from chap_core.datatypes import create_tsdataclass
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet as _DataSet
 
 
+def observations_to_dataframe(observations) -> pd.DataFrame:
+    """Flatten Observation rows into a long DataFrame.
+
+    Columns: ``[location, time_period, feature_name, value]``. Unlike
+    :func:`observations_to_dataset` this does not pivot or build a domain object,
+    so it works for arbitrary (possibly non-contiguous) period subsets.
+    """
+    columns = ["location", "time_period", "feature_name", "value"]
+    obs_dicts = [obs.model_dump() for obs in observations]
+    if not obs_dicts:
+        return pd.DataFrame(columns=columns)
+    dataframe = pd.DataFrame(obs_dicts).rename(columns={"org_unit": "location", "period": "time_period"})
+    return dataframe[columns]
+
+
 def observations_to_dataset(dataclass, observations, fill_missing=False):
     obs_dicts = [obs.model_dump() for obs in observations]
     dataframe = pd.DataFrame(obs_dicts).rename(columns={"org_unit": "location", "period": "time_period"})
