@@ -723,14 +723,18 @@ class ThresholdRequest(DBModel):
     dataset_id: int = Field(description="Primary key of the dataset to compute thresholds from.")
     period_ids: list[str] = Field(description='Periods to produce a threshold for, e.g. `["2024-01", "2024-02"]`.')
     strategy: str = Field(description="Registered threshold strategy id (see GET /thresholds/strategies).")
+    locations: list[str] | None = Field(
+        default=None,
+        description="Optional locations to restrict the result to. When omitted or empty, every location in the dataset is returned.",
+    )
     params: dict = Field(default={}, description="Optional strategy-specific parameters.")
 
 
 class ThresholdEntry(DBModel):
-    """One computed threshold for a single (period, org unit)."""
+    """One computed threshold for a single (period, location)."""
 
     period: str = Field(description="Period the threshold applies to.")
-    orgUnit: str = Field(description="Org unit the threshold applies to.")
+    location: str = Field(description="Location the threshold applies to.")
     value: float | None = Field(description="Computed threshold value, or `None` if it could not be computed.")
 
 
@@ -779,7 +783,9 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
             status_code=404, detail=f"Unknown threshold strategy: {request.strategy}. Available: {available}"
         )
 
-    observations = DataSetManager(session).observations(request.dataset_id, feature_names=["disease_cases"])
+    observations = DataSetManager(session).observations(
+        request.dataset_id, org_units=request.locations or None, feature_names=["disease_cases"]
+    )
     if not observations:
         raise HTTPException(
             status_code=404, detail=f"No disease_cases observations found for dataset {request.dataset_id}"
@@ -792,7 +798,7 @@ def compute_thresholds(request: ThresholdRequest, session: Session = Depends(get
     return [
         ThresholdEntry(
             period=str(row["period_id"]),
-            orgUnit=str(row["org_unit"]),
+            location=str(row["location"]),
             value=None if (row["threshold"] is None or np.isnan(row["threshold"])) else float(row["threshold"]),
         )
         for row in result.to_dict("records")

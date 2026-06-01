@@ -30,10 +30,10 @@ def test_seasonal_strategy_shape(dataset_observations, org_units):
     df = _disease_cases_df(dataset_observations)
     period_ids = ["2023-01", "2023-02"]
     result = _seasonal_strategy().compute(df, period_ids)
-    assert set(result.columns) == {"period_id", "org_unit", "threshold"}
+    assert set(result.columns) == {"period_id", "location", "threshold"}
     assert len(result) == len(period_ids) * len(org_units)
     assert set(result["period_id"]) == set(period_ids)
-    assert set(result["org_unit"]) == set(org_units)
+    assert set(result["location"]) == set(org_units)
 
 
 def test_seasonal_strategy_parity_with_compute_seasonal_thresholds(dataset_observations):
@@ -42,5 +42,5 @@ def test_seasonal_strategy_parity_with_compute_seasonal_thresholds(dataset_obser
     per_month = compute_seasonal_thresholds(df)
     january = per_month[per_month["month"] == 1]
     for row in result.itertuples():
-        expected = january[january["location"] == row.org_unit]["threshold"].iloc[0]
+        expected = january[january["location"] == row.location]["threshold"].iloc[0]
         assert row.threshold == expected

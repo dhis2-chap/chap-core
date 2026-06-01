@@ -19,7 +19,7 @@ class ThresholdStrategyBase(ABC):
 
     Subclasses implement :meth:`compute`, which receives a flat DataFrame of
     historical observations and the periods to produce thresholds for, and
-    returns one threshold per ``(period_id, org_unit)``.
+    returns one threshold per ``(period_id, location)``.
     """
 
     id: str = ""
@@ -42,6 +42,6 @@ class ThresholdStrategyBase(ABC):
             params: Optional strategy-specific parameters.
 
         Returns:
-            DataFrame with columns ``[period_id, org_unit, threshold]`` — one row
-            per ``(period_id, org_unit)``.
+            DataFrame with columns ``[period_id, location, threshold]`` — one row
+            per ``(period_id, location)``.
         """

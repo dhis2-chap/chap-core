@@ -53,5 +53,4 @@ class SeasonalThresholdStrategy(ThresholdStrategyBase):
         requested = pd.DataFrame({"period_id": period_ids})
         requested["month"] = _extract_month(requested["period_id"])
         merged = requested.merge(per_month, on="month")
-        merged = merged.rename(columns={"location": "org_unit"})
-        return merged[["period_id", "org_unit", "threshold"]]
+        return merged[["period_id", "location", "threshold"]]

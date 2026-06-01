@@ -6,7 +6,7 @@ using the threshold plugin system.
 ## Overview
 
 A threshold strategy turns a dataset's historical `disease_cases` observations into one
-threshold value per requested `(period_id, org_unit)`. Chap provides a registry — mirroring
+threshold value per requested `(period_id, location)`. Chap provides a registry — mirroring
 the backtest plot and metric registries — so new strategies can be added without touching
 the endpoint code.
 
