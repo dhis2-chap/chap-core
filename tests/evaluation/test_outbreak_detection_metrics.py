@@ -6,8 +6,8 @@ from chap_core.assessment.metrics.outbreak_detection import (
     OutbreakAccuracyMetric,
     SensitivityMetric,
     SpecificityMetric,
-    compute_seasonal_thresholds,
 )
+from chap_core.assessment.thresholds.seasonal import compute_seasonal_thresholds
 
 
 @pytest.fixture()
