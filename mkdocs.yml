@@ -87,6 +87,9 @@ nav:
           - Updating to a New Version: modeling-app/upgrading-installation.md
           - Enabling Optional Model Services: modeling-app/enabling-optional-model-services.md
       - Managing models: modeling-app/managing-model-templates.md
+      - Troubleshooting:
+          - Viewing Logs: modeling-app/troubleshooting/logs.md
+          - Accessing the Database: modeling-app/troubleshooting/database-access.md
   - For Newcomers:
       - For newcomers: external_models/newcomer.md
       - Learning Modelling: external_models/learn_modelling.md
