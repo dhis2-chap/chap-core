@@ -22,6 +22,56 @@ MISSING = "More Information Needed"
 logger = logging.getLogger(__name__)
 
 
+def _label_points_from_geojson_features(features: list[object]) -> list[dict[str, Any]]:
+    """Create label points for choropleth regional map overlays."""
+
+    from chap_core.api_types import FeatureModel
+    from chap_core.geoutils import feature_bbox
+
+    label_points: list[dict[str, Any]] = []
+    for feature in features:
+        if not isinstance(feature, dict):
+            continue
+
+        properties = feature.get("properties")
+        if not isinstance(properties, dict):
+            properties = {}
+
+        region_name = (
+            properties.get("name") or properties.get("ADM1_EN") or feature.get("id") or properties.get("id") or ""
+        )
+
+        region_name_str = str(region_name).strip()
+        if not region_name_str:
+            continue
+
+        bbox_raw = feature.get("bbox")
+        bbox: list[float] | None = None
+
+        if isinstance(bbox_raw, list) and len(bbox_raw) == 4:
+            try:
+                bbox = [float(v) for v in bbox_raw]
+            except (TypeError, ValueError):
+                bbox = None
+
+        if bbox is None:
+            try:
+                bbox = [float(v) for v in feature_bbox(FeatureModel.model_validate(feature))]
+            except Exception:
+                continue
+
+        xmin, ymin, xmax, ymax = bbox
+        label_points.append(
+            {
+                "region_name": region_name_str,
+                "lon": (xmin + xmax) / 2,
+                "lat": (ymin + ymax) / 2,
+            }
+        )
+
+    return label_points
+
+
 @functools.cache
 def _placeholder_metadata_values() -> dict[str, str | None]:
     """Defaults from ModelTemplateMetaData fields, used to detect un-edited placeholders."""
@@ -204,15 +254,9 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
         if not isinstance(geojson, dict) or "features" not in geojson:
             raise ValueError(f"Invalid GeoJSON at {geojson_path}: expected a 'features' key.")
 
-        label_points = [
-            {
-                "region_name": ((feature.get("properties") or {}).get("ADM1_EN") or feature.get("id") or ""),
-                "lon": (feature["bbox"][0] + feature["bbox"][2]) / 2,
-                "lat": (feature["bbox"][1] + feature["bbox"][3]) / 2,
-            }
-            for feature in geojson["features"]
-            if isinstance(feature, dict) and isinstance(feature.get("bbox"), list) and len(feature["bbox"]) == 4
-        ]
+        label_points = _label_points_from_geojson_features(
+            geojson["features"] if isinstance(geojson.get("features"), list) else []
+        )
 
         region_labels_base = (
             alt.Chart(alt.Data(values=label_points))
