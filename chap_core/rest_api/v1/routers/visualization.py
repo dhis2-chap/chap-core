@@ -166,11 +166,9 @@ def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session)
     if plot_cls is None:
         raise HTTPException(status_code=404, detail=f"Plot {plot_id} not found")
 
-    # Fixed typo: FacetedBacktestPlot (with the 'ed')
     if not issubclass(plot_cls, FacetedBacktestPlot):
         raise HTTPException(status_code=400, detail=f"Plot '{plot_id}' does not support faceting properties")
 
-    # Fetch the model instance using id
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
         raise HTTPException(status_code=404, detail="Backtest not found")
@@ -178,7 +176,6 @@ def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session)
     evaluation = Evaluation.from_backtest(backtest)
     flat_data = evaluation.to_flat()
 
-    # Extract the underlying frames from the returned flat_data container object
     observations = flat_data.observations
     forecasts = flat_data.forecasts
     historical_df = flat_data.historical_observations
@@ -194,7 +191,11 @@ def get_facet_coordinates(visualization_name: str, backtest_id: int, session: Se
     plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
         visualization_name, backtest_id, session
     )
-    return cast("dict[str, Any]", plotter.facet_coords(observations, forecasts, historical_df))
+    coords = plotter.facet_coords(observations, forecasts, historical_df)
+    horizon_periods = []
+    if "horizon_distance" in forecasts.columns:
+        horizon_periods = [int(val) for val in sorted(forecasts["horizon_distance"].dropna().unique())]
+    return cast("dict[str, Any]", {**coords, "horizon_periods": horizon_periods})
 
 
 @router.post(
