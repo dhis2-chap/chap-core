@@ -1,6 +1,5 @@
 import json
 import logging
-from functools import partial
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException
