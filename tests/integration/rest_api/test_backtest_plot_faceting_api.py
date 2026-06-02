@@ -40,15 +40,13 @@ def test_facet_coords_endpoint_returns_dict_per_dimension(override_session):
     assert response.status_code == 200, response.text
     payload = response.json()
     assert isinstance(payload, dict)
-    assert "facet_coords" in payload
-    assert isinstance(payload["facet_coords"], dict)
     assert "horizon_periods" in payload
     assert isinstance(payload["horizon_periods"], list)
     # EvaluationPlot declares ["location", "split_period"] as facet_dimensions.
     for dim in ("location", "split_period"):
-        assert dim in payload["facet_coords"], payload
-        assert isinstance(payload["facet_coords"][dim], list)
-        assert len(payload["facet_coords"][dim]) > 0
+        assert dim in payload, payload
+        assert isinstance(payload[dim], list)
+        assert len(payload[dim]) > 0
 
 
 # @pytest.mark.xfail(strict=True, reason=CLIM_548)
@@ -57,10 +55,9 @@ def test_predicted_vs_actual_facet_coords_return_horizon_distance(override_sessi
     assert response.status_code == 200, response.text
     payload = response.json()
     assert isinstance(payload, dict)
-    assert "facet_coords" in payload
-    assert "horizon_distance" in payload["facet_coords"]
-    assert isinstance(payload["facet_coords"]["horizon_distance"], list)
-    assert len(payload["facet_coords"]["horizon_distance"]) > 0
+    assert "horizon_distance" in payload
+    assert isinstance(payload["horizon_distance"], list)
+    assert len(payload["horizon_distance"]) > 0
     assert "horizon_periods" in payload
     assert isinstance(payload["horizon_periods"], list)
 
