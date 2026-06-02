@@ -89,6 +89,7 @@ nav:
       - Managing models: modeling-app/managing-model-templates.md
       - Troubleshooting:
           - Viewing Logs: modeling-app/troubleshooting/logs.md
+          - Accessing the Database: modeling-app/troubleshooting/database-access.md
   - For Newcomers:
       - For newcomers: external_models/newcomer.md
       - Learning Modelling: external_models/learn_modelling.md
