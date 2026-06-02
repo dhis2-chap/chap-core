@@ -80,7 +80,7 @@ def forecasts_df(flat_forecasts) -> pd.DataFrame:
 # expose so subplots can be sliced from the preprocessed dataframe.
 PLOT_CASES = [
     pytest.param(EvaluationPlot, ("location", "split_period"), id="evaluation_plot"),
-    pytest.param(PredictedVsActualPlot, ("horizon_distance",), id="predicted_vs_actual"),
+    pytest.param(PredictedVsActualPlot, ("horizon_distance", "location"), id="predicted_vs_actual"),
 ]
 
 

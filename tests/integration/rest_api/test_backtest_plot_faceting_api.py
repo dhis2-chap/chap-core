@@ -40,18 +40,37 @@ def test_facet_coords_endpoint_returns_dict_per_dimension(override_session):
     assert response.status_code == 200, response.text
     payload = response.json()
     assert isinstance(payload, dict)
+    assert "facet_coords" in payload
+    assert isinstance(payload["facet_coords"], dict)
+    assert "horizon_periods" in payload
+    assert isinstance(payload["horizon_periods"], list)
     # EvaluationPlot declares ["location", "split_period"] as facet_dimensions.
     for dim in ("location", "split_period"):
-        assert dim in payload, payload
-        assert isinstance(payload[dim], list)
-        assert len(payload[dim]) > 0
+        assert dim in payload["facet_coords"], payload
+        assert isinstance(payload["facet_coords"][dim], list)
+        assert len(payload["facet_coords"][dim]) > 0
+
+
+# @pytest.mark.xfail(strict=True, reason=CLIM_548)
+def test_predicted_vs_actual_facet_coords_return_horizon_distance(override_session):
+    response = client.get("/v1/visualization/backtest-plots/predicted_vs_actual/1/facet-coords")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert isinstance(payload, dict)
+    assert "facet_coords" in payload
+    assert "horizon_distance" in payload["facet_coords"]
+    assert isinstance(payload["facet_coords"]["horizon_distance"], list)
+    assert len(payload["facet_coords"]["horizon_distance"]) > 0
+    assert "horizon_periods" in payload
+    assert isinstance(payload["horizon_periods"], list)
 
 
 # @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
     coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
     assert coords_resp.status_code == 200, coords_resp.text
-    coords = coords_resp.json()
+    payload = coords_resp.json()
+    coords = {dim: values for dim, values in payload.items() if dim != "horizon_periods"}
     body = {dim: coords[dim][0] for dim in coords}
 
     response = client.post(
@@ -68,10 +87,13 @@ def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
 # @pytest.mark.xfail(strict=True, reason=CLIM_548)
 def test_subplots_endpoint_returns_one_entry_per_coord_combination(override_session):
     coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
-    coords = coords_resp.json()
+    payload = coords_resp.json()
+    coords = {dim: values for dim, values in payload.items() if dim != "horizon_periods"}
     expected_count = 1
     for values in coords.values():
         expected_count *= len(values)
+    assert "horizon_periods" in payload
+    assert isinstance(payload["horizon_periods"], list)
 
     response = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/subplots")
     assert response.status_code == 200, response.text
