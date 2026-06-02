@@ -106,6 +106,7 @@ Use the `@backtest_plot` decorator to register your plot, then inherit from `Bac
 ```python
 from typing import Optional
 import pandas as pd
+import altair as alt
 from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
 
 @backtest_plot(
@@ -120,8 +121,8 @@ class MyCustomPlot(BacktestPlotBase):
         forecasts: pd.DataFrame,
         historical_observations: Optional[pd.DataFrame] = None,
     ) -> ChartType:
-        # Your visualization logic here
-        chart = None
+        # Your visualization logic here; return any Altair chart.
+        chart = alt.Chart(observations).mark_point()
         return chart
 ```
 
@@ -308,6 +309,7 @@ If your plot needs historical context (observations from before the test period)
 ```python
 from typing import Optional
 import pandas as pd
+import altair as alt
 from chap_core.assessment.backtest_plots import backtest_plot, BacktestPlotBase, ChartType
 
 @backtest_plot(
@@ -327,7 +329,7 @@ class TrendPlot(BacktestPlotBase):
         if historical_observations is not None:
             # Use historical data for context
             pass
-        return None
+        return alt.Chart(observations).mark_point()
 ```
 
 ### Returning Different Chart Types
