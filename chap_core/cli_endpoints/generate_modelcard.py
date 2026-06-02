@@ -565,18 +565,18 @@ def generate_modelcard(
     ],
     output_file: Annotated[
         Path,
-        Parameter(help="Path to output Markdown file containing modelcard template"),
+        Parameter(help="Path to output Markdown file containing model card template"),
     ],
     geojson_path: Annotated[
         Path | None,
         Parameter(help="Path to GeoJSON file matching the regions of the evaluation dataset"),
     ] = None,
 ):
-    """Generates a modelcard document and exports a resulting Markdown file and plots in PNG and interactive HTML.
+    """Generates a model card document and exports a resulting Markdown file and plots in PNG and interactive HTML.
 
-    Alongside the standard metric summary and aggregate measures, the modelcard also shows a regional breakdown of
+    Alongside the standard metric summary and aggregate measures, the model card also shows a regional breakdown of
     RMSE and MAPE distribution.
-    The completeness of the modelcard template is dependent on the amount of information in the models MLproject file.
+    The completeness of the model card template is dependent on the amount of information in the models MLproject file.
 
     Optionally generates MAP based plots showing aggregate RMSE and MAPE given a geojson file.
     """
