@@ -59,6 +59,37 @@ acli jira workitem create --project PROJECT_KEY --type Task --summary "Summary t
 
 Available types: Task, Story, Bug, Epic, etc.
 
+#### Create with a component (and/or parent)
+
+`acli` has no `--component` flag. To set a component or parent, create the work
+item from a JSON file with `--from-json`. Components and parent must live under
+`additionalAttributes`, not at the top level. The description must be in
+Atlassian Document Format (ADF).
+
+```json
+{
+  "projectKey": "CLIM",
+  "type": "Task",
+  "summary": "Your summary",
+  "description": {"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"Body"}]}]},
+  "additionalAttributes": {
+    "components": [{"name": "Chap Modeling Platform"}],
+    "parent": {"key": "CLIM-718"}
+  }
+}
+```
+
+```bash
+acli jira workitem create --from-json /tmp/issue.json
+```
+
+Gotchas:
+- Component name is case-sensitive. List existing components in use with:
+  ```bash
+  acli jira workitem search --jql 'project=CLIM AND component is not EMPTY' --limit 3
+  ```
+- `components` and `parent` belong under `additionalAttributes`, not at the top level.
+
 ### Transition Work Item
 
 ```bash
