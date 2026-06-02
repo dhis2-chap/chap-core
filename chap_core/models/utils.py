@@ -1,8 +1,6 @@
 import logging
 import os
 import shutil
-import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -17,6 +15,7 @@ from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.chapkit_service_manager import is_url
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.model_template import ModelTemplate
+from chap_core.util import generate_run_name
 
 CHAP_RUNS_DIR = Path(os.getenv("CHAP_RUNS_DIR", "runs/"))
 
@@ -53,9 +52,7 @@ def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
             logger.info(f"Removing previous working dir {working_dir}")
             shutil.rmtree(working_dir)
     elif run_dir_type == "timestamp":
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        unique_identifier = timestamp + "_" + str(uuid.uuid4())[:8]
-        # timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S%f")
+        unique_identifier = generate_run_name()
         working_dir = base_working_dir / model_name / unique_identifier
         # check that working dir does not exist
         assert not working_dir.exists(), (

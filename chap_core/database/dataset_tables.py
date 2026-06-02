@@ -13,7 +13,9 @@ from chap_core.database.base_tables import DBModel, PeriodID
 
 
 class FeatureCollectionModel(_FeatureCollection):
-    features: list[Feature]  # type: ignore[assignment]
+    """GeoJSON `FeatureCollection` carrying the polygons for a dataset's org units."""
+
+    features: list[Feature] = Field(description="One feature per org unit in the polygon set.")  # type: ignore[assignment]
 
 
 class PydanticListType(TypeDecorator):
@@ -44,24 +46,34 @@ class PydanticListType(TypeDecorator):
 
 
 class ObservationBase(DBModel):
-    period: PeriodID
-    org_unit: str
-    value: float | None
-    feature_name: str | None
+    """A single observed value for one (period, org unit, feature) triple."""
+
+    period: PeriodID = Field(
+        description="Period the observation belongs to, encoded as an ISO-like string (e.g. `2024-W12`, `202403`)."
+    )
+    org_unit: str = Field(description="Identifier of the org unit (province, district, ...) the observation is from.")
+    value: float | None = Field(description="Observed value. `None` is allowed for known-missing observations.")
+    feature_name: str | None = Field(description="Canonical name of the `FeatureType` this observation is a value for.")
 
 
 class Observation(ObservationBase, table=True):
-    id: int | None = Field(primary_key=True, default=None)
-    dataset_id: int = Field(foreign_key="dataset.id")
+    """Persisted observation row, owned by a parent `DataSet`."""
+
+    id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    dataset_id: int = Field(foreign_key="dataset.id", description="Foreign key to the parent `DataSet`.")
     dataset: "DataSet" = Relationship(back_populates="observations")
 
 
 class DataSource(DBModel):
-    covariate: str
-    data_element_id: str
+    """Mapping from a covariate name to the DHIS2 data element id used to source it."""
+
+    covariate: str = Field(description="Canonical covariate name (matching a `FeatureType.name`).")
+    data_element_id: str = Field(description="External identifier of the data element to pull values from.")
 
 
 class DataSetCreateInfo(DBModel):
+    """Metadata fields required when registering a new dataset."""
+
     name: str = Field(description="Name of dataset")
 
     data_sources: list[DataSource] | None = Field(
@@ -73,25 +85,43 @@ class DataSetCreateInfo(DBModel):
 
 
 class DataSetInfo(DataSetCreateInfo):
-    id: int | None = Field(primary_key=True, default=None)
-    covariates: list["str"] = Field(default_factory=list, sa_column=Column(JSON))
-    first_period: PeriodID | None = Field(default=None)
-    last_period: PeriodID | None = Field(default=None)
-    org_units: list["str"] | None = Field(default_factory=list, sa_column=Column(JSON))
-    created: datetime | None = None
+    """Summary view of a dataset — what was created plus what was derived after import."""
 
-    period_type: str | None = None
+    id: int | None = Field(primary_key=True, default=None, description="Primary key.")
+    covariates: list["str"] = Field(
+        default_factory=list,
+        sa_column=Column(JSON),
+        description="Names of the covariates (features) actually present in the dataset's observations.",
+    )
+    first_period: PeriodID | None = Field(default=None, description="Earliest period present in the observations.")
+    last_period: PeriodID | None = Field(default=None, description="Latest period present in the observations.")
+    org_units: list["str"] | None = Field(
+        default_factory=list,
+        sa_column=Column(JSON),
+        description="Identifiers of every org unit that has at least one observation.",
+    )
+    created: datetime | None = Field(default=None, description="Server-side timestamp when the dataset was registered.")
+
+    period_type: str | None = Field(default=None, description="Granularity of the periods (`month`, `week`, ...).")
 
 
 class DataSetBase(DataSetInfo):
-    geojson: str | None = None
+    """`DataSetInfo` plus the polygon geojson stored alongside the dataset."""
+
+    geojson: str | None = Field(
+        default=None, description="GeoJSON `FeatureCollection` for the dataset's org units, stored as a string."
+    )
 
 
 class DataSet(DataSetBase, table=True):
+    """Persisted dataset row with its child observations."""
+
     observations: list[Observation] = Relationship(back_populates="dataset", cascade_delete=True)
 
 
 class DataSetWithObservations(DataSetBase):
-    id: int
-    observations: list[ObservationBase]
-    created: datetime | None
+    """Read view that bundles a dataset together with its observations."""
+
+    id: int = Field(description="Primary key of the dataset.")
+    observations: list[ObservationBase] = Field(description="Every observation belonging to this dataset.")
+    created: datetime | None = Field(description="Server-side timestamp when the dataset was registered.")

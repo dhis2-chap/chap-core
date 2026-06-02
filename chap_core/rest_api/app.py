@@ -1,4 +1,5 @@
 import logging
+import os
 import traceback
 
 from fastapi import FastAPI, Request
@@ -6,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
+from chap_core import __version__ as chap_core_version
 from chap_core.rest_api.common_routes import router as common_router
 from chap_core.rest_api.v1.rest_api import router as v1_router
 from chap_core.rest_api.v2.rest_api import router as v2_router
@@ -19,16 +21,27 @@ openapi_tags = [
     {"name": "Predictions", "description": "Create, manage, and query predictions"},
     {"name": "Datasets", "description": "Create, manage, and export datasets"},
     {"name": "Models", "description": "Model templates and configured models"},
+    {"name": "Prediction Setups", "description": "Automation configs that schedule predictions from a backtest"},
     {"name": "Visualizations", "description": "Generate plots and charts"},
     {"name": "Jobs", "description": "Monitor and manage async jobs"},
-    {"name": "Debug", "description": "Debug and diagnostic endpoints"},
     {"name": "Services", "description": "Service registry (v2)"},
 ]
 
 
+api_description = (
+    "Chap is a Climate & Health Modeling Platform that brings together "
+    "disease forecasting models into a unified ecosystem, connecting "
+    "researchers with cutting-edge epidemiological models to policy "
+    "makers and health practitioners."
+)
+
+
 app = FastAPI(
     title="CHAP Core API",
+    description=api_description,
+    version=chap_core_version,
     openapi_tags=openapi_tags,
+    root_path=os.environ.get("CHAP_ROOT_PATH", ""),
 )
 
 origins = [

@@ -25,6 +25,7 @@ def validate_dataset(
     dataset: DataSet,
     raw_df: pd.DataFrame | None = None,
     model_template_config: ModelTemplateConfigV2 | None = None,
+    additional_continuous_covariates: list[str] | None = None,
 ) -> list[ValidationIssue]:
     """Validate a dataset for CHAP compatibility.
 
@@ -36,6 +37,9 @@ def validate_dataset(
         The raw DataFrame before loading (used for location completeness check).
     model_template_config : ModelTemplateConfigV2 | None
         Optional model config to validate against.
+    additional_continuous_covariates : list[str] | None
+        Extra covariates explicitly configured by the user (from ModelConfiguration).
+        Only relevant when model_template_config.allow_free_additional_continuous_covariates is True.
 
     Returns
     -------
@@ -52,6 +56,7 @@ def validate_dataset(
     if model_template_config is not None:
         issues.extend(_check_required_covariates(dataset, model_template_config))
         issues.extend(_check_period_type(dataset, model_template_config))
+        issues.extend(check_unused_covariates(dataset, model_template_config, additional_continuous_covariates))
 
     return issues
 
@@ -148,6 +153,29 @@ def _check_generated_features(config: ModelTemplateConfigV2) -> list[ValidationI
                     )
                 )
     return issues
+
+
+def check_unused_covariates(
+    dataset: DataSet,
+    config: ModelTemplateConfigV2,
+    additional_continuous_covariates: list[str] | None = None,
+) -> list[ValidationIssue]:
+    """Warn about dataset covariate columns not referenced by the model."""
+    from chap_core.feature_generators import GEN_PREFIX
+
+    dataset_fields = set(dataset.field_names()) - RESERVED_FIELDS
+    used = {rc for rc in config.required_covariates if not rc.startswith(GEN_PREFIX)}
+    if config.allow_free_additional_continuous_covariates:
+        used |= set(additional_continuous_covariates or [])
+    unused = dataset_fields - used
+
+    return [
+        ValidationIssue(
+            level="warning",
+            message=f"Column '{col}' is present in the dataset but not used by the model",
+        )
+        for col in sorted(unused)
+    ]
 
 
 def _check_period_type(dataset: DataSet, config: ModelTemplateConfigV2) -> list[ValidationIssue]:

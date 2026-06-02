@@ -3,10 +3,7 @@ import logging
 import yaml
 from cyclopts import App
 
-# from chap_core.models.model_template_interface import ModelConfiguration
-from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.datatypes import create_tsdataclass, remove_field
-from chap_core.external.model_configuration import CommandConfig, EntryPointConfig, RunnerConfig
 from chap_core.model_spec import get_dataclass
 from chap_core.models.model_template_interface import InternalModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
@@ -92,6 +89,8 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
         return dc
 
     def _read_model_config(model_config_path):
+        from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+
         if model_config_path is not None:
             with open(model_config_path) as file:
                 model_config = yaml.safe_load(file)
@@ -143,6 +142,8 @@ def generate_template_app(model_template: InternalModelTemplate, name: str = "de
         """
         Write the model template to a yaml file
         """
+        from chap_core.external.model_configuration import CommandConfig, EntryPointConfig, RunnerConfig
+
         runner_config = RunnerConfig(
             entry_points=EntryPointConfig(
                 train=CommandConfig(

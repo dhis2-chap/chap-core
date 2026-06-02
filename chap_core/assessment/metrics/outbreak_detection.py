@@ -15,23 +15,11 @@ from chap_core.assessment.metrics.base import (
     Metric,
     MetricSpec,
 )
+
+# The outbreak metrics score forecasts against seasonal thresholds, computed by the
+# threshold strategy module.
+from chap_core.assessment.thresholds.seasonal import _extract_month, compute_seasonal_thresholds
 from chap_core.time_period import TimePeriod
-
-
-def compute_seasonal_thresholds(historical_observations: pd.DataFrame) -> pd.DataFrame:
-    """Compute outbreak thresholds from historical observations.
-
-    Args:
-        historical_observations: DataFrame with columns [location, time_period, disease_cases]
-
-    Returns:
-        DataFrame with columns [location, month, threshold]
-    """
-    df = historical_observations.copy()
-    df["month"] = df["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
-    grouped = df.groupby(["location", "month"])["disease_cases"].agg(["mean", "std"]).reset_index()
-    grouped["threshold"] = grouped["mean"] + 2 * grouped["std"]
-    return grouped[["location", "month", "threshold"]]
 
 
 def _get_thresholds(metric_instance: Metric) -> pd.DataFrame:
@@ -77,7 +65,7 @@ class SensitivityMetric(Metric):
             return empty
 
         obs = observations[["location", "time_period", "disease_cases"]].copy()
-        obs["month"] = obs["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
+        obs["month"] = _extract_month(obs["time_period"])
         obs = obs.merge(thresholds, on=["location", "month"], how="left")
 
         # Keep only condition-positive rows (actual outbreaks)
@@ -87,7 +75,7 @@ class SensitivityMetric(Metric):
 
         # Merge forecasts with thresholds
         fc = forecasts.copy()
-        fc["month"] = fc["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
+        fc["month"] = _extract_month(fc["time_period"])
         fc = fc.merge(thresholds, on=["location", "month"], how="left")
 
         # Compute alert per (location, time_period, horizon_distance)
@@ -129,7 +117,7 @@ class SpecificityMetric(Metric):
             return empty
 
         obs = observations[["location", "time_period", "disease_cases"]].copy()
-        obs["month"] = obs["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
+        obs["month"] = _extract_month(obs["time_period"])
         obs = obs.merge(thresholds, on=["location", "month"], how="left")
 
         # Keep only condition-negative rows (no outbreak)
@@ -139,7 +127,7 @@ class SpecificityMetric(Metric):
 
         # Merge forecasts with thresholds
         fc = forecasts.copy()
-        fc["month"] = fc["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
+        fc["month"] = _extract_month(fc["time_period"])
         fc = fc.merge(thresholds, on=["location", "month"], how="left")
 
         # Compute alert per (location, time_period, horizon_distance)
@@ -181,7 +169,7 @@ class OutbreakAccuracyMetric(Metric):
             return empty
 
         obs = observations[["location", "time_period", "disease_cases"]].copy()
-        obs["month"] = obs["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
+        obs["month"] = _extract_month(obs["time_period"])
         obs = obs.merge(thresholds, on=["location", "month"], how="left")
         obs = obs.dropna(subset=["threshold"])
         if obs.empty:
@@ -191,7 +179,7 @@ class OutbreakAccuracyMetric(Metric):
 
         # Merge forecasts with thresholds
         fc = forecasts.copy()
-        fc["month"] = fc["time_period"].apply(lambda tp: TimePeriod.parse(str(tp)).start_timestamp.month)
+        fc["month"] = _extract_month(fc["time_period"])
         fc = fc.merge(thresholds, on=["location", "month"], how="left")
 
         # Compute alert per (location, time_period, horizon_distance)
