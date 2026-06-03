@@ -65,9 +65,12 @@ def backtest(
     data. The estimator is (re)trained at ``n_retrain`` evenly spaced split
     points and the most recent predictor generates forecasts for each
     successive test window. With ``n_retrain=1`` (the default) the model is
-    trained once on the initial training set; with ``n_retrain=2`` it is also
-    retrained halfway through the splits, using the expanding window of data
-    available at that point.
+    trained once on the initial training set, identical to the previous
+    single-train backtest; with ``n_retrain=2`` it is also retrained halfway
+    through the splits, using the expanding window of data available at that
+    point. The split-0 training uses the dedicated training set returned by
+    ``train_test_generator`` (which carries the ``_train_set`` metadata);
+    subsequent retrains use that split's expanding historic window.
 
     Parameters
     ----------
@@ -93,14 +96,16 @@ def backtest(
         For each test split, a dataset mapping locations to
         ``SamplesWithTruth`` (predicted samples merged with observed values).
     """
-    _, test_generator = train_test_generator(
+    train_set, test_generator = train_test_generator(
         data, prediction_length, n_test_sets, stride=stride, future_weather_provider=weather_provider
     )
     retrain_at = _retrain_split_indices(n_test_sets, n_retrain)
     predictor: Predictor | None = None
     for i, (historic_data, future_data, future_truth) in enumerate(test_generator):
         if i in retrain_at:
-            predictor = estimator.train(historic_data)
+            # Split 0 trains on the dedicated train_set (preserving the single-train
+            # behaviour exactly); later retrains use the expanding historic window.
+            predictor = estimator.train(train_set if i == 0 else historic_data)
         assert predictor is not None, "First split must trigger training"
         r = predictor.predict(historic_data, future_data)
         if r is None:

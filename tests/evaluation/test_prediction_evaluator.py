@@ -24,22 +24,24 @@ def test_backtest_trains_once_by_default():
     mock_estimator = MagicMock()
 
     with patch("chap_core.assessment.prediction_evaluator.train_test_generator") as mock_ttg:
-        mock_ttg.return_value = (MagicMock(), iter(_splits(4)))
+        mock_ttg.return_value = ("train_set", iter(_splits(4)))
 
         list(backtest(mock_estimator, MagicMock(), prediction_length=3, n_test_sets=4, stride=1))
 
     assert mock_estimator.train.call_count == 1
-    mock_estimator.train.assert_called_once_with("historic0")
+    # Split 0 trains on the dedicated train_set, preserving the single-train behaviour.
+    mock_estimator.train.assert_called_once_with("train_set")
 
 
 def test_backtest_retrains_at_evenly_spaced_splits():
     mock_estimator = MagicMock()
 
     with patch("chap_core.assessment.prediction_evaluator.train_test_generator") as mock_ttg:
-        mock_ttg.return_value = (MagicMock(), iter(_splits(4)))
+        mock_ttg.return_value = ("train_set", iter(_splits(4)))
 
         list(backtest(mock_estimator, MagicMock(), prediction_length=3, n_test_sets=4, stride=1, n_retrain=2))
 
     assert mock_estimator.train.call_count == 2
     trained_on = [call.args[0] for call in mock_estimator.train.call_args_list]
-    assert trained_on == ["historic0", "historic2"]
+    # Split 0 uses train_set; the halfway retrain (split 2) uses its expanding historic window.
+    assert trained_on == ["train_set", "historic2"]
