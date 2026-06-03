@@ -40,8 +40,7 @@ def test_facet_coords_endpoint_returns_dict_per_dimension(override_session):
     assert response.status_code == 200, response.text
     payload = response.json()
     assert isinstance(payload, dict)
-    assert "horizon_periods" in payload
-    assert isinstance(payload["horizon_periods"], list)
+    # No global horizon helper expected here after refactor
     # EvaluationPlot declares ["location", "split_period"] as facet_dimensions.
     for dim in ("location", "split_period"):
         assert dim in payload, payload
@@ -58,8 +57,6 @@ def test_predicted_vs_actual_facet_coords_return_horizon_distance(override_sessi
     assert "horizon_distance" in payload
     assert isinstance(payload["horizon_distance"], list)
     assert len(payload["horizon_distance"]) > 0
-    assert "horizon_periods" in payload
-    assert isinstance(payload["horizon_periods"], list)
 
 
 # @pytest.mark.xfail(strict=True, reason=CLIM_548)
@@ -67,7 +64,7 @@ def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
     coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
     assert coords_resp.status_code == 200, coords_resp.text
     payload = coords_resp.json()
-    coords = {dim: values for dim, values in payload.items() if dim != "horizon_periods"}
+    coords = {dim: values for dim, values in payload.items() if dim != "horizon_distance"}
     body = {dim: coords[dim][0] for dim in coords}
 
     response = client.post(
@@ -85,12 +82,10 @@ def test_subplot_endpoint_returns_vega_spec_for_coords(override_session):
 def test_subplots_endpoint_returns_one_entry_per_coord_combination(override_session):
     coords_resp = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/facet-coords")
     payload = coords_resp.json()
-    coords = {dim: values for dim, values in payload.items() if dim != "horizon_periods"}
+    coords = {dim: values for dim, values in payload.items() if dim != "horizon_distance"}
     expected_count = 1
     for values in coords.values():
         expected_count *= len(values)
-    assert "horizon_periods" in payload
-    assert isinstance(payload["horizon_periods"], list)
 
     response = client.get("/v1/visualization/backtest-plots/evaluation_plot/1/subplots")
     assert response.status_code == 200, response.text
