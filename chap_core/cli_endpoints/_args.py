@@ -42,7 +42,8 @@ BacktestParamsArg = Annotated[
     Parameter(
         help="Backtest configuration. Use --backtest-params.n-periods for forecast horizon, "
         "--backtest-params.n-splits for number of train/test splits, "
-        "--backtest-params.stride for step size between splits"
+        "--backtest-params.stride for step size between splits, "
+        "--backtest-params.n-retrain for number of retrains across the splits"
     ),
 ]
 
