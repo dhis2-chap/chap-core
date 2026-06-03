@@ -21,3 +21,21 @@ After following any of the guides above, you should have a DHIS2 instance runnin
 - In the Modeling app, you will be told to put in an url to Chap. Since DHIS2 runs through a Docker container, it cannot reach Chap via `localhost`, so you need a URL that points from inside the container back to Chap running on your host machine:
   - **On Mac and Windows**, use `http://host.docker.internal:8000/**` -- Docker Desktop resolves this hostname to your host automatically.
   - **On Linux**, `host.docker.internal` is not available by default, so you need the IP of your local computer. Find it by running `ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}'` in your terminal (you may have to install ifconfig). Put `http://` before that IP and `:8000/**` after, e.g. `http://172.18.0.1:8000/**`.
+
+## Running an evaluation
+
+Once DHIS2 and the Modeling app are up, you can run an evaluation. This requires that:
+
+- chap-core is up and running (see [Installation](../modeling-app/installation.md)).
+- The Modeling app is configured with the correct URL for chap-core (the previous step).
+
+Then, in the Modeling app:
+
+- Go to **Evaluate**, then **Overview**, and click **New evaluation**.
+- Select **weekly** as the period type.
+- Set the **from** period to some week in 2022 and the **to** period to some week in 2024.
+- Select a source for **precipitation** and one for **air temperature**, and select the model you want to run.
+- Click **Start dry run**. This validates the configuration and data without running the full evaluation.
+- If the dry run completes without errors, click **Start import** to trigger the evaluation.
+
+On the **Overview** page you should see the evaluation running. Once it has finished, click on it to see the details.
