@@ -244,10 +244,7 @@ def get_facet_coordinates(visualization_name: str, backtest_id: int, session: Se
         visualization_name, backtest_id, session
     )
     coords = plotter.facet_coords(observations, forecasts, historical_df)
-    horizon_periods = []
-    if "horizon_distance" in forecasts.columns:
-        horizon_periods = [int(val) for val in sorted(forecasts["horizon_distance"].dropna().unique())]
-    return cast("dict[str, Any]", {**coords, "horizon_periods": horizon_periods})
+    return cast("dict[str, Any]", coords)
 
 
 @router.post(
