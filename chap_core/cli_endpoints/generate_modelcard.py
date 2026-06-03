@@ -22,6 +22,56 @@ MISSING = "More Information Needed"
 logger = logging.getLogger(__name__)
 
 
+def _label_points_from_geojson_features(features: list[object]) -> list[dict[str, Any]]:
+    """Create label points for choropleth regional map overlays."""
+
+    from chap_core.api_types import FeatureModel
+    from chap_core.geoutils import feature_bbox
+
+    label_points: list[dict[str, Any]] = []
+    for feature in features:
+        if not isinstance(feature, dict):
+            continue
+
+        properties = feature.get("properties")
+        if not isinstance(properties, dict):
+            properties = {}
+
+        region_name = (
+            properties.get("name") or properties.get("ADM1_EN") or feature.get("id") or properties.get("id") or ""
+        )
+
+        region_name_str = str(region_name).strip()
+        if not region_name_str:
+            continue
+
+        bbox_raw = feature.get("bbox")
+        bbox: list[float] | None = None
+
+        if isinstance(bbox_raw, list) and len(bbox_raw) == 4:
+            try:
+                bbox = [float(v) for v in bbox_raw]
+            except (TypeError, ValueError):
+                bbox = None
+
+        if bbox is None:
+            try:
+                bbox = [float(v) for v in feature_bbox(FeatureModel.model_validate(feature))]
+            except Exception:
+                continue
+
+        xmin, ymin, xmax, ymax = bbox
+        label_points.append(
+            {
+                "region_name": region_name_str,
+                "lon": (xmin + xmax) / 2,
+                "lat": (ymin + ymax) / 2,
+            }
+        )
+
+    return label_points
+
+
 @functools.cache
 def _placeholder_metadata_values() -> dict[str, str | None]:
     """Defaults from ModelTemplateMetaData fields, used to detect un-edited placeholders."""
@@ -204,9 +254,35 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
         if not isinstance(geojson, dict) or "features" not in geojson:
             raise ValueError(f"Invalid GeoJSON at {geojson_path}: expected a 'features' key.")
 
+        label_points = _label_points_from_geojson_features(
+            geojson["features"] if isinstance(geojson.get("features"), list) else []
+        )
+
+        region_labels_base = (
+            alt.Chart(alt.Data(values=label_points))
+            .mark_text(
+                fontSize=6, fill="white", stroke="white", strokeWidth=1, opacity=0.9, align="center", baseline="middle"
+            )
+            .encode(longitude="lon:Q", latitude="lat:Q", text="region_name:N")
+            .project(type="equirectangular")
+        )
+
+        region_labels_top = (
+            alt.Chart(alt.Data(values=label_points))
+            .mark_text(fontSize=6, fill="#111827", align="center", baseline="middle")
+            .encode(longitude="lon:Q", latitude="lat:Q", text="region_name:N")
+            .project(type="equirectangular")
+        )
+
+        region_labels = region_labels_base + region_labels_top
+
         outline = (
             alt.Chart(alt.Data(values=geojson["features"]))
-            .mark_geoshape(fill=None, stroke="#374151", strokeWidth=0.5)
+            .mark_geoshape(
+                fill=None,
+                stroke="#374151",
+                strokeWidth=0.5,
+            )
             .project(type="equirectangular")
         )
 
@@ -226,13 +302,13 @@ def _save_evaluation_plots(evaluation: Evaluation, output_dir: Path, geojson_pat
             .encode(color=alt.Color("value:Q", scale=alt.Scale(scheme="viridis"), legend=alt.Legend(title="MAPE")))
         )
 
-        rmse_map_plot = rmse_map_plot + outline
-        rmse_map_plot.save(output_dir / "rmse_map.png", scale_factor=2.0)
-        rmse_map_plot.save(output_dir / "rmse_map.html", scale_factor=2.0)
+        rmse_map_plot = rmse_map_plot + outline + region_labels
+        rmse_map_plot.save(output_dir / "rmse_map.png", scale_factor=3.0)
+        rmse_map_plot.save(output_dir / "rmse_map.html", scale_factor=3.0)
 
-        mape_map_plot = mape_map_plot + outline
-        mape_map_plot.save(output_dir / "mape_map.png", scale_factor=2.0)
-        mape_map_plot.save(output_dir / "mape_map.html", scale_factor=2.0)
+        mape_map_plot = mape_map_plot + outline + region_labels
+        mape_map_plot.save(output_dir / "mape_map.png", scale_factor=3.0)
+        mape_map_plot.save(output_dir / "mape_map.html", scale_factor=3.0)
 
 
 def _build_results_summary(backtest: Backtest) -> str:
@@ -489,18 +565,18 @@ def generate_modelcard(
     ],
     output_file: Annotated[
         Path,
-        Parameter(help="Path or name of output Markdown file containing modelcard template"),
+        Parameter(help="Path to output Markdown file containing model card template"),
     ],
     geojson_path: Annotated[
         Path | None,
         Parameter(help="Path to GeoJSON file matching the regions of the evaluation dataset"),
     ] = None,
 ):
-    """Generates a modelcard document and exports a resulting Markdown file and plots in PNG and interactive HTML.
+    """Generates a model card document and exports a resulting Markdown file and plots in PNG and interactive HTML.
 
-    Alongside the standard metric summary and aggregate measures, the modelcard also shows a regional breakdown of
+    Alongside the standard metric summary and aggregate measures, the model card also shows a regional breakdown of
     RMSE and MAPE distribution.
-    The completeness of the modelcard template is dependent on the amount of information in the models MLproject file.
+    The completeness of the model card template is dependent on the amount of information in the models MLproject file.
 
     Optionally generates MAP based plots showing aggregate RMSE and MAPE given a geojson file.
     """
