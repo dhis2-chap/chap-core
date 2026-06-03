@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from chap_core.assessment.backtest_plots import ChartType, FacetDimension, FacetedBacktestPlot, backtest_plot
+from chap_core.plotting.backtest_plot import clean_time  
 
 
 def _nice_tick_values(data_max: float) -> np.ndarray:
@@ -23,12 +24,20 @@ def median_forecasts_joined_with_observations(
     observations: pd.DataFrame,
 ) -> pd.DataFrame:
     """Aggregate forecast samples to per-horizon medians and inner-join with observed disease cases."""
+    f_df = forecasts.copy()
+    o_df = observations.copy()
+    
+    f_df["time_period"] = f_df["time_period"].astype(str).apply(clean_time)
+    o_df["time_period"] = o_df["time_period"].astype(str).apply(clean_time)
+
+    # 2. Group and aggregate
     median = (
-        forecasts.groupby(["location", "time_period", "horizon_distance"])
+        f_df.groupby(["location", "time_period", "horizon_distance"])
         .agg(median_forecast=("forecast", "median"))
         .reset_index()
     )
-    return median.merge(observations, on=["location", "time_period"], how="inner")
+    
+    return median.merge(o_df, on=["location", "time_period"], how="inner")
 
 
 def build_predicted_vs_actual_chart(
@@ -85,7 +94,7 @@ def build_predicted_vs_actual_chart(
 )
 class PredictedVsActualPlot(FacetedBacktestPlot):
     facet_dimensions: list[FacetDimension] = [
-        FacetDimension("horizon_distance:O", "Horizon Distance"),
+        FacetDimension(field_name="horizon_distance:O", display_name="Horizon Distance"),
     ]
 
     resolve_scale_x = "shared"
