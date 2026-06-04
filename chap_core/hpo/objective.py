@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from uuid import uuid4
 
 from chap_core.api_types import BacktestParams
 from chap_core.assessment.evaluation import Evaluation
@@ -8,6 +7,7 @@ from chap_core.assessment.metrics import calculate_metrics
 from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 from chap_core.models.model_template import ModelTemplate
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+from chap_core.util import generate_short_id
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -43,7 +43,7 @@ class Objective:
         model = self.model_template.get_model(configuration)  # type: ignore[arg-type]
         estimator = model()
 
-        run_id = uuid4().hex[:8]  # short unique id like 'a1b2c3d4'
+        run_id = generate_short_id()
 
         model_template_db = ModelTemplateDB(
             id=self.model_template.model_template_config.name,

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
     from chap_core.api_types import BacktestParams, SearcherType
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
+    from chap_core.external.model_configuration import ModelTemplateConfigV2
     from chap_core.hpo.hpoModel import HpoModel
     from chap_core.models.external_model import ExternalModel
     from chap_core.models.model_template import ModelTemplate
@@ -222,27 +223,58 @@ def load_dataset(
     return dataset
 
 
-def get_estimator(
-    template: ModelTemplate,
+def get_configuration(
     model_configuration_yaml: Path | None,
-) -> tuple[ExternalModel, ModelConfiguration | None]:
-    """
-    Build a plain estimator from a model template and optional configuration yaml file.
-    Returns both the estimator and the parsed configuration so callers can reuse the
-    configuration for metadata/export.
-    """
+) -> ModelConfiguration | None:
+    """Parse a model configuration YAML file, or return None if no path is given."""
+    if model_configuration_yaml is None:
+        return None
     import yaml
 
     from chap_core.database.model_templates_and_config_tables import ModelConfiguration
 
-    configuration = None
-    if model_configuration_yaml is not None:
-        logger.info(f"Loading model configuration from {model_configuration_yaml}")
-        configuration = ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
+    logger.info(f"Loading model configuration from {model_configuration_yaml}")
+    return ModelConfiguration.model_validate(yaml.safe_load(open(model_configuration_yaml)))
 
+
+def get_estimator(
+    template: ModelTemplate,
+    configuration: ModelConfiguration | None,
+) -> ExternalModel:
+    """Build a plain estimator from a model template and optional configuration."""
     model = template.get_model(configuration)  # type: ignore[arg-type]
-    estimator = model()
-    return estimator, configuration
+    estimator: ExternalModel = model()  # type: ignore[assignment]
+    return estimator
+
+
+def warn_unused_covariates(
+    dataset: DataSet,
+    template_config: ModelTemplateConfigV2,
+    configuration: ModelConfiguration | None = None,
+) -> None:
+    """Check for unused dataset columns and log each one as a warning.
+
+    Calls check_unused_covariates directly; does not run other validation checks.
+    Does not raise; callers continue regardless of issues.
+
+    Parameters
+    ----------
+    dataset : DataSet
+        The loaded dataset to validate.
+    template_config : ModelTemplateConfigV2
+        Model template configuration declaring required covariates and whether free
+        additional covariates are allowed.
+    configuration : ModelConfiguration | None
+        Optional per-run model configuration. When present, its
+        additional_continuous_covariates are forwarded to the validation so explicitly
+        configured extra columns are not flagged as unused.
+    """
+    from chap_core.services.dataset_validation import check_unused_covariates
+
+    additional = configuration.additional_continuous_covariates if configuration is not None else None
+    issues = check_unused_covariates(dataset, template_config, additional)
+    for issue in issues:
+        logger.warning(issue.message)
 
 
 def get_hpo_estimator(

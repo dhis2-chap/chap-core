@@ -12,7 +12,7 @@ from chap_core.assessment.backtest_plots import (
     create_plot_from_evaluation,
     BacktestPlotBase,
 )
-from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods
+from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods_vectorized
 from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.metrics_dashboard import MetricsDashboard
@@ -111,7 +111,7 @@ def test_predicted_vs_actual_linear_plot_directly(
 
 
 def test_infer_split_periods_monthly_format():
-    """Test that _infer_split_periods produces date strings, not repr strings like 'Month(2022-1)'."""
+    """Regression: split_period must be a date string, not a repr like 'Month(2022-1)'."""
     df = pd.DataFrame(
         {
             "location": ["loc1", "loc1"],
@@ -120,7 +120,7 @@ def test_infer_split_periods_monthly_format():
             "q_50": [10.0, 12.0],
         }
     )
-    result = _infer_split_periods(df)
+    result = _infer_split_periods_vectorized(df)
     for split_period in result["split_period"]:
         assert "Month(" not in split_period, f"Got repr string: {split_period}"
         assert split_period.startswith("20"), f"Unexpected format: {split_period}"

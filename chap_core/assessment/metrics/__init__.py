@@ -104,7 +104,6 @@ from chap_core.assessment.metrics.outbreak_detection import (
     OutbreakAccuracyMetric,
     SensitivityMetric,
     SpecificityMetric,
-    compute_seasonal_thresholds,
 )
 from chap_core.assessment.metrics.peak_diff import PeakPeriodLagMetric, PeakValueDiffMetric
 from chap_core.assessment.metrics.percentile_coverage import (
@@ -158,7 +157,6 @@ __all__ = [
     "WinklerScoreLog1pMetric",
     "WinklerScoreMetric",
     "available_metrics",
-    "compute_seasonal_thresholds",
     "get_metric",
     "get_metrics_registry",
     "list_metrics",

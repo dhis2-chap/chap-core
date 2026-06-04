@@ -1,10 +1,24 @@
 import json
 
-from chap_core.cli_endpoints.generate_modelcard import generate_modelcard
+from chap_core.cli_endpoints.generate_modelcard import _label_points_from_geojson_features, generate_modelcard
 from chap_core.assessment.evaluation import Evaluation
+from copy import deepcopy
 
 
 class TestModelCardGenerator:
+    def test_label_points_from_geojson_features_handles_bbox_and_name_fallbacks(self, dummy_geojson):
+        features = deepcopy(dummy_geojson["features"])
+
+        features[0]["properties"] = {"name": "Preferred Name", "ADM1_EN": "Fallback Name", "id": "loc1"}
+        features[1]["properties"] = {"ADM1_EN": "ADM1 Name", "id": "loc2"}
+        features[2]["properties"] = {"id": "loc3"}
+        features.append({"type": "Feature", "id": "broken"})
+
+        label_points = _label_points_from_geojson_features(features)
+
+        assert [point["region_name"] for point in label_points] == ["Preferred Name", "ADM1 Name", "loc3"]
+        assert len(label_points) == 3
+
     def test_generate_modelcard_creates_md(self, backtest, tmp_path):
         """Test that to_file creates a markdown file with content."""
         evaluation = Evaluation.from_backtest(backtest)
