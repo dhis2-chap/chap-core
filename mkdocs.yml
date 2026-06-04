@@ -139,6 +139,7 @@ nav:
       - Contributors:
           - Getting Started: contributor/getting_started.md
           - Setup: contributor/chap-contributor-setup.md
+          - Local DHIS2 Installation: contributor/local-dhis2-installation.md
           - Windows Setup: contributor/windows_contributors.md
           - Code Overview: contributor/code_overview.md
           - Architecture Diagrams: contributor/architecture_diagrams.md
