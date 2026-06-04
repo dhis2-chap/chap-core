@@ -87,7 +87,8 @@ def get_available_metrics(backtest_id: int):
 
 
 @router.get(
-    "/metric-plots/{visualization_name}/{backtest_id}/{metric_id}", response_class=JSONResponse, response_model=None
+    "/metric-plots/{visualization_name}/{backtest_id}/{metric_id}",
+    summary="Render a metric plot for a backtest",
 )
 def generate_visualization(
     visualization_name: str, backtest_id: int, metric_id: str, session: Session = Depends(get_session)
@@ -142,7 +143,10 @@ def list_dataset_plot_types():
     ]
 
 
-@router.get("/dataset-plots/{visualization_name}/{dataset_id}", response_class=JSONResponse, response_model=None)
+@router.get(
+    "/dataset-plots/{visualization_name}/{dataset_id}",
+    summary="Render a plot of a dataset",
+)
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
     """Render the chosen visualization for a dataset — used to inspect observations before training, spot gaps in the data, or share a quick view of what got imported.
 
@@ -189,7 +193,10 @@ def list_backtest_plot_types():
     ]
 
 
-@router.get("/backtest-plots/{visualization_name}/{backtest_id}", response_class=JSONResponse, response_model=None)
+@router.get(
+    "/backtest-plots/{visualization_name}/{backtest_id}",
+    summary="Render a forecast plot for a backtest",
+)
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
     """Render the chosen visualization for a backtest's forecasts — used to assess model performance, identify regions where forecasts diverge from actuals, or share an evaluation result.
 
@@ -217,9 +224,11 @@ def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session)
     if plot_cls is None:
         raise HTTPException(status_code=404, detail=f"Plot {plot_id} not found")
 
+    # Fixed typo: FacetedBacktestPlot (with the 'ed')
     if not issubclass(plot_cls, FacetedBacktestPlot):
         raise HTTPException(status_code=400, detail=f"Plot '{plot_id}' does not support faceting properties")
 
+    # Fetch the model instance using id
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
         raise HTTPException(status_code=404, detail="Backtest not found")
@@ -236,23 +245,22 @@ def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session)
 
 
 @router.get("/backtest-plots/{visualization_name}/{backtest_id}/facet-coords")
-def get_facet_coordinates(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)) -> Any:
+def get_facet_coordinates(
+    visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
+) -> dict[str, Any]:
     """
     Returns unique structural dimension arrays available for layout faceting grids.
     """
     plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
         visualization_name, backtest_id, session
     )
-    coords = plotter.facet_coords(observations, forecasts, historical_df)
-    return cast("dict[str, Any]", coords)
+    return cast("dict[str, Any]", plotter.facet_coords(observations, forecasts, historical_df))
 
 
-@router.post(
-    "/backtest-plots/{visualization_name}/{backtest_id}/subplot", response_class=JSONResponse, response_model=None
-)
+@router.post("/backtest-plots/{visualization_name}/{backtest_id}/subplot")
 def generate_isolated_plots(
     visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)
-) -> Any:
+) -> JSONResponse:
     """
     Filters the source datasets by exact coordinate targets and generates a single Vega schema spec.
     """
@@ -264,9 +272,7 @@ def generate_isolated_plots(
     return JSONResponse(chart.to_dict(format="vega"))
 
 
-@router.get(
-    "/backtest-plots/{visualization_name}/{backtest_id}/subplots", response_class=JSONResponse, response_model=None
-)
+@router.get("/backtest-plots/{visualization_name}/{backtest_id}/subplots")
 def generate_all_subplots(
     visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
 ) -> list[dict[str, Any]]:

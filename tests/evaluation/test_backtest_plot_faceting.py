@@ -138,18 +138,13 @@ def test_facet_dimensions_use_type_marker_shorthand(plot_cls, expected_fields):
     assert isinstance(dims, list)
     assert dims, f"{plot_cls.__name__} declares no facet dimensions"
     for entry in dims:
-        assert isinstance(entry, (str, FacetDimension))
-        if isinstance(entry, FacetDimension):
-            shorthand = entry.field_name
-        else:
-            shorthand = entry
-        assert FACET_DIM_RE.match(shorthand), (
-            f"{plot_cls.__name__}.facet_dimensions entry {entry!r} must be "
+        assert isinstance(entry, FacetDimension)
+        assert FACET_DIM_RE.match(entry.field_name), (
+            f"{plot_cls.__name__}.facet_dimensions entry {entry.field_name!r} must be "
             "an altair shorthand like 'location:N' or 'horizon_distance:O'"
         )
-    declared_fields = tuple(
-        entry.clean_name if isinstance(entry, FacetDimension) else entry.split(":", 1)[0] for entry in dims
-    )
+        assert entry.display_name, f"{plot_cls.__name__} facet entry {entry.field_name!r} has empty display_name"
+    declared_fields = tuple(entry.clean_name for entry in dims)
     assert set(declared_fields) == set(expected_fields), (
         f"{plot_cls.__name__} declared {declared_fields}, expected {expected_fields}"
     )
@@ -238,10 +233,9 @@ def test_every_faceted_plot_in_registry_passes_shape_checks(faceted_base):
         dims = cls.facet_dimensions
         assert isinstance(dims, list) and dims
         for entry in dims:
-            if isinstance(entry, FacetDimension):
-                shorthand = entry.field_name
-            else:
-                shorthand = entry
-            assert FACET_DIM_RE.match(shorthand), (
-                f"{cls.__name__}.facet_dimensions entry {entry!r} is not altair shorthand"
+            assert isinstance(entry, FacetDimension), (
+                f"{cls.__name__}.facet_dimensions entry {entry!r} is not a FacetDimension"
+            )
+            assert FACET_DIM_RE.match(entry.field_name), (
+                f"{cls.__name__}.facet_dimensions entry {entry.field_name!r} is not altair shorthand"
             )

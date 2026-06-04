@@ -30,7 +30,6 @@ def median_forecasts_joined_with_observations(
     f_df["time_period"] = f_df["time_period"].astype(str).apply(clean_time)
     o_df["time_period"] = o_df["time_period"].astype(str).apply(clean_time)
 
-    # 2. Group and aggregate
     median = (
         f_df.groupby(["location", "time_period", "horizon_distance"])
         .agg(median_forecast=("forecast", "median"))
