@@ -19,10 +19,12 @@ from chap_core.cli_endpoints._args import (  # noqa: TC001 — used at runtime v
 )
 from chap_core.cli_endpoints._common import (
     discover_geojson,
+    get_configuration,
     get_estimator,
     get_hpo_estimator,
     load_dataset_from_csv,
     resolve_csv_path,
+    warn_unused_covariates,
 )
 
 if TYPE_CHECKING:
@@ -210,11 +212,11 @@ def _run_eval(
         dry_run=dry_run,
     )
 
-    configuration = None
     with template:
+        configuration = get_configuration(model_configuration_yaml)
         estimator: ExternalModel | HpoModel | ExtendedPredictor
         if estimator_options.mode == EstimatorMode.NORMAL:
-            estimator, configuration = get_estimator(template, model_configuration_yaml)
+            estimator = get_estimator(template, configuration)
         elif estimator_options.mode == EstimatorMode.HPO:
             assert estimator_options.metric is not None
             estimator = get_hpo_estimator(
@@ -226,6 +228,8 @@ def _run_eval(
             )
         elif estimator_options.mode == EstimatorMode.ENSEMBLE:
             raise NotImplementedError("Ensemble mode is not yet implemented")
+
+        warn_unused_covariates(dataset, template.model_template_config, configuration)
 
         model_info = estimator.model_information
         if model_info.min_prediction_length is None and model_info.max_prediction_length is None:

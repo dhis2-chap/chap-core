@@ -217,11 +217,6 @@ classDiagram
         +values: list~float~
     }
 
-    class DebugEntry {
-        +timestamp: datetime
-        +payload: dict
-    }
-
     DBModel <|-- DataSet
     DBModel <|-- Observation
     DBModel <|-- ModelTemplateDB
@@ -231,7 +226,6 @@ classDiagram
     DBModel <|-- BacktestMetric
     DBModel <|-- Prediction
     DBModel <|-- PredictionSamplesEntry
-    DBModel <|-- DebugEntry
 
     DataSet "1" --> "*" Observation : observations
     ModelTemplateDB "1" --> "*" ConfiguredModelDB : configurations

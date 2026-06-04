@@ -139,9 +139,10 @@ There are two session patterns used in the codebase:
    plain `sqlmodel.Session`. Used by most REST endpoints.
 
 2. **SessionWrapper** -- a context manager that wraps a `Session` and adds higher-level
-   data access methods (adding datasets, model templates, configured models, etc.).
+   data access methods (model templates, configured models, backtests, predictions, etc.).
    Used by the Celery worker (`celery_run_with_session`) and by some REST endpoints that
-   need complex operations.
+   need complex operations. Dataset reads/writes are not here -- use
+   `DataSetManager(session)` (`database/dataset_manager.py`) for those.
 
 ### Database tables
 
@@ -161,7 +162,6 @@ The tables are spread across several files:
 | `tables.py` | `Backtest`, `Prediction`, `BacktestForecast`, `PredictionSamplesEntry`, `BacktestMetric` | Evaluation and prediction results |
 | `model_templates_and_config_tables.py` | `ModelTemplateDB`, `ConfiguredModelDB` | Model definitions and configurations |
 | `model_spec_tables.py` | `ModelSpecRead` | Read model for backwards-compatible API responses |
-| `debug.py` | `DebugEntry` | Debug/diagnostic entries |
 
 ### Key relationships
 
@@ -281,8 +281,10 @@ shortcut to apply this to all GET endpoints.
 3. Add the endpoint function to the appropriate router file.
 4. If the operation is long-running, queue it as a Celery task via `worker.queue_db()`
    and return a `JobResponse`.
-5. For new database operations, add methods to `SessionWrapper` or work with
-   the `Session` directly in the endpoint.
+5. For new database operations, add methods to the relevant manager
+   (`DataSetManager` for datasets, or a new `DbManager` subclass following
+   `database/manager.py`), to `SessionWrapper`, or work with the `Session`
+   directly in the endpoint.
 
 
 ## How to add a new database table
@@ -317,9 +319,10 @@ shortcut to apply this to all GET endpoints.
 | `rest_api/db_worker_functions.py` | Business logic for async Celery jobs |
 | `rest_api/worker_functions.py` | WorkerConfig and related utilities |
 | `database/database.py` | Engine creation, SessionWrapper, migrations |
+| `database/manager.py` | `DbManager[ModelT]` generic data-access base |
+| `database/dataset_manager.py` | `DataSetManager` dataset reads/writes + filtering |
 | `database/base_tables.py` | DBModel base class with camelCase config |
 | `database/tables.py` | Backtest, Prediction, forecast tables |
 | `database/dataset_tables.py` | DataSet, Observation tables |
 | `database/model_templates_and_config_tables.py` | ModelTemplateDB, ConfiguredModelDB |
 | `database/model_spec_tables.py` | ModelSpecRead (backwards-compatible read model) |
-| `database/debug.py` | DebugEntry table |
