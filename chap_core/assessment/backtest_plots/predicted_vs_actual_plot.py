@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from chap_core.assessment.backtest_plots import ChartType, FacetDimension, FacetedBacktestPlot, backtest_plot
-from chap_core.plotting.backtest_plot import clean_time  
+from chap_core.plotting.backtest_plot import clean_time
 
 
 def _nice_tick_values(data_max: float) -> np.ndarray:
@@ -26,7 +26,7 @@ def median_forecasts_joined_with_observations(
     """Aggregate forecast samples to per-horizon medians and inner-join with observed disease cases."""
     f_df = forecasts.copy()
     o_df = observations.copy()
-    
+
     f_df["time_period"] = f_df["time_period"].astype(str).apply(clean_time)
     o_df["time_period"] = o_df["time_period"].astype(str).apply(clean_time)
 
@@ -36,7 +36,7 @@ def median_forecasts_joined_with_observations(
         .agg(median_forecast=("forecast", "median"))
         .reset_index()
     )
-    
+
     return median.merge(o_df, on=["location", "time_period"], how="inner")
 
 
