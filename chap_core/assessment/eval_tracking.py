@@ -103,6 +103,10 @@ def tracked_eval_run(
             "(e.g. export MLFLOW_TRACKING_URI=file://$HOME/chap-evaluations/mlruns)"
         )
 
+    # mlflow 3.13+ refuses the filesystem tracking backend unless this is set, but a
+    # file:// URI (e.g. file://$HOME/chap-evaluations/mlruns) is our documented default.
+    os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
+
     experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", DEFAULT_EXPERIMENT_NAME)
     mlflow.set_experiment(experiment_name)
 

@@ -348,7 +348,7 @@ class CeleryJob[ReturnType]:
             logs = log_file.read_text()
             job_meta = get_job_meta(self.id)
             if job_meta and job_meta.get("status") == "FAILURE":
-                logs += "\n" + job_meta.get("traceback", "")
+                logs += "\n" + str(job_meta.get("traceback", ""))
             return logs
         else:
             # Fallback to traceback if log file not found
