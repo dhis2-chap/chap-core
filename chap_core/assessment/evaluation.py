@@ -239,6 +239,8 @@ class EvaluationBase(ABC):
         last_train_period: TimePeriod,
         configured_model: ConfiguredModelDB,
         info: "BacktestCreate",
+        historical_observations: list[Observation] | None = None,
+        historical_context_periods: int = 0,
     ) -> "EvaluationBase": ...
 
 
@@ -398,6 +400,7 @@ class Evaluation(EvaluationBase):
             prediction_length=backtest_params.n_periods,
             n_test_sets=backtest_params.n_splits,
             stride=backtest_params.stride,
+            n_retrain=backtest_params.n_retrain,
         )
 
         # Prepare metadata
@@ -413,13 +416,13 @@ class Evaluation(EvaluationBase):
         )
 
         # Calculate number of periods based on dataset period type
-        historical_context_periods = cls._calculate_periods_from_years(
+        historical_context_periods = cls.calculate_periods_from_years(
             dataset=dataset,
             years=historical_context_years,
         )
 
         # Extract historical observations from the dataset for plotting context
-        historical_observations = cls._extract_historical_observations(
+        historical_observations = cls.extract_historical_observations(
             dataset=dataset,
             up_to_period=last_train_period,
             n_periods=historical_context_periods,
@@ -436,7 +439,7 @@ class Evaluation(EvaluationBase):
         )
 
     @classmethod
-    def _calculate_periods_from_years(cls, dataset: _DataSet, years: int) -> int:
+    def calculate_periods_from_years(cls, dataset: _DataSet, years: int) -> int:
         """
         Calculate number of periods from years based on dataset period type.
 
@@ -473,7 +476,7 @@ class Evaluation(EvaluationBase):
         return years * periods_per_year
 
     @classmethod
-    def _extract_historical_observations(
+    def extract_historical_observations(
         cls,
         dataset: _DataSet,
         up_to_period: TimePeriod,

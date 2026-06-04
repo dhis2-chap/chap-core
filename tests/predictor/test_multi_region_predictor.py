@@ -1,4 +1,4 @@
-from chap_core.predictor.naive_predictor import MultiRegionNaivePredictor
+from chap_core.predictor.naive_predictor import MultiRegionNaivePredictor, MultiRegionPoissonModel
 
 import pytest
 
@@ -16,3 +16,12 @@ def test_naive_predictor(full_data):
     for loc, data in predictions.items():  # type: ignore[reportAttributeAccessIssue]
         assert len(data) == 1
     # assert predictions == test_data
+
+
+def test_poisson_model_train(full_data):
+    # Exercises MultiRegionPoissonModel.train, which lazily imports sklearn;
+    # train completing without raising confirms the deferred import resolves.
+    model = MultiRegionPoissonModel()
+    test_start = Month(2012, 7)  # type: ignore[reportArgumentType]
+    train_data, _ = train_test_split(full_data, test_start)
+    model.train(train_data)

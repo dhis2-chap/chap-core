@@ -1,16 +1,19 @@
 import json
 import logging
-from functools import partial
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
+from sqlmodel import Field, Session
 from starlette.responses import JSONResponse
 
 from chap_core.assessment.backtest_plots import (
+    FacetedBacktestPlot,
     create_plot_from_backtest,
+    get_backtest_plot,
     get_backtest_plots_registry,
     list_backtest_plots,
 )
+from chap_core.assessment.evaluation import Evaluation
 from chap_core.assessment.metric_plots import get_metric_plots_registry, list_metric_plots
 from chap_core.assessment.metrics import available_metrics
 from chap_core.database.base_tables import DBModel
@@ -27,14 +30,18 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/visualization", tags=["Visualizations"])
 
-router_get = partial(router.get, response_model_by_alias=True)  # MAGIC!: This makes the endpoints return camelCase
 
-
-# List visualizations
-@router.get("/metric-plots/{backtest_id}", response_model=list[VisualizationInfo])
+@router.get(
+    "/metric-plots/{backtest_id}",
+    response_model=list[VisualizationInfo],
+    summary="Discover which metric plots are available",
+)
 def get_avilable_metric_plots(backtest_id: int):
-    """
-    List available visualizations
+    """List the metric-plot styles you can render against a backtest's forecasts (line chart of CRPS over time, choropleth of MAE, ...).
+
+    Use this to populate a plot picker in a UI or to find out which
+    ``/metric-plots/{name}/...`` URLs are valid. The result is the same regardless of
+    ``backtest_id`` — the path takes it for symmetry with the render endpoint.
     """
     return [
         VisualizationInfo(id=p["id"], display_name=p["name"], description=p["description"]) for p in list_metric_plots()
@@ -42,21 +49,30 @@ def get_avilable_metric_plots(backtest_id: int):
 
 
 class VisualizationParams(DBModel):
-    metric_id: int
+    """Inputs for requesting a metric-aware backtest plot."""
+
+    metric_id: int = Field(description="Primary key of the metric to score against.")
 
 
 class MetricInfo(DBModel):
-    id: str
-    display_name: str
-    description: str = ""
+    """Catalogue entry for one scoring metric (CRPS, MAE, ...)."""
+
+    id: str = Field(description="Canonical metric identifier used in URLs and request bodies.")
+    display_name: str = Field(description="Human-friendly metric name shown in pickers.")
+    description: str = Field(default="", description="Short paragraph explaining what the metric measures.")
 
 
-@router.get("/metrics/{backtest_id}", response_model=list[MetricInfo])
+@router.get(
+    "/metrics/{backtest_id}",
+    response_model=list[MetricInfo],
+    summary="Discover which scoring metrics are available",
+)
 def get_available_metrics(backtest_id: int):
-    """
-    List available metrics for visualization.
+    """List the metrics you can score a backtest with (CRPS, MAE, ...), with a human-friendly name and description for each.
 
-    All metrics support detailed level visualization.
+    Use this to populate a metric picker in a UI before requesting a specific plot. The
+    result is the same regardless of ``backtest_id`` — the path takes it for symmetry
+    with the render endpoint.
     """
     logger.info(f"Getting available metrics for backtest {backtest_id}")
     logger.info(f"Available metrics: {available_metrics.keys()}")
@@ -70,10 +86,19 @@ def get_available_metrics(backtest_id: int):
     ]
 
 
-@router.get("/metric-plots/{visualization_name}/{backtest_id}/{metric_id}")
+@router.get(
+    "/metric-plots/{visualization_name}/{backtest_id}/{metric_id}",
+    summary="Render a metric plot for a backtest",
+)
 def generate_visualization(
     visualization_name: str, backtest_id: int, metric_id: str, session: Session = Depends(get_session)
 ):
+    """Score a backtest with the chosen metric (CRPS, MAE, ...) and render the result as the chosen plot style.
+
+    The response is a Vega/Vega-Lite spec you can hand straight to a frontend renderer.
+    404 if the backtest or plot style is unknown; 400 if the metric id is not one of the
+    registered metrics.
+    """
     backtest = session.get(Backtest, backtest_id)
     if not backtest:
         raise HTTPException(status_code=404, detail="Backtest not found")
@@ -94,21 +119,40 @@ def generate_visualization(
 
 
 class DatasetPlotType(DBModel):
-    id: str
-    display_name: str
-    description: str = ""
+    """Catalogue entry for one dataset-level plot style (observation time-series, polygon overlay, ...)."""
+
+    id: str = Field(description="Canonical plot identifier used in URLs.")
+    display_name: str = Field(description="Human-friendly plot name shown in pickers.")
+    description: str = Field(default="", description="Short paragraph explaining what the plot shows.")
 
 
-@router.get("/dataset-plots/", response_model=list[DatasetPlotType])
+@router.get(
+    "/dataset-plots/",
+    response_model=list[DatasetPlotType],
+    summary="Discover which dataset plots are available",
+)
 def list_dataset_plot_types():
+    """List the visualizations you can render against an imported dataset (observation time-series per region, polygon overlays, ...).
+
+    Use this to populate a plot picker before requesting a specific
+    ``/dataset-plots/{name}/{datasetId}`` URL.
+    """
     plots = list_dataset_plots()
     return [
         DatasetPlotType(id=plot["id"], display_name=plot["name"], description=plot["description"]) for plot in plots
     ]
 
 
-@router.get("/dataset-plots/{visualization_name}/{dataset_id}")
+@router.get(
+    "/dataset-plots/{visualization_name}/{dataset_id}",
+    summary="Render a plot of a dataset",
+)
 def generate_data_plots(visualization_name: str, dataset_id: int, session: Session = Depends(get_session)):
+    """Render the chosen visualization for a dataset — used to inspect observations before training, spot gaps in the data, or share a quick view of what got imported.
+
+    The response is a JSON plot spec the frontend can render directly. 404 if the
+    dataset or plot style is unknown; the error message lists the registered styles.
+    """
     registry = get_dataset_plots_registry()
     if visualization_name not in registry:
         available = ", ".join(registry.keys())
@@ -125,21 +169,41 @@ def generate_data_plots(visualization_name: str, dataset_id: int, session: Sessi
 
 
 class BacktestPlotType(DBModel):
-    id: str
-    display_name: str
-    description: str = ""
+    """Catalogue entry for one backtest-level plot style (per-metric, per-org-unit, ...)."""
+
+    id: str = Field(description="Canonical plot identifier used in URLs.")
+    display_name: str = Field(description="Human-friendly plot name shown in pickers.")
+    description: str = Field(default="", description="Short paragraph explaining what the plot shows.")
 
 
-@router.get("/backtest-plots/", response_model=list[BacktestPlotType])
+@router.get(
+    "/backtest-plots/",
+    response_model=list[BacktestPlotType],
+    summary="Discover which backtest plots are available",
+)
 def list_backtest_plot_types():
+    """List the visualizations you can render against a backtest's forecasts (forecast vs. actuals per region, calibration plots, ...).
+
+    Use this to populate a plot picker before requesting a specific
+    ``/backtest-plots/{name}/{backtestId}`` URL.
+    """
     plots = list_backtest_plots()
     return [
         BacktestPlotType(id=plot["id"], display_name=plot["name"], description=plot["description"]) for plot in plots
     ]
 
 
-@router.get("/backtest-plots/{visualization_name}/{backtest_id}")
+@router.get(
+    "/backtest-plots/{visualization_name}/{backtest_id}",
+    summary="Render a forecast plot for a backtest",
+)
 def generate_backtest_plots(visualization_name: str, backtest_id: int, session: Session = Depends(get_session)):
+    """Render the chosen visualization for a backtest's forecasts — used to assess model performance, identify regions where forecasts diverge from actuals, or share an evaluation result.
+
+    The response is a Vega plot spec the frontend can render directly. Returns 404 if
+    the backtest or plot style is unknown; the error message lists the registered
+    styles.
+    """
     registry = get_backtest_plots_registry()
     if visualization_name not in registry:
         available = ", ".join(registry.keys())
@@ -153,3 +217,75 @@ def generate_backtest_plots(visualization_name: str, backtest_id: int, session: 
 
     chart = create_plot_from_backtest(visualization_name, backtest)
     return JSONResponse(chart.to_dict(format="vega"))
+
+
+def _get_plotter_and_flat_data(plot_id: str, backtest_id: int, session: Session):
+    plot_cls = get_backtest_plot(plot_id)
+    if plot_cls is None:
+        raise HTTPException(status_code=404, detail=f"Plot {plot_id} not found")
+
+    # Fixed typo: FacetedBacktestPlot (with the 'ed')
+    if not issubclass(plot_cls, FacetedBacktestPlot):
+        raise HTTPException(status_code=400, detail=f"Plot '{plot_id}' does not support faceting properties")
+
+    # Fetch the model instance using id
+    backtest = session.get(Backtest, backtest_id)
+    if not backtest:
+        raise HTTPException(status_code=404, detail="Backtest not found")
+
+    evaluation = Evaluation.from_backtest(backtest)
+    flat_data = evaluation.to_flat()
+
+    # Extract the underlying frames from the returned flat_data container object
+    observations = flat_data.observations
+    forecasts = flat_data.forecasts
+    historical_df = flat_data.historical_observations
+
+    return plot_cls(), observations, forecasts, historical_df
+
+
+@router.get("/backtest-plots/{visualization_name}/{backtest_id}/facet-coords")
+def get_facet_coordinates(
+    visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
+) -> dict[str, Any]:
+    """
+    Returns unique structural dimension arrays available for layout faceting grids.
+    """
+    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
+        visualization_name, backtest_id, session
+    )
+    return cast("dict[str, Any]", plotter.facet_coords(observations, forecasts, historical_df))
+
+
+@router.post("/backtest-plots/{visualization_name}/{backtest_id}/subplot")
+def generate_isolated_plots(
+    visualization_name: str, backtest_id: int, facet_coords: dict[str, Any], session: Session = Depends(get_session)
+) -> JSONResponse:
+    """
+    Filters the source datasets by exact coordinate targets and generates a single Vega schema spec.
+    """
+    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
+        visualization_name, backtest_id, session
+    )
+
+    chart = plotter.get_subplot(observations, forecasts, facet_coords, historical_df)
+    return JSONResponse(chart.to_dict(format="vega"))
+
+
+@router.get("/backtest-plots/{visualization_name}/{backtest_id}/subplots")
+def generate_all_subplots(
+    visualization_name: str, backtest_id: int, session: Session = Depends(get_session)
+) -> list[dict[str, Any]]:
+    """
+    Generates a full flat checklist mapping coordinate variations against their respective Vega specs.
+    """
+    plotter, observations, forecasts, historical_df = _get_plotter_and_flat_data(
+        visualization_name, backtest_id, session
+    )
+    coords_matrix = plotter.facet_coords(observations, forecasts, historical_df)
+
+    subplot_tuples = plotter.get_subplots(
+        observations, forecasts, coords=coords_matrix, historical_observations=historical_df
+    )
+
+    return [{"key": key, "spec": subplot.to_dict(format="vega")} for key, subplot in subplot_tuples]

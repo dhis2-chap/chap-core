@@ -1,8 +1,6 @@
 import logging
 import os
 import shutil
-import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -17,6 +15,7 @@ from chap_core.external.model_configuration import ModelTemplateConfigV2
 from chap_core.models.chapkit_service_manager import is_url
 from chap_core.models.external_chapkit_model import ExternalChapkitModelTemplate
 from chap_core.models.model_template import ModelTemplate
+from chap_core.util import generate_run_name
 
 CHAP_RUNS_DIR = Path(os.getenv("CHAP_RUNS_DIR", "runs/"))
 
@@ -53,9 +52,7 @@ def _get_working_dir(model_path, base_working_dir, run_dir_type, model_name):
             logger.info(f"Removing previous working dir {working_dir}")
             shutil.rmtree(working_dir)
     elif run_dir_type == "timestamp":
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        unique_identifier = timestamp + "_" + str(uuid.uuid4())[:8]
-        # timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S%f")
+        unique_identifier = generate_run_name()
         working_dir = base_working_dir / model_name / unique_identifier
         # check that working dir does not exist
         assert not working_dir.exists(), (
@@ -157,7 +154,15 @@ def get_model_template_from_directory_or_github_url(
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
 
-    detected = not is_chapkit_model and is_url(model_template_path) and _is_chapkit_url(model_template_path)
+    # GitHub URLs are git-clone targets, never live chapkit services, so skip the
+    # chapkit probe for them to avoid a spurious 404 against github.com/.../api/v1/info.
+    is_github_url = is_url(model_template_path) and model_template_path.startswith("https://github.com")
+    detected = (
+        not is_chapkit_model
+        and is_url(model_template_path)
+        and not is_github_url
+        and _is_chapkit_url(model_template_path)
+    )
     if is_chapkit_model or detected:
         if detected:
             logger.info("Auto-detected chapkit service at %s", model_template_path)

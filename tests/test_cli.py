@@ -54,9 +54,13 @@ def _make_fake_estimator(min_prediction_length, max_prediction_length):
     return estimator
 
 
-def _patched_eval_chain(fake_estimator):
+def _patched_eval_chain(fake_estimator, patch_filter=True):
     """Stack mocks for the parts of eval_cmd that aren't under test, returning
-    the Evaluation mock so the caller can inspect ``Evaluation.create`` calls."""
+    the Evaluation mock so the caller can inspect ``Evaluation.create`` calls.
+
+    By default the pre-backtest region filter is patched to a passthrough so the
+    MagicMock dataset survives; tests exercising the filter pass ``patch_filter=False``.
+    """
     template_cm = MagicMock(name="ModelTemplate")
     template_cm.__enter__.return_value = template_cm
     template_cm.__exit__.return_value = False
@@ -77,13 +81,26 @@ def _patched_eval_chain(fake_estimator):
             return_value=MagicMock(name="DataSet"),
         )
     )
+    if patch_filter:
+        stack.enter_context(
+            patch(
+                "chap_core.rest_api.db_worker_functions.validate_and_filter_dataset_for_evaluation",
+                side_effect=lambda dataset, **_kwargs: dataset,
+            )
+        )
     stack.enter_context(patch("chap_core.log_config.initialize_logging"))
     mt_mock = stack.enter_context(patch("chap_core.models.model_template.ModelTemplate"))
     mt_mock.from_directory_or_github_url.return_value = template_cm
     stack.enter_context(
         patch(
+            "chap_core.cli_endpoints.evaluate.get_configuration",
+            return_value=None,
+        )
+    )
+    stack.enter_context(
+        patch(
             "chap_core.cli_endpoints.evaluate.get_estimator",
-            return_value=(fake_estimator, None),
+            return_value=fake_estimator,
         )
     )
     eval_mock = stack.enter_context(patch("chap_core.assessment.evaluation.Evaluation"))
@@ -210,7 +227,7 @@ def test_eval_cmd_drops_regions_with_no_disease_cases(tmp_path, caplog):
     dataset = DataSet({"valid_region": valid, "nan_region": nan_region})
 
     fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
-    stack, eval_mock = _patched_eval_chain(fake_estimator)
+    stack, eval_mock = _patched_eval_chain(fake_estimator, patch_filter=False)
     stack.enter_context(patch("chap_core.cli_endpoints.evaluate.load_dataset_from_csv", return_value=dataset))
     with stack, caplog.at_level(logging.WARNING, logger="chap_core.rest_api.db_worker_functions"):
         eval_cmd(
@@ -229,6 +246,95 @@ def test_eval_cmd_drops_regions_with_no_disease_cases(tmp_path, caplog):
     rejection_warnings = [r for r in caplog.records if r.levelno == logging.WARNING and "Rejected regions" in r.message]
     assert len(rejection_warnings) == 1
     assert "nan_region" in rejection_warnings[0].message
+
+
+def test_eval_cmd_track_logs_params_metrics_and_artifacts(tmp_path, monkeypatch):
+    """With run_config.track, params (incl. model config), metrics, and the .nc artifact end up in MLflow."""
+    from pathlib import Path
+
+    import mlflow
+    import yaml
+    from chap_core.api_types import BacktestParams, RunConfig
+
+    tracking_dir = tmp_path / "mlruns"
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", f"file://{tracking_dir}")
+    mlflow.set_tracking_uri(f"file://{tracking_dir}")
+
+    output_file = tmp_path / "out.nc"
+
+    model_config_yaml = tmp_path / "model_config.yaml"
+    model_config_yaml.write_text(
+        yaml.safe_dump({"learning_rate": 0.01, "n_estimators": 100, "optimizer": {"name": "adam", "momentum": 0.9}})
+    )
+
+    def _write_nc(filepath, **_kwargs):
+        Path(filepath).write_bytes(b"netcdf-placeholder")
+
+    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    stack, eval_mock = _patched_eval_chain(fake_estimator)
+    eval_instance = MagicMock(name="EvaluationInstance")
+    eval_instance.to_file.side_effect = _write_nc
+    eval_mock.create.return_value = eval_instance
+
+    metrics_stub = patch(
+        "chap_core.assessment.eval_tracking.calculate_metrics",
+        return_value={"mae": 1.23, "rmse": 4.56, "non_numeric": None},
+    )
+
+    with stack, metrics_stub:
+        eval_cmd(
+            model_name="dummy-model",
+            dataset_csv="dummy.csv",
+            output_file=output_file,
+            backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+            run_config=RunConfig(track=True),
+            model_configuration_yaml=model_config_yaml,
+        )
+
+    runs = mlflow.search_runs(experiment_names=["chap-backtests"], output_format="list")
+    assert len(runs) == 1
+    run = runs[0]
+
+    assert run.data.params["model_name"] == "dummy-model"
+    assert run.data.params["dataset_csv"] == "dummy.csv"
+    assert run.data.params["n_periods"] == "3"
+    assert run.data.params["n_splits"] == "2"
+    assert run.data.params["stride"] == "1"
+    assert run.data.params["prediction_length"] == "3"
+
+    assert run.data.params["model.learning_rate"] == "0.01"
+    assert run.data.params["model.n_estimators"] == "100"
+    assert run.data.params["model.optimizer.name"] == "adam"
+    assert run.data.params["model.optimizer.momentum"] == "0.9"
+
+    assert run.data.metrics["mae"] == 1.23
+    assert run.data.metrics["rmse"] == 4.56
+    assert "non_numeric" not in run.data.metrics
+
+    client = mlflow.MlflowClient(tracking_uri=f"file://{tracking_dir}")
+    artifacts = {a.path for a in client.list_artifacts(run.info.run_id)}  # type: ignore[union-attr]
+    assert "out.nc" in artifacts
+    assert "model_configuration.json" in artifacts
+
+
+def test_eval_cmd_track_without_tracking_uri_raises(tmp_path, monkeypatch):
+    """run_config.track=True without MLFLOW_TRACKING_URI raises before any heavy work."""
+    from chap_core.api_types import BacktestParams, RunConfig
+    from chap_core.assessment.eval_tracking import TrackingConfigError
+
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+
+    fake_estimator = _make_fake_estimator(min_prediction_length=None, max_prediction_length=None)
+    stack, _ = _patched_eval_chain(fake_estimator)
+
+    with stack, pytest.raises(TrackingConfigError, match="MLFLOW_TRACKING_URI"):
+        eval_cmd(
+            model_name="dummy",
+            dataset_csv="dummy.csv",
+            output_file=tmp_path / "out.nc",
+            backtest_params=BacktestParams(n_periods=3, n_splits=2, stride=1),
+            run_config=RunConfig(track=True),
+        )
 
 
 def test_eval_cmd_with_data_source_mapping(tmp_path):

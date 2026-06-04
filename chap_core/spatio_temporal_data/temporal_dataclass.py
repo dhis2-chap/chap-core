@@ -8,7 +8,6 @@ from typing import IO, Protocol, TypeVar
 
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
 from pydantic import BaseModel
 
 from ..api_types import FeatureCollectionModel, PeriodObservation
@@ -582,6 +581,8 @@ class DataSet[FeaturesT]:
         return new_dataset
 
     def plot(self):
+        from matplotlib import pyplot as plt
+
         for location, value in self.items():
             df = value.to_pandas()  # type: ignore[attr-defined]
             df.plot(x="time_period", y="disease_cases")
@@ -597,6 +598,7 @@ class DataSet[FeaturesT]:
         return px.line(x=self.period_range.tolist(), y=total)
 
     def to_report(self, pdf_filename: str):
+        from matplotlib import pyplot as plt
         from matplotlib.backends.backend_pdf import PdfPages
 
         with PdfPages(pdf_filename) as pdf:

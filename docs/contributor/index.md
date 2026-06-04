@@ -27,6 +27,7 @@ This section provides documentation for contributors to the Chap platform.
 - [Adding CLI Commands](adding_cli_commands.md) - How to add a new `chap` subcommand
 - [Creating Custom Backtest Plots](creating_custom_backtest_plots.md) - How to create custom visualizations
 - [Creating Custom Metrics](creating_custom_metrics.md) - How to create custom evaluation metrics
+- [Creating Custom Threshold Strategies](creating_custom_threshold_strategies.md) - How to add a custom threshold (endemic channel) strategy
 
 ## Design Documents
 - [Evaluation Abstraction](evaluation_abstraction.md) - Evaluation system design

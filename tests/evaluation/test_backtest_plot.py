@@ -1,7 +1,6 @@
 import itertools
 from pathlib import Path
 
-import altair
 import pandas as pd
 import pytest
 
@@ -13,7 +12,7 @@ from chap_core.assessment.backtest_plots import (
     create_plot_from_evaluation,
     BacktestPlotBase,
 )
-from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods
+from chap_core.assessment.backtest_plots.evaluation_plot import EvaluationPlot, _infer_split_periods_vectorized
 from chap_core.assessment.backtest_plots.horizon_location_grid import HorizonLocationGridPlot
 from chap_core.plotting.backtest_plot import clean_time
 from chap_core.assessment.backtest_plots.metrics_dashboard import MetricsDashboard
@@ -23,12 +22,6 @@ from chap_core.assessment.backtest_plots.sample_bias_plot import SampleBiasPlot
 from chap_core.assessment.evaluation import Evaluation
 from chap_core.cli_endpoints.utils import plot_backtest
 from chap_core.database.tables import Backtest
-
-
-@pytest.fixture(scope="module")
-def default_transformer():
-    altair.data_transformers.enable("default")
-    yield
 
 
 def test_backtest_plot_registry():
@@ -118,7 +111,7 @@ def test_predicted_vs_actual_linear_plot_directly(
 
 
 def test_infer_split_periods_monthly_format():
-    """Test that _infer_split_periods produces date strings, not repr strings like 'Month(2022-1)'."""
+    """Regression: split_period must be a date string, not a repr like 'Month(2022-1)'."""
     df = pd.DataFrame(
         {
             "location": ["loc1", "loc1"],
@@ -127,7 +120,7 @@ def test_infer_split_periods_monthly_format():
             "q_50": [10.0, 12.0],
         }
     )
-    result = _infer_split_periods(df)
+    result = _infer_split_periods_vectorized(df)
     for split_period in result["split_period"]:
         assert "Month(" not in split_period, f"Got repr string: {split_period}"
         assert split_period.startswith("20"), f"Unexpected format: {split_period}"

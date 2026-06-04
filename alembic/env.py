@@ -18,18 +18,17 @@ if config.config_file_name is not None:
 # Import all SQLModel models to ensure they are registered with metadata
 # This is required for autogenerate to detect all tables and columns
 from chap_core.database.dataset_tables import DataSet, Observation
-from chap_core.database.debug import DebugEntry
 from chap_core.database.feature_tables import FeatureSource, FeatureType
 from chap_core.database.model_spec_tables import ModelFeatureLink, ModelSpec
 from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
-from chap_core.database.tables import Backtest, BacktestForecast, BacktestMetric, ConfiguredModelWithDataSource, Prediction, PredictionSamplesEntry
+from chap_core.database.tables import Backtest, BacktestForecast, BacktestMetric, Prediction, PredictionSamplesEntry, PredictionSetup
 
 # add your model's MetaData object here
 # for 'autogenerate' support
 target_metadata = SQLModel.metadata
 
 # Get database URL from environment variable, with default for local development
-database_url = os.getenv("CHAP_DATABASE_URL", "postgresql://root:thisisnotgoingtobeexposed@localhost:5432/chap_core")
+database_url = os.getenv("CHAP_DATABASE_URL", "postgresql://chap:chap@localhost:5432/chap_core")
 config.set_main_option("sqlalchemy.url", database_url)
 
 

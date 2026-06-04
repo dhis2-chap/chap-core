@@ -37,7 +37,7 @@ lint: ## check and fix code style with ruff, run type checking
 	@echo "Type checking (pyright)..."
 	uv run pyright
 
-check: ## non-mutating lint + type checks (used in CI)
+check: check-alembic-heads ## non-mutating lint + type checks (used in CI)
 	@echo "Ruff check..."
 	uv run ruff check
 	@echo "Ruff format check..."
@@ -47,8 +47,15 @@ check: ## non-mutating lint + type checks (used in CI)
 	@echo "Type checking (pyright)..."
 	uv run pyright
 
-test: ## run tests quickly with minimal output
+check-alembic-heads: ## fail if the alembic migration chain has more than one head
+	@echo "Alembic head count..."
+	@uv run python -c "from alembic.config import Config; from alembic.script import ScriptDirectory; heads = ScriptDirectory.from_config(Config('alembic.ini')).get_heads(); assert len(heads) == 1, f'Expected 1 alembic head, found {len(heads)}: {heads}'; print(f'OK: single head {heads[0]}')"
+
+test: ## run tests quickly with minimal output (sequential; snappy startup)
 	uv run pytest -q
+
+test-parallel: ## run tests across all cores via pytest-xdist (faster wall time, slow startup)
+	uv run pytest -q -n auto --dist loadfile
 
 test-docs: ## run fast documentation code block tests
 	uv run pytest tests/test_documentation.py -v
@@ -85,7 +92,7 @@ coverage: ## run tests with coverage reporting
 	@echo "Coverage report: htmlcov/index.html"
 
 docs: ## generate MkDocs HTML documentation (strict: warnings fail the build)
-	uv run mkdocs build --strict
+	NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
 	@echo "Docs: site/index.html"
 
 dist: clean ## build source and wheel package
