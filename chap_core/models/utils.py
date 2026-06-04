@@ -154,7 +154,15 @@ def get_model_template_from_directory_or_github_url(
         "use_existing" will use the existing directory specified by the model path if that exists. If that does not exist, "latest" will be used.
     """
 
-    detected = not is_chapkit_model and is_url(model_template_path) and _is_chapkit_url(model_template_path)
+    # GitHub URLs are git-clone targets, never live chapkit services, so skip the
+    # chapkit probe for them to avoid a spurious 404 against github.com/.../api/v1/info.
+    is_github_url = is_url(model_template_path) and model_template_path.startswith("https://github.com")
+    detected = (
+        not is_chapkit_model
+        and is_url(model_template_path)
+        and not is_github_url
+        and _is_chapkit_url(model_template_path)
+    )
     if is_chapkit_model or detected:
         if detected:
             logger.info("Auto-detected chapkit service at %s", model_template_path)
