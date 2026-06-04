@@ -400,6 +400,7 @@ class Evaluation(EvaluationBase):
             prediction_length=backtest_params.n_periods,
             n_test_sets=backtest_params.n_splits,
             stride=backtest_params.stride,
+            n_retrain=backtest_params.n_retrain,
         )
 
         # Prepare metadata

@@ -16,7 +16,7 @@ from geojson_pydantic import (
     Point,
     Polygon,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from chap_core.database.base_tables import DBModel
 
@@ -119,6 +119,17 @@ class BacktestParams(DBModel):
     n_periods: int = Field(default=3, gt=0, description="Number of periods to forecast at each split.")
     n_splits: int = Field(default=7, gt=0, description="Total number of rolling train/test splits.")
     stride: int = Field(default=1, gt=0, description="Number of periods to advance between successive splits.")
+    n_retrain: int = Field(
+        default=1,
+        gt=0,
+        description="Number of times the model is retrained, evenly spaced across the splits. 1 means train once.",
+    )
+
+    @model_validator(mode="after")
+    def _check_n_retrain(self) -> "BacktestParams":
+        if self.n_retrain > self.n_splits:
+            raise ValueError("n_retrain cannot exceed n_splits.")
+        return self
 
 
 class RunConfig(BaseModel):

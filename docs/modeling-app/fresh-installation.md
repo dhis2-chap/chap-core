@@ -98,16 +98,4 @@ This preserves your database data. To start again, simply run `docker compose up
 
 ### Viewing Logs
 
-To view logs from all services:
-
-```console
-docker compose logs -f
-```
-
-To view logs from a specific service:
-
-```console
-docker compose logs -f chap
-docker compose logs -f worker
-docker compose logs -f postgres
-```
+See [Troubleshooting: Viewing Logs](troubleshooting/logs.md) for how to inspect logs from the running services.

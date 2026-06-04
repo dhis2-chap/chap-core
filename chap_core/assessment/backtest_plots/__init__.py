@@ -11,7 +11,7 @@ from __future__ import annotations
 import itertools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import altair as alt
 
@@ -85,8 +85,8 @@ class FacetedBacktestPlot(BacktestPlotBase):
     facet_dimensions: list[FacetDimension] = []
 
     # Overridable scale resolutions configuration flags for custom plot types
-    resolve_scale_x: str = "shared"
-    resolve_scale_y: str = "independent"
+    resolve_scale_x: Literal["independent", "shared"] = "shared"
+    resolve_scale_y: Literal["independent", "shared"] = "independent"
 
     @abstractmethod
     def _preprocess(
