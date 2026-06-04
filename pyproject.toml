@@ -60,6 +60,9 @@ dependencies = [
     "chapkit>=0.26.0",
     "cryptography>=46.0.7",
     "croniter>=6.2.2",
+    "stumpy>=1.14.1",
+    "pyts>=0.13.0",
+    "fastdtw>=0.3.4",
 ]
 
 [dependency-groups]
@@ -95,13 +98,6 @@ dev = [
     "types-shapely>=2.1.0.20260518",
     "types-geopandas>=1.1.3.20260518",
     "testcontainers[postgres]>=4.14.2",
-]
-
-[project.optional-dependencies]
-explainability = [
-    "stumpy>=1.14.1",
-    "pyts>=0.13.0",
-    "fastdtw>=0.3.4",
 ]
 
 [project.urls]
@@ -150,8 +146,6 @@ fixable = ["ALL"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ALL"]
 "__init__.py" = ["F401"]
-# lime.py uses intentional wildcard imports to allow easy swapping of pipeline modules
-"chap_core/explainability/lime.py" = ["F403", "F405"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -262,24 +256,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["fastdtw.*", "stumpy.*", "pyts.*", "scipy.*"]
 ignore_missing_imports = true
-
-# chap_core.explainability is research/experimental code only used by the
-# `explain` CLI endpoint. Suppress prevalent mypy errors here following the
-# same pattern as `tests.*` above; tighten gradually as the subpackage matures.
-[[tool.mypy.overrides]]
-module = "chap_core.explainability.*"
-disable_error_code = [
-    "arg-type",
-    "assignment",
-    "attr-defined",
-    "import-not-found",
-    "import-untyped",
-    "index",
-    "no-any-return",
-    "return-value",
-    "union-attr",
-    "var-annotated",
-]
 
 [tool.pyright]
 pythonVersion = "3.13"
