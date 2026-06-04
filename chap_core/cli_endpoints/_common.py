@@ -316,5 +316,7 @@ def get_hpo_estimator(
             searcher = RandomSearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
         elif searcher_inp == SearcherType.TPE:
             searcher = TPESearcher(DEFAULT_SEARCH_TRIALS)  # TODO: make number of iterations configurable
+        else:
+            raise ValueError(f"Unknown searcher: {searcher_inp!r}")
 
     return HpoModel(objective=objective, searcher=searcher, direction="minimize", model_configuration=search_space)

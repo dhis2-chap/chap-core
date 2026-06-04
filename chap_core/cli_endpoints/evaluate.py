@@ -219,7 +219,6 @@ def _run_eval(
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator = get_estimator(template, configuration)
         elif estimator_options.mode == EstimatorMode.HPO:
-            # assert estimator_options.metric is not None
             estimator = get_hpo_estimator(
                 template=template,
                 model_configuration_yaml=model_configuration_yaml,
