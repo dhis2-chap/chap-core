@@ -145,19 +145,32 @@ Same as `chap eval`:
 
 ## Example
 
+`explain-lime` needs an already-trained model, so first train one with `chap eval`, then explain a prediction from the run directory it produces. This example uses the monthly Deep Auto Regressive model (Python/uv, no Docker) on the committed Laos dataset:
+
 ```console
+# 1. Train the model (produces a run directory under runs/).
+chap eval \
+    --model-name https://github.com/sandvelab/monthly_ar_model \
+    --dataset-csv example_data/laos_subset.csv \
+    --output-file /tmp/chap/ar_eval.nc \
+    --backtest-params.n-splits 2 \
+    --backtest-params.n-periods 1
+
+# 2. Explain a prediction from the produced run directory.
 chap explain-lime \
-    --model-name runs/minimalist_example_uv/2026-05-26_20-43-33_d8514acc \
-    --dataset-csv runs/minimalist_example_uv/2026-05-26_20-43-33_d8514acc/training_data.csv \
+    --model-name runs/monthly_ar_model/<timestamp>_<hash> \
+    --dataset-csv example_data/laos_subset.csv \
     --location Bokeo \
     --horizon 3 \
     --lime-params.num-perturbations 30 \
     --lime-params.seed 42 \
-    --lime-params.with-metrics \
-    --no-save
+    --lime-params.with-metrics
 ```
 
-This runs LIME against an already-trained model on the dataset that was used to train it. With `--lime-params.with-metrics`, the `eLoss` faithfulness metric is computed and logged at the end.
+This runs LIME against the trained model on the dataset it was trained on, producing a coefficient listing (e.g. `rainfall_lag_0`, `mean_temperature_lag_0`). With `--lime-params.with-metrics`, the `eLoss` faithfulness metric is computed and logged at the end.
+
+!!! note "Coefficients vary run-to-run on stochastic models"
+    The AR model's `predict` is stochastic, and `--lime-params.seed` only pins LIME's perturbation sampler — not the model. So the surrogate R², the coefficients, and `delta_eloss` can differ between two otherwise-identical invocations, especially at low perturbation counts. Interpret a real-model explanation alongside the faithfulness metrics rather than from the coefficients alone, and raise `--lime-params.num-perturbations` for a steadier fit.
 
 ## Output Format
 
