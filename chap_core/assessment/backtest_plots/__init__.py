@@ -119,7 +119,16 @@ class FacetedBacktestPlot(BacktestPlotBase):
         df = self._preprocess(observations, forecasts, historical_observations)
         clean_dims = [dim.clean_name for dim in self.facet_dimensions]
 
-        return {col: sorted(df[col].dropna().unique()) for col in clean_dims if col in df.columns}
+        def _cast_value(value: Any) -> Any:
+            if hasattr(value, "item") and not isinstance(value, (str, bytes)):
+                return value.item()
+            return value
+
+        return {
+            col: [_cast_value(val) for val in sorted(df[col].dropna().unique())]
+            for col in clean_dims
+            if col in df.columns
+        }
 
     def get_subplot(
         self,
