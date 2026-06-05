@@ -69,7 +69,14 @@ def aggregate_eval_cmd(
 
     sliced = ds.sel(location=kept_locations)
     sliced = sliced.assign_coords(parent=("location", kept_parents))
-    aggregated = sliced.groupby("parent").sum()
+    # ``min_count=1`` so a (time, horizon) cell whose children are *all* NaN aggregates to NaN
+    # rather than 0. The default ``skipna=True`` sum returns 0 for an all-NaN group, which
+    # fabricates spurious 0 forecasts at the ragged edges of a rolling-origin backtest (the
+    # boundary target months only have some horizons populated). Those fake zeros then read as
+    # real 0-forecasts in plots and corrupt downstream metrics. With min_count=1 a cell still
+    # sums whichever children are present (preserving partial-coverage behaviour) but collapses
+    # to NaN only when none are.
+    aggregated = sliced.groupby("parent").sum(min_count=1)
     aggregated = aggregated.rename({"parent": "location"})
 
     aggregated.attrs.update(ds.attrs)

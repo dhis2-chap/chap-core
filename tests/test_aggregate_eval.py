@@ -129,3 +129,38 @@ def test_aggregate_eval_errors_when_no_locations_match(tmp_path):
 
     with pytest.raises(ValueError, match="nothing to aggregate"):
         aggregate_eval_cmd(nc_path, geojson_path, out_path)
+
+
+def test_aggregate_eval_preserves_nan_for_all_nan_cells(tmp_path):
+    """A (time, horizon) cell where every child is NaN must aggregate to NaN, not 0.
+
+    Rolling-origin backtests leave the boundary (target month, horizon) cells unpopulated
+    (NaN). A plain skipna sum would turn an all-NaN parent cell into 0, fabricating a spurious
+    0 forecast; aggregation must keep it NaN. A cell with *some* children present should still
+    sum the present ones.
+    """
+    _, original = _build_eval_dataset(tmp_path)
+    # Make one (time, horizon) cell all-NaN for both children of parent P (a, b),
+    # and another cell NaN for only one child (a) to check partial coverage still sums.
+    ds = original.copy(deep=True)
+    ds["forecast"].loc[dict(location=["a", "b"], time_period="2024-01", horizon_distance=1)] = np.nan
+    ds["forecast"].loc[dict(location="a", time_period="2024-02", horizon_distance=1)] = np.nan
+    nc_path = tmp_path / "eval_nan.nc"
+    ds.to_netcdf(nc_path)
+
+    geojson_path = tmp_path / "areas.geojson"
+    _write_geojson(geojson_path, [("a", "P"), ("b", "P"), ("c", "Q")])
+    out_path = tmp_path / "aggregated.nc"
+    aggregate_eval_cmd(nc_path, geojson_path, out_path)
+
+    result = xr.open_dataset(out_path)
+    try:
+        # all-NaN cell -> NaN (the bug would make this 0)
+        all_nan_cell = result["forecast"].sel(location="P", time_period="2024-01", horizon_distance=1).values
+        assert np.isnan(all_nan_cell).all()
+        # partial cell -> sum of the present child only (b), NaN child (a) skipped
+        partial = result["forecast"].sel(location="P", time_period="2024-02", horizon_distance=1).values
+        expected_b = ds["forecast"].sel(location="b", time_period="2024-02", horizon_distance=1).values
+        np.testing.assert_array_equal(partial, expected_b)
+    finally:
+        result.close()
