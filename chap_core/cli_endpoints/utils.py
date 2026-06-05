@@ -95,16 +95,64 @@ def write_open_api_spec(out_path: str):
         json.dump(schema, f, indent=4)
 
 
-def test(**base_kwargs):
-    """
-    Simple test-command to check that the chap command works
-    """
-    from chap_core.log_config import initialize_logging
+def _health_checks() -> list[tuple[str, bool, str]]:
+    """Probe that chap-core's core runtime imports resolve.
 
-    initialize_logging()
+    Returns one ``(label, ok, detail)`` row per check group; ``detail`` names
+    the offending imports when ``ok`` is False. Kept side-effect free (no
+    network, Docker, or DB access) so it is safe to run anywhere.
+    """
+    import importlib
 
-    logger.debug("Debug message")
-    logger.info("Info message")
+    import chap_core
+
+    checks: list[tuple[str, bool, str]] = []
+
+    def _probe(label, loader, items):
+        failed = []
+        for item in items:
+            try:
+                loader(item)
+            except Exception as exc:
+                failed.append(f"{item} ({type(exc).__name__})")
+        ok = not failed
+        checks.append((label, ok, "OK" if ok else "missing: " + ", ".join(failed)))
+
+    _probe("numpy / pandas / xarray", importlib.import_module, ["numpy", "pandas", "xarray"])
+    _probe(
+        "public API (data, fetch, ModelTemplateInterface)",
+        lambda name: getattr(chap_core, name),
+        ["data", "fetch", "ModelTemplateInterface"],
+    )
+
+    return checks
+
+
+def test():
+    """Self-diagnostic: report version/environment and verify core imports resolve.
+
+    Exits non-zero if any check fails, so it is usable as an install smoke test.
+    """
+    import platform
+    import sys
+
+    import chap_core
+
+    print(f"chap-core      {chap_core.__version__}")
+    print(f"Python         {platform.python_version()}  ({sys.executable})")
+    print(f"platform       {sys.platform}")
+    print()
+    print("imports:")
+    checks = _health_checks()
+    for label, _ok, detail in checks:
+        print(f"  {label} ... {detail}")
+    print()
+
+    if all(ok for _, ok, _ in checks):
+        print("All checks passed.")
+    else:
+        print("Some checks FAILED.")
+        raise SystemExit(1)
 
 
 def plot_dataset(data_filename: Path, plot_name: str = "standardized-feature-plot"):

@@ -1,16 +1,14 @@
 # Running models with chapkit
 
-Chapkit is a new experimental way of integrating and running models through chap.
+Chapkit is one of two ways chap runs models. Chap is gradually migrating models to chapkit; both chapkit and the older approach are supported.
 
-In contrast to the current chap implementation, where models are run directly through docker and pyenv wrappers inside chap, chapkit models are separate REST API services that chap interacts with through HTTP requests.
+In contrast to the older approach, where models are run directly through docker and pyenv wrappers inside chap, chapkit models are separate REST API services that chap interacts with through HTTP requests.
 
 This has several advantages:
 
 - There are no docker-in-docker problems where chap (which is inside docker) has to run docker commands to start model containers.
 - We have a strict and clear API for how chap interacts with models, which makes it easier to develop and maintain.
 - Models can easily be distributed through docker images or other means, as long as they implement the chapkit API. It is up to the model to define how it is deployed and run, but chapkit makes it easy to spin up a rest api and make a docker image for a model.
-
-This is still experimental and under development, but we have a working prototype with a few models already.
 
 This document describes very briefly how to make a model compatible with chapkit, and how to use chapkit models in chap.
 
@@ -139,21 +137,11 @@ chap eval --model-name http://localhost:5001 --dataset-csv https://raw.githubuse
 
 ## How to use chapkit models in chap with the modeling app
 
-NOTE: This is experimental, and the way this is done might change in the future.
+The bundled chapkit model services ship as compose overlays and register
+themselves with chap on startup. Start chap with the overlay and they appear in
+the modeling app automatically — see
+[First-time Setup](../modeling-app/fresh-installation.md) for the run command.
 
-1) Add your model to a file compose-models.yml, pick a port for your model that is not used by other models
-2) Add your model to a config file inside config/configured_models (e.g. config/configured_models/local_config.yaml), with the url pointing to your model, using the container name you specified in compose-models, e.g. http://chtorch:5001 (localhost will not work for communication between the chap worker container and your model container). Here is an example:
-  ```yaml
-- url: http://chtorch:8000
-  uses_chapkit: true
-  versions:
-    v1: "/v1"
-  configurations:
-    debug:
-      user_option_values:
-          max_epochs: 2
-```
-3) Start both chap and your model by running `docker compose -f compose.yml -f compose-models.yml up --build --force-recreate`
-
-Now, the model should show up in the modeling app.
+To add a model service that is not bundled, see
+[Enabling Optional Model Services](../modeling-app/enabling-optional-model-services.md).
 

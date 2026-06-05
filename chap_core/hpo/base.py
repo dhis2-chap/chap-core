@@ -99,48 +99,4 @@ def load_search_space_from_config(config: dict) -> dict[str, Any]:
 
         raise ValueError(f"'{name}': unknown spec type '{type_}'")
 
-    print(f"space from load_yaml: {space}")
     return space
-
-
-# @dataclass
-# class ObjectiveResult:
-#     """Standard result returned by an objective evaluation.
-
-#     Attributes
-#     ----------
-#     score: float
-#         The scalar to optimize. Higher is better if direction is "maximize".
-#     metrics: Optional[Dict[str, float]]
-#         Optional extra scalar metrics (loss, accuracy, etc.).
-#     info: Optional[Dict[str, Any]]
-#         Free-form info (e.g., training time). Not used by the optimizer.
-#     """
-
-#     score: float
-#     metrics: Optional[Dict[str, float]] = None
-#     info: Optional[Dict[str, Any]] = None
-
-
-# @dataclass
-# class Trial:
-#     id: int
-#     params: Dict[str, Any]
-#     seed: int
-#     started_at: float = field(default_factory=time.time)
-#     ended_at: Optional[float] = None
-#     result: Optional[ObjectiveResult] = None
-
-
-# @dataclass
-# class Study:
-#     """Container for the full optimization run."""
-
-#     trials: List[Trial]
-#     direction: str # "maximize" or "minimize"
-#     best_trial: Optional[Trial]
-#     space: Any
-#     optimizer: "Optimizer"
-
-#     def best_score(self) -> Optional[float]:
-#         return None if self.best_trial is None else self.best_trial.result.score # type: ignore[union-attr]

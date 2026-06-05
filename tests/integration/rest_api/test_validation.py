@@ -10,7 +10,7 @@ from chap_core.assessment.dataset_splitting import train_test_generator
 from chap_core.rest_api.v1.routers.analytics import (
     _filter_dataset_by_locations,
     _find_locations_with_target_data,
-    _validate_full_dataset,
+    validate_full_dataset,
 )
 from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 from chap_core.time_period import PeriodRange
@@ -28,7 +28,7 @@ def test_validate_full_dataset_error_uses_camel_case():
     dataset = DataSet({"loc1": data})
 
     with pytest.raises(HTTPException) as exc_info:
-        _validate_full_dataset(["disease_cases", "rainfall"], dataset)
+        validate_full_dataset(["disease_cases", "rainfall"], dataset)
 
     detail: dict = exc_info.value.detail  # type: ignore[assignment]
     rejected_entry = detail["rejected"][0]

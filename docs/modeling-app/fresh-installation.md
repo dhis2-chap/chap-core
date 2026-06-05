@@ -50,10 +50,10 @@ This creates a `.env` file with default database credentials used by Docker Comp
 ## 4. Start Chap Core
 
 ```console
-docker compose up
+docker compose -f compose.yml -f compose.chapkit.yml up -d
 ```
 
-This single command will:
+This command will:
 
 - Pull all required Docker images
 - Start the PostgreSQL database
@@ -61,8 +61,12 @@ This single command will:
 - Start the Chap Core API server
 - Start the Celery worker for background jobs
 - **Automatically create and initialize your database**
+- Start the bundled model services, which register themselves with Chap on startup and then appear in the modeling app — no extra configuration or rebuild needed
 
 The Chap Core REST API will be available at `http://localhost:8000` once all services are running.
+
+!!! note "About the model services"
+    `compose.chapkit.yml` is an umbrella overlay that starts the bundled model services alongside Chap. Plain `docker compose up` (just `compose.yml`) also works and gives you Chap Core with its built-in models, but without those additional model services. `compose.yml` and `compose.ghcr.yml` are alternatives — do not stack them.
 
 ## 5. Verify the Installation
 
@@ -76,7 +80,13 @@ You can verify that Chap Core is running correctly by:
 curl http://localhost:8000/health
 ```
 
-3. **View service logs**:
+3. **Check the available models**: confirm the models (including the bundled model services) are registered:
+
+```console
+curl http://localhost:8000/v1/crud/configured-models
+```
+
+4. **View service logs**:
 
 ```console
 docker compose logs -f
@@ -88,26 +98,14 @@ docker compose logs -f
 
 ### Stopping Chap Core
 
-To stop all services:
+To stop all services (pass the same `-f` flags used to start them):
 
 ```console
-docker compose down
+docker compose -f compose.yml -f compose.chapkit.yml down
 ```
 
-This preserves your database data. To start again, simply run `docker compose up`.
+This preserves your database data. To start again, run the same `docker compose -f compose.yml -f compose.chapkit.yml up -d` command from step 4.
 
 ### Viewing Logs
 
-To view logs from all services:
-
-```console
-docker compose logs -f
-```
-
-To view logs from a specific service:
-
-```console
-docker compose logs -f chap
-docker compose logs -f worker
-docker compose logs -f postgres
-```
+See [Troubleshooting: Viewing Logs](troubleshooting/logs.md) for how to inspect logs from the running services.

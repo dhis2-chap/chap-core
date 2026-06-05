@@ -6,6 +6,7 @@ import pytest
 from chap_core.util import docker_available
 from chap_core.cli_endpoints.evaluate import eval_cmd
 from chap_core.cli_endpoints.utils import sanity_check_model
+from chap_core.cli_endpoints.utils import test as run_chap_test
 
 
 @pytest.mark.skipif(not docker_available(), reason="Docker not available")
@@ -82,8 +83,14 @@ def _patched_eval_chain(fake_estimator):
     mt_mock.from_directory_or_github_url.return_value = template_cm
     stack.enter_context(
         patch(
+            "chap_core.cli_endpoints.evaluate.get_configuration",
+            return_value=None,
+        )
+    )
+    stack.enter_context(
+        patch(
             "chap_core.cli_endpoints.evaluate.get_estimator",
-            return_value=(fake_estimator, None),
+            return_value=fake_estimator,
         )
     )
     eval_mock = stack.enter_context(patch("chap_core.assessment.evaluation.Evaluation"))
@@ -322,3 +329,36 @@ def test_eval_cmd_with_data_source_mapping(tmp_path):
 
     # Verify output file was created
     assert output_file.exists()
+
+
+def test_chap_test_reports_environment_and_passes(capsys):
+    """`chap test` prints version/environment, passes its import checks, and exits 0."""
+    run_chap_test()
+
+    out = capsys.readouterr().out
+    assert "chap-core" in out
+    assert "numpy / pandas / xarray ... OK" in out
+    assert "public API (data, fetch, ModelTemplateInterface) ... OK" in out
+    assert "All checks passed." in out
+
+
+def test_chap_test_exits_nonzero_when_a_core_import_fails(monkeypatch, capsys):
+    """A failing core import is surfaced and makes `chap test` exit non-zero."""
+    import importlib
+
+    real_import_module = importlib.import_module
+
+    def fake_import_module(name, *args, **kwargs):
+        if name == "xarray":
+            raise ImportError("simulated missing xarray")
+        return real_import_module(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import_module)
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_chap_test()
+
+    assert exc_info.value.code == 1
+    out = capsys.readouterr().out
+    assert "missing: xarray" in out
+    assert "Some checks FAILED." in out
