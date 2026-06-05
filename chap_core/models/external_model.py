@@ -1,4 +1,5 @@
 import logging
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -320,15 +321,22 @@ class ExternalModel(ExternalModelBase):
         adapted = self._adapt_data(historic_data.to_pandas(), frequency=self._get_frequency(historic_data))
         adapted.to_csv(historic_data_name)
 
+        out_file = Path(out_file)
+        # The model command runs with cwd=working_dir, so pass a relative
+        # filename and copy the produced file back to the user-supplied path.
+        report_filename = out_file.name
+
         try:
             self._runner.report(
                 self._model_file_name,
                 "report_historic_data.csv",
-                str(out_file),
+                report_filename,
                 "polygons.geojson" if self._polygons_file_name is not None else None,
             )
         except CommandLineException as e:
             logger.error("Error generating report, command failed")
             raise ModelFailedException(str(e)) from e
+
+        shutil.copyfile(Path(self._working_dir) / report_filename, out_file)
 
         self._runner.teardown()
