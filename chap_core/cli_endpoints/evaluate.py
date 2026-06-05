@@ -126,10 +126,12 @@ def _run_eval(
     estimator_options: Annotated[
         EstimatorOptions | None,
         Parameter(
-            help="Estimator behavior. Leave mode unset for a normal evaluation run. "
+            help="Estimator behavior. "
+            "Use --estimator-options.mode=normal for a normal evaluation run. "
             "Use --estimator-options.mode=hpo for hyperparameter optimization. "
             "Use --estimator-options.mode=ensemble for ensemble learning. "
-            "Optionally --estimator-options.metric=<metric> for hpo and ensemble."
+            "Optionally --estimator-options.metric=<metric> for hpo. "
+            "Optionally --estimator-options.searcher=<searcher> for hpo."
         ),
     ] = None,
 ):
@@ -170,7 +172,6 @@ def _run_eval(
     from chap_core.assessment.evaluation import Evaluation
     from chap_core.database.model_templates_and_config_tables import ConfiguredModelDB, ModelTemplateDB
     from chap_core.external.ExtendedPredictor import ExtendedPredictor
-    from chap_core.hpo.searcher import RandomSearcher
     from chap_core.log_config import initialize_logging
     from chap_core.models.model_template import ModelTemplate
     from chap_core.models.utils import CHAP_RUNS_DIR
@@ -227,13 +228,12 @@ def _run_eval(
         if estimator_options.mode == EstimatorMode.NORMAL:
             estimator = get_estimator(template, configuration)
         elif estimator_options.mode == EstimatorMode.HPO:
-            assert estimator_options.metric is not None
             estimator = get_hpo_estimator(
                 template=template,
                 model_configuration_yaml=model_configuration_yaml,
                 backtest_params=backtest_params,
                 metric=estimator_options.metric,
-                searcher=RandomSearcher(2),
+                searcher_inp=estimator_options.searcher,
             )
         elif estimator_options.mode == EstimatorMode.ENSEMBLE:
             raise NotImplementedError("Ensemble mode is not yet implemented")

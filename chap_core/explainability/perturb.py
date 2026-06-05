@@ -1,5 +1,22 @@
-"""
-Functionality for sampling counterfactual data for LIME
+"""Perturbation samplers for LIME.
+
+When a LIME perturbation "turns off" a segment of a time-series feature, the
+pipeline has to put *something* back in its place. Replacing it with zero is
+rarely right — zero rainfall is a real signal, not the absence of one — so
+each sampler here implements a different notion of a "neutral" replacement
+for a segment.
+
+All samplers share the :class:`SampleModel` contract: given the history for
+one location, the ``(start, end)`` row indices of the segment to replace,
+the feature column name, and how many values are needed, return that many
+replacement values.
+
+The strategies come from three different time-series LIME papers:
+
+* :class:`LinearInterpolation`, :class:`ConstantTransform`,
+  :class:`RandomBackground` — "agnostic local explanations [...]".
+* :class:`LocalMean`, :class:`GlobalMean`, :class:`RandomUniform` — LOMATCE.
+* :class:`FourierReplacement` — LimeSegment.
 """
 
 import logging
@@ -14,12 +31,34 @@ logger = logging.getLogger(__name__)
 
 
 class SampleModel(Protocol):
+    """Contract for a perturbation sampler: produce replacement values for one "off" segment.
+
+    Parameters of :meth:`sample`
+    ----------------------------
+    hist_df:
+        Historical data for the single location being explained.
+    indices:
+        ``(start, end)`` row positions of the segment to replace.
+    feature_name:
+        Column in ``hist_df`` the segment belongs to.
+    length:
+        Number of replacement values to return (normally ``end - start``).
+    """
+
     def sample(
         self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int
     ) -> list[float]: ...
 
 
 class LinearInterpolation:
+    """Replace the segment with a straight line between its neighbouring boundary values.
+
+    Takes the value just before the segment and just after it and fills the
+    gap with ``np.linspace`` between them — a smooth ramp that ignores
+    whatever was actually inside. Falls back to zeros if either boundary is
+    non-finite. From "agnostic local explanations [...]".
+    """
+
     def __init__(
         self,
         rng: random.Random,
@@ -46,6 +85,13 @@ class LinearInterpolation:
 
 
 class ConstantTransform:
+    """Replace the segment with zeros.
+
+    The cheapest baseline and the most semantically loaded — zero is itself
+    a meaningful value for most covariates, so this rarely gives a truly
+    "neutral" perturbation. From "agnostic local explanations [...]".
+    """
+
     def __init__(
         self,
         rng: random.Random,
@@ -58,6 +104,13 @@ class ConstantTransform:
 
 
 class LocalMean:
+    """Replace the segment with the mean of the segment itself, repeated.
+
+    Flattens the segment to its own average — removes the within-segment
+    variation while keeping its overall level. Falls back to zeros if the
+    segment is all-NaN. From LOMATCE.
+    """
+
     def __init__(
         self,
         rng: random.Random,
@@ -74,6 +127,14 @@ class LocalMean:
 
 
 class GlobalMean:
+    """Replace the segment with the mean of the whole feature series, repeated.
+
+    Like :class:`LocalMean` but the average is taken over the entire history
+    of the feature, not just the segment — neutralises the segment toward
+    the feature's global baseline. Falls back to zeros if the series is
+    all-NaN. From LOMATCE.
+    """
+
     def __init__(
         self,
         rng: random.Random,
@@ -89,6 +150,14 @@ class GlobalMean:
 
 
 class RandomUniform:
+    """Replace each value in the segment with an independent uniform draw from the feature's range.
+
+    Draws from ``[min, max]`` of the feature *across the whole dataset*, so
+    the replacement is plausible in magnitude but carries no temporal
+    structure. The most aggressive sampler — most likely to push the model
+    out of distribution. From LOMATCE.
+    """
+
     def __init__(self, rng: random.Random, dataset: pd.DataFrame):
         self.rng = rng
         self.dataset = dataset
@@ -101,6 +170,16 @@ class RandomUniform:
 
 
 class RandomBackground:
+    """Replace the segment with a real contiguous window sampled from another location.
+
+    Picks a random location in the dataset and copies a same-length window
+    of the feature's real values from it. Keeps realistic temporal structure
+    (unlike :class:`RandomUniform`) while decoupling it from the explained
+    location's history. Retries a couple of times if the chosen location's
+    window is too short or contains NaNs, then falls back to zeros. From
+    "agnostic local explanations [...]".
+    """
+
     def __init__(
         self,
         rng: random.Random,
@@ -111,6 +190,12 @@ class RandomBackground:
 
     def sample(self, hist_df: pd.DataFrame, indices: tuple[int, int], feature_name: str, length: int):
         locations = self.dataset["location"].dropna().unique().tolist()
+
+        if not locations:
+            logger.warning(
+                "Background dataset has no non-null locations for feature '%s'; falling back to zeros", feature_name
+            )
+            return [0.0] * length
 
         for _ in range(3):  # Retries twice if selected window is too narrow
             loc = self.rng.choice(locations)
@@ -134,15 +219,40 @@ class RandomBackground:
 
 
 class FourierReplacement:
-    def __init__(self, rng: random.Random, dataset: pd.DataFrame, window_size: int, freq: float):
+    """Replace the segment with a frequency-filtered ("background") version of the series.
+
+    The LimeSegment strategy: run a Short-Time Fourier Transform over the
+    whole feature series, keep only the single most *persistent* frequency
+    band (high mean magnitude relative to its variance), and invert back to
+    the time domain. The reconstruction ``R`` is a smooth seasonal/background
+    signal with the transient detail stripped out; the segment is replaced
+    with the matching slice of ``R``. Per-feature reconstructions are cached
+    in ``R_cache``. Falls back to the original segment, then to zeros, if the
+    reconstruction is invalid. From LimeSegment.
+    """
+
+    def __init__(
+        self,
+        rng: random.Random,
+        dataset: pd.DataFrame | None,
+        window_size: int | None,
+        freq: float,
+    ):
         self.rng = rng
         self.dataset = dataset
         self.window_size = window_size
         self.freq = freq
 
-        self.R_cache = {}
+        self.R_cache: dict[str, np.ndarray] = {}
 
     def calculate_background(self, ts: np.ndarray):
+        """Compute the frequency-filtered background reconstruction for a full time series.
+
+        Cleans non-finite values, picks an STFT window size (dynamic if
+        ``window_size`` is None), keeps only the most persistent frequency
+        band (see :meth:`extract_argmax`) and inverts the STFT. Returns a
+        same-length array; zeros if the series is all-NaN.
+        """
         # Safety guards to avoid NaN errors
         # TODO: Other method than replace with nanmean?
         if np.any(~np.isfinite(ts)):
@@ -179,6 +289,11 @@ class FourierReplacement:
         return R
 
     def extract_argmax(self, x_stft: np.ndarray):
+        """Return the index of the most persistent frequency band in an STFT.
+
+        Scores each frequency by mean magnitude divided by its std across
+        time (high, steady energy = persistent), and returns the argmax.
+        """
         mag = np.abs(x_stft)
         mean_mag = np.mean(mag, axis=1)
         std_mag = np.std(mag, axis=1)
@@ -201,8 +316,3 @@ class FourierReplacement:
             logger.warning(f"Original segment for {feature_name} is also invalid; using zeros")
             segment = np.zeros(length, dtype=float)
         return segment.tolist()
-
-
-# Linear transform, constant transform, random background is from "agnostic local explanations [...]"
-# Local mean, global mean, random uniform is from "LOMATCE"
-# Fourier is from LimeSegment

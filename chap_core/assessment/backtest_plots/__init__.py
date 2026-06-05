@@ -11,7 +11,7 @@ from __future__ import annotations
 import itertools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import altair as alt
 
@@ -85,8 +85,8 @@ class FacetedBacktestPlot(BacktestPlotBase):
     facet_dimensions: list[FacetDimension] = []
 
     # Overridable scale resolutions configuration flags for custom plot types
-    resolve_scale_x: str = "shared"
-    resolve_scale_y: str = "independent"
+    resolve_scale_x: Literal["independent", "shared"] = "shared"
+    resolve_scale_y: Literal["independent", "shared"] = "independent"
 
     @abstractmethod
     def _preprocess(
@@ -119,7 +119,16 @@ class FacetedBacktestPlot(BacktestPlotBase):
         df = self._preprocess(observations, forecasts, historical_observations)
         clean_dims = [dim.clean_name for dim in self.facet_dimensions]
 
-        return {col: sorted(df[col].dropna().unique()) for col in clean_dims if col in df.columns}
+        def _cast_value(value: Any) -> Any:
+            if hasattr(value, "item") and not isinstance(value, (str, bytes)):
+                return value.item()
+            return value
+
+        return {
+            col: [_cast_value(val) for val in sorted(df[col].dropna().unique())]
+            for col in clean_dims
+            if col in df.columns
+        }
 
     def get_subplot(
         self,

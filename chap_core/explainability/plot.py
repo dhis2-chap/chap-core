@@ -2,17 +2,22 @@
 Script for plotting generated importance weighting with LIME
 """
 
+import logging
+from pathlib import Path
+
 import matplotlib.colors as mcolors
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 
+logger = logging.getLogger(__name__)
+
 
 def parse_coefficients(
     coefficients: list[tuple[str, float]],
-) -> tuple[dict[str, dict], dict]:
-    temp_columns = {}
-    static_columns = {}
+) -> tuple[dict[str, dict[int, float]], dict[str, float]]:
+    temp_columns: dict[str, dict[int, float]] = {}
+    static_columns: dict[str, float] = {}
 
     for name, value in coefficients:
         if "_lag_" in name:
@@ -32,15 +37,26 @@ def parse_coefficients(
 
 
 def plot_importance(
-    coefficients: list[tuple[str, float]], hist_df: pd.DataFrame, fut_df: pd.DataFrame, segment_indices: dict[str, list]
+    coefficients: list[tuple[str, float]],
+    hist_df: pd.DataFrame,
+    fut_df: pd.DataFrame,
+    segment_indices: dict[str, dict[int, tuple[int, int]]],
+    save_path: Path | None = None,
 ):
+    """Render the LIME importance weighting as shaded time-series panels.
+
+    When ``save_path`` is given the figure is written there (PNG) and closed —
+    used by the CLI / any non-interactive caller. When it is ``None`` the
+    figure is shown via ``plt.show()`` for interactive (notebook) use; in a
+    non-interactive backend that is a harmless no-op.
+    """
     temp_columns, static_columns = parse_coefficients(coefficients)
 
     max_temp = max((abs(v) for inner in temp_columns.values() for v in inner.values()), default=0.0)
     max_static = max((abs(v) for v in static_columns.values()), default=0.0)
     max_val = max(max_temp, max_static, 1.0)
 
-    cmap = plt.cm.RdYlGn
+    cmap = plt.get_cmap("RdYlGn")
     norm = mcolors.Normalize(vmin=-max_val, vmax=max_val)
 
     sorted_vars = sorted(temp_columns.keys())
@@ -104,4 +120,9 @@ def plot_importance(
         ax_static.set_yticks([])
         ax_static.set_title("Static features", fontsize=9)
 
-    plt.show()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150)
+        plt.close(fig)
+        logger.info(f"Importance plot saved to {save_path}")
+    else:
+        plt.show()

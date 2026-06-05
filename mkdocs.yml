@@ -128,9 +128,10 @@ nav:
           - Model Explainability: external_models/model_explainability.md
       - CLI:
           - Overview: chap-cli/index.md
-          
+
           - eval Reference: chap-cli/eval-reference.md
           - report Reference: chap-cli/report-reference.md
+          - explain-lime Reference: chap-cli/explain-lime-reference.md
 
   #- Modeling App:
   #  - '!import https://github.com/dhis2-chap/chap-frontend?branch=main&docs_dir=apps/modeling-app/docs'
@@ -139,6 +140,7 @@ nav:
       - Contributors:
           - Getting Started: contributor/getting_started.md
           - Setup: contributor/chap-contributor-setup.md
+          - Local DHIS2 Installation: contributor/local-dhis2-installation.md
           - Windows Setup: contributor/windows_contributors.md
           - Code Overview: contributor/code_overview.md
           - Architecture Diagrams: contributor/architecture_diagrams.md
