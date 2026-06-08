@@ -4,6 +4,14 @@ on:
   push:
     branches: ["dev", "master"]
     tags: ["v1.*", "v2.*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (tag/branch/sha) to build"
+        required: true
+      tag:
+        description: "Docker image tag to publish"
+        required: true
 
 env:
   REGISTRY: ghcr.io
@@ -30,6 +38,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -44,7 +54,9 @@ jobs:
       - name: Determine Docker image tag
         id: tag
         run: |
-          if [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
             TAG="dev"
           elif [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
             TAG="latest"
