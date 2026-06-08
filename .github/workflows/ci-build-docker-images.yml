@@ -3,7 +3,7 @@ name: Create and publish chap Docker image
 on:
   push:
     branches: ["dev", "master"]
-    tags: ["1.*"]
+    tags: ["1.*", "2.*"]
 
 env:
   REGISTRY: ghcr.io
