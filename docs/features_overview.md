@@ -1,7 +1,7 @@
 # Current and planned functionality and resources for modellers in Chap
 The Chap modelling platform brings together a broad range of functionality for streamlining climate health modelling into a unified ecosystem.
 This document provides an overview of existing and planned functionality and features, mainly meant for model developers and Chap developers.
-
+ 
 ### At the core of Chap is the plugin-like support for incorporating models into the platform: 
 * This is based on a scheme where a model provides functionality to train a model and predict ahead in time, defining its entry points in an MLFlow-based format.
 * Any model adhering to this can be used in the platform by having the model available as a github repository and providing the url for this repo to the Chap platform. 
