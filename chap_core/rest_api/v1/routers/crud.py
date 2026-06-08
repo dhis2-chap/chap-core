@@ -48,6 +48,7 @@ from chap_core.database.tables import (
     PredictionSetupReadWithPredictions,
 )
 from chap_core.datatypes import FullData, HealthPopulationData, create_tsdataclass
+from chap_core.exceptions import ConfiguredModelConflictError
 from chap_core.geometry import Polygons
 from chap_core.rest_api.celery_tasks import (
     JOB_NAME_KW,
@@ -818,6 +819,7 @@ def get_configured_model_info(
     response_model=ConfiguredModelDB,
     tags=["Models"],
     summary="Configure a template into a runnable model",
+    responses={409: {"description": "A configured model with the same name already exists"}},
 )
 def add_configured_model(
     model_configuration: ModelConfigurationCreate,
@@ -828,7 +830,8 @@ def add_configured_model(
     Use this when an operator has filled out the configuration form for a template
     (lags, precision, extra covariates, ...) and wants to save it. The new row
     inherits whether the template originated from a CHAPKit service. Returns 404 if
-    the template id is unknown.
+    the template id is unknown, 409 if a configured model with the same name already
+    exists (POST creates, it does not get-or-create).
     """
     session_wrapper = SessionWrapper(session=session)
     model_template_id = model_configuration.model_template_id
@@ -838,15 +841,19 @@ def add_configured_model(
     if template is None:
         raise HTTPException(status_code=404, detail="Model template not found")
     uses_chapkit = template.uses_chapkit
-    db_id = session_wrapper.add_configured_model(
-        model_template_id,
-        ModelConfiguration(
-            user_option_values=model_configuration.user_option_values,
-            additional_continuous_covariates=model_configuration.additional_continuous_covariates,
-        ),
-        configuration_name,
-        uses_chapkit=uses_chapkit,
-    )
+    try:
+        db_id = session_wrapper.add_configured_model(
+            model_template_id,
+            ModelConfiguration(
+                user_option_values=model_configuration.user_option_values,
+                additional_continuous_covariates=model_configuration.additional_continuous_covariates,
+            ),
+            configuration_name,
+            uses_chapkit=uses_chapkit,
+            error_on_existing=True,
+        )
+    except ConfiguredModelConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return session.get(ConfiguredModelDB, db_id)
 
 

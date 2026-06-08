@@ -182,6 +182,22 @@ def test_add_configured_model_chapkit_skips_required_validation(engine):
             )
 
 
+def test_add_configured_model_error_on_existing(model_template_yaml_config, engine):
+    from chap_core.exceptions import ConfiguredModelConflictError
+
+    with SessionWrapper(engine) as session:
+        template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)
+        first_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
+
+        # default (no flag) stays silently idempotent for internal setup paths
+        same_id = session.add_configured_model(template_id, ModelConfiguration(user_option_values={}))
+        assert same_id == first_id
+
+        # API path opts into rejecting duplicates
+        with pytest.raises(ConfiguredModelConflictError):
+            session.add_configured_model(template_id, ModelConfiguration(user_option_values={}), error_on_existing=True)
+
+
 def test_yaml_update_preserves_uses_chapkit(model_template_yaml_config, engine):
     with SessionWrapper(engine) as session:
         template_id = session.add_model_template_from_yaml_config(model_template_yaml_config)

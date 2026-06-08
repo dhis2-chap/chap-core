@@ -12,6 +12,7 @@ import sqlalchemy
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, SQLModel, create_engine, select
 
+from chap_core.exceptions import ConfiguredModelConflictError
 from chap_core.log_config import is_debug_mode
 from chap_core.predictor.naive_estimator import NaiveEstimator
 
@@ -138,6 +139,7 @@ class SessionWrapper:
         configuration: ModelConfiguration,
         configuration_name="default",
         uses_chapkit=False,
+        error_on_existing=False,
     ) -> int:
         # get model template name
         model_template = self.session.exec(
@@ -158,6 +160,13 @@ class SessionWrapper:
         # check if configured model already exists
         existing_configured = self.session.exec(select(ConfiguredModelDB).where(ConfiguredModelDB.name == name)).first()
         if existing_configured:
+            if error_on_existing:
+                raise ConfiguredModelConflictError(
+                    f"Configured model with name '{name}' (model_template_id={model_template_id}) already exists"
+                )
+            # Silent get-or-create is intentional for internal idempotent setup
+            # (seeding, chapkit sync). API callers pass error_on_existing=True to
+            # distinguish create from get-or-create (see CLIM-730).
             logger.info(f"Configured model with name {name} already exists. Returning existing id")
             return cast("int", existing_configured.id)
 

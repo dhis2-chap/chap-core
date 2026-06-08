@@ -18,6 +18,10 @@ class GEEError(Exception):
 class ModelConfigurationException(Exception): ...
 
 
+class ConfiguredModelConflictError(Exception):
+    """Raised when creating a configured model that already exists (same name)."""
+
+
 class InvalidDateError(Exception): ...
 
 

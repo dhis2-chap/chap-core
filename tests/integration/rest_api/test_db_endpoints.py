@@ -1246,6 +1246,21 @@ def test_add_configured_model_flow(celery_session_worker, dependency_overrides):
     assert response.status_code == 200, response.json()
 
 
+def test_add_configured_model_duplicate_returns_409(dependency_overrides):
+    """POST creates; a second POST with the same (name, modelTemplateId) is a 409, not a
+    silent get-or-create (CLIM-730)."""
+    content = get_content("/v1/crud/model-templates")
+    model = next(m for m in content if m["name"] == "naive_model")
+    payload = {"name": "dup_config", "modelTemplateId": model["id"], "userOptionValues": {}}
+
+    first = client.post("/v1/crud/configured-models", json=payload)
+    assert first.status_code == 200, first.json()
+
+    second = client.post("/v1/crud/configured-models", json=payload)
+    assert second.status_code == 409, second.json()
+    assert "already exists" in second.json()["detail"]
+
+
 def test_add_configured_model_unknown_template_returns_404(dependency_overrides):
     payload = {"name": "orphan", "modelTemplateId": 999999, "userOptionValues": {}}
     response = client.post("/v1/crud/configured-models", json=payload)
