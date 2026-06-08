@@ -15,9 +15,11 @@ Integrating with the Chap platform allows to focus only on the model itself, and
 ### Data input: 
 * Chap allows input from a [well-defined csv format]() for harmonised climate and health data.
 * A broad repository of [public harmonised climate and health data]() is available in this format and can be directly used with a model. 
-* There are also future plans for a [collection of metadata for restricted data]() potentially available from specific countries (TODO: and more?).
+* There are also future plans for a [collection of metadata for restricted data]() potentially available from specific countries (TODO: and more?). This includes plans for a tool that makes it easy for countries to make a report of which relevant data elements are available in a DHIS2 instance.
 * There is ongoing work on [generation of synthetic climate and health datasets]() for understanding model behaviour and stress-testing model in particular settings. 
-* There is ongoing work on supporting the [computation of endemic channels]() (outbreak thresholds), as well as functionality to [compute outbreak periods]() (binary representation of early warning forecast) based on outbreak threshold and probabilistic disease forecasts.  
+* There is ongoing work on supporting the [computation of endemic channels]() (outbreak thresholds), as well as functionality to [compute outbreak periods]() (binary representation of early warning forecast) based on outbreak threshold and probabilistic disease forecasts.
+* There are plans of developing integrated analysis of data quality and missingness, including how to relate to aggregated data having varying sub-regional coverage (e.g. supporting restricting aggregation to cover concistently report sub-regions).
+* 
 ### Ways of running models:
 * Any model can always be run through its native programming language, and the ongoing work on SDKs will bring streamlined ways of running
 * Any model, implemented in any language, can be run through the [Chap command-line interface]()
@@ -74,15 +76,16 @@ Integrating with the Chap platform allows to focus only on the model itself, and
   * Halvard Emil Sand-Larsen
 * The following Master students are currently working on concrete aspects of Chap:
   * Lilu Zhan: autoML ([tutorial]())
-  * Nora Jeanett Tønnessen: modularised visualisation ([tutorial]())
   * Markus Byrkjedal Slyngstad: model cards ([tutorial]())
   * Behdad Nikkhah: ensemble learning ([tutorial]())
   * Hamed Hussaini: model introspection ([tutorial]())
   * Ali Hassan: federated model evaluation ([tutorial]())
   * Andre Maharaj Gregussen: modularised evaluation metric definition ([tutorial](https://github.com/AndreGregu/Assessment_example_chap_compatible/blob/andre_new_code/TUTORIAL.md))
 * The following Master students are planned to contribute to Chap in the time ahead:
-  * Leander S. Parton, Hans Andersen, August Aspelien, William Henrik Behn, Ole Martin Skovly  Henning, Sigurd Smeby, Aulona Sylanaj
+  * Hans Andersen, August Aspelien, William Henrik Behn, Ole Martin Skovly  Henning, Sigurd Smeby, Aulona Sylanaj
 * The following Master students have delivered a thesis connected to Chap in the past:
   * Martin Hansen Bolle and Ingar Andre Benonisen: synthetic datasets
+  * Nora Jeanett Tønnessen: modularised visualisation ([tutorial]())
+  * Leander S. Parton: (chap-)model-agnostic explainability with LIME.  
 * The following external collaborators have contributed to Chap:
   * Harsha Halgamuwe Hewage: The use of Chap for drug logistics planning 
