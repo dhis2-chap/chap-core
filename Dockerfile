@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.10-python3.13-trixie-slim
+FROM ghcr.io/astral-sh/uv:0.11-python3.13-trixie-slim
 
 # Compile Python bytecode for faster startup (.venv only)
 ENV UV_COMPILE_BYTECODE=1
